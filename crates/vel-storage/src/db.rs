@@ -107,6 +107,14 @@ impl Storage {
 
     pub async fn migrate(&self) -> Result<(), StorageError> {
         MIGRATOR.run(&self.pool).await?;
+        let version = self.schema_version().await?;
+        let payload = serde_json::json!({ "schema_version": version }).to_string();
+        if let Err(e) = self
+            .emit_event("SCHEMA_MIGRATION_COMPLETE", "schema", None, &payload)
+            .await
+        {
+            tracing::warn!(error = %e, "failed to emit SCHEMA_MIGRATION_COMPLETE event");
+        }
         Ok(())
     }
 

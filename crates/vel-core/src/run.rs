@@ -85,6 +85,10 @@ pub enum RunStatus {
     Succeeded,
     Failed,
     Cancelled,
+    /// Reserved for future use (e.g. retry-after-failure workflows).
+    RetryScheduled,
+    /// Reserved for future use (e.g. blocked on dependency).
+    Blocked,
 }
 
 impl Display for RunStatus {
@@ -95,6 +99,8 @@ impl Display for RunStatus {
             Self::Succeeded => "succeeded",
             Self::Failed => "failed",
             Self::Cancelled => "cancelled",
+            Self::RetryScheduled => "retry_scheduled",
+            Self::Blocked => "blocked",
         };
         f.write_str(s)
     }
@@ -110,6 +116,8 @@ impl std::str::FromStr for RunStatus {
             "succeeded" => Ok(Self::Succeeded),
             "failed" => Ok(Self::Failed),
             "cancelled" => Ok(Self::Cancelled),
+            "retry_scheduled" => Ok(Self::RetryScheduled),
+            "blocked" => Ok(Self::Blocked),
             _ => Err(crate::VelCoreError::Validation(format!("unknown run status: {}", s))),
         }
     }

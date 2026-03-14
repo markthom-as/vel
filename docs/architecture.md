@@ -265,11 +265,11 @@ vel/
 ├── AGENTS.md
 ├── vel.md
 ├── docs/
-│   ├── vel-product-spec.md
-│   ├── vel-architecture.md
-│   ├── vel-data-model.md
-│   ├── vel-mvp.md
-│   └── vel-runtime.md
+│   ├── product-spec.md
+│   ├── architecture.md
+│   ├── data-model.md
+│   ├── mvp.md
+│   └── runtime.md
 ├── crates/
 ├── services/
 └── apps/

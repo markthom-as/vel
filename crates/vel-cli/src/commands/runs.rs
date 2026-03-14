@@ -60,7 +60,9 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
     }
     println!("\nEvents:");
     for e in &r.events {
-        println!("  {} {}", e.seq, e.event_type);
+        let t = e.created_at.time();
+        let time_str = format!("{:02}:{:02}:{:02}", t.hour(), t.minute(), t.second());
+        println!("  {} {}", time_str, e.event_type);
     }
     if !r.artifacts.is_empty() {
         println!("\nArtifacts:");

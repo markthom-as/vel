@@ -37,6 +37,15 @@ A **run** is a first-class execution record. Every meaningful operation (context
 3. Do work; append milestone events (e.g. `context_generated`, `artifact_written`, `refs_created`).
 4. Transition to terminal status (`succeeded` | `failed` | `cancelled`), set `finished_at`, append terminal event.
 
+### Runtime invariants
+
+The following invariants are enforced so the runtime cannot drift into inconsistent states:
+
+- **run_started must precede run_succeeded** — Enforced by `vel-core` run transitions: `succeed()` is only valid when status is `Running` (i.e. after `start()`).
+- **artifact_written (and refs_created) occur before run_succeeded** — Context run orchestration appends these events in order before updating status to `Succeeded` and appending `run_succeeded`.
+- **run_failed must not produce artifact refs** — The failure path does not create artifacts or refs; only the success path creates run→artifact and artifact→capture refs.
+- **run_succeeded implies artifact durability** — For run-backed flows that produce managed artifacts, success is only recorded after the artifact is durably written (write temp → flush → fsync → rename). A run in status `Succeeded` with an artifact ref therefore implies that artifact exists on disk.
+
 ## Run events
 
 Each run has an append-only **event log** (`run_events`):
@@ -86,7 +95,7 @@ Inspection (run detail, artifact summaries, refs)
 
 Context requests (`today`, `morning`, `end_of_day`) are run-backed:
 
-- Each request creates a run (kind `context_generation`), transitions to `running`, loads the orientation snapshot, computes the result, writes a **managed** artifact (`artifact_type: context_brief`) with **invariant**: write to temp file → flush → fsync → rename to final path (so crashes during write do not leave partial artifacts); persists **checksum** (sha256), **size_bytes**, **metadata_json** (`generator`, `context_kind`, `snapshot_window: "7d"`), creates run → artifact ref and **artifact → capture** refs (DerivedFrom) for snapshot sources, appends run events (including `refs_created`), then transitions to `succeeded` (or `failed` with `error_json`).
+- Each request creates a run (kind `context_generation`), transitions to `running`, loads the orientation snapshot, computes the result, writes a **managed** artifact (`artifact_type: context_brief`) with **invariant**: write to temp file → flush → fsync → rename to final path (so crashes during write do not leave partial artifacts). **run_succeeded implies artifact durability**: we only transition to succeeded after the artifact is persisted. Persists **checksum** (sha256), **size_bytes**, **metadata_json** (`generator`, `context_kind`, `snapshot_window: "7d"`), creates run → artifact ref and **artifact → capture** refs (DerivedFrom) for snapshot sources, appends run events (including `refs_created`), then transitions to `succeeded` (or `failed` with `error_json`).
 - **Canonical path**: relative `context/<kind>/<date>/<run_id>.json` under artifact root.
 - Run detail and `vel run inspect <id>` include linked artifacts.
 

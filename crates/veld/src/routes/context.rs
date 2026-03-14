@@ -8,19 +8,19 @@ use crate::{errors::AppError, state::AppState};
 use crate::services::context_runs;
 
 pub async fn today(State(state): State<AppState>) -> Result<Json<ApiResponse<TodayData>>, AppError> {
-    let data = context_runs::generate_today(&state).await?;
+    let output = context_runs::generate_today(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    Ok(Json(ApiResponse::success(output.data, request_id)))
 }
 
 pub async fn morning(State(state): State<AppState>) -> Result<Json<ApiResponse<MorningData>>, AppError> {
-    let data = context_runs::generate_morning(&state).await?;
+    let output = context_runs::generate_morning(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    Ok(Json(ApiResponse::success(output.data, request_id)))
 }
 
 pub async fn end_of_day(State(state): State<AppState>) -> Result<Json<ApiResponse<EndOfDayData>>, AppError> {
-    let data = context_runs::generate_end_of_day(&state).await?;
+    let output = context_runs::generate_end_of_day(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    Ok(Json(ApiResponse::success(output.data, request_id)))
 }

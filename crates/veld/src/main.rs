@@ -19,6 +19,18 @@ async fn main() -> anyhow::Result<()> {
     let storage = Storage::connect(&config.db_path).await.context("connecting db")?;
     storage.migrate().await.context("running migrations")?;
 
+    if let Err(e) = storage
+        .emit_event(
+            "DAEMON_STARTED",
+            "daemon",
+            None,
+            &serde_json::json!({ "bind_addr": config.bind_addr }).to_string(),
+        )
+        .await
+    {
+        tracing::warn!(error = %e, "failed to emit DAEMON_STARTED event");
+    }
+
     let storage_for_worker = storage.clone();
     tokio::spawn(worker::run_ingestion_worker(storage_for_worker));
 

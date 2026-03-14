@@ -4,14 +4,24 @@ use std::path::Path;
 use time::OffsetDateTime;
 use sha2::{Sha256, Digest};
 use vel_core::{
-    ArtifactStorageKind, PrivacyClass, Ref, RefRelationType, RunEventType, RunId, RunKind, RunStatus,
-    SyncClass,
+    ArtifactId, ArtifactStorageKind, PrivacyClass, Ref, RefRelationType, RunEventType, RunId,
+    RunKind, RunStatus, SyncClass,
 };
 use vel_storage::ArtifactInsert;
 
 use crate::errors::AppError;
 use crate::state::AppState;
 use crate::services::context_generation;
+
+/// Service-level result of a context run: run identity, artifact, and the computed payload.
+/// Routes map `.data` to the API response; keeps application logic decoupled from transport types.
+#[derive(Debug)]
+pub struct ContextRunOutput<T> {
+    pub run_id: RunId,
+    pub artifact_id: ArtifactId,
+    pub context_kind: &'static str,
+    pub data: T,
+}
 
 /// Context kind for run input and artifact naming.
 #[derive(Debug, Clone, Copy)]
@@ -32,8 +42,8 @@ impl ContextKind {
 }
 
 /// Run-backed today context: creates run, computes result, writes artifact, links refs, appends events.
-pub async fn generate_today(state: &AppState) -> Result<vel_api_types::TodayData, AppError> {
-    let run_id = vel_core::RunId::new();
+pub async fn generate_today(state: &AppState) -> Result<ContextRunOutput<vel_api_types::TodayData>, AppError> {
+    let run_id = RunId::new();
     let kind = ContextKind::Today;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
 
@@ -48,7 +58,12 @@ pub async fn generate_today(state: &AppState) -> Result<vel_api_types::TodayData
     .await;
 
     match result {
-        Ok(data) => Ok(data),
+        Ok((artifact_id, data)) => Ok(ContextRunOutput {
+            run_id: run_id.clone(),
+            artifact_id,
+            context_kind: kind.as_str(),
+            data,
+        }),
         Err(e) => {
             fail_run(state, &run_id, &e).await;
             Err(e)
@@ -57,8 +72,8 @@ pub async fn generate_today(state: &AppState) -> Result<vel_api_types::TodayData
 }
 
 /// Run-backed morning context.
-pub async fn generate_morning(state: &AppState) -> Result<vel_api_types::MorningData, AppError> {
-    let run_id = vel_core::RunId::new();
+pub async fn generate_morning(state: &AppState) -> Result<ContextRunOutput<vel_api_types::MorningData>, AppError> {
+    let run_id = RunId::new();
     let kind = ContextKind::Morning;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
 
@@ -73,7 +88,12 @@ pub async fn generate_morning(state: &AppState) -> Result<vel_api_types::Morning
     .await;
 
     match result {
-        Ok(data) => Ok(data),
+        Ok((artifact_id, data)) => Ok(ContextRunOutput {
+            run_id: run_id.clone(),
+            artifact_id,
+            context_kind: kind.as_str(),
+            data,
+        }),
         Err(e) => {
             fail_run(state, &run_id, &e).await;
             Err(e)
@@ -82,8 +102,8 @@ pub async fn generate_morning(state: &AppState) -> Result<vel_api_types::Morning
 }
 
 /// Run-backed end-of-day context.
-pub async fn generate_end_of_day(state: &AppState) -> Result<vel_api_types::EndOfDayData, AppError> {
-    let run_id = vel_core::RunId::new();
+pub async fn generate_end_of_day(state: &AppState) -> Result<ContextRunOutput<vel_api_types::EndOfDayData>, AppError> {
+    let run_id = RunId::new();
     let kind = ContextKind::EndOfDay;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
 
@@ -98,7 +118,12 @@ pub async fn generate_end_of_day(state: &AppState) -> Result<vel_api_types::EndO
     .await;
 
     match result {
-        Ok(data) => Ok(data),
+        Ok((artifact_id, data)) => Ok(ContextRunOutput {
+            run_id: run_id.clone(),
+            artifact_id,
+            context_kind: kind.as_str(),
+            data,
+        }),
         Err(e) => {
             fail_run(state, &run_id, &e).await;
             Err(e)
@@ -107,12 +132,13 @@ pub async fn generate_end_of_day(state: &AppState) -> Result<vel_api_types::EndO
 }
 
 /// Shared orchestration: transition to running, load snapshot, compute, write artifact, refs, events, succeed.
+/// Returns (artifact_id, data) on success.
 async fn run_context_generation<T, F>(
     state: &AppState,
     run_id: &RunId,
     kind: ContextKind,
     compute: F,
-) -> Result<T, AppError>
+) -> Result<(ArtifactId, T), AppError>
 where
     F: FnOnce(&vel_core::OrientationSnapshot) -> Result<T, AppError>,
 {
@@ -273,7 +299,7 @@ where
         )
         .await?;
 
-    Ok(data)
+    Ok((artifact_id, data))
 }
 
 async fn fail_run(state: &AppState, run_id: &RunId, error: &AppError) {

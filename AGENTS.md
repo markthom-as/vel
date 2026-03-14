@@ -96,10 +96,10 @@ When Vel suggests actions it should be possible to determine:
 
 Agents contributing to the repository should:
 
-1. read `docs/vel-product-spec.md`
-2. read `docs/vel-architecture.md`
-3. read `docs/vel-data-model.md`
-4. read `docs/vel-mvp.md`
+1. read `docs/product-spec.md`
+2. read `docs/architecture.md`
+3. read `docs/data-model.md`
+4. read `docs/mvp.md`
 5. implement minimal viable components first
 6. write tests where appropriate
 7. document new modules
