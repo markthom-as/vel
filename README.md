@@ -9,7 +9,9 @@ Vel is a **local-first cognition runtime** for capture, recall, and daily orient
 
 **Implemented:** capture storage, lexical search, artifacts API, run/event schema and inspection, doctor diagnostics, context endpoints (today/morning/end-of-day), full CLI surface. Domain types live in `vel-core`; storage does not depend on API types.
 
-**Planned next:** run-backed context generation (today/morning as runs with artifacts and provenance), typed JSON payloads, structured doctor output, doc hierarchy.
+**Planned next:** run-backed context generation (today/morning as runs with artifacts and provenance).
+
+Context endpoints (today/morning/end-of-day) are still computed synchronously from the orientation snapshot and are **not yet persisted as run outputs**; run-backed context is the next milestone.
 
 See [docs/status.md](docs/status.md) for details. Canonical runtime concepts: [docs/vel-runtime-concepts.md](docs/vel-runtime-concepts.md).
 

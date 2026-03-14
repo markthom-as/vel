@@ -153,6 +153,42 @@ impl From<String> for JobId {
     }
 }
 
+/// Whether Vel manages the artifact file (writes, checksum, size) or only references an external location.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactStorageKind {
+    Managed,
+    External,
+}
+
+impl Default for ArtifactStorageKind {
+    fn default() -> Self {
+        Self::External
+    }
+}
+
+impl std::fmt::Display for ArtifactStorageKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Managed => "managed",
+            Self::External => "external",
+        };
+        f.write_str(s)
+    }
+}
+
+impl std::str::FromStr for ArtifactStorageKind {
+    type Err = crate::VelCoreError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "managed" => Ok(Self::Managed),
+            "external" => Ok(Self::External),
+            _ => Err(crate::VelCoreError::Validation(format!("unknown storage kind: {}", s))),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ArtifactId(String);
 

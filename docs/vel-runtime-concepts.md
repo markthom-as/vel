@@ -17,7 +17,14 @@ A **run** is a first-class execution record. Every meaningful operation (context
 - **Run ID**: Stable identifier (`run_<uuid>`).
 - **Kind**: `search`, `context_generation`, `artifact_extraction`, `synthesis`, or `agent`.
 - **Status**: `queued` → `running` → `succeeded` | `failed` | `cancelled`.
-- **Input/output/error**: JSON payloads for reproducibility and inspection.
+- **Input/output/error**: Structured JSON (e.g. `serde_json::Value`) for reproducibility and inspection; stored as TEXT in SQLite, (de)serialized at the storage boundary.
+
+### Run lifecycle
+
+1. Create run (status `queued`), append `run_created` event.
+2. Transition to `running` (set `started_at`), append `run_started`.
+3. Do work; append milestone events (e.g. `context_generated`, `artifact_written`).
+4. Transition to terminal status (`succeeded` | `failed` | `cancelled`), set `finished_at`, append terminal event.
 
 ## Run events
 
@@ -50,6 +57,11 @@ This allows answering: what run produced this artifact? What sources were used f
 - `GET /v1/runs` — List runs (newest first).
 - `GET /v1/runs/:id` — Run detail including events.
 
-## Future: run-backed context
+## How context generation will fit
 
-In the full spec, `today` and `morning` become run-backed: each request creates a run, transitions to `running`, produces an output artifact, writes provenance refs, then transitions to `succeeded` (or `failed` with structured `error_json`). That work is planned as Phase C; the run and event substrate is in place.
+When context generation is run-backed:
+
+- A request to `today` or `morning` or `end_of_day` will create a run (kind `context_generation`), transition to `running`, compute the result, persist an output artifact, create refs (run → artifact, artifact → source captures), append run events (`context_generated`, `artifact_written`), then transition to `succeeded` (or `failed` with structured error payload).
+- Successful run event sequence: `run_created` → `run_started` → `context_generated` → `artifact_written` → `run_succeeded`.
+- On failure: `run_created` → `run_started` → `run_failed`.
+- Until then, context endpoints are computed synchronously from the orientation snapshot and are not persisted as runs or artifacts.

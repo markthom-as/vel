@@ -25,6 +25,21 @@ It is a practical, flexible model for building Vel without painting it into a co
 
 ---
 
+## Canonical entities (current)
+
+| Entity      | Purpose                          | Durable | Event-backed      | Ref-backed   |
+|------------|-----------------------------------|:-------:|-------------------|--------------|
+| run        | Execution record                  | yes     | run_events        | optional     |
+| run_event  | Per-run timeline                  | yes     | —                 | —            |
+| event      | Global system event / audit      | yes     | —                 | —            |
+| ref        | Durable relationship (provenance) | yes     | —                 | —            |
+| artifact   | Durable output or reference      | yes     | optional          | optional     |
+| capture    | User/system capture              | yes     | CAPTURE_CREATED   | optional     |
+
+- **run_events** describe what happened during one run; **events** describe system-wide occurrences; **refs** describe what is related to what.
+
+---
+
 ## Design Principles
 
 ### 1. Stable IDs Everywhere

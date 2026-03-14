@@ -1,4 +1,4 @@
-use serde_json::json;
+use serde_json::{json, Value as JsonValue};
 use sqlx::{
     migrate::Migrator,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
@@ -9,9 +9,9 @@ use std::str::FromStr;
 use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
-    ArtifactId, CaptureId, ContextCapture, JobId, JobStatus, OrientationSnapshot, PrivacyClass,
-    Ref, RefRelationType, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult,
-    SyncClass,
+    ArtifactId, ArtifactStorageKind, CaptureId, ContextCapture, JobId, JobStatus, OrientationSnapshot,
+    PrivacyClass, Ref, RefRelationType, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus,
+    SearchResult, SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -50,6 +50,7 @@ pub struct ArtifactInsert {
     pub title: Option<String>,
     pub mime_type: Option<String>,
     pub storage_uri: String,
+    pub storage_kind: ArtifactStorageKind,
     pub privacy_class: PrivacyClass,
     pub sync_class: SyncClass,
     pub content_hash: Option<String>,
@@ -62,6 +63,7 @@ pub struct ArtifactRecord {
     pub title: Option<String>,
     pub mime_type: Option<String>,
     pub storage_uri: String,
+    pub storage_kind: ArtifactStorageKind,
     pub privacy_class: String,
     pub sync_class: String,
     pub content_hash: Option<String>,
@@ -370,13 +372,14 @@ impl Storage {
                 title,
                 mime_type,
                 storage_uri,
+                storage_kind,
                 privacy_class,
                 sync_class,
                 content_hash,
                 created_at,
                 updated_at,
                 metadata_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(artifact_id.to_string())
@@ -384,6 +387,7 @@ impl Storage {
         .bind(&input.title)
         .bind(&input.mime_type)
         .bind(&input.storage_uri)
+        .bind(input.storage_kind.to_string())
         .bind(input.privacy_class.to_string())
         .bind(input.sync_class.to_string())
         .bind(&input.content_hash)
@@ -401,7 +405,7 @@ impl Storage {
     ) -> Result<Option<ArtifactRecord>, StorageError> {
         let row = sqlx::query(
             r#"
-            SELECT artifact_id, artifact_type, title, mime_type, storage_uri,
+            SELECT artifact_id, artifact_type, title, mime_type, storage_uri, storage_kind,
                    privacy_class, sync_class, content_hash, created_at, updated_at
             FROM artifacts
             WHERE artifact_id = ?
@@ -415,12 +419,18 @@ impl Storage {
             return Ok(None);
         };
 
+        let storage_kind_str: String = row.try_get("storage_kind")?;
+        let storage_kind = storage_kind_str
+            .parse()
+            .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?;
+
         Ok(Some(ArtifactRecord {
             artifact_id: ArtifactId::from(row.try_get::<String, _>("artifact_id")?),
             artifact_type: row.try_get("artifact_type")?,
             title: row.try_get("title")?,
             mime_type: row.try_get("mime_type")?,
             storage_uri: row.try_get("storage_uri")?,
+            storage_kind,
             privacy_class: row.try_get("privacy_class")?,
             sync_class: row.try_get("sync_class")?,
             content_hash: row.try_get("content_hash")?,
@@ -460,7 +470,7 @@ impl Storage {
         .bind(&event_id)
         .bind(id.as_ref())
         .bind(RunEventType::RunCreated.to_string())
-        .bind(format!(r#"{{"kind":"{}"}}"#, kind))
+        .bind(&payload_str)
         .bind(now)
         .execute(&mut *tx)
         .await?;
@@ -482,19 +492,7 @@ impl Storage {
         let Some(row) = row else {
             return Ok(None);
         };
-        let kind: String = row.try_get("run_kind")?;
-        let status: String = row.try_get("status")?;
-        Ok(Some(Run {
-            id: RunId::from(row.try_get::<String, _>("run_id")?),
-            kind: kind.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
-            status: status.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
-            input_json: row.try_get("input_json")?,
-            output_json: row.try_get("output_json")?,
-            error_json: row.try_get("error_json")?,
-            created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
-            started_at: row.try_get::<Option<i64>, _>("started_at")?.map(timestamp_to_datetime).transpose()?,
-            finished_at: row.try_get::<Option<i64>, _>("finished_at")?.map(timestamp_to_datetime).transpose()?,
-        }))
+        Ok(Some(map_run_row(&row)?))
     }
 
     pub async fn list_runs(&self, limit: u32) -> Result<Vec<Run>, StorageError> {
@@ -518,9 +516,11 @@ impl Storage {
         status: RunStatus,
         started_at: Option<i64>,
         finished_at: Option<i64>,
-        output_json: Option<&str>,
-        error_json: Option<&str>,
+        output_json: Option<&JsonValue>,
+        error_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
+        let output_str = output_json.map(|v| serde_json::to_string(v).map_err(|e| StorageError::Validation(e.to_string()))).transpose()?;
+        let error_str = error_json.map(|v| serde_json::to_string(v).map_err(|e| StorageError::Validation(e.to_string()))).transpose()?;
         sqlx::query(
             r#"
             UPDATE runs SET status = ?,
@@ -533,8 +533,8 @@ impl Storage {
         .bind(status.to_string())
         .bind(started_at)
         .bind(finished_at)
-        .bind(output_json)
-        .bind(error_json)
+        .bind(output_str)
+        .bind(error_str)
         .bind(run_id)
         .execute(&self.pool)
         .await?;
@@ -546,10 +546,11 @@ impl Storage {
         run_id: &str,
         seq: u32,
         event_type: RunEventType,
-        payload_json: &str,
+        payload_json: &JsonValue,
     ) -> Result<(), StorageError> {
         let event_id = format!("evt_{}", Uuid::new_v4().simple());
         let now = OffsetDateTime::now_utc().unix_timestamp();
+        let payload_str = serde_json::to_string(payload_json).map_err(|e| StorageError::Validation(e.to_string()))?;
         sqlx::query(
             r#"
             INSERT INTO run_events (event_id, run_id, seq, event_type, payload_json, created_at)
@@ -560,7 +561,7 @@ impl Storage {
         .bind(run_id)
         .bind(seq as i64)
         .bind(event_type.to_string())
-        .bind(payload_json)
+        .bind(&payload_str)
         .bind(now)
         .execute(&self.pool)
         .await?;
@@ -705,16 +706,23 @@ fn map_context_capture_row(row: sqlx::sqlite::SqliteRow) -> Result<ContextCaptur
     })
 }
 
+fn parse_json_value(s: &str) -> Result<JsonValue, StorageError> {
+    serde_json::from_str(s).map_err(|e| StorageError::Validation(e.to_string()))
+}
+
 fn map_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<Run, StorageError> {
     let kind: String = row.try_get("run_kind")?;
     let status: String = row.try_get("status")?;
+    let input_str: String = row.try_get("input_json")?;
+    let output_str: Option<String> = row.try_get("output_json")?;
+    let error_str: Option<String> = row.try_get("error_json")?;
     Ok(Run {
         id: RunId::from(row.try_get::<String, _>("run_id")?),
         kind: kind.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
         status: status.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
-        input_json: row.try_get("input_json")?,
-        output_json: row.try_get("output_json")?,
-        error_json: row.try_get("error_json")?,
+        input_json: parse_json_value(&input_str)?,
+        output_json: output_str.as_deref().map(parse_json_value).transpose()?,
+        error_json: error_str.as_deref().map(parse_json_value).transpose()?,
         created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
         started_at: row.try_get::<Option<i64>, _>("started_at")?.map(timestamp_to_datetime).transpose()?,
         finished_at: row.try_get::<Option<i64>, _>("finished_at")?.map(timestamp_to_datetime).transpose()?,
@@ -723,12 +731,13 @@ fn map_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<Run, StorageError> {
 
 fn map_run_event_row(row: sqlx::sqlite::SqliteRow) -> Result<RunEvent, StorageError> {
     let event_type: String = row.try_get("event_type")?;
+    let payload_str: String = row.try_get("payload_json")?;
     Ok(RunEvent {
         id: row.try_get("event_id")?,
         run_id: RunId::from(row.try_get::<String, _>("run_id")?),
         seq: row.try_get::<i64, _>("seq")? as u32,
         event_type: event_type.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
-        payload_json: row.try_get("payload_json")?,
+        payload_json: parse_json_value(&payload_str)?,
         created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
     })
 }
@@ -877,6 +886,7 @@ mod tests {
                 title: Some("Meeting notes".to_string()),
                 mime_type: Some("text/plain".to_string()),
                 storage_uri: "file:///var/artifacts/transcripts/abc.txt".to_string(),
+                storage_kind: ArtifactStorageKind::External,
                 privacy_class: PrivacyClass::Private,
                 sync_class: SyncClass::Warm,
                 content_hash: Some("sha256:abc".to_string()),
@@ -905,7 +915,7 @@ mod tests {
 
         let run_id = vel_core::RunId::new();
         storage
-            .create_run(&run_id, RunKind::ContextGeneration, r#"{"context_kind":"today"}"#)
+            .create_run(&run_id, RunKind::ContextGeneration, &json!({"context_kind":"today"}))
             .await
             .unwrap();
 

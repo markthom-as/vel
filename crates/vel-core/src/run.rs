@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use time::OffsetDateTime;
 use uuid::Uuid;
+use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RunId(pub(crate) String);
@@ -119,57 +120,77 @@ pub struct Run {
     pub id: RunId,
     pub kind: RunKind,
     pub status: RunStatus,
-    pub input_json: String,
-    pub output_json: Option<String>,
-    pub error_json: Option<String>,
+    pub input_json: Value,
+    pub output_json: Option<Value>,
+    pub error_json: Option<Value>,
     pub created_at: OffsetDateTime,
     pub started_at: Option<OffsetDateTime>,
     pub finished_at: Option<OffsetDateTime>,
 }
 
 impl Run {
-    /// Valid transition: Queued -> Running.
-    pub fn start(&self, now: OffsetDateTime) -> Result<(), crate::VelCoreError> {
+    /// Valid transition: Queued -> Running. Returns updated run.
+    pub fn start(self, now: OffsetDateTime) -> Result<Self, crate::VelCoreError> {
         if self.status != RunStatus::Queued {
             return Err(crate::VelCoreError::InvalidTransition(format!(
                 "cannot start run in status {}",
                 self.status
             )));
         }
-        Ok(())
+        Ok(Run {
+            started_at: Some(now),
+            status: RunStatus::Running,
+            ..self
+        })
     }
 
-    /// Valid transition: Running -> Succeeded.
-    pub fn succeed(&self) -> Result<(), crate::VelCoreError> {
+    /// Valid transition: Running -> Succeeded. Returns updated run.
+    pub fn succeed(self, now: OffsetDateTime, output: Value) -> Result<Self, crate::VelCoreError> {
         if self.status != RunStatus::Running {
             return Err(crate::VelCoreError::InvalidTransition(format!(
                 "cannot succeed run in status {}",
                 self.status
             )));
         }
-        Ok(())
+        Ok(Run {
+            finished_at: Some(now),
+            output_json: Some(output),
+            error_json: None,
+            status: RunStatus::Succeeded,
+            ..self
+        })
     }
 
-    /// Valid transition: Queued | Running -> Failed.
-    pub fn fail(&self) -> Result<(), crate::VelCoreError> {
+    /// Valid transition: Queued | Running -> Failed. Returns updated run.
+    pub fn fail(self, now: OffsetDateTime, error: Value) -> Result<Self, crate::VelCoreError> {
         if self.status != RunStatus::Queued && self.status != RunStatus::Running {
             return Err(crate::VelCoreError::InvalidTransition(format!(
                 "cannot fail run in status {}",
                 self.status
             )));
         }
-        Ok(())
+        Ok(Run {
+            finished_at: Some(now),
+            error_json: Some(error),
+            output_json: None,
+            status: RunStatus::Failed,
+            ..self
+        })
     }
 
-    /// Valid transition: Queued | Running -> Cancelled.
-    pub fn cancel(&self) -> Result<(), crate::VelCoreError> {
+    /// Valid transition: Queued | Running -> Cancelled. Returns updated run.
+    pub fn cancel(self, now: OffsetDateTime) -> Result<Self, crate::VelCoreError> {
         if self.status != RunStatus::Queued && self.status != RunStatus::Running {
             return Err(crate::VelCoreError::InvalidTransition(format!(
                 "cannot cancel run in status {}",
                 self.status
             )));
         }
-        Ok(())
+        Ok(Run {
+            finished_at: Some(now),
+            status: RunStatus::Cancelled,
+            ..self
+        })
     }
 }
 
@@ -226,6 +247,6 @@ pub struct RunEvent {
     pub run_id: RunId,
     pub seq: u32,
     pub event_type: RunEventType,
-    pub payload_json: String,
+    pub payload_json: Value,
     pub created_at: OffsetDateTime,
 }

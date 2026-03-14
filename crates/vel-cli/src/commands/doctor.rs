@@ -18,16 +18,19 @@ pub async fn run(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     }
 
     let data = response.data.expect("doctor response missing data");
-    println!("daemon: {}", data.daemon);
-    println!("db: {}", data.db);
+    for check in &data.checks {
+        let status_str = match check.status {
+            vel_api_types::DiagnosticStatus::Ok => "ok",
+            vel_api_types::DiagnosticStatus::Warn => "warn",
+            vel_api_types::DiagnosticStatus::Fail => "fail",
+        };
+        println!("{}: {} — {}", check.name, status_str, check.message);
+    }
     println!("schema_version: {}", data.schema_version);
-    println!("artifact_dir: {}", data.artifact_dir);
     println!("version: {}", data.version);
 
-    let all_ok = data.daemon == "ok"
-        && data.db == "ok"
-        && (data.artifact_dir == "ok" || data.artifact_dir.starts_with("ok "));
-    if !all_ok {
+    let has_fail = data.checks.iter().any(|c| matches!(c.status, vel_api_types::DiagnosticStatus::Fail));
+    if has_fail {
         std::process::exit(1);
     }
     Ok(())

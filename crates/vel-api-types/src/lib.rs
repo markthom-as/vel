@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
-use vel_core::{ArtifactId, CaptureId, PrivacyClass, RunId, SyncClass};
+use vel_core::{ArtifactId, ArtifactStorageKind, CaptureId, PrivacyClass, RunId, SyncClass};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiMeta {
@@ -65,13 +66,28 @@ pub struct HealthData {
     pub version: String,
 }
 
+/// Status of a single diagnostic check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticStatus {
+    Ok,
+    Warn,
+    Fail,
+}
+
+/// A single diagnostic check result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiagnosticCheck {
+    pub name: String,
+    pub status: DiagnosticStatus,
+    pub message: String,
+}
+
 /// Results of diagnostic checks for `vel doctor`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DoctorData {
-    pub daemon: String,
-    pub db: String,
+    pub checks: Vec<DiagnosticCheck>,
     pub schema_version: u32,
-    pub artifact_dir: String,
     pub version: String,
 }
 
@@ -183,6 +199,8 @@ pub struct ArtifactCreateRequest {
     pub mime_type: Option<String>,
     pub storage_uri: String,
     #[serde(default)]
+    pub storage_kind: ArtifactStorageKind,
+    #[serde(default)]
     pub privacy_class: PrivacyClass,
     #[serde(default)]
     pub sync_class: SyncClass,
@@ -202,6 +220,7 @@ pub struct ArtifactData {
     pub title: Option<String>,
     pub mime_type: Option<String>,
     pub storage_uri: String,
+    pub storage_kind: String,
     pub privacy_class: String,
     pub sync_class: String,
     pub content_hash: Option<String>,
@@ -225,7 +244,7 @@ pub struct RunSummaryData {
 pub struct RunEventData {
     pub seq: u32,
     pub event_type: String,
-    pub payload: String,
+    pub payload: JsonValue,
     pub created_at: OffsetDateTime,
 }
 
@@ -234,9 +253,9 @@ pub struct RunDetailData {
     pub id: RunId,
     pub kind: String,
     pub status: String,
-    pub input: String,
-    pub output: Option<String>,
-    pub error: Option<String>,
+    pub input: JsonValue,
+    pub output: Option<JsonValue>,
+    pub error: Option<JsonValue>,
     pub created_at: OffsetDateTime,
     pub started_at: Option<OffsetDateTime>,
     pub finished_at: Option<OffsetDateTime>,

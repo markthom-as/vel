@@ -1,6 +1,7 @@
 mod app;
 mod errors;
 mod routes;
+mod services;
 mod state;
 mod worker;
 

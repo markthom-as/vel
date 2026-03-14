@@ -16,6 +16,16 @@ Vel is a **local-first cognition runtime** for capture, recall, and daily orient
 - Prefer structured payloads (e.g. `serde_json::Value`) over raw JSON strings in domain/API.
 - Docs must distinguish between implemented and planned behavior; see `docs/status.md`.
 
+## Current implementation truth
+
+As of now:
+
+- Captures, search, runs, run_events, and doctor are implemented; run payloads use `serde_json::Value` in domain/API.
+- Context endpoints (today, morning, end-of-day) exist but are **not yet run-backed**; they are computed in a service from the orientation snapshot.
+- Artifacts have `storage_kind` (managed | external), partial metadata/provenance support.
+- Services live in `veld` (context_generation, doctor); routes are thin.
+- Run transitions in `vel-core` are immutable (return new `Self`).
+
 AI agents working in this repository should prioritize:
 
 1. clarity of architecture

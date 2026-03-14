@@ -39,16 +39,17 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
     if let Some(t) = &r.finished_at {
         println!("Finished: {}", t);
     }
-    println!("\nInput:\n  {}", r.input.replace('\n', "\n  "));
+    println!("\nInput:\n  {}", serde_json::to_string_pretty(&r.input).unwrap_or_else(|_| r.input.to_string()));
     if let Some(ref out) = r.output {
-        println!("\nOutput:\n  {}", out.replace('\n', "\n  "));
+        println!("\nOutput:\n  {}", serde_json::to_string_pretty(out).unwrap_or_else(|_| out.to_string()));
     }
     if let Some(ref err) = r.error {
-        println!("\nError:\n  {}", err.replace('\n', "\n  "));
+        println!("\nError:\n  {}", serde_json::to_string_pretty(err).unwrap_or_else(|_| err.to_string()));
     }
     println!("\nEvents:");
     for e in &r.events {
-        println!("  [{}] {} {}", e.seq, e.event_type, e.created_at);
+        let payload_str = serde_json::to_string(&e.payload).unwrap_or_else(|_| "{}".to_string());
+        println!("  [{}] {} {} {}", e.seq, e.event_type, e.created_at, payload_str);
     }
     Ok(())
 }
