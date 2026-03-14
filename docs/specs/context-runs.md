@@ -1,8 +1,16 @@
-# Context runs — next milestone spec
+# Context runs — spec (implemented)
 
 Narrow, practical spec for making context generation (today / morning / end-of-day) run-backed.
 
-## Current state
+## Implemented shape
+
+- **Service:** `veld` `services/context_runs` — `generate_today`, `generate_morning`, `generate_end_of_day` each create a run, transition to running, load snapshot, compute via `context_generation::build_*`, write JSON to `artifact_root/context/<kind>/<run_id>.json`, create managed artifact row, create run → artifact ref, append run events, transition to succeeded (or failed on error).
+- **Run detail:** `GET /v1/runs/:id` and `vel run inspect <id>` include `artifacts: Vec<ArtifactSummaryData>` (from refs from run to artifact).
+- **Integration test:** `context_today_creates_run_artifact_and_ref` asserts one run, status succeeded, event sequence, one ref, and managed artifact.
+
+---
+
+## Original spec (current state → target)
 
 - Context endpoints (`GET /v1/context/today`, `morning`, `end-of-day`) are implemented.
 - They are computed synchronously in `veld` by the `context_generation` service from `orientation_snapshot()`.

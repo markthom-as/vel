@@ -51,5 +51,13 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
         let payload_str = serde_json::to_string(&e.payload).unwrap_or_else(|_| "{}".to_string());
         println!("  [{}] {} {} {}", e.seq, e.event_type, e.created_at, payload_str);
     }
+    if !r.artifacts.is_empty() {
+        println!("\nArtifacts:");
+        for a in &r.artifacts {
+            let title = a.title.as_deref().unwrap_or("—");
+            println!("  {}  {}  {}  {}", a.artifact_id, a.artifact_type, a.storage_kind, title);
+            println!("    {}", a.storage_uri);
+        }
+    }
     Ok(())
 }

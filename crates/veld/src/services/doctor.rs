@@ -11,7 +11,7 @@ pub async fn run_diagnostics(state: &AppState) -> DoctorData {
     checks.push(DiagnosticCheck {
         name: "daemon".to_string(),
         status: DiagnosticStatus::Ok,
-        message: "ok".to_string(),
+        message: "ok (in-process; not probing remote)".to_string(),
     });
 
     let db_status = match state.storage.healthcheck().await {
@@ -29,6 +29,11 @@ pub async fn run_diagnostics(state: &AppState) -> DoctorData {
     checks.push(db_status);
 
     let schema_version = state.storage.schema_version().await.unwrap_or(0);
+    checks.push(DiagnosticCheck {
+        name: "schema".to_string(),
+        status: DiagnosticStatus::Ok,
+        message: schema_version.to_string(),
+    });
 
     let artifact_check = check_artifact_dir(&state.config.artifact_root);
     checks.push(artifact_check);

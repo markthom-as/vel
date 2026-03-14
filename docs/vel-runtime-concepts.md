@@ -4,11 +4,11 @@ This document describes the runtime spine and the contract between events, run e
 
 ## Contract: events vs run_events vs refs
 
-- **run_events** — Lifecycle of one run. Examples: `run_created`, `run_started`, `artifact_written`, `run_succeeded`. One row per step or transition within a single run.
-- **events** — Global timeline/audit stream for system-level events. Examples: `capture_created`, `search_executed`, `job_claimed`, `daemon_started`.
-- **refs** — Stable relationships between durable objects. Examples: run → artifact, artifact → capture, artifact → artifact.
+- **run_events** — Lifecycle of one run. Examples: `run_created`, `run_started`, `artifact_written`, `run_succeeded`. One row per step or transition within a single run. This is the **primary timeline** for runtime work; use it for run-backed flows.
+- **events** — System-wide audit stream for a small set of occurrences: e.g. `capture_created`, `daemon_started`, schema migration. Use sparingly; do not duplicate run_events here. Right now the main consumer is capture creation.
+- **refs** — Stable relationships between durable objects. Examples: run → artifact, artifact → capture. Use refs to answer “what is related to what”; use run_events to answer “what happened during this run.”
 
-**Rule:** Events describe *what happened*. Refs describe *what is related to what*. Run events describe *what happened during one run*.
+**Rule:** Events describe *what happened* (system-level). Refs describe *what is related to what*. Run events describe *what happened during one run*.
 
 ## Runs
 
@@ -50,18 +50,34 @@ This allows answering: what run produced this artifact? What sources were used f
 
 - **`vel doctor`** — Config, DB, schema version, artifact directory, daemon reachability.
 - **`vel runs`** — List recent runs (id, kind, status, timestamps).
-- **`vel run inspect <id>`** — Full run detail: input, output, error, and event list.
+- **`vel run inspect <id>`** — Full run detail: input, output, error, events, and linked artifacts.
 
 ## API
 
 - `GET /v1/runs` — List runs (newest first).
-- `GET /v1/runs/:id` — Run detail including events.
+- `GET /v1/runs/:id` — Run detail including events and linked artifact summaries.
 
-## How context generation will fit
+## Context generation (run-backed)
 
-When context generation is run-backed:
+Context requests (`today`, `morning`, `end_of_day`) are run-backed:
 
-- A request to `today` or `morning` or `end_of_day` will create a run (kind `context_generation`), transition to `running`, compute the result, persist an output artifact, create refs (run → artifact, artifact → source captures), append run events (`context_generated`, `artifact_written`), then transition to `succeeded` (or `failed` with structured error payload).
-- Successful run event sequence: `run_created` → `run_started` → `context_generated` → `artifact_written` → `run_succeeded`.
-- On failure: `run_created` → `run_started` → `run_failed`.
-- Until then, context endpoints are computed synchronously from the orientation snapshot and are not persisted as runs or artifacts.
+- Each request creates a run (kind `context_generation`), transitions to `running`, loads the orientation snapshot, computes the result, writes a managed JSON artifact to disk, creates a run → artifact ref, appends run events, then transitions to `succeeded` (or `failed` with `error_json`).
+- Run detail and `vel run inspect <id>` include linked artifacts.
+
+### Flow (success)
+
+```text
+context request
+  → run created (queued)
+  → run started
+  → context computed
+  → artifact written (managed, under artifact_root/context/<kind>/<run_id>.json)
+  → ref linked (run → artifact)
+  → run succeeded
+```
+
+### Event sequence (success)
+
+`run_created` → `run_started` → `context_generated` → `artifact_written` → `run_succeeded`.
+
+On failure: `run_created` → `run_started` → `run_failed`.

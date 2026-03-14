@@ -107,6 +107,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn context_today_creates_run_artifact_and_ref() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage.clone(), AppConfig::default());
+
+        let today_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/today")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(today_resp.status(), StatusCode::OK);
+
+        let runs = storage.list_runs(10).await.unwrap();
+        assert_eq!(runs.len(), 1, "one run should exist");
+        let run = &runs[0];
+        assert_eq!(run.status, vel_core::RunStatus::Succeeded);
+        assert_eq!(run.kind, vel_core::RunKind::ContextGeneration);
+
+        let events = storage.list_run_events(run.id.as_ref()).await.unwrap();
+        let event_types: Vec<String> = events.iter().map(|e| e.event_type.to_string()).collect();
+        assert_eq!(
+            event_types,
+            ["run_created", "run_started", "context_generated", "artifact_written", "run_succeeded"],
+            "event sequence should match"
+        );
+
+        let refs_from_run = storage.list_refs_from("run", run.id.as_ref()).await.unwrap();
+        assert_eq!(refs_from_run.len(), 1, "run should have one ref (run → artifact)");
+        assert_eq!(refs_from_run[0].to_type, "artifact");
+
+        let artifact_id = &refs_from_run[0].to_id;
+        let artifact = storage.get_artifact_by_id(artifact_id).await.unwrap();
+        assert!(artifact.is_some(), "artifact should exist");
+        let art = artifact.unwrap();
+        assert_eq!(art.storage_kind, vel_core::ArtifactStorageKind::Managed);
+        assert!(art.storage_uri.contains("context/today"));
+    }
+
+    #[tokio::test]
     async fn end_of_day_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

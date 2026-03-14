@@ -248,6 +248,16 @@ pub struct RunEventData {
     pub created_at: OffsetDateTime,
 }
 
+/// Summary of an artifact linked to a run (e.g. via refs).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtifactSummaryData {
+    pub artifact_id: ArtifactId,
+    pub artifact_type: String,
+    pub title: Option<String>,
+    pub storage_uri: String,
+    pub storage_kind: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunDetailData {
     pub id: RunId,
@@ -260,4 +270,5 @@ pub struct RunDetailData {
     pub started_at: Option<OffsetDateTime>,
     pub finished_at: Option<OffsetDateTime>,
     pub events: Vec<RunEventData>,
+    pub artifacts: Vec<ArtifactSummaryData>,
 }

@@ -3,7 +3,7 @@ use axum::{
     Json,
 };
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, RunDetailData, RunEventData, RunSummaryData};
+use vel_api_types::{ApiResponse, ArtifactSummaryData, RunDetailData, RunEventData, RunSummaryData};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -45,6 +45,25 @@ pub async fn get_run(
             created_at: e.created_at,
         })
         .collect();
+
+    let refs_from_run = state.storage.list_refs_from("run", run.id.as_ref()).await?;
+    let mut artifacts = Vec::new();
+    for ref_ in refs_from_run {
+        if ref_.to_type == "artifact" {
+            if let Some(record) = state.storage.get_artifact_by_id(&ref_.to_id).await? {
+                let created_at = OffsetDateTime::from_unix_timestamp(record.created_at)
+                    .unwrap_or(OffsetDateTime::UNIX_EPOCH);
+                artifacts.push(ArtifactSummaryData {
+                    artifact_id: record.artifact_id,
+                    artifact_type: record.artifact_type,
+                    title: record.title,
+                    storage_uri: record.storage_uri,
+                    storage_kind: record.storage_kind.to_string(),
+                });
+            }
+        }
+    }
+
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         RunDetailData {
@@ -58,6 +77,7 @@ pub async fn get_run(
             started_at: run.started_at,
             finished_at: run.finished_at,
             events: event_data,
+            artifacts,
         },
         request_id,
     )))

@@ -11,7 +11,7 @@ Vel is a **local-first cognition runtime** for capture, recall, and daily orient
 
 **Planned next:** run-backed context generation (today/morning as runs with artifacts and provenance).
 
-Context endpoints (today/morning/end-of-day) are still computed synchronously from the orientation snapshot and are **not yet persisted as run outputs**; run-backed context is the next milestone.
+Context endpoints (today/morning/end-of-day) are **run-backed**: each request creates a run, writes a managed JSON artifact, and links run → artifact; inspect with `vel run inspect <id>`.
 
 See [docs/status.md](docs/status.md) for details. Canonical runtime concepts: [docs/vel-runtime-concepts.md](docs/vel-runtime-concepts.md).
 

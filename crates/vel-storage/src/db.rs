@@ -54,6 +54,7 @@ pub struct ArtifactInsert {
     pub privacy_class: PrivacyClass,
     pub sync_class: SyncClass,
     pub content_hash: Option<String>,
+    pub size_bytes: Option<i64>,
 }
 
 #[derive(Debug, Clone)]
@@ -376,10 +377,11 @@ impl Storage {
                 privacy_class,
                 sync_class,
                 content_hash,
+                size_bytes,
                 created_at,
                 updated_at,
                 metadata_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(artifact_id.to_string())
@@ -391,6 +393,7 @@ impl Storage {
         .bind(input.privacy_class.to_string())
         .bind(input.sync_class.to_string())
         .bind(&input.content_hash)
+        .bind(input.size_bytes)
         .bind(now)
         .bind(now)
         .bind("{}")
@@ -443,9 +446,12 @@ impl Storage {
         &self,
         id: &RunId,
         kind: RunKind,
-        input_json: &str,
+        input_json: &JsonValue,
     ) -> Result<(), StorageError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
+        let input_str = serde_json::to_string(input_json).map_err(|e| StorageError::Validation(e.to_string()))?;
+        let run_created_payload = json!({ "kind": kind.to_string() });
+        let payload_str = serde_json::to_string(&run_created_payload).map_err(|e| StorageError::Validation(e.to_string()))?;
         let event_id = format!("evt_{}", Uuid::new_v4().simple());
         let mut tx = self.pool.begin().await?;
         sqlx::query(
@@ -458,7 +464,7 @@ impl Storage {
         .bind(kind.to_string())
         .bind(RunStatus::Queued.to_string())
         .bind(now)
-        .bind(input_json)
+        .bind(&input_str)
         .execute(&mut *tx)
         .await?;
         sqlx::query(
@@ -890,6 +896,7 @@ mod tests {
                 privacy_class: PrivacyClass::Private,
                 sync_class: SyncClass::Warm,
                 content_hash: Some("sha256:abc".to_string()),
+                size_bytes: None,
             })
             .await
             .unwrap();

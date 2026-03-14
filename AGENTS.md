@@ -21,7 +21,7 @@ Vel is a **local-first cognition runtime** for capture, recall, and daily orient
 As of now:
 
 - Captures, search, runs, run_events, and doctor are implemented; run payloads use `serde_json::Value` in domain/API.
-- Context endpoints (today, morning, end-of-day) exist but are **not yet run-backed**; they are computed in a service from the orientation snapshot.
+- Context endpoints (today, morning, end-of-day) are **run-backed**: each creates a run, writes a managed JSON artifact, and run → artifact ref; see `services/context_runs`.
 - Artifacts have `storage_kind` (managed | external), partial metadata/provenance support.
 - Services live in `veld` (context_generation, doctor); routes are thin.
 - Run transitions in `vel-core` are immutable (return new `Self`).

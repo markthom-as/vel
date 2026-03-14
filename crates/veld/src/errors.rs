@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use std::fmt;
 use uuid::Uuid;
 use vel_api_types::ApiResponse;
 
@@ -48,6 +49,12 @@ impl IntoResponse for AppError {
         ));
 
         (self.status, body).into_response()
+    }
+}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
     }
 }
 
