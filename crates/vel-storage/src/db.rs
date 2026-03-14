@@ -7,11 +7,11 @@ use sqlx::{
 use std::{fs, path::Path};
 use std::str::FromStr;
 use time::OffsetDateTime;
-use vel_api_types::{ContextCapture, SearchResult};
 use uuid::Uuid;
 use vel_core::{
-    ArtifactId, CaptureId, JobId, JobStatus, PrivacyClass, Ref, RefRelationType, Run, RunEvent,
-    RunEventType, RunId, RunKind, RunStatus, SyncClass,
+    ArtifactId, CaptureId, ContextCapture, JobId, JobStatus, OrientationSnapshot, PrivacyClass,
+    Ref, RefRelationType, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult,
+    SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -34,12 +34,6 @@ pub struct SearchFilters {
     pub capture_type: Option<String>,
     pub source_device: Option<String>,
     pub limit: Option<u32>,
-}
-
-#[derive(Debug, Clone)]
-pub struct OrientationSnapshot {
-    pub recent_today: Vec<ContextCapture>,
-    pub recent_week: Vec<ContextCapture>,
 }
 
 /// A job claimed for processing. Caller must eventually call `mark_job_succeeded` or `mark_job_failed`.

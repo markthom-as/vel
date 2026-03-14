@@ -1,6 +1,14 @@
 # Vel — Runtime Concepts
 
-This document describes the runtime spine introduced by the full implementation spec.
+This document describes the runtime spine and the contract between events, run events, and refs.
+
+## Contract: events vs run_events vs refs
+
+- **run_events** — Lifecycle of one run. Examples: `run_created`, `run_started`, `artifact_written`, `run_succeeded`. One row per step or transition within a single run.
+- **events** — Global timeline/audit stream for system-level events. Examples: `capture_created`, `search_executed`, `job_claimed`, `daemon_started`.
+- **refs** — Stable relationships between durable objects. Examples: run → artifact, artifact → capture, artifact → artifact.
+
+**Rule:** Events describe *what happened*. Refs describe *what is related to what*. Run events describe *what happened during one run*.
 
 ## Runs
 

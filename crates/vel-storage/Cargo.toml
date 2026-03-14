@@ -11,5 +11,4 @@ thiserror.workspace = true
 time.workspace = true
 tokio.workspace = true
 uuid.workspace = true
-vel-api-types = { path = "../vel-api-types" }
 vel-core = { path = "../vel-core" }

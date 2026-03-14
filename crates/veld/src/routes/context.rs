@@ -15,7 +15,7 @@ pub async fn today(State(state): State<AppState>) -> Result<Json<ApiResponse<Tod
     Ok(Json(ApiResponse::success(
         TodayData {
             date: OffsetDateTime::now_utc().date().to_string(),
-            recent_captures: snapshot.recent_today,
+            recent_captures: snapshot.recent_today.into_iter().map(Into::into).collect(),
             focus_candidates,
             reminders: reminders.into_iter().take(5).collect(),
         },
@@ -53,7 +53,7 @@ pub async fn end_of_day(State(state): State<AppState>) -> Result<Json<ApiRespons
     Ok(Json(ApiResponse::success(
         EndOfDayData {
             date: OffsetDateTime::now_utc().date().to_string(),
-            what_was_done,
+            what_was_done: what_was_done.into_iter().map(Into::into).collect(),
             what_remains_open: what_remains_open.into_iter().take(10).collect(),
             what_may_matter_tomorrow: what_may_matter_tomorrow.into_iter().take(5).collect(),
         },

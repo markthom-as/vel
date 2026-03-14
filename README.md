@@ -1,11 +1,17 @@
 # Vel
 
-Vel is a local-first personal executive system for capture, recall, and daily orientation.
+Vel is a **local-first cognition runtime** for capture, recall, and daily orientation.
 
-This repository currently contains the bootstrap runtime and CLI:
+- **veld** — daemon and HTTP API  
+- **vel-cli** — operator CLI
 
-- `veld`: the daemon and HTTP API
-- `vel-cli`: the operator shell
+## Status
+
+**Implemented:** capture storage, lexical search, artifacts API, run/event schema and inspection, doctor diagnostics, context endpoints (today/morning/end-of-day), full CLI surface. Domain types live in `vel-core`; storage does not depend on API types.
+
+**Planned next:** run-backed context generation (today/morning as runs with artifacts and provenance), typed JSON payloads, structured doctor output, doc hierarchy.
+
+See [docs/status.md](docs/status.md) for details. Canonical runtime concepts: [docs/vel-runtime-concepts.md](docs/vel-runtime-concepts.md).
 
 ## Local Development
 
@@ -27,18 +33,14 @@ cargo run -p vel-cli -- morning
 cargo run -p vel-cli -- config show
 ```
 
-## Bootstrap Surface
+## Operator commands
 
-The current scaffold implements:
-
-- `GET /v1/health`
-- `POST /v1/captures`
-- `GET /v1/search`
-- `GET /v1/context/today`
-- `GET /v1/context/morning`
-- `vel health`
-- `vel capture <text>`
-- `vel search <query>`
-- `vel today`
-- `vel morning`
+- `vel health` — daemon health
+- `vel doctor` — config, DB, schema version, artifact dir
+- `vel capture <text>` — create capture
+- `vel search <query>` — lexical search
+- `vel today` / `vel morning` / `vel end-of-day` — context
+- `vel inspect capture <id>` — inspect a capture
+- `vel runs` — list runs
+- `vel run inspect <id>` — run detail
 - `vel config show`

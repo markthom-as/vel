@@ -111,6 +111,19 @@ pub struct SearchResult {
     pub source_device: Option<String>,
 }
 
+impl From<vel_core::SearchResult> for SearchResult {
+    fn from(s: vel_core::SearchResult) -> Self {
+        Self {
+            capture_id: s.capture_id,
+            capture_type: s.capture_type,
+            snippet: s.snippet,
+            occurred_at: s.occurred_at,
+            created_at: s.created_at,
+            source_device: s.source_device,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResults {
     pub results: Vec<SearchResult>,
@@ -124,6 +137,19 @@ pub struct ContextCapture {
     pub occurred_at: OffsetDateTime,
     pub source_device: Option<String>,
 }
+
+impl From<vel_core::ContextCapture> for ContextCapture {
+    fn from(c: vel_core::ContextCapture) -> Self {
+        Self {
+            capture_id: c.capture_id,
+            capture_type: c.capture_type,
+            content_text: c.content_text,
+            occurred_at: c.occurred_at,
+            source_device: c.source_device,
+        }
+    }
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodayData {

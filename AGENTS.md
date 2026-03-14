@@ -4,7 +4,17 @@ This document defines how AI coding agents (such as Codex) should interact with 
 
 ## Mission
 
-Vel is a **local-first personal executive system** designed to maintain life context, memory continuity, and goal alignment for its user.
+Vel is a **local-first cognition runtime** for capture, recall, and daily orientation.
+
+## Repository boundary rules
+
+- **vel-core** owns domain semantics and domain types (e.g. ContextCapture, SearchResult, Run, Ref).
+- **vel-storage** must not depend on **vel-api-types**. Storage returns core/domain structs only.
+- **vel-api-types** contains transport DTOs only; map from core types at the boundary (e.g. in veld routes).
+- Route handlers should remain thin: parse request, call service, map response/error.
+- Run-backed operations must emit run events and persist terminal state.
+- Prefer structured payloads (e.g. `serde_json::Value`) over raw JSON strings in domain/API.
+- Docs must distinguish between implemented and planned behavior; see `docs/status.md`.
 
 AI agents working in this repository should prioritize:
 

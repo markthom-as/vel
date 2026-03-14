@@ -28,7 +28,9 @@ pub async fn search(
 
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        SearchResults { results },
+        SearchResults {
+            results: results.into_iter().map(Into::into).collect(),
+        },
         request_id,
     )))
 }

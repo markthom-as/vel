@@ -22,7 +22,10 @@ pub async fn get_capture(
         .ok_or_else(|| AppError::not_found("capture not found"))?;
 
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(capture, request_id)))
+    Ok(Json(ApiResponse::success(
+        vel_api_types::ContextCapture::from(capture),
+        request_id,
+    )))
 }
 
 pub async fn create_capture(

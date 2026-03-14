@@ -45,7 +45,6 @@ pub enum RunKind {
     ContextGeneration,
     ArtifactExtraction,
     Synthesis,
-    #[serde(other)]
     Agent,
 }
 
