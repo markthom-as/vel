@@ -42,9 +42,23 @@ Events have a monotonic `seq` per run and a `payload_json` for details.
 The **refs** table stores relations between objects:
 
 - **Relation types**: `generated_from`, `derived_from`, `attached_to`.
-- **Typical links**: run → artifact (`attached_to`), artifact → capture (`generated_from`).
+- **Typical links**: run → artifact (`attached_to`), artifact → capture (`derived_from` for context sources).
 
 This allows answering: what run produced this artifact? What sources were used for this context?
+
+### Lineage (context run)
+
+```text
+Capture
+   ↓
+Snapshot
+   ↓
+Context Run
+   ↓
+Artifact (context_brief, managed)
+   ↓
+Inspection (run detail, artifact summaries, refs)
+```
 
 ## Operator commands
 
@@ -61,7 +75,8 @@ This allows answering: what run produced this artifact? What sources were used f
 
 Context requests (`today`, `morning`, `end_of_day`) are run-backed:
 
-- Each request creates a run (kind `context_generation`), transitions to `running`, loads the orientation snapshot, computes the result, writes a managed JSON artifact to disk, creates a run → artifact ref, appends run events, then transitions to `succeeded` (or `failed` with `error_json`).
+- Each request creates a run (kind `context_generation`), transitions to `running`, loads the orientation snapshot, computes the result, writes a **managed** artifact (`artifact_type: context_brief`, atomic write: temp file then rename), persists **checksum** (sha256) and **size_bytes**, **metadata_json** (`generator`, `context_kind`), creates run → artifact ref and **artifact → capture** refs (DerivedFrom) for snapshot sources, appends run events, then transitions to `succeeded` (or `failed` with `error_json`).
+- **Canonical path**: relative `context/<kind>/<date>/<run_id>.json` under artifact root.
 - Run detail and `vel run inspect <id>` include linked artifacts.
 
 ### Flow (success)
@@ -71,8 +86,8 @@ context request
   → run created (queued)
   → run started
   → context computed
-  → artifact written (managed, under artifact_root/context/<kind>/<run_id>.json)
-  → ref linked (run → artifact)
+  → artifact written (context_brief, managed; atomic write; context/<kind>/<date>/<run_id>.json)
+  → refs linked (run → artifact; artifact → capture for each source)
   → run succeeded
 ```
 

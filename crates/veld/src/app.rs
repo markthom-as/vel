@@ -147,7 +147,46 @@ mod tests {
         assert!(artifact.is_some(), "artifact should exist");
         let art = artifact.unwrap();
         assert_eq!(art.storage_kind, vel_core::ArtifactStorageKind::Managed);
+        assert_eq!(art.artifact_type, "context_brief");
         assert!(art.storage_uri.contains("context/today"));
+        assert!(art.content_hash.as_deref().map(|h| h.starts_with("sha256:")).unwrap_or(false));
+    }
+
+    #[tokio::test]
+    async fn context_today_failure_sets_run_failed_and_no_artifact_ref() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!("vel_test_root_{}", uuid::Uuid::new_v4().simple()));
+        std::fs::File::create(&file_path).unwrap();
+        let config = vel_config::AppConfig {
+            artifact_root: file_path.to_string_lossy().to_string(),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config);
+
+        let today_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/today")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(today_resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let runs = storage.list_runs(10).await.unwrap();
+        assert_eq!(runs.len(), 1);
+        let run = &runs[0];
+        assert_eq!(run.status, vel_core::RunStatus::Failed);
+        assert!(run.error_json.is_some());
+
+        let refs_from_run = storage.list_refs_from("run", run.id.as_ref()).await.unwrap();
+        assert!(refs_from_run.is_empty(), "no artifact ref on failure");
+
+        let _ = std::fs::remove_file(&file_path);
     }
 
     #[tokio::test]

@@ -2,6 +2,7 @@
 
 use std::path::Path;
 use time::OffsetDateTime;
+use sha2::{Sha256, Digest};
 use vel_core::{
     ArtifactStorageKind, PrivacyClass, Ref, RefRelationType, RunEventType, RunId, RunKind, RunStatus,
     SyncClass,
@@ -145,25 +146,45 @@ where
 
     let body = serde_json::to_vec(&data).map_err(|e| AppError::internal(e.to_string()))?;
     let size_bytes = body.len() as i64;
-    let storage_uri = format!("context/{}/{}.json", kind.as_str(), run_id.as_ref());
+    let content_hash = {
+        let mut hasher = Sha256::new();
+        hasher.update(&body);
+        format!("sha256:{}", hex::encode(hasher.finalize()))
+    };
+
+    let date_str = OffsetDateTime::now_utc().date().to_string();
+    let storage_uri = format!(
+        "context/{}/{}/{}.json",
+        kind.as_str(),
+        date_str,
+        run_id.as_ref()
+    );
     let full_path = Path::new(&state.config.artifact_root).join(&storage_uri);
     if let Some(parent) = full_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| AppError::internal(e.to_string()))?;
     }
-    std::fs::write(&full_path, &body).map_err(|e| AppError::internal(e.to_string()))?;
+    let temp_path = full_path.with_extension("json.tmp");
+    std::fs::write(&temp_path, &body).map_err(|e| AppError::internal(e.to_string()))?;
+    std::fs::rename(&temp_path, &full_path).map_err(|e| AppError::internal(e.to_string()))?;
+
+    let metadata_json = serde_json::json!({
+        "generator": "context-v1",
+        "context_kind": kind.as_str()
+    });
 
     let artifact_id = state
         .storage
         .create_artifact(ArtifactInsert {
-            artifact_type: format!("context_{}", kind.as_str()),
+            artifact_type: "context_brief".to_string(),
             title: Some(format!("{} context", kind.as_str())),
             mime_type: Some("application/json".to_string()),
             storage_uri,
             storage_kind: ArtifactStorageKind::Managed,
             privacy_class: PrivacyClass::Private,
             sync_class: SyncClass::Warm,
-            content_hash: None,
+            content_hash: Some(content_hash),
             size_bytes: Some(size_bytes),
+            metadata_json: Some(metadata_json),
         })
         .await?;
 
@@ -175,6 +196,20 @@ where
         RefRelationType::AttachedTo,
     );
     state.storage.create_ref(&ref_).await?;
+
+    let mut seen_captures = std::collections::HashSet::new();
+    for capture in snapshot.recent_today.iter().chain(snapshot.recent_week.iter()) {
+        if seen_captures.insert(capture.capture_id.as_ref()) {
+            let art_ref = Ref::new(
+                "artifact",
+                artifact_id.as_ref(),
+                "capture",
+                capture.capture_id.as_ref(),
+                RefRelationType::DerivedFrom,
+            );
+            let _ = state.storage.create_ref(&art_ref).await;
+        }
+    }
 
     state
         .storage

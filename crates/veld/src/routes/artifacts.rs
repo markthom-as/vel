@@ -31,6 +31,7 @@ pub async fn create_artifact(
             sync_class: payload.sync_class,
             content_hash: payload.content_hash,
             size_bytes: None,
+            metadata_json: None,
         })
         .await?;
 

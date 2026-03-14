@@ -55,6 +55,8 @@ pub struct ArtifactInsert {
     pub sync_class: SyncClass,
     pub content_hash: Option<String>,
     pub size_bytes: Option<i64>,
+    /// Optional JSON metadata (e.g. generator, context_kind). Stored as TEXT.
+    pub metadata_json: Option<JsonValue>,
 }
 
 #[derive(Debug, Clone)]
@@ -396,7 +398,14 @@ impl Storage {
         .bind(input.size_bytes)
         .bind(now)
         .bind(now)
-        .bind("{}")
+        .bind(
+            input
+                .metadata_json
+                .as_ref()
+                .and_then(|v| serde_json::to_string(v).ok())
+                .as_deref()
+                .unwrap_or("{}"),
+        )
         .execute(&self.pool)
         .await?;
         Ok(artifact_id)
@@ -897,6 +906,7 @@ mod tests {
                 sync_class: SyncClass::Warm,
                 content_hash: Some("sha256:abc".to_string()),
                 size_bytes: None,
+                metadata_json: None,
             })
             .await
             .unwrap();
