@@ -164,12 +164,16 @@ where
         std::fs::create_dir_all(parent).map_err(|e| AppError::internal(e.to_string()))?;
     }
     let temp_path = full_path.with_extension("json.tmp");
-    std::fs::write(&temp_path, &body).map_err(|e| AppError::internal(e.to_string()))?;
+    let mut f = std::fs::File::create(&temp_path).map_err(|e| AppError::internal(e.to_string()))?;
+    std::io::Write::write_all(&mut f, &body).map_err(|e| AppError::internal(e.to_string()))?;
+    f.sync_all().map_err(|e| AppError::internal(e.to_string()))?;
+    drop(f);
     std::fs::rename(&temp_path, &full_path).map_err(|e| AppError::internal(e.to_string()))?;
 
     let metadata_json = serde_json::json!({
         "generator": "context-v1",
-        "context_kind": kind.as_str()
+        "context_kind": kind.as_str(),
+        "snapshot_window": "7d"
     });
 
     let artifact_id = state
@@ -231,6 +235,16 @@ where
         )
         .await?;
 
+    state
+        .storage
+        .append_run_event(
+            run_id.as_ref(),
+            5,
+            RunEventType::RefsCreated,
+            &serde_json::json!({}),
+        )
+        .await?;
+
     let finished_at = OffsetDateTime::now_utc().unix_timestamp();
     let output_json = serde_json::json!({
         "artifact_id": artifact_id.to_string(),
@@ -253,7 +267,7 @@ where
         .storage
         .append_run_event(
             run_id.as_ref(),
-            5,
+            6,
             RunEventType::RunSucceeded,
             &serde_json::json!({}),
         )

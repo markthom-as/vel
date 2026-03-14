@@ -205,6 +205,7 @@ pub enum RunEventType {
     ArtifactWritten,
     SearchExecuted,
     ContextGenerated,
+    RefsCreated,
 }
 
 impl Display for RunEventType {
@@ -218,6 +219,7 @@ impl Display for RunEventType {
             Self::ArtifactWritten => "artifact_written",
             Self::SearchExecuted => "search_executed",
             Self::ContextGenerated => "context_generated",
+            Self::RefsCreated => "refs_created",
         };
         f.write_str(s)
     }
@@ -236,6 +238,7 @@ impl std::str::FromStr for RunEventType {
             "artifact_written" => Ok(Self::ArtifactWritten),
             "search_executed" => Ok(Self::SearchExecuted),
             "context_generated" => Ok(Self::ContextGenerated),
+            "refs_created" => Ok(Self::RefsCreated),
             _ => Err(crate::VelCoreError::Validation(format!("unknown run event type: {}", s))),
         }
     }

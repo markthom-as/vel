@@ -8,8 +8,9 @@ What is implemented, what is partial, and what is next.
 - **Artifacts API** — Create and fetch artifacts; storage layer with metadata.
 - **Run/event schema and inspection** — `runs`, `run_events`, `events` tables; `vel runs`, `vel run inspect <id>` (including linked artifacts); `GET /v1/runs`, `GET /v1/runs/:id`.
 - **Doctor diagnostics** — `vel doctor` and `GET /v1/doctor` with structured checks (DiagnosticCheck + DiagnosticStatus).
-- **Context endpoints (run-backed)** — `GET /v1/context/today`, `GET /v1/context/morning`, `GET /v1/context/end-of-day` create a run, compute from orientation snapshot, write a managed **context_brief** artifact (atomic write, checksum, size_bytes, metadata_json), link run → artifact and artifact → capture refs, and append run events.
-- **CLI** — `vel health`, `vel capture`, `vel search`, `vel today`, `vel morning`, `vel end-of-day`, `vel doctor`, `vel inspect capture <id>`, `vel runs`, `vel run inspect <id>`.
+- **Context endpoints (run-backed)** — `GET /v1/context/today`, `GET /v1/context/morning`, `GET /v1/context/end-of-day` create a run, compute from orientation snapshot, write a managed **context_brief** artifact (write temp → flush → fsync → rename; checksum, size_bytes, metadata_json with `generator`, `context_kind`, `snapshot_window`), link run → artifact and artifact → capture refs, append run events (`run_created`, `run_started`, `context_generated`, `artifact_written`, `refs_created`, `run_succeeded`), then transition to succeeded/failed.
+- **Run timing** — API and CLI expose `duration_ms` (derived from started_at/finished_at) on run list and run detail.
+- **CLI** — `vel health`, `vel capture`, `vel search`, `vel today`, `vel morning`, `vel end-of-day`, `vel doctor`, `vel inspect capture <id>`, `vel runs`, `vel run inspect <id>` (duration, artifact size e.g. 3.4KB, event indices).
 - **Crate boundaries** — Domain types (ContextCapture, SearchResult, OrientationSnapshot) live in `vel-core`; storage returns them; API layer maps to DTOs. `vel-storage` does not depend on `vel-api-types`.
 - **Run events uniqueness** — `(run_id, seq)` unique on `run_events`.
 - **Typed run payloads** — Run and RunEvent use `serde_json::Value` in domain/API; DB remains TEXT; (de)serialization at storage boundary.

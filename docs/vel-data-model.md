@@ -38,6 +38,18 @@ It is a practical, flexible model for building Vel without painting it into a co
 
 - **run_events** describe what happened during one run; **events** describe system-wide occurrences; **refs** describe what is related to what.
 
+### Lineage (provenance)
+
+```text
+Capture
+   ↓
+Run
+   ↓
+Artifact
+   ↓
+Refs (run → artifact; artifact → capture)
+```
+
 ---
 
 ## Design Principles

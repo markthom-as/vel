@@ -70,6 +70,7 @@ pub struct ArtifactRecord {
     pub privacy_class: String,
     pub sync_class: String,
     pub content_hash: Option<String>,
+    pub size_bytes: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -418,7 +419,7 @@ impl Storage {
         let row = sqlx::query(
             r#"
             SELECT artifact_id, artifact_type, title, mime_type, storage_uri, storage_kind,
-                   privacy_class, sync_class, content_hash, created_at, updated_at
+                   privacy_class, sync_class, content_hash, size_bytes, created_at, updated_at
             FROM artifacts
             WHERE artifact_id = ?
             "#,
@@ -446,6 +447,7 @@ impl Storage {
             privacy_class: row.try_get("privacy_class")?,
             sync_class: row.try_get("sync_class")?,
             content_hash: row.try_get("content_hash")?,
+            size_bytes: row.try_get("size_bytes")?,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
         }))

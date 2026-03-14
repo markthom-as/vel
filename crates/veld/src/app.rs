@@ -106,6 +106,8 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
+    /// Canonical runtime integration test: context generation flows through run → artifact → refs.
+    /// Verifies run creation, status transitions, event sequence, artifact creation, and provenance refs.
     #[tokio::test]
     async fn context_today_creates_run_artifact_and_ref() {
         let storage = Storage::connect(":memory:").await.unwrap();
@@ -134,7 +136,14 @@ mod tests {
         let event_types: Vec<String> = events.iter().map(|e| e.event_type.to_string()).collect();
         assert_eq!(
             event_types,
-            ["run_created", "run_started", "context_generated", "artifact_written", "run_succeeded"],
+            [
+                "run_created",
+                "run_started",
+                "context_generated",
+                "artifact_written",
+                "refs_created",
+                "run_succeeded",
+            ],
             "event sequence should match"
         );
 

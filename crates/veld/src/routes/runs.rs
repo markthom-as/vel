@@ -7,6 +7,13 @@ use vel_api_types::{ApiResponse, ArtifactSummaryData, RunDetailData, RunEventDat
 
 use crate::{errors::AppError, state::AppState};
 
+fn duration_ms(
+    started_at: Option<time::OffsetDateTime>,
+    finished_at: Option<time::OffsetDateTime>,
+) -> Option<i64> {
+    started_at.and_then(|s| finished_at.map(|f| (f - s).whole_milliseconds()))
+}
+
 pub async fn list_runs(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<Vec<RunSummaryData>>>, AppError> {
@@ -20,6 +27,7 @@ pub async fn list_runs(
             created_at: r.created_at,
             started_at: r.started_at,
             finished_at: r.finished_at,
+            duration_ms: duration_ms(r.started_at, r.finished_at),
         })
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
@@ -51,14 +59,13 @@ pub async fn get_run(
     for ref_ in refs_from_run {
         if ref_.to_type == "artifact" {
             if let Some(record) = state.storage.get_artifact_by_id(&ref_.to_id).await? {
-                let created_at = OffsetDateTime::from_unix_timestamp(record.created_at)
-                    .unwrap_or(OffsetDateTime::UNIX_EPOCH);
                 artifacts.push(ArtifactSummaryData {
                     artifact_id: record.artifact_id,
                     artifact_type: record.artifact_type,
                     title: record.title,
                     storage_uri: record.storage_uri,
                     storage_kind: record.storage_kind.to_string(),
+                    size_bytes: record.size_bytes,
                 });
             }
         }
@@ -76,6 +83,7 @@ pub async fn get_run(
             created_at: run.created_at,
             started_at: run.started_at,
             finished_at: run.finished_at,
+            duration_ms: duration_ms(run.started_at, run.finished_at),
             events: event_data,
             artifacts,
         },

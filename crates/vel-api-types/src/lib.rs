@@ -238,6 +238,8 @@ pub struct RunSummaryData {
     pub created_at: OffsetDateTime,
     pub started_at: Option<OffsetDateTime>,
     pub finished_at: Option<OffsetDateTime>,
+    /// Duration in milliseconds; present when run has started_at and finished_at.
+    pub duration_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -256,6 +258,7 @@ pub struct ArtifactSummaryData {
     pub title: Option<String>,
     pub storage_uri: String,
     pub storage_kind: String,
+    pub size_bytes: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -269,6 +272,8 @@ pub struct RunDetailData {
     pub created_at: OffsetDateTime,
     pub started_at: Option<OffsetDateTime>,
     pub finished_at: Option<OffsetDateTime>,
+    /// Duration in milliseconds; present when run has started_at and finished_at.
+    pub duration_ms: Option<i64>,
     pub events: Vec<RunEventData>,
     pub artifacts: Vec<ArtifactSummaryData>,
 }

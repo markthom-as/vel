@@ -4,11 +4,22 @@ This document describes the runtime spine and the contract between events, run e
 
 ## Contract: events vs run_events vs refs
 
-- **run_events** — Lifecycle of one run. Examples: `run_created`, `run_started`, `artifact_written`, `run_succeeded`. One row per step or transition within a single run. This is the **primary timeline** for runtime work; use it for run-backed flows.
-- **events** — System-wide audit stream for a small set of occurrences: e.g. `capture_created`, `daemon_started`, schema migration. Use sparingly; do not duplicate run_events here. Right now the main consumer is capture creation.
+- **run_events** — Lifecycle of one run. Examples: `run_created`, `run_started`, `context_generated`, `artifact_written`, `refs_created`, `run_succeeded`. One row per step or transition within a single run. This is the **primary timeline** for runtime work; use it for run-backed flows.
+- **events** — System-wide **audit log** for a small set of occurrences. See [Role of the global events table](#role-of-the-global-events-table) below.
 - **refs** — Stable relationships between durable objects. Examples: run → artifact, artifact → capture. Use refs to answer “what is related to what”; use run_events to answer “what happened during this run.”
 
 **Rule:** Events describe *what happened* (system-level). Refs describe *what is related to what*. Run events describe *what happened during one run*.
+
+### Role of the global events table
+
+The `events` table is the **system audit log**. It records a narrow set of system-level occurrences, not per-run detail. Use it for:
+
+- `capture_created` — when a capture is inserted
+- `daemon_started` — when the daemon starts (optional)
+- `config_updated` — when config changes (optional)
+- `schema_migrated` — when migrations complete (optional)
+
+Do **not** duplicate run_events here. Per-run timelines live in `run_events`. The primary runtime event system is `run_events`; `events` is supplementary for system-wide audit.
 
 ## Runs
 
@@ -23,7 +34,7 @@ A **run** is a first-class execution record. Every meaningful operation (context
 
 1. Create run (status `queued`), append `run_created` event.
 2. Transition to `running` (set `started_at`), append `run_started`.
-3. Do work; append milestone events (e.g. `context_generated`, `artifact_written`).
+3. Do work; append milestone events (e.g. `context_generated`, `artifact_written`, `refs_created`).
 4. Transition to terminal status (`succeeded` | `failed` | `cancelled`), set `finished_at`, append terminal event.
 
 ## Run events
@@ -33,7 +44,7 @@ Each run has an append-only **event log** (`run_events`):
 - `run_created` — run was created
 - `run_started` — run began executing
 - `run_succeeded` / `run_failed` / `run_cancelled` — terminal state
-- `artifact_written`, `search_executed`, `context_generated` — extension events
+- `context_generated`, `artifact_written`, `refs_created`, `search_executed` — extension events
 
 Events have a monotonic `seq` per run and a `payload_json` for details.
 
@@ -75,7 +86,7 @@ Inspection (run detail, artifact summaries, refs)
 
 Context requests (`today`, `morning`, `end_of_day`) are run-backed:
 
-- Each request creates a run (kind `context_generation`), transitions to `running`, loads the orientation snapshot, computes the result, writes a **managed** artifact (`artifact_type: context_brief`, atomic write: temp file then rename), persists **checksum** (sha256) and **size_bytes**, **metadata_json** (`generator`, `context_kind`), creates run → artifact ref and **artifact → capture** refs (DerivedFrom) for snapshot sources, appends run events, then transitions to `succeeded` (or `failed` with `error_json`).
+- Each request creates a run (kind `context_generation`), transitions to `running`, loads the orientation snapshot, computes the result, writes a **managed** artifact (`artifact_type: context_brief`) with **invariant**: write to temp file → flush → fsync → rename to final path (so crashes during write do not leave partial artifacts); persists **checksum** (sha256), **size_bytes**, **metadata_json** (`generator`, `context_kind`, `snapshot_window: "7d"`), creates run → artifact ref and **artifact → capture** refs (DerivedFrom) for snapshot sources, appends run events (including `refs_created`), then transitions to `succeeded` (or `failed` with `error_json`).
 - **Canonical path**: relative `context/<kind>/<date>/<run_id>.json` under artifact root.
 - Run detail and `vel run inspect <id>` include linked artifacts.
 
@@ -88,11 +99,12 @@ context request
   → context computed
   → artifact written (context_brief, managed; atomic write; context/<kind>/<date>/<run_id>.json)
   → refs linked (run → artifact; artifact → capture for each source)
+  → refs_created event
   → run succeeded
 ```
 
 ### Event sequence (success)
 
-`run_created` → `run_started` → `context_generated` → `artifact_written` → `run_succeeded`.
+`run_created` → `run_started` → `context_generated` → `artifact_written` → `refs_created` → `run_succeeded`.
 
 On failure: `run_created` → `run_started` → `run_failed`.
