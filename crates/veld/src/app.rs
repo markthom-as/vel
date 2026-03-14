@@ -1,17 +1,22 @@
 use axum::{routing::{get, post}, Router};
 use tower_http::trace::TraceLayer;
+use vel_config::AppConfig;
 use vel_storage::Storage;
 
 use crate::{routes, state::AppState};
 
-pub fn build_app(storage: Storage) -> Router {
-    let state = AppState::new(storage);
+pub fn build_app(storage: Storage, config: AppConfig) -> Router {
+    let state = AppState::new(storage, config);
 
     Router::new()
         .route("/v1/health", get(routes::health::health))
+        .route("/v1/doctor", get(routes::doctor::doctor))
         .route("/v1/captures", post(routes::captures::create_capture))
+        .route("/v1/captures/:id", get(routes::captures::get_capture))
         .route("/v1/artifacts", post(routes::artifacts::create_artifact))
         .route("/v1/artifacts/:id", get(routes::artifacts::get_artifact))
+        .route("/v1/runs", get(routes::runs::list_runs))
+        .route("/v1/runs/:id", get(routes::runs::get_run))
         .route("/v1/context/today", get(routes::context::today))
         .route("/v1/context/morning", get(routes::context::morning))
         .route("/v1/context/end-of-day", get(routes::context::end_of_day))
@@ -30,10 +35,24 @@ mod tests {
     async fn health_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage);
+        let app = build_app(storage, AppConfig::default());
 
         let response = app
             .oneshot(Request::builder().uri("/v1/health").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn doctor_endpoint_returns_ok_with_schema_version() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage, AppConfig::default());
+
+        let response = app
+            .oneshot(Request::builder().uri("/v1/doctor").body(Body::empty()).unwrap())
             .await
             .unwrap();
 
@@ -53,7 +72,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage);
+        let app = build_app(storage, AppConfig::default());
 
         let response = app
             .oneshot(
@@ -72,7 +91,7 @@ mod tests {
     async fn today_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage);
+        let app = build_app(storage, AppConfig::default());
 
         let response = app
             .oneshot(
@@ -91,7 +110,7 @@ mod tests {
     async fn end_of_day_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage);
+        let app = build_app(storage, AppConfig::default());
 
         let response = app
             .oneshot(
@@ -110,7 +129,7 @@ mod tests {
     async fn create_artifact_returns_ok_and_get_returns_it() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage);
+        let app = build_app(storage, AppConfig::default());
 
         let create_body = serde_json::json!({
             "artifact_type": "transcript",

@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
     let listener = TcpListener::bind(&config.bind_addr)
         .await
         .with_context(|| format!("binding {}", config.bind_addr))?;
-    let app = app::build_app(storage);
+    let app = app::build_app(storage, config);
 
     info!(bind_addr = %config.bind_addr, "veld starting");
     axum::serve(listener, app)

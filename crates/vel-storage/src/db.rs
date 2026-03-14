@@ -8,7 +8,11 @@ use std::{fs, path::Path};
 use std::str::FromStr;
 use time::OffsetDateTime;
 use vel_api_types::{ContextCapture, SearchResult};
-use vel_core::{ArtifactId, CaptureId, JobId, JobStatus, PrivacyClass, SyncClass};
+use uuid::Uuid;
+use vel_core::{
+    ArtifactId, CaptureId, JobId, JobStatus, PrivacyClass, Ref, RefRelationType, Run, RunEvent,
+    RunEventType, RunId, RunKind, RunStatus, SyncClass,
+};
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
 
@@ -81,6 +85,8 @@ pub enum StorageError {
     Filesystem(#[from] std::io::Error),
     #[error("invalid timestamp in storage: {0}")]
     InvalidTimestamp(String),
+    #[error("validation error: {0}")]
+    Validation(String),
 }
 
 impl Storage {
@@ -106,6 +112,41 @@ impl Storage {
 
     pub async fn healthcheck(&self) -> Result<(), StorageError> {
         sqlx::query("SELECT 1").execute(&self.pool).await?;
+        Ok(())
+    }
+
+    /// Returns the number of applied migrations (schema version). Used by doctor/diagnostics.
+    pub async fn schema_version(&self) -> Result<u32, StorageError> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM _sqlx_migrations")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0 as u32)
+    }
+
+    /// Appends a runtime event to the events table. Idempotent callers should generate event_id themselves if needed.
+    pub async fn emit_event(
+        &self,
+        event_type: &str,
+        subject_type: &str,
+        subject_id: Option<&str>,
+        payload_json: &str,
+    ) -> Result<(), StorageError> {
+        let event_id = format!("evt_{}", Uuid::new_v4().simple());
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            INSERT INTO events (event_id, event_type, subject_type, subject_id, payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&event_id)
+        .bind(event_type)
+        .bind(subject_type)
+        .bind(subject_id)
+        .bind(payload_json)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 
@@ -170,6 +211,27 @@ impl Storage {
             .fetch_one(&self.pool)
             .await?;
         Ok(count)
+    }
+
+    pub async fn get_capture_by_id(
+        &self,
+        capture_id: &str,
+    ) -> Result<Option<ContextCapture>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT capture_id, capture_type, content_text, occurred_at, source_device
+            FROM captures
+            WHERE capture_id = ?
+            "#,
+        )
+        .bind(capture_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        Ok(Some(map_context_capture_row(row)?))
     }
 
     pub async fn search_captures(
@@ -373,6 +435,209 @@ impl Storage {
         }))
     }
 
+    pub async fn create_run(
+        &self,
+        id: &RunId,
+        kind: RunKind,
+        input_json: &str,
+    ) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let event_id = format!("evt_{}", Uuid::new_v4().simple());
+        let mut tx = self.pool.begin().await?;
+        sqlx::query(
+            r#"
+            INSERT INTO runs (run_id, run_kind, status, created_at, input_json)
+            VALUES (?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(id.as_ref())
+        .bind(kind.to_string())
+        .bind(RunStatus::Queued.to_string())
+        .bind(now)
+        .bind(input_json)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            r#"
+            INSERT INTO run_events (event_id, run_id, seq, event_type, payload_json, created_at)
+            VALUES (?, ?, 1, ?, ?, ?)
+            "#,
+        )
+        .bind(&event_id)
+        .bind(id.as_ref())
+        .bind(RunEventType::RunCreated.to_string())
+        .bind(format!(r#"{{"kind":"{}"}}"#, kind))
+        .bind(now)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    pub async fn get_run_by_id(&self, run_id: &str) -> Result<Option<Run>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT run_id, run_kind, status, input_json, output_json, error_json,
+                   created_at, started_at, finished_at
+            FROM runs WHERE run_id = ?
+            "#,
+        )
+        .bind(run_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some(row) = row else {
+            return Ok(None);
+        };
+        let kind: String = row.try_get("run_kind")?;
+        let status: String = row.try_get("status")?;
+        Ok(Some(Run {
+            id: RunId::from(row.try_get::<String, _>("run_id")?),
+            kind: kind.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+            status: status.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+            input_json: row.try_get("input_json")?,
+            output_json: row.try_get("output_json")?,
+            error_json: row.try_get("error_json")?,
+            created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
+            started_at: row.try_get::<Option<i64>, _>("started_at")?.map(timestamp_to_datetime).transpose()?,
+            finished_at: row.try_get::<Option<i64>, _>("finished_at")?.map(timestamp_to_datetime).transpose()?,
+        }))
+    }
+
+    pub async fn list_runs(&self, limit: u32) -> Result<Vec<Run>, StorageError> {
+        let limit = limit.clamp(1, 100) as i64;
+        let rows = sqlx::query(
+            r#"
+            SELECT run_id, run_kind, status, input_json, output_json, error_json,
+                   created_at, started_at, finished_at
+            FROM runs ORDER BY created_at DESC LIMIT ?
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(|row| map_run_row(&row)).collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn update_run_status(
+        &self,
+        run_id: &str,
+        status: RunStatus,
+        started_at: Option<i64>,
+        finished_at: Option<i64>,
+        output_json: Option<&str>,
+        error_json: Option<&str>,
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            r#"
+            UPDATE runs SET status = ?,
+                started_at = COALESCE(?, started_at),
+                finished_at = COALESCE(?, finished_at),
+                output_json = ?, error_json = ?
+            WHERE run_id = ?
+            "#,
+        )
+        .bind(status.to_string())
+        .bind(started_at)
+        .bind(finished_at)
+        .bind(output_json)
+        .bind(error_json)
+        .bind(run_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn append_run_event(
+        &self,
+        run_id: &str,
+        seq: u32,
+        event_type: RunEventType,
+        payload_json: &str,
+    ) -> Result<(), StorageError> {
+        let event_id = format!("evt_{}", Uuid::new_v4().simple());
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            INSERT INTO run_events (event_id, run_id, seq, event_type, payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&event_id)
+        .bind(run_id)
+        .bind(seq as i64)
+        .bind(event_type.to_string())
+        .bind(payload_json)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_run_events(&self, run_id: &str) -> Result<Vec<RunEvent>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT event_id, run_id, seq, event_type, payload_json, created_at
+            FROM run_events WHERE run_id = ? ORDER BY seq ASC
+            "#,
+        )
+        .bind(run_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(map_run_event_row).collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn create_ref(&self, ref_: &Ref) -> Result<(), StorageError> {
+        let now = ref_.created_at.unix_timestamp();
+        sqlx::query(
+            r#"
+            INSERT INTO refs (ref_id, from_type, from_id, to_type, to_id, relation_type, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&ref_.id)
+        .bind(&ref_.from_type)
+        .bind(&ref_.from_id)
+        .bind(&ref_.to_type)
+        .bind(&ref_.to_id)
+        .bind(ref_.relation_type.to_string())
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_refs_from(
+        &self,
+        from_type: &str,
+        from_id: &str,
+    ) -> Result<Vec<Ref>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT ref_id, from_type, from_id, to_type, to_id, relation_type, created_at
+            FROM refs WHERE from_type = ? AND from_id = ? ORDER BY created_at ASC
+            "#,
+        )
+        .bind(from_type)
+        .bind(from_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(map_ref_row).collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn list_refs_to(&self, to_type: &str, to_id: &str) -> Result<Vec<Ref>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT ref_id, from_type, from_id, to_type, to_id, relation_type, created_at
+            FROM refs WHERE to_type = ? AND to_id = ? ORDER BY created_at ASC
+            "#,
+        )
+        .bind(to_type)
+        .bind(to_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(map_ref_row).collect::<Result<Vec<_>, _>>()
+    }
+
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
         let now = OffsetDateTime::now_utc();
         let start_of_day = now
@@ -443,6 +708,47 @@ fn map_context_capture_row(row: sqlx::sqlite::SqliteRow) -> Result<ContextCaptur
         content_text: row.try_get("content_text")?,
         occurred_at: timestamp_to_datetime(row.try_get("occurred_at")?)?,
         source_device: row.try_get("source_device")?,
+    })
+}
+
+fn map_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<Run, StorageError> {
+    let kind: String = row.try_get("run_kind")?;
+    let status: String = row.try_get("status")?;
+    Ok(Run {
+        id: RunId::from(row.try_get::<String, _>("run_id")?),
+        kind: kind.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        status: status.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        input_json: row.try_get("input_json")?,
+        output_json: row.try_get("output_json")?,
+        error_json: row.try_get("error_json")?,
+        created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
+        started_at: row.try_get::<Option<i64>, _>("started_at")?.map(timestamp_to_datetime).transpose()?,
+        finished_at: row.try_get::<Option<i64>, _>("finished_at")?.map(timestamp_to_datetime).transpose()?,
+    })
+}
+
+fn map_run_event_row(row: sqlx::sqlite::SqliteRow) -> Result<RunEvent, StorageError> {
+    let event_type: String = row.try_get("event_type")?;
+    Ok(RunEvent {
+        id: row.try_get("event_id")?,
+        run_id: RunId::from(row.try_get::<String, _>("run_id")?),
+        seq: row.try_get::<i64, _>("seq")? as u32,
+        event_type: event_type.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        payload_json: row.try_get("payload_json")?,
+        created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
+    })
+}
+
+fn map_ref_row(row: sqlx::sqlite::SqliteRow) -> Result<Ref, StorageError> {
+    let relation_type: String = row.try_get("relation_type")?;
+    Ok(Ref {
+        id: row.try_get("ref_id")?,
+        from_type: row.try_get("from_type")?,
+        from_id: row.try_get("from_id")?,
+        to_type: row.try_get("to_type")?,
+        to_id: row.try_get("to_id")?,
+        relation_type: relation_type.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
     })
 }
 
@@ -594,5 +900,37 @@ mod tests {
 
         let missing = storage.get_artifact_by_id("art_nonexistent").await.unwrap();
         assert!(missing.is_none());
+    }
+
+    #[tokio::test]
+    async fn create_run_list_runs_get_run_and_events() {
+        use vel_core::{RefRelationType, RunKind};
+
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(&run_id, RunKind::ContextGeneration, r#"{"context_kind":"today"}"#)
+            .await
+            .unwrap();
+
+        let runs = storage.list_runs(10).await.unwrap();
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].id.to_string(), run_id.to_string());
+        assert_eq!(runs[0].status, vel_core::RunStatus::Queued);
+
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.kind, RunKind::ContextGeneration);
+
+        let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type.to_string(), "run_created");
+
+        let ref_ = Ref::new("run", run_id.as_ref(), "artifact", "art_1", RefRelationType::AttachedTo);
+        storage.create_ref(&ref_).await.unwrap();
+        let from_refs = storage.list_refs_from("run", run_id.as_ref()).await.unwrap();
+        assert_eq!(from_refs.len(), 1);
+        assert_eq!(from_refs[0].to_id, "art_1");
     }
 }

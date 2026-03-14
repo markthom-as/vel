@@ -1,7 +1,10 @@
 pub mod capture;
 pub mod config;
+pub mod doctor;
 pub mod end_of_day;
 pub mod health;
+pub mod inspect;
 pub mod morning;
+pub mod runs;
 pub mod search;
 pub mod today;

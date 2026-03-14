@@ -1,3 +1,9 @@
+pub mod provenance;
+pub mod run;
+
+pub use provenance::{Ref, RefRelationType};
+pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
+
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use time::OffsetDateTime;
@@ -194,4 +200,6 @@ pub struct CaptureRecord {
 pub enum VelCoreError {
     #[error("validation error: {0}")]
     Validation(String),
+    #[error("invalid run transition: {0}")]
+    InvalidTransition(String),
 }

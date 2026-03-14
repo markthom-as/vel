@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use vel_core::{ArtifactId, CaptureId, PrivacyClass, SyncClass};
+use vel_core::{ArtifactId, CaptureId, PrivacyClass, RunId, SyncClass};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiMeta {
@@ -62,6 +62,16 @@ impl<T> ApiResponse<T> {
 pub struct HealthData {
     pub status: String,
     pub db: String,
+    pub version: String,
+}
+
+/// Results of diagnostic checks for `vel doctor`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DoctorData {
+    pub daemon: String,
+    pub db: String,
+    pub schema_version: u32,
+    pub artifact_dir: String,
     pub version: String,
 }
 
@@ -171,4 +181,38 @@ pub struct ArtifactData {
     pub content_hash: Option<String>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
+}
+
+// --- Runs (spec Section 15) ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunSummaryData {
+    pub id: RunId,
+    pub kind: String,
+    pub status: String,
+    pub created_at: OffsetDateTime,
+    pub started_at: Option<OffsetDateTime>,
+    pub finished_at: Option<OffsetDateTime>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunEventData {
+    pub seq: u32,
+    pub event_type: String,
+    pub payload: String,
+    pub created_at: OffsetDateTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunDetailData {
+    pub id: RunId,
+    pub kind: String,
+    pub status: String,
+    pub input: String,
+    pub output: Option<String>,
+    pub error: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub started_at: Option<OffsetDateTime>,
+    pub finished_at: Option<OffsetDateTime>,
+    pub events: Vec<RunEventData>,
 }

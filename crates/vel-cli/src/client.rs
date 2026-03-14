@@ -2,8 +2,8 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use vel_api_types::{
-    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, EndOfDayData, HealthData, MorningData,
-    SearchQuery, SearchResults, TodayData,
+    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, DoctorData, EndOfDayData, HealthData,
+    MorningData, SearchQuery, SearchResults, TodayData,
 };
 
 #[derive(Clone)]
@@ -22,6 +22,22 @@ impl ApiClient {
 
     pub async fn health(&self) -> anyhow::Result<ApiResponse<HealthData>> {
         self.get("/v1/health").await
+    }
+
+    pub async fn doctor(&self) -> anyhow::Result<ApiResponse<DoctorData>> {
+        self.get("/v1/doctor").await
+    }
+
+    pub async fn get_capture(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::ContextCapture>> {
+        self.get(&format!("/v1/captures/{}", id)).await
+    }
+
+    pub async fn list_runs(&self) -> anyhow::Result<ApiResponse<Vec<vel_api_types::RunSummaryData>>> {
+        self.get("/v1/runs").await
+    }
+
+    pub async fn get_run(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::RunDetailData>> {
+        self.get(&format!("/v1/runs/{}", id)).await
     }
 
     pub async fn capture(&self, text: String) -> anyhow::Result<ApiResponse<CaptureCreateResponse>> {

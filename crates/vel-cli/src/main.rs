@@ -16,6 +16,10 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    Doctor {
+        #[arg(long)]
+        json: bool,
+    },
     Health {
         #[arg(long)]
         json: bool,
@@ -50,6 +54,32 @@ enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
+    Inspect {
+        #[command(subcommand)]
+        command: InspectCommand,
+    },
+    Run {
+        #[command(subcommand)]
+        command: RunCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum InspectCommand {
+    Capture { id: String },
+}
+
+#[derive(Debug, Subcommand)]
+enum RunCommand {
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    Inspect {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -68,6 +98,7 @@ async fn main() -> anyhow::Result<()> {
     let client = client::ApiClient::new(base_url);
 
     match cli.command {
+        Command::Doctor { json } => commands::doctor::run(&client, json).await,
         Command::Health { json } => commands::health::run(&client, json).await,
         Command::Capture { text } => commands::capture::run(&client, text).await,
         Command::Today { json } => commands::today::run(&client, json).await,
@@ -82,6 +113,13 @@ async fn main() -> anyhow::Result<()> {
         } => commands::search::run(&client, query, capture_type, source_device, limit, json).await,
         Command::Config { command } => match command {
             ConfigCommand::Show { json } => commands::config::run(&config, json),
+        },
+        Command::Inspect { command } => match command {
+            InspectCommand::Capture { id } => commands::inspect::run_capture(&client, &id).await,
+        },
+        Command::Run { command } => match command {
+            RunCommand::List { json } => commands::runs::run_list(&client, json).await,
+            RunCommand::Inspect { id, json } => commands::runs::run_inspect(&client, &id, json).await,
         },
     }
 }
