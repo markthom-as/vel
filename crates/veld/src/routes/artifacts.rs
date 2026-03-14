@@ -1,7 +1,8 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
+use serde::Deserialize;
 use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_api_types::{
@@ -10,6 +11,11 @@ use vel_api_types::{
 use vel_storage::ArtifactInsert;
 
 use crate::{errors::AppError, state::AppState};
+
+#[derive(Debug, Deserialize)]
+pub struct LatestArtifactQuery {
+    pub r#type: String,
+}
 
 pub async fn create_artifact(
     State(state): State<AppState>,
@@ -45,6 +51,34 @@ pub async fn create_artifact(
     )))
 }
 
+pub async fn get_artifact_latest(
+    State(state): State<AppState>,
+    Query(q): Query<LatestArtifactQuery>,
+) -> Result<Json<ApiResponse<Option<ArtifactData>>>, AppError> {
+    let record = state
+        .storage
+        .get_latest_artifact_by_type(q.r#type.trim())
+        .await?;
+    let data = record.map(|r| ArtifactData {
+        artifact_id: r.artifact_id,
+        artifact_type: r.artifact_type,
+        title: r.title,
+        mime_type: r.mime_type,
+        storage_uri: r.storage_uri,
+        storage_kind: r.storage_kind.to_string(),
+        privacy_class: r.privacy_class,
+        sync_class: r.sync_class,
+        content_hash: r.content_hash,
+        size_bytes: r.size_bytes,
+        created_at: OffsetDateTime::from_unix_timestamp(r.created_at)
+            .map_err(|e| AppError::internal(e.to_string()))?,
+        updated_at: OffsetDateTime::from_unix_timestamp(r.updated_at)
+            .map_err(|e| AppError::internal(e.to_string()))?,
+    });
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
 pub async fn get_artifact(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -67,6 +101,7 @@ pub async fn get_artifact(
             privacy_class: record.privacy_class,
             sync_class: record.sync_class,
             content_hash: record.content_hash,
+            size_bytes: record.size_bytes,
             created_at: OffsetDateTime::from_unix_timestamp(record.created_at)
                 .map_err(|e| AppError::internal(e.to_string()))?,
             updated_at: OffsetDateTime::from_unix_timestamp(record.updated_at)

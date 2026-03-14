@@ -242,6 +242,52 @@ impl Storage {
         Ok(Some(map_context_capture_row(row)?))
     }
 
+    /// List captures most recent first. If today_only, restrict to since start of current day (UTC).
+    pub async fn list_captures_recent(
+        &self,
+        limit: u32,
+        today_only: bool,
+    ) -> Result<Vec<ContextCapture>, StorageError> {
+        let limit = limit.min(500) as i64;
+        let rows = if today_only {
+            let now = OffsetDateTime::now_utc();
+            let start_of_day = now
+                .date()
+                .with_hms(0, 0, 0)
+                .map_err(|e| StorageError::InvalidTimestamp(e.to_string()))?
+                .assume_utc()
+                .unix_timestamp();
+            sqlx::query(
+                r#"
+                SELECT capture_id, capture_type, content_text, occurred_at, source_device
+                FROM captures
+                WHERE created_at >= ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                "#,
+            )
+            .bind(start_of_day)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT capture_id, capture_type, content_text, occurred_at, source_device
+                FROM captures
+                ORDER BY created_at DESC
+                LIMIT ?
+                "#,
+            )
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await?
+        };
+        rows.into_iter()
+            .map(|row| map_context_capture_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
     pub async fn search_captures(
         &self,
         query: &str,
@@ -433,6 +479,50 @@ impl Storage {
             "#,
         )
         .bind(artifact_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let storage_kind_str: String = row.try_get("storage_kind")?;
+        let storage_kind = storage_kind_str
+            .parse()
+            .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?;
+
+        Ok(Some(ArtifactRecord {
+            artifact_id: ArtifactId::from(row.try_get::<String, _>("artifact_id")?),
+            artifact_type: row.try_get("artifact_type")?,
+            title: row.try_get("title")?,
+            mime_type: row.try_get("mime_type")?,
+            storage_uri: row.try_get("storage_uri")?,
+            storage_kind,
+            privacy_class: row.try_get("privacy_class")?,
+            sync_class: row.try_get("sync_class")?,
+            content_hash: row.try_get("content_hash")?,
+            size_bytes: row.try_get("size_bytes")?,
+            created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
+        }))
+    }
+
+    /// Returns the most recently created artifact of the given type, if any.
+    pub async fn get_latest_artifact_by_type(
+        &self,
+        artifact_type: &str,
+    ) -> Result<Option<ArtifactRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT artifact_id, artifact_type, title, mime_type, storage_uri, storage_kind,
+                   privacy_class, sync_class, content_hash, size_bytes, created_at, updated_at
+            FROM artifacts
+            WHERE artifact_type = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(artifact_type)
         .fetch_optional(&self.pool)
         .await?;
 

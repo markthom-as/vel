@@ -1,6 +1,13 @@
+pub mod artifact;
+pub mod backup;
 pub mod capture;
 pub mod config;
 pub mod doctor;
+pub mod export_;
+pub mod import_;
+pub mod recent;
+pub mod review;
+pub mod synthesize;
 pub mod end_of_day;
 pub mod health;
 pub mod inspect;

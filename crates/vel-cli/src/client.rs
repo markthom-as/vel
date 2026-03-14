@@ -32,6 +32,15 @@ impl ApiClient {
         self.get(&format!("/v1/captures/{}", id)).await
     }
 
+    pub async fn list_captures_recent(
+        &self,
+        limit: u32,
+        today: bool,
+    ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::ContextCapture>>> {
+        let path = format!("/v1/captures?limit={}&today={}", limit, today);
+        self.get(&path).await
+    }
+
     pub async fn list_runs(&self) -> anyhow::Result<ApiResponse<Vec<vel_api_types::RunSummaryData>>> {
         self.get("/v1/runs").await
     }
@@ -40,15 +49,23 @@ impl ApiClient {
         self.get(&format!("/v1/runs/{}", id)).await
     }
 
-    pub async fn capture(&self, text: String) -> anyhow::Result<ApiResponse<CaptureCreateResponse>> {
+    pub async fn get_artifact(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::ArtifactData>> {
+        self.get(&format!("/v1/artifacts/{}", id)).await
+    }
+
+    pub async fn get_artifact_latest(
+        &self,
+        artifact_type: &str,
+    ) -> anyhow::Result<ApiResponse<Option<vel_api_types::ArtifactData>>> {
+        let path = format!("/v1/artifacts/latest?type={}", artifact_type);
+        self.get(&path).await
+    }
+
+    pub async fn capture(&self, request: CaptureCreateRequest) -> anyhow::Result<ApiResponse<CaptureCreateResponse>> {
         let response = self
             .http
             .post(format!("{}{}", self.base_url, "/v1/captures"))
-            .json(&CaptureCreateRequest {
-                content_text: text,
-                capture_type: "quick_note".to_string(),
-                source_device: Some("vel-cli".to_string()),
-            })
+            .json(&request)
             .send()
             .await
             .context("sending capture request")?;

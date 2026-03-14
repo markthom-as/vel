@@ -1,7 +1,8 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
+use serde::Deserialize;
 use time::OffsetDateTime;
 use tracing::warn;
 use uuid::Uuid;
@@ -10,6 +11,32 @@ use vel_core::PrivacyClass;
 use vel_storage::CaptureInsert;
 
 use crate::{errors::AppError, state::AppState};
+
+#[derive(Debug, Deserialize)]
+pub struct RecentCapturesQuery {
+    #[serde(default = "default_recent_limit")]
+    pub limit: u32,
+    #[serde(default)]
+    pub today: bool,
+}
+
+fn default_recent_limit() -> u32 {
+    20
+}
+
+pub async fn list_captures(
+    State(state): State<AppState>,
+    Query(q): Query<RecentCapturesQuery>,
+) -> Result<Json<ApiResponse<Vec<ContextCapture>>>, AppError> {
+    let captures = state
+        .storage
+        .list_captures_recent(q.limit, q.today)
+        .await?;
+    let data: Vec<vel_api_types::ContextCapture> =
+        captures.into_iter().map(vel_api_types::ContextCapture::from).collect();
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
 
 pub async fn get_capture(
     State(state): State<AppState>,

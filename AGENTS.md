@@ -6,6 +6,8 @@ This document defines how AI coding agents (such as Codex) should interact with 
 
 Vel is a **local-first cognition runtime** for capture, recall, and daily orientation.
 
+**Product principle:** Vel should optimize for **repeated personal use before broad generality** — better daily loops before fancy automation, better capture/review ergonomics before agent complexity, better trust/export before speculative integrations.
+
 ## Repository boundary rules
 
 - **vel-core** owns domain semantics and domain types (e.g. ContextCapture, SearchResult, Run, Ref).

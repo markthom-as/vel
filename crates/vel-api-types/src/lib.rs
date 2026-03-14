@@ -224,6 +224,7 @@ pub struct ArtifactData {
     pub privacy_class: String,
     pub sync_class: String,
     pub content_hash: Option<String>,
+    pub size_bytes: Option<i64>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }

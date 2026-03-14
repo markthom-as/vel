@@ -31,6 +31,17 @@ What is implemented, what is partial, and what is next.
 
 - Run lifecycle: transition logic for RetryScheduled/Blocked once additional run-backed workflows exist.
 
+## Next to make Vel usable daily (dogfooding roadmap)
+
+- **Recent/review flows** — `vel recent`, `vel review today`, `vel review week`, `vel artifact latest` (implemented).
+- **Capture ergonomics** — `vel capture` with `--type`, `--source`, `--stdin` / `-` (implemented).
+- **Inspection** — `vel inspect artifact <id>` (implemented).
+- **Synthesis** — `vel synthesize week`, `vel synthesize project vel` (run-backed; planned).
+- **Import** — `vel import file`, `vel import lines`, `vel capture-url` (planned).
+- **Trust** — `vel export`, `vel backup` (planned).
+
+See [docs/using-vel-daily.md](using-vel-daily.md) for a simple daily workflow.
+
 ## Intentionally deferred
 
 - Distributed sync, mobile clients, execution automation, synthesis jobs, agent flows.
