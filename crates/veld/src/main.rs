@@ -2,6 +2,7 @@ mod app;
 mod errors;
 mod routes;
 mod state;
+mod worker;
 
 use anyhow::Context;
 use tokio::net::TcpListener;
@@ -16,6 +17,9 @@ async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load().context("loading config")?;
     let storage = Storage::connect(&config.db_path).await.context("connecting db")?;
     storage.migrate().await.context("running migrations")?;
+
+    let storage_for_worker = storage.clone();
+    tokio::spawn(worker::run_ingestion_worker(storage_for_worker));
 
     let listener = TcpListener::bind(&config.bind_addr)
         .await

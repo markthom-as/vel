@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use vel_core::CaptureId;
+use vel_core::{ArtifactId, CaptureId, PrivacyClass, SyncClass};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiMeta {
@@ -130,4 +130,45 @@ pub struct MorningData {
     pub pending_commitments: Vec<String>,
     pub suggested_focus: Option<String>,
     pub key_reminders: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EndOfDayData {
+    pub date: String,
+    pub what_was_done: Vec<ContextCapture>,
+    pub what_remains_open: Vec<String>,
+    pub what_may_matter_tomorrow: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtifactCreateRequest {
+    pub artifact_type: String,
+    pub title: Option<String>,
+    pub mime_type: Option<String>,
+    pub storage_uri: String,
+    #[serde(default)]
+    pub privacy_class: PrivacyClass,
+    #[serde(default)]
+    pub sync_class: SyncClass,
+    pub content_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtifactCreateResponse {
+    pub artifact_id: ArtifactId,
+    pub created_at: OffsetDateTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtifactData {
+    pub artifact_id: ArtifactId,
+    pub artifact_type: String,
+    pub title: Option<String>,
+    pub mime_type: Option<String>,
+    pub storage_uri: String,
+    pub privacy_class: String,
+    pub sync_class: String,
+    pub content_hash: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
 }

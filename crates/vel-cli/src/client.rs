@@ -2,8 +2,8 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use vel_api_types::{
-    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, HealthData, MorningData, SearchQuery,
-    SearchResults, TodayData,
+    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, EndOfDayData, HealthData, MorningData,
+    SearchQuery, SearchResults, TodayData,
 };
 
 #[derive(Clone)]
@@ -58,6 +58,10 @@ impl ApiClient {
 
     pub async fn morning(&self) -> anyhow::Result<ApiResponse<MorningData>> {
         self.get("/v1/context/morning").await
+    }
+
+    pub async fn end_of_day(&self) -> anyhow::Result<ApiResponse<EndOfDayData>> {
+        self.get("/v1/context/end-of-day").await
     }
 
     async fn get<T: DeserializeOwned>(&self, path: &str) -> anyhow::Result<ApiResponse<T>> {

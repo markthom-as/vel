@@ -139,6 +139,45 @@ impl Display for JobId {
     }
 }
 
+impl From<String> for JobId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ArtifactId(String);
+
+impl ArtifactId {
+    pub fn new() -> Self {
+        Self(format!("art_{}", Uuid::new_v4().simple()))
+    }
+}
+
+impl Default for ArtifactId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Display for ArtifactId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl From<String> for ArtifactId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl AsRef<str> for ArtifactId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaptureRecord {
     pub capture_id: CaptureId,

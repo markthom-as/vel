@@ -1,3 +1,6 @@
 mod db;
 
-pub use db::{CaptureInsert, OrientationSnapshot, SearchFilters, Storage, StorageError};
+pub use db::{
+    ArtifactInsert, ArtifactRecord, CaptureInsert, OrientationSnapshot, PendingJob, SearchFilters,
+    Storage, StorageError,
+};

@@ -1,9 +1,14 @@
 use serde_json::json;
-use sqlx::{migrate::Migrator, sqlite::SqlitePoolOptions, QueryBuilder, Row, Sqlite, SqlitePool};
+use sqlx::{
+    migrate::Migrator,
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    QueryBuilder, Row, Sqlite, SqlitePool,
+};
 use std::{fs, path::Path};
+use std::str::FromStr;
 use time::OffsetDateTime;
 use vel_api_types::{ContextCapture, SearchResult};
-use vel_core::{CaptureId, JobId, JobStatus, PrivacyClass};
+use vel_core::{ArtifactId, CaptureId, JobId, JobStatus, PrivacyClass, SyncClass};
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
 
@@ -33,6 +38,39 @@ pub struct OrientationSnapshot {
     pub recent_week: Vec<ContextCapture>,
 }
 
+/// A job claimed for processing. Caller must eventually call `mark_job_succeeded` or `mark_job_failed`.
+#[derive(Debug, Clone)]
+pub struct PendingJob {
+    pub job_id: JobId,
+    pub job_type: String,
+    pub payload_json: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArtifactInsert {
+    pub artifact_type: String,
+    pub title: Option<String>,
+    pub mime_type: Option<String>,
+    pub storage_uri: String,
+    pub privacy_class: PrivacyClass,
+    pub sync_class: SyncClass,
+    pub content_hash: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArtifactRecord {
+    pub artifact_id: ArtifactId,
+    pub artifact_type: String,
+    pub title: Option<String>,
+    pub mime_type: Option<String>,
+    pub storage_uri: String,
+    pub privacy_class: String,
+    pub sync_class: String,
+    pub content_hash: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
     #[error("database error: {0}")]
@@ -55,7 +93,7 @@ impl Storage {
 
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
-            .connect(&sqlite_url(db_path))
+            .connect_with(sqlite_connect_options(db_path)?)
             .await?;
 
         Ok(Self { pool })
@@ -174,6 +212,167 @@ impl Storage {
         rows.into_iter().map(map_search_row).collect()
     }
 
+    /// Claims the next pending job of the given type. Returns `None` if no pending job exists.
+    /// The job is marked `running` and `started_at` is set. Caller must call `mark_job_succeeded` or `mark_job_failed`.
+    pub async fn claim_next_pending_job(
+        &self,
+        job_type: &str,
+    ) -> Result<Option<PendingJob>, StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let row = sqlx::query(
+            r#"
+            SELECT job_id, payload_json
+            FROM processing_jobs
+            WHERE job_type = ? AND status = ?
+            ORDER BY created_at ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(job_type)
+        .bind(JobStatus::Pending.to_string())
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let job_id: String = row.try_get("job_id")?;
+        let payload_json: String = row.try_get("payload_json")?;
+
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let updated = sqlx::query(
+            r#"
+            UPDATE processing_jobs
+            SET status = ?, started_at = ?
+            WHERE job_id = ? AND status = ?
+            "#,
+        )
+        .bind(JobStatus::Running.to_string())
+        .bind(now)
+        .bind(&job_id)
+        .bind(JobStatus::Pending.to_string())
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        if updated.rows_affected() == 0 {
+            return Ok(None);
+        }
+
+        Ok(Some(PendingJob {
+            job_id: JobId::from(job_id),
+            job_type: job_type.to_string(),
+            payload_json,
+        }))
+    }
+
+    pub async fn mark_job_succeeded(&self, job_id: &str) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            UPDATE processing_jobs
+            SET status = ?, finished_at = ?, error_text = NULL
+            WHERE job_id = ?
+            "#,
+        )
+        .bind(JobStatus::Succeeded.to_string())
+        .bind(now)
+        .bind(job_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn mark_job_failed(&self, job_id: &str, error: &str) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            UPDATE processing_jobs
+            SET status = ?, finished_at = ?, error_text = ?
+            WHERE job_id = ?
+            "#,
+        )
+        .bind(JobStatus::Failed.to_string())
+        .bind(now)
+        .bind(error)
+        .bind(job_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn create_artifact(&self, input: ArtifactInsert) -> Result<ArtifactId, StorageError> {
+        let artifact_id = ArtifactId::new();
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            INSERT INTO artifacts (
+                artifact_id,
+                artifact_type,
+                title,
+                mime_type,
+                storage_uri,
+                privacy_class,
+                sync_class,
+                content_hash,
+                created_at,
+                updated_at,
+                metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(artifact_id.to_string())
+        .bind(&input.artifact_type)
+        .bind(&input.title)
+        .bind(&input.mime_type)
+        .bind(&input.storage_uri)
+        .bind(input.privacy_class.to_string())
+        .bind(input.sync_class.to_string())
+        .bind(&input.content_hash)
+        .bind(now)
+        .bind(now)
+        .bind("{}")
+        .execute(&self.pool)
+        .await?;
+        Ok(artifact_id)
+    }
+
+    pub async fn get_artifact_by_id(
+        &self,
+        artifact_id: &str,
+    ) -> Result<Option<ArtifactRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT artifact_id, artifact_type, title, mime_type, storage_uri,
+                   privacy_class, sync_class, content_hash, created_at, updated_at
+            FROM artifacts
+            WHERE artifact_id = ?
+            "#,
+        )
+        .bind(artifact_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        Ok(Some(ArtifactRecord {
+            artifact_id: ArtifactId::from(row.try_get::<String, _>("artifact_id")?),
+            artifact_type: row.try_get("artifact_type")?,
+            title: row.try_get("title")?,
+            mime_type: row.try_get("mime_type")?,
+            storage_uri: row.try_get("storage_uri")?,
+            privacy_class: row.try_get("privacy_class")?,
+            sync_class: row.try_get("sync_class")?,
+            content_hash: row.try_get("content_hash")?,
+            created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
+        }))
+    }
+
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
         let now = OffsetDateTime::now_utc();
         let start_of_day = now
@@ -252,14 +451,18 @@ fn timestamp_to_datetime(timestamp: i64) -> Result<OffsetDateTime, StorageError>
         .map_err(|error| StorageError::InvalidTimestamp(error.to_string()))
 }
 
-fn sqlite_url(db_path: &str) -> String {
-    if db_path == ":memory:" {
+fn sqlite_connect_options(db_path: &str) -> Result<SqliteConnectOptions, StorageError> {
+    let url = if db_path == ":memory:" {
         "sqlite::memory:".to_string()
     } else if db_path.starts_with("sqlite:") {
         db_path.to_string()
     } else {
         format!("sqlite://{db_path}")
-    }
+    };
+
+    let options = SqliteConnectOptions::from_str(&url)?.create_if_missing(true);
+
+    Ok(options)
 }
 
 #[cfg(test)]
@@ -333,5 +536,63 @@ mod tests {
         assert!(results.iter().all(|result| result.source_device.as_deref() == Some("phone")));
         assert!(results[0].snippet.to_lowercase().contains("lidar"));
         assert!(results[1].snippet.to_lowercase().contains("lidar"));
+    }
+
+    #[tokio::test]
+    async fn claim_and_complete_capture_ingest_job() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let _capture_id = storage
+            .insert_capture(CaptureInsert {
+                content_text: "test note".to_string(),
+                capture_type: "quick_note".to_string(),
+                source_device: None,
+                privacy_class: PrivacyClass::Private,
+            })
+            .await
+            .unwrap();
+
+        let job = storage.claim_next_pending_job("capture_ingest").await.unwrap();
+        let job = job.expect("one pending job");
+        assert_eq!(job.job_type, "capture_ingest");
+        assert!(job.payload_json.contains("capture_id"));
+
+        storage.mark_job_succeeded(&job.job_id.to_string()).await.unwrap();
+
+        let again = storage.claim_next_pending_job("capture_ingest").await.unwrap();
+        assert!(again.is_none());
+    }
+
+    #[tokio::test]
+    async fn create_and_get_artifact() {
+        use vel_core::SyncClass;
+
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let id = storage
+            .create_artifact(ArtifactInsert {
+                artifact_type: "transcript".to_string(),
+                title: Some("Meeting notes".to_string()),
+                mime_type: Some("text/plain".to_string()),
+                storage_uri: "file:///var/artifacts/transcripts/abc.txt".to_string(),
+                privacy_class: PrivacyClass::Private,
+                sync_class: SyncClass::Warm,
+                content_hash: Some("sha256:abc".to_string()),
+            })
+            .await
+            .unwrap();
+
+        let record = storage.get_artifact_by_id(&id.to_string()).await.unwrap();
+        let record = record.expect("artifact should exist");
+        assert_eq!(record.artifact_id.to_string(), id.to_string());
+        assert_eq!(record.artifact_type, "transcript");
+        assert_eq!(record.title.as_deref(), Some("Meeting notes"));
+        assert_eq!(record.storage_uri, "file:///var/artifacts/transcripts/abc.txt");
+        assert_eq!(record.content_hash.as_deref(), Some("sha256:abc"));
+
+        let missing = storage.get_artifact_by_id("art_nonexistent").await.unwrap();
+        assert!(missing.is_none());
     }
 }

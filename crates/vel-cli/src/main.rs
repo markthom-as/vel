@@ -31,6 +31,10 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    EndOfDay {
+        #[arg(long)]
+        json: bool,
+    },
     Search {
         query: String,
         #[arg(long)]
@@ -68,6 +72,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Capture { text } => commands::capture::run(&client, text).await,
         Command::Today { json } => commands::today::run(&client, json).await,
         Command::Morning { json } => commands::morning::run(&client, json).await,
+        Command::EndOfDay { json } => commands::end_of_day::run(&client, json).await,
         Command::Search {
             query,
             capture_type,

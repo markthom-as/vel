@@ -2,7 +2,7 @@ use axum::{extract::State, Json};
 use std::collections::{HashMap, HashSet};
 use time::OffsetDateTime;
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, MorningData, TodayData};
+use vel_api_types::{ApiResponse, EndOfDayData, MorningData, TodayData};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -38,6 +38,24 @@ pub async fn morning(State(state): State<AppState>) -> Result<Json<ApiResponse<M
             pending_commitments,
             suggested_focus,
             key_reminders,
+        },
+        request_id,
+    )))
+}
+
+pub async fn end_of_day(State(state): State<AppState>) -> Result<Json<ApiResponse<EndOfDayData>>, AppError> {
+    let snapshot = state.storage.orientation_snapshot().await?;
+    let what_was_done = snapshot.recent_today;
+    let what_remains_open = extract_commitments(snapshot.recent_week.iter().map(|capture| capture.content_text.as_str()));
+    let what_may_matter_tomorrow = extract_focus_candidates(snapshot.recent_week.iter().map(|capture| capture.content_text.as_str()));
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+
+    Ok(Json(ApiResponse::success(
+        EndOfDayData {
+            date: OffsetDateTime::now_utc().date().to_string(),
+            what_was_done,
+            what_remains_open: what_remains_open.into_iter().take(10).collect(),
+            what_may_matter_tomorrow: what_may_matter_tomorrow.into_iter().take(5).collect(),
         },
         request_id,
     )))
