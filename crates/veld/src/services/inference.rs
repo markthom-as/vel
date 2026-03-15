@@ -46,7 +46,15 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         .iter()
         .filter(|s| s.signal_type == "calendar_event")
         .collect();
-    let first_event = calendar_events.iter().min_by_key(|s| s.timestamp);
+    // Next relevant future event (at or after now), not earliest event of the day.
+    let first_event = calendar_events
+        .iter()
+        .filter(|s| s.timestamp >= now_ts)
+        .min_by_key(|s| s.timestamp)
+        .or_else(|| {
+            // Fallback: currently active event (most recent past event if we're inside its window).
+            calendar_events.iter().filter(|s| s.timestamp <= now_ts).max_by_key(|s| s.timestamp)
+        });
     let prep_minutes = first_event
         .and_then(|e| e.payload_json.get("prep_minutes").and_then(|p| p.as_i64()))
         .unwrap_or(15);

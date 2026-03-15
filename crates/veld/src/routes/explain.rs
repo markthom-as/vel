@@ -5,7 +5,6 @@ use uuid::Uuid;
 use vel_api_types::{ApiResponse, CommitmentExplainData, ContextExplainData, DriftExplainData, NudgeExplainData};
 
 use crate::{errors::AppError, state::AppState};
-use crate::services::risk;
 
 /// GET /v1/explain/context — current context plus explanation (signals/commitments/risk that shaped it).
 pub async fn explain_context(State(state): State<AppState>) -> Result<Json<ApiResponse<ContextExplainData>>, AppError> {
@@ -73,18 +72,18 @@ pub async fn explain_commitment(
         .get_commitment_by_id(id)
         .await?
         .ok_or_else(|| AppError::not_found("commitment not found"))?;
-    let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
-    let risk_snapshots = risk::run(&state.storage, now_ts).await?;
-    let risk_snapshot = risk_snapshots.iter().find(|s| s.commitment_id == id);
-    let risk_value = match risk_snapshot {
-        Some(s) => {
-            let mut factors: serde_json::Value = serde_json::from_str(&s.factors_json).unwrap_or(serde_json::json!({}));
-            factors["risk_score"] = serde_json::json!(s.risk_score);
-            factors["risk_level"] = serde_json::json!(s.risk_level);
+    // Read-only: use latest persisted risk snapshot for this commitment (do not call risk::run).
+    let risk_rows = state.storage.list_commitment_risk_recent(id, 1).await?;
+    let risk_value = match risk_rows.first() {
+        Some((_, risk_score, risk_level, factors_json, _)) => {
+            let mut factors: serde_json::Value = serde_json::from_str(factors_json).unwrap_or(serde_json::json!({}));
+            factors["risk_score"] = serde_json::json!(risk_score);
+            factors["risk_level"] = serde_json::json!(risk_level);
             factors
         }
         None => serde_json::json!({}),
     };
+    let has_risk = !risk_rows.is_empty();
     let row = state.storage.get_current_context().await?;
     let context_json = row.map(|(_, s)| s).unwrap_or_else(|| "{}".to_string());
     let context: serde_json::Value = serde_json::from_str(&context_json).unwrap_or(serde_json::json!({}));
@@ -117,7 +116,7 @@ pub async fn explain_commitment(
     let data = CommitmentExplainData {
         commitment_id: id.to_string(),
         commitment: commitment_json,
-        risk: if risk_snapshot.is_some() { Some(risk_value) } else { None },
+        risk: if has_risk { Some(risk_value) } else { None },
         in_context_reasons,
     };
     let request_id = format!("req_{}", Uuid::new_v4().simple());

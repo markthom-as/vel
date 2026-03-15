@@ -52,7 +52,12 @@ pub async fn evaluate(
             }
             "meeting_prep_window" => !prep_window_active,
             "morning_drift" => morning_started,
-            "commute_leave_time" => event_started || open_commitments.is_empty(),
+            "commute_leave_time" => {
+                let related_resolved = n.related_commitment_id.as_deref().map_or(false, |cid| {
+                    !open_commitments.iter().any(|c| c.id.as_ref() == cid)
+                });
+                event_started || related_resolved
+            }
             _ => false,
         };
         if should_resolve {
