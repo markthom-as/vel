@@ -133,6 +133,11 @@ pub async fn run(
             + W_DEPENDENCY * dep_val;
         let score = score.min(1.0);
         let level = score_to_level(score).to_string();
+        let dependency_ids: Vec<String> = deps_by_child
+            .iter()
+            .filter(|(_, child)| child == c.id.as_ref())
+            .map(|(parent, _)| parent.clone())
+            .collect();
         let reasons: Vec<&str> = [
             if *consequence_val >= 0.8 {
                 Some("high consequence commitment")
@@ -158,7 +163,7 @@ pub async fn run(
             "proximity": proximity_val,
             "dependency_pressure": dep_val,
             "reasons": reasons,
-            "dependency_ids": []
+            "dependency_ids": dependency_ids
         });
         let factors_str = factors.to_string();
         storage

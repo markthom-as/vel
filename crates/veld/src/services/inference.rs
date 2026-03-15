@@ -102,13 +102,20 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         .map(|n| n.nudge_id.clone())
         .collect();
 
-    let top_risk_commitment_ids: Vec<String> = open_commitments
+    let risk_rows = storage.list_commitment_risk_latest_all().await.unwrap_or_default();
+    let top_risk_commitment_ids: Vec<String> = risk_rows
         .iter()
-        .take(5)
-        .map(|c| c.id.as_ref().to_string())
+        .map(|(_, cid, _, _, _, _)| cid.clone())
+        .take(10)
         .collect();
-
-    let (global_risk_level, global_risk_score) = if prep_window_active && meds_pending {
+    let risk_used: Vec<String> = risk_rows
+        .iter()
+        .map(|(_, cid, _, _, _, _)| cid.clone())
+        .take(50)
+        .collect();
+    let (global_risk_level, global_risk_score) = if let Some((_, _, score, level, _, _)) = risk_rows.first() {
+        (level.as_str(), *score)
+    } else if prep_window_active && meds_pending {
         ("high", 0.78)
     } else if prep_window_active || meds_pending {
         ("medium", 0.5)
@@ -123,7 +130,6 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         .map(|s| s.signal_id.clone())
         .collect();
     let commitments_used: Vec<String> = open_commitments.iter().take(20).map(|c| c.id.as_ref().to_string()).collect();
-    let risk_used: Vec<String> = vec![];
 
     let morning_started = state_name != "inactive" && state_name != "awake_unstarted";
     let (attention_state, drift_type, drift_severity, attention_confidence, attention_reasons): (
@@ -158,6 +164,8 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         ("neutral_transition", None, None, 0.5, vec![])
     };
 
+    let next_event_start_ts = first_event.map(|e| e.timestamp);
+    let leave_by_ts = leave_by;
     let attention_reasons_json: Vec<String> = attention_reasons.iter().map(|s| (*s).to_string()).collect();
     let context = serde_json::json!({
         "computed_at": now_ts,
@@ -181,6 +189,8 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         "drift_severity": drift_severity,
         "attention_confidence": attention_confidence,
         "attention_reasons": attention_reasons_json,
+        "leave_by_ts": leave_by_ts,
+        "next_event_start_ts": next_event_start_ts,
     });
 
     let context_str = context.to_string();
