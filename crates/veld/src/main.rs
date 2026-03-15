@@ -1,5 +1,7 @@
+mod adapters;
 mod app;
 mod errors;
+mod policy_config;
 mod routes;
 mod services;
 mod state;
@@ -11,11 +13,17 @@ use tracing::info;
 use vel_config::AppConfig;
 use vel_storage::Storage;
 
+const DEFAULT_POLICIES_PATH: &str = "config/policies.yaml";
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     init_tracing();
 
     let config = AppConfig::load().context("loading config")?;
+    let policies_path = std::env::var("VEL_POLICIES_PATH").unwrap_or_else(|_| DEFAULT_POLICIES_PATH.to_string());
+    let policy_config = policy_config::PolicyConfig::load(&policies_path)
+        .with_context(|| format!("loading policy config from {}", policies_path))?;
+
     let storage = Storage::connect(&config.db_path).await.context("connecting db")?;
     storage.migrate().await.context("running migrations")?;
 
@@ -37,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
     let listener = TcpListener::bind(&config.bind_addr)
         .await
         .with_context(|| format!("binding {}", config.bind_addr))?;
-    let app = app::build_app(storage, config);
+    let app = app::build_app(storage, config, policy_config);
 
     info!(bind_addr = %config.bind_addr, "veld starting");
     axum::serve(listener, app)

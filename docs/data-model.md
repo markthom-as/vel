@@ -35,6 +35,7 @@ It is a practical, flexible model for building Vel without painting it into a co
 | ref        | Durable relationship (provenance) | yes     | —                 | —            |
 | artifact   | Durable output or reference      | yes     | optional          | optional     |
 | capture    | User/system capture              | yes     | CAPTURE_CREATED   | optional     |
+| commitment | Actionable / reviewable item     | yes     | —                 | —            |
 
 - **run_events** describe what happened during one run; **events** describe system-wide occurrences; **refs** describe what is related to what.
 
@@ -49,6 +50,35 @@ Artifact
    ↓
 Refs (run → artifact; artifact → capture)
 ```
+
+### Commitments (implemented)
+
+A **commitment** is an actionable, reviewable, time-relevant object — distinct from a raw capture. Captures are input; commitments are what matters, what is unresolved, and what is next.
+
+- **Schema** — `commitments` table: id, text, source_type, source_id, status, due_at, project, commitment_kind, created_at, resolved_at, metadata_json. Indexes on status, due_at, project, source, created_at.
+- **Statuses** — open, done, cancelled (v1).
+- **Creation** — (1) `vel commitment add ...`, (2) capture promotion when `capture_type == "todo"`, (3) external task import (Phase B).
+- **API** — POST/GET /v1/commitments, GET/PATCH /v1/commitments/:id.
+- **CLI** — `vel commitments`, `vel commitment add/done/cancel/inspect`.
+
+See [specs/commitments.md](specs/commitments.md).
+
+### Extended schema (migrations 0012–0022)
+
+Additional tables support persistent context, dependencies, risk, nudge history, suggestions, threads, self-model, and transcripts:
+
+- **current_context** — Singleton (id=1) holding latest computed context; written by inference engine; `vel context`.
+- **context_timeline** — Append-only context transition snapshots (debugging, temporal synthesis).
+- **commitment_dependencies** — Parent/child dependency graph (e.g. meeting → prep, commute).
+- **commitment_risk** — Risk score snapshots per commitment (consequence, proximity, factors).
+- **nudge_events** — Append-only log (nudge_created, nudge_sent, nudge_snoozed, nudge_resolved).
+- **suggestions** — Steerable proposals (accept/reject/modify); suggestion_type, state, payload.
+- **threads** — First-class threads (project, person, conversation, theme); status, metadata.
+- **thread_links** — Relate threads to commitments, captures, signals, artifacts.
+- **vel_self_metrics** — Self-model metrics (nudge effectiveness, feedback_score, etc.).
+- **assistant_transcripts** — Ingested chat/assistant transcripts for capture extraction, project tagging.
+
+Signals table extended with **source_ref** for deduplication. Canonical spec: [specs/vel-migrations-and-schema-spec.md](specs/vel-migrations-and-schema-spec.md).
 
 ---
 

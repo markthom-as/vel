@@ -33,6 +33,10 @@ A simple workflow for day-to-day use. Vel should optimize for **repeated persona
 - `vel artifact latest --type context_brief` — latest context artifact.
 - `vel runs` / `vel run inspect <id>` — run list and detail (events, linked artifacts).
 
+## Commitments (planned)
+
+Vel will add a **commitments** layer: actionable, reviewable items (open/done/cancelled) with optional due date and project, sourced from typed captures, Todoist/Reminders, and eventually review/synthesis. “What matters today?” and “what’s unresolved?” will be answerable from commitments, not only from raw captures. See `docs/data-model.md` and `docs/roadmap.md`.
+
 ## Principle
 
 > **Vel should optimize for repeated personal use before broad generality.**

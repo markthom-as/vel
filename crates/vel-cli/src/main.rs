@@ -103,6 +103,105 @@ enum Command {
         #[command(subcommand)]
         command: SynthesizeCommand,
     },
+    Commitments {
+        /// Filter by status (default: open)
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long)]
+        project: Option<String>,
+        #[arg(long, default_value = "50")]
+        limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+    Commitment {
+        #[command(subcommand)]
+        command: CommitmentCommand,
+    },
+    Sync {
+        #[command(subcommand)]
+        command: SyncCommand,
+    },
+    Nudges {
+        #[arg(long)]
+        json: bool,
+    },
+    Nudge {
+        #[command(subcommand)]
+        command: NudgeCommand,
+    },
+    Evaluate {},
+    Context {
+        #[command(subcommand)]
+        command: ContextCommand,
+    },
+    Explain {
+        #[command(subcommand)]
+        command: ExplainCommand,
+    },
+    Thread {
+        #[command(subcommand)]
+        command: ThreadCommand,
+    },
+    Risk {
+        #[arg(required = false)]
+        id: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Suggestions {
+        #[arg(long)]
+        state: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Suggestion {
+        #[command(subcommand)]
+        command: SuggestionCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum SuggestionCommand {
+    Inspect { id: String },
+    Accept { id: String },
+    Reject { id: String },
+    Modify {
+        id: String,
+        #[arg(long)]
+        payload: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ThreadCommand {
+    List {
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long, default_value = "50")]
+        limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+    Inspect { id: String },
+    Close { id: String },
+    Reopen { id: String },
+}
+
+#[derive(Debug, Subcommand)]
+enum ContextCommand {
+    /// Show current context (default)
+    Show {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Show recent material context transitions
+    Timeline {
+        #[arg(long, default_value = "20")]
+        limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -169,6 +268,53 @@ enum SynthesizeCommand {
     Project { name: String, #[arg(long)] json: bool },
 }
 
+#[derive(Debug, Subcommand)]
+enum CommitmentCommand {
+    Add {
+        text: String,
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(long)]
+        project: Option<String>,
+    },
+    Done { id: String },
+    Cancel { id: String },
+    Inspect { id: String },
+    /// List dependencies (children) of a commitment
+    Dependencies { id: String },
+    /// Add a dependency: child commitment required by parent
+    AddDependency {
+        parent_id: String,
+        child_id: String,
+        #[arg(long, default_value = "blocks")]
+        r#type: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum SyncCommand {
+    Calendar,
+    Todoist,
+    Activity,
+}
+
+#[derive(Debug, Subcommand)]
+enum NudgeCommand {
+    Done { id: String },
+    Snooze {
+        id: String,
+        #[arg(long, default_value = "10")]
+        minutes: u32,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ExplainCommand {
+    Nudge { id: String },
+    /// Explain current context (what shaped it)
+    Context,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -224,6 +370,57 @@ async fn main() -> anyhow::Result<()> {
         Command::Synthesize { command } => match command {
             SynthesizeCommand::Week { json } => commands::synthesize::run_week(&client, *json).await,
             SynthesizeCommand::Project { name, json } => commands::synthesize::run_project(&client, &name, *json).await,
+        },
+        Command::Commitments { status, project, limit, json } => {
+            commands::commitments::run_list(&client, status.as_deref(), project.as_deref(), *limit, *json).await
+        }
+        Command::Commitment { command } => match command {
+            CommitmentCommand::Add { text, kind, project } => {
+                commands::commitments::run_add(&client, &text, kind.as_deref(), project.as_deref()).await
+            }
+            CommitmentCommand::Done { id } => commands::commitments::run_done(&client, &id).await,
+            CommitmentCommand::Cancel { id } => commands::commitments::run_cancel(&client, &id).await,
+            CommitmentCommand::Inspect { id } => commands::commitments::run_inspect(&client, &id).await,
+            CommitmentCommand::Dependencies { id } => commands::commitments::run_dependencies(&client, &id).await,
+            CommitmentCommand::AddDependency { parent_id, child_id, r#type: t } => {
+                commands::commitments::run_add_dependency(&client, &parent_id, &child_id, &t).await
+            }
+        },
+        Command::Sync { command } => match command {
+            SyncCommand::Calendar => commands::sync::run_calendar(&client).await,
+            SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
+            SyncCommand::Activity => commands::sync::run_activity(&client).await,
+        },
+        Command::Nudges { json } => commands::nudges::run_list(&client, *json).await,
+        Command::Nudge { command } => match command {
+            NudgeCommand::Done { id } => commands::nudges::run_done(&client, &id).await,
+            NudgeCommand::Snooze { id, minutes } => commands::nudges::run_snooze(&client, &id, *minutes).await,
+        },
+        Command::Evaluate {} => commands::evaluate::run(&client).await,
+        Command::Context { command } => match command {
+            ContextCommand::Show { json } => commands::context::run_current(&client, *json).await,
+            ContextCommand::Timeline { limit, json } => commands::context::run_timeline(&client, *limit, *json).await,
+        },
+        Command::Explain { command } => match command {
+            ExplainCommand::Nudge { id } => commands::explain::run_nudge(&client, &id).await,
+            ExplainCommand::Context => commands::explain::run_context(&client).await,
+        },
+        Command::Thread { command } => match command {
+            ThreadCommand::List { status, limit, json } => commands::threads::run_list(&client, status.as_deref(), *limit, *json).await,
+            ThreadCommand::Inspect { id } => commands::threads::run_inspect(&client, &id).await,
+            ThreadCommand::Close { id } => commands::threads::run_close(&client, &id).await,
+            ThreadCommand::Reopen { id } => commands::threads::run_reopen(&client, &id).await,
+        },
+        Command::Risk { id, json } => match id {
+            Some(ref id) => commands::risk::run_commitment(&client, id, *json).await,
+            None => commands::risk::run_list(&client, *json).await,
+        },
+        Command::Suggestions { state, json } => commands::suggestions::run_list(&client, state.as_deref(), *json).await,
+        Command::Suggestion { command } => match command {
+            SuggestionCommand::Inspect { id } => commands::suggestions::run_inspect(&client, &id).await,
+            SuggestionCommand::Accept { id } => commands::suggestions::run_accept(&client, &id).await,
+            SuggestionCommand::Reject { id } => commands::suggestions::run_reject(&client, &id).await,
+            SuggestionCommand::Modify { id, payload } => commands::suggestions::run_modify(&client, &id, payload.as_deref()).await,
         },
     }
 }

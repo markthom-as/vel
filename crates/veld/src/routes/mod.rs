@@ -1,7 +1,17 @@
 pub mod artifacts;
 pub mod captures;
+pub mod commitments;
 pub mod context;
 pub mod doctor;
+pub mod evaluate;
+pub mod explain;
 pub mod health;
+pub mod nudges;
 pub mod runs;
 pub mod search;
+pub mod signals;
+pub mod risk;
+pub mod suggestions;
+pub mod synthesis;
+pub mod sync;
+pub mod threads;

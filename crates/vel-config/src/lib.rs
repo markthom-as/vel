@@ -14,15 +14,12 @@ pub struct AppConfig {
     pub artifact_root: String,
     pub log_level: String,
     pub base_url: String,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-struct FileConfig {
-    bind_addr: Option<String>,
-    db_path: Option<String>,
-    artifact_root: Option<String>,
-    log_level: Option<String>,
-    base_url: Option<String>,
+    /// Calendar: .ics URL for pull-based sync (optional).
+    pub calendar_ics_url: Option<String>,
+    /// Calendar: local .ics file path if URL not set (optional).
+    pub calendar_ics_path: Option<String>,
+    /// Todoist: path to snapshot JSON file (e.g. data/todoist/snapshot.json).
+    pub todoist_snapshot_path: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -41,8 +38,23 @@ impl Default for AppConfig {
             artifact_root: DEFAULT_ARTIFACT_ROOT.to_string(),
             log_level: DEFAULT_LOG_LEVEL.to_string(),
             base_url: DEFAULT_BASE_URL.to_string(),
+            calendar_ics_url: None,
+            calendar_ics_path: None,
+            todoist_snapshot_path: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct FileConfig {
+    bind_addr: Option<String>,
+    db_path: Option<String>,
+    artifact_root: Option<String>,
+    log_level: Option<String>,
+    base_url: Option<String>,
+    calendar_ics_url: Option<String>,
+    calendar_ics_path: Option<String>,
+    todoist_snapshot_path: Option<String>,
 }
 
 impl AppConfig {
@@ -81,6 +93,15 @@ impl AppConfig {
         if let Some(value) = file.base_url {
             self.base_url = value;
         }
+        if file.calendar_ics_url.is_some() {
+            self.calendar_ics_url = file.calendar_ics_url;
+        }
+        if file.calendar_ics_path.is_some() {
+            self.calendar_ics_path = file.calendar_ics_path;
+        }
+        if file.todoist_snapshot_path.is_some() {
+            self.todoist_snapshot_path = file.todoist_snapshot_path;
+        }
     }
 
     pub fn apply_env_map(&mut self, env_map: &HashMap<String, String>) {
@@ -98,6 +119,15 @@ impl AppConfig {
         }
         if let Some(value) = env_map.get("VEL_BASE_URL") {
             self.base_url = value.clone();
+        }
+        if let Some(value) = env_map.get("VEL_CALENDAR_ICS_URL") {
+            self.calendar_ics_url = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_CALENDAR_ICS_PATH") {
+            self.calendar_ics_path = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_TODOIST_SNAPSHOT_PATH") {
+            self.todoist_snapshot_path = Some(value.clone());
         }
     }
 }

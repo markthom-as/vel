@@ -1,7 +1,9 @@
+pub mod commitment;
 pub mod context;
 pub mod provenance;
 pub mod run;
 
+pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
 pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
 pub use provenance::{Ref, RefRelationType};
 pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};

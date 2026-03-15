@@ -1,15 +1,26 @@
-//! `vel synthesize` — run-backed synthesis (week, project). Placeholder until synthesis service is implemented.
+//! `vel synthesize` — run-backed synthesis (week, project).
 
+use anyhow::Context;
 use crate::client::ApiClient;
 
-pub async fn run_week(_client: &ApiClient, _json: bool) -> anyhow::Result<()> {
-    eprintln!("vel synthesize week: planned (run-backed weekly synthesis).");
-    eprintln!("Use 'vel review week' for now.");
+pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
+    let resp = client.synthesis_week().await.context("synthesis week")?;
+    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(d)?);
+    } else {
+        println!("run_id: {}  artifact_id: {}", d.run_id, d.artifact_id);
+    }
     Ok(())
 }
 
-pub async fn run_project(_client: &ApiClient, name: &str, _json: bool) -> anyhow::Result<()> {
-    eprintln!("vel synthesize project {}: planned (run-backed project synthesis).", name);
-    eprintln!("Use 'vel search {}' and 'vel review week' for now.", name);
+pub async fn run_project(client: &ApiClient, name: &str, json: bool) -> anyhow::Result<()> {
+    let resp = client.synthesis_project(name).await.context("synthesis project")?;
+    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(d)?);
+    } else {
+        println!("run_id: {}  artifact_id: {}", d.run_id, d.artifact_id);
+    }
     Ok(())
 }

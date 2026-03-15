@@ -22,6 +22,8 @@ vel-api-types = { path = "../vel-api-types" }
 vel-config = { path = "../vel-config" }
 vel-core = { path = "../vel-core" }
 vel-storage = { path = "../vel-storage" }
+reqwest = { workspace = true }
+serde_yaml.workspace = true
 
 [dev-dependencies]
 tower.workspace = true

@@ -2,8 +2,9 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use vel_api_types::{
-    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, DoctorData, EndOfDayData, HealthData,
-    MorningData, SearchQuery, SearchResults, TodayData,
+    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest, CommitmentData,
+    CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData, HealthData, MorningData,
+    NudgeData, NudgeSnoozeRequest, SearchQuery, SearchResults, SynthesisWeekData, SyncResultData, TodayData,
 };
 
 #[derive(Clone)]
@@ -73,6 +74,86 @@ impl ApiClient {
         decode_response(response).await
     }
 
+    pub async fn list_commitments(
+        &self,
+        status: Option<&str>,
+        project: Option<&str>,
+        kind: Option<&str>,
+        limit: u32,
+    ) -> anyhow::Result<ApiResponse<Vec<CommitmentData>>> {
+        let mut path = format!("/v1/commitments?limit={}", limit);
+        if let Some(s) = status {
+            path.push_str(&format!("&status={}", s));
+        }
+        if let Some(p) = project {
+            path.push_str(&format!("&project={}", p));
+        }
+        if let Some(k) = kind {
+            path.push_str(&format!("&kind={}", k));
+        }
+        self.get(&path).await
+    }
+
+    pub async fn get_commitment(&self, id: &str) -> anyhow::Result<ApiResponse<CommitmentData>> {
+        self.get(&format!("/v1/commitments/{}", id)).await
+    }
+
+    pub async fn create_commitment(
+        &self,
+        request: CommitmentCreateRequest,
+    ) -> anyhow::Result<ApiResponse<CommitmentData>> {
+        let response = self
+            .http
+            .post(format!("{}{}", self.base_url, "/v1/commitments"))
+            .json(&request)
+            .send()
+            .await
+            .context("sending create commitment request")?;
+        decode_response(response).await
+    }
+
+    pub async fn update_commitment(
+        &self,
+        id: &str,
+        request: CommitmentUpdateRequest,
+    ) -> anyhow::Result<ApiResponse<CommitmentData>> {
+        let response = self
+            .http
+            .patch(format!("{}/v1/commitments/{}", self.base_url, id))
+            .json(&request)
+            .send()
+            .await
+            .context("sending update commitment request")?;
+        decode_response(response).await
+    }
+
+    pub async fn list_commitment_dependencies(
+        &self,
+        commitment_id: &str,
+    ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::CommitmentDependencyData>>> {
+        self.get(&format!("/v1/commitments/{}/dependencies", commitment_id)).await
+    }
+
+    pub async fn add_commitment_dependency(
+        &self,
+        parent_id: &str,
+        child_id: &str,
+        dependency_type: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::CommitmentDependencyData>> {
+        let body = serde_json::json!({
+            "child_commitment_id": child_id,
+            "dependency_type": dependency_type
+        });
+        let response = self
+            .http
+            .post(format!("{}/v1/commitments/{}/dependencies", self.base_url, parent_id))
+            .json(&body)
+            .send()
+            .await
+            .context("add commitment dependency")?;
+        decode_response(response).await
+    }
+
     pub async fn search(&self, query: SearchQuery) -> anyhow::Result<ApiResponse<SearchResults>> {
         let response = self
             .http
@@ -95,6 +176,164 @@ impl ApiClient {
 
     pub async fn end_of_day(&self) -> anyhow::Result<ApiResponse<EndOfDayData>> {
         self.get("/v1/context/end-of-day").await
+    }
+
+    pub async fn sync_calendar(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
+        self.post_empty("/v1/sync/calendar").await
+    }
+
+    pub async fn sync_todoist(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
+        self.post_empty("/v1/sync/todoist").await
+    }
+
+    pub async fn sync_activity(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
+        self.post_empty("/v1/sync/activity").await
+    }
+
+    pub async fn list_nudges(&self) -> anyhow::Result<ApiResponse<Vec<NudgeData>>> {
+        self.get("/v1/nudges").await
+    }
+
+    pub async fn nudge_done(&self, id: &str) -> anyhow::Result<ApiResponse<NudgeData>> {
+        let response = self
+            .http
+            .post(format!("{}/v1/nudges/{}/done", self.base_url, id))
+            .send()
+            .await
+            .context("nudge done")?;
+        decode_response(response).await
+    }
+
+    pub async fn nudge_snooze(&self, id: &str, minutes: u32) -> anyhow::Result<ApiResponse<NudgeData>> {
+        let body = NudgeSnoozeRequest { minutes };
+        let response = self
+            .http
+            .post(format!("{}/v1/nudges/{}/snooze", self.base_url, id))
+            .json(&body)
+            .send()
+            .await
+            .context("nudge snooze")?;
+        decode_response(response).await
+    }
+
+    pub async fn evaluate(&self) -> anyhow::Result<ApiResponse<EvaluateResultData>> {
+        self.post_empty("/v1/evaluate").await
+    }
+
+    pub async fn synthesis_week(&self) -> anyhow::Result<ApiResponse<SynthesisWeekData>> {
+        self.post_empty("/v1/synthesis/week").await
+    }
+
+    pub async fn synthesis_project(&self, project_slug: &str) -> anyhow::Result<ApiResponse<SynthesisWeekData>> {
+        let path = format!("/v1/synthesis/project/{}", project_slug);
+        self.post_empty(&path).await
+    }
+
+    pub async fn get_current_context(&self) -> anyhow::Result<ApiResponse<Option<vel_api_types::CurrentContextData>>> {
+        self.get("/v1/context/current").await
+    }
+
+    pub async fn get_explain_nudge(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::NudgeExplainData>> {
+        self.get(&format!("/v1/explain/nudge/{}", id)).await
+    }
+
+    pub async fn get_context_timeline(
+        &self,
+        limit: u32,
+    ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::ContextTimelineEntry>>> {
+        self.get(&format!("/v1/context/timeline?limit={}", limit)).await
+    }
+
+    pub async fn get_explain_context(
+        &self,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::ContextExplainData>> {
+        self.get("/v1/explain/context").await
+    }
+
+    pub async fn list_threads(
+        &self,
+        status: Option<&str>,
+        limit: u32,
+    ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::ThreadData>>> {
+        let path = match status {
+            Some(s) => format!("/v1/threads?status={}&limit={}", s, limit),
+            None => format!("/v1/threads?limit={}", limit),
+        };
+        self.get(&path).await
+    }
+
+    pub async fn get_thread(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::ThreadData>> {
+        self.get(&format!("/v1/threads/{}", id)).await
+    }
+
+    pub async fn get_risk_list(&self) -> anyhow::Result<ApiResponse<Vec<vel_api_types::RiskData>>> {
+        self.get("/v1/risk").await
+    }
+
+    pub async fn get_risk_commitment(&self, commitment_id: &str) -> anyhow::Result<ApiResponse<vel_api_types::RiskData>> {
+        self.get(&format!("/v1/risk/{}", commitment_id)).await
+    }
+
+    pub async fn list_suggestions(
+        &self,
+        state: Option<&str>,
+        limit: Option<u32>,
+    ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::SuggestionData>>> {
+        let limit = limit.unwrap_or(50);
+        let path = match state {
+            Some(s) => format!("/v1/suggestions?state={}&limit={}", s, limit),
+            None => format!("/v1/suggestions?limit={}", limit),
+        };
+        self.get(&path).await
+    }
+
+    pub async fn get_suggestion(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::SuggestionData>> {
+        self.get(&format!("/v1/suggestions/{}", id)).await
+    }
+
+    pub async fn update_suggestion(
+        &self,
+        id: &str,
+        state: &str,
+        payload: Option<serde_json::Value>,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::SuggestionData>> {
+        let body = vel_api_types::SuggestionUpdateRequest {
+            state: Some(state.to_string()),
+            payload,
+        };
+        let response = self
+            .http
+            .patch(format!("{}/v1/suggestions/{}", self.base_url, id))
+            .json(&body)
+            .send()
+            .await
+            .context("PATCH suggestion")?;
+        decode_response(response).await
+    }
+
+    pub async fn update_thread(
+        &self,
+        id: &str,
+        status: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::ThreadData>> {
+        let response = self
+            .http
+            .patch(format!("{}/v1/threads/{}", self.base_url, id))
+            .json(&serde_json::json!({ "status": status }))
+            .send()
+            .await
+            .context("PATCH thread")?;
+        decode_response(response).await
+    }
+
+    async fn post_empty<T: DeserializeOwned>(&self, path: &str) -> anyhow::Result<ApiResponse<T>> {
+        let response = self
+            .http
+            .post(format!("{}{}", self.base_url, path))
+            .send()
+            .await
+            .with_context(|| format!("POST {}", path))?;
+        decode_response(response).await
     }
 
     async fn get<T: DeserializeOwned>(&self, path: &str) -> anyhow::Result<ApiResponse<T>> {

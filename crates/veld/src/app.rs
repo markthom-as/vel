@@ -3,16 +3,23 @@ use tower_http::trace::TraceLayer;
 use vel_config::AppConfig;
 use vel_storage::Storage;
 
-use crate::{routes, state::AppState};
+use crate::{policy_config::PolicyConfig, routes, state::AppState};
 
-pub fn build_app(storage: Storage, config: AppConfig) -> Router {
-    let state = AppState::new(storage, config);
+pub fn build_app(storage: Storage, config: AppConfig, policy_config: PolicyConfig) -> Router {
+    let state = AppState::new(storage, config, policy_config);
 
     Router::new()
         .route("/v1/health", get(routes::health::health))
         .route("/v1/doctor", get(routes::doctor::doctor))
         .route("/v1/captures", get(routes::captures::list_captures).post(routes::captures::create_capture))
         .route("/v1/captures/:id", get(routes::captures::get_capture))
+        .route("/v1/commitments", get(routes::commitments::list_commitments).post(routes::commitments::create_commitment))
+        .route("/v1/commitments/:id", get(routes::commitments::get_commitment).patch(routes::commitments::update_commitment))
+        .route("/v1/commitments/:id/dependencies", get(routes::commitments::list_commitment_dependencies).post(routes::commitments::add_commitment_dependency))
+        .route("/v1/risk", get(routes::risk::compute_and_list))
+        .route("/v1/risk/:id", get(routes::risk::get_commitment_risk))
+        .route("/v1/suggestions", get(routes::suggestions::list))
+        .route("/v1/suggestions/:id", get(routes::suggestions::get).patch(routes::suggestions::update))
         .route("/v1/artifacts", post(routes::artifacts::create_artifact))
         .route("/v1/artifacts/latest", get(routes::artifacts::get_artifact_latest))
         .route("/v1/artifacts/:id", get(routes::artifacts::get_artifact))
@@ -21,7 +28,25 @@ pub fn build_app(storage: Storage, config: AppConfig) -> Router {
         .route("/v1/context/today", get(routes::context::today))
         .route("/v1/context/morning", get(routes::context::morning))
         .route("/v1/context/end-of-day", get(routes::context::end_of_day))
+        .route("/v1/context/current", get(routes::context::current))
+        .route("/v1/context/timeline", get(routes::context::timeline))
+        .route("/v1/explain/nudge/:id", get(routes::explain::explain_nudge))
+        .route("/v1/explain/context", get(routes::explain::explain_context))
+        .route("/v1/threads", get(routes::threads::list_threads).post(routes::threads::create_thread))
+        .route("/v1/threads/:id", get(routes::threads::get_thread).patch(routes::threads::update_thread))
+        .route("/v1/threads/:id/links", post(routes::threads::add_thread_link))
         .route("/v1/search", get(routes::search::search))
+        .route("/v1/signals", get(routes::signals::list_signals).post(routes::signals::create_signal))
+        .route("/v1/nudges", get(routes::nudges::list_nudges))
+        .route("/v1/nudges/:id", get(routes::nudges::get_nudge))
+        .route("/v1/nudges/:id/done", post(routes::nudges::nudge_done))
+        .route("/v1/nudges/:id/snooze", post(routes::nudges::nudge_snooze))
+        .route("/v1/sync/calendar", post(routes::sync::sync_calendar))
+        .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
+        .route("/v1/sync/activity", post(routes::sync::sync_activity))
+        .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
+        .route("/v1/synthesis/week", post(routes::synthesis::synthesis_week))
+        .route("/v1/synthesis/project/:slug", post(routes::synthesis::synthesis_project))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
@@ -29,14 +54,19 @@ pub fn build_app(storage: Storage, config: AppConfig) -> Router {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::policy_config::PolicyConfig;
     use axum::{body::Body, http::{Request, StatusCode}};
     use tower::util::ServiceExt;
+
+    fn test_policy_config() -> PolicyConfig {
+        PolicyConfig::default()
+    }
 
     #[tokio::test]
     async fn health_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default());
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
 
         let response = app
             .oneshot(Request::builder().uri("/v1/health").body(Body::empty()).unwrap())
@@ -50,7 +80,7 @@ mod tests {
     async fn doctor_endpoint_returns_ok_with_schema_version() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default());
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
 
         let response = app
             .oneshot(Request::builder().uri("/v1/doctor").body(Body::empty()).unwrap())
@@ -73,7 +103,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default());
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
 
         let response = app
             .oneshot(
@@ -92,7 +122,7 @@ mod tests {
     async fn today_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default());
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
 
         let response = app
             .oneshot(
@@ -113,7 +143,7 @@ mod tests {
     async fn context_today_creates_run_artifact_and_ref() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage.clone(), AppConfig::default());
+        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config());
 
         let today_resp = app
             .clone()
@@ -174,7 +204,7 @@ mod tests {
             artifact_root: file_path.to_string_lossy().to_string(),
             ..Default::default()
         };
-        let app = build_app(storage.clone(), config);
+        let app = build_app(storage.clone(), config, test_policy_config());
 
         let today_resp = app
             .oneshot(
@@ -203,7 +233,7 @@ mod tests {
     async fn end_of_day_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default());
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
 
         let response = app
             .oneshot(
@@ -222,7 +252,7 @@ mod tests {
     async fn create_artifact_returns_ok_and_get_returns_it() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default());
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
 
         let create_body = serde_json::json!({
             "artifact_type": "transcript",
@@ -259,5 +289,72 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(get_resp.status(), StatusCode::OK);
+    }
+
+    /// Commute policy: no commute nudge when calendar event has no travel_minutes.
+    #[tokio::test]
+    async fn commute_nudge_does_not_fire_without_travel_minutes() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "test".to_string(),
+                timestamp: now_ts + 3600,
+                payload_json: Some(serde_json::json!({
+                    "start_time": now_ts + 3600,
+                    "title": "Meeting"
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let eval_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(eval_resp.status(), StatusCode::OK);
+        let nudges_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(nudges_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let nudges = json["data"].as_array().unwrap_or(&[]);
+        let commute_nudges: Vec<_> = nudges
+            .iter()
+            .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time"))
+            .collect();
+        assert!(commute_nudges.is_empty(), "commute nudge must not trigger when travel_minutes missing");
+    }
+
+    /// Context explain returns signals_used and commitments_used.
+    #[tokio::test]
+    async fn context_explain_includes_signals_and_commitments_used() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let resp = app.oneshot(Request::builder().uri("/v1/explain/context").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json["data"]["signals_used"].is_array(), "signals_used must be present");
+        assert!(json["data"]["commitments_used"].is_array(), "commitments_used must be present");
+        assert!(json["data"]["reasons"].is_array(), "reasons must be present");
     }
 }

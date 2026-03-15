@@ -1,7 +1,7 @@
-//! `vel backup` — backup guidance.
+//! `vel backup` — print backup instructions (guidance only; not an automated backup).
 
 pub async fn run() -> anyhow::Result<()> {
-    println!("Backup: ensure the following are copied to a safe location:");
+    println!("Backup instructions (manual; Vel does not perform automated backup):");
     println!("  - Database: var/data/vel.sqlite (or the path in your config)");
     println!("  - Artifacts: var/artifacts/ (or the artifact_root in your config)");
     println!();

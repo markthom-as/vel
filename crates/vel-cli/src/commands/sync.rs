@@ -1,0 +1,22 @@
+use crate::client::ApiClient;
+
+pub async fn run_calendar(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client.sync_calendar().await.context("sync calendar")?;
+    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("calendar: {} signals ingested", d.signals_ingested);
+    Ok(())
+}
+
+pub async fn run_todoist(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client.sync_todoist().await.context("sync todoist")?;
+    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("todoist: {} signals ingested", d.signals_ingested);
+    Ok(())
+}
+
+pub async fn run_activity(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client.sync_activity().await.context("sync activity")?;
+    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("activity: {} signals ingested", d.signals_ingested);
+    Ok(())
+}

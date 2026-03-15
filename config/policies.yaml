@@ -1,0 +1,32 @@
+# Policy configuration for Vel. Required at startup. See docs/specs/vel-agent-next-steps-policy-config-commute.md
+
+policies:
+  meds_not_logged:
+    enabled: true
+    gentle_after_minutes: 10
+    warning_after_minutes: 30
+    danger_after_minutes: 60
+    default_snooze_minutes: 10
+
+  meeting_prep_window:
+    enabled: true
+    default_prep_minutes: 30
+    gentle_before_minutes: 15
+    warning_before_minutes: 0
+    danger_before_minutes: -10
+    default_snooze_minutes: 10
+
+  commute_leave_time:
+    enabled: true
+    require_travel_minutes: true
+    gentle_before_minutes: 20
+    warning_before_minutes: 5
+    danger_before_minutes: 0
+    default_snooze_minutes: 5
+
+  morning_drift:
+    enabled: true
+    gentle_after_minutes: 20
+    warning_after_minutes: 40
+    danger_after_minutes: 60
+    default_snooze_minutes: 10

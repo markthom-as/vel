@@ -7,6 +7,12 @@ Vel functions as an **executive-function prosthesis and collaborative assistant*
 
 Vel is not primarily a chatbot or task manager. Vel is a **context engine** that maintains continuity between intentions, memory, and action.
 
+Vel is a **day-centered, commitment-aware, context-sensitive assistant with gentle escalation** — not a PKM, replacement task manager, generic chat agent, or everything app.
+
+### Commitments (planned)
+
+The daily loop centers on **commitments**: what matters, what is unresolved, what is next, what is at risk of being dropped. A commitment is an actionable, reviewable, time-relevant object (id, text, source, status, due_at, project, etc.) distinct from raw captures. Initially sourced from typed capture (e.g. `--type todo`), Todoist/Reminders, and later from review/synthesis. See `docs/data-model.md` and the roadmap.
+
 ---
 
 ## Core Problems Vel Solves

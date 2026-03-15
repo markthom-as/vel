@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
-use vel_core::{ArtifactId, ArtifactStorageKind, CaptureId, PrivacyClass, RunId, SyncClass};
+use vel_core::{ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass, RunId, SyncClass};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiMeta {
@@ -277,4 +277,256 @@ pub struct RunDetailData {
     pub duration_ms: Option<i64>,
     pub events: Vec<RunEventData>,
     pub artifacts: Vec<ArtifactSummaryData>,
+}
+
+// --- Commitments ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitmentCreateRequest {
+    pub text: String,
+    #[serde(default = "default_commitment_source_type")]
+    pub source_type: String,
+    pub source_id: Option<String>,
+    pub due_at: Option<OffsetDateTime>,
+    pub project: Option<String>,
+    pub commitment_kind: Option<String>,
+    #[serde(default)]
+    pub metadata: JsonValue,
+}
+
+fn default_commitment_source_type() -> String {
+    "manual".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitmentData {
+    pub id: CommitmentId,
+    pub text: String,
+    pub source_type: String,
+    pub source_id: Option<String>,
+    pub status: String,
+    pub due_at: Option<OffsetDateTime>,
+    pub project: Option<String>,
+    pub commitment_kind: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub resolved_at: Option<OffsetDateTime>,
+    pub metadata: JsonValue,
+}
+
+impl From<vel_core::Commitment> for CommitmentData {
+    fn from(c: vel_core::Commitment) -> Self {
+        Self {
+            id: c.id,
+            text: c.text,
+            source_type: c.source_type,
+            source_id: c.source_id,
+            status: c.status.to_string(),
+            due_at: c.due_at,
+            project: c.project,
+            commitment_kind: c.commitment_kind,
+            created_at: c.created_at,
+            resolved_at: c.resolved_at,
+            metadata: c.metadata_json,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CommitmentUpdateRequest {
+    pub status: Option<String>,
+    pub due_at: Option<Option<OffsetDateTime>>,
+    pub project: Option<String>,
+    pub commitment_kind: Option<String>,
+    pub metadata: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitmentDependencyData {
+    pub id: String,
+    pub parent_commitment_id: String,
+    pub child_commitment_id: String,
+    pub dependency_type: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitmentDependencyCreateRequest {
+    pub child_commitment_id: String,
+    #[serde(default = "default_dependency_type")]
+    pub dependency_type: String,
+}
+
+fn default_dependency_type() -> String {
+    "blocks".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RiskData {
+    pub commitment_id: String,
+    pub risk_score: f64,
+    pub risk_level: String,
+    pub factors: JsonValue,
+    pub computed_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuggestionData {
+    pub id: String,
+    pub suggestion_type: String,
+    pub state: String,
+    pub payload: JsonValue,
+    pub created_at: i64,
+    pub resolved_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuggestionUpdateRequest {
+    pub state: Option<String>,
+    pub payload: Option<JsonValue>,
+}
+
+// --- Signals (Phase B) ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignalCreateRequest {
+    pub signal_type: String,
+    pub source: String,
+    pub timestamp: Option<i64>,
+    #[serde(default)]
+    pub payload: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignalData {
+    pub signal_id: String,
+    pub signal_type: String,
+    pub source: String,
+    pub timestamp: i64,
+    pub payload: JsonValue,
+    pub created_at: i64,
+}
+
+// --- Nudges (Phase D) ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NudgeData {
+    pub nudge_id: String,
+    pub nudge_type: String,
+    pub level: String,
+    pub state: String,
+    pub related_commitment_id: Option<String>,
+    pub message: String,
+    pub created_at: i64,
+    pub snoozed_until: Option<i64>,
+    pub resolved_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NudgeSnoozeRequest {
+    #[serde(default = "default_snooze_minutes")]
+    pub minutes: u32,
+}
+
+fn default_snooze_minutes() -> u32 {
+    10
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncResultData {
+    pub source: String,
+    pub signals_ingested: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvaluateResultData {
+    pub inferred_states: u32,
+    pub nudges_created_or_updated: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SynthesisWeekData {
+    pub run_id: String,
+    pub artifact_id: String,
+}
+
+/// Persistent current context singleton (computed by inference engine).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentContextData {
+    pub computed_at: i64,
+    pub context: JsonValue,
+}
+
+/// One entry in the context timeline (material context transitions).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextTimelineEntry {
+    pub id: String,
+    pub timestamp: i64,
+    pub context: JsonValue,
+}
+
+/// Thread summary/list item.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadData {
+    pub id: String,
+    pub thread_type: String,
+    pub title: String,
+    pub status: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub links: Option<Vec<ThreadLinkData>>,
+}
+
+/// Thread link (entity linked to a thread).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadLinkData {
+    pub id: String,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub relation_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadCreateRequest {
+    pub thread_type: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_json: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadLinkRequest {
+    pub entity_type: String,
+    pub entity_id: String,
+    pub relation_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadUpdateRequest {
+    pub status: Option<String>,
+}
+
+/// Explain payload for current context (context + reasons + entity ids used).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextExplainData {
+    pub computed_at: i64,
+    pub mode: Option<String>,
+    pub morning_state: Option<String>,
+    pub context: JsonValue,
+    pub signals_used: Vec<String>,
+    pub commitments_used: Vec<String>,
+    pub risk_used: Vec<String>,
+    pub reasons: Vec<String>,
+}
+
+/// Explain payload for a nudge (nudge + inference/signals snapshots for explainability).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NudgeExplainData {
+    pub nudge_id: String,
+    pub nudge_type: String,
+    pub level: String,
+    pub state: String,
+    pub message: String,
+    pub inference_snapshot: Option<JsonValue>,
+    pub signals_snapshot: Option<JsonValue>,
 }
