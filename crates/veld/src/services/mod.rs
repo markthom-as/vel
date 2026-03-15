@@ -6,4 +6,5 @@ pub mod doctor;
 pub mod inference;
 pub mod nudge_engine;
 pub mod risk;
+pub mod suggestions;
 pub mod synthesis;
