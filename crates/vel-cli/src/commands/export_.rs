@@ -1,4 +1,4 @@
-//! `vel export` — export captures and/or runs as JSON.
+//! `vel export` — export captures, runs, and/or artifacts as JSON.
 
 use crate::client::ApiClient;
 
@@ -6,12 +6,13 @@ pub async fn run(
     client: &ApiClient,
     captures: bool,
     runs: bool,
+    artifacts: bool,
     format: &str,
     json: bool,
 ) -> anyhow::Result<()> {
-    let captures = captures || (!captures && !runs);
-    if !captures && !runs {
-        println!("Specify --captures and/or --runs to export.");
+    let captures = captures || (!captures && !runs && !artifacts);
+    if !captures && !runs && !artifacts {
+        println!("Specify --captures, --runs, and/or --artifacts to export.");
         return Ok(());
     }
     if format != "json" {
@@ -31,6 +32,11 @@ pub async fn run(
         let resp = client.list_runs().await?;
         let data = resp.data.expect("list_runs missing data");
         out.insert("runs".to_string(), serde_json::to_value(&data).unwrap());
+    }
+    if artifacts {
+        let resp = client.list_artifacts(500).await?;
+        let data = resp.data.expect("list_artifacts missing data");
+        out.insert("artifacts".to_string(), serde_json::to_value(&data).unwrap());
     }
     if json {
         println!("{}", serde_json::to_string_pretty(&out)?);

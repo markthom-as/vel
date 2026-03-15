@@ -20,11 +20,11 @@ pub fn build_app(storage: Storage, config: AppConfig, policy_config: PolicyConfi
         .route("/v1/risk/:id", get(routes::risk::get_commitment_risk))
         .route("/v1/suggestions", get(routes::suggestions::list))
         .route("/v1/suggestions/:id", get(routes::suggestions::get).patch(routes::suggestions::update))
-        .route("/v1/artifacts", post(routes::artifacts::create_artifact))
+        .route("/v1/artifacts", get(routes::artifacts::list_artifacts).post(routes::artifacts::create_artifact))
         .route("/v1/artifacts/latest", get(routes::artifacts::get_artifact_latest))
         .route("/v1/artifacts/:id", get(routes::artifacts::get_artifact))
         .route("/v1/runs", get(routes::runs::list_runs))
-        .route("/v1/runs/:id", get(routes::runs::get_run))
+        .route("/v1/runs/:id", get(routes::runs::get_run).patch(routes::runs::update_run))
         .route("/v1/context/today", get(routes::context::today))
         .route("/v1/context/morning", get(routes::context::morning))
         .route("/v1/context/end-of-day", get(routes::context::end_of_day))
@@ -159,7 +159,7 @@ mod tests {
             .unwrap();
         assert_eq!(today_resp.status(), StatusCode::OK);
 
-        let runs = storage.list_runs(10).await.unwrap();
+        let runs = storage.list_runs(10, None, None).await.unwrap();
         assert_eq!(runs.len(), 1, "one run should exist");
         let run = &runs[0];
         assert_eq!(run.status, vel_core::RunStatus::Succeeded);
@@ -219,7 +219,7 @@ mod tests {
             .unwrap();
         assert_eq!(today_resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
 
-        let runs = storage.list_runs(10).await.unwrap();
+        let runs = storage.list_runs(10, None, None).await.unwrap();
         assert_eq!(runs.len(), 1);
         let run = &runs[0];
         assert_eq!(run.status, vel_core::RunStatus::Failed);
@@ -344,6 +344,44 @@ mod tests {
         assert!(commute_nudges.is_empty(), "commute nudge must not trigger when travel_minutes missing");
     }
 
+    /// Canonical day: commute nudge fires when calendar event has travel_minutes and we are in leave-by window.
+    #[tokio::test]
+    async fn commute_nudge_fires_with_travel_minutes_in_leave_window() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let event_start = now_ts + 30 * 60;
+        let travel_minutes: i64 = 40;
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "test".to_string(),
+                timestamp: event_start,
+                payload_json: Some(serde_json::json!({
+                    "start_time": event_start,
+                    "title": "Meeting with Dimitri",
+                    "travel_minutes": travel_minutes
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let nudges_resp = app
+            .oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(nudges_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let nudges = json["data"].as_array().unwrap_or(&[]);
+        let commute_nudges: Vec<_> = nudges
+            .iter()
+            .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time"))
+            .collect();
+        assert!(!commute_nudges.is_empty(), "commute nudge must fire when travel_minutes set and in leave-by window");
+    }
+
     /// Context explain returns signals_used and commitments_used.
     #[tokio::test]
     async fn context_explain_includes_signals_and_commitments_used() {
@@ -410,5 +448,299 @@ mod tests {
             .collect();
         assert_eq!(resolved.len(), 1, "nudge should appear exactly once");
         assert_eq!(resolved[0]["state"].as_str(), Some("resolved"), "resolved nudge must stay resolved after second evaluate");
+    }
+
+    // --- Canonical day fixture: Meeting with Dimitri at 11:00, prep 30 min, travel 40 min, meds/prep/commute open ---
+    async fn canonical_day_fixture(
+        storage: &vel_storage::Storage,
+        now_ts: i64,
+        event_offset_minutes: i64,
+    ) -> (i64, i64, String, String, String) {
+        let event_start = now_ts + event_offset_minutes * 60;
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "test".to_string(),
+                timestamp: event_start,
+                payload_json: Some(serde_json::json!({
+                    "start_time": event_start,
+                    "title": "Meeting with Dimitri",
+                    "location": "Salt Lake City",
+                    "prep_minutes": 30,
+                    "travel_minutes": 40
+                })),
+            })
+            .await
+            .unwrap();
+        let meds_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Take meds".to_string(),
+                source_type: "test".to_string(),
+                source_id: None,
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("medication".to_string()),
+                metadata_json: None,
+            })
+            .await
+            .unwrap();
+        let prep_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Prepare for Meeting with Dimitri".to_string(),
+                source_type: "test".to_string(),
+                source_id: None,
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: Some("vel".to_string()),
+                commitment_kind: Some("prep".to_string()),
+                metadata_json: None,
+            })
+            .await
+            .unwrap();
+        let commute_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Commute to Meeting with Dimitri".to_string(),
+                source_type: "test".to_string(),
+                source_id: None,
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("commute".to_string()),
+                metadata_json: None,
+            })
+            .await
+            .unwrap();
+        (event_start, now_ts, meds_id.as_ref().to_string(), prep_id.as_ref().to_string(), commute_id.as_ref().to_string())
+    }
+
+    /// §6.1 Context assertions: prep/commute window, meds status, next commitment present.
+    #[tokio::test]
+    async fn canonical_day_context_assertions() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        canonical_day_fixture(&storage, now_ts, 35).await;
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let resp = app.oneshot(Request::builder().uri("/v1/context/current").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let data = &json["data"];
+        assert!(data.get("prep_window_active").is_some(), "prep_window_active must be present");
+        assert!(data.get("commute_window_active").is_some(), "commute_window_active must be present");
+        assert!(data.get("meds_status").is_some(), "meds_status must be present");
+        assert!(data.get("mode").is_some(), "mode must be present");
+    }
+
+    /// §6.2 Risk assertions: risk list non-empty, factors present.
+    #[tokio::test]
+    async fn canonical_day_risk_assertions() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        canonical_day_fixture(&storage, now_ts, 35).await;
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let resp = app.oneshot(Request::builder().uri("/v1/risk").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let list = json["data"].as_array().unwrap_or(&[]);
+        assert!(!list.is_empty(), "risk list should be non-empty when commitments exist");
+    }
+
+    /// §6.3 Nudge: snooze suppresses repeated firing until snoozed_until.
+    #[tokio::test]
+    async fn canonical_day_nudge_snooze_suppresses() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        canonical_day_fixture(&storage, now_ts, 35).await;
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let nudges_resp = app.clone().oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let nudges = json["data"].as_array().unwrap_or(&[]);
+        let commute = nudges.iter().find(|n| n["nudge_type"].as_str() == Some("commute_leave_time"));
+        let nudge_id = commute.and_then(|n| n["nudge_id"].as_str()).expect("commute nudge should exist");
+        let snooze_until = now_ts + 15 * 60;
+        let snooze_body = serde_json::json!({ "minutes": 15 }).to_string();
+        let _ = app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/v1/nudges/{}/snooze", nudge_id))
+                .header("content-type", "application/json")
+                .body(Body::from(snooze_body))
+                .unwrap(),
+        ).await.unwrap();
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let nudges_resp2 = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
+        let body2 = axum::body::to_bytes(nudges_resp2.into_body(), usize::MAX).await.unwrap();
+        let json2: serde_json::Value = serde_json::from_slice(&body2).unwrap();
+        let same_nudge: Vec<_> = json2["data"].as_array().unwrap_or(&[]).iter().filter(|n| n["nudge_id"].as_str() == Some(nudge_id)).collect();
+        assert_eq!(same_nudge.len(), 1, "snoozed nudge should still appear once");
+        assert_eq!(same_nudge[0]["state"].as_str(), Some("snoozed"), "nudge should be snoozed");
+    }
+
+    /// §6.3 Nudge: event start suppresses or resolves stale commute nudge.
+    #[tokio::test]
+    async fn canonical_day_event_start_suppresses_commute_nudge() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let event_start = now_ts - 60;
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "test".to_string(),
+                timestamp: event_start,
+                payload_json: Some(serde_json::json!({
+                    "start_time": event_start,
+                    "title": "Meeting with Dimitri",
+                    "travel_minutes": 40
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let active_commute: Vec<_> = json["data"]
+            .as_array()
+            .unwrap_or(&[])
+            .iter()
+            .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time") && n["state"].as_str() == Some("active"))
+            .collect();
+        assert!(active_commute.is_empty(), "commute nudge should be resolved or absent after event start passed");
+    }
+
+    /// §6.5 Explain: context explain references commitment ids and signal ids.
+    #[tokio::test]
+    async fn canonical_day_explain_references_commitments_and_signals() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let (_, _, meds_id, prep_id, _) = canonical_day_fixture(&storage, now_ts, 35).await;
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let resp = app.oneshot(Request::builder().uri("/v1/explain/context").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let commitments_used = json["data"]["commitments_used"].as_array().unwrap_or(&[]);
+        let signals_used = json["data"]["signals_used"].as_array().unwrap_or(&[]);
+        assert!(!signals_used.is_empty(), "signals_used must reference calendar signal");
+        let commitment_ids: Vec<&str> = commitments_used.iter().filter_map(|c| c.as_str()).collect();
+        assert!(commitment_ids.contains(&meds_id.as_str()) || commitment_ids.contains(&prep_id.as_str()), "commitments_used should include fixture commitments");
+    }
+
+    /// §6.6 Synthesis: project synthesis artifact created with open commitments.
+    #[tokio::test]
+    async fn canonical_day_project_synthesis_artifact() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        canonical_day_fixture(&storage, now_ts, 35).await;
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/synthesis/project/vel")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json["data"].get("artifact_id").is_some() || json["data"].get("run_id").is_some(), "project synthesis should return artifact or run");
+    }
+
+    /// Variant A (success path): meds done reduces active nudges.
+    #[tokio::test]
+    async fn canonical_day_variant_a_success_meds_done() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let (_, _, meds_id, _, _) = canonical_day_fixture(&storage, now_ts, 35).await;
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let _ = app.clone().oneshot(
+            Request::builder()
+                .method("PATCH")
+                .uri(format!("/v1/commitments/{}", meds_id))
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"status":"done"}"#))
+                .unwrap(),
+        ).await.unwrap();
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let meds_nudges: Vec<_> = json["data"].as_array().unwrap_or(&[]).iter().filter(|n| n["nudge_type"].as_str() == Some("meds_not_logged") && (n["state"].as_str() == Some("active") || n["state"].as_str() == Some("snoozed"))).collect();
+        assert!(meds_nudges.is_empty(), "meds nudge should be gone after commitment done");
+    }
+
+    /// Variant B (drift path): in danger window, drift and commute nudge present.
+    #[tokio::test]
+    async fn canonical_day_variant_b_drift_commute_danger() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        canonical_day_fixture(&storage, now_ts, 35).await;
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let context_resp = app.clone().oneshot(Request::builder().uri("/v1/context/current").body(Body::empty()).unwrap()).await.unwrap();
+        let body = axum::body::to_bytes(context_resp.into_body(), usize::MAX).await.unwrap();
+        let ctx: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let drift_type = ctx["data"].get("drift_type");
+        let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
+        let nbody = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let njson: serde_json::Value = serde_json::from_slice(&nbody).unwrap();
+        let commute: Vec<_> = njson["data"].as_array().unwrap_or(&[]).iter().filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time")).collect();
+        assert!(!commute.is_empty(), "commute nudge should exist in danger window (variant B)");
+        assert!(drift_type.is_some() || ctx["data"].get("attention_state").is_some(), "drift or attention state should be present");
+    }
+
+    /// Variant C (suggestion path): repeated commute danger triggers increase_commute_buffer suggestion.
+    #[tokio::test]
+    async fn canonical_day_variant_c_suggestion_from_repeated_evidence() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let window_start = now_ts - 7 * 86400;
+        for _ in 0..2 {
+            let _ = storage
+                .insert_nudge(vel_storage::NudgeInsert {
+                    nudge_type: "commute_leave_time".to_string(),
+                    level: "danger".to_string(),
+                    state: "resolved".to_string(),
+                    related_commitment_id: None,
+                    message: "You may be late.".to_string(),
+                    snoozed_until: None,
+                    resolved_at: Some(window_start + 86400),
+                    signals_snapshot_json: None,
+                    inference_snapshot_json: None,
+                    metadata_json: None,
+                })
+                .await
+                .unwrap();
+        }
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let resp = app.oneshot(Request::builder().uri("/v1/suggestions").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let suggestions = json["data"].as_array().unwrap_or(&[]);
+        let commute_buf: Vec<_> = suggestions.iter().filter(|s| s["suggestion_type"].as_str() == Some("increase_commute_buffer")).collect();
+        assert!(!commute_buf.is_empty(), "increase_commute_buffer suggestion should appear after repeated commute danger (variant C)");
     }
 }

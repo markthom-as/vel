@@ -17,6 +17,45 @@ pub struct LatestArtifactQuery {
     pub r#type: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ListArtifactsQuery {
+    #[serde(default = "default_artifact_limit")]
+    pub limit: u32,
+}
+
+fn default_artifact_limit() -> u32 {
+    500
+}
+
+pub async fn list_artifacts(
+    State(state): State<AppState>,
+    Query(q): Query<ListArtifactsQuery>,
+) -> Result<Json<ApiResponse<Vec<ArtifactData>>>, AppError> {
+    let limit = q.limit.min(1000);
+    let records = state.storage.list_artifacts(limit).await?;
+    let mut data = Vec::with_capacity(records.len());
+    for r in records {
+        data.push(ArtifactData {
+            artifact_id: r.artifact_id,
+            artifact_type: r.artifact_type,
+            title: r.title,
+            mime_type: r.mime_type,
+            storage_uri: r.storage_uri,
+            storage_kind: r.storage_kind.to_string(),
+            privacy_class: r.privacy_class,
+            sync_class: r.sync_class,
+            content_hash: r.content_hash,
+            size_bytes: r.size_bytes,
+            created_at: OffsetDateTime::from_unix_timestamp(r.created_at)
+                .map_err(|e: time::Error| AppError::internal(e.to_string()))?,
+            updated_at: OffsetDateTime::from_unix_timestamp(r.updated_at)
+                .map_err(|e: time::Error| AppError::internal(e.to_string()))?,
+        });
+    }
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
 pub async fn create_artifact(
     State(state): State<AppState>,
     Json(payload): Json<ArtifactCreateRequest>,

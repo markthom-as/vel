@@ -22,8 +22,8 @@ A simple workflow for day-to-day use. Vel should optimize for **repeated persona
 ## Weekly
 
 - `vel review week` — recent captures and latest context.
-- `vel synthesize week` — (planned) run-backed weekly synthesis artifact.
-- `vel synthesize project vel` — (planned) run-backed synthesis for Vel-related captures.
+- `vel synthesize week` — run-backed weekly synthesis artifact.
+- `vel synthesize project vel` — run-backed synthesis for Vel-related captures.
 
 ## Inspection
 
@@ -31,11 +31,11 @@ A simple workflow for day-to-day use. Vel should optimize for **repeated persona
 - `vel inspect capture <id>` — full capture detail.
 - `vel inspect artifact <id>` — artifact detail (type, storage, size, hash).
 - `vel artifact latest --type context_brief` — latest context artifact.
-- `vel runs` / `vel run inspect <id>` — run list and detail (events, linked artifacts).
+- `vel runs` / `vel run inspect <id>` — run list and detail (events, linked artifacts). Use `vel runs --kind context_generation --today` to filter; `vel run status <id> retry_scheduled` to set run status.
 
-## Commitments (planned)
+## Commitments
 
-Vel will add a **commitments** layer: actionable, reviewable items (open/done/cancelled) with optional due date and project, sourced from typed captures, Todoist/Reminders, and eventually review/synthesis. “What matters today?” and “what’s unresolved?” will be answerable from commitments, not only from raw captures. See `docs/data-model.md` and `docs/roadmap.md`.
+Vel has a **commitments** layer: actionable, reviewable items (open/done/cancelled) with optional due date and project, sourced from typed captures, Todoist/Reminders, and review/synthesis. “What matters today?” and “what’s unresolved?” are answerable from commitments. See `docs/data-model.md` and `docs/roadmap.md`.
 
 ## Principle
 

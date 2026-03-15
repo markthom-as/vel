@@ -38,6 +38,17 @@ async fn main() -> anyhow::Result<()> {
     {
         tracing::warn!(error = %e, "failed to emit DAEMON_STARTED event");
     }
+    if let Err(e) = storage
+        .emit_event(
+            "CONFIG_LOADED",
+            "daemon",
+            None,
+            &serde_json::json!({ "policies_path": policies_path }).to_string(),
+        )
+        .await
+    {
+        tracing::warn!(error = %e, "failed to emit CONFIG_LOADED event");
+    }
 
     let storage_for_worker = storage.clone();
     tokio::spawn(worker::run_ingestion_worker(storage_for_worker));

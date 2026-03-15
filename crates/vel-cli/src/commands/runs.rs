@@ -12,8 +12,14 @@ fn format_size(bytes: i64) -> String {
     }
 }
 
-pub async fn run_list(client: &ApiClient, json: bool) -> anyhow::Result<()> {
-    let response = client.list_runs().await?;
+pub async fn run_list(
+    client: &ApiClient,
+    kind: Option<&str>,
+    today: bool,
+    limit: u32,
+    json: bool,
+) -> anyhow::Result<()> {
+    let response = client.list_runs(Some(limit), kind, today).await?;
     if json {
         println!("{}", serde_json::to_string_pretty(&response)?);
         return Ok(());
@@ -74,5 +80,12 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
             println!("  {}  {}  {}", a.artifact_id, a.artifact_type, size_str);
         }
     }
+    Ok(())
+}
+
+pub async fn run_status(client: &ApiClient, id: &str, status: &str) -> anyhow::Result<()> {
+    let response = client.update_run_status(id, status).await?;
+    let r = response.data.expect("update_run_status response missing data");
+    println!("Run {} status -> {}", r.id, r.status);
     Ok(())
 }

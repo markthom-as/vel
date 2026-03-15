@@ -42,12 +42,48 @@ impl ApiClient {
         self.get(&path).await
     }
 
-    pub async fn list_runs(&self) -> anyhow::Result<ApiResponse<Vec<vel_api_types::RunSummaryData>>> {
-        self.get("/v1/runs").await
+    pub async fn list_runs(
+        &self,
+        limit: Option<u32>,
+        kind: Option<&str>,
+        today: bool,
+    ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::RunSummaryData>>> {
+        let mut path = "/v1/runs".to_string();
+        let mut params = Vec::new();
+        if let Some(l) = limit {
+            params.push(format!("limit={}", l));
+        }
+        if let Some(k) = kind.filter(|s| !s.is_empty()) {
+            params.push(format!("kind={}", k));
+        }
+        if today {
+            params.push("today=true".to_string());
+        }
+        if !params.is_empty() {
+            path.push('?');
+            path.push_str(&params.join("&"));
+        }
+        self.get(&path).await
     }
 
     pub async fn get_run(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::RunDetailData>> {
         self.get(&format!("/v1/runs/{}", id)).await
+    }
+
+    pub async fn update_run_status(
+        &self,
+        id: &str,
+        status: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::RunDetailData>> {
+        let body = serde_json::json!({ "status": status });
+        let response = self
+            .http
+            .patch(format!("{}/v1/runs/{}", self.base_url, id))
+            .json(&body)
+            .send()
+            .await
+            .context("sending update run status request")?;
+        crate::client::decode_response(response).await
     }
 
     pub async fn get_artifact(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::ArtifactData>> {
@@ -59,6 +95,14 @@ impl ApiClient {
         artifact_type: &str,
     ) -> anyhow::Result<ApiResponse<Option<vel_api_types::ArtifactData>>> {
         let path = format!("/v1/artifacts/latest?type={}", artifact_type);
+        self.get(&path).await
+    }
+
+    pub async fn list_artifacts(
+        &self,
+        limit: u32,
+    ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::ArtifactData>>> {
+        let path = format!("/v1/artifacts?limit={}", limit);
         self.get(&path).await
     }
 
@@ -192,6 +236,10 @@ impl ApiClient {
 
     pub async fn list_nudges(&self) -> anyhow::Result<ApiResponse<Vec<NudgeData>>> {
         self.get("/v1/nudges").await
+    }
+
+    pub async fn get_nudge(&self, id: &str) -> anyhow::Result<ApiResponse<NudgeData>> {
+        self.get(&format!("/v1/nudges/{}", id)).await
     }
 
     pub async fn nudge_done(&self, id: &str) -> anyhow::Result<ApiResponse<NudgeData>> {

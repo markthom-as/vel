@@ -263,6 +263,11 @@ pub struct ArtifactSummaryData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunUpdateRequest {
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunDetailData {
     pub id: RunId,
     pub kind: String,

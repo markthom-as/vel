@@ -93,6 +93,8 @@ enum Command {
         captures: bool,
         #[arg(long)]
         runs: bool,
+        #[arg(long)]
+        artifacts: bool,
         #[arg(long, default_value = "json")]
         format: String,
         #[arg(long)]
@@ -214,6 +216,12 @@ enum InspectCommand {
 enum RunCommand {
     List {
         #[arg(long)]
+        kind: Option<String>,
+        #[arg(long)]
+        today: bool,
+        #[arg(long, default_value = "20")]
+        limit: u32,
+        #[arg(long)]
         json: bool,
     },
     Inspect {
@@ -221,6 +229,8 @@ enum RunCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Set run status (e.g. retry_scheduled, blocked)
+    Status { id: String, status: String },
 }
 
 #[derive(Debug, Subcommand)]
@@ -306,17 +316,18 @@ enum NudgeCommand {
         #[arg(long, default_value = "10")]
         minutes: u32,
     },
+    Inspect { id: String },
 }
 
 #[derive(Debug, Subcommand)]
 enum ExplainCommand {
-    Nudge { id: String },
+    Nudge { id: String, #[arg(long)] json: bool },
     /// Explain current context (what shaped it)
-    Context,
+    Context { #[arg(long)] json: bool },
     /// Explain a commitment (risk, why in context)
-    Commitment { id: String },
+    Commitment { id: String, #[arg(long)] json: bool },
     /// Explain current drift/attention state
-    Drift,
+    Drift { #[arg(long)] json: bool },
 }
 
 #[tokio::main]
@@ -354,8 +365,9 @@ async fn main() -> anyhow::Result<()> {
             InspectCommand::Artifact { id } => commands::inspect::run_artifact(&client, &id).await,
         },
         Command::Run { command } => match command {
-            RunCommand::List { json } => commands::runs::run_list(&client, json).await,
+            RunCommand::List { kind, today, limit, json } => commands::runs::run_list(&client, kind.as_deref(), *today, *limit, *json).await,
             RunCommand::Inspect { id, json } => commands::runs::run_inspect(&client, &id, json).await,
+            RunCommand::Status { id, status } => commands::runs::run_status(&client, &id, &status).await,
         },
         Command::Review { command } => match command {
             ReviewCommand::Today { json } => commands::review::run_today(&client, json).await,
@@ -369,8 +381,8 @@ async fn main() -> anyhow::Result<()> {
             ImportCommand::Lines { r#type: t } => commands::import_::run_lines(&client, &t).await,
             ImportCommand::CaptureUrl { url } => commands::import_::run_capture_url(&client, &url).await,
         },
-        Command::Export { captures, runs, format, json } => commands::export_::run(&client, *captures, *runs, format, *json).await,
-        Command::Backup {} => commands::backup::run().await,
+        Command::Export { captures, runs, artifacts, format, json } => commands::export_::run(&client, *captures, *runs, *artifacts, format, *json).await,
+        Command::Backup {} => commands::backup::run(&config).await,
         Command::Synthesize { command } => match command {
             SynthesizeCommand::Week { json } => commands::synthesize::run_week(&client, *json).await,
             SynthesizeCommand::Project { name, json } => commands::synthesize::run_project(&client, &name, *json).await,
@@ -399,6 +411,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Nudge { command } => match command {
             NudgeCommand::Done { id } => commands::nudges::run_done(&client, &id).await,
             NudgeCommand::Snooze { id, minutes } => commands::nudges::run_snooze(&client, &id, *minutes).await,
+            NudgeCommand::Inspect { id } => commands::nudges::run_inspect(&client, &id).await,
         },
         Command::Evaluate {} => commands::evaluate::run(&client).await,
         Command::Context { command } => match command {
@@ -406,10 +419,10 @@ async fn main() -> anyhow::Result<()> {
             ContextCommand::Timeline { limit, json } => commands::context::run_timeline(&client, *limit, *json).await,
         },
         Command::Explain { command } => match command {
-            ExplainCommand::Nudge { id } => commands::explain::run_nudge(&client, &id).await,
-            ExplainCommand::Context => commands::explain::run_context(&client).await,
-            ExplainCommand::Commitment { id } => commands::explain::run_commitment(&client, &id).await,
-            ExplainCommand::Drift => commands::explain::run_drift(&client).await,
+            ExplainCommand::Nudge { id, json } => commands::explain::run_nudge(&client, &id, *json).await,
+            ExplainCommand::Context { json } => commands::explain::run_context(&client, *json).await,
+            ExplainCommand::Commitment { id, json } => commands::explain::run_commitment(&client, &id, *json).await,
+            ExplainCommand::Drift { json } => commands::explain::run_drift(&client, *json).await,
         },
         Command::Thread { command } => match command {
             ThreadCommand::List { status, limit, json } => commands::threads::run_list(&client, status.as_deref(), *limit, *json).await,

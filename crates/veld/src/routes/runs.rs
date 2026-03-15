@@ -1,11 +1,20 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
+use serde::Deserialize;
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, ArtifactSummaryData, RunDetailData, RunEventData, RunSummaryData};
+use vel_core::RunStatus;
+use vel_api_types::{ApiResponse, ArtifactSummaryData, RunDetailData, RunEventData, RunSummaryData, RunUpdateRequest};
 
 use crate::{errors::AppError, state::AppState};
+
+#[derive(Debug, Deserialize)]
+pub struct ListRunsQuery {
+    pub limit: Option<u32>,
+    pub kind: Option<String>,
+    pub today: Option<bool>,
+}
 
 fn duration_ms(
     started_at: Option<time::OffsetDateTime>,
@@ -14,10 +23,20 @@ fn duration_ms(
     started_at.and_then(|s| finished_at.map(|f| (f - s).whole_milliseconds()))
 }
 
+fn start_of_today_utc() -> i64 {
+    let now = time::OffsetDateTime::now_utc();
+    let date = now.date();
+    date.midnight().assume_utc().unix_timestamp()
+}
+
 pub async fn list_runs(
     State(state): State<AppState>,
+    Query(q): Query<ListRunsQuery>,
 ) -> Result<Json<ApiResponse<Vec<RunSummaryData>>>, AppError> {
-    let runs = state.storage.list_runs(20).await?;
+    let limit = q.limit.unwrap_or(20).clamp(1, 100);
+    let kind_filter = q.kind.as_deref().filter(|s| !s.is_empty());
+    let since_ts = q.today.unwrap_or(false).then(start_of_today_utc);
+    let runs = state.storage.list_runs(limit, kind_filter, since_ts).await?;
     let data = runs
         .into_iter()
         .map(|r| RunSummaryData {
@@ -89,4 +108,27 @@ pub async fn get_run(
         },
         request_id,
     )))
+}
+
+pub async fn update_run(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    Json(body): Json<RunUpdateRequest>,
+) -> Result<Json<ApiResponse<RunDetailData>>, AppError> {
+    let status: RunStatus = body
+        .status
+        .trim()
+        .parse()
+        .map_err(|e: vel_core::VelCoreError| AppError::bad_request(e.to_string()))?;
+    let id = id.trim();
+    let _existing = state
+        .storage
+        .get_run_by_id(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("run not found"))?;
+    state
+        .storage
+        .update_run_status(id, status, None, None, None, None)
+        .await?;
+    get_run(State(state), Path(id.to_string())).await
 }

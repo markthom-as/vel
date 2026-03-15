@@ -1288,6 +1288,45 @@ impl Storage {
         }))
     }
 
+    /// List artifacts by created_at descending, up to limit.
+    pub async fn list_artifacts(&self, limit: u32) -> Result<Vec<ArtifactRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT artifact_id, artifact_type, title, mime_type, storage_uri, storage_kind,
+                   privacy_class, sync_class, content_hash, size_bytes, created_at, updated_at
+            FROM artifacts
+            ORDER BY created_at DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut out = Vec::with_capacity(rows.len());
+        for row in rows {
+            let storage_kind_str: String = row.try_get("storage_kind")?;
+            let storage_kind = storage_kind_str
+                .parse()
+                .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?;
+            out.push(ArtifactRecord {
+                artifact_id: ArtifactId::from(row.try_get::<String, _>("artifact_id")?),
+                artifact_type: row.try_get("artifact_type")?,
+                title: row.try_get("title")?,
+                mime_type: row.try_get("mime_type")?,
+                storage_uri: row.try_get("storage_uri")?,
+                storage_kind,
+                privacy_class: row.try_get("privacy_class")?,
+                sync_class: row.try_get("sync_class")?,
+                content_hash: row.try_get("content_hash")?,
+                size_bytes: row.try_get("size_bytes")?,
+                created_at: row.try_get("created_at")?,
+                updated_at: row.try_get("updated_at")?,
+            });
+        }
+        Ok(out)
+    }
+
     pub async fn create_run(
         &self,
         id: &RunId,
@@ -1347,18 +1386,42 @@ impl Storage {
         Ok(Some(map_run_row(&row)?))
     }
 
-    pub async fn list_runs(&self, limit: u32) -> Result<Vec<Run>, StorageError> {
+    pub async fn list_runs(
+        &self,
+        limit: u32,
+        kind_filter: Option<&str>,
+        since_ts: Option<i64>,
+    ) -> Result<Vec<Run>, StorageError> {
         let limit = limit.clamp(1, 100) as i64;
-        let rows = sqlx::query(
-            r#"
+        let mut sql = r#"
             SELECT run_id, run_kind, status, input_json, output_json, error_json,
                    created_at, started_at, finished_at
-            FROM runs ORDER BY created_at DESC LIMIT ?
-            "#,
-        )
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
+            FROM runs
+        "#
+        .to_string();
+        let mut conditions = Vec::new();
+        if kind_filter.map(|s| !s.is_empty()).unwrap_or(false) {
+            conditions.push("run_kind = ?");
+        }
+        if since_ts.is_some() {
+            conditions.push("created_at >= ?");
+        }
+        if !conditions.is_empty() {
+            sql.push_str(" WHERE ");
+            sql.push_str(&conditions.join(" AND "));
+        }
+        sql.push_str(" ORDER BY created_at DESC LIMIT ?");
+
+        let mut q = sqlx::query(&sql);
+        if let Some(k) = kind_filter.filter(|s| !s.is_empty()) {
+            q = q.bind(k);
+        }
+        if let Some(ts) = since_ts {
+            q = q.bind(ts);
+        }
+        q = q.bind(limit);
+
+        let rows = q.fetch_all(&self.pool).await?;
         rows.into_iter().map(|row| map_run_row(&row)).collect::<Result<Vec<_>, _>>()
     }
 
@@ -1835,7 +1898,7 @@ mod tests {
             .await
             .unwrap();
 
-        let runs = storage.list_runs(10).await.unwrap();
+        let runs = storage.list_runs(10, None, None).await.unwrap();
         assert_eq!(runs.len(), 1);
         assert_eq!(runs[0].id.to_string(), run_id.to_string());
         assert_eq!(runs[0].status, vel_core::RunStatus::Queued);
