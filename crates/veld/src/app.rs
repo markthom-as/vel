@@ -32,6 +32,8 @@ pub fn build_app(storage: Storage, config: AppConfig, policy_config: PolicyConfi
         .route("/v1/context/timeline", get(routes::context::timeline))
         .route("/v1/explain/nudge/:id", get(routes::explain::explain_nudge))
         .route("/v1/explain/context", get(routes::explain::explain_context))
+        .route("/v1/explain/commitment/:id", get(routes::explain::explain_commitment))
+        .route("/v1/explain/drift", get(routes::explain::explain_drift))
         .route("/v1/threads", get(routes::threads::list_threads).post(routes::threads::create_thread))
         .route("/v1/threads/:id", get(routes::threads::get_thread).patch(routes::threads::update_thread))
         .route("/v1/threads/:id/links", post(routes::threads::add_thread_link))
@@ -356,5 +358,57 @@ mod tests {
         assert!(json["data"]["signals_used"].is_array(), "signals_used must be present");
         assert!(json["data"]["commitments_used"].is_array(), "commitments_used must be present");
         assert!(json["data"]["reasons"].is_array(), "reasons must be present");
+    }
+
+    /// Resolution order: resolved nudge never escalates; second evaluate does not re-trigger.
+    #[tokio::test]
+    async fn resolved_nudge_stays_resolved_after_second_evaluate() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Take meds".to_string(),
+                source_type: "test".to_string(),
+                source_id: None,
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("medication".to_string()),
+                metadata_json: None,
+            })
+            .await
+            .unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let nudges_resp = app.clone().oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let nudges = json["data"].as_array().unwrap_or(&[]);
+        let meds_nudge = nudges.iter().find(|n| n["nudge_type"].as_str() == Some("meds_not_logged"));
+        let nudge_id = meds_nudge.and_then(|n| n["nudge_id"].as_str()).expect("meds nudge should exist");
+        let done_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/nudges/{}/done", nudge_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(done_resp.status(), StatusCode::OK);
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let nudges_resp2 = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
+        let body2 = axum::body::to_bytes(nudges_resp2.into_body(), usize::MAX).await.unwrap();
+        let json2: serde_json::Value = serde_json::from_slice(&body2).unwrap();
+        let resolved: Vec<_> = json2["data"]
+            .as_array()
+            .unwrap_or(&[])
+            .iter()
+            .filter(|n| n["nudge_id"].as_str() == Some(nudge_id))
+            .collect();
+        assert_eq!(resolved.len(), 1, "nudge should appear exactly once");
+        assert_eq!(resolved[0]["state"].as_str(), Some("resolved"), "resolved nudge must stay resolved after second evaluate");
     }
 }

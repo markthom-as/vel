@@ -519,6 +519,27 @@ pub struct ContextExplainData {
     pub reasons: Vec<String>,
 }
 
+/// Explain payload for a commitment (commitment + risk snapshot + why in context).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitmentExplainData {
+    pub commitment_id: String,
+    pub commitment: JsonValue,
+    pub risk: Option<JsonValue>,
+    pub in_context_reasons: Vec<String>,
+}
+
+/// Explain payload for drift (attention/drift state from current context).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DriftExplainData {
+    pub attention_state: Option<String>,
+    pub drift_type: Option<String>,
+    pub drift_severity: Option<String>,
+    pub confidence: Option<f64>,
+    pub reasons: Vec<String>,
+    pub signals_used: Vec<String>,
+    pub commitments_used: Vec<String>,
+}
+
 /// Explain payload for a nudge (nudge + inference/signals snapshots for explainability).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NudgeExplainData {

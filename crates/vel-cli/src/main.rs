@@ -313,6 +313,10 @@ enum ExplainCommand {
     Nudge { id: String },
     /// Explain current context (what shaped it)
     Context,
+    /// Explain a commitment (risk, why in context)
+    Commitment { id: String },
+    /// Explain current drift/attention state
+    Drift,
 }
 
 #[tokio::main]
@@ -404,6 +408,8 @@ async fn main() -> anyhow::Result<()> {
         Command::Explain { command } => match command {
             ExplainCommand::Nudge { id } => commands::explain::run_nudge(&client, &id).await,
             ExplainCommand::Context => commands::explain::run_context(&client).await,
+            ExplainCommand::Commitment { id } => commands::explain::run_commitment(&client, &id).await,
+            ExplainCommand::Drift => commands::explain::run_drift(&client).await,
         },
         Command::Thread { command } => match command {
             ThreadCommand::List { status, limit, json } => commands::threads::run_list(&client, status.as_deref(), *limit, *json).await,

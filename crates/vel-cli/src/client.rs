@@ -250,6 +250,19 @@ impl ApiClient {
         self.get("/v1/explain/context").await
     }
 
+    pub async fn get_explain_commitment(
+        &self,
+        commitment_id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::CommitmentExplainData>> {
+        self.get(&format!("/v1/explain/commitment/{}", commitment_id)).await
+    }
+
+    pub async fn get_explain_drift(
+        &self,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::DriftExplainData>> {
+        self.get("/v1/explain/drift").await
+    }
+
     pub async fn list_threads(
         &self,
         status: Option<&str>,
