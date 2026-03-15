@@ -1,0 +1,84 @@
+import Foundation
+
+// MARK: - Common envelope (veld returns { ok, data, ... })
+
+public struct APIEnvelope<T: Decodable>: Decodable {
+    public let ok: Bool
+    public let data: T?
+    public let error: ErrorPayload?
+    public let meta: MetaPayload?
+
+    public struct ErrorPayload: Decodable {
+        public let code: String?
+        public let message: String?
+    }
+
+    public struct MetaPayload: Decodable {
+        public let request_id: String?
+        public let degraded: Bool?
+    }
+}
+
+// MARK: - Health
+
+public typealias HealthResponse = APIEnvelope<HealthData>
+public struct HealthData: Decodable, Sendable {
+    public let status: String?
+    public let version: String?
+}
+
+// MARK: - Context
+
+public typealias CurrentContextResponse = APIEnvelope<CurrentContextData>
+public struct CurrentContextData: Decodable, Sendable {
+    public let computed_at: Int?
+    public let context: ContextPayload?
+
+    public struct ContextPayload: Decodable, Sendable {
+        public let mode: String?
+        public let morning_state: String?
+        public let meds_status: String?
+        public let prep_window_active: Bool?
+        public let next_commitment_id: String?
+        public let top_risk_commitment_ids: [String]?
+        public let attention_state: String?
+        public let drift_type: String?
+    }
+}
+
+// MARK: - Nudges
+
+public typealias NudgesResponse = APIEnvelope<[NudgeData]>
+public typealias NudgeResponse = APIEnvelope<NudgeData>
+public struct NudgeData: Decodable, Sendable, Identifiable {
+    public var id: String { nudge_id }
+    public let nudge_id: String
+    public let nudge_type: String
+    public let level: String
+    public let state: String
+    public let message: String
+    public let created_at: Int?
+    public let snoozed_until: Int?
+    public let resolved_at: Int?
+    public let related_commitment_id: String?
+}
+
+// MARK: - Commitments
+
+public typealias CommitmentsResponse = APIEnvelope<[CommitmentData]>
+public struct CommitmentData: Decodable, Sendable, Identifiable {
+    public let id: String
+    public let text: String
+    public let status: String
+    public let due_at: Int?
+    public let project: String?
+    public let commitment_kind: String?
+}
+
+// MARK: - Captures
+
+public typealias CaptureResponse = APIEnvelope<CaptureData>
+public struct CaptureData: Decodable, Sendable {
+    public let id: String?
+    public let capture_type: String?
+}
