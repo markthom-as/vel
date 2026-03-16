@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { apiPost } from './api/client';
 import { decodeApiResponse, decodeConversationData, type ApiResponse, type ConversationData } from './types';
 import { AppShell } from './components/AppShell';
+import { ContextPanel } from './components/ContextPanel';
 import { MainPanel } from './components/MainPanel';
 import { SettingsPage } from './components/SettingsPage';
 import { Sidebar } from './components/Sidebar';
@@ -63,16 +64,8 @@ function App() {
         </>
       }
       main={<MainPanel conversationId={selectedConversationId} showInbox={showInbox} />}
-      contextPanel={<ContextPanelFallback />}
+      contextPanel={<ContextPanel />}
     />
-  );
-}
-
-function ContextPanelFallback() {
-  return (
-    <div className="flex h-full items-center justify-center p-6 text-center text-sm text-zinc-500">
-      Context panel unavailable in this build.
-    </div>
   );
 }
 
