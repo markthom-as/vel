@@ -10,6 +10,15 @@ priority: P0
 ## Summary
 Vel should expose a task HUD that behaves less like a generic todo list and more like a live operational register of commitments under attention constraints.
 
+## Boundary
+
+This spec describes a candidate surface and policy layer, not an automatic new system authority.
+
+- Existing commitments, nudges, risk, and threads already own meaningful runtime semantics in Vel.
+- The HUD should default to being a derived surface over those systems.
+- A new first-class `Task` domain should only be introduced if commitments cannot carry the required semantics cleanly and the ownership boundary is stated explicitly.
+- If a new task domain is introduced, it must not duplicate risk, nudge, or thread authority by default.
+
 The HUD should answer:
 - What matters now?
 - What is becoming urgent?
@@ -31,7 +40,9 @@ The HUD should answer:
 - Rendering dense task trees in compact or AR surfaces.
 
 ## Core model
-Tasks are stateful commitments with provenance, timing, decay, and policy.
+The safest initial model is task-like HUD state derived from commitments plus risk/nudge/context signals.
+
+If a separate durable `Task` model is later justified, it should be treated as an extension candidate rather than an assumed replacement for commitments.
 
 ### Canonical task states
 - Pending
@@ -56,7 +67,7 @@ Tasks are stateful commitments with provenance, timing, decay, and policy.
 - Ritual
 - Threats
 
-## Suggested schema
+## Candidate schema
 ```rust
 pub struct Task {
     pub id: TaskId,
@@ -83,6 +94,8 @@ pub struct Task {
     pub visibility_mode: VisibilityMode,
 }
 ```
+
+This schema should not be treated as mandatory until the ownership boundary against commitments is resolved.
 
 ## Ranking
 Attention score should be derived, not manually curated in most cases.
@@ -158,13 +171,15 @@ Do not port full desktop UI. Use the same core semantics with far tighter compre
 - Agent suggestion
 - System inference
 
+In the near term, these should be interpreted as sources for derived HUD entries or commitment-backed ranking inputs, not evidence that a separate task authority already exists.
+
 ## Notifications
 Must be policy-bound, sparse, and escalation-aware.
 - no repeated spam
 - strict snooze respect
 - escalate only if risk increases or context changes materially
 
-## Suggested crate layout
+## Possible crate layout
 ```text
 crates/
   vel-task-core/
@@ -176,8 +191,8 @@ crates/
 ```
 
 ## Rollout plan
-1. Task core + migrations
-2. Ranking + policy + actions
+1. Decide whether the HUD can be commitment-backed first
+2. Ranking + policy + HUD view model over the chosen source of truth
 3. Full task panel + compact desktop HUD
 4. Risk/ritual/inference integration
 5. Voice + watch/mobile glance
@@ -185,7 +200,8 @@ crates/
 7. AR protocol spec
 
 ## Acceptance criteria
-- Task model is persisted and test-covered.
+- The ownership boundary between HUD state and commitments is explicit.
+- If a new task model exists, it is persisted and test-covered.
 - HUD grouping and ranking are deterministic enough to test.
 - Desktop HUD exists behind a feature flag.
 - Risk engine fields can influence ranking and display.
@@ -194,4 +210,3 @@ crates/
 ## Implementation tickets
 
 See [docs/tickets/task-hud/](../tickets/task-hud/README.md) for the ticket pack.
-
