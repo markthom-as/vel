@@ -721,9 +721,16 @@ async fn todoist_request_json(
     client: &reqwest::Client,
     api_token: &str,
     endpoint: &str,
+    cursor: Option<&str>,
 ) -> Result<serde_json::Value, AppError> {
+    let mut url = Url::parse(&format!("https://api.todoist.com/api/v1{}", endpoint))
+        .map_err(|error| AppError::internal(format!("todoist url: {}", error)))?;
+    if let Some(cursor) = cursor {
+        url.query_pairs_mut().append_pair("cursor", cursor);
+    }
+
     client
-        .get(format!("https://api.todoist.com/api/v1{}", endpoint))
+        .get(url)
         .bearer_auth(api_token)
         .send()
         .await
@@ -743,15 +750,29 @@ async fn todoist_request_list<T>(
 where
     T: for<'de> Deserialize<'de>,
 {
-    let value = todoist_request_json(client, api_token, endpoint).await?;
-    if let Ok(items) = serde_json::from_value::<Vec<T>>(value.clone()) {
-        return Ok(items);
+    let mut all_items = Vec::new();
+    let mut cursor: Option<String> = None;
+
+    loop {
+        let value = todoist_request_json(client, api_token, endpoint, cursor.as_deref()).await?;
+        if let Ok(items) = serde_json::from_value::<Vec<T>>(value.clone()) {
+            all_items.extend(items);
+            break;
+        }
+
+        let page: TodoistPage<T> = serde_json::from_value(value)
+            .map_err(|error| AppError::internal(format!("todoist decode results: {}", error)))?;
+        all_items.extend(page.results);
+
+        match page.next_cursor {
+            Some(next_cursor) if !next_cursor.is_empty() => {
+                cursor = Some(next_cursor);
+            }
+            _ => break,
+        }
     }
-    if let Some(results) = value.get("results") {
-        return serde_json::from_value::<Vec<T>>(results.clone())
-            .map_err(|error| AppError::internal(format!("todoist decode results: {}", error)));
-    }
-    Err(AppError::internal("todoist decode: unsupported response shape"))
+
+    Ok(all_items)
 }
 
 async fn reconcile_commitment(
@@ -929,4 +950,11 @@ struct TodoistDue {
 struct TodoistProject {
     id: String,
     name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TodoistPage<T> {
+    results: Vec<T>,
+    #[serde(default)]
+    next_cursor: Option<String>,
 }
