@@ -1,5 +1,6 @@
 mod adapters;
 mod app;
+mod broadcast;
 mod errors;
 mod policy_config;
 mod routes;

@@ -1,5 +1,6 @@
 pub mod artifacts;
 pub mod captures;
+pub mod chat;
 pub mod commitments;
 pub mod context;
 pub mod doctor;
@@ -15,3 +16,4 @@ pub mod suggestions;
 pub mod synthesis;
 pub mod sync;
 pub mod threads;
+pub mod ws;

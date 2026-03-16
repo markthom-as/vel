@@ -9,9 +9,10 @@ use std::str::FromStr;
 use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
-    ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus, ContextCapture,
-    JobId, JobStatus, OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType,
-    RunId, RunKind, RunStatus, SearchResult, SyncClass,
+    ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus,
+    ContextCapture, ConversationId, EventId, InterventionId, JobId, JobStatus, MessageId,
+    OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus,
+    SearchResult, SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -93,6 +94,97 @@ pub struct NudgeRecord {
     pub signals_snapshot_json: Option<String>,
     pub inference_snapshot_json: Option<String>,
     pub metadata_json: JsonValue,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConversationInsert {
+    pub id: String,
+    pub title: Option<String>,
+    pub kind: String,
+    pub pinned: bool,
+    pub archived: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConversationRecord {
+    pub id: ConversationId,
+    pub title: Option<String>,
+    pub kind: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageInsert {
+    pub id: String,
+    pub conversation_id: String,
+    pub role: String,
+    pub kind: String,
+    pub content_json: String,
+    pub status: Option<String>,
+    pub importance: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MessageRecord {
+    pub id: MessageId,
+    pub conversation_id: ConversationId,
+    pub role: String,
+    pub kind: String,
+    pub content_json: String,
+    pub status: Option<String>,
+    pub importance: Option<String>,
+    pub created_at: i64,
+    pub updated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InterventionInsert {
+    pub id: String,
+    pub message_id: String,
+    pub kind: String,
+    pub state: String,
+    pub surfaced_at: i64,
+    pub resolved_at: Option<i64>,
+    pub snoozed_until: Option<i64>,
+    pub confidence: Option<f64>,
+    pub source_json: Option<String>,
+    pub provenance_json: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InterventionRecord {
+    pub id: InterventionId,
+    pub message_id: MessageId,
+    pub kind: String,
+    pub state: String,
+    pub surfaced_at: i64,
+    pub resolved_at: Option<i64>,
+    pub snoozed_until: Option<i64>,
+    pub confidence: Option<f64>,
+    pub source_json: Option<String>,
+    pub provenance_json: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EventLogInsert {
+    pub id: Option<String>,
+    pub event_name: String,
+    pub aggregate_type: Option<String>,
+    pub aggregate_id: Option<String>,
+    pub payload_json: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct EventLogRecord {
+    pub id: EventId,
+    pub event_name: String,
+    pub aggregate_type: Option<String>,
+    pub aggregate_id: Option<String>,
+    pub payload_json: String,
+    pub created_at: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -1548,6 +1640,362 @@ impl Storage {
         rows.into_iter().map(map_ref_row).collect::<Result<Vec<_>, _>>()
     }
 
+    // --- Conversations (chat) ---
+
+    pub async fn create_conversation(&self, input: ConversationInsert) -> Result<ConversationId, StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"INSERT INTO conversations (id, title, kind, pinned, archived, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)"#,
+        )
+        .bind(&input.id)
+        .bind(input.title.as_deref())
+        .bind(&input.kind)
+        .bind(if input.pinned { 1i32 } else { 0 })
+        .bind(if input.archived { 1i32 } else { 0 })
+        .bind(now)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(ConversationId::from(input.id))
+    }
+
+    pub async fn list_conversations(
+        &self,
+        archived: Option<bool>,
+        limit: u32,
+    ) -> Result<Vec<ConversationRecord>, StorageError> {
+        let limit = limit.min(500) as i64;
+        let rows = if let Some(arch) = archived {
+            sqlx::query(
+                r#"SELECT id, title, kind, pinned, archived, created_at, updated_at
+                   FROM conversations WHERE archived = ? ORDER BY updated_at DESC LIMIT ?"#,
+            )
+            .bind(if arch { 1i32 } else { 0 })
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query(
+                r#"SELECT id, title, kind, pinned, archived, created_at, updated_at
+                   FROM conversations ORDER BY updated_at DESC LIMIT ?"#,
+            )
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await?
+        };
+        rows.into_iter()
+            .map(|row| map_conversation_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn get_conversation(&self, id: &str) -> Result<Option<ConversationRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"SELECT id, title, kind, pinned, archived, created_at, updated_at
+               FROM conversations WHERE id = ?"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|r| map_conversation_row(&r)).transpose()
+    }
+
+    pub async fn rename_conversation(&self, id: &str, title: &str) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(r#"UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?"#)
+            .bind(title)
+            .bind(now)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn pin_conversation(&self, id: &str, pinned: bool) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(r#"UPDATE conversations SET pinned = ?, updated_at = ? WHERE id = ?"#)
+            .bind(if pinned { 1i32 } else { 0 })
+            .bind(now)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn archive_conversation(&self, id: &str, archived: bool) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(r#"UPDATE conversations SET archived = ?, updated_at = ? WHERE id = ?"#)
+            .bind(if archived { 1i32 } else { 0 })
+            .bind(now)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    // --- Messages (chat) ---
+
+    pub async fn create_message(&self, input: MessageInsert) -> Result<MessageId, StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"INSERT INTO messages (id, conversation_id, role, kind, content_json, status, importance, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+        )
+        .bind(&input.id)
+        .bind(&input.conversation_id)
+        .bind(&input.role)
+        .bind(&input.kind)
+        .bind(&input.content_json)
+        .bind(input.status.as_deref())
+        .bind(input.importance.as_deref())
+        .bind(now)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(MessageId::from(input.id))
+    }
+
+    /// List messages in a conversation, ordered by created_at ASC for stable thread display.
+    pub async fn list_messages_by_conversation(
+        &self,
+        conversation_id: &str,
+        limit: u32,
+    ) -> Result<Vec<MessageRecord>, StorageError> {
+        let limit = limit.min(2000) as i64;
+        let rows = sqlx::query(
+            r#"SELECT id, conversation_id, role, kind, content_json, status, importance, created_at, updated_at
+               FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ?"#,
+        )
+        .bind(conversation_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_message_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn get_message(&self, id: &str) -> Result<Option<MessageRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"SELECT id, conversation_id, role, kind, content_json, status, importance, created_at, updated_at
+               FROM messages WHERE id = ?"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|r| map_message_row(&r)).transpose()
+    }
+
+    pub async fn update_message_status(
+        &self,
+        id: &str,
+        status: &str,
+    ) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(r#"UPDATE messages SET status = ?, updated_at = ? WHERE id = ?"#)
+            .bind(status)
+            .bind(now)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    // --- Interventions (chat) ---
+
+    pub async fn create_intervention(
+        &self,
+        input: InterventionInsert,
+    ) -> Result<InterventionId, StorageError> {
+        sqlx::query(
+            r#"INSERT INTO interventions (id, message_id, kind, state, surfaced_at, resolved_at, snoozed_until, confidence, source_json, provenance_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+        )
+        .bind(&input.id)
+        .bind(&input.message_id)
+        .bind(&input.kind)
+        .bind(&input.state)
+        .bind(input.surfaced_at)
+        .bind(input.resolved_at)
+        .bind(input.snoozed_until)
+        .bind(input.confidence)
+        .bind(input.source_json.as_deref())
+        .bind(input.provenance_json.as_deref())
+        .execute(&self.pool)
+        .await?;
+        Ok(InterventionId::from(input.id))
+    }
+
+    pub async fn list_interventions_active(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<InterventionRecord>, StorageError> {
+        let limit = limit.min(500) as i64;
+        let now_ts = OffsetDateTime::now_utc().unix_timestamp();
+        let rows = sqlx::query(
+            r#"SELECT id, message_id, kind, state, surfaced_at, resolved_at, snoozed_until, confidence, source_json, provenance_json
+               FROM interventions WHERE state = 'active' OR (state = 'snoozed' AND (snoozed_until IS NULL OR snoozed_until > ?))
+               ORDER BY surfaced_at DESC LIMIT ?"#,
+        )
+        .bind(now_ts)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_intervention_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn get_interventions_by_message(
+        &self,
+        message_id: &str,
+    ) -> Result<Vec<InterventionRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"SELECT id, message_id, kind, state, surfaced_at, resolved_at, snoozed_until, confidence, source_json, provenance_json
+               FROM interventions WHERE message_id = ? ORDER BY surfaced_at DESC"#,
+        )
+        .bind(message_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_intervention_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn get_intervention(&self, id: &str) -> Result<Option<InterventionRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"SELECT id, message_id, kind, state, surfaced_at, resolved_at, snoozed_until, confidence, source_json, provenance_json
+               FROM interventions WHERE id = ?"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|r| map_intervention_row(&r)).transpose()
+    }
+
+    pub async fn snooze_intervention(
+        &self,
+        id: &str,
+        snoozed_until_ts: i64,
+    ) -> Result<(), StorageError> {
+        sqlx::query(
+            r#"UPDATE interventions SET state = 'snoozed', snoozed_until = ?, resolved_at = NULL WHERE id = ?"#,
+        )
+        .bind(snoozed_until_ts)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn resolve_intervention(&self, id: &str) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"UPDATE interventions SET state = 'resolved', resolved_at = ?, snoozed_until = NULL WHERE id = ?"#,
+        )
+        .bind(now)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn dismiss_intervention(&self, id: &str) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"UPDATE interventions SET state = 'dismissed', resolved_at = ?, snoozed_until = NULL WHERE id = ?"#,
+        )
+        .bind(now)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    // --- Event log (chat) ---
+
+    pub async fn append_event(&self, input: EventLogInsert) -> Result<EventId, StorageError> {
+        let id = input
+            .id
+            .unwrap_or_else(|| format!("evt_{}", Uuid::new_v4().simple()));
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"INSERT INTO event_log (id, event_name, aggregate_type, aggregate_id, payload_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)"#,
+        )
+        .bind(&id)
+        .bind(&input.event_name)
+        .bind(input.aggregate_type.as_deref())
+        .bind(input.aggregate_id.as_deref())
+        .bind(&input.payload_json)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(EventId::from(id))
+    }
+
+    pub async fn list_events_recent(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<EventLogRecord>, StorageError> {
+        let limit = limit.min(1000) as i64;
+        let rows = sqlx::query(
+            r#"SELECT id, event_name, aggregate_type, aggregate_id, payload_json, created_at
+               FROM event_log ORDER BY created_at DESC LIMIT ?"#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_event_log_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn list_events_by_aggregate(
+        &self,
+        aggregate_type: &str,
+        aggregate_id: &str,
+        limit: u32,
+    ) -> Result<Vec<EventLogRecord>, StorageError> {
+        let limit = limit.min(500) as i64;
+        let rows = sqlx::query(
+            r#"SELECT id, event_name, aggregate_type, aggregate_id, payload_json, created_at
+               FROM event_log WHERE aggregate_type = ? AND aggregate_id = ? ORDER BY created_at DESC LIMIT ?"#,
+        )
+        .bind(aggregate_type)
+        .bind(aggregate_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_event_log_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    // --- Settings (chat/client) ---
+
+    pub async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, serde_json::Value>, StorageError> {
+        let rows = sqlx::query_as::<_, (String, String)>("SELECT key, value_json FROM settings")
+            .fetch_all(&self.pool)
+            .await?;
+        let mut out = std::collections::HashMap::new();
+        for (k, v) in rows {
+            let val: serde_json::Value = serde_json::from_str(&v).unwrap_or(serde_json::Value::Null);
+            out.insert(k, val);
+        }
+        Ok(out)
+    }
+
+    pub async fn set_setting(&self, key: &str, value: &serde_json::Value) -> Result<(), StorageError> {
+        let json = serde_json::to_string(value).map_err(|e| StorageError::Validation(e.to_string()))?;
+        sqlx::query("INSERT INTO settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json")
+            .bind(key)
+            .bind(&json)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
         let now = OffsetDateTime::now_utc();
         let start_of_day = now
@@ -1618,6 +2066,60 @@ fn map_context_capture_row(row: sqlx::sqlite::SqliteRow) -> Result<ContextCaptur
         content_text: row.try_get("content_text")?,
         occurred_at: timestamp_to_datetime(row.try_get("occurred_at")?)?,
         source_device: row.try_get("source_device")?,
+    })
+}
+
+fn map_conversation_row(row: &sqlx::sqlite::SqliteRow) -> Result<ConversationRecord, StorageError> {
+    let pinned: i32 = row.try_get("pinned")?;
+    let archived: i32 = row.try_get("archived")?;
+    Ok(ConversationRecord {
+        id: ConversationId::from(row.try_get::<String, _>("id")?),
+        title: row.try_get("title")?,
+        kind: row.try_get("kind")?,
+        pinned: pinned != 0,
+        archived: archived != 0,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
+    })
+}
+
+fn map_message_row(row: &sqlx::sqlite::SqliteRow) -> Result<MessageRecord, StorageError> {
+    Ok(MessageRecord {
+        id: MessageId::from(row.try_get::<String, _>("id")?),
+        conversation_id: ConversationId::from(row.try_get::<String, _>("conversation_id")?),
+        role: row.try_get("role")?,
+        kind: row.try_get("kind")?,
+        content_json: row.try_get("content_json")?,
+        status: row.try_get("status")?,
+        importance: row.try_get("importance")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
+    })
+}
+
+fn map_intervention_row(row: &sqlx::sqlite::SqliteRow) -> Result<InterventionRecord, StorageError> {
+    Ok(InterventionRecord {
+        id: InterventionId::from(row.try_get::<String, _>("id")?),
+        message_id: MessageId::from(row.try_get::<String, _>("message_id")?),
+        kind: row.try_get("kind")?,
+        state: row.try_get("state")?,
+        surfaced_at: row.try_get("surfaced_at")?,
+        resolved_at: row.try_get("resolved_at")?,
+        snoozed_until: row.try_get("snoozed_until")?,
+        confidence: row.try_get("confidence")?,
+        source_json: row.try_get("source_json")?,
+        provenance_json: row.try_get("provenance_json")?,
+    })
+}
+
+fn map_event_log_row(row: &sqlx::sqlite::SqliteRow) -> Result<EventLogRecord, StorageError> {
+    Ok(EventLogRecord {
+        id: EventId::from(row.try_get::<String, _>("id")?),
+        event_name: row.try_get("event_name")?,
+        aggregate_type: row.try_get("aggregate_type")?,
+        aggregate_id: row.try_get("aggregate_id")?,
+        payload_json: row.try_get("payload_json")?,
+        created_at: row.try_get("created_at")?,
     })
 }
 

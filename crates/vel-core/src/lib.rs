@@ -1,12 +1,21 @@
 pub mod commitment;
 pub mod context;
+pub mod intervention;
+pub mod message;
 pub mod provenance;
 pub mod run;
+pub mod types;
 
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
 pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
+pub use intervention::{Intervention, InterventionState};
+pub use message::{
+    Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,
+    ProvenanceRef, RiskCard, SuggestionCard, ReminderCard, SummaryCard, SystemNotice, TextMessage,
+};
 pub use provenance::{Ref, RefRelationType};
 pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
+pub use types::{ConversationId, EventId, InterventionId, MessageId};
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};

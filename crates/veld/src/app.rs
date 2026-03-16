@@ -6,7 +6,8 @@ use vel_storage::Storage;
 use crate::{policy_config::PolicyConfig, routes, state::AppState};
 
 pub fn build_app(storage: Storage, config: AppConfig, policy_config: PolicyConfig) -> Router {
-    let state = AppState::new(storage, config, policy_config);
+    let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
+    let state = AppState::new(storage, config, policy_config, broadcast_tx);
 
     Router::new()
         .route("/v1/health", get(routes::health::health))
@@ -49,6 +50,8 @@ pub fn build_app(storage: Storage, config: AppConfig, policy_config: PolicyConfi
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
         .route("/v1/synthesis/week", post(routes::synthesis::synthesis_week))
         .route("/v1/synthesis/project/:slug", post(routes::synthesis::synthesis_project))
+        .route("/ws", get(routes::ws::ws_handler))
+        .merge(routes::chat::chat_routes())
         .with_state(state)
         .layer(TraceLayer::new_for_http())
 }
@@ -336,7 +339,7 @@ mod tests {
         assert_eq!(nudges_resp.status(), StatusCode::OK);
         let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let nudges = json["data"].as_array().unwrap_or(&[]);
+        let nudges = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
         let commute_nudges: Vec<_> = nudges
             .iter()
             .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time"))
@@ -374,7 +377,7 @@ mod tests {
         assert_eq!(nudges_resp.status(), StatusCode::OK);
         let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let nudges = json["data"].as_array().unwrap_or(&[]);
+        let nudges = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
         let commute_nudges: Vec<_> = nudges
             .iter()
             .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time"))
@@ -421,7 +424,7 @@ mod tests {
         let nudges_resp = app.clone().oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
         let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let nudges = json["data"].as_array().unwrap_or(&[]);
+        let nudges = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
         let meds_nudge = nudges.iter().find(|n| n["nudge_type"].as_str() == Some("meds_not_logged"));
         let nudge_id = meds_nudge.and_then(|n| n["nudge_id"].as_str()).expect("meds nudge should exist");
         let done_resp = app
@@ -442,8 +445,8 @@ mod tests {
         let json2: serde_json::Value = serde_json::from_slice(&body2).unwrap();
         let resolved: Vec<_> = json2["data"]
             .as_array()
-            .unwrap_or(&[])
-            .iter()
+            .into_iter()
+            .flatten()
             .filter(|n| n["nudge_id"].as_str() == Some(nudge_id))
             .collect();
         assert_eq!(resolved.len(), 1, "nudge should appear exactly once");
@@ -547,7 +550,7 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
         let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let list = json["data"].as_array().unwrap_or(&[]);
+        let list = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
         assert!(!list.is_empty(), "risk list should be non-empty when commitments exist");
     }
 
@@ -563,10 +566,10 @@ mod tests {
         let nudges_resp = app.clone().oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
         let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let nudges = json["data"].as_array().unwrap_or(&[]);
+        let nudges = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
         let commute = nudges.iter().find(|n| n["nudge_type"].as_str() == Some("commute_leave_time"));
         let nudge_id = commute.and_then(|n| n["nudge_id"].as_str()).expect("commute nudge should exist");
-        let snooze_until = now_ts + 15 * 60;
+        let _snooze_until = now_ts + 15 * 60;
         let snooze_body = serde_json::json!({ "minutes": 15 }).to_string();
         let _ = app.clone().oneshot(
             Request::builder()
@@ -580,7 +583,7 @@ mod tests {
         let nudges_resp2 = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
         let body2 = axum::body::to_bytes(nudges_resp2.into_body(), usize::MAX).await.unwrap();
         let json2: serde_json::Value = serde_json::from_slice(&body2).unwrap();
-        let same_nudge: Vec<_> = json2["data"].as_array().unwrap_or(&[]).iter().filter(|n| n["nudge_id"].as_str() == Some(nudge_id)).collect();
+        let same_nudge: Vec<_> = json2["data"].as_array().map(|v| v.as_slice()).unwrap_or_default().iter().filter(|n| n["nudge_id"].as_str() == Some(nudge_id)).collect();
         assert_eq!(same_nudge.len(), 1, "snoozed nudge should still appear once");
         assert_eq!(same_nudge[0]["state"].as_str(), Some("snoozed"), "nudge should be snoozed");
     }
@@ -612,8 +615,8 @@ mod tests {
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let active_commute: Vec<_> = json["data"]
             .as_array()
-            .unwrap_or(&[])
-            .iter()
+            .into_iter()
+            .flatten()
             .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time") && n["state"].as_str() == Some("active"))
             .collect();
         assert!(active_commute.is_empty(), "commute nudge should be resolved or absent after event start passed");
@@ -632,8 +635,8 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
         let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let commitments_used = json["data"]["commitments_used"].as_array().unwrap_or(&[]);
-        let signals_used = json["data"]["signals_used"].as_array().unwrap_or(&[]);
+        let commitments_used = json["data"]["commitments_used"].as_array().map(|v| v.as_slice()).unwrap_or_default();
+        let signals_used = json["data"]["signals_used"].as_array().map(|v| v.as_slice()).unwrap_or_default();
         assert!(!signals_used.is_empty(), "signals_used must reference calendar signal");
         let commitment_ids: Vec<&str> = commitments_used.iter().filter_map(|c| c.as_str()).collect();
         assert!(commitment_ids.contains(&meds_id.as_str()) || commitment_ids.contains(&prep_id.as_str()), "commitments_used should include fixture commitments");
@@ -684,7 +687,7 @@ mod tests {
         let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
         let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let meds_nudges: Vec<_> = json["data"].as_array().unwrap_or(&[]).iter().filter(|n| n["nudge_type"].as_str() == Some("meds_not_logged") && (n["state"].as_str() == Some("active") || n["state"].as_str() == Some("snoozed"))).collect();
+        let meds_nudges: Vec<_> = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default().iter().filter(|n| n["nudge_type"].as_str() == Some("meds_not_logged") && (n["state"].as_str() == Some("active") || n["state"].as_str() == Some("snoozed"))).collect();
         assert!(meds_nudges.is_empty(), "meds nudge should be gone after commitment done");
     }
 
@@ -704,7 +707,7 @@ mod tests {
         let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
         let nbody = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
         let njson: serde_json::Value = serde_json::from_slice(&nbody).unwrap();
-        let commute: Vec<_> = njson["data"].as_array().unwrap_or(&[]).iter().filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time")).collect();
+        let commute: Vec<_> = njson["data"].as_array().map(|v| v.as_slice()).unwrap_or_default().iter().filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time")).collect();
         assert!(!commute.is_empty(), "commute nudge should exist in danger window (variant B)");
         assert!(drift_type.is_some() || ctx["data"].get("attention_state").is_some(), "drift or attention state should be present");
     }
@@ -739,7 +742,7 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
         let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let suggestions = json["data"].as_array().unwrap_or(&[]);
+        let suggestions = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
         let commute_buf: Vec<_> = suggestions.iter().filter(|s| s["suggestion_type"].as_str() == Some("increase_commute_buffer")).collect();
         assert!(!commute_buf.is_empty(), "increase_commute_buffer suggestion should appear after repeated commute danger (variant C)");
     }
