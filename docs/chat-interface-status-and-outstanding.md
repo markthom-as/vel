@@ -23,6 +23,7 @@
 - **Status / index:** repo-wide canonical ledger is [status.md](status.md); this file and [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md) defer to it for rollout truth.
 - **Realtime contract:** `/ws` carries `messages:new` for newly persisted chat messages, `interventions:new` for newly created interventions, and `interventions:updated` for snooze/resolve/dismiss actions.
 - **Transport contract cleanup:** chat/websocket DTOs now live in `crates/vel-api-types`, and the web client consumes them through a centralized runtime decoder layer instead of per-component ad hoc guards.
+- **Shared client data layer:** thread, inbox, context, settings, and provenance now load through a shared query/cache path with targeted realtime invalidation instead of each screen owning its own fetch/refetch state machine.
 
 ## “Nothing happens when I send a message”
 
@@ -33,7 +34,6 @@
 
 ## Outstanding (concise)
 
-1. **Data layer:** introduce a shared query/cache layer so thread, inbox, context, and settings stop managing fetch/refetch logic independently.
-2. **State orchestration:** centralize loading/error/empty handling instead of repeating per-component request code.
-3. **Reconciliation:** define optimistic-vs-confirmed behavior for message send and intervention actions so websocket echoes and POST responses converge cleanly.
-4. **Optional product polish:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.
+1. **Reconciliation:** define optimistic-vs-confirmed behavior for message send and intervention actions so websocket echoes and POST responses converge cleanly.
+2. **State orchestration polish:** tighten loading/error/empty presentation now that the fetch path is shared.
+3. **Optional product polish:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.

@@ -32,7 +32,7 @@ Purpose: act as a **navigation and coverage index**. Canonical implementation tr
 - chat implementation brief — [spec](specs/vel-chat-interface-implementation-brief.md)
 - chat execution plan — [spec](specs/vel-chat-execution-plan.md)
 - ticket pack — [tickets](tickets/README.md) (Chat 001–035)
-- subsystem status detail — [chat-interface-status-and-outstanding.md](chat-interface-status-and-outstanding.md) (shipped websocket contract, transport DTO notes, and follow-up work)
+- subsystem status detail — [chat-interface-status-and-outstanding.md](chat-interface-status-and-outstanding.md) (shipped websocket contract, transport/query layer notes, and follow-up work)
 
 ## Integrations
 - integration roadmap — [spec](specs/vel-integration-priority-and-adapter-roadmap.md)
