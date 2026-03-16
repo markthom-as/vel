@@ -73,6 +73,16 @@ Influences:
 - ideation linking
 - project synthesis
 
+### Messaging Awareness
+- local messaging thread snapshots
+- replay-safe `message_thread` signals
+- waiting-state / urgency / scheduling metadata
+
+Influences:
+- response debt visibility
+- scheduling negotiation awareness
+- current-context explain surfaces
+
 ## Next Priority Extensions
 
 ### Feedback Signals
@@ -89,11 +99,6 @@ Influences:
 - recurrence fidelity
 - richer attendee/travel/prep metadata
 - better snapshot/update coverage
-
-### Messaging Awareness
-- conversation threads
-- response debt
-- scheduling negotiation
 
 ## Later Extensions
 
