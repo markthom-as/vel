@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
+thiserror.workspace = true
 http.workspace = true
 serde.workspace = true
 serde_json.workspace = true

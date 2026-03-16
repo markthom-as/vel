@@ -53,12 +53,13 @@ async fn main() -> anyhow::Result<()> {
     let storage_for_worker = storage.clone();
     tokio::spawn(worker::run_ingestion_worker(storage_for_worker));
 
+    let bind_addr = config.bind_addr.clone();
     let listener = TcpListener::bind(&config.bind_addr)
         .await
         .with_context(|| format!("binding {}", config.bind_addr))?;
     let app = app::build_app(storage, config, policy_config);
 
-    info!(bind_addr = %config.bind_addr, "veld starting");
+    info!(bind_addr = %bind_addr, "veld starting");
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await

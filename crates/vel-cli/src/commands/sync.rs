@@ -1,3 +1,4 @@
+use anyhow::Context;
 use crate::client::ApiClient;
 
 pub async fn run_calendar(client: &ApiClient) -> anyhow::Result<()> {

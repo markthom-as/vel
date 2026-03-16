@@ -1,7 +1,6 @@
 //! Calendar adapter: read .ics from config path or URL, normalize to calendar_event signals.
 //! Minimal line-based ICS parse for VEVENT (UID, DTSTART, DTEND, SUMMARY, LOCATION).
 
-use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_storage::{SignalInsert, Storage};
 

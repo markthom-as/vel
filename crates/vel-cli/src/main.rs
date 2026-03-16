@@ -345,8 +345,8 @@ async fn main() -> anyhow::Result<()> {
             stdin,
             r#type: capture_type,
             source,
-        } => commands::capture::run(&client, text, *stdin, capture_type.clone(), source.clone()).await,
-        Command::Recent { limit, today, json } => commands::recent::run(&client, *limit, *today, *json).await,
+        } => commands::capture::run(&client, text, stdin, capture_type.clone(), source.clone()).await,
+        Command::Recent { limit, today, json } => commands::recent::run(&client, limit, today, json).await,
         Command::Today { json } => commands::today::run(&client, json).await,
         Command::Morning { json } => commands::morning::run(&client, json).await,
         Command::EndOfDay { json } => commands::end_of_day::run(&client, json).await,
@@ -365,7 +365,7 @@ async fn main() -> anyhow::Result<()> {
             InspectCommand::Artifact { id } => commands::inspect::run_artifact(&client, &id).await,
         },
         Command::Run { command } => match command {
-            RunCommand::List { kind, today, limit, json } => commands::runs::run_list(&client, kind.as_deref(), *today, *limit, *json).await,
+            RunCommand::List { kind, today, limit, json } => commands::runs::run_list(&client, kind.as_deref(), today, limit, json).await,
             RunCommand::Inspect { id, json } => commands::runs::run_inspect(&client, &id, json).await,
             RunCommand::Status { id, status } => commands::runs::run_status(&client, &id, &status).await,
         },
@@ -381,14 +381,14 @@ async fn main() -> anyhow::Result<()> {
             ImportCommand::Lines { r#type: t } => commands::import_::run_lines(&client, &t).await,
             ImportCommand::CaptureUrl { url } => commands::import_::run_capture_url(&client, &url).await,
         },
-        Command::Export { captures, runs, artifacts, format, json } => commands::export_::run(&client, *captures, *runs, *artifacts, format, *json).await,
+        Command::Export { captures, runs, artifacts, format, json } => commands::export_::run(&client, captures, runs, artifacts, format.as_str(), json).await,
         Command::Backup {} => commands::backup::run(&config).await,
         Command::Synthesize { command } => match command {
-            SynthesizeCommand::Week { json } => commands::synthesize::run_week(&client, *json).await,
-            SynthesizeCommand::Project { name, json } => commands::synthesize::run_project(&client, &name, *json).await,
+            SynthesizeCommand::Week { json } => commands::synthesize::run_week(&client, json).await,
+            SynthesizeCommand::Project { name, json } => commands::synthesize::run_project(&client, &name, json).await,
         },
         Command::Commitments { status, project, limit, json } => {
-            commands::commitments::run_list(&client, status.as_deref(), project.as_deref(), *limit, *json).await
+            commands::commitments::run_list(&client, status.as_deref(), project.as_deref(), limit, json).await
         }
         Command::Commitment { command } => match command {
             CommitmentCommand::Add { text, kind, project } => {
@@ -407,34 +407,34 @@ async fn main() -> anyhow::Result<()> {
             SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
             SyncCommand::Activity => commands::sync::run_activity(&client).await,
         },
-        Command::Nudges { json } => commands::nudges::run_list(&client, *json).await,
+        Command::Nudges { json } => commands::nudges::run_list(&client, json).await,
         Command::Nudge { command } => match command {
             NudgeCommand::Done { id } => commands::nudges::run_done(&client, &id).await,
-            NudgeCommand::Snooze { id, minutes } => commands::nudges::run_snooze(&client, &id, *minutes).await,
+            NudgeCommand::Snooze { id, minutes } => commands::nudges::run_snooze(&client, &id, minutes).await,
             NudgeCommand::Inspect { id } => commands::nudges::run_inspect(&client, &id).await,
         },
         Command::Evaluate {} => commands::evaluate::run(&client).await,
         Command::Context { command } => match command {
-            ContextCommand::Show { json } => commands::context::run_current(&client, *json).await,
-            ContextCommand::Timeline { limit, json } => commands::context::run_timeline(&client, *limit, *json).await,
+            ContextCommand::Show { json } => commands::context::run_current(&client, json).await,
+            ContextCommand::Timeline { limit, json } => commands::context::run_timeline(&client, limit, json).await,
         },
         Command::Explain { command } => match command {
-            ExplainCommand::Nudge { id, json } => commands::explain::run_nudge(&client, &id, *json).await,
-            ExplainCommand::Context { json } => commands::explain::run_context(&client, *json).await,
-            ExplainCommand::Commitment { id, json } => commands::explain::run_commitment(&client, &id, *json).await,
-            ExplainCommand::Drift { json } => commands::explain::run_drift(&client, *json).await,
+            ExplainCommand::Nudge { id, json } => commands::explain::run_nudge(&client, &id, json).await,
+            ExplainCommand::Context { json } => commands::explain::run_context(&client, json).await,
+            ExplainCommand::Commitment { id, json } => commands::explain::run_commitment(&client, &id, json).await,
+            ExplainCommand::Drift { json } => commands::explain::run_drift(&client, json).await,
         },
         Command::Thread { command } => match command {
-            ThreadCommand::List { status, limit, json } => commands::threads::run_list(&client, status.as_deref(), *limit, *json).await,
+            ThreadCommand::List { status, limit, json } => commands::threads::run_list(&client, status.as_deref(), limit, json).await,
             ThreadCommand::Inspect { id } => commands::threads::run_inspect(&client, &id).await,
             ThreadCommand::Close { id } => commands::threads::run_close(&client, &id).await,
             ThreadCommand::Reopen { id } => commands::threads::run_reopen(&client, &id).await,
         },
         Command::Risk { id, json } => match id {
-            Some(ref id) => commands::risk::run_commitment(&client, id, *json).await,
-            None => commands::risk::run_list(&client, *json).await,
+            Some(ref id) => commands::risk::run_commitment(&client, id, json).await,
+            None => commands::risk::run_list(&client, json).await,
         },
-        Command::Suggestions { state, json } => commands::suggestions::run_list(&client, state.as_deref(), *json).await,
+        Command::Suggestions { state, json } => commands::suggestions::run_list(&client, state.as_deref(), json).await,
         Command::Suggestion { command } => match command {
             SuggestionCommand::Inspect { id } => commands::suggestions::run_inspect(&client, &id).await,
             SuggestionCommand::Accept { id } => commands::suggestions::run_accept(&client, &id).await,

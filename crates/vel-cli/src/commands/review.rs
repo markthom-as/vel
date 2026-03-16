@@ -32,7 +32,7 @@ pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         }
     }
     println!();
-    if let Some(ref a) = latest_ctx {
+    if let Some(Some(ref a)) = latest_ctx {
         println!("Latest context artifact: {}  ({})", a.artifact_id, a.storage_uri);
     } else {
         println!("Latest context artifact: (none)");
@@ -68,7 +68,7 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         }
     }
     println!();
-    if let Some(ref a) = latest_ctx {
+    if let Some(Some(ref a)) = latest_ctx {
         println!("Latest context artifact: {}  ({})", a.artifact_id, a.storage_uri);
     } else {
         println!("Latest context artifact: (none)");

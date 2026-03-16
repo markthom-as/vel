@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
     ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus, ContextCapture,
-    JobId, JobStatus, OrientationSnapshot, PrivacyClass, Ref, RefRelationType, Run, RunEvent, RunEventType,
+    JobId, JobStatus, OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType,
     RunId, RunKind, RunStatus, SearchResult, SyncClass,
 };
 
@@ -362,7 +362,7 @@ impl Storage {
             .await?
         };
         rows.into_iter()
-            .map(|row| map_context_capture_row(&row))
+            .map(|row| map_context_capture_row(row))
             .collect::<Result<Vec<_>, _>>()
     }
 
@@ -584,7 +584,7 @@ impl Storage {
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(map_signal_row).collect()
+        rows.into_iter().map(|row| map_signal_row(&row)).collect()
     }
 
     // --- Inferred state (Phase C) ---
@@ -624,7 +624,7 @@ impl Storage {
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(map_inferred_state_row).collect()
+        rows.into_iter().map(|row| map_inferred_state_row(&row)).collect()
     }
 
     // --- Nudges (Phase D) ---

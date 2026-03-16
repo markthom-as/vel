@@ -27,6 +27,10 @@ Purpose: Ensure all discussed subsystems are documented and tracked.
 ## Voice
 - voice interaction spec ✔
 
+## Chat Interface
+- chat interface implementation brief ✔ (agent console, structured cards, provenance, phases 1–4)
+- chat execution plan ✔ (domain model, API, WebSocket, React client, acceptance criteria)
+
 ## Integrations
 - integration roadmap ✔
 
@@ -47,3 +51,4 @@ Purpose: Ensure all discussed subsystems are documented and tracked.
 6. ~~first Apple client slice~~ ✔ (iOS/Watch/Mac bootstrap)
 7. desktop voice push‑to‑talk (deferred)
 8. ~~Canonical day fixture: full replay test suite~~ ✔ (fixture helper, §6.1–6.6 assertions, Variants A/B/C)
+9. Chat interface (planned) — see [vel-chat-interface-implementation-brief.md](specs/vel-chat-interface-implementation-brief.md), [vel-chat-execution-plan.md](specs/vel-chat-execution-plan.md)

@@ -48,7 +48,7 @@ pub async fn get_thread(
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<ThreadData>>, AppError> {
     let row = state.storage.get_thread_by_id(id.trim()).await?;
-    let (id, thread_type, title, status, metadata_json, created_at, updated_at) = row
+    let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row
         .ok_or_else(|| AppError::not_found("thread not found"))?;
     let links_rows = state.storage.list_thread_links(&id).await?;
     let links: Vec<ThreadLinkData> = links_rows

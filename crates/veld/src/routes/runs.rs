@@ -20,7 +20,9 @@ fn duration_ms(
     started_at: Option<time::OffsetDateTime>,
     finished_at: Option<time::OffsetDateTime>,
 ) -> Option<i64> {
-    started_at.and_then(|s| finished_at.map(|f| (f - s).whole_milliseconds()))
+    started_at.and_then(|s| {
+        finished_at.map(|f| (f - s).whole_milliseconds() as i64)
+    })
 }
 
 fn start_of_today_utc() -> i64 {

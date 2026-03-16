@@ -9,6 +9,8 @@ pub struct PolicyConfig {
     pub policies: PoliciesMap,
 }
 
+/// Policy map: fields are populated from YAML and read via accessors (commute_leave_time in use; others for future use).
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PoliciesMap {
     pub meds_not_logged: Option<PolicyMedsNotLogged>,
@@ -17,6 +19,7 @@ pub struct PoliciesMap {
     pub morning_drift: Option<PolicyMorningDrift>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PolicyMedsNotLogged {
     pub enabled: bool,
@@ -26,6 +29,7 @@ pub struct PolicyMedsNotLogged {
     pub default_snooze_minutes: u32,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PolicyMeetingPrepWindow {
     pub enabled: bool,
@@ -36,6 +40,7 @@ pub struct PolicyMeetingPrepWindow {
     pub default_snooze_minutes: u32,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PolicyCommuteLeaveTime {
     pub enabled: bool,
@@ -46,6 +51,7 @@ pub struct PolicyCommuteLeaveTime {
     pub default_snooze_minutes: u32,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct PolicyMorningDrift {
     pub enabled: bool,
@@ -133,15 +139,18 @@ impl PolicyConfig {
         serde_yaml::from_str(&content).map_err(|e| PolicyConfigError::Parse(e))
     }
 
+    #[allow(dead_code)]
     pub fn meds_not_logged(&self) -> Option<&PolicyMedsNotLogged> {
         self.policies.meds_not_logged.as_ref()
     }
+    #[allow(dead_code)]
     pub fn meeting_prep_window(&self) -> Option<&PolicyMeetingPrepWindow> {
         self.policies.meeting_prep_window.as_ref()
     }
     pub fn commute_leave_time(&self) -> Option<&PolicyCommuteLeaveTime> {
         self.policies.commute_leave_time.as_ref()
     }
+    #[allow(dead_code)]
     pub fn morning_drift(&self) -> Option<&PolicyMorningDrift> {
         self.policies.morning_drift.as_ref()
     }

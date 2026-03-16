@@ -29,7 +29,7 @@ pub async fn run(
         );
     }
     if runs {
-        let resp = client.list_runs().await?;
+        let resp = client.list_runs(None, None, false).await?;
         let data = resp.data.expect("list_runs missing data");
         out.insert("runs".to_string(), serde_json::to_value(&data).unwrap());
     }

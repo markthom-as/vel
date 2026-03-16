@@ -1,7 +1,6 @@
 //! Risk engine: consequence, proximity, dependency pressure. See vel-risk-engine-spec.md and vel-agent-next-implementation-steps.md.
 //! No uncertainty or progress penalty in first version.
 
-use time::OffsetDateTime;
 use vel_core::{Commitment, CommitmentStatus};
 use vel_storage::Storage;
 

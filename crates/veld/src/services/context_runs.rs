@@ -14,7 +14,8 @@ use crate::state::AppState;
 use crate::services::context_generation;
 
 /// Service-level result of a context run: run identity, artifact, and the computed payload.
-/// Routes map `.data` to the API response; keeps application logic decoupled from transport types.
+/// Routes map `.data` to the API response; run_id/artifact_id/context_kind for logging or future use.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ContextRunOutput<T> {
     pub run_id: RunId,
@@ -140,6 +141,7 @@ async fn run_context_generation<T, F>(
     compute: F,
 ) -> Result<(ArtifactId, T), AppError>
 where
+    T: serde::Serialize,
     F: FnOnce(&vel_core::OrientationSnapshot) -> Result<T, AppError>,
 {
     let now = OffsetDateTime::now_utc();

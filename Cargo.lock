@@ -2447,6 +2447,7 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
+ "tracing",
  "uuid",
  "vel-core",
 ]
@@ -2464,6 +2465,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "sha2",
+ "thiserror",
  "time",
  "tokio",
  "tower",

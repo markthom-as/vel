@@ -63,6 +63,7 @@ pub async fn create_capture(
         return Err(AppError::bad_request("capture text must not be empty"));
     }
 
+    let capture_type = payload.capture_type.clone();
     let capture_id = state
         .storage
         .insert_capture(CaptureInsert {
@@ -102,7 +103,7 @@ pub async fn create_capture(
     }
 
     // Capture promotion: todo captures auto-create an open commitment.
-    if payload.capture_type == "todo" {
+    if capture_type == "todo" {
         let content = payload.content_text.trim().to_string();
         if let Err(e) = state
             .storage

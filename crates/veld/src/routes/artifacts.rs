@@ -8,9 +8,28 @@ use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, ArtifactCreateRequest, ArtifactCreateResponse, ArtifactData,
 };
-use vel_storage::ArtifactInsert;
+use vel_storage::{ArtifactInsert, ArtifactRecord};
 
 use crate::{errors::AppError, state::AppState};
+
+fn artifact_record_to_data(r: ArtifactRecord) -> Result<ArtifactData, AppError> {
+    Ok(ArtifactData {
+        artifact_id: r.artifact_id,
+        artifact_type: r.artifact_type,
+        title: r.title,
+        mime_type: r.mime_type,
+        storage_uri: r.storage_uri,
+        storage_kind: r.storage_kind.to_string(),
+        privacy_class: r.privacy_class,
+        sync_class: r.sync_class,
+        content_hash: r.content_hash,
+        size_bytes: r.size_bytes,
+        created_at: OffsetDateTime::from_unix_timestamp(r.created_at)
+            .map_err(|e| AppError::internal(e.to_string()))?,
+        updated_at: OffsetDateTime::from_unix_timestamp(r.updated_at)
+            .map_err(|e| AppError::internal(e.to_string()))?,
+    })
+}
 
 #[derive(Debug, Deserialize)]
 pub struct LatestArtifactQuery {
@@ -47,9 +66,9 @@ pub async fn list_artifacts(
             content_hash: r.content_hash,
             size_bytes: r.size_bytes,
             created_at: OffsetDateTime::from_unix_timestamp(r.created_at)
-                .map_err(|e: time::Error| AppError::internal(e.to_string()))?,
+                .map_err(|e| AppError::internal(e.to_string()))?,
             updated_at: OffsetDateTime::from_unix_timestamp(r.updated_at)
-                .map_err(|e: time::Error| AppError::internal(e.to_string()))?,
+                .map_err(|e| AppError::internal(e.to_string()))?,
         });
     }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
@@ -98,22 +117,7 @@ pub async fn get_artifact_latest(
         .storage
         .get_latest_artifact_by_type(q.r#type.trim())
         .await?;
-    let data = record.map(|r| ArtifactData {
-        artifact_id: r.artifact_id,
-        artifact_type: r.artifact_type,
-        title: r.title,
-        mime_type: r.mime_type,
-        storage_uri: r.storage_uri,
-        storage_kind: r.storage_kind.to_string(),
-        privacy_class: r.privacy_class,
-        sync_class: r.sync_class,
-        content_hash: r.content_hash,
-        size_bytes: r.size_bytes,
-        created_at: OffsetDateTime::from_unix_timestamp(r.created_at)
-            .map_err(|e| AppError::internal(e.to_string()))?,
-        updated_at: OffsetDateTime::from_unix_timestamp(r.updated_at)
-            .map_err(|e| AppError::internal(e.to_string()))?,
-    });
+    let data = record.map(artifact_record_to_data).transpose()?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

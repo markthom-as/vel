@@ -1,5 +1,6 @@
 //! vel thread — list, inspect, close, reopen threads. See docs/specs/vel-thread-graph-spec.md.
 
+use anyhow::Context;
 use crate::client::ApiClient;
 
 pub async fn run_list(
@@ -34,7 +35,7 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
     if let Some(ref links) = t.links {
         if !links.is_empty() {
             println!("links:");
-            for l in links {
+            for l in links.iter() {
                 println!("  {}  {}  {}  {}", l.entity_type, l.entity_id, l.relation_type, l.id);
             }
         }

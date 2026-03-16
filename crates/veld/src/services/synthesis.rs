@@ -1,8 +1,10 @@
 //! Run-backed weekly synthesis: creates run, gathers commitments/nudges/signals/captures, writes artifact (Phase F).
 
+use sha2::Digest;
 use time::OffsetDateTime;
 use vel_core::{ArtifactId, ArtifactStorageKind, PrivacyClass, Ref, RefRelationType, RunEventType, RunId, RunKind, RunStatus, SyncClass};
-use vel_storage::{ArtifactInsert, CommitmentStatus};
+use vel_core::CommitmentStatus;
+use vel_storage::ArtifactInsert;
 
 use crate::errors::AppError;
 use crate::state::AppState;
@@ -25,8 +27,8 @@ pub async fn run_week_synthesis(state: &AppState) -> Result<(RunId, ArtifactId),
         .list_commitments(Some(CommitmentStatus::Open), None, None, 200)
         .await?;
     let nudges = state.storage.list_nudges(None, 100).await?;
-    let signals = state.storage.list_signals(None, Some(seven_days_ago), 500).await?;
-    let captures = state.storage.list_captures_recent(200, false).await?;
+    let _signals = state.storage.list_signals(None, Some(seven_days_ago), 500).await?;
+    let _captures = state.storage.list_captures_recent(200, false).await?;
 
     let week_end = now.unix_timestamp();
     let week_start = seven_days_ago;
@@ -111,7 +113,7 @@ pub async fn run_week_synthesis(state: &AppState) -> Result<(RunId, ArtifactId),
     state.storage.create_ref(&ref_).await?;
     state.storage.append_run_event(run_id.as_ref(), 4, RunEventType::RefsCreated, &serde_json::json!({})).await?;
 
-    let output_json = serde_json::to_string(&output).map_err(|e| AppError::internal(e.to_string()))?;
+    let _output_json = serde_json::to_string(&output).map_err(|e| AppError::internal(e.to_string()))?;
     let finished_at = OffsetDateTime::now_utc().unix_timestamp();
     state.storage.update_run_status(run_id.as_ref(), RunStatus::Succeeded, None, Some(finished_at), Some(&output), None).await?;
     state.storage.append_run_event(run_id.as_ref(), 5, RunEventType::RunSucceeded, &serde_json::json!({})).await?;
@@ -130,7 +132,7 @@ pub async fn run_project_synthesis(state: &AppState, project_slug: &str) -> Resu
     state.storage.append_run_event(run_id.as_ref(), 2, RunEventType::RunStarted, &serde_json::json!({})).await?;
 
     let now = OffsetDateTime::now_utc();
-    let seven_days_ago = (now - time::Duration::days(7)).unix_timestamp();
+    let _seven_days_ago = (now - time::Duration::days(7)).unix_timestamp();
 
     let open_commitments = state
         .storage

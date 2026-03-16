@@ -21,10 +21,10 @@ pub fn build_morning(snapshot: &OrientationSnapshot) -> MorningData {
     let pending_commitments = extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
     MorningData {
         date: OffsetDateTime::now_utc().date().to_string(),
-        top_active_threads,
-        pending_commitments,
         suggested_focus: top_active_threads.first().cloned(),
         key_reminders: pending_commitments.iter().take(5).cloned().collect(),
+        top_active_threads,
+        pending_commitments,
     }
 }
 

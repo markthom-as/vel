@@ -2,7 +2,8 @@
 
 use time::OffsetDateTime;
 use vel_config::AppConfig;
-use vel_storage::{CommitmentInsert, CommitmentStatus, SignalInsert, Storage};
+use vel_core::CommitmentStatus;
+use vel_storage::{CommitmentInsert, SignalInsert, Storage};
 
 /// Ingest tasks from Todoist snapshot; create/update commitments and emit signals. Returns signals count.
 pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate::errors::AppError> {
@@ -42,12 +43,12 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             if !has {
                 let _ = storage
                     .insert_commitment(CommitmentInsert {
-                        text: item.content,
+                        text: item.content.clone(),
                         source_type: "todoist".to_string(),
                         source_id: Some(source_id.clone()),
                         status: CommitmentStatus::Open,
                         due_at: due_ts.and_then(|t| time::OffsetDateTime::from_unix_timestamp(t).ok()),
-                        project: item.project_id.map(|p| p.to_string()),
+                        project: item.project_id.clone().map(|p| p.to_string()),
                         commitment_kind: Some(commitment_kind.to_string()),
                         metadata_json: Some(serde_json::json!({ "todoist_id": task_id })),
                     })
