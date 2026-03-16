@@ -1,56 +1,33 @@
-import { useCallback, useEffect, useState } from 'react';
-import { apiGet } from '../api/client';
-import {
-  decodeApiResponse,
-  decodeArray,
-  decodeInboxItemData,
-  type ApiResponse,
-  type InboxItemData,
-  type WsEvent,
-} from '../types';
+import { useEffect, useMemo } from 'react';
+import type { InboxItemData, WsEvent } from '../types';
+import { invalidateQuery, setQueryData, useQuery } from '../data/query';
+import { loadInbox, queryKeys } from '../data/resources';
 import { subscribeWs } from '../realtime/ws';
 
 export function InboxView() {
-  const [items, setItems] = useState<InboxItemData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadInbox = useCallback((showSpinner: boolean) => {
-    let cancelled = false;
-    if (showSpinner) {
-      setLoading(true);
-    }
-    setError(null);
-    apiGet<ApiResponse<InboxItemData[]>>(
-      '/api/inbox',
-      (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeInboxItemData)),
-    )
-      .then((res) => {
-        if (!cancelled && res.ok && res.data) setItems(res.data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load inbox');
-      })
-      .finally(() => {
-        if (!cancelled && showSpinner) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => loadInbox(true), [loadInbox]);
+  const inboxKey = useMemo(() => queryKeys.inbox(), []);
+  const { data: items = [], loading, error } = useQuery<InboxItemData[]>(
+    inboxKey,
+    async () => {
+      const response = await loadInbox();
+      return response.ok && response.data ? response.data : [];
+    },
+  );
 
   useEffect(() => {
     return subscribeWs((event: WsEvent) => {
       if (event.type === 'interventions:new') {
         const payload = event.payload;
-        setItems((prev) => upsertInboxItem(prev, payload));
+        setQueryData<InboxItemData[]>(inboxKey, (prev = []) =>
+          upsertInboxItem(prev, payload),
+        );
         return;
       }
       if (event.type === 'interventions:updated') {
-        loadInbox(false);
+        invalidateQuery(inboxKey, { refetch: true });
       }
     });
-  }, [loadInbox]);
+  }, [inboxKey]);
 
   if (loading) return <div className="p-4 text-zinc-500 text-sm">Loading…</div>;
   if (error) return <div className="p-4 text-red-400 text-sm">{error}</div>;

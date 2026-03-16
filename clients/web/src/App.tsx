@@ -1,29 +1,29 @@
 import { useState } from 'react';
 import { apiPost } from './api/client';
-import type { ApiResponse } from './types';
-import type { ConversationData } from './types';
+import { decodeApiResponse, decodeConversationData, type ApiResponse, type ConversationData } from './types';
 import { AppShell } from './components/AppShell';
 import { ContextPanel } from './components/ContextPanel';
 import { MainPanel } from './components/MainPanel';
 import { SettingsPage } from './components/SettingsPage';
 import { Sidebar } from './components/Sidebar';
+import { invalidateQuery } from './data/query';
+import { queryKeys } from './data/resources';
 import './App.css';
 
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showInbox, setShowInbox] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [conversationListKey, setConversationListKey] = useState(0);
 
   async function startNewConversation() {
     const res = await apiPost<ApiResponse<ConversationData>>('/api/conversations', {
       title: 'New conversation',
       kind: 'general',
-    });
+    }, (value) => decodeApiResponse(value, decodeConversationData));
     if (res.ok && res.data) {
       setSelectedConversationId(res.data.id);
       setShowInbox(false);
-      setConversationListKey((k) => k + 1);
+      invalidateQuery(queryKeys.conversations(), { refetch: true });
     }
   }
 
@@ -59,7 +59,6 @@ function App() {
             selectedConversationId={selectedConversationId}
             onSelectConversation={(id) => { setSelectedConversationId(id); setShowInbox(false); }}
             onNewConversation={startNewConversation}
-            conversationListKey={conversationListKey}
             onOpenSettings={() => setShowSettings(true)}
           />
         </>

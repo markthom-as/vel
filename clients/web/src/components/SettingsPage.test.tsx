@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { SettingsPage } from './SettingsPage'
 import * as client from '../api/client'
+import { clearQueryCache } from '../data/query'
 
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
@@ -14,6 +15,7 @@ function getSettingsRoot(container: HTMLElement) {
 
 describe('SettingsPage', () => {
   beforeEach(() => {
+    clearQueryCache()
     vi.mocked(client.apiGet).mockResolvedValue({
       ok: true,
       data: { disable_proactive: false, toggle_risks: true, toggle_reminders: true },

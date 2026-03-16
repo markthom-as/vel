@@ -1,15 +1,8 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { apiGet, apiPost } from '../api/client';
-import {
-  decodeApiResponse,
-  decodeArray,
-  decodeInboxItemData,
-  decodeMessageData,
-  type ApiResponse,
-  type InboxItemData,
-  type MessageData,
-  type WsEvent,
-} from '../types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { apiPost } from '../api/client';
+import type { InboxItemData, MessageData, WsEvent } from '../types';
+import { invalidateQuery, setQueryData, useQuery } from '../data/query';
+import { loadConversationInterventions, loadConversationMessages, queryKeys } from '../data/resources';
 import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
@@ -20,75 +13,53 @@ interface ThreadViewProps {
 }
 
 export function ThreadView({ conversationId }: ThreadViewProps) {
-  const [messages, setMessages] = useState<MessageData[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [interventionsByMessageId, setInterventionsByMessageId] = useState<Record<string, string>>({});
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const messagesKey = useMemo(() => queryKeys.conversationMessages(conversationId), [conversationId]);
+  const interventionsKey = useMemo(
+    () => queryKeys.conversationInterventions(conversationId),
+    [conversationId],
+  );
+  const conversationsKey = useMemo(() => queryKeys.conversations(), []);
+  const inboxKey = useMemo(() => queryKeys.inbox(), []);
 
-  const refreshInterventions = useCallback((messageList: MessageData[]) => {
-    if (messageList.length === 0) {
-      setInterventionsByMessageId({});
-      return () => {};
+  const {
+    data: messages = [],
+    loading: messagesLoading,
+    error: messagesError,
+    refetch: refetchMessages,
+  } = useQuery<MessageData[]>(
+    messagesKey,
+    async () => {
+      if (!conversationId) {
+        return [];
+      }
+      const response = await loadConversationMessages(conversationId);
+      return response.ok && response.data ? response.data : [];
+    },
+    { enabled: Boolean(conversationId) },
+  );
+  const {
+    data: interventions = [],
+    error: interventionsError,
+  } = useQuery<InboxItemData[]>(
+    interventionsKey,
+    async () => {
+      if (!conversationId) {
+        return [];
+      }
+      const response = await loadConversationInterventions(conversationId);
+      return response.ok && response.data ? response.data : [];
+    },
+    { enabled: Boolean(conversationId) },
+  );
+
+  const interventionsByMessageId = interventions.reduce<Record<string, string>>((next, intervention) => {
+    if (!(intervention.message_id in next)) {
+      next[intervention.message_id] = intervention.id;
     }
-
-    let cancelled = false;
-    const nextMap: Record<string, string> = {};
-    apiGet<ApiResponse<InboxItemData[]>>(
-      `/api/conversations/${conversationId}/interventions`,
-      (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeInboxItemData)),
-    )
-      .then((res) => {
-        if (cancelled || !res.ok || !res.data) {
-          return;
-        }
-        for (const intervention of res.data) {
-          if (!(intervention.message_id in nextMap)) {
-            nextMap[intervention.message_id] = intervention.id;
-          }
-        }
-        setInterventionsByMessageId(nextMap);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setInterventionsByMessageId({});
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [conversationId]);
-
-  useEffect(() => {
-    if (!conversationId) {
-      setMessages([]);
-      setInterventionsByMessageId({});
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    apiGet<ApiResponse<MessageData[]>>(
-      `/api/conversations/${conversationId}/messages`,
-      (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeMessageData)),
-    )
-      .then((res) => {
-        if (!cancelled && res.ok && res.data) setMessages(res.data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load thread');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [conversationId]);
-
-  useEffect(() => {
-    return refreshInterventions(messages);
-  }, [messages, refreshInterventions]);
+    return next;
+  }, {});
 
   useEffect(() => {
     if (!conversationId) {
@@ -98,37 +69,39 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     return subscribeWs((event: WsEvent) => {
       if (event.type === 'messages:new') {
         const message = event.payload;
-        if (message.conversation_id !== conversationId || typeof message.id !== 'string') {
+        if (message.conversation_id !== conversationId) {
           return;
         }
-
-        setMessages((prev) => appendUniqueMessages(prev, [message]));
+        setQueryData<MessageData[]>(messagesKey, (prev = []) =>
+          appendUniqueMessages(prev, [message]),
+        );
+        invalidateQuery(conversationsKey, { refetch: true });
         return;
       }
       if (event.type === 'interventions:new') {
         const payload = event.payload;
-        setInterventionsByMessageId((prev) => {
-          if (!messages.some((message) => message.id === payload.message_id)) {
-            return prev;
-          }
-          return {
-            ...prev,
-            [payload.message_id]: payload.id,
-          };
-        });
+        if (!messages.some((message) => message.id === payload.message_id)) {
+          return;
+        }
+        setQueryData<InboxItemData[]>(
+          interventionsKey,
+          (prev = []) => upsertInboxItem(prev, payload),
+        );
+        setQueryData<InboxItemData[]>(inboxKey, (prev = []) =>
+          upsertInboxItem(prev, payload),
+        );
         return;
       }
       if (event.type === 'interventions:updated') {
-        void refreshInterventions(messages);
+        invalidateQuery(interventionsKey, { refetch: true });
+        invalidateQuery(inboxKey, { refetch: true });
       }
     });
-  }, [conversationId, messages, refreshInterventions]);
+  }, [conversationId, conversationsKey, inboxKey, interventionsKey, messages, messagesKey]);
 
-  // Autoscroll to the bottom when messages change (standard chat behavior).
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    // Smooth scroll, but fall back gracefully.
     try {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     } catch {
@@ -136,42 +109,37 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     }
   }, [messages]);
 
+  const removeIntervention = useCallback((interventionId: string) => {
+    setQueryData<InboxItemData[]>(
+      interventionsKey,
+      (prev = []) => prev.filter((item) => item.id !== interventionId),
+    );
+    setQueryData<InboxItemData[]>(
+      inboxKey,
+      (prev = []) => prev.filter((item) => item.id !== interventionId),
+    );
+  }, [inboxKey, interventionsKey]);
+
   const handleSnooze = useCallback(async (interventionId: string) => {
     try {
       await apiPost(`/api/interventions/${interventionId}/snooze`, { minutes: 15 });
-      setInterventionsByMessageId((prev) => {
-        const next = { ...prev };
-        for (const k of Object.keys(next)) {
-          if (next[k] === interventionId) delete next[k];
-        }
-        return next;
-      });
+      removeIntervention(interventionId);
     } catch (_) {}
-  }, []);
+  }, [removeIntervention]);
+
   const handleResolve = useCallback(async (interventionId: string) => {
     try {
       await apiPost(`/api/interventions/${interventionId}/resolve`, {});
-      setInterventionsByMessageId((prev) => {
-        const next = { ...prev };
-        for (const k of Object.keys(next)) {
-          if (next[k] === interventionId) delete next[k];
-        }
-        return next;
-      });
+      removeIntervention(interventionId);
     } catch (_) {}
-  }, []);
+  }, [removeIntervention]);
+
   const handleDismiss = useCallback(async (interventionId: string) => {
     try {
       await apiPost(`/api/interventions/${interventionId}/dismiss`, {});
-      setInterventionsByMessageId((prev) => {
-        const next = { ...prev };
-        for (const k of Object.keys(next)) {
-          if (next[k] === interventionId) delete next[k];
-        }
-        return next;
-      });
+      removeIntervention(interventionId);
     } catch (_) {}
-  }, []);
+  }, [removeIntervention]);
 
   if (!conversationId) {
     return (
@@ -180,8 +148,14 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       </div>
     );
   }
-  if (loading) return <div className="flex-1 flex items-center justify-center text-zinc-500">Loading…</div>;
-  if (error) return <div className="flex-1 flex items-center justify-center text-red-400">{error}</div>;
+
+  const error = messagesError ?? interventionsError;
+  if (messagesLoading) {
+    return <div className="flex-1 flex items-center justify-center text-zinc-500">Loading…</div>;
+  }
+  if (error) {
+    return <div className="flex-1 flex items-center justify-center text-red-400">{error}</div>;
+  }
 
   return (
     <>
@@ -190,11 +164,11 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
           {messages.length === 0 && (
             <p className="text-zinc-500 text-sm">No messages yet.</p>
           )}
-          {messages.map((m) => (
+          {messages.map((message) => (
             <MessageRenderer
-              key={m.id}
-              message={m}
-              interventionId={interventionsByMessageId[m.id]}
+              key={message.id}
+              message={message}
+              interventionId={interventionsByMessageId[message.id]}
               onSnooze={handleSnooze}
               onResolve={handleResolve}
               onDismiss={handleDismiss}
@@ -214,9 +188,16 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       </p>
       <MessageComposer
         conversationId={conversationId}
-        onSent={(userMsg, assistantMsg) =>
-          setMessages((prev) => appendUniqueMessages(prev, [userMsg, ...(assistantMsg ? [assistantMsg] : [])]))
-        }
+        onSent={(userMessage, assistantMessage) => {
+          setQueryData<MessageData[]>(messagesKey, (prev = []) =>
+            appendUniqueMessages(prev, [
+              userMessage,
+              ...(assistantMessage ? [assistantMessage] : []),
+            ]),
+          );
+          invalidateQuery(conversationsKey, { refetch: true });
+          void refetchMessages();
+        }}
       />
     </>
   );
@@ -237,4 +218,14 @@ function appendUniqueMessages(existing: MessageData[], nextMessages: MessageData
   });
 
   return additions.length > 0 ? [...existing, ...additions] : existing;
+}
+
+function upsertInboxItem(items: InboxItemData[], nextItem: InboxItemData): InboxItemData[] {
+  const existingIndex = items.findIndex((item) => item.id === nextItem.id);
+  if (existingIndex === -1) {
+    return [nextItem, ...items];
+  }
+  const next = [...items];
+  next[existingIndex] = nextItem;
+  return next;
 }

@@ -1,35 +1,35 @@
-import { useEffect, useState } from 'react';
-import { apiGet, apiPatch } from '../api/client';
-import type { ApiResponse, SettingsData } from '../types';
+import { useMemo, useState } from 'react';
+import { apiPatch } from '../api/client';
+import type { SettingsData } from '../types';
+import { setQueryData, useQuery } from '../data/query';
+import { loadSettings, queryKeys } from '../data/resources';
 
 interface SettingsPageProps {
   onBack: () => void;
 }
 
 export function SettingsPage({ onBack }: SettingsPageProps) {
-  const [settings, setSettings] = useState<SettingsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  const load = () => {
-    apiGet<ApiResponse<SettingsData>>('/api/settings')
-      .then((res) => {
-        if (res.ok && res.data) setSettings(res.data as SettingsData);
-        else setSettings({});
-      })
-      .catch(() => setSettings({}))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+  const settingsKey = useMemo(() => queryKeys.settings(), []);
+  const {
+    data: settings = {},
+    loading,
+  } = useQuery<SettingsData>(
+    settingsKey,
+    async () => {
+      const response = await loadSettings();
+      return response.ok && response.data ? response.data : {};
+    },
+  );
 
   const update = async (key: keyof SettingsData, value: boolean | unknown) => {
     setSaving(true);
     try {
       await apiPatch('/api/settings', { [key]: value });
-      setSettings((prev) => (prev ? { ...prev, [key]: value } : { [key]: value }));
+      setQueryData<SettingsData>(settingsKey, (prev = {}) => ({
+        ...prev,
+        [key]: value,
+      }));
     } finally {
       setSaving(false);
     }
@@ -52,7 +52,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <span className="text-zinc-300">Disable proactive interventions</span>
           <input
             type="checkbox"
-            checked={settings?.disable_proactive ?? false}
+            checked={settings.disable_proactive ?? false}
             onChange={(e) => update('disable_proactive', e.target.checked)}
             disabled={saving}
             className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
@@ -62,7 +62,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <span className="text-zinc-300">Show risks</span>
           <input
             type="checkbox"
-            checked={settings?.toggle_risks !== false}
+            checked={settings.toggle_risks !== false}
             onChange={(e) => update('toggle_risks', e.target.checked)}
             disabled={saving}
             className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
@@ -72,7 +72,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           <span className="text-zinc-300">Show reminders</span>
           <input
             type="checkbox"
-            checked={settings?.toggle_reminders !== false}
+            checked={settings.toggle_reminders !== false}
             onChange={(e) => update('toggle_reminders', e.target.checked)}
             disabled={saving}
             className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"

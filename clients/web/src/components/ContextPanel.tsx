@@ -1,40 +1,18 @@
-import { useEffect, useState } from 'react';
-import { apiGet } from '../api/client';
-import {
-  decodeApiResponse,
-  decodeCurrentContextData,
-  decodeNullable,
-  type ApiResponse,
-  type CurrentContextData,
-  type JsonObject,
-} from '../types';
+import { useMemo } from 'react';
+import type { CurrentContextData, JsonObject } from '../types';
+import { useQuery } from '../data/query';
+import { loadCurrentContext, queryKeys } from '../data/resources';
 
 export function ContextPanel() {
-  const [context, setContext] = useState<CurrentContextData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const contextKey = useMemo(() => queryKeys.currentContext(), []);
+  const { data: context, loading, error } = useQuery<CurrentContextData | null>(
+    contextKey,
+    async () => {
+      const response = await loadCurrentContext();
+      return response.ok ? response.data ?? null : null;
+    },
+  );
   const entries = context ? asContextEntries(context.context) : [];
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    apiGet<ApiResponse<CurrentContextData | null>>(
-      '/v1/context/current',
-      (value) => decodeApiResponse(value, (data) => decodeNullable(data, decodeCurrentContextData)),
-    )
-      .then((res) => {
-        if (!cancelled && res.ok && res.data) setContext(res.data);
-        else if (!cancelled) setContext(null);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load context');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
 
   if (loading) return <div className="p-4 text-zinc-500 text-sm">Loading context…</div>;
   if (error) return <div className="p-4 text-amber-500 text-sm">{error}</div>;

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { apiGet } from '../api/client';
-import type { ApiResponse, ProvenanceData } from '../types';
+import { useMemo } from 'react';
+import type { ProvenanceData } from '../types';
+import { useQuery } from '../data/query';
+import { loadProvenance, queryKeys } from '../data/resources';
 
 interface ProvenanceDrawerProps {
   messageId: string | null;
@@ -8,30 +9,21 @@ interface ProvenanceDrawerProps {
 }
 
 export function ProvenanceDrawer({ messageId, onClose }: ProvenanceDrawerProps) {
-  const [data, setData] = useState<ProvenanceData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!messageId) {
-      setData(null);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    apiGet<ApiResponse<ProvenanceData>>(`/api/messages/${messageId}/provenance`)
-      .then((res) => {
-        if (!cancelled && res.ok && res.data) setData(res.data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [messageId]);
+  const provenanceKey = useMemo(() => queryKeys.provenance(messageId), [messageId]);
+  const { data, loading, error } = useQuery<ProvenanceData>(
+    provenanceKey,
+    async () => {
+      if (!messageId) {
+        throw new Error('No message selected');
+      }
+      const response = await loadProvenance(messageId);
+      if (!response.ok || !response.data) {
+        throw new Error('Failed to load');
+      }
+      return response.data;
+    },
+    { enabled: Boolean(messageId) },
+  );
 
   if (!messageId) return null;
 

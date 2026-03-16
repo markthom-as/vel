@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { ConversationList } from './ConversationList'
 import * as api from '../api/client'
 import type { WsEnvelope } from '../types'
+import { clearQueryCache } from '../data/query'
 
 const subscribeWs = vi.fn()
 
@@ -21,6 +22,7 @@ vi.mock('../realtime/ws', () => ({
 
 describe('ConversationList realtime sync', () => {
   beforeEach(() => {
+    clearQueryCache()
     subscribeWs.mockReset()
     vi.mocked(api.apiGet).mockReset()
   })
@@ -80,7 +82,21 @@ describe('ConversationList realtime sync', () => {
     })
     expect(screen.queryByText('Second')).not.toBeInTheDocument()
 
-    requireWsListener(wsListener)({ type: 'messages:new', timestamp: '1', payload: {} })
+    requireWsListener(wsListener)({
+      type: 'messages:new',
+      timestamp: '1',
+      payload: {
+        id: 'msg_1',
+        conversation_id: 'conv_1',
+        role: 'assistant',
+        kind: 'text',
+        content: 'hello',
+        status: null,
+        importance: null,
+        created_at: 1,
+        updated_at: null,
+      },
+    })
 
     await waitFor(() => {
       expect(screen.getByText('Second')).toBeInTheDocument()
