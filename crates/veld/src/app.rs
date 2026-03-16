@@ -571,6 +571,21 @@ mod tests {
     async fn context_explain_includes_signals_and_commitments_used() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "git_activity".to_string(),
+                source: "git".to_string(),
+                source_ref: Some("git:/home/jove/code/vel|main|commit|abc123".to_string()),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+                payload_json: Some(serde_json::json!({
+                    "repo": "/home/jove/code/vel",
+                    "branch": "main",
+                    "operation": "commit",
+                    "message": "hydrate explain",
+                })),
+            })
+            .await
+            .unwrap();
         let app = build_app(
             storage,
             AppConfig::default(),
@@ -615,6 +630,16 @@ mod tests {
             json["data"]["reasons"].is_array(),
             "reasons must be present"
         );
+        let summaries = json["data"]["signal_summaries"]
+            .as_array()
+            .map(|value| value.as_slice())
+            .unwrap_or_default();
+        let git_summary = summaries
+            .iter()
+            .find(|summary| summary["signal_type"].as_str() == Some("git_activity"))
+            .expect("git_activity summary must be present");
+        assert_eq!(git_summary["summary"]["branch"], "main");
+        assert_eq!(git_summary["summary"]["operation"], "commit");
     }
 
     /// Read boundary: explain endpoints must not create commitment_risk or nudge_events rows (repo-feedback 001).
@@ -1196,9 +1221,21 @@ mod tests {
             .as_array()
             .map(|v| v.as_slice())
             .unwrap_or_default();
+        let signal_summaries = json["data"]["signal_summaries"]
+            .as_array()
+            .map(|value| value.as_slice())
+            .unwrap_or_default();
         assert!(
             !signals_used.is_empty(),
             "signals_used must reference calendar signal"
+        );
+        let calendar_summary = signal_summaries
+            .iter()
+            .find(|summary| summary["signal_type"].as_str() == Some("calendar_event"))
+            .expect("calendar_event summary must be present");
+        assert!(
+            calendar_summary["summary"]["title"].is_string()
+                || calendar_summary["summary"]["travel_minutes"].is_number()
         );
         let commitment_ids: Vec<&str> =
             commitments_used.iter().filter_map(|c| c.as_str()).collect();

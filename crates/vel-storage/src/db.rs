@@ -745,6 +745,27 @@ impl Storage {
         rows.into_iter().map(|row| map_signal_row(&row)).collect()
     }
 
+    pub async fn list_signals_by_ids(
+        &self,
+        signal_ids: &[String],
+    ) -> Result<Vec<SignalRecord>, StorageError> {
+        if signal_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut query = QueryBuilder::<Sqlite>::new(
+            "SELECT signal_id, signal_type, source, source_ref, timestamp, payload_json, created_at FROM signals WHERE signal_id IN (",
+        );
+        let mut separated = query.separated(", ");
+        for signal_id in signal_ids {
+            separated.push_bind(signal_id);
+        }
+        query.push(") ORDER BY timestamp DESC");
+
+        let rows = query.build().fetch_all(&self.pool).await?;
+        rows.into_iter().map(|row| map_signal_row(&row)).collect()
+    }
+
     // --- Assistant transcripts ---
 
     pub async fn insert_assistant_transcript(

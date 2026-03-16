@@ -520,12 +520,23 @@ pub struct ThreadUpdateRequest {
 
 /// Explain payload for current context (context + reasons + entity ids used).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignalExplainSummary {
+    pub signal_id: String,
+    pub signal_type: String,
+    pub source: String,
+    pub timestamp: i64,
+    pub summary: JsonValue,
+}
+
+/// Explain payload for current context (context + reasons + entity ids used).
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextExplainData {
     pub computed_at: i64,
     pub mode: Option<String>,
     pub morning_state: Option<String>,
     pub context: JsonValue,
     pub signals_used: Vec<String>,
+    pub signal_summaries: Vec<SignalExplainSummary>,
     pub commitments_used: Vec<String>,
     pub risk_used: Vec<String>,
     pub reasons: Vec<String>,
@@ -549,6 +560,7 @@ pub struct DriftExplainData {
     pub confidence: Option<f64>,
     pub reasons: Vec<String>,
     pub signals_used: Vec<String>,
+    pub signal_summaries: Vec<SignalExplainSummary>,
     pub commitments_used: Vec<String>,
 }
 
