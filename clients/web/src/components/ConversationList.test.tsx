@@ -6,6 +6,11 @@ import type { WsEnvelope } from '../types'
 
 const subscribeWs = vi.fn()
 
+function requireWsListener(listener: ((event: WsEnvelope) => void) | null): (event: WsEnvelope) => void {
+  expect(listener).not.toBeNull()
+  return listener as (event: WsEnvelope) => void
+}
+
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
 }))
@@ -75,7 +80,7 @@ describe('ConversationList realtime sync', () => {
     })
     expect(screen.queryByText('Second')).not.toBeInTheDocument()
 
-    wsListener?.({ type: 'messages:new', timestamp: '1', payload: {} })
+    requireWsListener(wsListener)({ type: 'messages:new', timestamp: '1', payload: {} })
 
     await waitFor(() => {
       expect(screen.getByText('Second')).toBeInTheDocument()

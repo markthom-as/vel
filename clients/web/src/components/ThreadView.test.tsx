@@ -6,6 +6,11 @@ import type { WsEnvelope } from '../types'
 
 const subscribeWs = vi.fn()
 
+function requireWsListener(listener: ((event: WsEnvelope) => void) | null): (event: WsEnvelope) => void {
+  expect(listener).not.toBeNull()
+  return listener as (event: WsEnvelope) => void
+}
+
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
@@ -57,9 +62,9 @@ describe('ThreadView realtime sync', () => {
       updated_at: null,
     }
 
-    wsListener?.({ type: 'messages:new', timestamp: '1', payload: message })
-    wsListener?.({ type: 'messages:new', timestamp: '2', payload: message })
-    wsListener?.({
+    requireWsListener(wsListener)({ type: 'messages:new', timestamp: '1', payload: message })
+    requireWsListener(wsListener)({ type: 'messages:new', timestamp: '2', payload: message })
+    requireWsListener(wsListener)({
       type: 'messages:new',
       timestamp: '3',
       payload: { ...message, id: 'msg_2', conversation_id: 'conv_other', content: { text: 'ignore me' } },
@@ -95,7 +100,7 @@ describe('ThreadView realtime sync', () => {
       expect(screen.getByText('No messages yet.')).toBeInTheDocument()
     })
 
-    wsListener?.({
+    requireWsListener(wsListener)({
       type: 'messages:new',
       timestamp: '1',
       payload: {
@@ -115,7 +120,7 @@ describe('ThreadView realtime sync', () => {
       expect(screen.getByText('needs action')).toBeInTheDocument()
     })
 
-    wsListener?.({
+    requireWsListener(wsListener)({
       type: 'interventions:new',
       timestamp: '2',
       payload: {

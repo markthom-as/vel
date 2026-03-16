@@ -1,39 +1,19 @@
-//! WebSocket broadcast envelope and helpers. Tickets 018–019.
+//! WebSocket broadcast envelope alias. Tickets 018–019.
 
-use serde::Serialize;
-use time::OffsetDateTime;
+use vel_api_types::WsEnvelope as ApiWsEnvelope;
 
 /// Event envelope for WebSocket broadcast. Stable shape for all clients.
-#[derive(Debug, Clone, Serialize)]
-pub struct WsEnvelope {
-    #[serde(rename = "type")]
-    pub event_type: String,
-    pub timestamp: String,
-    pub payload: serde_json::Value,
-}
-
-impl WsEnvelope {
-    pub fn new(event_type: impl Into<String>, payload: serde_json::Value) -> Self {
-        Self {
-            event_type: event_type.into(),
-            timestamp: OffsetDateTime::now_utc().unix_timestamp().to_string(),
-            payload,
-        }
-    }
-
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string(self)
-    }
-}
+pub type WsEnvelope = ApiWsEnvelope;
 
 #[cfg(test)]
 mod tests {
     use super::WsEnvelope;
+    use vel_api_types::WsEventType;
 
     #[test]
     fn websocket_envelope_serializes_type_and_payload() {
         let envelope = WsEnvelope::new(
-            "interventions:new",
+            WsEventType::InterventionsNew,
             serde_json::json!({
                 "id": "intv_1",
                 "message_id": "msg_1",

@@ -197,6 +197,163 @@ pub struct EndOfDayData {
     pub what_may_matter_tomorrow: Vec<String>,
 }
 
+// --- Chat / Web surfaces ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationData {
+    pub id: String,
+    pub title: Option<String>,
+    pub kind: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationCreateRequest {
+    pub title: Option<String>,
+    #[serde(default = "default_conversation_kind")]
+    pub kind: String,
+}
+
+fn default_conversation_kind() -> String {
+    "general".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationUpdateRequest {
+    pub title: Option<String>,
+    pub pinned: Option<bool>,
+    pub archived: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageData {
+    pub id: String,
+    pub conversation_id: String,
+    pub role: String,
+    pub kind: String,
+    pub content: JsonValue,
+    pub status: Option<String>,
+    pub importance: Option<String>,
+    pub created_at: i64,
+    pub updated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateMessageResponse {
+    pub user_message: MessageData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assistant_message: Option<MessageData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assistant_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageCreateRequest {
+    pub role: String,
+    pub kind: String,
+    pub content: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InboxItemData {
+    pub id: String,
+    pub message_id: String,
+    pub kind: String,
+    pub state: String,
+    pub surfaced_at: i64,
+    pub snoozed_until: Option<i64>,
+    pub confidence: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InterventionActionData {
+    pub id: String,
+    pub state: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProvenanceData {
+    pub message_id: String,
+    pub events: Vec<ProvenanceEvent>,
+    pub signals: Vec<JsonValue>,
+    pub policy_decisions: Vec<JsonValue>,
+    pub linked_objects: Vec<JsonValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProvenanceEvent {
+    pub id: String,
+    pub event_name: String,
+    pub created_at: i64,
+    pub payload: JsonValue,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WsEventType {
+    #[serde(rename = "messages:new")]
+    MessagesNew,
+    #[serde(rename = "interventions:new")]
+    InterventionsNew,
+    #[serde(rename = "interventions:updated")]
+    InterventionsUpdated,
+}
+
+impl std::fmt::Display for WsEventType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::MessagesNew => "messages:new",
+            Self::InterventionsNew => "interventions:new",
+            Self::InterventionsUpdated => "interventions:updated",
+        };
+        f.write_str(s)
+    }
+}
+
+impl std::str::FromStr for WsEventType {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "messages:new" => Ok(Self::MessagesNew),
+            "interventions:new" => Ok(Self::InterventionsNew),
+            "interventions:updated" => Ok(Self::InterventionsUpdated),
+            other => Err(format!("unknown websocket event type: {}", other)),
+        }
+    }
+}
+
+impl From<&str> for WsEventType {
+    fn from(value: &str) -> Self {
+        value.parse()
+            .unwrap_or_else(|_| panic!("invalid websocket event type: {}", value))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WsEnvelope {
+    #[serde(rename = "type")]
+    pub event_type: WsEventType,
+    pub timestamp: String,
+    pub payload: JsonValue,
+}
+
+impl WsEnvelope {
+    pub fn new(event_type: impl Into<WsEventType>, payload: JsonValue) -> Self {
+        Self {
+            event_type: event_type.into(),
+            timestamp: OffsetDateTime::now_utc().unix_timestamp().to_string(),
+            payload,
+        }
+    }
+
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtifactCreateRequest {
     pub artifact_type: String,
@@ -246,6 +403,12 @@ pub struct RunSummaryData {
     pub finished_at: Option<OffsetDateTime>,
     /// Duration in milliseconds; present when run has started_at and finished_at.
     pub duration_ms: Option<i64>,
+    /// Optional retry schedule metadata for operator workflows.
+    pub retry_scheduled_at: Option<OffsetDateTime>,
+    /// Optional operator reason attached when scheduling a retry.
+    pub retry_reason: Option<String>,
+    /// Optional operator reason attached when marking a run blocked.
+    pub blocked_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -270,6 +433,14 @@ pub struct ArtifactSummaryData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunUpdateRequest {
     pub status: String,
+    #[serde(default, alias = "retry_scheduled_at")]
+    pub retry_at: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub retry_after_seconds: Option<u32>,
+    #[serde(default, alias = "retry_reason")]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub blocked_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -285,6 +456,12 @@ pub struct RunDetailData {
     pub finished_at: Option<OffsetDateTime>,
     /// Duration in milliseconds; present when run has started_at and finished_at.
     pub duration_ms: Option<i64>,
+    /// Optional retry schedule metadata for operator workflows.
+    pub retry_scheduled_at: Option<OffsetDateTime>,
+    /// Optional operator reason attached when scheduling a retry.
+    pub retry_reason: Option<String>,
+    /// Optional operator reason attached when marking a run blocked.
+    pub blocked_reason: Option<String>,
     pub events: Vec<RunEventData>,
     pub artifacts: Vec<ArtifactSummaryData>,
 }

@@ -1,7 +1,7 @@
 import { createWsUrl } from '../api/client';
-import type { WsEnvelope } from '../types';
+import { decodeWsEvent, type WsEvent } from '../types';
 
-type Listener = (event: WsEnvelope) => void;
+type Listener = (event: WsEvent) => void;
 
 const RECONNECT_DELAY_MS = 1000;
 
@@ -9,7 +9,7 @@ let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 const listeners = new Set<Listener>();
 
-function notify(event: WsEnvelope) {
+function notify(event: WsEvent) {
   for (const listener of listeners) {
     listener(event);
   }
@@ -52,10 +52,7 @@ function ensureSocket() {
   socket = new WebSocket(createWsUrl('/ws'));
   socket.onmessage = (message) => {
     try {
-      const event = JSON.parse(message.data as string) as WsEnvelope;
-      if (typeof event.type === 'string') {
-        notify(event);
-      }
+      notify(decodeWsEvent(JSON.parse(message.data as string) as unknown));
     } catch {
       // Ignore malformed frames; the client should stay connected.
     }

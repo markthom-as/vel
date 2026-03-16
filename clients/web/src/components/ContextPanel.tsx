@@ -1,21 +1,28 @@
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api/client';
-
-interface ContextCurrent {
-  ok: boolean;
-  data?: Record<string, unknown>;
-}
+import {
+  decodeApiResponse,
+  decodeCurrentContextData,
+  decodeNullable,
+  type ApiResponse,
+  type CurrentContextData,
+  type JsonObject,
+} from '../types';
 
 export function ContextPanel() {
-  const [context, setContext] = useState<Record<string, unknown> | null>(null);
+  const [context, setContext] = useState<CurrentContextData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const entries = context ? asContextEntries(context.context) : [];
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    apiGet<ContextCurrent>('/v1/context/current')
+    apiGet<ApiResponse<CurrentContextData | null>>(
+      '/v1/context/current',
+      (value) => decodeApiResponse(value, (data) => decodeNullable(data, decodeCurrentContextData)),
+    )
       .then((res) => {
         if (!cancelled && res.ok && res.data) setContext(res.data);
         else if (!cancelled) setContext(null);
@@ -31,7 +38,7 @@ export function ContextPanel() {
 
   if (loading) return <div className="p-4 text-zinc-500 text-sm">Loading context…</div>;
   if (error) return <div className="p-4 text-amber-500 text-sm">{error}</div>;
-  if (!context || Object.keys(context).length === 0) {
+  if (!context || entries.length === 0) {
     return (
       <div className="p-4 text-zinc-500 text-sm">
         <h3 className="font-medium text-zinc-400 mb-2">Context</h3>
@@ -43,8 +50,11 @@ export function ContextPanel() {
   return (
     <div className="p-4 text-sm overflow-y-auto">
       <h3 className="font-medium text-zinc-400 mb-2">Context</h3>
+      <p className="mb-3 text-xs text-zinc-500">
+        computed at {new Date(context.computed_at * 1000).toLocaleString()}
+      </p>
       <dl className="space-y-2">
-        {Object.entries(context).map(([k, v]) => (
+        {entries.map(([k, v]) => (
           <div key={k}>
             <dt className="text-zinc-500 text-xs">{k}</dt>
             <dd className="text-zinc-200 break-words">
@@ -55,4 +65,11 @@ export function ContextPanel() {
       </dl>
     </div>
   );
+}
+
+function asContextEntries(value: CurrentContextData['context']): [string, CurrentContextData['context']][] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return [['value', value]];
+  }
+  return Object.entries(value as JsonObject);
 }

@@ -6,6 +6,11 @@ import type { WsEnvelope } from '../types'
 
 const subscribeWs = vi.fn()
 
+function requireWsListener(listener: ((event: WsEnvelope) => void) | null): (event: WsEnvelope) => void {
+  expect(listener).not.toBeNull()
+  return listener as (event: WsEnvelope) => void
+}
+
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
 }))
@@ -55,7 +60,11 @@ describe('InboxView realtime sync', () => {
       expect(screen.getByText('reminder')).toBeInTheDocument()
     })
 
-    wsListener?.({ type: 'interventions:updated', timestamp: '1', payload: { id: 'intv_1', state: 'resolved' } })
+    requireWsListener(wsListener)({
+      type: 'interventions:updated',
+      timestamp: '1',
+      payload: { id: 'intv_1', state: 'resolved' },
+    })
 
     await waitFor(() => {
       expect(screen.getByText('No active interventions.')).toBeInTheDocument()
@@ -81,7 +90,7 @@ describe('InboxView realtime sync', () => {
       expect(screen.getByText('No active interventions.')).toBeInTheDocument()
     })
 
-    wsListener?.({
+    requireWsListener(wsListener)({
       type: 'interventions:new',
       timestamp: '1',
       payload: {

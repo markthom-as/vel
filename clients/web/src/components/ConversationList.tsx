@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '../api/client';
-import type { ApiResponse, ConversationData, WsEnvelope } from '../types';
+import {
+  decodeApiResponse,
+  decodeArray,
+  decodeConversationData,
+  type ApiResponse,
+  type ConversationData,
+  type WsEvent,
+} from '../types';
 import { subscribeWs } from '../realtime/ws';
 
 interface ConversationListProps {
@@ -19,7 +26,10 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
       setLoading(true);
     }
     setError(null);
-    apiGet<ApiResponse<ConversationData[]>>('/api/conversations')
+    apiGet<ApiResponse<ConversationData[]>>(
+      '/api/conversations',
+      (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeConversationData)),
+    )
       .then((res) => {
         if (!cancelled && res.ok && res.data) setConversations(res.data);
       })
@@ -35,7 +45,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   useEffect(() => loadConversations(true), [loadConversations]);
 
   useEffect(() => {
-    return subscribeWs((event: WsEnvelope) => {
+    return subscribeWs((event: WsEvent) => {
       if (event.type === 'messages:new') {
         loadConversations(false);
       }

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '../api/client';
-import type { ApiResponse, InboxItemData, InterventionEventData, WsEnvelope } from '../types';
+import {
+  decodeApiResponse,
+  decodeArray,
+  decodeInboxItemData,
+  type ApiResponse,
+  type InboxItemData,
+  type WsEvent,
+} from '../types';
 import { subscribeWs } from '../realtime/ws';
 
 export function InboxView() {
@@ -14,7 +21,10 @@ export function InboxView() {
       setLoading(true);
     }
     setError(null);
-    apiGet<ApiResponse<InboxItemData[]>>('/api/inbox')
+    apiGet<ApiResponse<InboxItemData[]>>(
+      '/api/inbox',
+      (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeInboxItemData)),
+    )
       .then((res) => {
         if (!cancelled && res.ok && res.data) setItems(res.data);
       })
@@ -30,9 +40,10 @@ export function InboxView() {
   useEffect(() => loadInbox(true), [loadInbox]);
 
   useEffect(() => {
-    return subscribeWs((event: WsEnvelope) => {
-      if (event.type === 'interventions:new' && isInterventionEventData(event.payload)) {
-        setItems((prev) => upsertInboxItem(prev, event.payload));
+    return subscribeWs((event: WsEvent) => {
+      if (event.type === 'interventions:new') {
+        const payload = event.payload;
+        setItems((prev) => upsertInboxItem(prev, payload));
         return;
       }
       if (event.type === 'interventions:updated') {
@@ -72,18 +83,6 @@ export function InboxView() {
 
 function formatTs(ts: number): string {
   return new Date(ts * 1000).toLocaleString();
-}
-
-function isInterventionEventData(payload: unknown): payload is InterventionEventData {
-  if (!payload || typeof payload !== 'object') {
-    return false;
-  }
-  const candidate = payload as Partial<InterventionEventData>;
-  return typeof candidate.id === 'string'
-    && typeof candidate.message_id === 'string'
-    && typeof candidate.kind === 'string'
-    && typeof candidate.state === 'string'
-    && typeof candidate.surfaced_at === 'number';
 }
 
 function upsertInboxItem(items: InboxItemData[], nextItem: InboxItemData): InboxItemData[] {

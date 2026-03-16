@@ -1,6 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiGet, apiPost } from '../api/client';
-import type { ApiResponse, MessageData, InboxItemData, InterventionEventData, WsEnvelope } from '../types';
+import {
+  decodeApiResponse,
+  decodeArray,
+  decodeInboxItemData,
+  decodeMessageData,
+  type ApiResponse,
+  type InboxItemData,
+  type MessageData,
+  type WsEvent,
+} from '../types';
 import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
@@ -26,7 +35,10 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
 
     let cancelled = false;
     const nextMap: Record<string, string> = {};
-    apiGet<ApiResponse<InboxItemData[]>>(`/api/conversations/${conversationId}/interventions`)
+    apiGet<ApiResponse<InboxItemData[]>>(
+      `/api/conversations/${conversationId}/interventions`,
+      (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeInboxItemData)),
+    )
       .then((res) => {
         if (cancelled || !res.ok || !res.data) {
           return;
@@ -58,7 +70,10 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    apiGet<ApiResponse<MessageData[]>>(`/api/conversations/${conversationId}/messages`)
+    apiGet<ApiResponse<MessageData[]>>(
+      `/api/conversations/${conversationId}/messages`,
+      (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeMessageData)),
+    )
       .then((res) => {
         if (!cancelled && res.ok && res.data) setMessages(res.data);
       })
@@ -80,24 +95,25 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       return () => {};
     }
 
-    return subscribeWs((event: WsEnvelope) => {
+    return subscribeWs((event: WsEvent) => {
       if (event.type === 'messages:new') {
-        const message = event.payload as Partial<MessageData>;
+        const message = event.payload;
         if (message.conversation_id !== conversationId || typeof message.id !== 'string') {
           return;
         }
 
-        setMessages((prev) => appendUniqueMessages(prev, [message as MessageData]));
+        setMessages((prev) => appendUniqueMessages(prev, [message]));
         return;
       }
-      if (event.type === 'interventions:new' && isInterventionEventData(event.payload)) {
+      if (event.type === 'interventions:new') {
+        const payload = event.payload;
         setInterventionsByMessageId((prev) => {
-          if (!messages.some((message) => message.id === event.payload.message_id)) {
+          if (!messages.some((message) => message.id === payload.message_id)) {
             return prev;
           }
           return {
             ...prev,
-            [event.payload.message_id]: event.payload.id,
+            [payload.message_id]: payload.id,
           };
         });
         return;
@@ -221,16 +237,4 @@ function appendUniqueMessages(existing: MessageData[], nextMessages: MessageData
   });
 
   return additions.length > 0 ? [...existing, ...additions] : existing;
-}
-
-function isInterventionEventData(payload: unknown): payload is InterventionEventData {
-  if (!payload || typeof payload !== 'object') {
-    return false;
-  }
-  const candidate = payload as Partial<InterventionEventData>;
-  return typeof candidate.id === 'string'
-    && typeof candidate.message_id === 'string'
-    && typeof candidate.kind === 'string'
-    && typeof candidate.state === 'string'
-    && typeof candidate.surfaced_at === 'number';
 }

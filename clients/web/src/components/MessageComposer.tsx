@@ -1,7 +1,13 @@
 import { useState, useCallback } from 'react';
 import { apiPost } from '../api/client';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
-import type { ApiResponse, CreateMessageResponse, MessageData } from '../types';
+import {
+  decodeApiResponse,
+  decodeCreateMessageResponse,
+  type ApiResponse,
+  type CreateMessageResponse,
+  type MessageData,
+} from '../types';
 
 interface MessageComposerProps {
   conversationId: string;
@@ -37,7 +43,8 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
     try {
       const res = await apiPost<ApiResponse<CreateMessageResponse>>(
         `/api/conversations/${conversationId}/messages`,
-        { role: 'user', kind: 'text', content: { text: trimmed } }
+        { role: 'user', kind: 'text', content: { text: trimmed } },
+        (value) => decodeApiResponse(value, decodeCreateMessageResponse),
       );
       if (res.ok && res.data) {
         onSent(res.data.user_message, res.data.assistant_message ?? null);

@@ -1,3 +1,5 @@
+import type { Decoder } from '../types';
+
 // In dev, use relative URLs so Vite proxy forwards to veld (no CORS). In prod, use explicit API URL.
 const API_BASE =
   import.meta.env.VITE_API_URL ??
@@ -29,17 +31,22 @@ function wrapNetworkError(err: unknown): Error {
   return new Error(String(err));
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
+async function decodeResponseBody<T>(res: Response, decode?: Decoder<T>): Promise<T> {
+  const body = (await res.json()) as unknown;
+  return decode ? decode(body) : (body as T);
+}
+
+export async function apiGet<T>(path: string, decode?: Decoder<T>): Promise<T> {
   try {
     const res = await fetch(`${API_BASE}${path}`);
     if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
-    return res.json() as Promise<T>;
+    return await decodeResponseBody(res, decode);
   } catch (e) {
     throw wrapNetworkError(e);
   }
 }
 
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+export async function apiPost<T>(path: string, body: unknown, decode?: Decoder<T>): Promise<T> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
@@ -47,13 +54,13 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
-    return res.json() as Promise<T>;
+    return await decodeResponseBody(res, decode);
   } catch (e) {
     throw wrapNetworkError(e);
   }
 }
 
-export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+export async function apiPatch<T>(path: string, body: unknown, decode?: Decoder<T>): Promise<T> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'PATCH',
@@ -61,7 +68,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
-    return res.json() as Promise<T>;
+    return await decodeResponseBody(res, decode);
   } catch (e) {
     throw wrapNetworkError(e);
   }

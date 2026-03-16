@@ -1,4 +1,11 @@
-import type { MessageData } from '../types';
+import {
+  decodeReminderCardContent,
+  decodeRiskCardContent,
+  decodeSuggestionCardContent,
+  decodeSummaryCardContent,
+  decodeTextMessageContent,
+  type MessageData,
+} from '../types';
 import {
   ReminderCardView,
   RiskCardView,
@@ -24,31 +31,42 @@ export function MessageRenderer({
   onShowWhy,
 }: MessageRendererProps) {
   const isUser = message.role === 'user';
-  const content = message.content as Record<string, unknown> | null;
+  const textContent = decodeTextMessageContent(message.content);
+  const reminderCardContent = decodeReminderCardContent(message.content);
+  const riskCardContent = decodeRiskCardContent(message.content);
+  const suggestionCardContent = decodeSuggestionCardContent(message.content);
+  const summaryCardContent = decodeSummaryCardContent(message.content);
+  const shouldShowRawFallback =
+    (message.kind === 'text' || message.kind === 'system_notice') && !textContent
+    || (message.kind === 'reminder_card' && !reminderCardContent)
+    || (message.kind === 'risk_card' && !riskCardContent)
+    || (message.kind === 'suggestion_card' && !suggestionCardContent)
+    || (message.kind === 'summary_card' && !summaryCardContent);
   const hasActions =
     interventionId && (onSnooze || onResolve || onDismiss || onShowWhy);
 
   const cardContent = (
     <>
-      {message.kind === 'text' && content && 'text' in content && (
-        <p className="whitespace-pre-wrap text-zinc-200">{(content as { text: string }).text}</p>
+      {message.kind === 'text' && textContent && (
+        <p className="whitespace-pre-wrap text-zinc-200">{textContent.text}</p>
       )}
-      {message.kind === 'reminder_card' && content && (
-        <ReminderCardView content={content as unknown as { title: string; due_time?: number; reason?: string; confidence?: number }} />
+      {message.kind === 'reminder_card' && reminderCardContent && (
+        <ReminderCardView content={reminderCardContent} />
       )}
-      {message.kind === 'risk_card' && content && (
-        <RiskCardView content={content as unknown as { commitment_title: string; risk_level: string; top_drivers?: string[]; proposed_next_step?: string }} />
+      {message.kind === 'risk_card' && riskCardContent && (
+        <RiskCardView content={riskCardContent} />
       )}
-      {message.kind === 'suggestion_card' && content && (
-        <SuggestionCardView content={content as unknown as { suggestion_text: string; linked_goal?: string; expected_benefit?: string }} />
+      {message.kind === 'suggestion_card' && suggestionCardContent && (
+        <SuggestionCardView content={suggestionCardContent} />
       )}
-      {message.kind === 'summary_card' && content && (
-        <SummaryCardView content={content as unknown as { title: string; timeframe?: string; top_items?: string[]; recommended_actions?: string[] }} />
+      {message.kind === 'summary_card' && summaryCardContent && (
+        <SummaryCardView content={summaryCardContent} />
       )}
-      {message.kind === 'system_notice' && content && 'text' in content && (
-        <p className="text-zinc-400 italic">{(content as { text: string }).text}</p>
+      {message.kind === 'system_notice' && textContent && (
+        <p className="text-zinc-400 italic">{textContent.text}</p>
       )}
-      {!['text', 'reminder_card', 'risk_card', 'suggestion_card', 'summary_card', 'system_notice'].includes(message.kind) && (
+      {(shouldShowRawFallback
+        || !['text', 'reminder_card', 'risk_card', 'suggestion_card', 'summary_card', 'system_notice'].includes(message.kind)) && (
         <pre className="text-sm overflow-x-auto whitespace-pre-wrap break-words text-zinc-400">
           {JSON.stringify(message.content, null, 2)}
         </pre>

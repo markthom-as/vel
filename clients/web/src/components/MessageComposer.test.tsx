@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, fireEvent, waitFor, within } from '@testing-library/react'
 import { MessageComposer } from './MessageComposer'
 import * as api from '../api/client'
 
@@ -10,6 +10,11 @@ vi.mock('../api/client', () => ({
 describe('MessageComposer', () => {
   const onSent = vi.fn()
 
+  function requireHtmlElement<T extends HTMLElement>(element: T | null): T {
+    expect(element).not.toBeNull()
+    return element as T
+  }
+
   beforeEach(() => {
     onSent.mockClear()
     vi.mocked(api.apiPost).mockReset()
@@ -17,14 +22,14 @@ describe('MessageComposer', () => {
 
   it('renders textarea and Send button', () => {
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
-    const composer = container.firstElementChild!
+    const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
     expect(composer.querySelector('textarea')).toBeInTheDocument()
     expect(within(composer).getByRole('button', { name: /send/i })).toBeInTheDocument()
   })
 
   it('disables Send when text is empty', () => {
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
-    const composer = container.firstElementChild!
+    const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
     const sendBtn = within(composer).getByRole('button', { name: /send/i })
     expect(sendBtn).toBeDisabled()
   })
@@ -48,8 +53,8 @@ describe('MessageComposer', () => {
     })
 
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
-    const composer = container.firstElementChild!
-    const textarea = composer.querySelector('textarea')!
+    const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
+    const textarea = requireHtmlElement(composer.querySelector('textarea'))
     const sendBtn = within(composer).getByRole('button', { name: /send/i })
     fireEvent.change(textarea, { target: { value: 'Hi' } })
     fireEvent.click(sendBtn)
@@ -57,7 +62,8 @@ describe('MessageComposer', () => {
     await waitFor(() => {
       expect(api.apiPost).toHaveBeenCalledWith(
         '/api/conversations/conv_1/messages',
-        { role: 'user', kind: 'text', content: { text: 'Hi' } }
+        { role: 'user', kind: 'text', content: { text: 'Hi' } },
+        expect.any(Function),
       )
     })
     await waitFor(() => {
@@ -69,8 +75,8 @@ describe('MessageComposer', () => {
     vi.mocked(api.apiPost).mockRejectedValue(new Error('Network error'))
 
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
-    const composer = container.firstElementChild!
-    const textarea = composer.querySelector('textarea')!
+    const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
+    const textarea = requireHtmlElement(composer.querySelector('textarea'))
     const sendBtn = within(composer).getByRole('button', { name: /send/i })
     fireEvent.change(textarea, { target: { value: 'Hi' } })
     fireEvent.click(sendBtn)

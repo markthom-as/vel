@@ -6,93 +6,18 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
-use vel_api_types::ApiResponse;
+use vel_api_types::{
+    ApiResponse, ConversationCreateRequest, ConversationData, ConversationUpdateRequest,
+    CreateMessageResponse, InboxItemData, InterventionActionData, MessageCreateRequest,
+    MessageData, ProvenanceData, ProvenanceEvent, WsEventType,
+};
 use vel_llm::{LlmRequest, Message as LlmMessage};
 use vel_storage::{ConversationInsert, EventLogInsert, InterventionInsert, MessageInsert};
 
 use crate::broadcast::WsEnvelope;
 use crate::{errors::AppError, state::AppState};
-
-// --- DTOs (product-shaped, not raw DB rows) ---
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ConversationData {
-    pub id: String,
-    pub title: Option<String>,
-    pub kind: String,
-    pub pinned: bool,
-    pub archived: bool,
-    pub created_at: i64,
-    pub updated_at: i64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ConversationCreateRequest {
-    pub title: Option<String>,
-    #[serde(default = "default_kind")]
-    pub kind: String,
-}
-
-fn default_kind() -> String {
-    "general".to_string()
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ConversationUpdateRequest {
-    pub title: Option<String>,
-    pub pinned: Option<bool>,
-    pub archived: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct MessageData {
-    pub id: String,
-    pub conversation_id: String,
-    pub role: String,
-    pub kind: String,
-    pub content: serde_json::Value,
-    pub status: Option<String>,
-    pub importance: Option<String>,
-    pub created_at: i64,
-    pub updated_at: Option<i64>,
-}
-
-/// Response from creating a message: user message plus optional assistant reply.
-#[derive(Debug, Clone, Serialize)]
-pub struct CreateMessageResponse {
-    pub user_message: MessageData,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub assistant_message: Option<MessageData>,
-    /// When assistant reply was requested but failed (e.g. LLM unreachable).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub assistant_error: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct MessageCreateRequest {
-    pub role: String,
-    pub kind: String,
-    pub content: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InboxItemData {
-    pub id: String,
-    pub message_id: String,
-    pub kind: String,
-    pub state: String,
-    pub surfaced_at: i64,
-    pub snoozed_until: Option<i64>,
-    pub confidence: Option<f64>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InterventionActionData {
-    pub id: String,
-    pub state: String,
-}
 
 // --- Helpers: append event and map storage -> DTO ---
 
@@ -241,8 +166,11 @@ async fn create_intervention_for_message_if_needed(
     )
     .await;
 
-    let ws_payload = serde_json::to_value(&data).unwrap_or_else(|_| serde_json::json!({ "id": data.id }));
-    let _ = state.broadcast_tx.send(WsEnvelope::new("interventions:new", ws_payload));
+    let ws_payload =
+        serde_json::to_value(&data).unwrap_or_else(|_| serde_json::json!({ "id": data.id }));
+    let _ = state
+        .broadcast_tx
+        .send(WsEnvelope::new(WsEventType::InterventionsNew, ws_payload));
 
     Ok(Some(data))
 }
@@ -254,10 +182,7 @@ pub async fn list_conversations(
     Query(q): Query<ListConversationsQuery>,
 ) -> Result<Json<ApiResponse<Vec<ConversationData>>>, AppError> {
     let limit = q.limit.unwrap_or(100).min(500);
-    let list = state
-        .storage
-        .list_conversations(q.archived, limit)
-        .await?;
+    let list = state.storage.list_conversations(q.archived, limit).await?;
     let data: Vec<ConversationData> = list.into_iter().map(conversation_record_to_data).collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -393,7 +318,8 @@ pub async fn create_message(
         .await?
         .ok_or_else(|| AppError::not_found("conversation not found"))?;
     let id = format!("msg_{}", Uuid::new_v4().simple());
-    let content_json = serde_json::to_string(&payload.content).map_err(|e| AppError::bad_request(e.to_string()))?;
+    let content_json = serde_json::to_string(&payload.content)
+        .map_err(|e| AppError::bad_request(e.to_string()))?;
     let kind = payload.kind.clone();
     state
         .storage
@@ -422,15 +348,22 @@ pub async fn create_message(
         .ok_or_else(|| AppError::internal("message not found after create"))?;
     let created_message = message_record_to_data(msg)?;
     let _ = create_intervention_for_message_if_needed(&state, &created_message).await?;
-    let ws_payload = serde_json::to_value(&created_message).unwrap_or_else(|_| serde_json::json!({ "id": id }));
-    let _ = state.broadcast_tx.send(WsEnvelope::new("messages:new", ws_payload));
+    let ws_payload =
+        serde_json::to_value(&created_message).unwrap_or_else(|_| serde_json::json!({ "id": id }));
+    let _ = state
+        .broadcast_tx
+        .send(WsEnvelope::new(WsEventType::MessagesNew, ws_payload));
 
-    let (assistant_message, assistant_error) = if let (Some(ref router), Some(ref profile_id)) = (state.llm_router.as_ref(), state.chat_profile_id.as_ref()) {
+    let (assistant_message, assistant_error) = if let (Some(ref router), Some(ref profile_id)) =
+        (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
+    {
         tracing::info!(conversation_id = %conversation_id, "calling LLM for assistant reply");
         match generate_assistant_reply(&state, conversation_id, profile_id, router).await {
             Ok(Some(assistant_data)) => {
                 let payload = serde_json::to_value(&assistant_data).unwrap_or_default();
-                let _ = state.broadcast_tx.send(WsEnvelope::new("messages:new", payload));
+                let _ = state
+                    .broadcast_tx
+                    .send(WsEnvelope::new(WsEventType::MessagesNew, payload));
                 (Some(assistant_data), None)
             }
             Ok(None) => (None, None),
@@ -489,13 +422,17 @@ async fn generate_assistant_reply(
         model_profile: profile_id.to_string(),
         metadata: serde_json::json!({}),
     };
-    let res = router.generate(&req).await.map_err(|e| AppError::internal(e.to_string()))?;
+    let res = router
+        .generate(&req)
+        .await
+        .map_err(|e| AppError::internal(e.to_string()))?;
     let text = res.text.unwrap_or_default().trim().to_string();
     if text.is_empty() {
         return Ok(None);
     }
     let assistant_id = format!("msg_{}", Uuid::new_v4().simple());
-    let content_json = serde_json::to_string(&serde_json::json!({ "text": text })).unwrap_or_default();
+    let content_json =
+        serde_json::to_string(&serde_json::json!({ "text": text })).unwrap_or_default();
     state
         .storage
         .create_message(MessageInsert {
@@ -532,7 +469,10 @@ pub async fn get_inbox(
 ) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
     let limit = q.limit.unwrap_or(100).min(500);
     let list = state.storage.list_interventions_active(limit).await?;
-    let data: Vec<InboxItemData> = list.into_iter().map(intervention_record_to_inbox_item).collect();
+    let data: Vec<InboxItemData> = list
+        .into_iter()
+        .map(intervention_record_to_inbox_item)
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -558,7 +498,10 @@ pub async fn list_conversation_interventions(
         .storage
         .get_interventions_by_conversation(conversation_id)
         .await?;
-    let data: Vec<InboxItemData> = list.into_iter().map(intervention_record_to_inbox_item).collect();
+    let data: Vec<InboxItemData> = list
+        .into_iter()
+        .map(intervention_record_to_inbox_item)
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -571,28 +514,12 @@ pub async fn list_message_interventions(
         .storage
         .get_interventions_by_message(message_id.trim())
         .await?;
-    let data: Vec<InboxItemData> = list.into_iter().map(intervention_record_to_inbox_item).collect();
+    let data: Vec<InboxItemData> = list
+        .into_iter()
+        .map(intervention_record_to_inbox_item)
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
-}
-
-// --- Provenance (029) ---
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ProvenanceData {
-    pub message_id: String,
-    pub events: Vec<ProvenanceEvent>,
-    pub signals: Vec<serde_json::Value>,
-    pub policy_decisions: Vec<serde_json::Value>,
-    pub linked_objects: Vec<serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct ProvenanceEvent {
-    pub id: String,
-    pub event_name: String,
-    pub created_at: i64,
-    pub payload: serde_json::Value,
 }
 
 pub async fn get_message_provenance(
@@ -612,7 +539,8 @@ pub async fn get_message_provenance(
     let events_data: Vec<ProvenanceEvent> = events
         .into_iter()
         .map(|r| {
-            let payload: serde_json::Value = serde_json::from_str(&r.payload_json).unwrap_or_else(|_| serde_json::json!({}));
+            let payload: serde_json::Value =
+                serde_json::from_str(&r.payload_json).unwrap_or_else(|_| serde_json::json!({}));
             ProvenanceEvent {
                 id: r.id.as_ref().to_string(),
                 event_name: r.event_name,
@@ -638,7 +566,8 @@ pub async fn get_settings(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
     let map = state.storage.get_all_settings().await?;
-    let data: serde_json::Value = serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({}));
+    let data: serde_json::Value =
+        serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({}));
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -659,16 +588,26 @@ pub async fn patch_settings(
         state.storage.set_setting("quiet_hours", &v).await?;
     }
     if let Some(v) = payload.disable_proactive {
-        state.storage.set_setting("disable_proactive", &serde_json::json!(v)).await?;
+        state
+            .storage
+            .set_setting("disable_proactive", &serde_json::json!(v))
+            .await?;
     }
     if let Some(v) = payload.toggle_risks {
-        state.storage.set_setting("toggle_risks", &serde_json::json!(v)).await?;
+        state
+            .storage
+            .set_setting("toggle_risks", &serde_json::json!(v))
+            .await?;
     }
     if let Some(v) = payload.toggle_reminders {
-        state.storage.set_setting("toggle_reminders", &serde_json::json!(v)).await?;
+        state
+            .storage
+            .set_setting("toggle_reminders", &serde_json::json!(v))
+            .await?;
     }
     let map = state.storage.get_all_settings().await?;
-    let data: serde_json::Value = serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({}));
+    let data: serde_json::Value =
+        serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({}));
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -683,9 +622,15 @@ pub async fn intervention_snooze(
     let id = id.trim();
     let until_ts = payload
         .snoozed_until_ts
-        .or(payload.minutes.map(|m| time::OffsetDateTime::now_utc().unix_timestamp() + (m as i64) * 60))
+        .or(payload
+            .minutes
+            .map(|m| time::OffsetDateTime::now_utc().unix_timestamp() + (m as i64) * 60))
         .ok_or_else(|| AppError::bad_request("snoozed_until_ts or minutes required"))?;
-    let _ = state.storage.get_intervention(id).await?.ok_or_else(|| AppError::not_found("intervention not found"))?;
+    let _ = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
     state.storage.snooze_intervention(id, until_ts).await?;
     emit_chat_event(
         &state,
@@ -695,16 +640,18 @@ pub async fn intervention_snooze(
         serde_json::json!({ "id": id, "snoozed_until": until_ts }),
     )
     .await;
-    let payload = serde_json::json!({ "id": id, "state": "snoozed" });
-    let _ = state.broadcast_tx.send(WsEnvelope::new("interventions:updated", payload));
+    let payload = InterventionActionData {
+        id: id.to_string(),
+        state: "snoozed".to_string(),
+    };
+    let _ = state
+        .broadcast_tx
+        .send(WsEnvelope::new(
+            WsEventType::InterventionsUpdated,
+            serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+        ));
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        InterventionActionData {
-            id: id.to_string(),
-            state: "snoozed".to_string(),
-        },
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(payload, request_id)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -718,7 +665,11 @@ pub async fn intervention_resolve(
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
     let id = id.trim();
-    let _ = state.storage.get_intervention(id).await?.ok_or_else(|| AppError::not_found("intervention not found"))?;
+    let _ = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
     state.storage.resolve_intervention(id).await?;
     emit_chat_event(
         &state,
@@ -728,16 +679,18 @@ pub async fn intervention_resolve(
         serde_json::json!({ "id": id }),
     )
     .await;
-    let payload = serde_json::json!({ "id": id, "state": "resolved" });
-    let _ = state.broadcast_tx.send(WsEnvelope::new("interventions:updated", payload));
+    let payload = InterventionActionData {
+        id: id.to_string(),
+        state: "resolved".to_string(),
+    };
+    let _ = state
+        .broadcast_tx
+        .send(WsEnvelope::new(
+            WsEventType::InterventionsUpdated,
+            serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+        ));
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        InterventionActionData {
-            id: id.to_string(),
-            state: "resolved".to_string(),
-        },
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(payload, request_id)))
 }
 
 pub async fn intervention_dismiss(
@@ -745,7 +698,11 @@ pub async fn intervention_dismiss(
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
     let id = id.trim();
-    let _ = state.storage.get_intervention(id).await?.ok_or_else(|| AppError::not_found("intervention not found"))?;
+    let _ = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
     state.storage.dismiss_intervention(id).await?;
     emit_chat_event(
         &state,
@@ -755,29 +712,43 @@ pub async fn intervention_dismiss(
         serde_json::json!({ "id": id }),
     )
     .await;
-    let payload = serde_json::json!({ "id": id, "state": "dismissed" });
-    let _ = state.broadcast_tx.send(WsEnvelope::new("interventions:updated", payload));
+    let payload = InterventionActionData {
+        id: id.to_string(),
+        state: "dismissed".to_string(),
+    };
+    let _ = state
+        .broadcast_tx
+        .send(WsEnvelope::new(
+            WsEventType::InterventionsUpdated,
+            serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+        ));
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        InterventionActionData {
-            id: id.to_string(),
-            state: "dismissed".to_string(),
-        },
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(payload, request_id)))
 }
 
 pub fn chat_routes() -> Router<AppState> {
     Router::new()
-        .route("/api/conversations", get(list_conversations).post(create_conversation))
-        .route("/api/conversations/:id", get(get_conversation).patch(update_conversation))
+        .route(
+            "/api/conversations",
+            get(list_conversations).post(create_conversation),
+        )
+        .route(
+            "/api/conversations/:id",
+            get(get_conversation).patch(update_conversation),
+        )
         .route(
             "/api/conversations/:id/messages",
             get(list_messages).post(create_message),
         )
-        .route("/api/conversations/:id/interventions", get(list_conversation_interventions))
+        .route(
+            "/api/conversations/:id/interventions",
+            get(list_conversation_interventions),
+        )
         .route("/api/inbox", get(get_inbox))
-        .route("/api/messages/:id/interventions", get(list_message_interventions))
+        .route(
+            "/api/messages/:id/interventions",
+            get(list_message_interventions),
+        )
         .route("/api/messages/:id/provenance", get(get_message_provenance))
         .route("/api/settings", get(get_settings).patch(patch_settings))
         .route("/api/interventions/:id/snooze", post(intervention_snooze))
