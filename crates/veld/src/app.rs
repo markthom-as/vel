@@ -3222,6 +3222,108 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn evaluate_creates_response_debt_nudge_from_messaging_context() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "message_thread".to_string(),
+                source: "messaging".to_string(),
+                source_ref: Some(format!("messaging:sms:default:thr_sched:{}", now)),
+                timestamp: now,
+                payload_json: Some(serde_json::json!({
+                    "thread_id": "thr_sched",
+                    "platform": "sms",
+                    "title": "Team reschedule",
+                    "latest_timestamp": now,
+                    "waiting_state": "me",
+                    "scheduling_related": true,
+                    "urgent": true,
+                    "snippet": "Can we move the standup to 3?"
+                })),
+            })
+            .await
+            .unwrap();
+
+        let evaluate_result = crate::services::evaluate::run(&storage, &test_policy_config()).await;
+        assert!(evaluate_result.is_ok());
+
+        let nudges = storage.list_nudges(None, 20).await.unwrap();
+        let nudge = nudges
+            .iter()
+            .find(|n| n.nudge_type == "response_debt")
+            .expect("response_debt nudge should exist");
+        assert_eq!(nudge.state, "active");
+        assert_eq!(nudge.level, "warning");
+        assert_eq!(
+            nudge.message,
+            "You have messages waiting on you, including scheduling follow-up."
+        );
+        let inference = nudge
+            .inference_snapshot_json
+            .as_ref()
+            .map(|s| serde_json::from_str::<serde_json::Value>(s).unwrap())
+            .unwrap();
+        assert_eq!(inference["message_waiting_on_me_count"], 1);
+        assert_eq!(inference["message_scheduling_thread_count"], 1);
+        assert_eq!(inference["message_urgent_thread_count"], 1);
+        let metadata = &nudge.metadata_json;
+        assert_eq!(metadata["policy"], "response_debt");
+    }
+
+    #[tokio::test]
+    async fn response_debt_nudge_resolves_when_waiting_count_clears() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .set_current_context(
+                now,
+                &serde_json::json!({
+                    "message_waiting_on_me_count": 0,
+                    "message_scheduling_thread_count": 0,
+                    "message_urgent_thread_count": 0
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+
+        let nudge_id = storage
+            .insert_nudge(vel_storage::NudgeInsert {
+                nudge_type: "response_debt".to_string(),
+                level: "warning".to_string(),
+                state: "active".to_string(),
+                related_commitment_id: None,
+                message: "You have messages waiting on you.".to_string(),
+                snoozed_until: None,
+                resolved_at: None,
+                signals_snapshot_json: None,
+                inference_snapshot_json: None,
+                metadata_json: Some(serde_json::json!({ "policy": "response_debt" })),
+            })
+            .await
+            .unwrap();
+
+        let updated_result =
+            crate::services::nudge_engine::evaluate(&storage, &test_policy_config(), 0).await;
+        assert!(updated_result.is_ok());
+        let updated = updated_result.unwrap_or_default();
+        assert_eq!(updated, 1);
+
+        let nudges = storage.list_nudges(None, 20).await.unwrap();
+        let nudge = nudges
+            .iter()
+            .find(|n| n.nudge_id == nudge_id)
+            .expect("response_debt nudge should still exist");
+        assert_eq!(nudge.state, "resolved");
+        assert!(nudge.resolved_at.is_some());
+    }
+
+    #[tokio::test]
     async fn sync_todoist_reopens_and_updates_existing_commitment() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

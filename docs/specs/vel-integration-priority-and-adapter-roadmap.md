@@ -82,6 +82,7 @@ Influences:
 - response debt visibility
 - scheduling negotiation awareness
 - current-context explain surfaces
+- deterministic `response_debt` nudges via current-context + policy
 
 ## Next Priority Extensions
 

@@ -81,6 +81,7 @@ The current-context subsystem is responsible for maintaining:
 - highest-risk commitments
 - open thread ids relevant now
 - current global risk level
+- interpersonal response pressure summary
 - context timestamps and provenance references
 
 It is **not** responsible for:
@@ -113,6 +114,9 @@ The current context should be stored as structured JSON, but the subsystem shoul
   "active_nudge_ids": ["nud_001"],
   "top_risk_commitment_ids": ["com_123", "com_456"],
   "open_thread_ids": ["thr_45", "thr_46"],
+  "message_waiting_on_me_count": 2,
+  "message_scheduling_thread_count": 1,
+  "message_urgent_thread_count": 0,
   "global_risk_level": "high",
   "global_risk_score": 0.78,
   "trigger_signal_id": "sig_888"
@@ -133,12 +137,15 @@ At minimum, implement:
 - `meds_status`
 - `active_nudge_ids`
 - `top_risk_commitment_ids`
+- `message_waiting_on_me_count`
 - `global_risk_level`
 - `global_risk_score`
 
 ## 4.3 Optional fields for early versions
 
 - `open_thread_ids`
+- `message_scheduling_thread_count`
+- `message_urgent_thread_count`
 - `trigger_signal_id`
 - `focus_mode_reason`
 - `context_confidence`

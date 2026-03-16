@@ -47,6 +47,18 @@ pub async fn evaluate(
     let next_event_start_ts: Option<i64> =
         context.get("next_event_start_ts").and_then(|v| v.as_i64());
     let event_started = next_event_start_ts.map(|t| now_ts >= t).unwrap_or(true);
+    let message_waiting_on_me_count = context
+        .get("message_waiting_on_me_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
+    let message_scheduling_thread_count = context
+        .get("message_scheduling_thread_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
+    let message_urgent_thread_count = context
+        .get("message_urgent_thread_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
 
     let open_commitments = storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, 200)
@@ -74,6 +86,7 @@ pub async fn evaluate(
             }
             "meeting_prep_window" => !prep_window_active,
             "morning_drift" => morning_started,
+            "response_debt" => message_waiting_on_me_count == 0,
             "commute_leave_time" => {
                 let related_resolved = n.related_commitment_id.as_deref().map_or(false, |cid| {
                     !open_commitments.iter().any(|c| c.id.as_ref() == cid)
@@ -324,6 +337,68 @@ pub async fn evaluate(
                 &nudge_id,
                 "nudge_created",
                 &serde_json::json!({ "nudge_type": "morning_drift" }).to_string(),
+                now_ts,
+            )
+            .await;
+        count += 1;
+    }
+
+    let has_response_debt_nudge = existing_nudges.iter().any(|n| {
+        n.nudge_type == "response_debt" && (n.state == "active" || n.state == "snoozed")
+    });
+    if message_waiting_on_me_count > 0 && !has_response_debt_nudge {
+        let level = if message_urgent_thread_count > 0 || message_waiting_on_me_count >= 3 {
+            "warning"
+        } else {
+            "gentle"
+        };
+        let message = if message_scheduling_thread_count > 0 {
+            "You have messages waiting on you, including scheduling follow-up."
+        } else {
+            "You have messages waiting on you."
+        };
+        let reasons = if message_scheduling_thread_count > 0 {
+            vec![
+                "messages waiting on me (from context)",
+                "scheduling thread present",
+            ]
+        } else {
+            vec!["messages waiting on me (from context)"]
+        };
+        let explanation = serde_json::json!({
+            "policy": "response_debt",
+            "decision": "create_nudge",
+            "level": level,
+            "reasons": reasons,
+            "suppressed_reasons": []
+        });
+        let nudge_id = storage
+            .insert_nudge(NudgeInsert {
+                nudge_type: "response_debt".to_string(),
+                level: level.to_string(),
+                state: "active".to_string(),
+                related_commitment_id: None,
+                message: message.to_string(),
+                snoozed_until: None,
+                resolved_at: None,
+                signals_snapshot_json: None,
+                inference_snapshot_json: Some(
+                    serde_json::json!({
+                        "message_waiting_on_me_count": message_waiting_on_me_count,
+                        "message_scheduling_thread_count": message_scheduling_thread_count,
+                        "message_urgent_thread_count": message_urgent_thread_count,
+                        "source": "context"
+                    })
+                    .to_string(),
+                ),
+                metadata_json: Some(explanation),
+            })
+            .await?;
+        let _ = storage
+            .insert_nudge_event(
+                &nudge_id,
+                "nudge_created",
+                &serde_json::json!({ "nudge_type": "response_debt" }).to_string(),
                 now_ts,
             )
             .await;

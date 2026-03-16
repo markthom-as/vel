@@ -181,6 +181,10 @@ policies:
     gentle_after_wake_minutes: 20
     warning_after_wake_minutes: 40
     danger_after_wake_minutes: 60
+
+  response_debt:
+    enabled: true
+    warning_waiting_on_me_count: 3
 ```
 
 Configuration values should be overridable later by:
@@ -326,6 +330,33 @@ Implement these first.
 - current state moves to `underway` or `engaged`
 - critical downstream commitment removed
 - user marks done on relevant blocker
+
+---
+
+## 8.5 response_debt
+
+### Preconditions
+- `current_context.message_waiting_on_me_count > 0`
+- no equivalent active or snoozed `response_debt` nudge exists
+
+### Input boundary
+- derive only from `current_context`
+- do not read raw messaging snapshots directly in the policy engine
+
+### Severity model
+- warning if `message_urgent_thread_count > 0`
+- warning if `message_waiting_on_me_count >= 3`
+- otherwise gentle
+
+### Message shaping
+- mention scheduling follow-up when `message_scheduling_thread_count > 0`
+- otherwise use a generic response-debt reminder
+
+### Outputs
+- nudge type: `response_debt`
+
+### Resolution conditions
+- `current_context.message_waiting_on_me_count == 0`
 
 ---
 
