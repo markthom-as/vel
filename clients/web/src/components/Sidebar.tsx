@@ -5,6 +5,7 @@ interface SidebarProps {
   onSelectConversation: (id: string) => void;
   onNewConversation?: () => void | Promise<void>;
   onOpenSettings?: () => void;
+  onOpenNow?: () => void;
 }
 
 export function Sidebar({
@@ -12,6 +13,7 @@ export function Sidebar({
   onSelectConversation,
   onNewConversation,
   onOpenSettings,
+  onOpenNow,
 }: SidebarProps) {
   return (
     <>
@@ -19,6 +21,18 @@ export function Sidebar({
         <h1 className="font-semibold text-zinc-100">Vel</h1>
         <p className="text-xs text-zinc-500">Conversations</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {onOpenNow && (
+            <>
+              <button
+                type="button"
+                onClick={onOpenNow}
+                className="text-xs text-zinc-500 hover:text-zinc-300"
+              >
+                Now
+              </button>
+              <span className="text-zinc-600">·</span>
+            </>
+          )}
           {onNewConversation && (
             <>
               <button

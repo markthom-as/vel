@@ -1,6 +1,7 @@
 import { apiGet } from '../api/client';
 import {
   decodeApiResponse,
+  decodeCommitmentData,
   decodeArray,
   decodeConversationData,
   decodeContextExplainData,
@@ -17,6 +18,7 @@ import {
   type ApiResponse,
   type ConversationData,
   type ContextExplainData,
+  type CommitmentData,
   type CurrentContextData,
   type DriftExplainData,
   type GoogleCalendarAuthStartData,
@@ -39,6 +41,7 @@ export const queryKeys = {
   driftExplain: () => ['context', 'drift-explain'] as const,
   settings: () => ['settings'] as const,
   integrations: () => ['integrations'] as const,
+  commitments: (limit: number) => ['commitments', limit] as const,
   runs: (limit: number) => ['runs', limit] as const,
   provenance: (messageId: string | null) => ['messages', messageId, 'provenance'] as const,
 };
@@ -110,6 +113,13 @@ export function loadIntegrations(): Promise<ApiResponse<IntegrationsData>> {
   return apiGet<ApiResponse<IntegrationsData>>(
     '/api/integrations',
     (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function loadCommitments(limit: number): Promise<ApiResponse<CommitmentData[]>> {
+  return apiGet<ApiResponse<CommitmentData[]>>(
+    `/v1/commitments?limit=${limit}`,
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeCommitmentData)),
   );
 }
 

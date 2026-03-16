@@ -13,6 +13,7 @@ import './App.css';
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showInbox, setShowInbox] = useState(false);
+  const [showNow, setShowNow] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
 
   async function startNewConversation() {
@@ -23,6 +24,7 @@ function App() {
     if (res.ok && res.data) {
       setSelectedConversationId(res.data.id);
       setShowInbox(false);
+      setShowNow(false);
       invalidateQuery(queryKeys.conversations(), { refetch: true });
     }
   }
@@ -42,28 +44,36 @@ function App() {
           <nav className="shrink-0 flex border-b border-zinc-800">
             <button
               type="button"
-              onClick={() => setShowInbox(true)}
+              onClick={() => { setShowNow(true); setShowInbox(false); }}
+              className={`flex-1 px-3 py-2 text-sm ${showNow ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Now
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowInbox(true); setShowNow(false); }}
               className={`flex-1 px-3 py-2 text-sm ${showInbox ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Inbox
             </button>
             <button
               type="button"
-              onClick={() => setShowInbox(false)}
-              className={`flex-1 px-3 py-2 text-sm ${!showInbox ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              onClick={() => { setShowInbox(false); setShowNow(false); }}
+              className={`flex-1 px-3 py-2 text-sm ${!showInbox && !showNow ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Threads
             </button>
           </nav>
           <Sidebar
             selectedConversationId={selectedConversationId}
-            onSelectConversation={(id) => { setSelectedConversationId(id); setShowInbox(false); }}
+            onSelectConversation={(id) => { setSelectedConversationId(id); setShowInbox(false); setShowNow(false); }}
             onNewConversation={startNewConversation}
+            onOpenNow={() => { setShowNow(true); setShowInbox(false); }}
             onOpenSettings={() => setShowSettings(true)}
           />
         </>
       }
-      main={<MainPanel conversationId={selectedConversationId} showInbox={showInbox} />}
+      main={<MainPanel conversationId={selectedConversationId} showInbox={showInbox} showNow={showNow} />}
       contextPanel={<ContextPanel />}
     />
   );
