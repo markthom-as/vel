@@ -15,7 +15,21 @@ Context endpoints (today/morning/end-of-day) are **run-backed**: each request cr
 
 See [docs/status.md](docs/status.md) for details. Canonical runtime concepts: [docs/runtime-concepts.md](docs/runtime-concepts.md).
 
-## Local Development
+## Build and run (dev)
+
+From the repo root:
+
+| Command | Description |
+|--------|-------------|
+| `make build` | Build veld and the web client (release-style: `cargo build -p veld`, `npm run build` in clients/web). |
+| `make dev` | Start **veld** and the **web dev server** together (one terminal). veld runs in the background; the UI is at the Vite dev URL (e.g. http://localhost:5173). Ctrl+C stops both. |
+| `make dev-api` | Run only veld (API at **http://127.0.0.1:4130** by default). Use in one terminal. |
+| `make dev-web` | Run only the web dev server. Use in a second terminal if you started veld with `make dev-api`. |
+| `make seed` | Seed sample chat data (requires veld running). |
+
+veld runs migrations on startup. The web client uses `VITE_API_URL` (default `http://localhost:4130`) to talk to veld.
+
+## Local Development (data and CLI)
 
 Vel stores local development data under `var/` by default:
 
@@ -23,7 +37,7 @@ Vel stores local development data under `var/` by default:
 - artifacts: `var/artifacts`
 - logs: `var/logs`
 
-Example commands:
+Example CLI commands (veld must be running for health/capture/search/context):
 
 ```bash
 cargo run -p veld

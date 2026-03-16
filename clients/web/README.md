@@ -26,7 +26,7 @@ npm run build       # from clients/web
 - Vite 8
 - Tailwind CSS v4 (@tailwindcss/postcss)
 
-Base styling and Tailwind are configured. Point the dev server at `veld` (default `http://localhost:3000`) for API and `/ws` for WebSocket.
+Base styling and Tailwind are configured. The app talks to veld via `VITE_API_URL` (default `http://localhost:4130`). From the repo root, `make dev` runs veld and this dev server together.
 
 ## Seed data
 
@@ -34,5 +34,6 @@ With veld running, seed a sample conversation and cards:
 
 ```bash
 npm run seed
-# or: VEL_API_URL=http://localhost:3000 bash scripts/seed.sh
+# or from repo root: make seed
+# Override API: VEL_API_URL=http://localhost:4130 bash scripts/seed.sh
 ```

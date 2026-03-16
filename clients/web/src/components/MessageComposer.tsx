@@ -10,10 +10,12 @@ interface MessageComposerProps {
 export function MessageComposer({ conversationId, onSent }: MessageComposerProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const send = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
+    setError(null);
     setSending(true);
     try {
       const res = await apiPost<ApiResponse<MessageData>>(
@@ -23,7 +25,11 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
       if (res.ok && res.data) {
         onSent(res.data);
         setText('');
+      } else {
+        setError(res.error?.message ?? 'Send failed');
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Send failed');
     } finally {
       setSending(false);
     }
@@ -38,6 +44,11 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
 
   return (
     <div className="shrink-0 border-t border-zinc-800 p-3">
+      {error && (
+        <p className="max-w-2xl mx-auto mb-2 text-red-400 text-sm" role="alert">
+          {error}
+        </p>
+      )}
       <div className="flex gap-2 max-w-2xl mx-auto">
         <textarea
           value={text}

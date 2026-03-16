@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { apiPost } from './api/client';
+import type { ApiResponse } from './types';
+import type { ConversationData } from './types';
 import { AppShell } from './components/AppShell';
 import { ContextPanel } from './components/ContextPanel';
 import { MainPanel } from './components/MainPanel';
@@ -10,6 +13,19 @@ function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showInbox, setShowInbox] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [conversationListKey, setConversationListKey] = useState(0);
+
+  async function startNewConversation() {
+    const res = await apiPost<ApiResponse<ConversationData>>('/api/conversations', {
+      title: 'New conversation',
+      kind: 'general',
+    });
+    if (res.ok && res.data) {
+      setSelectedConversationId(res.data.id);
+      setShowInbox(false);
+      setConversationListKey((k) => k + 1);
+    }
+  }
 
   if (showSettings) {
     return (
@@ -42,6 +58,8 @@ function App() {
           <Sidebar
             selectedConversationId={selectedConversationId}
             onSelectConversation={(id) => { setSelectedConversationId(id); setShowInbox(false); }}
+            onNewConversation={startNewConversation}
+            conversationListKey={conversationListKey}
             onOpenSettings={() => setShowSettings(true)}
           />
         </>

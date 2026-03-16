@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Seed dev data for chat UI. Run with veld already running. Ticket 033.
 set -e
-BASE="${VEL_API_URL:-http://localhost:3000}"
+BASE="${VEL_API_URL:-http://localhost:4130}"
 
 echo "Seeding at $BASE"
 
