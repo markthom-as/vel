@@ -50,6 +50,13 @@ Affect-driven visual system: affect core, morphology mapper, sync protocol, debu
 - **Docs:** [docs/visual-interface/](../visual-interface/) and [docs/specs/visual-interface-README.md](../specs/visual-interface-README.md)
 - **Packages:** repo root `packages/` (vel-affect-core, vel-visual-morphology, vel-protocol, vel-render-web, vel-render-watch).
 
+### 6. Repo feedback (`repo-feedback/`)
+
+Architecture and convergence tickets from repo review: evaluate/read boundary, inference reducers, risk as single authority, nudge lifecycle, API time fields, web client state, shell cleanup, CI, docs rationalization.
+
+- **Index:** [repo-feedback/README.md](repo-feedback/README.md)
+- **Tickets:** `001-enforce-evaluate-read-boundary.md` … `009-rationalize-docs-status-and-implementation-roadmap.md`
+
 ---
 
 ## Product spec pack (docs)
