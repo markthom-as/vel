@@ -2507,11 +2507,73 @@ END:VCALENDAR
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(
-            json["data"]["context"]["inferred_activity"],
-            "computer_active"
-        );
+        assert_eq!(json["data"]["context"]["inferred_activity"], "computer_active");
         assert_eq!(json["data"]["context"]["morning_state"], "engaged");
+        assert!(json["data"]["context"]["git_activity_summary"].is_null());
+    }
+
+    #[tokio::test]
+    async fn inference_uses_git_activity_as_workstation_activity() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "git_activity".to_string(),
+                source: "git".to_string(),
+                source_ref: Some("git:/home/jove/code/vel|main|commit|abc123|1700002000".to_string()),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+                payload_json: Some(serde_json::json!({
+                    "repo": "/home/jove/code/vel",
+                    "branch": "main",
+                    "operation": "commit",
+                    "commit_oid": "abc123"
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let eval_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(eval_resp.status(), StatusCode::OK);
+
+        let ctx_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ctx_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(ctx_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["context"]["inferred_activity"], "coding");
+        assert_eq!(json["data"]["context"]["morning_state"], "engaged");
+        assert_eq!(json["data"]["context"]["git_activity_summary"]["repo"], "vel");
+        assert_eq!(json["data"]["context"]["git_activity_summary"]["branch"], "main");
+        assert_eq!(
+            json["data"]["context"]["git_activity_summary"]["operation"],
+            "commit"
+        );
     }
 
     #[tokio::test]
