@@ -247,6 +247,34 @@ describe('SettingsPage', () => {
     expect(within(todoistCard as HTMLElement).queryByText('Google Calendar credentials saved.')).toBeNull()
   })
 
+  it('keeps multiple todoist action messages on the todoist card', async () => {
+    vi.mocked(client.apiPatch).mockResolvedValueOnce({ ok: true } as never)
+    vi.mocked(client.apiPost).mockResolvedValueOnce({ ok: true } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+
+    fireEvent.click(within(root).getByRole('button', { name: /save token/i }))
+    await waitFor(() => {
+      expect(within(root).getByText('Todoist token saved.')).toBeInTheDocument()
+    })
+
+    const todoistSyncButton = within(root).getAllByRole('button', { name: /sync now/i }).find((button) =>
+      button.closest('.rounded-lg')?.textContent?.includes('Todoist'),
+    )
+    expect(todoistSyncButton).toBeDefined()
+    fireEvent.click(todoistSyncButton as HTMLElement)
+
+    await waitFor(() => {
+      expect(within(root).getByText('Todoist synced.')).toBeInTheDocument()
+    })
+
+    const todoistCard = within(root).getByRole('heading', { name: /todoist/i }).closest('.rounded-lg')
+    expect(todoistCard).not.toBeNull()
+    expect(within(todoistCard as HTMLElement).getByText('Todoist token saved.')).toBeInTheDocument()
+    expect(within(todoistCard as HTMLElement).getByText('Todoist synced.')).toBeInTheDocument()
+  })
+
   it('renders recent run policy and override metadata', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openRunsTab(container)
