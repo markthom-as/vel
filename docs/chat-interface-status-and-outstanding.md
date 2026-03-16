@@ -1,6 +1,7 @@
 # Chat interface — status and outstanding
 
 > Repo-wide implementation status is tracked in `docs/status.md`. This document provides chat-specific detail and outstanding work.
+> Assumption for the current realtime rollout: if your checkout includes the intervention-creation slice, `/ws` emits `interventions:new` in addition to `messages:new` and `interventions:updated`. If not, treat `interventions:new` as pending merge.
 
 ## Ticket status (001–035)
 
@@ -8,7 +9,7 @@
 |--------|----------|--------|
 | 001–012 | **Done** | Monorepo, crates, IDs, message/intervention models, migrations, conversation/message/intervention/event_log repos |
 | 013    | **Done** | Axum server skeleton |
-| 014–019 | **Done** | Conversation, message, inbox, intervention actions API; WebSocket /ws; broadcast messages:new, interventions:updated |
+| 014–019 | **Done** | Conversation, message, inbox, intervention actions API; WebSocket /ws; broadcast messages:new, interventions:updated, and in the current rollout interventions:new |
 | 020–024 | **Done** | React client (Vite, TS, Tailwind), app shell, conversation list, thread view, message composer |
 | 025–027 | **Done** | Card renderer (reminder, risk, suggestion, summary); inline actions (snooze, resolve, dismiss, show why); inbox view |
 | 028     | **Done** | Context panel (GET /v1/context/current) |
@@ -21,6 +22,7 @@
 - **Specs:** [vel-chat-interface-implementation-brief.md](specs/vel-chat-interface-implementation-brief.md), [vel-chat-execution-plan.md](specs/vel-chat-execution-plan.md) — API shape, domain model, WebSocket, React client match current implementation.
 - **Ticket pack:** [docs/tickets/](tickets/) — 001–035 implemented (034–035 tests added).
 - **Status / index:** repo-wide canonical ledger is [status.md](status.md); this file and [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md) defer to it for rollout truth.
+- **Realtime contract:** `/ws` carries `messages:new` for newly persisted chat messages, `interventions:updated` for snooze/resolve/dismiss actions, and in the current rollout `interventions:new` so inbox/thread intervention state can refresh without a manual reload.
 
 ## “Nothing happens when I send a message”
 
@@ -31,5 +33,7 @@
 
 ## Outstanding (concise)
 
-1. **Optional:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.
-2. **Optional:** Real-time message list updates via WebSocket (client currently only appends on send; could subscribe to `messages:new` for the current thread).
+1. **Data layer:** introduce a shared query/cache layer so thread, inbox, context, and settings stop managing fetch/refetch logic independently.
+2. **State orchestration:** centralize loading/error/empty handling instead of repeating per-component request code.
+3. **Reconciliation:** define optimistic-vs-confirmed behavior for message send and intervention actions so websocket echoes and POST responses converge cleanly.
+4. **Optional product polish:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.

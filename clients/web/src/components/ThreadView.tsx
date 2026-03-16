@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiGet, apiPost } from '../api/client';
-import type { ApiResponse, MessageData, InboxItemData } from '../types';
+import type { ApiResponse, MessageData, InboxItemData, InterventionEventData, WsEnvelope } from '../types';
 import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
+import { subscribeWs } from '../realtime/ws';
 
 interface ThreadViewProps {
   conversationId: string | null;
@@ -16,6 +17,37 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   const [interventionsByMessageId, setInterventionsByMessageId] = useState<Record<string, string>>({});
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const refreshInterventions = useCallback((messageList: MessageData[]) => {
+    if (messageList.length === 0) {
+      setInterventionsByMessageId({});
+      return () => {};
+    }
+
+    let cancelled = false;
+    const nextMap: Record<string, string> = {};
+    apiGet<ApiResponse<InboxItemData[]>>(`/api/conversations/${conversationId}/interventions`)
+      .then((res) => {
+        if (cancelled || !res.ok || !res.data) {
+          return;
+        }
+        for (const intervention of res.data) {
+          if (!(intervention.message_id in nextMap)) {
+            nextMap[intervention.message_id] = intervention.id;
+          }
+        }
+        setInterventionsByMessageId(nextMap);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInterventionsByMessageId({});
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId]);
 
   useEffect(() => {
     if (!conversationId) {
@@ -39,25 +71,42 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     return () => { cancelled = true; };
   }, [conversationId]);
 
-  // Fetch interventions for assistant messages (for inline actions)
   useEffect(() => {
-    if (messages.length === 0) return;
-    const assistantMessages = messages.filter((m) => m.role !== 'user');
-    let cancelled = false;
-    const map: Record<string, string> = {};
-    Promise.all(
-      assistantMessages.map((m) =>
-        apiGet<ApiResponse<InboxItemData[]>>(`/api/messages/${m.id}/interventions`).then((res) => {
-          if (!cancelled && res.ok && res.data && res.data.length > 0) {
-            map[m.id] = res.data[0].id;
+    return refreshInterventions(messages);
+  }, [messages, refreshInterventions]);
+
+  useEffect(() => {
+    if (!conversationId) {
+      return () => {};
+    }
+
+    return subscribeWs((event: WsEnvelope) => {
+      if (event.type === 'messages:new') {
+        const message = event.payload as Partial<MessageData>;
+        if (message.conversation_id !== conversationId || typeof message.id !== 'string') {
+          return;
+        }
+
+        setMessages((prev) => appendUniqueMessages(prev, [message as MessageData]));
+        return;
+      }
+      if (event.type === 'interventions:new' && isInterventionEventData(event.payload)) {
+        setInterventionsByMessageId((prev) => {
+          if (!messages.some((message) => message.id === event.payload.message_id)) {
+            return prev;
           }
-        }).catch(() => {})
-      )
-    ).then(() => {
-      if (!cancelled) setInterventionsByMessageId((prev) => ({ ...prev, ...map }));
+          return {
+            ...prev,
+            [event.payload.message_id]: event.payload.id,
+          };
+        });
+        return;
+      }
+      if (event.type === 'interventions:updated') {
+        void refreshInterventions(messages);
+      }
     });
-    return () => { cancelled = true; };
-  }, [messages]);
+  }, [conversationId, messages, refreshInterventions]);
 
   // Autoscroll to the bottom when messages change (standard chat behavior).
   useEffect(() => {
@@ -150,9 +199,38 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       <MessageComposer
         conversationId={conversationId}
         onSent={(userMsg, assistantMsg) =>
-          setMessages((prev) => [...prev, userMsg, ...(assistantMsg ? [assistantMsg] : [])])
+          setMessages((prev) => appendUniqueMessages(prev, [userMsg, ...(assistantMsg ? [assistantMsg] : [])]))
         }
       />
     </>
   );
+}
+
+function appendUniqueMessages(existing: MessageData[], nextMessages: MessageData[]): MessageData[] {
+  if (nextMessages.length === 0) {
+    return existing;
+  }
+
+  const seen = new Set(existing.map((message) => message.id));
+  const additions = nextMessages.filter((message) => {
+    if (seen.has(message.id)) {
+      return false;
+    }
+    seen.add(message.id);
+    return true;
+  });
+
+  return additions.length > 0 ? [...existing, ...additions] : existing;
+}
+
+function isInterventionEventData(payload: unknown): payload is InterventionEventData {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+  const candidate = payload as Partial<InterventionEventData>;
+  return typeof candidate.id === 'string'
+    && typeof candidate.message_id === 'string'
+    && typeof candidate.kind === 'string'
+    && typeof candidate.state === 'string'
+    && typeof candidate.surfaced_at === 'number';
 }

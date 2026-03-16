@@ -24,6 +24,8 @@ pub struct AppConfig {
     pub calendar_ics_path: Option<String>,
     /// Todoist: path to snapshot JSON file (e.g. data/todoist/snapshot.json).
     pub todoist_snapshot_path: Option<String>,
+    /// Transcripts: path to assistant/chat transcript snapshot JSON.
+    pub transcript_snapshot_path: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -47,6 +49,7 @@ impl Default for AppConfig {
             calendar_ics_url: None,
             calendar_ics_path: None,
             todoist_snapshot_path: None,
+            transcript_snapshot_path: None,
         }
     }
 }
@@ -61,6 +64,7 @@ struct FileConfig {
     calendar_ics_url: Option<String>,
     calendar_ics_path: Option<String>,
     todoist_snapshot_path: Option<String>,
+    transcript_snapshot_path: Option<String>,
 }
 
 impl AppConfig {
@@ -108,6 +112,9 @@ impl AppConfig {
         if file.todoist_snapshot_path.is_some() {
             self.todoist_snapshot_path = file.todoist_snapshot_path;
         }
+        if file.transcript_snapshot_path.is_some() {
+            self.transcript_snapshot_path = file.transcript_snapshot_path;
+        }
     }
 
     pub fn apply_env_map(&mut self, env_map: &HashMap<String, String>) {
@@ -134,6 +141,9 @@ impl AppConfig {
         }
         if let Some(value) = env_map.get("VEL_TODOIST_SNAPSHOT_PATH") {
             self.todoist_snapshot_path = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_TRANSCRIPT_SNAPSHOT_PATH") {
+            self.transcript_snapshot_path = Some(value.clone());
         }
     }
 }
@@ -164,4 +174,3 @@ mod tests {
         assert_eq!(config.db_path, "/tmp/vel.sqlite");
     }
 }
-

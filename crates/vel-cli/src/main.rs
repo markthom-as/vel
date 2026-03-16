@@ -306,6 +306,7 @@ enum SyncCommand {
     Calendar,
     Todoist,
     Activity,
+    Transcripts,
 }
 
 #[derive(Debug, Subcommand)]
@@ -406,6 +407,7 @@ async fn main() -> anyhow::Result<()> {
             SyncCommand::Calendar => commands::sync::run_calendar(&client).await,
             SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
             SyncCommand::Activity => commands::sync::run_activity(&client).await,
+            SyncCommand::Transcripts => commands::sync::run_transcripts(&client).await,
         },
         Command::Nudges { json } => commands::nudges::run_list(&client, json).await,
         Command::Nudge { command } => match command {

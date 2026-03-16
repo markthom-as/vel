@@ -32,7 +32,7 @@ Purpose: act as a **navigation and coverage index**. Canonical implementation tr
 - chat implementation brief — [spec](specs/vel-chat-interface-implementation-brief.md)
 - chat execution plan — [spec](specs/vel-chat-execution-plan.md)
 - ticket pack — [tickets](tickets/README.md) (Chat 001–035)
-- subsystem status detail — [chat-interface-status-and-outstanding.md](chat-interface-status-and-outstanding.md)
+- subsystem status detail — [chat-interface-status-and-outstanding.md](chat-interface-status-and-outstanding.md) (current websocket contract and follow-up work)
 
 ## Integrations
 - integration roadmap — [spec](specs/vel-integration-priority-and-adapter-roadmap.md)
@@ -54,4 +54,3 @@ Purpose: act as a **navigation and coverage index**. Canonical implementation tr
 - **Context reasoning:** [docs/specs/vel-context-decision-spec.md](specs/vel-context-decision-spec.md), [tickets/context-reasoning/](tickets/context-reasoning/).
 - **Self-knowledge:** [docs/specs/vel-self-knowledge-system-spec.md](specs/vel-self-knowledge-system-spec.md), [tickets/self-knowledge/](tickets/self-knowledge/).
 - **Task HUD:** [docs/specs/vel-task-hud-spec.md](specs/vel-task-hud-spec.md), [tickets/task-hud/](tickets/task-hud/).
-

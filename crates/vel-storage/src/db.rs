@@ -49,6 +49,29 @@ pub struct SignalRecord {
 }
 
 #[derive(Debug, Clone)]
+pub struct AssistantTranscriptInsert {
+    pub id: String,
+    pub source: String,
+    pub conversation_id: String,
+    pub timestamp: i64,
+    pub role: String,
+    pub content: String,
+    pub metadata_json: JsonValue,
+}
+
+#[derive(Debug, Clone)]
+pub struct AssistantTranscriptRecord {
+    pub id: String,
+    pub source: String,
+    pub conversation_id: String,
+    pub timestamp: i64,
+    pub role: String,
+    pub content: String,
+    pub metadata_json: JsonValue,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone)]
 pub struct InferredStateInsert {
     pub state_name: String,
     pub confidence: Option<String>,
@@ -677,6 +700,64 @@ impl Storage {
         .fetch_all(&self.pool)
         .await?;
         rows.into_iter().map(|row| map_signal_row(&row)).collect()
+    }
+
+    // --- Assistant transcripts ---
+
+    pub async fn insert_assistant_transcript(
+        &self,
+        input: AssistantTranscriptInsert,
+    ) -> Result<bool, StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let metadata_str = serde_json::to_string(&input.metadata_json)
+            .map_err(|e| StorageError::Validation(e.to_string()))?;
+        let result = sqlx::query(
+            r#"INSERT OR IGNORE INTO assistant_transcripts
+               (id, source, conversation_id, timestamp, role, content, metadata_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"#,
+        )
+        .bind(&input.id)
+        .bind(&input.source)
+        .bind(&input.conversation_id)
+        .bind(input.timestamp)
+        .bind(&input.role)
+        .bind(&input.content)
+        .bind(&metadata_str)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn list_assistant_transcripts_by_conversation(
+        &self,
+        conversation_id: &str,
+    ) -> Result<Vec<AssistantTranscriptRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"SELECT id, source, conversation_id, timestamp, role, content, metadata_json, created_at
+               FROM assistant_transcripts
+               WHERE conversation_id = ?
+               ORDER BY timestamp ASC, created_at ASC"#,
+        )
+        .bind(conversation_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| {
+                let metadata_str: String = row.try_get("metadata_json")?;
+                Ok(AssistantTranscriptRecord {
+                    id: row.try_get("id")?,
+                    source: row.try_get("source")?,
+                    conversation_id: row.try_get("conversation_id")?,
+                    timestamp: row.try_get("timestamp")?,
+                    role: row.try_get("role")?,
+                    content: row.try_get("content")?,
+                    metadata_json: serde_json::from_str(&metadata_str).unwrap_or_else(|_| json!({})),
+                    created_at: row.try_get("created_at")?,
+                })
+            })
+            .collect::<Result<Vec<_>, sqlx::Error>>()
+            .map_err(StorageError::from)
     }
 
     // --- Inferred state (Phase C) ---
@@ -1871,6 +1952,25 @@ impl Storage {
                FROM interventions WHERE message_id = ? ORDER BY surfaced_at DESC"#,
         )
         .bind(message_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_intervention_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn get_interventions_by_conversation(
+        &self,
+        conversation_id: &str,
+    ) -> Result<Vec<InterventionRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"SELECT i.id, i.message_id, i.kind, i.state, i.surfaced_at, i.resolved_at, i.snoozed_until, i.confidence, i.source_json, i.provenance_json
+               FROM interventions i
+               JOIN messages m ON m.id = i.message_id
+               WHERE m.conversation_id = ?
+               ORDER BY i.surfaced_at DESC"#,
+        )
+        .bind(conversation_id)
         .fetch_all(&self.pool)
         .await?;
         rows.into_iter()

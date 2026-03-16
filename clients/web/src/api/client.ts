@@ -3,6 +3,24 @@ const API_BASE =
   import.meta.env.VITE_API_URL ??
   (import.meta.env.DEV ? '' : 'http://localhost:4130');
 
+export function createWsUrl(path: string): string {
+  if (!path.startsWith('/')) {
+    throw new Error(`WebSocket path must start with '/': ${path}`);
+  }
+
+  if (!API_BASE) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}${path}`;
+  }
+
+  const url = new URL(API_BASE);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.pathname = path;
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}
+
 function wrapNetworkError(err: unknown): Error {
   if (err instanceof TypeError && err.message === 'Failed to fetch') {
     return new Error("Can't reach the API. Is veld running? From repo root run: make dev");

@@ -21,3 +21,10 @@ pub async fn run_activity(client: &ApiClient) -> anyhow::Result<()> {
     println!("activity: {} signals ingested", d.signals_ingested);
     Ok(())
 }
+
+pub async fn run_transcripts(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client.sync_transcripts().await.context("sync transcripts")?;
+    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("transcripts: {} signals ingested", d.signals_ingested);
+    Ok(())
+}

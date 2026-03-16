@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '../api/client';
-import type { ApiResponse, InboxItemData } from '../types';
+import type { ApiResponse, InboxItemData, InterventionEventData, WsEnvelope } from '../types';
+import { subscribeWs } from '../realtime/ws';
 
 export function InboxView() {
   const [items, setItems] = useState<InboxItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadInbox = useCallback((showSpinner: boolean) => {
     let cancelled = false;
-    setLoading(true);
+    if (showSpinner) {
+      setLoading(true);
+    }
     setError(null);
     apiGet<ApiResponse<InboxItemData[]>>('/api/inbox')
       .then((res) => {
@@ -19,10 +22,24 @@ export function InboxView() {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load inbox');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && showSpinner) setLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => loadInbox(true), [loadInbox]);
+
+  useEffect(() => {
+    return subscribeWs((event: WsEnvelope) => {
+      if (event.type === 'interventions:new' && isInterventionEventData(event.payload)) {
+        setItems((prev) => upsertInboxItem(prev, event.payload));
+        return;
+      }
+      if (event.type === 'interventions:updated') {
+        loadInbox(false);
+      }
+    });
+  }, [loadInbox]);
 
   if (loading) return <div className="p-4 text-zinc-500 text-sm">Loading…</div>;
   if (error) return <div className="p-4 text-red-400 text-sm">{error}</div>;
@@ -55,4 +72,26 @@ export function InboxView() {
 
 function formatTs(ts: number): string {
   return new Date(ts * 1000).toLocaleString();
+}
+
+function isInterventionEventData(payload: unknown): payload is InterventionEventData {
+  if (!payload || typeof payload !== 'object') {
+    return false;
+  }
+  const candidate = payload as Partial<InterventionEventData>;
+  return typeof candidate.id === 'string'
+    && typeof candidate.message_id === 'string'
+    && typeof candidate.kind === 'string'
+    && typeof candidate.state === 'string'
+    && typeof candidate.surfaced_at === 'number';
+}
+
+function upsertInboxItem(items: InboxItemData[], nextItem: InboxItemData): InboxItemData[] {
+  const existingIndex = items.findIndex((item) => item.id === nextItem.id);
+  if (existingIndex === -1) {
+    return [nextItem, ...items];
+  }
+  const next = [...items];
+  next[existingIndex] = nextItem;
+  return next;
 }

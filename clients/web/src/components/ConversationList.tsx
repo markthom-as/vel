@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '../api/client';
-import type { ApiResponse, ConversationData } from '../types';
+import type { ApiResponse, ConversationData, WsEnvelope } from '../types';
+import { subscribeWs } from '../realtime/ws';
 
 interface ConversationListProps {
   selectedId: string | null;
@@ -12,9 +13,11 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadConversations = useCallback((showSpinner: boolean) => {
     let cancelled = false;
-    setLoading(true);
+    if (showSpinner) {
+      setLoading(true);
+    }
     setError(null);
     apiGet<ApiResponse<ConversationData[]>>('/api/conversations')
       .then((res) => {
@@ -24,10 +27,20 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && showSpinner) setLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => loadConversations(true), [loadConversations]);
+
+  useEffect(() => {
+    return subscribeWs((event: WsEnvelope) => {
+      if (event.type === 'messages:new') {
+        loadConversations(false);
+      }
+    });
+  }, [loadConversations]);
 
   if (loading) return <div className="p-3 text-zinc-500 text-sm">Loading…</div>;
   if (error) return <div className="p-3 text-red-400 text-sm">{error}</div>;

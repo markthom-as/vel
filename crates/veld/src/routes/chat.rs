@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use vel_api_types::ApiResponse;
 use vel_llm::{LlmRequest, Message as LlmMessage};
-use vel_storage::{ConversationInsert, EventLogInsert, MessageInsert};
+use vel_storage::{ConversationInsert, EventLogInsert, InterventionInsert, MessageInsert};
 
 use crate::broadcast::WsEnvelope;
 use crate::{errors::AppError, state::AppState};
@@ -168,6 +168,83 @@ fn intervention_record_to_inbox_item(r: vel_storage::InterventionRecord) -> Inbo
         snoozed_until: r.snoozed_until,
         confidence: r.confidence,
     }
+}
+
+fn intervention_kind_for_message(message: &MessageData) -> Option<&'static str> {
+    if message.role != "assistant" {
+        return None;
+    }
+    match message.kind.as_str() {
+        "reminder_card" => Some("reminder"),
+        "risk_card" => Some("risk"),
+        "suggestion_card" => Some("suggestion"),
+        _ => None,
+    }
+}
+
+async fn create_intervention_for_message_if_needed(
+    state: &AppState,
+    message: &MessageData,
+) -> Result<Option<InboxItemData>, AppError> {
+    let intervention_kind = match intervention_kind_for_message(message) {
+        Some(kind) => kind,
+        None => return Ok(None),
+    };
+
+    let intervention_id = format!("intv_{}", Uuid::new_v4().simple());
+    let surfaced_at = time::OffsetDateTime::now_utc().unix_timestamp();
+    state
+        .storage
+        .create_intervention(InterventionInsert {
+            id: intervention_id.clone(),
+            message_id: message.id.clone(),
+            kind: intervention_kind.to_string(),
+            state: "active".to_string(),
+            surfaced_at,
+            resolved_at: None,
+            snoozed_until: None,
+            confidence: None,
+            source_json: Some(message.content.to_string()),
+            provenance_json: Some(
+                serde_json::json!({
+                    "message_id": message.id,
+                    "message_kind": message.kind,
+                    "conversation_id": message.conversation_id,
+                })
+                .to_string(),
+            ),
+        })
+        .await?;
+
+    let data = InboxItemData {
+        id: intervention_id.clone(),
+        message_id: message.id.clone(),
+        kind: intervention_kind.to_string(),
+        state: "active".to_string(),
+        surfaced_at,
+        snoozed_until: None,
+        confidence: None,
+    };
+
+    emit_chat_event(
+        state,
+        "intervention.created",
+        "intervention",
+        &intervention_id,
+        serde_json::json!({
+            "id": intervention_id,
+            "message_id": message.id,
+            "kind": intervention_kind,
+            "state": "active",
+            "conversation_id": message.conversation_id,
+        }),
+    )
+    .await;
+
+    let ws_payload = serde_json::to_value(&data).unwrap_or_else(|_| serde_json::json!({ "id": data.id }));
+    let _ = state.broadcast_tx.send(WsEnvelope::new("interventions:new", ws_payload));
+
+    Ok(Some(data))
 }
 
 // --- Conversation handlers ---
@@ -343,8 +420,9 @@ pub async fn create_message(
         .get_message(&id)
         .await?
         .ok_or_else(|| AppError::internal("message not found after create"))?;
-    let user_data = message_record_to_data(msg)?;
-    let ws_payload = serde_json::to_value(&user_data).unwrap_or_else(|_| serde_json::json!({ "id": id }));
+    let created_message = message_record_to_data(msg)?;
+    let _ = create_intervention_for_message_if_needed(&state, &created_message).await?;
+    let ws_payload = serde_json::to_value(&created_message).unwrap_or_else(|_| serde_json::json!({ "id": id }));
     let _ = state.broadcast_tx.send(WsEnvelope::new("messages:new", ws_payload));
 
     let (assistant_message, assistant_error) = if let (Some(ref router), Some(ref profile_id)) = (state.llm_router.as_ref(), state.chat_profile_id.as_ref()) {
@@ -370,7 +448,7 @@ pub async fn create_message(
     };
 
     let response = CreateMessageResponse {
-        user_message: user_data,
+        user_message: created_message,
         assistant_message,
         assistant_error,
     };
@@ -465,6 +543,25 @@ pub struct InboxQuery {
 }
 
 // --- Message interventions (for inline actions) ---
+
+pub async fn list_conversation_interventions(
+    State(state): State<AppState>,
+    Path(conversation_id): Path<String>,
+) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
+    let conversation_id = conversation_id.trim();
+    let _ = state
+        .storage
+        .get_conversation(conversation_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("conversation not found"))?;
+    let list = state
+        .storage
+        .get_interventions_by_conversation(conversation_id)
+        .await?;
+    let data: Vec<InboxItemData> = list.into_iter().map(intervention_record_to_inbox_item).collect();
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
 
 pub async fn list_message_interventions(
     State(state): State<AppState>,
@@ -678,6 +775,7 @@ pub fn chat_routes() -> Router<AppState> {
             "/api/conversations/:id/messages",
             get(list_messages).post(create_message),
         )
+        .route("/api/conversations/:id/interventions", get(list_conversation_interventions))
         .route("/api/inbox", get(get_inbox))
         .route("/api/messages/:id/interventions", get(list_message_interventions))
         .route("/api/messages/:id/provenance", get(get_message_provenance))

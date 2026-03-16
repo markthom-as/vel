@@ -5,6 +5,12 @@ export interface ApiResponse<T> {
   meta: { request_id: string };
 }
 
+export interface WsEnvelope {
+  type: string;
+  timestamp: string;
+  payload: unknown;
+}
+
 export interface ConversationData {
   id: string;
   title: string | null;
@@ -44,6 +50,10 @@ export interface InboxItemData {
   snoozed_until: number | null;
   confidence: number | null;
 }
+
+// Assumption for websocket `interventions:new`: payload matches the inbox item shape
+// because both inbox and thread UI key intervention state by { id, message_id }.
+export interface InterventionEventData extends InboxItemData {}
 
 export interface ProvenanceData {
   message_id: string;

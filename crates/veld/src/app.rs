@@ -54,6 +54,7 @@ pub fn build_app(
         .route("/v1/sync/calendar", post(routes::sync::sync_calendar))
         .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
         .route("/v1/sync/activity", post(routes::sync::sync_activity))
+        .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
         .route("/v1/synthesis/week", post(routes::synthesis::synthesis_week))
         .route("/v1/synthesis/project/:slug", post(routes::synthesis::synthesis_project))
@@ -925,6 +926,280 @@ mod tests {
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["ok"].as_bool().unwrap());
         assert!(json["data"].as_array().map(|a| a.is_empty()).unwrap_or(false));
+    }
+
+    #[tokio::test]
+    async fn chat_list_conversation_interventions() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let conversation_id = storage
+            .create_conversation(vel_storage::ConversationInsert {
+                id: "conv_test".to_string(),
+                title: Some("T".to_string()),
+                kind: "general".to_string(),
+                pinned: false,
+                archived: false,
+            })
+            .await
+            .unwrap();
+        let message_id = storage
+            .create_message(vel_storage::MessageInsert {
+                id: "msg_test".to_string(),
+                conversation_id: conversation_id.as_ref().to_string(),
+                role: "assistant".to_string(),
+                kind: "reminder_card".to_string(),
+                content_json: r#"{"title":"Reminder"}"#.to_string(),
+                status: None,
+                importance: None,
+            })
+            .await
+            .unwrap();
+        storage
+            .create_intervention(vel_storage::InterventionInsert {
+                id: "intv_test".to_string(),
+                message_id: message_id.as_ref().to_string(),
+                kind: "reminder".to_string(),
+                state: "active".to_string(),
+                surfaced_at: 100,
+                resolved_at: None,
+                snoozed_until: None,
+                confidence: None,
+                source_json: None,
+                provenance_json: None,
+            })
+            .await
+            .unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/conversations/conv_test/interventions")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let data = json["data"].as_array().unwrap();
+        assert_eq!(data.len(), 1);
+        assert_eq!(data[0]["id"].as_str().unwrap(), "intv_test");
+        assert_eq!(data[0]["message_id"].as_str().unwrap(), "msg_test");
+    }
+
+    #[tokio::test]
+    async fn chat_assistant_card_message_creates_intervention() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+
+        let create_conv = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/conversations")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"title":"T","kind":"general"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX).await.unwrap();
+        let conv_json: serde_json::Value = serde_json::from_slice(&conv_body).unwrap();
+        let conv_id = conv_json["data"]["id"].as_str().unwrap();
+
+        let msg_body = r#"{"role":"assistant","kind":"reminder_card","content":{"title":"Take meds","reason":"morning routine"}}"#;
+        let msg_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/conversations/{}/messages", conv_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(msg_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(msg_resp.status(), StatusCode::OK);
+        let msg_resp_body = axum::body::to_bytes(msg_resp.into_body(), usize::MAX).await.unwrap();
+        let msg_json: serde_json::Value = serde_json::from_slice(&msg_resp_body).unwrap();
+        let message_id = msg_json["data"]["user_message"]["id"].as_str().unwrap();
+
+        let interventions = storage
+            .get_interventions_by_conversation(conv_id)
+            .await
+            .unwrap();
+        assert_eq!(interventions.len(), 1);
+        assert_eq!(interventions[0].message_id.as_ref(), message_id);
+        assert_eq!(interventions[0].kind, "reminder");
+        assert_eq!(interventions[0].state, "active");
+
+        let events = storage
+            .list_events_by_aggregate("intervention", interventions[0].id.as_ref(), 10)
+            .await
+            .unwrap();
+        assert!(events.iter().any(|event| event.event_name == "intervention.created"));
+    }
+
+    #[tokio::test]
+    async fn chat_assistant_text_message_does_not_create_intervention() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+
+        let create_conv = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/conversations")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"title":"T","kind":"general"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX).await.unwrap();
+        let conv_json: serde_json::Value = serde_json::from_slice(&conv_body).unwrap();
+        let conv_id = conv_json["data"]["id"].as_str().unwrap();
+
+        let msg_body = r#"{"role":"assistant","kind":"text","content":{"text":"plain reply"}}"#;
+        let msg_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/conversations/{}/messages", conv_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(msg_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(msg_resp.status(), StatusCode::OK);
+
+        let interventions = storage
+            .get_interventions_by_conversation(conv_id)
+            .await
+            .unwrap();
+        assert!(interventions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn sync_transcripts_ingests_rows_and_signals() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!("vel_transcripts_{}.json", uuid::Uuid::new_v4().simple()));
+        let snapshot = serde_json::json!({
+            "source": "chatgpt",
+            "conversation_id": "conv_external",
+            "messages": [
+                {
+                    "timestamp": 1700000000,
+                    "role": "user",
+                    "content": "What did we decide about Vel?",
+                    "metadata": { "project_hint": "vel" }
+                },
+                {
+                    "timestamp": 1700000060,
+                    "role": "assistant",
+                    "content": "You said to prioritize repeated personal use.",
+                    "metadata": {}
+                }
+            ]
+        });
+        std::fs::write(&file_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = vel_config::AppConfig {
+            transcript_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/transcripts")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let transcripts = storage
+            .list_assistant_transcripts_by_conversation("conv_external")
+            .await
+            .unwrap();
+        assert_eq!(transcripts.len(), 2);
+        assert_eq!(transcripts[0].source, "chatgpt");
+        assert_eq!(transcripts[0].role, "user");
+
+        let signals = storage.list_signals(Some("assistant_message"), None, 10).await.unwrap();
+        assert_eq!(signals.len(), 2);
+        assert_eq!(signals[0].source, "chatgpt");
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    async fn sync_transcripts_replay_is_deduplicated() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!("vel_transcripts_{}.json", uuid::Uuid::new_v4().simple()));
+        let snapshot = serde_json::json!([
+            {
+                "id": "tr_fixed_1",
+                "source": "chatgpt",
+                "conversation_id": "conv_dedupe",
+                "timestamp": 1700000100,
+                "role": "user",
+                "content": "hello",
+                "metadata": {}
+            }
+        ]);
+        std::fs::write(&file_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = vel_config::AppConfig {
+            transcript_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        for _ in 0..2 {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/v1/sync/transcripts")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+        }
+
+        let transcripts = storage
+            .list_assistant_transcripts_by_conversation("conv_dedupe")
+            .await
+            .unwrap();
+        assert_eq!(transcripts.len(), 1);
+
+        let signals = storage.list_signals(Some("assistant_message"), None, 10).await.unwrap();
+        assert_eq!(signals.len(), 1);
+
+        let _ = std::fs::remove_file(&file_path);
     }
 
     #[tokio::test]

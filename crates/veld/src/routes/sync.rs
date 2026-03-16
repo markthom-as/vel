@@ -40,3 +40,15 @@ pub async fn sync_activity(State(state): State<AppState>) -> Result<Json<ApiResp
         request_id,
     )))
 }
+
+pub async fn sync_transcripts(State(state): State<AppState>) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
+    let count = adapters::transcripts::ingest(&state.storage, &state.config).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(
+        SyncResultData {
+            source: "transcripts".to_string(),
+            signals_ingested: count,
+        },
+        request_id,
+    )))
+}

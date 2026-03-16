@@ -1,0 +1,84 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import { ConversationList } from './ConversationList'
+import * as api from '../api/client'
+import type { WsEnvelope } from '../types'
+
+const subscribeWs = vi.fn()
+
+vi.mock('../api/client', () => ({
+  apiGet: vi.fn(),
+}))
+
+vi.mock('../realtime/ws', () => ({
+  subscribeWs: (listener: (event: WsEnvelope) => void) => subscribeWs(listener),
+}))
+
+describe('ConversationList realtime sync', () => {
+  beforeEach(() => {
+    subscribeWs.mockReset()
+    vi.mocked(api.apiGet).mockReset()
+  })
+
+  it('refetches conversations when a websocket message arrives', async () => {
+    let wsListener: ((event: WsEnvelope) => void) | null = null
+    subscribeWs.mockImplementation((listener) => {
+      wsListener = listener
+      return () => {}
+    })
+
+    vi.mocked(api.apiGet)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: [
+          {
+            id: 'conv_1',
+            title: 'First',
+            kind: 'general',
+            pinned: false,
+            archived: false,
+            created_at: 0,
+            updated_at: 0,
+          },
+        ],
+        meta: { request_id: 'req_1' },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: [
+          {
+            id: 'conv_1',
+            title: 'First',
+            kind: 'general',
+            pinned: false,
+            archived: false,
+            created_at: 0,
+            updated_at: 0,
+          },
+          {
+            id: 'conv_2',
+            title: 'Second',
+            kind: 'general',
+            pinned: false,
+            archived: false,
+            created_at: 0,
+            updated_at: 0,
+          },
+        ],
+        meta: { request_id: 'req_2' },
+      })
+
+    render(<ConversationList selectedId={null} onSelect={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('First')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Second')).not.toBeInTheDocument()
+
+    wsListener?.({ type: 'messages:new', timestamp: '1', payload: {} })
+
+    await waitFor(() => {
+      expect(screen.getByText('Second')).toBeInTheDocument()
+    })
+  })
+})
