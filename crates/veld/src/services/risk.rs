@@ -1,5 +1,8 @@
 //! Risk engine: consequence, proximity, dependency pressure. See vel-risk-engine-spec.md and vel-agent-next-implementation-steps.md.
 //! No uncertainty or progress penalty in first version.
+//!
+//! **Boundary: recompute-and-persist.** [run] must only be called from the evaluate orchestration.
+//! Read routes (GET /v1/risk, GET /v1/explain/*) use storage only (list_commitment_risk_*).
 
 use vel_core::{Commitment, CommitmentStatus};
 use vel_storage::Storage;
@@ -88,8 +91,9 @@ fn score_to_level(score: f64) -> &'static str {
     }
 }
 
-/// Compute risk for all open commitments and persist. Returns snapshots.
+/// **Recompute-and-persist.** Compute risk for all open commitments and persist. Returns snapshots.
 /// Two passes: first consequence+proximity, then add dependency pressure from parent scores.
+/// Only call from evaluate orchestration; read routes use storage list_commitment_risk_*.
 pub async fn run(
     storage: &Storage,
     now_ts: i64,

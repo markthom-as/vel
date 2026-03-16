@@ -1,4 +1,5 @@
 use axum::{routing::{get, post}, Router};
+use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use vel_config::AppConfig;
 use vel_storage::Storage;
@@ -53,6 +54,7 @@ pub fn build_app(storage: Storage, config: AppConfig, policy_config: PolicyConfi
         .route("/ws", get(routes::ws::ws_handler))
         .merge(routes::chat::chat_routes())
         .with_state(state)
+        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
 }
 
@@ -399,6 +401,34 @@ mod tests {
         assert!(json["data"]["signals_used"].is_array(), "signals_used must be present");
         assert!(json["data"]["commitments_used"].is_array(), "commitments_used must be present");
         assert!(json["data"]["reasons"].is_array(), "reasons must be present");
+    }
+
+    /// Read boundary: explain endpoints must not create commitment_risk or nudge_events rows (repo-feedback 001).
+    #[tokio::test]
+    async fn explain_endpoints_do_not_mutate_persisted_state() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("vel_read_boundary_{}.db", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()));
+        let path_str = path.to_string_lossy().to_string();
+
+        let storage = Storage::connect(&path_str).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+
+        let storage2 = Storage::connect(&path_str).await.unwrap();
+        let risk_before = storage2.count_commitment_risk().await.unwrap();
+        let nudge_events_before = storage2.count_nudge_events().await.unwrap();
+
+        let _ = app.clone().oneshot(Request::builder().uri("/v1/explain/context").body(Body::empty()).unwrap()).await.unwrap();
+        let _ = app.clone().oneshot(Request::builder().uri("/v1/explain/drift").body(Body::empty()).unwrap()).await.unwrap();
+
+        let risk_after = storage2.count_commitment_risk().await.unwrap();
+        let nudge_events_after = storage2.count_nudge_events().await.unwrap();
+
+        assert_eq!(risk_before, risk_after, "explain must not create commitment_risk rows");
+        assert_eq!(nudge_events_before, nudge_events_after, "explain must not create nudge_events rows");
+
+        let _ = std::fs::remove_file(&path);
     }
 
     /// Resolution order: resolved nudge never escalates; second evaluate does not re-trigger.

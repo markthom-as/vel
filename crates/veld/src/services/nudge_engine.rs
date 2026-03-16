@@ -1,5 +1,7 @@
 //! Nudge engine (policy layer): consumes current context + risk + nudges + policy. No duplicate signal/context logic.
 //! See docs/specs/vel-policy-engine-spec.md and vel-detailed-next-steps-and-ios-repo-guidance.md.
+//!
+//! **Boundary: recompute-and-persist.** [evaluate] creates/updates nudges and nudge_events. Only call from evaluate orchestration.
 
 use time::OffsetDateTime;
 use vel_storage::{NudgeInsert, Storage};
@@ -7,7 +9,7 @@ use vel_core::CommitmentStatus;
 
 use crate::policy_config::PolicyConfig;
 
-/// Evaluate and create/update nudges from **current context**, risk snapshots, commitments, and active nudges.
+/// **Recompute-and-persist.** Evaluate and create/update nudges from current context, risk snapshots, commitments, and active nudges.
 /// Does not recompute meds/prep/morning from raw signals; reads from context.
 pub async fn evaluate(
     storage: &Storage,

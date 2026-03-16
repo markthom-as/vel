@@ -1,5 +1,7 @@
 //! Suggestion triggers: create suggestions from repeated evidence (e.g. repeated commute danger, prep warnings).
 //! See vel-agent-next-implementation-steps.md — trigger only on repeated evidence.
+//!
+//! **Boundary: recompute-and-persist.** Only call from evaluate orchestration.
 
 use time::OffsetDateTime;
 use vel_storage::Storage;
@@ -7,7 +9,7 @@ use vel_storage::Storage;
 const REPEAT_THRESHOLD: usize = 2;
 const WINDOW_DAYS: i64 = 7;
 
-/// After nudges are evaluated, check for repeated patterns and insert suggestions if not already present.
+/// **Recompute-and-persist.** After nudges are evaluated, check for repeated patterns and insert suggestions if not already present.
 pub async fn evaluate_after_nudges(storage: &Storage) -> Result<u32, crate::errors::AppError> {
     let now_ts = OffsetDateTime::now_utc().unix_timestamp();
     let window_start = now_ts - WINDOW_DAYS * 86400;

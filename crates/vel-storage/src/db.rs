@@ -1092,6 +1092,22 @@ impl Storage {
         Ok(rows)
     }
 
+    /// Count commitment_risk rows (for read-boundary tests: explain must not create new rows).
+    pub async fn count_commitment_risk(&self) -> Result<i64, StorageError> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM commitment_risk")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0)
+    }
+
+    /// Count nudge_events rows (for read-boundary tests).
+    pub async fn count_nudge_events(&self) -> Result<i64, StorageError> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM nudge_events")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0)
+    }
+
     // --- Nudge events (append-only log) ---
 
     pub async fn insert_nudge_event(

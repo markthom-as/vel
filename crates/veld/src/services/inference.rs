@@ -1,12 +1,16 @@
 //! Inference engine: signals + commitments + time -> inferred state and canonical current context (Phase C).
 //! See docs/specs/vel-current-context-spec.md for canonical shape and material-change rules.
+//!
+//! **Boundary: recompute-and-persist.** This module must only be called from the evaluate
+//! orchestration (e.g. [crate::services::evaluate::run]). Never call from explain or read routes.
 
 use time::OffsetDateTime;
 use vel_storage::{InferredStateInsert, Storage};
 use vel_core::CommitmentStatus;
 
-/// Run inference once: compute morning state, meds status, prep window; build canonical current context;
-/// persist inferred_state and current_context; append to context_timeline on material change. Returns count of state records written.
+/// **Recompute-and-persist.** Run inference once: compute morning state, meds status, prep window;
+/// build canonical current context; persist inferred_state and current_context; append to context_timeline on material change.
+/// Returns count of state records written. Only call from evaluate orchestration.
 pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     let now = OffsetDateTime::now_utc();
     let now_ts = now.unix_timestamp();
