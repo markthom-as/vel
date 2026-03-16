@@ -14,7 +14,7 @@ use crate::{errors::AppError, services::integrations, state::AppState};
 pub async fn get_integrations(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
-    let data = integrations::get_integrations(&state.storage).await?;
+    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -31,7 +31,7 @@ pub async fn patch_google_calendar(
     State(state): State<AppState>,
     Json(payload): Json<GoogleCalendarUpdateRequest>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
-    let data = integrations::update_google_settings(
+    integrations::update_google_settings(
         &state.storage,
         payload.client_id,
         payload.client_secret,
@@ -39,6 +39,7 @@ pub async fn patch_google_calendar(
         payload.all_calendars_selected,
     )
     .await?;
+    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -46,7 +47,8 @@ pub async fn patch_google_calendar(
 pub async fn disconnect_google_calendar(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
-    let data = integrations::disconnect_google_calendar(&state.storage).await?;
+    integrations::disconnect_google_calendar(&state.storage).await?;
+    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -93,7 +95,8 @@ pub async fn patch_todoist(
     State(state): State<AppState>,
     Json(payload): Json<TodoistUpdateRequest>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
-    let data = integrations::update_todoist_settings(&state.storage, payload.api_token).await?;
+    integrations::update_todoist_settings(&state.storage, payload.api_token).await?;
+    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -101,7 +104,8 @@ pub async fn patch_todoist(
 pub async fn disconnect_todoist(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
-    let data = integrations::disconnect_todoist(&state.storage).await?;
+    integrations::disconnect_todoist(&state.storage).await?;
+    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

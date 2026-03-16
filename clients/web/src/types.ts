@@ -105,9 +105,23 @@ export interface TodoistIntegrationData {
   last_item_count: number | null;
 }
 
+export interface LocalIntegrationData {
+  configured: boolean;
+  source_path: string | null;
+  last_sync_at: number | null;
+  last_sync_status: string | null;
+  last_error: string | null;
+  last_item_count: number | null;
+}
+
 export interface IntegrationsData {
   google_calendar: GoogleCalendarIntegrationData;
   todoist: TodoistIntegrationData;
+  activity: LocalIntegrationData;
+  git: LocalIntegrationData;
+  messaging: LocalIntegrationData;
+  notes: LocalIntegrationData;
+  transcripts: LocalIntegrationData;
 }
 
 export interface GoogleCalendarAuthStartData {
@@ -134,6 +148,20 @@ export interface RunSummaryData {
 export interface CurrentContextData {
   computed_at: number;
   context: JsonValue;
+}
+
+export interface CommitmentData {
+  id: string;
+  text: string;
+  source_type: string;
+  source_id: string | null;
+  status: string;
+  due_at: string | null;
+  project: string | null;
+  commitment_kind: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  metadata: JsonValue;
 }
 
 export interface SignalExplainSummary {
@@ -464,6 +492,18 @@ export function decodeTodoistIntegrationData(value: unknown): TodoistIntegration
   };
 }
 
+export function decodeLocalIntegrationData(value: unknown): LocalIntegrationData {
+  const record = expectRecord(value, 'local integration');
+  return {
+    configured: expectBoolean(record.configured, 'local integration.configured'),
+    source_path: expectNullableString(record.source_path, 'local integration.source_path'),
+    last_sync_at: expectNullableNumber(record.last_sync_at, 'local integration.last_sync_at'),
+    last_sync_status: expectNullableString(record.last_sync_status, 'local integration.last_sync_status'),
+    last_error: expectNullableString(record.last_error, 'local integration.last_error'),
+    last_item_count: expectNullableNumber(record.last_item_count, 'local integration.last_item_count'),
+  };
+}
+
 export function decodeIntegrationsData(value: unknown): IntegrationsData {
   const record = expectRecord(value, 'integrations');
   return {
@@ -471,6 +511,11 @@ export function decodeIntegrationsData(value: unknown): IntegrationsData {
       record.google_calendar ?? {},
     ),
     todoist: decodeTodoistIntegrationData(record.todoist ?? {}),
+    activity: decodeLocalIntegrationData(record.activity ?? {}),
+    git: decodeLocalIntegrationData(record.git ?? {}),
+    messaging: decodeLocalIntegrationData(record.messaging ?? {}),
+    notes: decodeLocalIntegrationData(record.notes ?? {}),
+    transcripts: decodeLocalIntegrationData(record.transcripts ?? {}),
   };
 }
 
@@ -514,6 +559,58 @@ export function decodeRunSummaryData(value: unknown): RunSummaryData {
     retry_reason: expectNullableString(record.retry_reason, 'run summary.retry_reason'),
     blocked_reason: expectNullableString(record.blocked_reason, 'run summary.blocked_reason'),
   };
+}
+
+export function decodeCommitmentData(value: unknown): CommitmentData {
+  const record = expectRecord(value, 'commitment');
+  return {
+    id: expectString(record.id, 'commitment.id'),
+    text: expectString(record.text, 'commitment.text'),
+    source_type: expectString(record.source_type, 'commitment.source_type'),
+    source_id: expectNullableString(record.source_id, 'commitment.source_id'),
+    status: expectString(record.status, 'commitment.status'),
+    due_at: decodeNullableDateTimeString(record.due_at, 'commitment.due_at'),
+    project: expectNullableString(record.project, 'commitment.project'),
+    commitment_kind: expectNullableString(record.commitment_kind, 'commitment.commitment_kind'),
+    created_at: decodeDateTimeString(record.created_at, 'commitment.created_at'),
+    resolved_at: decodeNullableDateTimeString(record.resolved_at, 'commitment.resolved_at'),
+    metadata: decodeJsonValue(record.metadata ?? null),
+  };
+}
+
+function decodeDateTimeString(value: unknown, label: string): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return decodeTimeTuple(value, label);
+  }
+  throw new Error(`Expected ${label} to be a string`);
+}
+
+function decodeNullableDateTimeString(value: unknown, label: string): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return decodeDateTimeString(value, label);
+}
+
+function decodeTimeTuple(value: unknown[], label: string): string {
+  if (value.length < 6) {
+    throw new Error(`Expected ${label} tuple to have at least 6 items`);
+  }
+  const [year, ordinal, hour, minute, second] = value;
+  if (
+    typeof year !== 'number'
+    || typeof ordinal !== 'number'
+    || typeof hour !== 'number'
+    || typeof minute !== 'number'
+    || typeof second !== 'number'
+  ) {
+    throw new Error(`Expected ${label} tuple numbers`);
+  }
+  const date = new Date(Date.UTC(year, 0, ordinal, hour, minute, second));
+  return date.toISOString();
 }
 
 export function decodeProvenanceEvent(value: unknown): ProvenanceEvent {

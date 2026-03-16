@@ -3,6 +3,7 @@ import { apiPatch, apiPost } from '../api/client';
 import { subscribeWs } from '../realtime/ws';
 import type {
   IntegrationsData,
+  LocalIntegrationData,
   RunSummaryData,
   SettingsData,
 } from '../types';
@@ -33,10 +34,23 @@ type IntegrationActionKey =
   | 'google-sync'
   | 'google-disconnect'
   | 'google-calendars'
+  | 'activity-sync'
+  | 'git-sync'
+  | 'messaging-sync'
+  | 'notes-sync'
+  | 'transcripts-sync'
   | 'todoist-save'
   | 'todoist-sync'
   | 'todoist-disconnect';
-type IntegrationSectionKey = 'google' | 'todoist';
+type IntegrationSectionKey =
+  | 'google'
+  | 'todoist'
+  | 'activity'
+  | 'git'
+  | 'messaging'
+  | 'notes'
+  | 'transcripts';
+type LocalIntegrationSource = 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
 
 interface RunActionState {
   action: RunActionKind;
@@ -77,7 +91,79 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_error: null,
     last_item_count: null,
   },
+  activity: {
+    configured: false,
+    source_path: null,
+    last_sync_at: null,
+    last_sync_status: null,
+    last_error: null,
+    last_item_count: null,
+  },
+  git: {
+    configured: false,
+    source_path: null,
+    last_sync_at: null,
+    last_sync_status: null,
+    last_error: null,
+    last_item_count: null,
+  },
+  messaging: {
+    configured: false,
+    source_path: null,
+    last_sync_at: null,
+    last_sync_status: null,
+    last_error: null,
+    last_item_count: null,
+  },
+  notes: {
+    configured: false,
+    source_path: null,
+    last_sync_at: null,
+    last_sync_status: null,
+    last_error: null,
+    last_item_count: null,
+  },
+  transcripts: {
+    configured: false,
+    source_path: null,
+    last_sync_at: null,
+    last_sync_status: null,
+    last_error: null,
+    last_item_count: null,
+  },
 };
+
+const LOCAL_INTEGRATION_SPECS: Array<{
+  key: LocalIntegrationSource;
+  title: string;
+  description: string;
+}> = [
+  {
+    key: 'activity',
+    title: 'Computer Activity',
+    description: 'Local workstation activity snapshots for attention and morning-state inference.',
+  },
+  {
+    key: 'git',
+    title: 'Git Activity',
+    description: 'Replay-safe git activity snapshots that improve coding context and explain surfaces.',
+  },
+  {
+    key: 'messaging',
+    title: 'Messaging',
+    description: 'Local messaging thread snapshots for response debt and scheduling awareness.',
+  },
+  {
+    key: 'notes',
+    title: 'Notes',
+    description: 'Markdown/plaintext note ingestion for recall and project continuity.',
+  },
+  {
+    key: 'transcripts',
+    title: 'Transcripts',
+    description: 'Assistant transcript snapshots for recall, synthesis, and thread continuity.',
+  },
+];
 
 function updateRunsCache(
   runsKey: QueryKey,
@@ -111,7 +197,13 @@ function extractRunSummaryData(value: unknown): RunSummaryData | null {
 }
 
 function integrationSectionForAction(key: IntegrationActionKey): IntegrationSectionKey {
-  return key.startsWith('google-') ? 'google' : 'todoist';
+  if (key.startsWith('google-')) {
+    return 'google';
+  }
+  if (key.startsWith('todoist-')) {
+    return 'todoist';
+  }
+  return key.replace(/-sync$/, '') as IntegrationSectionKey;
 }
 
 function integrationFeedbackForSection(
@@ -165,6 +257,11 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const integrations = integrationsData ?? DEFAULT_INTEGRATIONS;
   const googleFeedback = integrationFeedbackForSection(integrationFeedback, 'google');
   const todoistFeedback = integrationFeedbackForSection(integrationFeedback, 'todoist');
+  const activityFeedback = integrationFeedbackForSection(integrationFeedback, 'activity');
+  const gitFeedback = integrationFeedbackForSection(integrationFeedback, 'git');
+  const messagingFeedback = integrationFeedbackForSection(integrationFeedback, 'messaging');
+  const notesFeedback = integrationFeedbackForSection(integrationFeedback, 'notes');
+  const transcriptsFeedback = integrationFeedbackForSection(integrationFeedback, 'transcripts');
   const { data: runs = [] } = useQuery<RunSummaryData[]>(
     runsKey,
     async () => {
@@ -379,15 +476,27 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     }
   };
 
-  const syncSource = async (source: 'calendar' | 'todoist') => {
-    const actionKey = source === 'calendar' ? 'google-sync' : 'todoist-sync';
+  const syncSource = async (
+    source: 'calendar' | 'todoist' | LocalIntegrationSource,
+  ) => {
+    const actionKey: IntegrationActionKey =
+      source === 'calendar'
+        ? 'google-sync'
+        : source === 'todoist'
+          ? 'todoist-sync'
+          : `${source}-sync`;
     const actionId = beginIntegrationAction(actionKey);
     try {
       await apiPost(`/v1/sync/${source}`, {});
       refreshIntegrationViews();
+      const label = source === 'calendar'
+        ? 'Calendar'
+        : source === 'todoist'
+          ? 'Todoist'
+          : LOCAL_INTEGRATION_SPECS.find((spec) => spec.key === source)?.title ?? source;
       finishIntegrationAction(actionKey, actionId, {
         status: 'success',
-        message: `${source === 'calendar' ? 'Calendar' : 'Todoist'} synced.`,
+        message: `${label} synced.`,
       });
     } catch (error) {
       finishIntegrationAction(actionKey, actionId, {
@@ -824,6 +933,61 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               </div>
             ) : null}
           </div>
+
+          {LOCAL_INTEGRATION_SPECS.map((spec) => {
+            const integration = integrations[spec.key] as LocalIntegrationData;
+            const feedback = ({
+              activity: activityFeedback,
+              git: gitFeedback,
+              messaging: messagingFeedback,
+              notes: notesFeedback,
+              transcripts: transcriptsFeedback,
+            } as const)[spec.key];
+            const actionKey = `${spec.key}-sync` as IntegrationActionKey;
+            return (
+              <div key={spec.key} className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-zinc-100">{spec.title}</h3>
+                    <p className="mt-1 text-sm text-zinc-500">{spec.description}</p>
+                  </div>
+                  <IntegrationBadge
+                    connected={integration.configured}
+                    status={integration.last_sync_status}
+                  />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void syncSource(spec.key)}
+                    disabled={Boolean(pendingIntegrationActions[actionKey])}
+                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+                  >
+                    {pendingIntegrationActions[actionKey] ? 'Syncing…' : 'Sync now'}
+                  </button>
+                </div>
+                <IntegrationMeta
+                  sourcePath={integration.source_path}
+                  lastSyncAt={integration.last_sync_at}
+                  lastSyncStatus={integration.last_sync_status}
+                  lastItemCount={integration.last_item_count}
+                  lastError={integration.last_error}
+                />
+                {feedback.length > 0 ? (
+                  <div className="mt-4 space-y-1">
+                    {feedback.map((entry) => (
+                      <p
+                        key={entry.action}
+                        className={`text-sm ${entry.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}
+                      >
+                        {entry.message}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </section>
       ) : null}
 
@@ -1074,11 +1238,13 @@ function IntegrationBadge({
 }
 
 function IntegrationMeta({
+  sourcePath,
   lastSyncAt,
   lastSyncStatus,
   lastItemCount,
   lastError,
 }: {
+  sourcePath?: string | null;
   lastSyncAt: number | null;
   lastSyncStatus: string | null;
   lastItemCount: number | null;
@@ -1086,6 +1252,7 @@ function IntegrationMeta({
 }) {
   return (
     <div className="mt-4 space-y-1 text-sm text-zinc-400">
+      {sourcePath ? <p>Source: {sourcePath}</p> : null}
       <p>Last sync: {lastSyncAt ? new Date(lastSyncAt * 1000).toLocaleString() : 'never'}</p>
       <p>Status: {lastSyncStatus ?? 'unknown'}</p>
       <p>Items ingested: {lastItemCount ?? 0}</p>

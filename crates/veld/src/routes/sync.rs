@@ -62,7 +62,19 @@ pub async fn sync_todoist(
 pub async fn sync_activity(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = adapters::activity::ingest(&state.storage, &state.config).await?;
+    let count = match adapters::activity::ingest(&state.storage, &state.config).await {
+        Ok(count) => count,
+        Err(error) => {
+            let _ = services::integrations::record_sync_error(
+                &state.storage,
+                "activity",
+                &error.to_string(),
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    let _ = services::integrations::record_sync_success(&state.storage, "activity", count).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -76,7 +88,19 @@ pub async fn sync_activity(
 pub async fn sync_git(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = adapters::git::ingest(&state.storage, &state.config).await?;
+    let count = match adapters::git::ingest(&state.storage, &state.config).await {
+        Ok(count) => count,
+        Err(error) => {
+            let _ = services::integrations::record_sync_error(
+                &state.storage,
+                "git",
+                &error.to_string(),
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    let _ = services::integrations::record_sync_success(&state.storage, "git", count).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -90,7 +114,19 @@ pub async fn sync_git(
 pub async fn sync_messaging(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = adapters::messaging::ingest(&state.storage, &state.config).await?;
+    let count = match adapters::messaging::ingest(&state.storage, &state.config).await {
+        Ok(count) => count,
+        Err(error) => {
+            let _ = services::integrations::record_sync_error(
+                &state.storage,
+                "messaging",
+                &error.to_string(),
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    let _ = services::integrations::record_sync_success(&state.storage, "messaging", count).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -104,7 +140,19 @@ pub async fn sync_messaging(
 pub async fn sync_notes(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = adapters::notes::ingest(&state.storage, &state.config).await?;
+    let count = match adapters::notes::ingest(&state.storage, &state.config).await {
+        Ok(count) => count,
+        Err(error) => {
+            let _ = services::integrations::record_sync_error(
+                &state.storage,
+                "notes",
+                &error.to_string(),
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    let _ = services::integrations::record_sync_success(&state.storage, "notes", count).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -118,7 +166,19 @@ pub async fn sync_notes(
 pub async fn sync_transcripts(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = adapters::transcripts::ingest(&state.storage, &state.config).await?;
+    let count = match adapters::transcripts::ingest(&state.storage, &state.config).await {
+        Ok(count) => count,
+        Err(error) => {
+            let _ = services::integrations::record_sync_error(
+                &state.storage,
+                "transcripts",
+                &error.to_string(),
+            )
+            .await;
+            return Err(error);
+        }
+    };
+    let _ = services::integrations::record_sync_success(&state.storage, "transcripts", count).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {

@@ -3,6 +3,7 @@ import {
   decodeApiResponse,
   decodeCreateMessageResponse,
   decodeCurrentContextData,
+  decodeIntegrationsData,
   decodeNullable,
   decodeWsEvent,
 } from './types'
@@ -67,6 +68,82 @@ describe('transport decoders', () => {
       inferred_activity: 'coding',
       git_activity_summary: 'commit on main',
     })
+  })
+
+  it('decodes integrations responses with local adapter sections', () => {
+    const response = decodeApiResponse(
+      {
+        ok: true,
+        data: {
+          google_calendar: {
+            configured: false,
+            connected: false,
+            has_client_id: false,
+            has_client_secret: false,
+            calendars: [],
+            all_calendars_selected: true,
+            last_sync_at: null,
+            last_sync_status: null,
+            last_error: null,
+            last_item_count: null,
+          },
+          todoist: {
+            configured: false,
+            connected: false,
+            has_api_token: false,
+            last_sync_at: null,
+            last_sync_status: null,
+            last_error: null,
+            last_item_count: null,
+          },
+          activity: {
+            configured: true,
+            source_path: '/tmp/activity.json',
+            last_sync_at: 12,
+            last_sync_status: 'ok',
+            last_error: null,
+            last_item_count: 4,
+          },
+          git: {
+            configured: false,
+            source_path: null,
+            last_sync_at: null,
+            last_sync_status: null,
+            last_error: null,
+            last_item_count: null,
+          },
+          messaging: {
+            configured: false,
+            source_path: null,
+            last_sync_at: null,
+            last_sync_status: null,
+            last_error: null,
+            last_item_count: null,
+          },
+          notes: {
+            configured: false,
+            source_path: null,
+            last_sync_at: null,
+            last_sync_status: null,
+            last_error: null,
+            last_item_count: null,
+          },
+          transcripts: {
+            configured: false,
+            source_path: null,
+            last_sync_at: null,
+            last_sync_status: null,
+            last_error: null,
+            last_item_count: null,
+          },
+        },
+        meta: { request_id: 'req_integrations' },
+      },
+      decodeIntegrationsData,
+    )
+
+    expect(response.data?.activity.source_path).toBe('/tmp/activity.json')
+    expect(response.data?.activity.last_item_count).toBe(4)
   })
 
   it('decodes websocket message events', () => {

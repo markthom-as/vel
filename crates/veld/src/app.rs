@@ -3744,6 +3744,140 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn integrations_get_includes_local_adapter_statuses() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let record_result =
+            crate::services::integrations::record_sync_success(&storage, "notes", 2).await;
+        assert!(record_result.is_ok());
+        let config = AppConfig {
+            activity_snapshot_path: Some("/tmp/activity.json".to_string()),
+            git_snapshot_path: Some("/tmp/git.json".to_string()),
+            messaging_snapshot_path: Some("/tmp/messaging.json".to_string()),
+            notes_path: Some("/tmp/notes".to_string()),
+            transcript_snapshot_path: Some("/tmp/transcripts.json".to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/integrations")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["activity"]["configured"], true);
+        assert_eq!(json["data"]["activity"]["source_path"], "/tmp/activity.json");
+        assert_eq!(json["data"]["notes"]["configured"], true);
+        assert_eq!(json["data"]["notes"]["source_path"], "/tmp/notes");
+        assert_eq!(json["data"]["notes"]["last_sync_status"], "ok");
+        assert_eq!(json["data"]["notes"]["last_item_count"], 2);
+    }
+
+    #[tokio::test]
+    async fn sync_notes_updates_integrations_status_and_sync_messaging_records_error() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let dir = std::env::temp_dir().join(format!("vel_notes_{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("plan.md"), "# plan\n").unwrap();
+        let config = AppConfig {
+            notes_path: Some(dir.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        let notes_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/notes")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(notes_resp.status(), StatusCode::OK);
+
+        let integrations_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/integrations")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let integrations_body = axum::body::to_bytes(integrations_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let integrations_json: serde_json::Value = serde_json::from_slice(&integrations_body).unwrap();
+        assert_eq!(integrations_json["data"]["notes"]["last_sync_status"], "ok");
+        assert_eq!(integrations_json["data"]["notes"]["last_item_count"], 1);
+
+        let failing_app = build_app(
+            storage.clone(),
+            AppConfig {
+                notes_path: Some(dir.to_string_lossy().to_string()),
+                messaging_snapshot_path: Some(dir.join("missing.json").to_string_lossy().to_string()),
+                ..Default::default()
+            },
+            test_policy_config(),
+            None,
+            None,
+        );
+        let messaging_resp = failing_app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/messaging")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(messaging_resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let integrations_resp = build_app(
+            storage,
+            AppConfig {
+                notes_path: Some(dir.to_string_lossy().to_string()),
+                messaging_snapshot_path: Some(dir.join("missing.json").to_string_lossy().to_string()),
+                ..Default::default()
+            },
+            test_policy_config(),
+            None,
+            None,
+        )
+        .oneshot(
+            Request::builder()
+                .uri("/api/integrations")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        let integrations_body = axum::body::to_bytes(integrations_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let integrations_json: serde_json::Value = serde_json::from_slice(&integrations_body).unwrap();
+        assert_eq!(integrations_json["data"]["messaging"]["last_sync_status"], "error");
+        assert!(integrations_json["data"]["messaging"]["last_error"].as_str().is_some());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
     async fn chat_intervention_snooze_404_for_nonexistent() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

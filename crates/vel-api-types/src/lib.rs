@@ -231,9 +231,24 @@ pub struct TodoistIntegrationData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalIntegrationData {
+    pub configured: bool,
+    pub source_path: Option<String>,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntegrationsData {
     pub google_calendar: GoogleCalendarIntegrationData,
     pub todoist: TodoistIntegrationData,
+    pub activity: LocalIntegrationData,
+    pub git: LocalIntegrationData,
+    pub messaging: LocalIntegrationData,
+    pub notes: LocalIntegrationData,
+    pub transcripts: LocalIntegrationData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -6,7 +6,7 @@ use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 use vel_api_types::{
     GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
-    IntegrationsData, TodoistIntegrationData,
+    IntegrationsData, LocalIntegrationData, TodoistIntegrationData,
 };
 use vel_config::AppConfig;
 use vel_core::{Commitment, CommitmentStatus};
@@ -16,9 +16,16 @@ use crate::errors::AppError;
 
 const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
 const TODOIST_SETTINGS_KEY: &str = "integration_todoist";
+const ACTIVITY_SETTINGS_KEY: &str = "integration_activity";
+const GIT_SETTINGS_KEY: &str = "integration_git";
+const MESSAGING_SETTINGS_KEY: &str = "integration_messaging";
+const NOTES_SETTINGS_KEY: &str = "integration_notes";
+const TRANSCRIPTS_SETTINGS_KEY: &str = "integration_transcripts";
 const GOOGLE_AUTH_BASE: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const GOOGLE_CALENDAR_BASE: &str = "https://www.googleapis.com/calendar/v3";
+const GOOGLE_LOOKBACK_DAYS: i64 = 60;
+const GOOGLE_LOOKAHEAD_DAYS: i64 = 180;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoogleCalendarSettings {
@@ -57,6 +64,14 @@ pub struct TodoistSettings {
     pub last_item_count: Option<u32>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LocalIntegrationSettings {
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+}
+
 fn default_true() -> bool {
     true
 }
@@ -64,9 +79,68 @@ fn default_true() -> bool {
 pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, AppError> {
     let google = load_google_settings(storage).await?;
     let todoist = load_todoist_settings(storage).await?;
+    let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
+    let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
+    let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
+    let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
+    let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
     Ok(IntegrationsData {
         google_calendar: google_status(&google),
         todoist: todoist_status(&todoist),
+        activity: local_status(
+            config_source_path(None, None),
+            &activity,
+        ),
+        git: local_status(
+            config_source_path(None, None),
+            &git,
+        ),
+        messaging: local_status(
+            config_source_path(None, None),
+            &messaging,
+        ),
+        notes: local_status(
+            config_source_path(None, None),
+            &notes,
+        ),
+        transcripts: local_status(
+            config_source_path(None, None),
+            &transcripts,
+        ),
+    })
+}
+
+pub async fn get_integrations_with_config(
+    storage: &Storage,
+    config: &AppConfig,
+) -> Result<IntegrationsData, AppError> {
+    let google = load_google_settings(storage).await?;
+    let todoist = load_todoist_settings(storage).await?;
+    let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
+    let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
+    let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
+    let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
+    let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
+    Ok(IntegrationsData {
+        google_calendar: google_status(&google),
+        todoist: todoist_status(&todoist),
+        activity: local_status(
+            config_source_path(config.activity_snapshot_path.as_deref(), None),
+            &activity,
+        ),
+        git: local_status(
+            config_source_path(config.git_snapshot_path.as_deref(), None),
+            &git,
+        ),
+        messaging: local_status(
+            config_source_path(config.messaging_snapshot_path.as_deref(), None),
+            &messaging,
+        ),
+        notes: local_status(config_source_path(config.notes_path.as_deref(), None), &notes),
+        transcripts: local_status(
+            config_source_path(config.transcript_snapshot_path.as_deref(), None),
+            &transcripts,
+        ),
     })
 }
 
@@ -258,8 +332,8 @@ pub async fn sync_google_calendar(
     let calendars = list_google_calendars_with_token(&access_token).await?;
     settings.calendars = merge_calendar_selection(settings.calendars, calendars);
     let selected = selected_calendars(&settings);
-    let time_min = OffsetDateTime::now_utc() - Duration::days(1);
-    let time_max = OffsetDateTime::now_utc() + Duration::days(14);
+    let time_min = OffsetDateTime::now_utc() - Duration::days(GOOGLE_LOOKBACK_DAYS);
+    let time_max = OffsetDateTime::now_utc() + Duration::days(GOOGLE_LOOKAHEAD_DAYS);
 
     let mut inserted = 0u32;
     for calendar in &selected {
@@ -420,6 +494,37 @@ pub async fn record_sync_error(
             settings.last_error = Some(error.to_string());
             save_todoist_settings(storage, &settings).await?;
         }
+        "activity" | "git" | "messaging" | "notes" | "transcripts" => {
+            update_local_sync_settings(
+                storage,
+                local_settings_key(source),
+                "error",
+                Some(error.to_string()),
+                None,
+            )
+            .await?;
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+pub async fn record_sync_success(
+    storage: &Storage,
+    source: &str,
+    item_count: u32,
+) -> Result<(), AppError> {
+    match source {
+        "activity" | "git" | "messaging" | "notes" | "transcripts" => {
+            update_local_sync_settings(
+                storage,
+                local_settings_key(source),
+                "ok",
+                None,
+                Some(item_count),
+            )
+            .await?;
+        }
         _ => {}
     }
     Ok(())
@@ -438,28 +543,43 @@ async fn list_google_calendars(
 async fn list_google_calendars_with_token(
     access_token: &str,
 ) -> Result<Vec<StoredCalendar>, AppError> {
-    let response: GoogleCalendarListResponse = reqwest::Client::new()
-        .get(format!("{}/users/me/calendarList", GOOGLE_CALENDAR_BASE))
-        .bearer_auth(access_token)
-        .send()
-        .await
-        .map_err(|error| AppError::internal(format!("google calendar list: {}", error)))?
-        .error_for_status()
-        .map_err(|error| AppError::internal(format!("google calendar list: {}", error)))?
-        .json()
-        .await
-        .map_err(|error| AppError::internal(format!("google calendar decode: {}", error)))?;
+    let client = reqwest::Client::new();
+    let mut calendars = Vec::new();
+    let mut page_token: Option<String> = None;
 
-    Ok(response
-        .items
-        .into_iter()
-        .map(|item| StoredCalendar {
+    loop {
+        let mut url = Url::parse(&format!("{}/users/me/calendarList", GOOGLE_CALENDAR_BASE))
+            .map_err(|error| AppError::internal(format!("google calendar list url: {}", error)))?;
+        if let Some(token) = page_token.as_deref() {
+            url.query_pairs_mut().append_pair("pageToken", token);
+        }
+
+        let response: GoogleCalendarListResponse = client
+            .get(url)
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .map_err(|error| AppError::internal(format!("google calendar list: {}", error)))?
+            .error_for_status()
+            .map_err(|error| AppError::internal(format!("google calendar list: {}", error)))?
+            .json()
+            .await
+            .map_err(|error| AppError::internal(format!("google calendar decode: {}", error)))?;
+
+        calendars.extend(response.items.into_iter().map(|item| StoredCalendar {
             id: item.id,
             summary: item.summary,
             primary: item.primary.unwrap_or(false),
             selected: true,
-        })
-        .collect())
+        }));
+
+        match response.next_page_token {
+            Some(token) if !token.is_empty() => page_token = Some(token),
+            _ => break,
+        }
+    }
+
+    Ok(calendars)
 }
 
 async fn list_google_events_with_token(
@@ -468,34 +588,53 @@ async fn list_google_events_with_token(
     time_min: OffsetDateTime,
     time_max: OffsetDateTime,
 ) -> Result<Vec<GoogleCalendarEvent>, AppError> {
-    let mut url =
-        Url::parse(GOOGLE_CALENDAR_BASE).map_err(|error| AppError::internal(format!("google events url: {}", error)))?;
-    {
-        let mut segments = url
-            .path_segments_mut()
-            .map_err(|_| AppError::internal("google events url path"))?;
-        segments.push("calendars");
-        segments.push(calendar_id);
-        segments.push("events");
-    }
-    url.query_pairs_mut()
-        .append_pair("singleEvents", "true")
-        .append_pair("orderBy", "startTime")
-        .append_pair("timeMin", &format_rfc3339(time_min)?)
-        .append_pair("timeMax", &format_rfc3339(time_max)?);
+    let client = reqwest::Client::new();
+    let mut events = Vec::new();
+    let mut page_token: Option<String> = None;
 
-    let response: GoogleEventListResponse = reqwest::Client::new()
-        .get(url)
-        .bearer_auth(access_token)
-        .send()
-        .await
-        .map_err(|error| AppError::internal(format!("google event list: {}", error)))?
-        .error_for_status()
-        .map_err(|error| AppError::internal(format!("google event list: {}", error)))?
-        .json()
-        .await
-        .map_err(|error| AppError::internal(format!("google event decode: {}", error)))?;
-    Ok(response.items)
+    loop {
+        let mut url = Url::parse(GOOGLE_CALENDAR_BASE)
+            .map_err(|error| AppError::internal(format!("google events url: {}", error)))?;
+        {
+            let mut segments = url
+                .path_segments_mut()
+                .map_err(|_| AppError::internal("google events url path"))?;
+            segments.push("calendars");
+            segments.push(calendar_id);
+            segments.push("events");
+        }
+        {
+            let mut query = url.query_pairs_mut();
+            query
+                .append_pair("singleEvents", "true")
+                .append_pair("orderBy", "startTime")
+                .append_pair("timeMin", &format_rfc3339(time_min)?)
+                .append_pair("timeMax", &format_rfc3339(time_max)?);
+            if let Some(token) = page_token.as_deref() {
+                query.append_pair("pageToken", token);
+            }
+        }
+
+        let response: GoogleEventListResponse = client
+            .get(url)
+            .bearer_auth(access_token)
+            .send()
+            .await
+            .map_err(|error| AppError::internal(format!("google event list: {}", error)))?
+            .error_for_status()
+            .map_err(|error| AppError::internal(format!("google event list: {}", error)))?
+            .json()
+            .await
+            .map_err(|error| AppError::internal(format!("google event decode: {}", error)))?;
+        events.extend(response.items);
+
+        match response.next_page_token {
+            Some(token) if !token.is_empty() => page_token = Some(token),
+            _ => break,
+        }
+    }
+
+    Ok(events)
 }
 
 async fn ensure_google_access_token(
@@ -607,6 +746,20 @@ fn todoist_status(settings: &TodoistSettings) -> TodoistIntegrationData {
     }
 }
 
+fn local_status(
+    source_path: Option<String>,
+    settings: &LocalIntegrationSettings,
+) -> LocalIntegrationData {
+    LocalIntegrationData {
+        configured: source_path.is_some(),
+        source_path,
+        last_sync_at: settings.last_sync_at,
+        last_sync_status: settings.last_sync_status.clone(),
+        last_error: settings.last_error.clone(),
+        last_item_count: settings.last_item_count,
+    }
+}
+
 async fn load_google_settings(storage: &Storage) -> Result<GoogleCalendarSettings, AppError> {
     load_settings(storage, GOOGLE_SETTINGS_KEY).await
 }
@@ -629,6 +782,13 @@ async fn save_todoist_settings(
     save_settings(storage, TODOIST_SETTINGS_KEY, settings).await
 }
 
+async fn load_local_settings(
+    storage: &Storage,
+    key: &str,
+) -> Result<LocalIntegrationSettings, AppError> {
+    load_settings(storage, key).await
+}
+
 async fn load_settings<T>(storage: &Storage, key: &str) -> Result<T, AppError>
 where
     T: for<'de> Deserialize<'de> + Default,
@@ -649,6 +809,40 @@ where
         .map_err(|error| AppError::internal(format!("serialize integration settings: {}", error)))?;
     storage.set_setting(key, &value).await?;
     Ok(())
+}
+
+async fn update_local_sync_settings(
+    storage: &Storage,
+    key: &str,
+    status: &str,
+    error: Option<String>,
+    item_count: Option<u32>,
+) -> Result<(), AppError> {
+    let mut settings = load_local_settings(storage, key).await?;
+    settings.last_sync_at = Some(now_ts());
+    settings.last_sync_status = Some(status.to_string());
+    settings.last_error = error;
+    settings.last_item_count = item_count;
+    save_settings(storage, key, &settings).await
+}
+
+fn local_settings_key(source: &str) -> &'static str {
+    match source {
+        "activity" => ACTIVITY_SETTINGS_KEY,
+        "git" => GIT_SETTINGS_KEY,
+        "messaging" => MESSAGING_SETTINGS_KEY,
+        "notes" => NOTES_SETTINGS_KEY,
+        "transcripts" => TRANSCRIPTS_SETTINGS_KEY,
+        _ => "",
+    }
+}
+
+fn config_source_path(primary: Option<&str>, secondary: Option<&str>) -> Option<String> {
+    primary
+        .or(secondary)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 fn google_redirect_uri(config: &AppConfig) -> Result<String, AppError> {
@@ -869,6 +1063,8 @@ struct GoogleTokenResponse {
 struct GoogleCalendarListResponse {
     #[serde(default)]
     items: Vec<GoogleCalendarListItem>,
+    #[serde(default, rename = "nextPageToken")]
+    next_page_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -883,6 +1079,8 @@ struct GoogleCalendarListItem {
 struct GoogleEventListResponse {
     #[serde(default)]
     items: Vec<GoogleCalendarEvent>,
+    #[serde(default, rename = "nextPageToken")]
+    next_page_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

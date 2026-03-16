@@ -138,3 +138,11 @@ Adapters can run:
 - local watcher
 
 All signals enter Vel via the signal ingestion pipeline.
+
+## Operator Surface
+
+The operator-facing integrations control plane should expose:
+- remote-auth adapters such as Google Calendar and Todoist
+- local snapshot/path-backed adapters such as activity, git, messaging, notes, and transcripts
+
+`/api/integrations` is the operator read model. `/v1/sync/*` remains the execution path.

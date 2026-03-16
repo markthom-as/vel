@@ -96,6 +96,46 @@ describe('SettingsPage', () => {
               last_error: null,
               last_item_count: null,
             },
+            activity: {
+              configured: true,
+              source_path: '/tmp/activity.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+            },
+            git: {
+              configured: true,
+              source_path: '/tmp/git.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+            },
+            messaging: {
+              configured: true,
+              source_path: '/tmp/messaging.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+            },
+            notes: {
+              configured: true,
+              source_path: '/tmp/notes',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+            },
+            transcripts: {
+              configured: true,
+              source_path: '/tmp/transcripts.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+            },
           },
           meta: { request_id: 'req_integrations' },
         } as never
@@ -273,6 +313,29 @@ describe('SettingsPage', () => {
     expect(todoistCard).not.toBeNull()
     expect(within(todoistCard as HTMLElement).getByText('Todoist token saved.')).toBeInTheDocument()
     expect(within(todoistCard as HTMLElement).getByText('Todoist synced.')).toBeInTheDocument()
+  })
+
+  it('renders local integration cards and syncs the selected local adapter', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+
+    expect(within(root).getByRole('heading', { name: /computer activity/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /git activity/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /^messaging$/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /^notes$/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /transcripts/i })).toBeInTheDocument()
+    expect(within(root).getByText('Source: /tmp/activity.json')).toBeInTheDocument()
+
+    const notesSyncButton = within(root).getAllByRole('button', { name: /sync now/i }).find((button) =>
+      button.closest('.rounded-lg')?.textContent?.includes('Notes'),
+    )
+    expect(notesSyncButton).toBeDefined()
+    fireEvent.click(notesSyncButton as HTMLElement)
+
+    await waitFor(() => {
+      expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/notes', {})
+    })
+    expect(within(root).getByText('Notes synced.')).toBeInTheDocument()
   })
 
   it('renders recent run policy and override metadata', async () => {
