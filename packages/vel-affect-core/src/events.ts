@@ -1,0 +1,12 @@
+export const eventNames = [
+  "SET_MODE",
+  "USER_SPEECH_START",
+  "USER_SPEECH_STOP",
+  "AGENT_THINKING_START",
+  "AGENT_THINKING_STOP",
+  "AGENT_SPEAKING_START",
+  "AGENT_SPEAKING_STOP",
+  "WARN",
+  "OVERLOAD",
+  "TICK",
+] as const;

@@ -1,0 +1,21 @@
+export type VelSyncPacket = {
+  version: 1;
+  timestamp: number;
+  mode: "idle" | "listening" | "thinking" | "speaking" | "reflecting" | "warning" | "overloaded" | "sleeping";
+  valence: number;
+  arousal: number;
+  coherence: number;
+  confidence: number;
+  sociality: number;
+  turbulence: number;
+  attention: number;
+  speaking: number;
+  listening: number;
+  uncertainty: number;
+  faciality: number;
+  asymmetry: number;
+  fragmentation: number;
+  accentHue?: number;
+  pulseRate?: number;
+  eventCue?: "none" | "resolve" | "warn" | "summon" | "reflect";
+};

@@ -1,0 +1,28 @@
+export type VelMorphology = {
+  headScale: number;
+  verticalStretch: number;
+  horizontalCompression: number;
+  tiltX: number;
+  tiltY: number;
+  primaryMassRadius: number;
+  satelliteCount: number;
+  satelliteScale: number;
+  mergeThreshold: number;
+  browHeight: number;
+  browAngle: number;
+  browCompression: number;
+  noseBridgeStrength: number;
+  mouthWidth: number;
+  mouthCurve: number;
+  mouthOpen: number;
+  jawWeight: number;
+  cheekTension: number;
+  surfaceNoiseAmp: number;
+  surfaceNoiseFreq: number;
+  edgeSoftness: number;
+  internalGlow: number;
+  colorHue: number;
+  colorSaturation: number;
+  colorValue: number;
+  faceVisibility: number;
+};
