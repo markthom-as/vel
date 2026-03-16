@@ -1,8 +1,8 @@
-//! Todoist adapter: read snapshot JSON from config path, upsert commitments and emit signals.
+//! Todoist adapter: read snapshot JSON from config path, reconcile commitments, and emit signals.
 
 use time::OffsetDateTime;
 use vel_config::AppConfig;
-use vel_core::CommitmentStatus;
+use vel_core::{Commitment, CommitmentStatus};
 use vel_storage::{CommitmentInsert, SignalInsert, Storage};
 
 /// Ingest tasks from Todoist snapshot; create/update commitments and emit signals. Returns signals count.
@@ -18,6 +18,7 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         .map_err(|e| crate::errors::AppError::internal(format!("parse todoist snapshot: {}", e)))?;
 
     let now = OffsetDateTime::now_utc().unix_timestamp();
+    let existing_commitments = storage.list_commitments(None, None, None, 1000).await?;
     let mut signals_count = 0u32;
 
     for item in snapshot
@@ -34,48 +35,18 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .and_then(parse_iso_datetime);
         let commitment_kind = infer_kind(&item);
         let source_id = format!("todoist_{}", task_id);
-
-        if completed {
-            let all = storage.list_commitments(None, None, None, 1000).await?;
-            if let Some(com) = all.iter().find(|c| {
-                c.source_type == "todoist" && c.source_id.as_deref() == Some(source_id.as_str())
-            }) {
-                if com.status != vel_core::CommitmentStatus::Done {
-                    storage
-                        .update_commitment(
-                            com.id.as_ref(),
-                            Some(CommitmentStatus::Done),
-                            None,
-                            None,
-                            None,
-                            None,
-                        )
-                        .await?;
-                }
-            }
-        } else {
-            let existing = storage
-                .list_commitments(Some(CommitmentStatus::Open), None, None, 1000)
-                .await?;
-            let has = existing
+        reconcile_commitment(
+            storage,
+            existing_commitments
                 .iter()
-                .any(|c| c.source_id.as_deref() == Some(source_id.as_str()));
-            if !has {
-                let _ = storage
-                    .insert_commitment(CommitmentInsert {
-                        text: item.content.clone(),
-                        source_type: "todoist".to_string(),
-                        source_id: Some(source_id.clone()),
-                        status: CommitmentStatus::Open,
-                        due_at: due_ts
-                            .and_then(|t| time::OffsetDateTime::from_unix_timestamp(t).ok()),
-                        project: item.project_id.clone().map(|p| p.to_string()),
-                        commitment_kind: Some(commitment_kind.to_string()),
-                        metadata_json: Some(serde_json::json!({ "todoist_id": task_id })),
-                    })
-                    .await;
-            }
-        }
+                .find(|c| c.source_type == "todoist" && c.source_id.as_deref() == Some(source_id.as_str())),
+            &item,
+            &source_id,
+            commitment_kind,
+            completed,
+            due_ts,
+        )
+        .await?;
 
         let payload = serde_json::json!({
             "task_id": task_id,
@@ -85,20 +56,75 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             "labels": item.labels,
             "project_id": item.project_id
         });
-        storage
+        let signal_id = storage
             .insert_signal(SignalInsert {
                 signal_type: "external_task".to_string(),
                 source: "todoist".to_string(),
-                source_ref: Some(format!("todoist:{}", task_id)),
+                source_ref: Some(todoist_signal_source_ref(&item)),
                 timestamp: now,
                 payload_json: Some(payload),
             })
             .await
             .map_err(crate::errors::AppError::from)?;
-        signals_count += 1;
+        if signal_id.starts_with("sig_") {
+            signals_count += 1;
+        }
     }
 
     Ok(signals_count)
+}
+
+async fn reconcile_commitment(
+    storage: &Storage,
+    existing: Option<&Commitment>,
+    item: &TodoistItem,
+    source_id: &str,
+    commitment_kind: &'static str,
+    completed: bool,
+    due_ts: Option<i64>,
+) -> Result<(), crate::errors::AppError> {
+    let due_at = due_ts.and_then(|t| time::OffsetDateTime::from_unix_timestamp(t).ok());
+    let metadata = serde_json::json!({
+        "todoist_id": item.id,
+        "labels": item.labels,
+    });
+    let project = item.project_id.as_deref();
+    let status = if completed {
+        CommitmentStatus::Done
+    } else {
+        CommitmentStatus::Open
+    };
+
+    if let Some(commitment) = existing {
+        storage
+            .update_commitment(
+                commitment.id.as_ref(),
+                Some(item.content.trim()),
+                Some(status),
+                Some(due_at),
+                project,
+                Some(commitment_kind),
+                Some(&metadata),
+            )
+            .await
+            .map_err(crate::errors::AppError::from)?;
+    } else {
+        storage
+            .insert_commitment(CommitmentInsert {
+                text: item.content.clone(),
+                source_type: "todoist".to_string(),
+                source_id: Some(source_id.to_string()),
+                status,
+                due_at,
+                project: item.project_id.clone(),
+                commitment_kind: Some(commitment_kind.to_string()),
+                metadata_json: Some(metadata),
+            })
+            .await
+            .map_err(crate::errors::AppError::from)?;
+    }
+
+    Ok(())
 }
 
 fn infer_kind(item: &TodoistItem) -> &'static str {
@@ -145,13 +171,27 @@ fn parse_iso_datetime(s: &str) -> Option<i64> {
     Some(dt.unix_timestamp())
 }
 
+fn todoist_signal_source_ref(item: &TodoistItem) -> String {
+    let state = if item.checked.unwrap_or(false) {
+        "done"
+    } else {
+        "open"
+    };
+    let due = item
+        .due
+        .as_ref()
+        .and_then(|due| due.date.as_deref())
+        .unwrap_or("-");
+    format!("todoist:{}:{}:{}:{}", item.id, state, item.content.trim(), due)
+}
+
 #[derive(Debug, serde::Deserialize)]
 struct TodoistSnapshot {
     #[serde(default)]
     items: Vec<TodoistItem>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 struct TodoistItem {
     id: String,
     content: String,
@@ -164,7 +204,29 @@ struct TodoistItem {
     project_id: Option<String>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 struct TodoistDue {
     date: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn signal_source_ref_changes_with_lifecycle_state() {
+        let open = TodoistItem {
+            id: "123".to_string(),
+            content: "Ship feature".to_string(),
+            checked: Some(false),
+            due: None,
+            labels: Vec::new(),
+            project_id: None,
+        };
+        let done = TodoistItem {
+            checked: Some(true),
+            ..open.clone()
+        };
+        assert_ne!(todoist_signal_source_ref(&open), todoist_signal_source_ref(&done));
+    }
 }

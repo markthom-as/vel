@@ -61,7 +61,10 @@ pub async fn get_commitment(
         .await?
         .ok_or_else(|| AppError::not_found("commitment not found"))?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(CommitmentData::from(commitment), request_id)))
+    Ok(Json(ApiResponse::success(
+        CommitmentData::from(commitment),
+        request_id,
+    )))
 }
 
 pub async fn create_commitment(
@@ -90,7 +93,10 @@ pub async fn create_commitment(
         .await?
         .ok_or_else(|| AppError::internal("commitment not found after insert"))?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(CommitmentData::from(commitment), request_id)))
+    Ok(Json(ApiResponse::success(
+        CommitmentData::from(commitment),
+        request_id,
+    )))
 }
 
 pub async fn update_commitment(
@@ -108,6 +114,7 @@ pub async fn update_commitment(
         .storage
         .update_commitment(
             id.trim(),
+            None,
             status,
             payload.due_at,
             payload.project.as_deref(),
@@ -121,7 +128,10 @@ pub async fn update_commitment(
         .await?
         .ok_or_else(|| AppError::not_found("commitment not found"))?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(CommitmentData::from(commitment), request_id)))
+    Ok(Json(ApiResponse::success(
+        CommitmentData::from(commitment),
+        request_id,
+    )))
 }
 
 pub async fn list_commitment_dependencies(
@@ -140,13 +150,15 @@ pub async fn list_commitment_dependencies(
         .await?;
     let data: Vec<CommitmentDependencyData> = rows
         .into_iter()
-        .map(|(dep_id, child_id, dep_type, created_at)| CommitmentDependencyData {
-            id: dep_id,
-            parent_commitment_id: parent_id.to_string(),
-            child_commitment_id: child_id,
-            dependency_type: dep_type,
-            created_at,
-        })
+        .map(
+            |(dep_id, child_id, dep_type, created_at)| CommitmentDependencyData {
+                id: dep_id,
+                parent_commitment_id: parent_id.to_string(),
+                child_commitment_id: child_id,
+                dependency_type: dep_type,
+                created_at,
+            },
+        )
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))

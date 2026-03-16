@@ -911,7 +911,7 @@ mod tests {
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let data = &json["data"];
+        let data = &json["data"]["context"];
         assert!(
             data.get("prep_window_active").is_some(),
             "prep_window_active must be present"
@@ -1361,7 +1361,8 @@ mod tests {
             .await
             .unwrap();
         let ctx: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let drift_type = ctx["data"].get("drift_type");
+        let current_context = &ctx["data"]["context"];
+        let drift_type = current_context.get("drift_type");
         let nudges_resp = app
             .oneshot(
                 Request::builder()
@@ -1387,7 +1388,7 @@ mod tests {
             "commute nudge should exist in danger window (variant B)"
         );
         assert!(
-            drift_type.is_some() || ctx["data"].get("attention_state").is_some(),
+            drift_type.is_some() || current_context.get("attention_state").is_some(),
             "drift or attention state should be present"
         );
     }
@@ -2305,6 +2306,152 @@ END:VCALENDAR
             signals[0].source_ref.as_deref(),
             Some("git:/home/jove/code/vel|main|commit|abc123|1700002000")
         );
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    async fn sync_todoist_reopens_and_updates_existing_commitment() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let commitment_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Old title".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: Some("todoist_123".to_string()),
+                status: vel_core::CommitmentStatus::Done,
+                due_at: None,
+                project: Some("old".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({ "todoist_id": "123" })),
+            })
+            .await
+            .unwrap();
+        storage
+            .update_commitment(
+                commitment_id.as_ref(),
+                None,
+                Some(vel_core::CommitmentStatus::Done),
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!(
+            "vel_todoist_{}.json",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let snapshot = serde_json::json!({
+            "items": [
+                {
+                    "id": "123",
+                    "content": "Updated title",
+                    "checked": false,
+                    "due": { "date": "2026-03-17T09:30:00" },
+                    "labels": ["health"],
+                    "project_id": "proj-1"
+                }
+            ]
+        });
+        std::fs::write(&file_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = vel_config::AppConfig {
+            todoist_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/todoist")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let updated = storage
+            .get_commitment_by_id(commitment_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(updated.status, vel_core::CommitmentStatus::Open);
+        assert_eq!(updated.text, "Updated title");
+        assert_eq!(updated.project.as_deref(), Some("proj-1"));
+        assert_eq!(updated.commitment_kind.as_deref(), Some("medication"));
+        assert!(updated.resolved_at.is_none());
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    async fn sync_todoist_marks_commitment_done_when_task_checked() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let commitment_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Ship feature".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: Some("todoist_456".to_string()),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({ "todoist_id": "456" })),
+            })
+            .await
+            .unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!(
+            "vel_todoist_{}.json",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let snapshot = serde_json::json!({
+            "items": [
+                {
+                    "id": "456",
+                    "content": "Ship feature",
+                    "checked": true,
+                    "labels": [],
+                    "project_id": "proj-2"
+                }
+            ]
+        });
+        std::fs::write(&file_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = vel_config::AppConfig {
+            todoist_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/todoist")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let updated = storage
+            .get_commitment_by_id(commitment_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(updated.status, vel_core::CommitmentStatus::Done);
+        assert!(updated.resolved_at.is_some());
 
         let _ = std::fs::remove_file(&file_path);
     }

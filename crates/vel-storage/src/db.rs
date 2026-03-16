@@ -577,6 +577,7 @@ impl Storage {
     pub async fn update_commitment(
         &self,
         id: &str,
+        text: Option<&str>,
         status: Option<CommitmentStatus>,
         due_at: Option<Option<OffsetDateTime>>,
         project: Option<&str>,
@@ -591,20 +592,26 @@ impl Storage {
         let Some(c) = current else {
             return Err(StorageError::Validation("commitment not found".to_string()));
         };
+        let new_text = text.map(String::from).unwrap_or(c.text);
         let new_status = status.unwrap_or(c.status);
         let new_due = due_at.unwrap_or(c.due_at).map(|t| t.unix_timestamp());
         let new_project = project.map(String::from).or(c.project);
         let new_kind = commitment_kind.map(String::from).or(c.commitment_kind);
-        let new_resolved = resolved.or(c.resolved_at.map(|t| t.unix_timestamp()));
+        let new_resolved = match status {
+            Some(CommitmentStatus::Open) => None,
+            Some(_) => resolved,
+            None => c.resolved_at.map(|t| t.unix_timestamp()),
+        };
         let meta = metadata_json
             .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string()))
             .unwrap_or_else(|| c.metadata_json.to_string());
         sqlx::query(
             r#"
-            UPDATE commitments SET status = ?, due_at = ?, project = ?, commitment_kind = ?, resolved_at = ?, metadata_json = ?
+            UPDATE commitments SET text = ?, status = ?, due_at = ?, project = ?, commitment_kind = ?, resolved_at = ?, metadata_json = ?
             WHERE id = ?
             "#,
         )
+        .bind(&new_text)
         .bind(new_status.to_string())
         .bind(new_due)
         .bind(&new_project)
