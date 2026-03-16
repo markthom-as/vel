@@ -28,12 +28,11 @@ pub async fn list_captures(
     State(state): State<AppState>,
     Query(q): Query<RecentCapturesQuery>,
 ) -> Result<Json<ApiResponse<Vec<ContextCapture>>>, AppError> {
-    let captures = state
-        .storage
-        .list_captures_recent(q.limit, q.today)
-        .await?;
-    let data: Vec<vel_api_types::ContextCapture> =
-        captures.into_iter().map(vel_api_types::ContextCapture::from).collect();
+    let captures = state.storage.list_captures_recent(q.limit, q.today).await?;
+    let data: Vec<vel_api_types::ContextCapture> = captures
+        .into_iter()
+        .map(vel_api_types::ContextCapture::from)
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -77,7 +76,12 @@ pub async fn create_capture(
     let payload_json = serde_json::json!({ "capture_id": capture_id.to_string() }).to_string();
     if let Err(e) = state
         .storage
-        .emit_event("CAPTURE_CREATED", "capture", Some(capture_id.as_ref()), &payload_json)
+        .emit_event(
+            "CAPTURE_CREATED",
+            "capture",
+            Some(capture_id.as_ref()),
+            &payload_json,
+        )
         .await
     {
         warn!(error = %e, "failed to emit CAPTURE_CREATED event");
@@ -94,6 +98,7 @@ pub async fn create_capture(
         .insert_signal(SignalInsert {
             signal_type: "capture_created".to_string(),
             source: "vel".to_string(),
+            source_ref: Some(capture_id.to_string()),
             timestamp: now_ts,
             payload_json: Some(signal_payload),
         })
@@ -132,4 +137,3 @@ pub async fn create_capture(
         request_id,
     )))
 }
-

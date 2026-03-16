@@ -253,6 +253,10 @@ impl ApiClient {
         self.post_empty("/v1/sync/activity").await
     }
 
+    pub async fn sync_git(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
+        self.post_empty("/v1/sync/git").await
+    }
+
     pub async fn sync_notes(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
         self.post_empty("/v1/sync/notes").await
     }

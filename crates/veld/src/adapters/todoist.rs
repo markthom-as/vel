@@ -14,32 +14,52 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
     let content = tokio::fs::read_to_string(path).await.map_err(|e| {
         crate::errors::AppError::internal(format!("read todoist snapshot {}: {}", path, e))
     })?;
-    let snapshot: TodoistSnapshot = serde_json::from_str(&content).map_err(|e| {
-        crate::errors::AppError::internal(format!("parse todoist snapshot: {}", e))
-    })?;
+    let snapshot: TodoistSnapshot = serde_json::from_str(&content)
+        .map_err(|e| crate::errors::AppError::internal(format!("parse todoist snapshot: {}", e)))?;
 
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let mut signals_count = 0u32;
 
-    for item in snapshot.items.into_iter().filter(|i| i.content.trim().len() > 0) {
+    for item in snapshot
+        .items
+        .into_iter()
+        .filter(|i| i.content.trim().len() > 0)
+    {
         let task_id = item.id.clone();
         let completed = item.checked.unwrap_or(false);
-        let due_ts = item.due.as_ref().and_then(|d| d.date.as_deref()).and_then(parse_iso_datetime);
+        let due_ts = item
+            .due
+            .as_ref()
+            .and_then(|d| d.date.as_deref())
+            .and_then(parse_iso_datetime);
         let commitment_kind = infer_kind(&item);
         let source_id = format!("todoist_{}", task_id);
 
         if completed {
             let all = storage.list_commitments(None, None, None, 1000).await?;
-            if let Some(com) = all.iter().find(|c| c.source_type == "todoist" && c.source_id.as_deref() == Some(source_id.as_str())) {
+            if let Some(com) = all.iter().find(|c| {
+                c.source_type == "todoist" && c.source_id.as_deref() == Some(source_id.as_str())
+            }) {
                 if com.status != vel_core::CommitmentStatus::Done {
                     storage
-                        .update_commitment(com.id.as_ref(), Some(CommitmentStatus::Done), None, None, None, None)
+                        .update_commitment(
+                            com.id.as_ref(),
+                            Some(CommitmentStatus::Done),
+                            None,
+                            None,
+                            None,
+                            None,
+                        )
                         .await?;
                 }
             }
         } else {
-            let existing = storage.list_commitments(Some(CommitmentStatus::Open), None, None, 1000).await?;
-            let has = existing.iter().any(|c| c.source_id.as_deref() == Some(source_id.as_str()));
+            let existing = storage
+                .list_commitments(Some(CommitmentStatus::Open), None, None, 1000)
+                .await?;
+            let has = existing
+                .iter()
+                .any(|c| c.source_id.as_deref() == Some(source_id.as_str()));
             if !has {
                 let _ = storage
                     .insert_commitment(CommitmentInsert {
@@ -47,7 +67,8 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
                         source_type: "todoist".to_string(),
                         source_id: Some(source_id.clone()),
                         status: CommitmentStatus::Open,
-                        due_at: due_ts.and_then(|t| time::OffsetDateTime::from_unix_timestamp(t).ok()),
+                        due_at: due_ts
+                            .and_then(|t| time::OffsetDateTime::from_unix_timestamp(t).ok()),
                         project: item.project_id.clone().map(|p| p.to_string()),
                         commitment_kind: Some(commitment_kind.to_string()),
                         metadata_json: Some(serde_json::json!({ "todoist_id": task_id })),
@@ -68,6 +89,7 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .insert_signal(SignalInsert {
                 signal_type: "external_task".to_string(),
                 source: "todoist".to_string(),
+                source_ref: Some(format!("todoist:{}", task_id)),
                 timestamp: now,
                 payload_json: Some(payload),
             })
@@ -82,7 +104,10 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
 fn infer_kind(item: &TodoistItem) -> &'static str {
     let content_lower = item.content.to_lowercase();
     let labels: Vec<String> = item.labels.iter().map(|s| s.to_lowercase()).collect();
-    if labels.contains(&"health".to_string()) || content_lower.contains("meds") || content_lower.contains("medication") {
+    if labels.contains(&"health".to_string())
+        || content_lower.contains("meds")
+        || content_lower.contains("medication")
+    {
         "medication"
     } else {
         "todo"

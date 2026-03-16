@@ -9,11 +9,12 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         return ingest_vel_invocation(storage).await;
     };
 
-    let content = tokio::fs::read_to_string(path)
-        .await
-        .map_err(|e| crate::errors::AppError::internal(format!("read activity snapshot {}: {}", path, e)))?;
-    let snapshot: ActivitySnapshot = serde_json::from_str(&content)
-        .map_err(|e| crate::errors::AppError::internal(format!("parse activity snapshot: {}", e)))?;
+    let content = tokio::fs::read_to_string(path).await.map_err(|e| {
+        crate::errors::AppError::internal(format!("read activity snapshot {}: {}", path, e))
+    })?;
+    let snapshot: ActivitySnapshot = serde_json::from_str(&content).map_err(|e| {
+        crate::errors::AppError::internal(format!("parse activity snapshot: {}", e))
+    })?;
 
     let default_source = snapshot
         .source
@@ -21,12 +22,17 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         .unwrap_or_else(|| "activity".to_string());
     let mut count = 0u32;
     for event in snapshot.events {
-        let signal_type = normalize_signal_type(&event.signal_type)
-            .ok_or_else(|| crate::errors::AppError::bad_request(format!("unsupported activity signal_type: {}", event.signal_type)))?;
+        let signal_type = normalize_signal_type(&event.signal_type).ok_or_else(|| {
+            crate::errors::AppError::bad_request(format!(
+                "unsupported activity signal_type: {}",
+                event.signal_type
+            ))
+        })?;
         storage
             .insert_signal(SignalInsert {
                 signal_type: signal_type.to_string(),
                 source: event.source.unwrap_or_else(|| default_source.clone()),
+                source_ref: None,
                 timestamp: event.timestamp,
                 payload_json: Some(serde_json::json!({
                     "host": event.host,
@@ -49,6 +55,7 @@ pub async fn ingest_vel_invocation(storage: &Storage) -> Result<u32, crate::erro
         .insert_signal(SignalInsert {
             signal_type: "vel_invocation".to_string(),
             source: "cli".to_string(),
+            source_ref: None,
             timestamp: now,
             payload_json: Some(serde_json::json!({ "type": "vel_invocation", "timestamp": now })),
         })

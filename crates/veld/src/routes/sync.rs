@@ -47,6 +47,20 @@ pub async fn sync_activity(
     )))
 }
 
+pub async fn sync_git(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
+    let count = adapters::git::ingest(&state.storage, &state.config).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(
+        SyncResultData {
+            source: "git".to_string(),
+            signals_ingested: count,
+        },
+        request_id,
+    )))
+}
+
 pub async fn sync_notes(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {

@@ -34,6 +34,7 @@ pub struct CaptureInsert {
 pub struct SignalInsert {
     pub signal_type: String,
     pub source: String,
+    pub source_ref: Option<String>,
     pub timestamp: i64,
     pub payload_json: Option<JsonValue>,
 }
@@ -43,6 +44,7 @@ pub struct SignalRecord {
     pub signal_id: String,
     pub signal_type: String,
     pub source: String,
+    pub source_ref: Option<String>,
     pub timestamp: i64,
     pub payload_json: JsonValue,
     pub created_at: i64,
@@ -678,16 +680,30 @@ impl Storage {
     // --- Signals (Phase B) ---
 
     pub async fn insert_signal(&self, input: SignalInsert) -> Result<String, StorageError> {
+        if let Some(source_ref) = input.source_ref.as_deref() {
+            if let Some(existing_id) = sqlx::query_scalar::<_, String>(
+                r#"SELECT signal_id FROM signals WHERE source = ? AND source_ref = ? LIMIT 1"#,
+            )
+            .bind(&input.source)
+            .bind(source_ref)
+            .fetch_optional(&self.pool)
+            .await?
+            {
+                return Ok(existing_id);
+            }
+        }
+
         let signal_id = format!("sig_{}", Uuid::new_v4().simple());
         let now = OffsetDateTime::now_utc().unix_timestamp();
         let payload_str = serde_json::to_string(input.payload_json.as_ref().unwrap_or(&json!({})))
             .map_err(|e| StorageError::Validation(e.to_string()))?;
         sqlx::query(
-            r#"INSERT INTO signals (signal_id, signal_type, source, timestamp, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)"#,
+            r#"INSERT INTO signals (signal_id, signal_type, source, source_ref, timestamp, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"#,
         )
         .bind(&signal_id)
         .bind(&input.signal_type)
         .bind(&input.source)
+        .bind(&input.source_ref)
         .bind(input.timestamp)
         .bind(&payload_str)
         .bind(now)
@@ -705,7 +721,7 @@ impl Storage {
         let limit = limit.min(500) as i64;
         let rows = sqlx::query(
             r#"
-            SELECT signal_id, signal_type, source, timestamp, payload_json, created_at
+            SELECT signal_id, signal_type, source, source_ref, timestamp, payload_json, created_at
             FROM signals
             WHERE (? IS NULL OR signal_type = ?) AND (? IS NULL OR timestamp >= ?)
             ORDER BY timestamp DESC
@@ -2357,6 +2373,7 @@ fn map_signal_row(row: &sqlx::sqlite::SqliteRow) -> Result<SignalRecord, Storage
         signal_id: row.try_get("signal_id")?,
         signal_type: row.try_get("signal_type")?,
         source: row.try_get("source")?,
+        source_ref: row.try_get("source_ref")?,
         timestamp: row.try_get("timestamp")?,
         payload_json: serde_json::from_str(&payload_str).unwrap_or_else(|_| json!({})),
         created_at: row.try_get("created_at")?,

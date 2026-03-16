@@ -104,6 +104,7 @@ pub fn build_app(
         .route("/v1/sync/calendar", post(routes::sync::sync_calendar))
         .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
         .route("/v1/sync/activity", post(routes::sync::sync_activity))
+        .route("/v1/sync/git", post(routes::sync::sync_git))
         .route("/v1/sync/notes", post(routes::sync::sync_notes))
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
@@ -441,6 +442,7 @@ mod tests {
             .insert_signal(vel_storage::SignalInsert {
                 signal_type: "calendar_event".to_string(),
                 source: "test".to_string(),
+                source_ref: None,
                 timestamp: now_ts + 3600,
                 payload_json: Some(serde_json::json!({
                     "start_time": now_ts + 3600,
@@ -508,6 +510,7 @@ mod tests {
             .insert_signal(vel_storage::SignalInsert {
                 signal_type: "calendar_event".to_string(),
                 source: "test".to_string(),
+                source_ref: None,
                 timestamp: event_start,
                 payload_json: Some(serde_json::json!({
                     "start_time": event_start,
@@ -809,6 +812,7 @@ mod tests {
             .insert_signal(vel_storage::SignalInsert {
                 signal_type: "calendar_event".to_string(),
                 source: "test".to_string(),
+                source_ref: None,
                 timestamp: event_start,
                 payload_json: Some(serde_json::json!({
                     "start_time": event_start,
@@ -1089,6 +1093,7 @@ mod tests {
             .insert_signal(vel_storage::SignalInsert {
                 signal_type: "calendar_event".to_string(),
                 source: "test".to_string(),
+                source_ref: None,
                 timestamp: event_start,
                 payload_json: Some(serde_json::json!({
                     "start_time": event_start,
@@ -1853,6 +1858,131 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sync_calendar_ingests_tzid_events() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!(
+            "vel_calendar_tzid_{}.ics",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let ics = r#"BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:evt_tzid_1
+DTSTART;TZID=America/Denver:20260116T110000
+DTEND;TZID=America/Denver:20260116T120000
+SUMMARY:Planning meeting
+LOCATION:Studio
+END:VEVENT
+END:VCALENDAR
+"#;
+        std::fs::write(&file_path, ics).unwrap();
+
+        let config = vel_config::AppConfig {
+            calendar_ics_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/calendar")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let signals = storage
+            .list_signals(Some("calendar_event"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1, "TZID calendar event should be ingested");
+
+        let expected_start = time::PrimitiveDateTime::new(
+            time::Date::from_calendar_date(2026, time::Month::January, 16).unwrap(),
+            time::Time::from_hms(11, 0, 0).unwrap(),
+        )
+        .assume_offset(time::UtcOffset::from_hms(-7, 0, 0).unwrap())
+        .unix_timestamp();
+        let expected_end = time::PrimitiveDateTime::new(
+            time::Date::from_calendar_date(2026, time::Month::January, 16).unwrap(),
+            time::Time::from_hms(12, 0, 0).unwrap(),
+        )
+        .assume_offset(time::UtcOffset::from_hms(-7, 0, 0).unwrap())
+        .unix_timestamp();
+
+        assert_eq!(signals[0].timestamp, expected_start);
+        assert_eq!(signals[0].payload_json["event_id"], "evt_tzid_1");
+        assert_eq!(signals[0].payload_json["title"], "Planning meeting");
+        assert_eq!(signals[0].payload_json["location"], "Studio");
+        assert_eq!(signals[0].payload_json["start"], expected_start);
+        assert_eq!(signals[0].payload_json["end"], expected_end);
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    async fn sync_calendar_preserves_explicit_prep_and_travel_minutes() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!(
+            "vel_calendar_fields_{}.ics",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let ics = r#"BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:evt_fields_1
+DTSTART:20260116T180000Z
+DTEND:20260116T190000Z
+SUMMARY:Client review
+LOCATION:HQ
+X-VEL-PREP-MINUTES:30
+X-VEL-TRAVEL-MINUTES:40
+END:VEVENT
+END:VCALENDAR
+"#;
+        std::fs::write(&file_path, ics).unwrap();
+
+        let config = vel_config::AppConfig {
+            calendar_ics_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/calendar")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let signals = storage
+            .list_signals(Some("calendar_event"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].payload_json["event_id"], "evt_fields_1");
+        assert_eq!(signals[0].payload_json["prep_minutes"], 30);
+        assert_eq!(signals[0].payload_json["travel_minutes"], 40);
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
     async fn sync_transcripts_ingests_rows_and_signals() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -2126,6 +2256,60 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sync_git_replay_is_deduplicated_by_source_ref() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!("vel_git_{}.json", uuid::Uuid::new_v4().simple()));
+        let snapshot = serde_json::json!({
+            "source": "git",
+            "events": [
+                {
+                    "timestamp": 1700002000,
+                    "repo": "/home/jove/code/vel",
+                    "repo_name": "vel",
+                    "branch": "main",
+                    "operation": "commit",
+                    "commit_oid": "abc123",
+                    "message": "feat: add git sync"
+                }
+            ]
+        });
+        std::fs::write(&file_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = vel_config::AppConfig {
+            git_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        for _ in 0..2 {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/v1/sync/git")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+        }
+
+        let signals = storage.list_signals(Some("git_activity"), None, 10).await.unwrap();
+        assert_eq!(signals.len(), 1);
+        assert_eq!(
+            signals[0].source_ref.as_deref(),
+            Some("git:/home/jove/code/vel|main|commit|abc123|1700002000")
+        );
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
     async fn inference_uses_shell_login_as_workstation_activity() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -2133,6 +2317,7 @@ mod tests {
             .insert_signal(vel_storage::SignalInsert {
                 signal_type: "shell_login".to_string(),
                 source: "workstation".to_string(),
+                source_ref: None,
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
                 payload_json: Some(
                     serde_json::json!({ "host": "ws-1", "activity": "shell_login" }),

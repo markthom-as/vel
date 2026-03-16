@@ -339,6 +339,7 @@ enum SyncCommand {
     Calendar,
     Todoist,
     Activity,
+    Git,
     Notes,
     Transcripts,
 }
@@ -515,6 +516,7 @@ async fn main() -> anyhow::Result<()> {
             SyncCommand::Calendar => commands::sync::run_calendar(&client).await,
             SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
             SyncCommand::Activity => commands::sync::run_activity(&client).await,
+            SyncCommand::Git => commands::sync::run_git(&client).await,
             SyncCommand::Notes => commands::sync::run_notes(&client).await,
             SyncCommand::Transcripts => commands::sync::run_transcripts(&client).await,
         },

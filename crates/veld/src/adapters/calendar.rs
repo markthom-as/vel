@@ -34,6 +34,7 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .insert_signal(SignalInsert {
                 signal_type: "calendar_event".to_string(),
                 source: "calendar".to_string(),
+                source_ref: None,
                 timestamp: ev.start_ts,
                 payload_json: Some(ev.payload),
             })

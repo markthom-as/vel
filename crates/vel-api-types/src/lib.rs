@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
-use vel_core::{ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass, RunId, SyncClass};
+use vel_core::{
+    ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass, RunId, SyncClass,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiMeta {
@@ -42,7 +44,11 @@ impl<T> ApiResponse<T> {
         }
     }
 
-    pub fn error(code: impl Into<String>, message: impl Into<String>, request_id: impl Into<String>) -> Self {
+    pub fn error(
+        code: impl Into<String>,
+        message: impl Into<String>,
+        request_id: impl Into<String>,
+    ) -> Self {
         Self {
             ok: false,
             data: None,
@@ -165,7 +171,6 @@ impl From<vel_core::ContextCapture> for ContextCapture {
         }
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodayData {
@@ -396,6 +401,7 @@ pub struct SuggestionUpdateRequest {
 pub struct SignalCreateRequest {
     pub signal_type: String,
     pub source: String,
+    pub source_ref: Option<String>,
     pub timestamp: Option<i64>,
     #[serde(default)]
     pub payload: JsonValue,
@@ -406,6 +412,7 @@ pub struct SignalData {
     pub signal_id: String,
     pub signal_type: String,
     pub source: String,
+    pub source_ref: Option<String>,
     pub timestamp: i64,
     pub payload: JsonValue,
     pub created_at: i64,

@@ -72,6 +72,7 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .insert_signal(SignalInsert {
                 signal_type: "note_document".to_string(),
                 source: "notes".to_string(),
+                source_ref: Some(format!("notes:{}", capture_id)),
                 timestamp: modified_at,
                 payload_json: Some(serde_json::json!({
                     "capture_id": capture_id.to_string(),

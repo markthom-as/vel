@@ -1,4 +1,7 @@
-use axum::{extract::{Query, State}, Json};
+use axum::{
+    extract::{Query, State},
+    Json,
+};
 use serde::Deserialize;
 use uuid::Uuid;
 use vel_api_types::{ApiResponse, SignalCreateRequest, SignalData};
@@ -29,6 +32,7 @@ pub async fn create_signal(
         .insert_signal(SignalInsert {
             signal_type: payload.signal_type,
             source: payload.source,
+            source_ref: payload.source_ref,
             timestamp,
             payload_json: Some(payload.payload),
         })
@@ -36,18 +40,27 @@ pub async fn create_signal(
 
     if let Err(e) = state
         .storage
-        .emit_event("SIGNAL_INGESTED", "signal", Some(&signal_id), &serde_json::json!({ "signal_id": signal_id }).to_string())
+        .emit_event(
+            "SIGNAL_INGESTED",
+            "signal",
+            Some(&signal_id),
+            &serde_json::json!({ "signal_id": signal_id }).to_string(),
+        )
         .await
     {
         tracing::warn!(error = %e, "failed to emit SIGNAL_INGESTED");
     }
 
     let signals = state.storage.list_signals(None, None, 1).await?;
-    let record = signals.into_iter().next().ok_or_else(|| AppError::internal("signal not found after insert"))?;
+    let record = signals
+        .into_iter()
+        .next()
+        .ok_or_else(|| AppError::internal("signal not found after insert"))?;
     let data = SignalData {
         signal_id: record.signal_id,
         signal_type: record.signal_type,
         source: record.source,
+        source_ref: record.source_ref,
         timestamp: record.timestamp,
         payload: record.payload_json,
         created_at: record.created_at,
@@ -70,6 +83,7 @@ pub async fn list_signals(
             signal_id: r.signal_id,
             signal_type: r.signal_type,
             source: r.source,
+            source_ref: r.source_ref,
             timestamp: r.timestamp,
             payload: r.payload_json,
             created_at: r.created_at,

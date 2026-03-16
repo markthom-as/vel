@@ -31,6 +31,16 @@ pub async fn run_activity(client: &ApiClient) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub async fn run_git(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client.sync_git().await.context("sync git")?;
+    let d = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("git: {} signals ingested", d.signals_ingested);
+    Ok(())
+}
+
 pub async fn run_notes(client: &ApiClient) -> anyhow::Result<()> {
     let resp = client.sync_notes().await.context("sync notes")?;
     let d = resp

@@ -10,11 +10,12 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         None => return Ok(0),
     };
 
-    let content = tokio::fs::read_to_string(path)
-        .await
-        .map_err(|e| crate::errors::AppError::internal(format!("read transcript snapshot {}: {}", path, e)))?;
-    let snapshot: TranscriptSnapshot = serde_json::from_str(&content)
-        .map_err(|e| crate::errors::AppError::internal(format!("parse transcript snapshot: {}", e)))?;
+    let content = tokio::fs::read_to_string(path).await.map_err(|e| {
+        crate::errors::AppError::internal(format!("read transcript snapshot {}: {}", path, e))
+    })?;
+    let snapshot: TranscriptSnapshot = serde_json::from_str(&content).map_err(|e| {
+        crate::errors::AppError::internal(format!("parse transcript snapshot: {}", e))
+    })?;
 
     let snapshot_source = snapshot.source();
     let snapshot_conversation_id = snapshot.conversation_id();
@@ -24,11 +25,14 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .conversation_id
             .clone()
             .or_else(|| snapshot_conversation_id.clone())
-            .ok_or_else(|| crate::errors::AppError::bad_request("transcript message missing conversation_id"))?;
-        let source = message
-            .source
-            .clone()
-            .unwrap_or_else(|| snapshot_source.clone().unwrap_or_else(|| "transcript".to_string()));
+            .ok_or_else(|| {
+                crate::errors::AppError::bad_request("transcript message missing conversation_id")
+            })?;
+        let source = message.source.clone().unwrap_or_else(|| {
+            snapshot_source
+                .clone()
+                .unwrap_or_else(|| "transcript".to_string())
+        });
         let timestamp = message.timestamp;
         let role = message.role.trim().to_string();
         let content = message.content.trim().to_string();
@@ -61,6 +65,7 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .insert_signal(SignalInsert {
                 signal_type: "assistant_message".to_string(),
                 source: source.clone(),
+                source_ref: Some(transcript_id.clone()),
                 timestamp,
                 payload_json: Some(serde_json::json!({
                     "transcript_id": transcript_id,
@@ -78,7 +83,13 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
     Ok(signals_count)
 }
 
-fn stable_transcript_id(source: &str, conversation_id: &str, timestamp: i64, role: &str, content: &str) -> String {
+fn stable_transcript_id(
+    source: &str,
+    conversation_id: &str,
+    timestamp: i64,
+    role: &str,
+    content: &str,
+) -> String {
     let mut hasher = Sha256::new();
     hasher.update(source.as_bytes());
     hasher.update(b"|");
