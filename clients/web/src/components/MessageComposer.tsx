@@ -11,10 +11,12 @@ import {
 
 interface MessageComposerProps {
   conversationId: string;
-  onSent: (userMessage: MessageData, assistantMessage?: MessageData | null) => void;
+  onOptimisticSend?: (text: string) => string | undefined;
+  onSent: (clientMessageId: string | undefined, userMessage: MessageData, assistantMessage?: MessageData | null) => void;
+  onSendFailed?: (clientMessageId: string | undefined) => void;
 }
 
-export function MessageComposer({ conversationId, onSent }: MessageComposerProps) {
+export function MessageComposer({ conversationId, onOptimisticSend, onSent, onSendFailed }: MessageComposerProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
     if (!trimmed || sending) return;
     setError(null);
     setSending(true);
+    const clientMessageId = onOptimisticSend?.(trimmed);
     try {
       const res = await apiPost<ApiResponse<CreateMessageResponse>>(
         `/api/conversations/${conversationId}/messages`,
@@ -47,22 +50,25 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
         (value) => decodeApiResponse(value, decodeCreateMessageResponse),
       );
       if (res.ok && res.data) {
-        onSent(res.data.user_message, res.data.assistant_message ?? null);
+        onSent(clientMessageId, res.data.user_message, res.data.assistant_message ?? null);
         setText('');
         if (res.data.assistant_error) {
           setError(res.data.assistant_error);
         }
       } else if (res.ok && !res.data) {
+        onSendFailed?.(clientMessageId);
         setError("Server didn't return the message. Try again.");
       } else {
+        onSendFailed?.(clientMessageId);
         setError(res.error?.message ?? 'Send failed');
       }
     } catch (err) {
+      onSendFailed?.(clientMessageId);
       setError(err instanceof Error ? err.message : 'Send failed');
     } finally {
       setSending(false);
     }
-  }, [text, conversationId, sending, onSent]);
+  }, [text, conversationId, sending, onOptimisticSend, onSent, onSendFailed]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

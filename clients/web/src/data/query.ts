@@ -75,6 +75,13 @@ function refreshSnapshot<T>(entry: QueryEntry<T>) {
   };
 }
 
+function snapshotsEqual<T>(left: QuerySnapshot<T>, right: QuerySnapshot<T>): boolean {
+  return left.data === right.data
+    && left.error === right.error
+    && left.loading === right.loading
+    && left.refreshing === right.refreshing;
+}
+
 function subscribe(key: QueryKey, listener: () => void): () => void {
   const entry = getEntry(key);
   entry.listeners.add(listener);
@@ -167,21 +174,46 @@ export function setQueryData<T>(
   updater: T | undefined | ((current: T | undefined) => T | undefined),
 ): void {
   const entry = getEntry<T>(key);
-  entry.data = typeof updater === 'function'
+  const nextData = typeof updater === 'function'
     ? (updater as (current: T | undefined) => T | undefined)(entry.data)
     : updater;
+  const nextSnapshot: QuerySnapshot<T> = {
+    data: nextData,
+    error: null,
+    loading: false,
+    refreshing: false,
+  };
+
+  if (
+    entry.data === nextData
+    && entry.error === null
+    && entry.hasLoaded
+    && !entry.stale
+    && snapshotsEqual(entry.snapshot, nextSnapshot)
+  ) {
+    return;
+  }
+
+  entry.data = nextData;
   entry.error = null;
   entry.hasLoaded = true;
   entry.stale = false;
-  refreshSnapshot(entry);
+  entry.snapshot = nextSnapshot;
   notify(entry as QueryEntry<unknown>);
+}
+
+export function getQueryData<T>(key: QueryKey): T | undefined {
+  return getEntry<T>(key).data;
 }
 
 export function invalidateQuery(key: QueryKey, options: { refetch?: boolean } = {}): void {
   const entry = getEntry(key);
+  const wasStale = entry.stale;
   entry.stale = true;
-  refreshSnapshot(entry);
-  notify(entry);
+  if (!wasStale) {
+    refreshSnapshot(entry);
+    notify(entry);
+  }
 
   if (options.refetch && entry.fetcher && entry.listeners.size > 0) {
     void runFetch(key, entry.fetcher, true);

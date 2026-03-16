@@ -9,6 +9,8 @@ vi.mock('../api/client', () => ({
 
 describe('MessageComposer', () => {
   const onSent = vi.fn()
+  const onOptimisticSend = vi.fn()
+  const onSendFailed = vi.fn()
 
   function requireHtmlElement<T extends HTMLElement>(element: T | null): T {
     expect(element).not.toBeNull()
@@ -17,6 +19,8 @@ describe('MessageComposer', () => {
 
   beforeEach(() => {
     onSent.mockClear()
+    onOptimisticSend.mockReset()
+    onSendFailed.mockReset()
     vi.mocked(api.apiPost).mockReset()
   })
 
@@ -51,8 +55,15 @@ describe('MessageComposer', () => {
       data: { user_message: mockUserMessage, assistant_message: null },
       meta: { request_id: 'req_1' },
     })
+    onOptimisticSend.mockReturnValue('tmp_1')
 
-    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
+    const { container } = render(
+      <MessageComposer
+        conversationId="conv_1"
+        onOptimisticSend={onOptimisticSend}
+        onSent={onSent}
+      />
+    )
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
     const textarea = requireHtmlElement(composer.querySelector('textarea'))
     const sendBtn = within(composer).getByRole('button', { name: /send/i })
@@ -67,14 +78,23 @@ describe('MessageComposer', () => {
       )
     })
     await waitFor(() => {
-      expect(onSent).toHaveBeenCalledWith(mockUserMessage, null)
+      expect(onOptimisticSend).toHaveBeenCalledWith('Hi')
+      expect(onSent).toHaveBeenCalledWith('tmp_1', mockUserMessage, null)
     })
   })
 
   it('shows error when apiPost rejects', async () => {
     vi.mocked(api.apiPost).mockRejectedValue(new Error('Network error'))
+    onOptimisticSend.mockReturnValue('tmp_2')
 
-    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
+    const { container } = render(
+      <MessageComposer
+        conversationId="conv_1"
+        onOptimisticSend={onOptimisticSend}
+        onSent={onSent}
+        onSendFailed={onSendFailed}
+      />
+    )
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
     const textarea = requireHtmlElement(composer.querySelector('textarea'))
     const sendBtn = within(composer).getByRole('button', { name: /send/i })
@@ -84,5 +104,6 @@ describe('MessageComposer', () => {
     await waitFor(() => {
       expect(within(composer).getByRole('alert')).toHaveTextContent(/network error/i)
     })
+    expect(onSendFailed).toHaveBeenCalledWith('tmp_2')
   })
 })

@@ -28,12 +28,13 @@
 ## “Nothing happens when I send a message”
 
 - **Backend:** `POST /api/conversations/:id/messages` is implemented and returns `CreateMessageResponse` (`{ ok, data: { user_message, assistant_message?, assistant_error? } }`). Verified with curl.
-- **Frontend:** MessageComposer posts, then on success calls `onSent(res.data)` and ThreadView appends via `setMessages(prev => [...prev, msg])`. So the message should appear.
-- **Change made:** Composer now has **error state**: if the request fails or the API returns `ok: false`, the error is shown under the composer (red text). That will surface network errors, 4xx/5xx, or “Send failed” when `res.data` is missing.
+- **Frontend:** ThreadView now inserts the user message optimistically as soon as send starts, then reconciles that provisional row against both the websocket `messages:new` echo and the confirmed `POST /api/conversations/:id/messages` payload. That keeps a single message row even if the websocket event arrives before or after the HTTP response.
+- **Failure behavior:** Composer surfaces an inline error if the request fails or the API returns `ok: false`, and the optimistic message is removed if send confirmation never arrives.
+- **Intervention actions:** Snooze, resolve, and dismiss now hide optimistically in thread/inbox state and restore the intervention if the POST fails.
 - **If it still does nothing:** Check the browser devtools Network tab for the POST to `/api/conversations/.../messages`: status code and response body. Ensure you’re hitting the Vite dev server (so the proxy forwards to veld). Ensure veld is the current binary (restart after pull/build).
 
 ## Outstanding (concise)
 
-1. **Reconciliation:** define optimistic-vs-confirmed behavior for message send and intervention actions so websocket echoes and POST responses converge cleanly.
-2. **State orchestration polish:** tighten loading/error/empty presentation now that the fetch path is shared.
-3. **Optional product polish:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.
+1. **State orchestration polish:** tighten loading/error/empty presentation now that the fetch path is shared.
+2. **Optional product polish:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.
+3. **Realtime contract hardening:** add event sequencing or stable envelope ids if later work needs deterministic replay or stronger websocket resume semantics.

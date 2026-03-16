@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiPost } from '../api/client';
 import type { InboxItemData, MessageData, WsEvent } from '../types';
-import { invalidateQuery, setQueryData, useQuery } from '../data/query';
+import { getQueryData, invalidateQuery, setQueryData, useQuery } from '../data/query';
 import { loadConversationInterventions, loadConversationMessages, queryKeys } from '../data/resources';
 import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
@@ -10,6 +10,11 @@ import { subscribeWs } from '../realtime/ws';
 
 interface ThreadViewProps {
   conversationId: string | null;
+}
+
+interface PendingInterventionAction {
+  state: string;
+  confirmed: boolean;
 }
 
 export function ThreadView({ conversationId }: ThreadViewProps) {
@@ -22,6 +27,10 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   );
   const conversationsKey = useMemo(() => queryKeys.conversations(), []);
   const inboxKey = useMemo(() => queryKeys.inbox(), []);
+  const pendingInterventionActionsKey = useMemo(
+    () => queryKeys.pendingInterventionActions(),
+    [],
+  );
 
   const {
     data: messages = [],
@@ -53,8 +62,16 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     },
     { enabled: Boolean(conversationId) },
   );
+  const { data: pendingInterventionActions = {} } = useQuery<Record<string, PendingInterventionAction>>(
+    pendingInterventionActionsKey,
+    async () => ({}),
+    { enabled: false },
+  );
 
-  const interventionsByMessageId = interventions.reduce<Record<string, string>>((next, intervention) => {
+  const visibleInterventions = interventions.filter(
+    (intervention) => pendingInterventionActions[intervention.id] === undefined,
+  );
+  const interventionsByMessageId = visibleInterventions.reduce<Record<string, string>>((next, intervention) => {
     if (!(intervention.message_id in next)) {
       next[intervention.message_id] = intervention.id;
     }
@@ -73,7 +90,7 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
           return;
         }
         setQueryData<MessageData[]>(messagesKey, (prev = []) =>
-          appendUniqueMessages(prev, [message]),
+          reconcileIncomingMessage(prev, message),
         );
         invalidateQuery(conversationsKey, { refetch: true });
         return;
@@ -85,19 +102,59 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
         }
         setQueryData<InboxItemData[]>(
           interventionsKey,
-          (prev = []) => upsertInboxItem(prev, payload),
+          (prev = []) => upsertInboxItem(prev, payload, pendingInterventionActions),
         );
         setQueryData<InboxItemData[]>(inboxKey, (prev = []) =>
-          upsertInboxItem(prev, payload),
+          upsertInboxItem(prev, payload, pendingInterventionActions),
         );
         return;
       }
       if (event.type === 'interventions:updated') {
+        setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => {
+          const pendingAction = prev[event.payload.id];
+          if (!pendingAction || pendingAction.state !== event.payload.state) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            [event.payload.id]: {
+              ...pendingAction,
+              confirmed: true,
+            },
+          };
+        });
         invalidateQuery(interventionsKey, { refetch: true });
         invalidateQuery(inboxKey, { refetch: true });
       }
     });
-  }, [conversationId, conversationsKey, inboxKey, interventionsKey, messages, messagesKey]);
+  }, [
+    conversationId,
+    conversationsKey,
+    inboxKey,
+    interventionsKey,
+    messages,
+    messagesKey,
+    pendingInterventionActions,
+    pendingInterventionActionsKey,
+  ]);
+
+  useEffect(() => {
+    setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => {
+      let changed = false;
+      const next: Record<string, PendingInterventionAction> = {};
+
+      for (const [interventionId, pendingAction] of Object.entries(prev)) {
+        if (!pendingAction.confirmed || interventions.some((intervention) => intervention.id === interventionId)) {
+          next[interventionId] = pendingAction;
+        } else {
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [interventions, pendingInterventionActionsKey]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -120,26 +177,77 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     );
   }, [inboxKey, interventionsKey]);
 
+  const restoreInterventions = useCallback(
+    (
+      interventionId: string,
+      previousConversationInterventions: InboxItemData[] | undefined,
+      previousInboxItems: InboxItemData[] | undefined,
+    ) => {
+      setQueryData<InboxItemData[]>(interventionsKey, previousConversationInterventions ?? []);
+      setQueryData<InboxItemData[]>(inboxKey, previousInboxItems ?? []);
+      setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => {
+        if (!(interventionId in prev)) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[interventionId];
+        return next;
+      });
+    },
+    [inboxKey, interventionsKey, pendingInterventionActionsKey],
+  );
+
+  const startInterventionAction = useCallback((interventionId: string, state: string) => {
+    setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => ({
+      ...prev,
+      [interventionId]: {
+        state,
+        confirmed: false,
+      },
+    }));
+  }, [pendingInterventionActionsKey]);
+
   const handleSnooze = useCallback(async (interventionId: string) => {
+    const previousConversationInterventions = getQueryData<InboxItemData[]>(interventionsKey);
+    const previousInboxItems = getQueryData<InboxItemData[]>(inboxKey);
+    startInterventionAction(interventionId, 'snoozed');
+    removeIntervention(interventionId);
     try {
       await apiPost(`/api/interventions/${interventionId}/snooze`, { minutes: 15 });
-      removeIntervention(interventionId);
-    } catch (_) {}
-  }, [removeIntervention]);
+      invalidateQuery(interventionsKey, { refetch: true });
+      invalidateQuery(inboxKey, { refetch: true });
+    } catch (_) {
+      restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
+    }
+  }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
 
   const handleResolve = useCallback(async (interventionId: string) => {
+    const previousConversationInterventions = getQueryData<InboxItemData[]>(interventionsKey);
+    const previousInboxItems = getQueryData<InboxItemData[]>(inboxKey);
+    startInterventionAction(interventionId, 'resolved');
+    removeIntervention(interventionId);
     try {
       await apiPost(`/api/interventions/${interventionId}/resolve`, {});
-      removeIntervention(interventionId);
-    } catch (_) {}
-  }, [removeIntervention]);
+      invalidateQuery(interventionsKey, { refetch: true });
+      invalidateQuery(inboxKey, { refetch: true });
+    } catch (_) {
+      restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
+    }
+  }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
 
   const handleDismiss = useCallback(async (interventionId: string) => {
+    const previousConversationInterventions = getQueryData<InboxItemData[]>(interventionsKey);
+    const previousInboxItems = getQueryData<InboxItemData[]>(inboxKey);
+    startInterventionAction(interventionId, 'dismissed');
+    removeIntervention(interventionId);
     try {
       await apiPost(`/api/interventions/${interventionId}/dismiss`, {});
-      removeIntervention(interventionId);
-    } catch (_) {}
-  }, [removeIntervention]);
+      invalidateQuery(interventionsKey, { refetch: true });
+      invalidateQuery(inboxKey, { refetch: true });
+    } catch (_) {
+      restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
+    }
+  }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
 
   if (!conversationId) {
     return (
@@ -188,15 +296,43 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       </p>
       <MessageComposer
         conversationId={conversationId}
-        onSent={(userMessage, assistantMessage) => {
+        onOptimisticSend={(text) => {
+          const clientMessageId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const optimisticMessage: MessageData = {
+            id: clientMessageId,
+            conversation_id: conversationId,
+            role: 'user',
+            kind: 'text',
+            content: { text },
+            status: 'sending',
+            importance: null,
+            created_at: Math.floor(Date.now() / 1000),
+            updated_at: null,
+          };
           setQueryData<MessageData[]>(messagesKey, (prev = []) =>
-            appendUniqueMessages(prev, [
+            appendUniqueMessages(prev, [optimisticMessage]),
+          );
+          return clientMessageId;
+        }}
+        onSent={(clientMessageId, userMessage, assistantMessage) => {
+          setQueryData<MessageData[]>(messagesKey, (prev = []) =>
+            reconcileConfirmedSend(
+              prev,
+              clientMessageId,
               userMessage,
-              ...(assistantMessage ? [assistantMessage] : []),
-            ]),
+              assistantMessage ? [assistantMessage] : [],
+            ),
           );
           invalidateQuery(conversationsKey, { refetch: true });
           void refetchMessages();
+        }}
+        onSendFailed={(clientMessageId) => {
+          if (!clientMessageId) {
+            return;
+          }
+          setQueryData<MessageData[]>(messagesKey, (prev = []) =>
+            prev.filter((message) => message.id !== clientMessageId),
+          );
         }}
       />
     </>
@@ -220,7 +356,55 @@ function appendUniqueMessages(existing: MessageData[], nextMessages: MessageData
   return additions.length > 0 ? [...existing, ...additions] : existing;
 }
 
-function upsertInboxItem(items: InboxItemData[], nextItem: InboxItemData): InboxItemData[] {
+function reconcileIncomingMessage(existing: MessageData[], incoming: MessageData): MessageData[] {
+  const existingIndex = existing.findIndex((message) => message.id === incoming.id);
+  if (existingIndex !== -1) {
+    const next = [...existing];
+    next[existingIndex] = incoming;
+    return next;
+  }
+
+  const pendingIndex = existing.findIndex(
+    (message) =>
+      message.status === 'sending'
+      && message.conversation_id === incoming.conversation_id
+      && message.role === incoming.role
+      && message.kind === incoming.kind
+      && JSON.stringify(message.content) === JSON.stringify(incoming.content),
+  );
+  if (pendingIndex !== -1) {
+    const next = [...existing];
+    next[pendingIndex] = incoming;
+    return next;
+  }
+
+  return [...existing, incoming];
+}
+
+function reconcileConfirmedSend(
+  existing: MessageData[],
+  clientMessageId: string | undefined,
+  userMessage: MessageData,
+  assistantMessages: MessageData[],
+): MessageData[] {
+  let next = clientMessageId
+    ? existing.filter((message) => message.id !== clientMessageId)
+    : [...existing];
+  next = reconcileIncomingMessage(next, userMessage);
+  for (const assistantMessage of assistantMessages) {
+    next = reconcileIncomingMessage(next, assistantMessage);
+  }
+  return next;
+}
+
+function upsertInboxItem(
+  items: InboxItemData[],
+  nextItem: InboxItemData,
+  pendingInterventionActions: Record<string, PendingInterventionAction>,
+): InboxItemData[] {
+  if (pendingInterventionActions[nextItem.id]) {
+    return items;
+  }
   const existingIndex = items.findIndex((item) => item.id === nextItem.id);
   if (existingIndex === -1) {
     return [nextItem, ...items];
