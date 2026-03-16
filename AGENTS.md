@@ -1,114 +1,82 @@
 # AGENTS.md
 
-This document defines how AI coding agents (such as Codex) should interact with the Vel repository.
+This document defines durable repository rules for AI coding agents working in Vel.
+
+## Authority
+
+- Repo-wide implementation truth lives in `docs/status.md`.
+- `AGENTS.md` defines durable boundaries and workflow rules, not a mutable feature ledger.
+- If `AGENTS.md` and a status claim appear to conflict, treat `docs/status.md` as canonical for shipped behavior and `AGENTS.md` as canonical for repository boundaries.
 
 ## Mission
 
-Vel is a **local-first cognition runtime** for capture, recall, and daily orientation.
+Vel is a local-first cognition runtime for capture, recall, and daily orientation.
 
-**Product principle:** Vel should optimize for **repeated personal use before broad generality** — better daily loops before fancy automation, better capture/review ergonomics before agent complexity, better trust/export before speculative integrations.
+Product principle:
+- optimize for repeated personal use before broad generality
+- prefer daily loops over speculative automation
+- prefer capture/review ergonomics over agent complexity
+- prefer trust/export over speculative integrations
 
-## Repository boundary rules
+## Durable Repository Rules
 
-- **vel-core** owns domain semantics and domain types (e.g. ContextCapture, SearchResult, Run, Ref).
-- **vel-storage** must not depend on **vel-api-types**. Storage returns core/domain structs only.
-- **vel-api-types** contains transport DTOs only; map from core types at the boundary (e.g. in veld routes).
+- `vel-core` owns domain semantics and domain types.
+- `vel-storage` must not depend on `vel-api-types`.
+- `vel-api-types` contains transport DTOs only; map from core types at the boundary.
 - Route handlers should remain thin: parse request, call service, map response/error.
+- Services should hold application logic.
 - Run-backed operations must emit run events and persist terminal state.
-- Prefer structured payloads (e.g. `serde_json::Value`) over raw JSON strings in domain/API.
-- Docs must distinguish between implemented and planned behavior; see `docs/status.md`.
-
-## Current implementation truth
-
-As of now:
-
-- Captures, search, runs, run_events, and doctor are implemented; run payloads use `serde_json::Value` in domain/API.
-- Context endpoints (today, morning, end-of-day) are **run-backed**: each creates a run, writes a managed JSON artifact, and run → artifact ref; see `services/context_runs`.
-- Artifacts have `storage_kind` (managed | external), partial metadata/provenance support.
-- Services live in `veld` (context_generation, doctor); routes are thin.
-- Run transitions in `vel-core` are immutable (return new `Self`).
-
-AI agents working in this repository should prioritize:
-
-1. clarity of architecture
-2. local-first design
-3. modular systems
-4. long-term maintainability
-5. user privacy and data ownership
-
----
+- Prefer structured payloads such as `serde_json::Value` over raw JSON strings in domain and API layers.
+- Docs must distinguish implemented behavior from planned behavior; use `docs/status.md` for current truth.
 
 ## Development Principles
 
 ### Local-First
 
-Vel must operate without reliance on external services whenever possible.
-
-Remote APIs and SaaS models should be optional.
-
----
+- Prefer local files, local databases, and user-controlled infrastructure.
+- Remote services should be optional.
 
 ### Modular Architecture
 
-Subsystems should be separated into modules such as:
-
-- capture
-- memory graph
-- alignment engine
-- execution layer
-- interfaces
-
-Modules must communicate through clearly defined interfaces.
-
----
+- Keep subsystem boundaries clear.
+- Prefer explicit interfaces between capture, memory, context, execution, and interface layers.
 
 ### Data Ownership
 
-User data must always remain under user control.
-
-Storage should default to:
-
-- local databases
-- filesystem storage
-- user-controlled infrastructure
-
----
+- User data should remain under user control.
+- Default storage choices should be inspectable and local-first.
 
 ### Explainability
 
-Vel decisions should be traceable.
+- Vel decisions should be traceable.
+- Suggestions and nudges should make it possible to determine what context and rules were used.
 
-When Vel suggests actions it should be possible to determine:
+## Coding Expectations
 
-- which context it used
-- which rules triggered the suggestion
+- Prefer readable code over clever code.
+- Avoid unnecessary dependencies.
+- Keep builds reproducible.
+- Write tests where appropriate.
+- Document new modules or contracts when adding them.
 
----
+## Agent Workflow
 
-## Coding Style Expectations
+Before substantial implementation work, read:
 
-- prefer readable code over clever code
-- include documentation for all modules
-- avoid unnecessary dependencies
-- ensure reproducible builds
+1. `docs/product-spec.md`
+2. `docs/architecture.md`
+3. `docs/data-model.md`
+4. `docs/mvp.md`
+5. `docs/status.md`
 
----
+Then:
 
-## AI Agent Workflow
+1. implement the minimum viable slice first
+2. keep architecture boundaries intact
+3. write or update tests where appropriate
+4. update documentation for any changed module, API contract, or workflow
 
-Agents contributing to the repository should:
-
-1. read `docs/product-spec.md`
-2. read `docs/architecture.md`
-3. read `docs/data-model.md`
-4. read `docs/mvp.md`
-5. implement minimal viable components first
-6. write tests where appropriate
-7. document new modules
-
----
-
-## Priority Order for Implementation
+## Priority Order
 
 1. capture system
 2. memory graph
@@ -116,11 +84,9 @@ Agents contributing to the repository should:
 4. daily alignment engine
 5. execution automation
 
----
+## Early Non-Goals
 
-## Non-Goals (Early Versions)
-
-Early versions of Vel should avoid:
+Avoid early overreach into:
 
 - complex distributed systems before needed
 - unnecessary cloud dependencies
@@ -128,4 +94,4 @@ Early versions of Vel should avoid:
 - excessive UI complexity
 - speculative productization features
 
-The priority is **core cognition features**.
+The priority is core cognition features.

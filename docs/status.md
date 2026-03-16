@@ -4,9 +4,15 @@ This document is the **canonical repo-wide implementation ledger** for Vel.
 
 - All repo-wide implementation status questions resolve here.
 - Subsystem docs may contain additional detail, but must not contradict this file.
-- Assumption for the current realtime chat rollout: the intervention-creation slice lands with websocket event `interventions:new`. If that branch has not merged yet in a given checkout, treat that one event as pending; the rest of this file remains canonical.
+- Product vision docs, MVP docs, and ticket packs are not implementation truth.
+- If another doc conflicts with this file about what is shipped now, follow this file.
 
-What is implemented, what is partial, and what is next.
+This file should answer four questions quickly:
+
+- what is implemented now
+- what is partial
+- what is planned next
+- what is intentionally deferred
 
 ## Implemented
 
@@ -64,7 +70,7 @@ What is implemented, what is partial, and what is next.
 
 - Run lifecycle: optional automation (e.g. retry job) when status is RetryScheduled; manual `vel run status <id> retry_scheduled` and PATCH /v1/runs/:id implemented.
 
-## Next to make Vel usable daily (dogfooding roadmap)
+## Near-Term Dogfooding Work
 
 - **Recent/review flows** — `vel recent`, `vel review today`, `vel review week`, `vel artifact latest` (implemented).
 - **Capture ergonomics** — `vel capture` with `--type`, `--source`, `--stdin` / `-` (implemented).
