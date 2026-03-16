@@ -6,19 +6,28 @@ use vel_api_types::{EndOfDayData, MorningData, TodayData};
 use vel_core::OrientationSnapshot;
 
 pub fn build_today(snapshot: &OrientationSnapshot) -> TodayData {
-    let reminders = extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
-    let focus_candidates = extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let reminders =
+        extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let focus_candidates =
+        extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
     TodayData {
         date: OffsetDateTime::now_utc().date().to_string(),
-        recent_captures: snapshot.recent_today.iter().cloned().map(Into::into).collect(),
+        recent_captures: snapshot
+            .recent_today
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .collect(),
         focus_candidates,
         reminders: reminders.into_iter().take(5).collect(),
     }
 }
 
 pub fn build_morning(snapshot: &OrientationSnapshot) -> MorningData {
-    let top_active_threads = extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
-    let pending_commitments = extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let top_active_threads =
+        extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let pending_commitments =
+        extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
     MorningData {
         date: OffsetDateTime::now_utc().date().to_string(),
         suggested_focus: top_active_threads.first().cloned(),
@@ -29,11 +38,18 @@ pub fn build_morning(snapshot: &OrientationSnapshot) -> MorningData {
 }
 
 pub fn build_end_of_day(snapshot: &OrientationSnapshot) -> EndOfDayData {
-    let what_remains_open = extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
-    let what_may_matter_tomorrow = extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let what_remains_open =
+        extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let what_may_matter_tomorrow =
+        extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
     EndOfDayData {
         date: OffsetDateTime::now_utc().date().to_string(),
-        what_was_done: snapshot.recent_today.iter().cloned().map(Into::into).collect(),
+        what_was_done: snapshot
+            .recent_today
+            .iter()
+            .cloned()
+            .map(Into::into)
+            .collect(),
         what_remains_open: what_remains_open.into_iter().take(10).collect(),
         what_may_matter_tomorrow: what_may_matter_tomorrow.into_iter().take(5).collect(),
     }
@@ -94,9 +110,37 @@ fn tokenize(input: &str) -> Vec<String> {
 
 fn stopwords() -> HashSet<&'static str> {
     [
-        "about", "after", "again", "also", "been", "budget", "capture", "chorus", "could", "from",
-        "have", "idea", "into", "just", "like", "memo", "more", "note", "notes", "project", "quick",
-        "remembering", "should", "some", "that", "this", "today", "what", "with", "work", "would",
+        "about",
+        "after",
+        "again",
+        "also",
+        "been",
+        "budget",
+        "capture",
+        "chorus",
+        "could",
+        "from",
+        "have",
+        "idea",
+        "into",
+        "just",
+        "like",
+        "memo",
+        "more",
+        "note",
+        "notes",
+        "project",
+        "quick",
+        "remembering",
+        "should",
+        "some",
+        "that",
+        "this",
+        "today",
+        "what",
+        "with",
+        "work",
+        "would",
     ]
     .into_iter()
     .collect()
@@ -109,7 +153,12 @@ mod tests {
     #[test]
     fn extracts_focus_candidates_from_recent_captures() {
         let threads = extract_focus_candidates(
-            ["remember lidar budget", "lidar estimate follow up", "budget draft"].into_iter(),
+            [
+                "remember lidar budget",
+                "lidar estimate follow up",
+                "budget draft",
+            ]
+            .into_iter(),
         );
         assert!(threads.contains(&"lidar".to_string()));
     }
@@ -117,7 +166,12 @@ mod tests {
     #[test]
     fn extracts_commitments_from_marker_phrases() {
         let commitments = extract_commitments(
-            ["remember lidar budget", "normal note", "follow up with Cornelius"].into_iter(),
+            [
+                "remember lidar budget",
+                "normal note",
+                "follow up with Cornelius",
+            ]
+            .into_iter(),
         );
         assert_eq!(commitments.len(), 2);
     }

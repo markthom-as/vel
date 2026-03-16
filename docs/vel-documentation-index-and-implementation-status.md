@@ -7,7 +7,7 @@ Purpose: act as a **navigation and coverage index**. Canonical implementation tr
 
 ## Core Engine
 - commitments — [spec](specs/vel-migrations-and-schema-spec.md), [status](status.md)
-- current context — [spec](specs/vel-current-context-spec.md), [status](status.md)
+- current context — [spec](specs/vel-current-context-spec.md), [status](status.md) (web operator surface now uses explain-oriented context data)
 - risk engine — [spec](specs/vel-risk-engine-spec.md), [status](status.md)
 - policy engine — [spec](specs/vel-policy-engine-spec.md), [status](status.md)
 - nudges — [spec](specs/vel-policy-engine-spec.md), [status](status.md)
@@ -32,7 +32,7 @@ Purpose: act as a **navigation and coverage index**. Canonical implementation tr
 - chat implementation brief — [spec](specs/vel-chat-interface-implementation-brief.md)
 - chat execution plan — [spec](specs/vel-chat-execution-plan.md)
 - ticket pack — [tickets](tickets/README.md) (Chat 001–035)
-- subsystem status detail — [chat-interface-status-and-outstanding.md](chat-interface-status-and-outstanding.md) (shipped websocket contract, transport/query layer notes, and follow-up work)
+- subsystem status detail — [chat-interface-status-and-outstanding.md](chat-interface-status-and-outstanding.md) (shipped websocket contract, explain-backed context panel, hydrated message provenance, and follow-up work)
 
 ## Integrations
 - integration roadmap — [spec](specs/vel-integration-priority-and-adapter-roadmap.md)

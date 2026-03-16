@@ -1,7 +1,7 @@
 //! `vel import` — import file, lines from stdin, or capture URL.
 
-use std::path::Path;
 use crate::client::ApiClient;
+use std::path::Path;
 use vel_api_types::CaptureCreateRequest;
 
 fn read_stdin() -> anyhow::Result<String> {
@@ -30,7 +30,11 @@ pub async fn run_file(client: &ApiClient, path: &str, capture_type: &str) -> any
 
 pub async fn run_lines(client: &ApiClient, capture_type: &str) -> anyhow::Result<()> {
     let stdin = read_stdin()?;
-    let lines: Vec<&str> = stdin.lines().map(str::trim).filter(|s| !s.is_empty()).collect();
+    let lines: Vec<&str> = stdin
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
     if lines.is_empty() {
         anyhow::bail!("no non-empty lines on stdin");
     }

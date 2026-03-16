@@ -4,14 +4,11 @@ use crate::client::ApiClient;
 
 const TRUNCATE_LEN: usize = 60;
 
-pub async fn run(
-    client: &ApiClient,
-    limit: u32,
-    today: bool,
-    json: bool,
-) -> anyhow::Result<()> {
+pub async fn run(client: &ApiClient, limit: u32, today: bool, json: bool) -> anyhow::Result<()> {
     let response = client.list_captures_recent(limit, today).await?;
-    let captures = response.data.expect("list_captures_recent response missing data");
+    let captures = response
+        .data
+        .expect("list_captures_recent response missing data");
     if json {
         println!("{}", serde_json::to_string_pretty(&captures)?);
         return Ok(());

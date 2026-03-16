@@ -12,22 +12,26 @@ use tracing::debug;
 
 use crate::state::AppState;
 
-pub async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     let rx = state.broadcast_tx.subscribe();
     ws.on_upgrade(move |socket| handle_socket(socket, rx))
 }
 
-async fn handle_socket(socket: WebSocket, mut rx: tokio::sync::broadcast::Receiver<crate::broadcast::WsEnvelope>) {
+async fn handle_socket(
+    socket: WebSocket,
+    mut rx: tokio::sync::broadcast::Receiver<crate::broadcast::WsEnvelope>,
+) {
     let (mut sender, mut receiver) = socket.split();
 
     // Forward broadcast messages to the client.
     let send_task = tokio::spawn(async move {
         while let Ok(envelope) = rx.recv().await {
             if let Ok(json) = envelope.to_json() {
-                if sender.send(axum::extract::ws::Message::Text(json.into())).await.is_err() {
+                if sender
+                    .send(axum::extract::ws::Message::Text(json.into()))
+                    .await
+                    .is_err()
+                {
                     break;
                 }
             }

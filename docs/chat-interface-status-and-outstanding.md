@@ -24,6 +24,8 @@
 - **Realtime contract:** `/ws` carries `messages:new` for newly persisted chat messages, `interventions:new` for newly created interventions, and `interventions:updated` for snooze/resolve/dismiss actions.
 - **Transport contract cleanup:** chat/websocket DTOs now live in `crates/vel-api-types`, and the web client consumes them through a centralized runtime decoder layer instead of per-component ad hoc guards.
 - **Shared client data layer:** thread, inbox, context, settings, and provenance now load through a shared query/cache path with targeted realtime invalidation instead of each screen owning its own fetch/refetch state machine.
+- **Context panel:** the web Context panel now reads `/v1/explain/context` plus `/v1/explain/drift`, so operators see derived state together with reasons, drift summary, and hydrated signal summaries instead of only the raw `current_context` blob.
+- **Provenance:** message provenance is no longer placeholder-only. The route/drawer now returns linked objects plus card/intervention-derived evidence, so “Show why” surfaces actual supporting data beyond message event history.
 
 ## “Nothing happens when I send a message”
 
@@ -36,5 +38,5 @@
 ## Outstanding (concise)
 
 1. **State orchestration polish:** tighten loading/error/empty presentation now that the fetch path is shared.
-2. **Optional product polish:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.
+2. **Optional product polish:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; richer provenance presentation now that the route returns real supporting data.
 3. **Realtime contract hardening:** add event sequencing or stable envelope ids if later work needs deterministic replay or stronger websocket resume semantics.

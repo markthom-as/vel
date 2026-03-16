@@ -10,6 +10,9 @@ pub async fn run(config: &AppConfig) -> anyhow::Result<()> {
     println!("Example:");
     println!("  mkdir -p backup/$(date +%Y-%m-%d)");
     println!("  cp \"{}\" backup/$(date +%Y-%m-%d)/", config.db_path);
-    println!("  cp -r \"{}\" backup/$(date +%Y-%m-%d)/", config.artifact_root);
+    println!(
+        "  cp -r \"{}\" backup/$(date +%Y-%m-%d)/",
+        config.artifact_root
+    );
     Ok(())
 }

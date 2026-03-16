@@ -23,17 +23,19 @@ pub async fn list(
         .await?;
     let data: Vec<SuggestionData> = rows
         .into_iter()
-        .map(|(id, stype, state, payload_json, created_at, resolved_at)| {
-            let payload = serde_json::from_str(&payload_json).unwrap_or(serde_json::json!({}));
-            SuggestionData {
-                id,
-                suggestion_type: stype,
-                state,
-                payload,
-                created_at,
-                resolved_at,
-            }
-        })
+        .map(
+            |(id, stype, state, payload_json, created_at, resolved_at)| {
+                let payload = serde_json::from_str(&payload_json).unwrap_or(serde_json::json!({}));
+                SuggestionData {
+                    id,
+                    suggestion_type: stype,
+                    state,
+                    payload,
+                    created_at,
+                    resolved_at,
+                }
+            },
+        )
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))

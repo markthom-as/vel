@@ -5,7 +5,7 @@ use vel_api_types::{
     ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest,
     CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData,
     HealthData, MorningData, NudgeData, NudgeSnoozeRequest, SearchQuery, SearchResults,
-    SyncResultData, SynthesisWeekData, TodayData,
+    RunUpdateRequest, SyncResultData, SynthesisWeekData, TodayData,
 };
 
 #[derive(Clone)]
@@ -79,16 +79,15 @@ impl ApiClient {
         self.get(&format!("/v1/runs/{}", id)).await
     }
 
-    pub async fn update_run_status(
+    pub async fn update_run(
         &self,
         id: &str,
-        status: &str,
+        body: &RunUpdateRequest,
     ) -> anyhow::Result<ApiResponse<vel_api_types::RunDetailData>> {
-        let body = serde_json::json!({ "status": status });
         let response = self
             .http
             .patch(format!("{}/v1/runs/{}", self.base_url, id))
-            .json(&body)
+            .json(body)
             .send()
             .await
             .context("sending update run status request")?;

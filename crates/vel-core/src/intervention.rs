@@ -1,8 +1,8 @@
 //! Intervention model for proactive surfacing. See docs/tickets/vel-agent-ticket-pack/006-implement-intervention-model.md
 
+use crate::types::{InterventionId, MessageId};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use crate::types::{InterventionId, MessageId};
 
 /// Intervention state. Transitions: active -> snoozed | resolved | dismissed; snoozed -> active | resolved | dismissed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

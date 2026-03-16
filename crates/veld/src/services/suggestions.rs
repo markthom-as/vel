@@ -36,7 +36,9 @@ pub async fn evaluate_after_nudges(storage: &Storage) -> Result<u32, crate::erro
             "current_minutes": 20,
             "suggested_minutes": 30
         });
-        let _ = storage.insert_suggestion("increase_commute_buffer", "pending", &payload.to_string()).await?;
+        let _ = storage
+            .insert_suggestion("increase_commute_buffer", "pending", &payload.to_string())
+            .await?;
         created += 1;
     }
 
@@ -59,7 +61,9 @@ pub async fn evaluate_after_nudges(storage: &Storage) -> Result<u32, crate::erro
             "current_minutes": 30,
             "suggested_minutes": 45
         });
-        let _ = storage.insert_suggestion("increase_prep_window", "pending", &payload.to_string()).await?;
+        let _ = storage
+            .insert_suggestion("increase_prep_window", "pending", &payload.to_string())
+            .await?;
         created += 1;
     }
 

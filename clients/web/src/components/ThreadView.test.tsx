@@ -275,4 +275,85 @@ describe('ThreadView realtime sync', () => {
       expect(within(thread).getByRole('button', { name: 'Snooze' })).toBeInTheDocument()
     })
   })
+
+  it('keeps an optimistically resolved intervention hidden when a stale active refetch arrives', async () => {
+    let wsListener: ((event: WsEnvelope) => void) | null = null
+    subscribeWs.mockImplementation((listener) => {
+      wsListener = listener
+      return () => {}
+    })
+
+    let interventionsFetchCount = 0
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations/conv_1/messages') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'msg_1',
+              conversation_id: 'conv_1',
+              role: 'assistant',
+              kind: 'text',
+              content: { text: 'needs action' },
+              status: null,
+              importance: null,
+              created_at: 0,
+              updated_at: null,
+            },
+          ],
+          meta: { request_id: 'req_msg' },
+        }
+      }
+      if (path === '/api/conversations/conv_1/interventions') {
+        interventionsFetchCount += 1
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'intv_1',
+              message_id: 'msg_1',
+              kind: 'reminder',
+              state: 'active',
+              surfaced_at: 0,
+              snoozed_until: null,
+              confidence: null,
+            },
+          ],
+          meta: { request_id: `req_intv_${interventionsFetchCount}` },
+        }
+      }
+      if (path === '/api/inbox' || path === '/api/conversations') {
+        return { ok: true, data: [], meta: { request_id: 'req_other' } }
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+    vi.mocked(api.apiPost).mockResolvedValue({
+      ok: true,
+      data: { id: 'intv_1', state: 'resolved' },
+      meta: { request_id: 'req_post' },
+    } as never)
+
+    const { container } = render(<ThreadView conversationId="conv_1" />)
+    const thread = requireHtmlElement(container as HTMLElement | null)
+
+    await waitFor(() => {
+      expect(within(thread).getByRole('button', { name: 'Resolve' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(thread).getByRole('button', { name: 'Resolve' }))
+
+    await waitFor(() => {
+      expect(within(thread).queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument()
+    })
+
+    requireWsListener(wsListener)({
+      type: 'interventions:updated',
+      timestamp: '1',
+      payload: { id: 'intv_1', state: 'resolved' },
+    })
+
+    await waitFor(() => {
+      expect(within(thread).queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument()
+    })
+  })
 })

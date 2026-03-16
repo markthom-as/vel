@@ -1,15 +1,21 @@
 //! vel explain — show why a nudge was generated, what shaped context, commitment risk, or drift.
 
-use anyhow::Context;
 use crate::client::ApiClient;
+use anyhow::Context;
 
 pub async fn run_context(client: &ApiClient, json: bool) -> anyhow::Result<()> {
-    let resp = client.get_explain_context().await.context("get explain context")?;
+    let resp = client
+        .get_explain_context()
+        .await
+        .context("get explain context")?;
     if json {
         println!("{}", serde_json::to_string_pretty(&resp)?);
         return Ok(());
     }
-    let data = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    let data = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
     println!("Computed at: {}", data.computed_at);
     if let Some(ref m) = data.mode {
         println!("Mode: {}", m);
@@ -34,12 +40,18 @@ pub async fn run_context(client: &ApiClient, json: bool) -> anyhow::Result<()> {
 }
 
 pub async fn run_nudge(client: &ApiClient, id: &str, json: bool) -> anyhow::Result<()> {
-    let resp = client.get_explain_nudge(id).await.context("explain nudge")?;
+    let resp = client
+        .get_explain_nudge(id)
+        .await
+        .context("explain nudge")?;
     if json {
         println!("{}", serde_json::to_string_pretty(&resp)?);
         return Ok(());
     }
-    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    let d = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
     println!("nudge_id:    {}", d.nudge_id);
     println!("nudge_type: {}", d.nudge_type);
     println!("level:       {}", d.level);
@@ -54,15 +66,28 @@ pub async fn run_nudge(client: &ApiClient, id: &str, json: bool) -> anyhow::Resu
     Ok(())
 }
 
-pub async fn run_commitment(client: &ApiClient, commitment_id: &str, json: bool) -> anyhow::Result<()> {
-    let resp = client.get_explain_commitment(commitment_id).await.context("explain commitment")?;
+pub async fn run_commitment(
+    client: &ApiClient,
+    commitment_id: &str,
+    json: bool,
+) -> anyhow::Result<()> {
+    let resp = client
+        .get_explain_commitment(commitment_id)
+        .await
+        .context("explain commitment")?;
     if json {
         println!("{}", serde_json::to_string_pretty(&resp)?);
         return Ok(());
     }
-    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    let d = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
     println!("commitment_id: {}", d.commitment_id);
-    println!("commitment:    {}", serde_json::to_string_pretty(&d.commitment)?);
+    println!(
+        "commitment:    {}",
+        serde_json::to_string_pretty(&d.commitment)?
+    );
     if let Some(ref r) = d.risk {
         println!("risk:         {}", serde_json::to_string_pretty(r)?);
     } else {
@@ -81,7 +106,10 @@ pub async fn run_drift(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         println!("{}", serde_json::to_string_pretty(&resp)?);
         return Ok(());
     }
-    let d = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    let d = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
     println!("attention_state:  {:?}", d.attention_state);
     println!("drift_type:       {:?}", d.drift_type);
     println!("drift_severity:   {:?}", d.drift_severity);

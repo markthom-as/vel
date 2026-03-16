@@ -64,7 +64,10 @@ impl std::str::FromStr for CommitmentStatus {
             "open" => Ok(Self::Open),
             "done" => Ok(Self::Done),
             "cancelled" => Ok(Self::Cancelled),
-            _ => Err(crate::VelCoreError::Validation(format!("unknown commitment status: {}", s))),
+            _ => Err(crate::VelCoreError::Validation(format!(
+                "unknown commitment status: {}",
+                s
+            ))),
         }
     }
 }

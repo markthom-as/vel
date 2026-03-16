@@ -63,4 +63,3 @@ impl From<vel_storage::StorageError> for AppError {
         Self::internal(error.to_string())
     }
 }
-

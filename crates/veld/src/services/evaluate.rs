@@ -15,7 +15,10 @@ pub struct EvaluateResult {
 
 /// Run full evaluation: risk → inference → nudges → suggestions. Recompute-and-persist only.
 /// Call this from POST /v1/evaluate or explicit refresh; never from GET explain/context/risk.
-pub async fn run(storage: &Storage, policy_config: &PolicyConfig) -> Result<EvaluateResult, AppError> {
+pub async fn run(
+    storage: &Storage,
+    policy_config: &PolicyConfig,
+) -> Result<EvaluateResult, AppError> {
     let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
 
     let _ = crate::services::risk::run(storage, now_ts).await?;

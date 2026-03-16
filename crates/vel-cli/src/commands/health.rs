@@ -14,4 +14,3 @@ pub async fn run(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     println!("version: {}", data.version);
     Ok(())
 }
-

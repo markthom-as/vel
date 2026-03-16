@@ -49,6 +49,20 @@ cargo run -p vel-cli -- morning
 cargo run -p vel-cli -- config show
 ```
 
+## Local integration defaults
+
+The repo-local `vel.toml` points the current workspace at local integration seed files:
+
+- calendar ICS: `var/integrations/calendar/local.ics`
+- Todoist snapshot: `var/integrations/todoist/snapshot.json`
+
+These are local file-based inputs for `vel sync calendar` and `vel sync todoist`. Replace them with your real exported ICS feed and Todoist snapshot when you are ready, keeping the same config keys:
+
+```toml
+calendar_ics_path = "var/integrations/calendar/local.ics"
+todoist_snapshot_path = "var/integrations/todoist/snapshot.json"
+```
+
 ## Operator commands
 
 - `vel health` — daemon health

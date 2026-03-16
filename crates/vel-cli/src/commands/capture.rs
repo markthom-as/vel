@@ -34,4 +34,3 @@ pub async fn run(
     println!("capture_id: {}", data.capture_id);
     Ok(())
 }
-

@@ -299,6 +299,8 @@ pub enum WsEventType {
     InterventionsNew,
     #[serde(rename = "interventions:updated")]
     InterventionsUpdated,
+    #[serde(rename = "runs:updated")]
+    RunsUpdated,
 }
 
 impl std::fmt::Display for WsEventType {
@@ -307,6 +309,7 @@ impl std::fmt::Display for WsEventType {
             Self::MessagesNew => "messages:new",
             Self::InterventionsNew => "interventions:new",
             Self::InterventionsUpdated => "interventions:updated",
+            Self::RunsUpdated => "runs:updated",
         };
         f.write_str(s)
     }
@@ -320,6 +323,7 @@ impl std::str::FromStr for WsEventType {
             "messages:new" => Ok(Self::MessagesNew),
             "interventions:new" => Ok(Self::InterventionsNew),
             "interventions:updated" => Ok(Self::InterventionsUpdated),
+            "runs:updated" => Ok(Self::RunsUpdated),
             other => Err(format!("unknown websocket event type: {}", other)),
         }
     }
@@ -398,6 +402,10 @@ pub struct RunSummaryData {
     pub id: RunId,
     pub kind: String,
     pub status: String,
+    pub automatic_retry_supported: bool,
+    pub automatic_retry_reason: Option<String>,
+    pub unsupported_retry_override: bool,
+    pub unsupported_retry_override_reason: Option<String>,
     pub created_at: OffsetDateTime,
     pub started_at: Option<OffsetDateTime>,
     pub finished_at: Option<OffsetDateTime>,
@@ -440,6 +448,8 @@ pub struct RunUpdateRequest {
     #[serde(default, alias = "retry_reason")]
     pub reason: Option<String>,
     #[serde(default)]
+    pub allow_unsupported_retry: bool,
+    #[serde(default)]
     pub blocked_reason: Option<String>,
 }
 
@@ -448,6 +458,10 @@ pub struct RunDetailData {
     pub id: RunId,
     pub kind: String,
     pub status: String,
+    pub automatic_retry_supported: bool,
+    pub automatic_retry_reason: Option<String>,
+    pub unsupported_retry_override: bool,
+    pub unsupported_retry_override_reason: Option<String>,
     pub input: JsonValue,
     pub output: Option<JsonValue>,
     pub error: Option<JsonValue>,

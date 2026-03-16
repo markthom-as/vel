@@ -1,4 +1,7 @@
-use axum::{extract::{Query, State}, Json};
+use axum::{
+    extract::{Query, State},
+    Json,
+};
 use uuid::Uuid;
 use vel_api_types::{ApiResponse, SearchQuery, SearchResults};
 use vel_storage::SearchFilters;

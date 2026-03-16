@@ -23,10 +23,7 @@ pub async fn run(
     if captures {
         let resp = client.list_captures_recent(500, false).await?;
         let data = resp.data.expect("list_captures_recent missing data");
-        out.insert(
-            "captures".to_string(),
-            serde_json::to_value(&data).unwrap(),
-        );
+        out.insert("captures".to_string(), serde_json::to_value(&data).unwrap());
     }
     if runs {
         let resp = client.list_runs(None, None, false).await?;
@@ -36,7 +33,10 @@ pub async fn run(
     if artifacts {
         let resp = client.list_artifacts(500).await?;
         let data = resp.data.expect("list_artifacts missing data");
-        out.insert("artifacts".to_string(), serde_json::to_value(&data).unwrap());
+        out.insert(
+            "artifacts".to_string(),
+            serde_json::to_value(&data).unwrap(),
+        );
     }
     if json {
         println!("{}", serde_json::to_string_pretty(&out)?);

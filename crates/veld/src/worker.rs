@@ -1,31 +1,376 @@
-//! Background job processing. Claims pending jobs from storage and completes them.
-//! For v0, capture_ingest jobs are no-op: we just mark them succeeded so the pipeline exists.
+//! Background workers for low-risk automation loops.
+//!
+//! Current responsibilities:
+//! - claim and complete capture_ingest jobs
+//! - promote retry-scheduled runs when their retry_at is due
 
 use std::time::Duration;
+
 use tracing::{debug, warn};
-use vel_storage::Storage;
+use vel_core::{RunEventType, RunKind, RunStatus};
+use vel_storage::{PendingJob, RetryReadyRun};
+
+use crate::state::AppState;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 const JOB_TYPE_CAPTURE_INGEST: &str = "capture_ingest";
+const RETRY_BATCH_LIMIT: u32 = 10;
 
-pub async fn run_ingestion_worker(storage: Storage) {
+pub async fn run_background_workers(state: AppState) {
     loop {
-        if let Err(e) = poll_once(&storage).await {
-            warn!(error = %e, "ingestion worker poll failed");
+        if let Err(e) = poll_once(&state).await {
+            warn!(error = %e, "background worker poll failed");
         }
         tokio::time::sleep(POLL_INTERVAL).await;
     }
 }
 
-async fn poll_once(storage: &Storage) -> Result<(), vel_storage::StorageError> {
-    let Some(job) = storage.claim_next_pending_job(JOB_TYPE_CAPTURE_INGEST).await? else {
-        return Ok(());
-    };
+async fn poll_once(state: &AppState) -> Result<(), crate::errors::AppError> {
+    if let Some(job) = state
+        .storage
+        .claim_next_pending_job(JOB_TYPE_CAPTURE_INGEST)
+        .await?
+    {
+        process_capture_ingest_job(&state.storage, job).await?;
+    }
 
+    let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+    let ready_runs = state
+        .storage
+        .list_retry_ready_runs(now_ts, RETRY_BATCH_LIMIT)
+        .await?;
+    for retry in ready_runs {
+        if let Err(e) = process_retry_ready_run(state, retry).await {
+            warn!(error = %e, "run retry execution failed");
+        }
+    }
+
+    Ok(())
+}
+
+async fn process_capture_ingest_job(
+    storage: &vel_storage::Storage,
+    job: PendingJob,
+) -> Result<(), vel_storage::StorageError> {
     debug!(job_id = %job.job_id, "processing capture_ingest job");
-
-    // v0: no actual processing (e.g. transcription, extraction). Just mark succeeded.
-    // Later: parse payload_json for capture_id, run pipeline, then mark succeeded or failed.
     storage.mark_job_succeeded(&job.job_id.to_string()).await?;
     Ok(())
+}
+
+async fn process_retry_ready_run(
+    state: &AppState,
+    retry: RetryReadyRun,
+) -> Result<(), crate::errors::AppError> {
+    let run_id = retry.run.id.clone();
+    debug!(
+        run_id = %run_id,
+        retry_at = retry.retry_at,
+        kind = %retry.run.kind,
+        "processing retry-scheduled run"
+    );
+
+    state.storage.reset_run_for_retry(run_id.as_ref()).await?;
+    state
+        .storage
+        .append_run_event_auto(
+            run_id.as_ref(),
+            RunEventType::RunRequeued,
+            &serde_json::json!({
+                "retry_at": retry.retry_at,
+                "reason": retry.retry_reason,
+                "source": "worker",
+            }),
+        )
+        .await?;
+
+    match retry.run.kind {
+        RunKind::ContextGeneration => {
+            crate::services::context_runs::retry_existing_run(state, &run_id, &retry.run.input_json)
+                .await?;
+        }
+        RunKind::Synthesis => {
+            crate::services::synthesis::retry_existing_run(state, &run_id, &retry.run.input_json)
+                .await?;
+        }
+        unsupported_kind => {
+            let blocked_reason = unsupported_kind
+                .retry_policy()
+                .automatic_retry_reason
+                .map(ToString::to_string)
+                .unwrap_or_else(|| format!("automatic retry unsupported for run kind {}", unsupported_kind));
+            let error_json = serde_json::json!({
+                "message": blocked_reason,
+            });
+            let output_json = serde_json::json!({
+                "blocked_reason": blocked_reason,
+            });
+            state
+                .storage
+                .update_run_status(
+                    run_id.as_ref(),
+                    RunStatus::Blocked,
+                    None,
+                    Some(time::OffsetDateTime::now_utc().unix_timestamp()),
+                    Some(&output_json),
+                    Some(&error_json),
+                )
+                .await?;
+        }
+    }
+
+    let _ = crate::routes::runs::broadcast_run_updated(state, run_id.as_ref()).await;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::poll_once;
+    use crate::state::AppState;
+    use vel_config::AppConfig;
+    use vel_core::{RunEventType, RunId, RunKind, RunStatus};
+    use vel_storage::Storage;
+
+    #[tokio::test]
+    async fn poll_once_retries_due_context_run() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let mut config = AppConfig::default();
+        let artifact_root = std::env::temp_dir().join(format!(
+            "vel-worker-retry-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&artifact_root).unwrap();
+        config.artifact_root = artifact_root.to_string_lossy().to_string();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(storage.clone(), config, crate::policy_config::PolicyConfig::default(), broadcast_tx, None, None);
+
+        let run_id = RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                RunKind::ContextGeneration,
+                &serde_json::json!({ "context_kind": "today" }),
+            )
+            .await
+            .unwrap();
+        storage
+            .update_run_status(
+                run_id.as_ref(),
+                RunStatus::Failed,
+                Some(1),
+                Some(2),
+                None,
+                Some(&serde_json::json!({ "message": "boom" })),
+            )
+            .await
+            .unwrap();
+        storage
+            .append_run_event_auto(
+                run_id.as_ref(),
+                RunEventType::RunRetryScheduled,
+                &serde_json::json!({
+                    "retry_at": time::OffsetDateTime::now_utc().unix_timestamp() - 1,
+                    "reason": "test",
+                }),
+            )
+            .await
+            .unwrap();
+        storage
+            .update_run_status(
+                run_id.as_ref(),
+                RunStatus::RetryScheduled,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert!(poll_once(&state).await.is_ok());
+
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.status, RunStatus::Succeeded);
+
+        let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
+        assert!(events
+            .iter()
+            .any(|event| event.event_type == RunEventType::RunRequeued));
+        assert!(events
+            .iter()
+            .any(|event| event.event_type == RunEventType::RunSucceeded));
+    }
+
+    #[tokio::test]
+    async fn poll_once_retries_due_synthesis_run() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let mut config = AppConfig::default();
+        let artifact_root = std::env::temp_dir().join(format!(
+            "vel-worker-synthesis-retry-{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&artifact_root).unwrap();
+        config.artifact_root = artifact_root.to_string_lossy().to_string();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            config,
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        let run_id = RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                RunKind::Synthesis,
+                &serde_json::json!({ "synthesis_kind": "week", "window_days": 7 }),
+            )
+            .await
+            .unwrap();
+        storage
+            .update_run_status(
+                run_id.as_ref(),
+                RunStatus::Failed,
+                Some(1),
+                Some(2),
+                None,
+                Some(&serde_json::json!({ "message": "boom" })),
+            )
+            .await
+            .unwrap();
+        storage
+            .append_run_event_auto(
+                run_id.as_ref(),
+                RunEventType::RunRetryScheduled,
+                &serde_json::json!({
+                    "retry_at": time::OffsetDateTime::now_utc().unix_timestamp() - 1,
+                    "reason": "retry_weekly_synthesis",
+                }),
+            )
+            .await
+            .unwrap();
+        storage
+            .update_run_status(
+                run_id.as_ref(),
+                RunStatus::RetryScheduled,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert!(poll_once(&state).await.is_ok());
+
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.status, RunStatus::Succeeded);
+        assert!(run.output_json.is_some());
+
+        let refs = storage.list_refs_from("run", run_id.as_ref()).await.unwrap();
+        assert!(!refs.is_empty(), "retried synthesis run should relink an artifact");
+
+        let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
+        assert!(events
+            .iter()
+            .any(|event| event.event_type == RunEventType::RunRequeued));
+        assert!(events
+            .iter()
+            .any(|event| event.event_type == RunEventType::ArtifactWritten));
+        assert!(events
+            .iter()
+            .any(|event| event.event_type == RunEventType::RunSucceeded));
+    }
+
+    #[tokio::test]
+    async fn poll_once_blocks_unsupported_retry_kind() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        let run_id = RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                RunKind::Search,
+                &serde_json::json!({ "query": "lidar" }),
+            )
+            .await
+            .unwrap();
+        storage
+            .update_run_status(
+                run_id.as_ref(),
+                RunStatus::Failed,
+                Some(1),
+                Some(2),
+                None,
+                Some(&serde_json::json!({ "message": "boom" })),
+            )
+            .await
+            .unwrap();
+        storage
+            .append_run_event_auto(
+                run_id.as_ref(),
+                RunEventType::RunRetryScheduled,
+                &serde_json::json!({
+                    "retry_at": time::OffsetDateTime::now_utc().unix_timestamp() - 1,
+                    "reason": "retry_search",
+                }),
+            )
+            .await
+            .unwrap();
+        storage
+            .update_run_status(
+                run_id.as_ref(),
+                RunStatus::RetryScheduled,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert!(poll_once(&state).await.is_ok());
+
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.status, RunStatus::Blocked);
+        assert_eq!(
+            run.error_json
+                .as_ref()
+                .and_then(|json| json.get("message"))
+                .and_then(serde_json::Value::as_str),
+            Some("search runs do not have an automatic retry executor")
+        );
+        assert_eq!(
+            run.output_json
+                .as_ref()
+                .and_then(|json| json.get("blocked_reason"))
+                .and_then(serde_json::Value::as_str),
+            Some("search runs do not have an automatic retry executor")
+        );
+
+        let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
+        assert!(events
+            .iter()
+            .any(|event| event.event_type == RunEventType::RunRequeued));
+    }
 }

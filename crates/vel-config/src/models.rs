@@ -53,16 +53,24 @@ impl ModelProfile {
     pub fn parse_toml(content: &str) -> Result<Self, ConfigError> {
         let file: ModelProfileFile = toml::from_str(content)?;
         if file.id.is_empty() {
-            return Err(ConfigError::Validation("model profile: id must be non-empty".into()));
+            return Err(ConfigError::Validation(
+                "model profile: id must be non-empty".into(),
+            ));
         }
         if file.provider.is_empty() {
-            return Err(ConfigError::Validation("model profile: provider must be non-empty".into()));
+            return Err(ConfigError::Validation(
+                "model profile: provider must be non-empty".into(),
+            ));
         }
         if file.base_url.is_empty() {
-            return Err(ConfigError::Validation("model profile: base_url must be non-empty".into()));
+            return Err(ConfigError::Validation(
+                "model profile: base_url must be non-empty".into(),
+            ));
         }
         if file.model.is_empty() {
-            return Err(ConfigError::Validation("model profile: model must be non-empty".into()));
+            return Err(ConfigError::Validation(
+                "model profile: model must be non-empty".into(),
+            ));
         }
         let known = ["llama_cpp", "openai_oauth"];
         if !known.contains(&file.provider.as_str()) {
@@ -184,8 +192,10 @@ model = "m"
     #[test]
     fn routing_resolve() {
         let mut r = RoutingConfig::default();
-        r.task_to_profile.insert("chat".into(), "local-qwen3-coder".into());
-        r.task_to_profile.insert("summarize".into(), "local-qwen25-fast".into());
+        r.task_to_profile
+            .insert("chat".into(), "local-qwen3-coder".into());
+        r.task_to_profile
+            .insert("summarize".into(), "local-qwen25-fast".into());
         assert_eq!(r.profile_for_task("chat"), Some("local-qwen3-coder"));
         assert_eq!(r.profile_for_task("summarize"), Some("local-qwen25-fast"));
         assert_eq!(r.profile_for_task("other"), None);
@@ -193,12 +203,16 @@ model = "m"
 
     #[test]
     fn load_repo_model_profiles_and_routing() {
-        let repo_models = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../configs/models");
+        let repo_models =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../configs/models");
         if !repo_models.exists() {
             return;
         }
         let profiles = load_model_profiles(&repo_models).unwrap();
-        assert!(!profiles.is_empty(), "configs/models should have at least one profile");
+        assert!(
+            !profiles.is_empty(),
+            "configs/models should have at least one profile"
+        );
         let routing_path = repo_models.join("routing.toml");
         let routing = load_routing(&routing_path).unwrap();
         assert!(

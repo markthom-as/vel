@@ -23,14 +23,15 @@ if [[ -z "${VEL_LLM_MODEL:-}" ]] && [[ -f "$ROOT/configs/models/weights/qwen2.5-
   export VEL_LLM_MODEL="$ROOT/configs/models/weights/qwen2.5-1.5b-instruct-q4_k_m.gguf"
 fi
 
-# Start LLM server for chat (port 8012) if VEL_LLM_MODEL is set and llama-server is available.
-if [[ -n "${VEL_LLM_MODEL:-}" ]] && command -v llama-server &>/dev/null; then
+# Start LLM server for chat (port 8012) if VEL_LLM_MODEL is set.
+# scripts/llm-server.sh resolves llama-server from PATH or nixpkgs#llama-cpp.
+if [[ -n "${VEL_LLM_MODEL:-}" ]]; then
   echo "Starting LLM server for chat..."
   "$ROOT/scripts/llm-server.sh" &
   LLM_PID=$!
   sleep 2
 else
-  echo "Chat: set VEL_LLM_MODEL to a .gguf path and have llama-server in PATH to enable assistant replies."
+  echo "Chat: set VEL_LLM_MODEL to a .gguf path to enable assistant replies."
 fi
 
 # Default veld bind (vel-config); client must use same host:port via VITE_API_URL

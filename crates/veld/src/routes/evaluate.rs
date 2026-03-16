@@ -5,10 +5,12 @@ use axum::Json;
 use uuid::Uuid;
 use vel_api_types::{ApiResponse, EvaluateResultData};
 
-use crate::{errors::AppError, state::AppState};
 use crate::services::evaluate;
+use crate::{errors::AppError, state::AppState};
 
-pub async fn run_evaluate(State(state): State<AppState>) -> Result<Json<ApiResponse<EvaluateResultData>>, AppError> {
+pub async fn run_evaluate(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<EvaluateResultData>>, AppError> {
     let result = evaluate::run(&state.storage, &state.policy_config).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(

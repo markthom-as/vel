@@ -1,7 +1,7 @@
 //! Message domain model for chat. See docs/tickets/vel-agent-ticket-pack/005-implement-message-domain-model.md
 
-use serde::{Deserialize, Serialize};
 use crate::types::{ConversationId, MessageId};
+use serde::{Deserialize, Serialize};
 
 /// Discriminated message body for structured cards and text.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

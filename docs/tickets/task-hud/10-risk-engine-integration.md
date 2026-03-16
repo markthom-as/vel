@@ -26,6 +26,7 @@ Integrate at least:
 - do not duplicate risk logic already owned elsewhere
 - define a narrow interface from risk engine -> task ranking/hud
 - preserve explainability for why a threat is shown
+- do not let the HUD become a second risk authority; it consumes risk output and presents it
 
 ## Tests
 - threat surfacing tests
@@ -35,4 +36,3 @@ Integrate at least:
 ## Done when
 - risk fields influence score and threat group
 - UI can render at least one concrete threat badge
-

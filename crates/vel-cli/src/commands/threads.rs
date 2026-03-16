@@ -1,7 +1,7 @@
 //! vel thread — list, inspect, close, reopen threads. See docs/specs/vel-thread-graph-spec.md.
 
-use anyhow::Context;
 use crate::client::ApiClient;
+use anyhow::Context;
 
 pub async fn run_list(
     client: &ApiClient,
@@ -9,8 +9,14 @@ pub async fn run_list(
     limit: u32,
     json: bool,
 ) -> anyhow::Result<()> {
-    let resp = client.list_threads(status, limit).await.context("list threads")?;
-    let threads = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    let resp = client
+        .list_threads(status, limit)
+        .await
+        .context("list threads")?;
+    let threads = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
     if json {
         println!("{}", serde_json::to_string_pretty(threads)?);
     } else if threads.is_empty() {
@@ -25,7 +31,10 @@ pub async fn run_list(
 
 pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
     let resp = client.get_thread(id).await.context("get thread")?;
-    let t = resp.data.as_ref().ok_or_else(|| anyhow::anyhow!("no data"))?;
+    let t = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
     println!("id:          {}", t.id);
     println!("type:        {}", t.thread_type);
     println!("title:       {}", t.title);
@@ -36,7 +45,10 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
         if !links.is_empty() {
             println!("links:");
             for l in links.iter() {
-                println!("  {}  {}  {}  {}", l.entity_type, l.entity_id, l.relation_type, l.id);
+                println!(
+                    "  {}  {}  {}  {}",
+                    l.entity_type, l.entity_id, l.relation_type, l.id
+                );
             }
         }
     }
@@ -44,13 +56,19 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
 }
 
 pub async fn run_close(client: &ApiClient, id: &str) -> anyhow::Result<()> {
-    let _ = client.update_thread(id, "closed").await.context("close thread")?;
+    let _ = client
+        .update_thread(id, "closed")
+        .await
+        .context("close thread")?;
     println!("Thread {} closed.", id);
     Ok(())
 }
 
 pub async fn run_reopen(client: &ApiClient, id: &str) -> anyhow::Result<()> {
-    let _ = client.update_thread(id, "open").await.context("reopen thread")?;
+    let _ = client
+        .update_thread(id, "open")
+        .await
+        .context("reopen thread")?;
     println!("Thread {} reopened.", id);
     Ok(())
 }

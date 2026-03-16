@@ -1,8 +1,8 @@
 //! Run-backed context generation: creates runs, writes artifacts, appends events.
 
+use sha2::{Digest, Sha256};
 use std::path::Path;
 use time::OffsetDateTime;
-use sha2::{Sha256, Digest};
 use vel_core::{
     ArtifactId, ArtifactStorageKind, PrivacyClass, Ref, RefRelationType, RunEventType, RunId,
     RunKind, RunStatus, SyncClass,
@@ -10,8 +10,8 @@ use vel_core::{
 use vel_storage::ArtifactInsert;
 
 use crate::errors::AppError;
-use crate::state::AppState;
 use crate::services::context_generation;
+use crate::state::AppState;
 
 /// Service-level result of a context run: run identity, artifact, and the computed payload.
 /// Routes map `.data` to the API response; run_id/artifact_id/context_kind for logging or future use.
@@ -40,10 +40,62 @@ impl ContextKind {
             Self::EndOfDay => "end_of_day",
         }
     }
+
+    fn from_input_json(input_json: &serde_json::Value) -> Result<Self, AppError> {
+        match input_json
+            .get("context_kind")
+            .and_then(serde_json::Value::as_str)
+        {
+            Some("today") => Ok(Self::Today),
+            Some("morning") => Ok(Self::Morning),
+            Some("end_of_day") => Ok(Self::EndOfDay),
+            Some(other) => Err(AppError::bad_request(format!(
+                "unsupported context_kind for retry: {}",
+                other
+            ))),
+            None => Err(AppError::bad_request(
+                "retry input_json missing context_kind",
+            )),
+        }
+    }
+}
+
+struct RunEventSequencer {
+    next_seq: u32,
+}
+
+impl RunEventSequencer {
+    async fn for_run(state: &AppState, run_id: &RunId) -> Result<Self, AppError> {
+        let next_seq = state
+            .storage
+            .list_run_events(run_id.as_ref())
+            .await?
+            .last()
+            .map(|e| e.seq.saturating_add(1))
+            .unwrap_or(1);
+        Ok(Self { next_seq })
+    }
+
+    async fn append(
+        &mut self,
+        state: &AppState,
+        run_id: &RunId,
+        event_type: RunEventType,
+        payload: &serde_json::Value,
+    ) -> Result<(), AppError> {
+        state
+            .storage
+            .append_run_event(run_id.as_ref(), self.next_seq, event_type, payload)
+            .await?;
+        self.next_seq = self.next_seq.saturating_add(1);
+        Ok(())
+    }
 }
 
 /// Run-backed today context: creates run, computes result, writes artifact, links refs, appends events.
-pub async fn generate_today(state: &AppState) -> Result<ContextRunOutput<vel_api_types::TodayData>, AppError> {
+pub async fn generate_today(
+    state: &AppState,
+) -> Result<ContextRunOutput<vel_api_types::TodayData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::Today;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
@@ -72,8 +124,49 @@ pub async fn generate_today(state: &AppState) -> Result<ContextRunOutput<vel_api
     }
 }
 
+/// Retry an existing run ID for context generation without creating a new run row.
+/// The run input must include `context_kind` with one of: today, morning, end_of_day.
+pub async fn retry_existing_run(
+    state: &AppState,
+    run_id: &RunId,
+    input_json: &serde_json::Value,
+) -> Result<(), AppError> {
+    let kind = ContextKind::from_input_json(input_json)?;
+    let existing = state.storage.get_run_by_id(run_id.as_ref()).await?;
+    if existing.is_none() {
+        return Err(AppError::not_found("run not found"));
+    }
+
+    let result = match kind {
+        ContextKind::Today => run_context_generation(state, run_id, kind, |snapshot| {
+            Ok(context_generation::build_today(snapshot))
+        })
+        .await
+        .map(|_| ()),
+        ContextKind::Morning => run_context_generation(state, run_id, kind, |snapshot| {
+            Ok(context_generation::build_morning(snapshot))
+        })
+        .await
+        .map(|_| ()),
+        ContextKind::EndOfDay => run_context_generation(state, run_id, kind, |snapshot| {
+            Ok(context_generation::build_end_of_day(snapshot))
+        })
+        .await
+        .map(|_| ()),
+    };
+
+    if let Err(e) = result {
+        fail_run(state, run_id, &e).await;
+        return Err(e);
+    }
+
+    Ok(())
+}
+
 /// Run-backed morning context.
-pub async fn generate_morning(state: &AppState) -> Result<ContextRunOutput<vel_api_types::MorningData>, AppError> {
+pub async fn generate_morning(
+    state: &AppState,
+) -> Result<ContextRunOutput<vel_api_types::MorningData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::Morning;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
@@ -103,7 +196,9 @@ pub async fn generate_morning(state: &AppState) -> Result<ContextRunOutput<vel_a
 }
 
 /// Run-backed end-of-day context.
-pub async fn generate_end_of_day(state: &AppState) -> Result<ContextRunOutput<vel_api_types::EndOfDayData>, AppError> {
+pub async fn generate_end_of_day(
+    state: &AppState,
+) -> Result<ContextRunOutput<vel_api_types::EndOfDayData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::EndOfDay;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
@@ -146,6 +241,7 @@ where
 {
     let now = OffsetDateTime::now_utc();
     let started_at = now.unix_timestamp();
+    let mut event_seq = RunEventSequencer::for_run(state, run_id).await?;
 
     state
         .storage
@@ -159,14 +255,8 @@ where
         )
         .await?;
 
-    state
-        .storage
-        .append_run_event(
-            run_id.as_ref(),
-            2,
-            RunEventType::RunStarted,
-            &serde_json::json!({}),
-        )
+    event_seq
+        .append(state, run_id, RunEventType::RunStarted, &serde_json::json!({}))
         .await?;
 
     let snapshot = state.storage.orientation_snapshot().await?;
@@ -194,7 +284,8 @@ where
     let temp_path = full_path.with_extension("json.tmp");
     let mut f = std::fs::File::create(&temp_path).map_err(|e| AppError::internal(e.to_string()))?;
     std::io::Write::write_all(&mut f, &body).map_err(|e| AppError::internal(e.to_string()))?;
-    f.sync_all().map_err(|e| AppError::internal(e.to_string()))?;
+    f.sync_all()
+        .map_err(|e| AppError::internal(e.to_string()))?;
     drop(f);
     std::fs::rename(&temp_path, &full_path).map_err(|e| AppError::internal(e.to_string()))?;
 
@@ -230,7 +321,11 @@ where
     state.storage.create_ref(&ref_).await?;
 
     let mut seen_captures = std::collections::HashSet::new();
-    for capture in snapshot.recent_today.iter().chain(snapshot.recent_week.iter()) {
+    for capture in snapshot
+        .recent_today
+        .iter()
+        .chain(snapshot.recent_week.iter())
+    {
         if seen_captures.insert(capture.capture_id.as_ref()) {
             let art_ref = Ref::new(
                 "artifact",
@@ -243,34 +338,26 @@ where
         }
     }
 
-    state
-        .storage
-        .append_run_event(
-            run_id.as_ref(),
-            3,
+    event_seq
+        .append(
+            state,
+            run_id,
             RunEventType::ContextGenerated,
             &serde_json::json!({ "context_kind": kind.as_str() }),
         )
         .await?;
 
-    state
-        .storage
-        .append_run_event(
-            run_id.as_ref(),
-            4,
+    event_seq
+        .append(
+            state,
+            run_id,
             RunEventType::ArtifactWritten,
             &serde_json::json!({ "artifact_id": artifact_id.to_string() }),
         )
         .await?;
 
-    state
-        .storage
-        .append_run_event(
-            run_id.as_ref(),
-            5,
-            RunEventType::RefsCreated,
-            &serde_json::json!({}),
-        )
+    event_seq
+        .append(state, run_id, RunEventType::RefsCreated, &serde_json::json!({}))
         .await?;
 
     let finished_at = OffsetDateTime::now_utc().unix_timestamp();
@@ -291,14 +378,8 @@ where
         )
         .await?;
 
-    state
-        .storage
-        .append_run_event(
-            run_id.as_ref(),
-            6,
-            RunEventType::RunSucceeded,
-            &serde_json::json!({}),
-        )
+    event_seq
+        .append(state, run_id, RunEventType::RunSucceeded, &serde_json::json!({}))
         .await?;
 
     Ok((artifact_id, data))
@@ -318,11 +399,14 @@ async fn fail_run(state: &AppState, run_id: &RunId, error: &AppError) {
             Some(&error_json),
         )
         .await;
-    let _ = state
-        .storage
-        .append_run_event(
-            run_id.as_ref(),
-            3,
+    let mut event_seq = match RunEventSequencer::for_run(state, run_id).await {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    let _ = event_seq
+        .append(
+            state,
+            run_id,
             RunEventType::RunFailed,
             &serde_json::json!({ "error": error.to_string() }),
         )

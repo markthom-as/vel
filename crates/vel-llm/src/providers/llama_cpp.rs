@@ -188,7 +188,9 @@ impl LlmProvider for LlamaCppProvider {
         let tools = if req.tools.is_empty() {
             None
         } else if !self.config.supports_tools {
-            return Err(ProviderError::Capability("tools not supported by this profile".into()).into());
+            return Err(
+                ProviderError::Capability("tools not supported by this profile".into()).into(),
+            );
         } else {
             Some(
                 req.tools
@@ -213,10 +215,10 @@ impl LlmProvider for LlamaCppProvider {
             crate::types::ResponseFormat::Text => None,
             crate::types::ResponseFormat::JsonObject => {
                 if !self.config.supports_json {
-                    return Err(
-                        ProviderError::Capability("json_object not supported by this profile".into())
-                            .into(),
-                    );
+                    return Err(ProviderError::Capability(
+                        "json_object not supported by this profile".into(),
+                    )
+                    .into());
                 }
                 Some(OpenAIResponseFormat {
                     r#type: "json_object".to_string(),
@@ -267,12 +269,13 @@ impl LlmProvider for LlamaCppProvider {
             .choices
             .as_ref()
             .and_then(|c| c.first())
-            .ok_or_else(|| LlmError::Provider(ProviderError::Protocol("no choices in response".into())))?;
+            .ok_or_else(|| {
+                LlmError::Provider(ProviderError::Protocol("no choices in response".into()))
+            })?;
 
-        let message = choice
-            .message
-            .as_ref()
-            .ok_or_else(|| LlmError::Provider(ProviderError::Protocol("no message in choice".into())))?;
+        let message = choice.message.as_ref().ok_or_else(|| {
+            LlmError::Provider(ProviderError::Protocol("no message in choice".into()))
+        })?;
 
         let text = message.content.clone();
 
@@ -286,15 +289,23 @@ impl LlmProvider for LlamaCppProvider {
                 let name = tc.function.as_ref()?.name.clone().unwrap_or_default();
                 let args_str = tc.function.as_ref()?.arguments.clone().unwrap_or_default();
                 let arguments = serde_json::from_str(&args_str).unwrap_or(serde_json::Value::Null);
-                Some(ToolCall { id, name, arguments })
+                Some(ToolCall {
+                    id,
+                    name,
+                    arguments,
+                })
             })
             .collect();
 
-        let usage = parsed.usage.as_ref().map(|u| Usage {
-            input_tokens: u.prompt_tokens,
-            output_tokens: u.completion_tokens,
-            total_tokens: u.total_tokens,
-        }).unwrap_or_default();
+        let usage = parsed
+            .usage
+            .as_ref()
+            .map(|u| Usage {
+                input_tokens: u.prompt_tokens,
+                output_tokens: u.completion_tokens,
+                total_tokens: u.total_tokens,
+            })
+            .unwrap_or_default();
 
         let finish_reason = Self::map_finish_reason(choice.finish_reason.as_deref());
 

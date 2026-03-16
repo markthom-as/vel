@@ -270,6 +270,13 @@ pub struct ArtifactRecord {
     pub updated_at: i64,
 }
 
+#[derive(Debug, Clone)]
+pub struct RetryReadyRun {
+    pub run: Run,
+    pub retry_at: i64,
+    pub retry_reason: Option<String>,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
     #[error("database error: {0}")]
@@ -1755,6 +1762,25 @@ impl Storage {
         Ok(())
     }
 
+    pub async fn reset_run_for_retry(&self, run_id: &str) -> Result<(), StorageError> {
+        sqlx::query(
+            r#"
+            UPDATE runs
+            SET status = ?,
+                started_at = NULL,
+                finished_at = NULL,
+                output_json = NULL,
+                error_json = NULL
+            WHERE run_id = ?
+            "#,
+        )
+        .bind(RunStatus::Queued.to_string())
+        .bind(run_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn append_run_event(
         &self,
         run_id: &str,
@@ -1781,6 +1807,85 @@ impl Storage {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    pub async fn next_run_event_seq(&self, run_id: &str) -> Result<u32, StorageError> {
+        let (next_seq,): (i64,) = sqlx::query_as(
+            r#"SELECT COALESCE(MAX(seq), 0) + 1 FROM run_events WHERE run_id = ?"#,
+        )
+        .bind(run_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(next_seq as u32)
+    }
+
+    pub async fn append_run_event_auto(
+        &self,
+        run_id: &str,
+        event_type: RunEventType,
+        payload_json: &JsonValue,
+    ) -> Result<u32, StorageError> {
+        let seq = self.next_run_event_seq(run_id).await?;
+        self.append_run_event(run_id, seq, event_type, payload_json)
+            .await?;
+        Ok(seq)
+    }
+
+    pub async fn list_retry_ready_runs(
+        &self,
+        now_ts: i64,
+        limit: u32,
+    ) -> Result<Vec<RetryReadyRun>, StorageError> {
+        let limit = limit.clamp(1, 100) as i64;
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                r.run_id,
+                r.run_kind,
+                r.status,
+                r.input_json,
+                r.output_json,
+                r.error_json,
+                r.created_at,
+                r.started_at,
+                r.finished_at,
+                CAST(json_extract(e.payload_json, '$.retry_at') AS INTEGER) AS retry_at,
+                json_extract(e.payload_json, '$.reason') AS retry_reason
+            FROM runs r
+            JOIN (
+                SELECT run_id, MAX(seq) AS max_seq
+                FROM run_events
+                WHERE event_type = ?
+                GROUP BY run_id
+            ) latest
+              ON latest.run_id = r.run_id
+            JOIN run_events e
+              ON e.run_id = latest.run_id AND e.seq = latest.max_seq
+            WHERE r.status = ?
+              AND CAST(json_extract(e.payload_json, '$.retry_at') AS INTEGER) <= ?
+            ORDER BY retry_at ASC, r.created_at ASC
+            LIMIT ?
+            "#,
+        )
+        .bind(RunEventType::RunRetryScheduled.to_string())
+        .bind(RunStatus::RetryScheduled.to_string())
+        .bind(now_ts)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                let retry_at = row.try_get::<i64, _>("retry_at")?;
+                let retry_reason = row.try_get::<Option<String>, _>("retry_reason")?;
+                let run = map_run_row(&row)?;
+                Ok(RetryReadyRun {
+                    run,
+                    retry_at,
+                    retry_reason,
+                })
+            })
+            .collect()
     }
 
     pub async fn list_run_events(&self, run_id: &str) -> Result<Vec<RunEvent>, StorageError> {
@@ -2719,5 +2824,69 @@ mod tests {
             .unwrap();
         assert_eq!(from_refs.len(), 1);
         assert_eq!(from_refs[0].to_id, "art_1");
+    }
+
+    #[tokio::test]
+    async fn reset_and_list_retry_ready_runs() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::ContextGeneration,
+                &json!({"context_kind":"today"}),
+            )
+            .await
+            .unwrap();
+
+        storage
+            .update_run_status(
+                run_id.as_ref(),
+                vel_core::RunStatus::Failed,
+                Some(100),
+                Some(120),
+                None,
+                Some(&json!({"message":"boom"})),
+            )
+            .await
+            .unwrap();
+        storage
+            .append_run_event_auto(
+                run_id.as_ref(),
+                vel_core::RunEventType::RunRetryScheduled,
+                &json!({"retry_at": 200, "reason": "transient_failure"}),
+            )
+            .await
+            .unwrap();
+        storage
+            .update_run_status(
+                run_id.as_ref(),
+                vel_core::RunStatus::RetryScheduled,
+                None,
+                None,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let too_early = storage.list_retry_ready_runs(199, 10).await.unwrap();
+        assert!(too_early.is_empty());
+
+        let ready = storage.list_retry_ready_runs(200, 10).await.unwrap();
+        assert_eq!(ready.len(), 1);
+        assert_eq!(ready[0].run.id, run_id);
+        assert_eq!(ready[0].retry_at, 200);
+        assert_eq!(ready[0].retry_reason.as_deref(), Some("transient_failure"));
+
+        storage.reset_run_for_retry(run_id.as_ref()).await.unwrap();
+        let reset = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(reset.status, vel_core::RunStatus::Queued);
+        assert!(reset.started_at.is_none());
+        assert!(reset.finished_at.is_none());
+        assert!(reset.output_json.is_none());
+        assert!(reset.error_json.is_none());
     }
 }

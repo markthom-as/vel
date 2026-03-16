@@ -7,7 +7,9 @@ pub async fn run(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         Ok(r) => r,
         Err(e) => {
             eprintln!("Error: Could not reach veld: {}", e);
-            eprintln!("Hint: Start the daemon with `cargo run -p veld` (or ensure VEL_BASE_URL is set)");
+            eprintln!(
+                "Hint: Start the daemon with `cargo run -p veld` (or ensure VEL_BASE_URL is set)"
+            );
             std::process::exit(2);
         }
     };
@@ -29,7 +31,10 @@ pub async fn run(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     println!("schema_version: {}", data.schema_version);
     println!("version: {}", data.version);
 
-    let has_fail = data.checks.iter().any(|c| matches!(c.status, vel_api_types::DiagnosticStatus::Fail));
+    let has_fail = data
+        .checks
+        .iter()
+        .any(|c| matches!(c.status, vel_api_types::DiagnosticStatus::Fail));
     if has_fail {
         std::process::exit(1);
     }

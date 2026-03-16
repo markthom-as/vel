@@ -133,9 +133,8 @@ pub async fn run(
     for (i, c) in open.iter().enumerate() {
         let (_, consequence_val, proximity_val, _) = &first_pass[i];
         let dep_val = dependency_pressure(c.id.as_ref(), &parent_scores, &deps_by_child);
-        let score = W_CONSEQUENCE * consequence_val
-            + W_PROXIMITY * proximity_val
-            + W_DEPENDENCY * dep_val;
+        let score =
+            W_CONSEQUENCE * consequence_val + W_PROXIMITY * proximity_val + W_DEPENDENCY * dep_val;
         let score = score.min(1.0);
         let level = score_to_level(score).to_string();
         let dependency_ids: Vec<String> = deps_by_child

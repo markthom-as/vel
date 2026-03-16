@@ -11,7 +11,7 @@ pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
 pub use intervention::{Intervention, InterventionState};
 pub use message::{
     Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,
-    ProvenanceRef, RiskCard, SuggestionCard, ReminderCard, SummaryCard, SystemNotice, TextMessage,
+    ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
 };
 pub use provenance::{Ref, RefRelationType};
 pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
@@ -195,7 +195,10 @@ impl std::str::FromStr for ArtifactStorageKind {
         match s {
             "managed" => Ok(Self::Managed),
             "external" => Ok(Self::External),
-            _ => Err(crate::VelCoreError::Validation(format!("unknown storage kind: {}", s))),
+            _ => Err(crate::VelCoreError::Validation(format!(
+                "unknown storage kind: {}",
+                s
+            ))),
         }
     }
 }

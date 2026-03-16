@@ -32,7 +32,10 @@ impl std::str::FromStr for RefRelationType {
             "generated_from" => Ok(Self::GeneratedFrom),
             "derived_from" => Ok(Self::DerivedFrom),
             "attached_to" => Ok(Self::AttachedTo),
-            _ => Err(crate::VelCoreError::Validation(format!("unknown relation type: {}", s))),
+            _ => Err(crate::VelCoreError::Validation(format!(
+                "unknown relation type: {}",
+                s
+            ))),
         }
     }
 }
@@ -49,7 +52,13 @@ pub struct Ref {
 }
 
 impl Ref {
-    pub fn new(from_type: impl Into<String>, from_id: impl Into<String>, to_type: impl Into<String>, to_id: impl Into<String>, relation_type: RefRelationType) -> Self {
+    pub fn new(
+        from_type: impl Into<String>,
+        from_id: impl Into<String>,
+        to_type: impl Into<String>,
+        to_id: impl Into<String>,
+        relation_type: RefRelationType,
+    ) -> Self {
         Self {
             id: format!("ref_{}", Uuid::new_v4().simple()),
             from_type: from_type.into(),

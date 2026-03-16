@@ -4,7 +4,6 @@ interface SidebarProps {
   selectedConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onNewConversation?: () => void | Promise<void>;
-  conversationListKey?: number;
   onOpenSettings?: () => void;
 }
 
@@ -12,7 +11,6 @@ export function Sidebar({
   selectedConversationId,
   onSelectConversation,
   onNewConversation,
-  conversationListKey = 0,
   onOpenSettings,
 }: SidebarProps) {
   return (
@@ -43,7 +41,6 @@ export function Sidebar({
         </div>
       </div>
       <ConversationList
-        key={conversationListKey}
         selectedId={selectedConversationId}
         onSelect={onSelectConversation}
       />

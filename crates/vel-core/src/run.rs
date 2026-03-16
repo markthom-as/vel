@@ -1,10 +1,10 @@
 //! Run model: first-class execution records for context generation, synthesis, etc.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::fmt::{Display, Formatter};
 use time::OffsetDateTime;
 use uuid::Uuid;
-use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RunId(pub(crate) String);
@@ -49,6 +49,12 @@ pub enum RunKind {
     Agent,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunRetryPolicy {
+    pub automatic_retry_supported: bool,
+    pub automatic_retry_reason: Option<&'static str>,
+}
+
 impl Display for RunKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -72,7 +78,35 @@ impl std::str::FromStr for RunKind {
             "artifact_extraction" => Ok(Self::ArtifactExtraction),
             "synthesis" => Ok(Self::Synthesis),
             "agent" => Ok(Self::Agent),
-            _ => Err(crate::VelCoreError::Validation(format!("unknown run kind: {}", s))),
+            _ => Err(crate::VelCoreError::Validation(format!(
+                "unknown run kind: {}",
+                s
+            ))),
+        }
+    }
+}
+
+impl RunKind {
+    pub fn retry_policy(self) -> RunRetryPolicy {
+        match self {
+            Self::ContextGeneration | Self::Synthesis => RunRetryPolicy {
+                automatic_retry_supported: true,
+                automatic_retry_reason: Some("worker can re-execute the original run input"),
+            },
+            Self::Search => RunRetryPolicy {
+                automatic_retry_supported: false,
+                automatic_retry_reason: Some("search runs do not have an automatic retry executor"),
+            },
+            Self::ArtifactExtraction => RunRetryPolicy {
+                automatic_retry_supported: false,
+                automatic_retry_reason: Some(
+                    "artifact extraction does not yet have a background retry executor",
+                ),
+            },
+            Self::Agent => RunRetryPolicy {
+                automatic_retry_supported: false,
+                automatic_retry_reason: Some("agent runs do not yet have a background retry executor"),
+            },
         }
     }
 }
@@ -118,7 +152,10 @@ impl std::str::FromStr for RunStatus {
             "cancelled" => Ok(Self::Cancelled),
             "retry_scheduled" => Ok(Self::RetryScheduled),
             "blocked" => Ok(Self::Blocked),
-            _ => Err(crate::VelCoreError::Validation(format!("unknown run status: {}", s))),
+            _ => Err(crate::VelCoreError::Validation(format!(
+                "unknown run status: {}",
+                s
+            ))),
         }
     }
 }
@@ -210,6 +247,8 @@ pub enum RunEventType {
     RunSucceeded,
     RunFailed,
     RunCancelled,
+    RunRetryScheduled,
+    RunRequeued,
     ArtifactWritten,
     SearchExecuted,
     ContextGenerated,
@@ -224,6 +263,8 @@ impl Display for RunEventType {
             Self::RunSucceeded => "run_succeeded",
             Self::RunFailed => "run_failed",
             Self::RunCancelled => "run_cancelled",
+            Self::RunRetryScheduled => "run_retry_scheduled",
+            Self::RunRequeued => "run_requeued",
             Self::ArtifactWritten => "artifact_written",
             Self::SearchExecuted => "search_executed",
             Self::ContextGenerated => "context_generated",
@@ -243,11 +284,16 @@ impl std::str::FromStr for RunEventType {
             "run_succeeded" => Ok(Self::RunSucceeded),
             "run_failed" => Ok(Self::RunFailed),
             "run_cancelled" => Ok(Self::RunCancelled),
+            "run_retry_scheduled" => Ok(Self::RunRetryScheduled),
+            "run_requeued" => Ok(Self::RunRequeued),
             "artifact_written" => Ok(Self::ArtifactWritten),
             "search_executed" => Ok(Self::SearchExecuted),
             "context_generated" => Ok(Self::ContextGenerated),
             "refs_created" => Ok(Self::RefsCreated),
-            _ => Err(crate::VelCoreError::Validation(format!("unknown run event type: {}", s))),
+            _ => Err(crate::VelCoreError::Validation(format!(
+                "unknown run event type: {}",
+                s
+            ))),
         }
     }
 }

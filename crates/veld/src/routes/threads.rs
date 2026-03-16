@@ -7,7 +7,8 @@ use axum::{
 };
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest, ThreadUpdateRequest,
+    ApiResponse, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest,
+    ThreadUpdateRequest,
 };
 
 use crate::{errors::AppError, state::AppState};
@@ -29,15 +30,17 @@ pub async fn list_threads(
         .await?;
     let data: Vec<ThreadData> = rows
         .into_iter()
-        .map(|(id, thread_type, title, status, created_at, updated_at)| ThreadData {
-            id,
-            thread_type,
-            title,
-            status,
-            created_at,
-            updated_at,
-            links: None,
-        })
+        .map(
+            |(id, thread_type, title, status, created_at, updated_at)| ThreadData {
+                id,
+                thread_type,
+                title,
+                status,
+                created_at,
+                updated_at,
+                links: None,
+            },
+        )
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -48,17 +51,19 @@ pub async fn get_thread(
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<ThreadData>>, AppError> {
     let row = state.storage.get_thread_by_id(id.trim()).await?;
-    let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row
-        .ok_or_else(|| AppError::not_found("thread not found"))?;
+    let (id, thread_type, title, status, _metadata_json, created_at, updated_at) =
+        row.ok_or_else(|| AppError::not_found("thread not found"))?;
     let links_rows = state.storage.list_thread_links(&id).await?;
     let links: Vec<ThreadLinkData> = links_rows
         .into_iter()
-        .map(|(link_id, entity_type, entity_id, relation_type)| ThreadLinkData {
-            id: link_id,
-            entity_type,
-            entity_id,
-            relation_type,
-        })
+        .map(
+            |(link_id, entity_type, entity_id, relation_type)| ThreadLinkData {
+                id: link_id,
+                entity_type,
+                entity_id,
+                relation_type,
+            },
+        )
         .collect();
     let data = ThreadData {
         id: id.clone(),
@@ -85,13 +90,7 @@ pub async fn create_thread(
         .unwrap_or_else(|| "{}".to_string());
     state
         .storage
-        .insert_thread(
-            &id,
-            &payload.thread_type,
-            &payload.title,
-            "open",
-            &metadata,
-        )
+        .insert_thread(&id, &payload.thread_type, &payload.title, "open", &metadata)
         .await?;
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     let data = ThreadData {
@@ -116,17 +115,23 @@ pub async fn update_thread(
     if let Some(status) = &payload.status {
         state.storage.update_thread_status(id, status).await?;
     }
-    let row = state.storage.get_thread_by_id(id).await?.ok_or_else(|| AppError::not_found("thread not found"))?;
+    let row = state
+        .storage
+        .get_thread_by_id(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("thread not found"))?;
     let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row;
     let links_rows = state.storage.list_thread_links(&id).await?;
     let links: Vec<ThreadLinkData> = links_rows
         .into_iter()
-        .map(|(link_id, entity_type, entity_id, relation_type)| ThreadLinkData {
-            id: link_id,
-            entity_type,
-            entity_id,
-            relation_type,
-        })
+        .map(
+            |(link_id, entity_type, entity_id, relation_type)| ThreadLinkData {
+                id: link_id,
+                entity_type,
+                entity_id,
+                relation_type,
+            },
+        )
         .collect();
     let data = ThreadData {
         id: id.clone(),
@@ -154,7 +159,12 @@ pub async fn add_thread_link(
         .ok_or_else(|| AppError::not_found("thread not found"))?;
     let link_id = state
         .storage
-        .insert_thread_link(thread_id, &payload.entity_type, &payload.entity_id, &payload.relation_type)
+        .insert_thread_link(
+            thread_id,
+            &payload.entity_type,
+            &payload.entity_id,
+            &payload.relation_type,
+        )
         .await?;
     let data = ThreadLinkData {
         id: link_id,

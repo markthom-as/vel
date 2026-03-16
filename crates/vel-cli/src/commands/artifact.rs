@@ -14,7 +14,9 @@ fn format_size(bytes: i64) -> String {
 
 pub async fn run_latest(client: &ApiClient, artifact_type: &str, json: bool) -> anyhow::Result<()> {
     let response = client.get_artifact_latest(artifact_type).await?;
-    let opt = response.data.expect("get_artifact_latest response missing data");
+    let opt = response
+        .data
+        .expect("get_artifact_latest response missing data");
     if json {
         println!("{}", serde_json::to_string_pretty(&opt)?);
         return Ok(());

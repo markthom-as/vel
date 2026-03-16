@@ -127,8 +127,8 @@ fn parse_ics_events(content: &str) -> Vec<ParsedEvent> {
             match base_name {
                 "UID" => uid = value.to_string(),
                 "SUMMARY" => summary = value.to_string(),
-                "DTSTART" => start_ts = parse_ical_dt(value),
-                "DTEND" => end_ts = parse_ical_dt(value),
+                "DTSTART" => start_ts = parse_ical_dt(raw_name, value),
+                "DTEND" => end_ts = parse_ical_dt(raw_name, value),
                 "LOCATION" => location = value.to_string(),
                 "DESCRIPTION" => description = value.to_string(),
                 "STATUS" => status = value.to_string(),
@@ -139,7 +139,7 @@ fn parse_ics_events(content: &str) -> Vec<ParsedEvent> {
                 "X-APPLE-TRAVEL-DURATION" => {
                     travel_minutes = parse_travel_duration_minutes(value)
                 }
-                "X-APPLE-TRAVEL-START" => travel_start_ts = parse_ical_dt(value),
+                "X-APPLE-TRAVEL-START" => travel_start_ts = parse_ical_dt(raw_name, value),
                 _ => {}
             }
         }
@@ -147,7 +147,12 @@ fn parse_ics_events(content: &str) -> Vec<ParsedEvent> {
     events
 }
 
-fn parse_ical_dt(s: &str) -> Option<i64> {
+fn parse_ical_dt(raw_name: &str, s: &str) -> Option<i64> {
+    let tzid = raw_name.split(';').skip(1).find_map(|param| {
+        let (key, value) = param.split_once('=')?;
+        key.eq_ignore_ascii_case("TZID").then_some(value.trim())
+    });
+    let has_utc_suffix = s.trim().ends_with('Z');
     let s = s.trim().trim_end_matches('Z');
     if s.len() == 8 {
         let year: i32 = s.get(0..4)?.parse().ok()?;
@@ -171,8 +176,73 @@ fn parse_ical_dt(s: &str) -> Option<i64> {
     let month = time::Month::try_from(month).ok()?;
     let date = time::Date::from_calendar_date(year, month, day).ok()?;
     let t = time::Time::from_hms(hour, min, sec).ok()?;
-    let dt = time::PrimitiveDateTime::new(date, t).assume_utc();
+    let dt = time::PrimitiveDateTime::new(date, t);
+    let dt = if has_utc_suffix {
+        dt.assume_utc()
+    } else if let Some(tzid) = tzid {
+        dt.assume_offset(offset_for_tzid(tzid, date)?)
+    } else {
+        dt.assume_utc()
+    };
     Some(dt.unix_timestamp())
+}
+
+fn offset_for_tzid(tzid: &str, date: time::Date) -> Option<time::UtcOffset> {
+    let hours = match tzid {
+        "UTC" | "Etc/UTC" => 0,
+        "America/Phoenix" => -7,
+        "America/Denver" => {
+            if is_us_dst(date) {
+                -6
+            } else {
+                -7
+            }
+        }
+        "America/Chicago" => {
+            if is_us_dst(date) {
+                -5
+            } else {
+                -6
+            }
+        }
+        "America/New_York" => {
+            if is_us_dst(date) {
+                -4
+            } else {
+                -5
+            }
+        }
+        "America/Los_Angeles" => {
+            if is_us_dst(date) {
+                -7
+            } else {
+                -8
+            }
+        }
+        _ => return None,
+    };
+
+    time::UtcOffset::from_hms(hours, 0, 0).ok()
+}
+
+fn is_us_dst(date: time::Date) -> bool {
+    let year = date.year();
+    let dst_start = nth_weekday_of_month(year, time::Month::March, time::Weekday::Sunday, 2);
+    let dst_end = nth_weekday_of_month(year, time::Month::November, time::Weekday::Sunday, 1);
+    date >= dst_start && date < dst_end
+}
+
+fn nth_weekday_of_month(
+    year: i32,
+    month: time::Month,
+    weekday: time::Weekday,
+    occurrence: u8,
+) -> time::Date {
+    let first = time::Date::from_calendar_date(year, month, 1).expect("valid month start");
+    let days_until = (weekday.number_days_from_monday() as i16
+        - first.weekday().number_days_from_monday() as i16)
+        .rem_euclid(7) as u8;
+    first + time::Duration::days(i64::from(days_until + (occurrence - 1) * 7))
 }
 
 fn parse_travel_duration_minutes(value: &str) -> Option<i64> {

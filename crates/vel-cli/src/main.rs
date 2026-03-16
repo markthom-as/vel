@@ -242,7 +242,20 @@ enum RunCommand {
         json: bool,
     },
     /// Set run status (e.g. retry_scheduled, blocked)
-    Status { id: String, status: String },
+    Status {
+        id: String,
+        status: String,
+        #[arg(long)]
+        retry_after_seconds: Option<u32>,
+        #[arg(long)]
+        retry_at: Option<String>,
+        #[arg(long)]
+        reason: Option<String>,
+        #[arg(long)]
+        allow_unsupported_retry: bool,
+        #[arg(long)]
+        blocked_reason: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -432,8 +445,26 @@ async fn main() -> anyhow::Result<()> {
             RunCommand::Inspect { id, json } => {
                 commands::runs::run_inspect(&client, &id, json).await
             }
-            RunCommand::Status { id, status } => {
-                commands::runs::run_status(&client, &id, &status).await
+            RunCommand::Status {
+                id,
+                status,
+                retry_after_seconds,
+                retry_at,
+                reason,
+                allow_unsupported_retry,
+                blocked_reason,
+            } => {
+                commands::runs::run_status(
+                    &client,
+                    &id,
+                    &status,
+                    retry_after_seconds,
+                    retry_at.as_deref(),
+                    reason.as_deref(),
+                    allow_unsupported_retry,
+                    blocked_reason.as_deref(),
+                )
+                .await
             }
         },
         Command::Review { command } => match command {
@@ -611,6 +642,123 @@ mod tests {
         match cli.command {
             Command::Today { json } => assert!(json),
             _ => panic!("expected today command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_status_with_retry_flags() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "run",
+            "status",
+            "run_123",
+            "retry_scheduled",
+            "--retry-after-seconds",
+            "120",
+            "--retry-at",
+            "2026-03-16T22:10:00Z",
+            "--reason",
+            "transient_failure",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Run {
+                command:
+                    RunCommand::Status {
+                        id,
+                        status,
+                        retry_after_seconds,
+                        retry_at,
+                        reason,
+                        allow_unsupported_retry,
+                        blocked_reason,
+                    },
+            } => {
+                assert_eq!(id, "run_123");
+                assert_eq!(status, "retry_scheduled");
+                assert_eq!(retry_after_seconds, Some(120));
+                assert_eq!(retry_at.as_deref(), Some("2026-03-16T22:10:00Z"));
+                assert_eq!(reason.as_deref(), Some("transient_failure"));
+                assert!(!allow_unsupported_retry);
+                assert!(blocked_reason.is_none());
+            }
+            _ => panic!("expected run status command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_status_with_blocked_reason() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "run",
+            "status",
+            "run_456",
+            "blocked",
+            "--blocked-reason",
+            "awaiting dependency",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Run {
+                command:
+                    RunCommand::Status {
+                        id,
+                        status,
+                        retry_after_seconds,
+                        retry_at,
+                        reason,
+                        allow_unsupported_retry,
+                        blocked_reason,
+                    },
+            } => {
+                assert_eq!(id, "run_456");
+                assert_eq!(status, "blocked");
+                assert!(retry_after_seconds.is_none());
+                assert!(retry_at.is_none());
+                assert!(reason.is_none());
+                assert!(!allow_unsupported_retry);
+                assert_eq!(blocked_reason.as_deref(), Some("awaiting dependency"));
+            }
+            _ => panic!("expected run status command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_status_with_unsupported_retry_override() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "run",
+            "status",
+            "run_789",
+            "retry_scheduled",
+            "--allow-unsupported-retry",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Run {
+                command:
+                    RunCommand::Status {
+                        id,
+                        status,
+                        retry_after_seconds,
+                        retry_at,
+                        reason,
+                        allow_unsupported_retry,
+                        blocked_reason,
+                    },
+            } => {
+                assert_eq!(id, "run_789");
+                assert_eq!(status, "retry_scheduled");
+                assert!(retry_after_seconds.is_none());
+                assert!(retry_at.is_none());
+                assert!(reason.is_none());
+                assert!(allow_unsupported_retry);
+                assert!(blocked_reason.is_none());
+            }
+            _ => panic!("expected run status command"),
         }
     }
 

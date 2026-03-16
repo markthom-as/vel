@@ -5,19 +5,19 @@ status: open
 
 ## Boundary
 
-This ticket must refine the current context reducer/inference flow, not introduce a second inference system that competes with `current_context`.
+This ticket must refine the existing context reducer/runtime described in `docs/status.md`; it must not introduce a second independently authoritative inference engine.
 
-- Reuse the existing signals -> inference -> current context path wherever possible.
-- New logic should improve inspectability, confidence handling, or explainability around that path.
-- Do not create a separate belief engine that can disagree with the shipped context runtime without an explicit architectural decision.
+- Present-tense context authority remains `current_context`, `context_timeline`, and the explain routes.
+- New inference logic should feed that runtime or its explainability surfaces.
+- If intermediate belief-like structures are introduced, they are supporting artifacts, not a replacement state model.
 
 # Goal
 
-Generate clearer derived context outputs from signals within the existing runtime.
+Improve the existing context inference path so it produces better derived state, uncertainty metadata, and explainability from signals.
 
 # Tasks
 
-1. Extend or refactor the current rule-based inference layer instead of introducing a parallel one.
+1. Extend the current rule-based reducer/inference path rather than creating a parallel engine.
 2. Integrate signals from:
 
 - calendar
@@ -25,10 +25,11 @@ Generate clearer derived context outputs from signals within the existing runtim
 - location
 - prior tasks
 
-3. Assign confidence weights or confidence bands where they improve explainability.
-4. Persist derived outputs in a way that remains consistent with the current context/explain flow.
+3. Assign confidence or uncertainty metadata where it improves inspection or explanation.
+4. Persist any supporting derived entries only if they clearly attach to the current context/explain runtime.
 
 # Acceptance
 
-- Inference produces derived context outputs that remain aligned with the existing context runtime.
-- Confidence values or bands are available where added.
+- The existing current-context runtime remains the sole present-tense authority.
+- Inference improvements are explainable through existing or extended explain surfaces.
+- Any derived entries with confidence values are supporting metadata, not a competing truth model.

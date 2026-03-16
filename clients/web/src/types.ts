@@ -75,9 +75,57 @@ export interface SettingsData {
   toggle_reminders?: boolean;
 }
 
+export interface RunSummaryData {
+  id: string;
+  kind: string;
+  status: string;
+  automatic_retry_supported: boolean;
+  automatic_retry_reason: string | null;
+  unsupported_retry_override: boolean;
+  unsupported_retry_override_reason: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  retry_scheduled_at: string | null;
+  retry_reason: string | null;
+  blocked_reason: string | null;
+}
+
 export interface CurrentContextData {
   computed_at: number;
   context: JsonValue;
+}
+
+export interface SignalExplainSummary {
+  signal_id: string;
+  signal_type: string;
+  source: string;
+  timestamp: number;
+  summary: JsonValue;
+}
+
+export interface ContextExplainData {
+  computed_at: number;
+  mode: string | null;
+  morning_state: string | null;
+  context: JsonValue;
+  signals_used: string[];
+  signal_summaries: SignalExplainSummary[];
+  commitments_used: string[];
+  risk_used: string[];
+  reasons: string[];
+}
+
+export interface DriftExplainData {
+  attention_state: string | null;
+  drift_type: string | null;
+  drift_severity: string | null;
+  confidence: number | null;
+  reasons: string[];
+  signals_used: string[];
+  signal_summaries: SignalExplainSummary[];
+  commitments_used: string[];
 }
 
 export interface TextMessageContent {
@@ -129,10 +177,23 @@ export interface WsInterventionsUpdatedEvent {
   payload: InterventionActionData;
 }
 
+export interface RunUpdateEventData {
+  id: string;
+  kind: string;
+  status: string;
+}
+
+export interface WsRunsUpdatedEvent {
+  type: 'runs:updated';
+  timestamp: string;
+  payload: RunUpdateEventData;
+}
+
 export type WsEvent =
   | WsMessageNewEvent
   | WsInterventionsNewEvent
-  | WsInterventionsUpdatedEvent;
+  | WsInterventionsUpdatedEvent
+  | WsRunsUpdatedEvent;
 
 export type WsEnvelope = WsEvent;
 export type InterventionEventData = InboxItemData;
@@ -245,11 +306,115 @@ export function decodeInterventionActionData(value: unknown): InterventionAction
   };
 }
 
+export function decodeRunUpdateEventData(value: unknown): RunUpdateEventData {
+  const record = expectRecord(value, 'run update');
+  return {
+    id: expectString(record.id, 'run update.id'),
+    kind: expectString(record.kind, 'run update.kind'),
+    status: expectString(record.status, 'run update.status'),
+  };
+}
+
 export function decodeCurrentContextData(value: unknown): CurrentContextData {
   const record = expectRecord(value, 'current context');
   return {
     computed_at: expectNumber(record.computed_at, 'current context.computed_at'),
     context: decodeJsonValue(record.context),
+  };
+}
+
+export function decodeSignalExplainSummary(value: unknown): SignalExplainSummary {
+  const record = expectRecord(value, 'signal explain summary');
+  return {
+    signal_id: expectString(record.signal_id, 'signal explain summary.signal_id'),
+    signal_type: expectString(record.signal_type, 'signal explain summary.signal_type'),
+    source: expectString(record.source, 'signal explain summary.source'),
+    timestamp: expectNumber(record.timestamp, 'signal explain summary.timestamp'),
+    summary: decodeJsonValue(record.summary),
+  };
+}
+
+export function decodeContextExplainData(value: unknown): ContextExplainData {
+  const record = expectRecord(value, 'context explain');
+  return {
+    computed_at: expectNumber(record.computed_at, 'context explain.computed_at'),
+    mode: expectNullableString(record.mode, 'context explain.mode'),
+    morning_state: expectNullableString(record.morning_state, 'context explain.morning_state'),
+    context: decodeJsonValue(record.context),
+    signals_used: decodeArray(record.signals_used ?? [], (item) => expectString(item, 'context explain.signals_used')),
+    signal_summaries: decodeArray(record.signal_summaries ?? [], decodeSignalExplainSummary),
+    commitments_used: decodeArray(record.commitments_used ?? [], (item) => expectString(item, 'context explain.commitments_used')),
+    risk_used: decodeArray(record.risk_used ?? [], (item) => expectString(item, 'context explain.risk_used')),
+    reasons: decodeArray(record.reasons ?? [], (item) => expectString(item, 'context explain.reasons')),
+  };
+}
+
+export function decodeDriftExplainData(value: unknown): DriftExplainData {
+  const record = expectRecord(value, 'drift explain');
+  return {
+    attention_state: expectNullableString(record.attention_state, 'drift explain.attention_state'),
+    drift_type: expectNullableString(record.drift_type, 'drift explain.drift_type'),
+    drift_severity: expectNullableString(record.drift_severity, 'drift explain.drift_severity'),
+    confidence: expectNullableNumber(record.confidence, 'drift explain.confidence'),
+    reasons: decodeArray(record.reasons ?? [], (item) => expectString(item, 'drift explain.reasons')),
+    signals_used: decodeArray(record.signals_used ?? [], (item) => expectString(item, 'drift explain.signals_used')),
+    signal_summaries: decodeArray(record.signal_summaries ?? [], decodeSignalExplainSummary),
+    commitments_used: decodeArray(record.commitments_used ?? [], (item) => expectString(item, 'drift explain.commitments_used')),
+  };
+}
+
+export function decodeSettingsData(value: unknown): SettingsData {
+  const record = expectRecord(value, 'settings');
+  return {
+    quiet_hours:
+      record.quiet_hours === undefined ? undefined : decodeJsonValue(record.quiet_hours),
+    disable_proactive:
+      record.disable_proactive === undefined
+        ? undefined
+        : expectBoolean(record.disable_proactive, 'settings.disable_proactive'),
+    toggle_risks:
+      record.toggle_risks === undefined
+        ? undefined
+        : expectBoolean(record.toggle_risks, 'settings.toggle_risks'),
+    toggle_reminders:
+      record.toggle_reminders === undefined
+        ? undefined
+        : expectBoolean(record.toggle_reminders, 'settings.toggle_reminders'),
+  };
+}
+
+export function decodeRunSummaryData(value: unknown): RunSummaryData {
+  const record = expectRecord(value, 'run summary');
+  return {
+    id: expectString(record.id, 'run summary.id'),
+    kind: expectString(record.kind, 'run summary.kind'),
+    status: expectString(record.status, 'run summary.status'),
+    automatic_retry_supported: expectBoolean(
+      record.automatic_retry_supported,
+      'run summary.automatic_retry_supported',
+    ),
+    automatic_retry_reason: expectNullableString(
+      record.automatic_retry_reason,
+      'run summary.automatic_retry_reason',
+    ),
+    unsupported_retry_override: expectBoolean(
+      record.unsupported_retry_override,
+      'run summary.unsupported_retry_override',
+    ),
+    unsupported_retry_override_reason: expectNullableString(
+      record.unsupported_retry_override_reason,
+      'run summary.unsupported_retry_override_reason',
+    ),
+    created_at: expectString(record.created_at, 'run summary.created_at'),
+    started_at: expectNullableString(record.started_at, 'run summary.started_at'),
+    finished_at: expectNullableString(record.finished_at, 'run summary.finished_at'),
+    duration_ms: expectNullableNumber(record.duration_ms, 'run summary.duration_ms'),
+    retry_scheduled_at: expectNullableString(
+      record.retry_scheduled_at,
+      'run summary.retry_scheduled_at',
+    ),
+    retry_reason: expectNullableString(record.retry_reason, 'run summary.retry_reason'),
+    blocked_reason: expectNullableString(record.blocked_reason, 'run summary.blocked_reason'),
   };
 }
 
@@ -297,6 +462,12 @@ export function decodeWsEvent(value: unknown): WsEvent {
         type,
         timestamp,
         payload: decodeInterventionActionData(record.payload),
+      };
+    case 'runs:updated':
+      return {
+        type,
+        timestamp,
+        payload: decodeRunUpdateEventData(record.payload),
       };
     default:
       throw new Error(`Unsupported websocket event type: ${type}`);

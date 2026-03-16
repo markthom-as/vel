@@ -2,8 +2,8 @@ use axum::{extract::Path, extract::State, Json};
 use uuid::Uuid;
 use vel_api_types::ApiResponse;
 
-use crate::{errors::AppError, state::AppState};
 use crate::services::synthesis;
+use crate::{errors::AppError, state::AppState};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct SynthesisWeekResponse {
@@ -11,7 +11,9 @@ pub struct SynthesisWeekResponse {
     pub artifact_id: String,
 }
 
-pub async fn synthesis_week(State(state): State<AppState>) -> Result<Json<ApiResponse<SynthesisWeekResponse>>, AppError> {
+pub async fn synthesis_week(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<SynthesisWeekResponse>>, AppError> {
     let (run_id, artifact_id) = synthesis::run_week_synthesis(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(

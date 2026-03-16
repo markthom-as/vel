@@ -5,9 +5,7 @@ use axum::{
 use serde::Deserialize;
 use time::OffsetDateTime;
 use uuid::Uuid;
-use vel_api_types::{
-    ApiResponse, ArtifactCreateRequest, ArtifactCreateResponse, ArtifactData,
-};
+use vel_api_types::{ApiResponse, ArtifactCreateRequest, ArtifactCreateResponse, ArtifactData};
 use vel_storage::{ArtifactInsert, ArtifactRecord};
 
 use crate::{errors::AppError, state::AppState};

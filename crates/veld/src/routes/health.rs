@@ -4,7 +4,9 @@ use vel_api_types::{ApiResponse, HealthData};
 
 use crate::{errors::AppError, state::AppState};
 
-pub async fn health(State(state): State<AppState>) -> Result<Json<ApiResponse<HealthData>>, AppError> {
+pub async fn health(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<HealthData>>, AppError> {
     state.storage.healthcheck().await?;
 
     let request_id = format!("req_{}", Uuid::new_v4().simple());
@@ -17,4 +19,3 @@ pub async fn health(State(state): State<AppState>) -> Result<Json<ApiResponse<He
         request_id,
     )))
 }
-

@@ -26,6 +26,11 @@ pub fn build_app(
         chat_profile_id,
     );
 
+    build_app_with_state(state)
+}
+
+pub fn build_app_with_state(state: AppState) -> Router {
+
     Router::new()
         .route("/v1/health", get(routes::health::health))
         .route("/v1/doctor", get(routes::doctor::doctor))
@@ -356,6 +361,518 @@ mod tests {
         assert!(refs_from_run.is_empty(), "no artifact ref on failure");
 
         let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    async fn update_run_retry_scheduled_persists_metadata_and_event() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::ContextGeneration,
+                &serde_json::json!({ "context_kind": "today" }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "retry_scheduled",
+                            "retry_after_seconds": 30,
+                            "reason": "transient_failure"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let data = &json["data"];
+        assert_eq!(data["status"], "retry_scheduled");
+        assert_eq!(data["retry_reason"], "transient_failure");
+        assert!(data.get("retry_scheduled_at").is_some());
+
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.status, vel_core::RunStatus::RetryScheduled);
+        assert_eq!(
+            run.output_json.as_ref().and_then(|v| v.get("retry_reason")),
+            Some(&serde_json::json!("transient_failure"))
+        );
+
+        let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
+        let retry_event = events
+            .iter()
+            .find(|event| event.event_type == vel_core::RunEventType::RunRetryScheduled)
+            .expect("retry scheduling event should be appended");
+        assert_eq!(retry_event.payload_json["reason"], "transient_failure");
+        assert!(retry_event.payload_json.get("retry_at").is_some());
+    }
+
+    #[tokio::test]
+    async fn update_run_emits_runs_updated_websocket_event() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
+        let mut rx = broadcast_tx.subscribe();
+        let state = crate::state::AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            broadcast_tx,
+            None,
+            None,
+        );
+        let app = build_app_with_state(state);
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::Synthesis,
+                &serde_json::json!({ "synthesis_kind": "week", "window_days": 7 }),
+            )
+            .await
+            .unwrap();
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "blocked",
+                            "blocked_reason": "waiting_on_dependency"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let envelope = rx.recv().await.expect("websocket event should be broadcast");
+        assert_eq!(envelope.event_type.to_string(), "runs:updated");
+        assert_eq!(envelope.payload["id"], run_id.as_ref());
+        assert_eq!(envelope.payload["kind"], "synthesis");
+        assert_eq!(envelope.payload["status"], "blocked");
+    }
+
+    #[tokio::test]
+    async fn update_run_blocked_persists_blocked_reason() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::Synthesis,
+                &serde_json::json!({ "synthesis_kind": "week", "window_days": 7 }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "blocked",
+                            "blocked_reason": "waiting_on_dependency"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let data = &json["data"];
+        assert_eq!(data["status"], "blocked");
+        assert_eq!(data["blocked_reason"], "waiting_on_dependency");
+
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.status, vel_core::RunStatus::Blocked);
+        assert_eq!(
+            run.output_json.as_ref().and_then(|v| v.get("blocked_reason")),
+            Some(&serde_json::json!("waiting_on_dependency"))
+        );
+    }
+
+    #[tokio::test]
+    async fn update_run_rejects_retry_fields_for_non_retry_status() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::ContextGeneration,
+                &serde_json::json!({ "context_kind": "today" }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "blocked",
+                            "retry_after_seconds": 30
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.status, vel_core::RunStatus::Queued);
+    }
+
+    #[tokio::test]
+    async fn update_run_rejects_conflicting_retry_fields() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::Synthesis,
+                &serde_json::json!({ "synthesis_kind": "week", "window_days": 7 }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let body = serde_json::to_string(&vel_api_types::RunUpdateRequest {
+            status: "retry_scheduled".to_string(),
+            retry_at: Some(time::OffsetDateTime::now_utc()),
+            retry_after_seconds: Some(30),
+            reason: None,
+            allow_unsupported_retry: false,
+            blocked_reason: None,
+        })
+        .unwrap();
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
+        assert_eq!(events.len(), 1, "no retry event should be appended on invalid input");
+    }
+
+    #[tokio::test]
+    async fn update_run_rejects_unsupported_retry_without_override() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::Search,
+                &serde_json::json!({ "query": "lidar" }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "retry_scheduled",
+                            "reason": "transient_failure"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(
+            json["error"]["message"]
+                .as_str()
+                .expect("error message should be present")
+                .contains("allow_unsupported_retry=true")
+        );
+
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.status, vel_core::RunStatus::Queued);
+        let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
+        assert_eq!(events.len(), 1, "no retry event should be appended on rejection");
+    }
+
+    #[tokio::test]
+    async fn update_run_allows_unsupported_retry_with_override() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::Search,
+                &serde_json::json!({ "query": "lidar" }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "retry_scheduled",
+                            "reason": "operator_override",
+                            "allow_unsupported_retry": true
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let data = &json["data"];
+        assert_eq!(data["status"], "retry_scheduled");
+        assert_eq!(data["retry_reason"], "operator_override");
+        assert_eq!(data["automatic_retry_supported"], false);
+        assert_eq!(data["unsupported_retry_override"], true);
+        assert_eq!(
+            data["unsupported_retry_override_reason"],
+            "manual operator override"
+        );
+
+        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        assert_eq!(run.status, vel_core::RunStatus::RetryScheduled);
+        assert_eq!(
+            run.output_json
+                .as_ref()
+                .and_then(|v| v.get("unsupported_retry_override"))
+                .and_then(serde_json::Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            run.output_json
+                .as_ref()
+                .and_then(|v| v.get("unsupported_retry_override_reason"))
+                .and_then(serde_json::Value::as_str),
+            Some("manual operator override")
+        );
+        let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
+        let retry_event = events
+            .iter()
+            .find(|event| event.event_type == vel_core::RunEventType::RunRetryScheduled)
+            .expect("retry event should be appended when override is used");
+        assert_eq!(retry_event.payload_json["unsupported_retry_override"], true);
+        assert_eq!(
+            retry_event.payload_json["unsupported_retry_override_reason"],
+            "manual operator override"
+        );
+    }
+
+    #[tokio::test]
+    async fn get_run_includes_automatic_retry_policy() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::Synthesis,
+                &serde_json::json!({ "synthesis_kind": "week", "window_days": 7 }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let data = &json["data"];
+        assert_eq!(data["automatic_retry_supported"], true);
+        assert_eq!(
+            data["automatic_retry_reason"],
+            "worker can re-execute the original run input"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_runs_includes_unsupported_automatic_retry_policy() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::Search,
+                &serde_json::json!({ "query": "lidar" }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/runs")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let run = json["data"]
+            .as_array()
+            .and_then(|runs| runs.iter().find(|run| run["id"] == run_id.as_ref()))
+            .expect("run should be present in list response");
+        assert_eq!(run["automatic_retry_supported"], false);
+        assert_eq!(
+            run["automatic_retry_reason"],
+            "search runs do not have an automatic retry executor"
+        );
     }
 
     #[tokio::test]
@@ -1841,6 +2358,219 @@ mod tests {
         assert!(events
             .iter()
             .any(|event| event.event_name == "intervention.created"));
+    }
+
+    #[tokio::test]
+    async fn chat_assistant_card_message_emits_typed_websocket_events() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
+        let mut rx = broadcast_tx.subscribe();
+        let state = crate::state::AppState::new(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            broadcast_tx,
+            None,
+            None,
+        );
+        let app = build_app_with_state(state);
+
+        let create_conv = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/conversations")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"title":"T","kind":"general"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let conv_json: serde_json::Value = serde_json::from_slice(&conv_body).unwrap();
+        let conv_id = conv_json["data"]["id"].as_str().unwrap();
+
+        let msg_body = r#"{"role":"assistant","kind":"reminder_card","content":{"title":"Take meds","reason":"morning routine"}}"#;
+        let msg_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/conversations/{}/messages", conv_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(msg_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(msg_resp.status(), StatusCode::OK);
+
+        let intervention_event = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let message_event = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            intervention_event.event_type,
+            vel_api_types::WsEventType::InterventionsNew
+        );
+        assert_eq!(
+            intervention_event.payload["kind"].as_str().unwrap(),
+            "reminder"
+        );
+        assert_eq!(
+            intervention_event.payload["state"].as_str().unwrap(),
+            "active"
+        );
+
+        assert_eq!(message_event.event_type, vel_api_types::WsEventType::MessagesNew);
+        assert_eq!(message_event.payload["role"].as_str().unwrap(), "assistant");
+        assert_eq!(
+            message_event.payload["kind"].as_str().unwrap(),
+            "reminder_card"
+        );
+        assert_eq!(
+            message_event.payload["conversation_id"].as_str().unwrap(),
+            conv_id
+        );
+
+        let message_id = message_event.payload["id"].as_str().unwrap();
+        assert_eq!(
+            intervention_event.payload["message_id"].as_str().unwrap(),
+            message_id
+        );
+    }
+
+    #[tokio::test]
+    async fn chat_message_provenance_hydrates_message_and_intervention_data() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let create_conv = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/conversations")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"title":"T","kind":"general"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let conv_json: serde_json::Value = serde_json::from_slice(&conv_body).unwrap();
+        let conv_id = conv_json["data"]["id"].as_str().unwrap();
+
+        let msg_body = r#"{"role":"assistant","kind":"reminder_card","content":{"title":"Take meds","reason":"morning routine","confidence":0.82}}"#;
+        let msg_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/conversations/{}/messages", conv_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(msg_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(msg_resp.status(), StatusCode::OK);
+        let msg_resp_body = axum::body::to_bytes(msg_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let msg_json: serde_json::Value = serde_json::from_slice(&msg_resp_body).unwrap();
+        let message_id = msg_json["data"]["user_message"]["id"].as_str().unwrap();
+
+        let provenance_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/messages/{}/provenance", message_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(provenance_resp.status(), StatusCode::OK);
+        let provenance_body = axum::body::to_bytes(provenance_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let provenance_json: serde_json::Value = serde_json::from_slice(&provenance_body).unwrap();
+        let data = &provenance_json["data"];
+
+        assert_eq!(data["message_id"].as_str().unwrap(), message_id);
+
+        let events = data["events"].as_array().unwrap();
+        assert!(!events.is_empty());
+        assert!(events.iter().any(|event| {
+            event["event_name"].as_str() == Some("message.created")
+                || event["event_name"].as_str() == Some("message.updated")
+        }));
+
+        let linked_objects = data["linked_objects"].as_array().unwrap();
+        assert!(linked_objects.iter().any(|object| {
+            object["kind"].as_str() == Some("message")
+                && object["id"].as_str() == Some(message_id)
+                && object["conversation_id"].as_str() == Some(conv_id)
+                && object["message_kind"].as_str() == Some("reminder_card")
+        }));
+        assert!(linked_objects.iter().any(|object| {
+            object["kind"].as_str() == Some("intervention")
+                && object["message_id"].as_str() == Some(message_id)
+                && object["intervention_kind"].as_str() == Some("reminder")
+                && object["state"].as_str() == Some("active")
+                && object["source"]["title"].as_str() == Some("Take meds")
+                && object["source"]["reason"].as_str() == Some("morning routine")
+                && object["provenance"]["message_id"].as_str() == Some(message_id)
+                && object["provenance"]["conversation_id"].as_str() == Some(conv_id)
+        }));
+
+        let signals = data["signals"].as_array().unwrap();
+        assert!(signals.iter().any(|signal| {
+            signal["kind"].as_str() == Some("message_content")
+                && signal["message_kind"].as_str() == Some("reminder_card")
+                && signal["title"].as_str() == Some("Take meds")
+                && signal["reason"].as_str() == Some("morning routine")
+        }));
+        assert!(signals.iter().any(|signal| {
+            signal["kind"].as_str() == Some("intervention_source")
+                && signal["intervention_kind"].as_str() == Some("reminder")
+                && signal["payload"]["title"].as_str() == Some("Take meds")
+        }));
+        assert!(signals.iter().any(|signal| {
+            signal["kind"].as_str() == Some("intervention_provenance")
+                && signal["intervention_id"].is_string()
+                && signal["payload"]["message_kind"].as_str() == Some("reminder_card")
+        }));
+
+        let policy_decisions = data["policy_decisions"].as_array().unwrap();
+        assert!(policy_decisions.iter().any(|decision| {
+            decision["kind"].as_str() == Some("message_policy")
+                && decision["message_kind"].as_str() == Some("reminder_card")
+                && decision["reason"].as_str() == Some("morning routine")
+                && decision["confidence"].as_f64() == Some(0.82)
+        }));
+        assert!(policy_decisions.iter().any(|decision| {
+            decision["kind"].as_str() == Some("intervention_state")
+                && decision["intervention_kind"].as_str() == Some("reminder")
+                && decision["state"].as_str() == Some("active")
+        }));
     }
 
     #[tokio::test]

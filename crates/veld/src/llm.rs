@@ -9,7 +9,8 @@ const DEFAULT_MODELS_DIR: &str = "configs/models";
 
 /// Load routing config from configs/models/routing.toml.
 pub fn load_chat_routing() -> RoutingConfig {
-    let models_dir = std::env::var("VEL_MODELS_DIR").unwrap_or_else(|_| DEFAULT_MODELS_DIR.to_string());
+    let models_dir =
+        std::env::var("VEL_MODELS_DIR").unwrap_or_else(|_| DEFAULT_MODELS_DIR.to_string());
     let path = Path::new(&models_dir).join("routing.toml");
     load_routing(&path).unwrap_or_default()
 }
@@ -17,7 +18,8 @@ pub fn load_chat_routing() -> RoutingConfig {
 /// Build a Router from configs/models and return (router, chat_profile_id).
 /// If no profiles or no "chat" task in routing, returns (None, None).
 pub fn build_chat_router() -> (Option<Router>, Option<String>) {
-    let models_dir = std::env::var("VEL_MODELS_DIR").unwrap_or_else(|_| DEFAULT_MODELS_DIR.to_string());
+    let models_dir =
+        std::env::var("VEL_MODELS_DIR").unwrap_or_else(|_| DEFAULT_MODELS_DIR.to_string());
     let profiles = match load_model_profiles(&models_dir) {
         Ok(p) => p,
         Err(e) => {
