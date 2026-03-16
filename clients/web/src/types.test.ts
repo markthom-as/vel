@@ -100,6 +100,17 @@ describe('transport decoders', () => {
         id: 'run_1',
         kind: 'search',
         status: 'blocked',
+        automatic_retry_supported: false,
+        automatic_retry_reason: 'search runs do not have an automatic retry executor',
+        unsupported_retry_override: false,
+        unsupported_retry_override_reason: null,
+        created_at: '2026-03-16T12:00:00Z',
+        started_at: null,
+        finished_at: '2026-03-16T12:04:00Z',
+        duration_ms: 240000,
+        retry_scheduled_at: null,
+        retry_reason: null,
+        blocked_reason: 'waiting_on_dependency',
       },
     })
 
@@ -109,6 +120,17 @@ describe('transport decoders', () => {
         id: 'run_1',
         kind: 'search',
         status: 'blocked',
+        automatic_retry_supported: false,
+        automatic_retry_reason: 'search runs do not have an automatic retry executor',
+        unsupported_retry_override: false,
+        unsupported_retry_override_reason: null,
+        created_at: '2026-03-16T12:00:00Z',
+        started_at: null,
+        finished_at: '2026-03-16T12:04:00Z',
+        duration_ms: 240000,
+        retry_scheduled_at: null,
+        retry_reason: null,
+        blocked_reason: 'waiting_on_dependency',
       })
     }
   })

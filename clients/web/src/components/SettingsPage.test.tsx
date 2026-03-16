@@ -226,7 +226,7 @@ describe('SettingsPage', () => {
     })
   })
 
-  it('refetches runs when a websocket run update arrives', async () => {
+  it('updates rendered runs from websocket payloads without refetching', async () => {
     let wsListener: ((event: WsEnvelope) => void) | null = null
     subscribeWs.mockImplementation((listener) => {
       wsListener = listener
@@ -248,14 +248,30 @@ describe('SettingsPage', () => {
     runUpdateListener?.({
       type: 'runs:updated',
       timestamp: '2026-03-16T22:10:00Z',
-      payload: { id: 'run_122', kind: 'search', status: 'blocked' },
+      payload: {
+        id: 'run_122',
+        kind: 'search',
+        status: 'blocked',
+        automatic_retry_supported: false,
+        automatic_retry_reason: 'search runs do not have an automatic retry executor',
+        unsupported_retry_override: false,
+        unsupported_retry_override_reason: null,
+        created_at: '2026-03-16T21:55:00Z',
+        started_at: null,
+        finished_at: '2026-03-16T21:56:00Z',
+        duration_ms: 60000,
+        retry_scheduled_at: null,
+        retry_reason: null,
+        blocked_reason: 'ws_blocked_reason',
+      },
     })
     await Promise.resolve()
 
     const runsCallsAfter = vi.mocked(client.apiGet).mock.calls.filter(
       ([path]) => path === '/v1/runs?limit=6',
     ).length
-    expect(runsCallsAfter).toBeGreaterThan(runsCallsBefore)
+    expect(runsCallsAfter).toBe(runsCallsBefore)
+    expect(within(root).getByText('Blocked reason: ws_blocked_reason')).toBeInTheDocument()
   })
 
   it('subscribes to websocket updates for runs', async () => {

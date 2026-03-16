@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiPatch } from '../api/client';
 import { subscribeWs } from '../realtime/ws';
 import type { RunSummaryData, SettingsData } from '../types';
-import { invalidateQuery, setQueryData, useQuery } from '../data/query';
+import { setQueryData, useQuery } from '../data/query';
 import { loadRecentRuns, loadSettings, queryKeys } from '../data/resources';
 
 interface SettingsPageProps {
@@ -49,10 +49,18 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   useEffect(() => {
     return subscribeWs((event) => {
       if (event.type === 'runs:updated') {
-        void refetchRuns();
+        setQueryData<RunSummaryData[]>(runsKey, (current = []) => {
+          const next = [...current];
+          const index = next.findIndex((run) => run.id === event.payload.id);
+          if (index >= 0) {
+            next[index] = event.payload;
+            return next;
+          }
+          return [event.payload, ...next].slice(0, runLimit);
+        });
       }
     });
-  }, [refetchRuns]);
+  }, [runLimit, runsKey]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -114,7 +122,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           message: 'Retry scheduled.',
         },
       }));
-      invalidateQuery(runsKey, { refetch: true });
     } catch (error) {
       setRunActionState((current) => ({
         ...current,
@@ -148,7 +155,6 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           message: 'Run blocked.',
         },
       }));
-      invalidateQuery(runsKey, { refetch: true });
     } catch (error) {
       setRunActionState((current) => ({
         ...current,

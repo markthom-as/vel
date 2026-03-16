@@ -181,6 +181,48 @@ fn automatic_retry_policy(kind: vel_core::RunKind) -> (bool, Option<String>) {
     )
 }
 
+async fn run_summary_data(
+    state: &AppState,
+    run: vel_core::Run,
+) -> Result<RunSummaryData, AppError> {
+    let (automatic_retry_supported, automatic_retry_reason) = automatic_retry_policy(run.kind);
+    let mut metadata = run_operator_metadata(run.output_json.as_ref());
+    if run.status == RunStatus::RetryScheduled {
+        let events = state.storage.list_run_events(run.id.as_ref()).await?;
+        let (retry_at, retry_reason, unsupported_retry_override, unsupported_retry_override_reason) =
+            retry_metadata_from_events(&events);
+        if metadata.retry_scheduled_at.is_none() {
+            metadata.retry_scheduled_at = retry_at;
+        }
+        if metadata.retry_reason.is_none() {
+            metadata.retry_reason = retry_reason;
+        }
+        if !metadata.unsupported_retry_override {
+            metadata.unsupported_retry_override = unsupported_retry_override;
+        }
+        if metadata.unsupported_retry_override_reason.is_none() {
+            metadata.unsupported_retry_override_reason = unsupported_retry_override_reason;
+        }
+    }
+
+    Ok(RunSummaryData {
+        id: run.id,
+        kind: run.kind.to_string(),
+        status: run.status.to_string(),
+        automatic_retry_supported,
+        automatic_retry_reason,
+        unsupported_retry_override: metadata.unsupported_retry_override,
+        unsupported_retry_override_reason: metadata.unsupported_retry_override_reason,
+        created_at: run.created_at,
+        started_at: run.started_at,
+        finished_at: run.finished_at,
+        duration_ms: duration_ms(run.started_at, run.finished_at),
+        retry_scheduled_at: metadata.retry_scheduled_at,
+        retry_reason: metadata.retry_reason,
+        blocked_reason: metadata.blocked_reason,
+    })
+}
+
 pub async fn list_runs(
     State(state): State<AppState>,
     Query(q): Query<ListRunsQuery>,
@@ -194,41 +236,7 @@ pub async fn list_runs(
         .await?;
     let mut data = Vec::with_capacity(runs.len());
     for r in runs {
-        let (automatic_retry_supported, automatic_retry_reason) = automatic_retry_policy(r.kind);
-        let mut metadata = run_operator_metadata(r.output_json.as_ref());
-        if r.status == RunStatus::RetryScheduled {
-            let events = state.storage.list_run_events(r.id.as_ref()).await?;
-            let (retry_at, retry_reason, unsupported_retry_override, unsupported_retry_override_reason) =
-                retry_metadata_from_events(&events);
-            if metadata.retry_scheduled_at.is_none() {
-                metadata.retry_scheduled_at = retry_at;
-            }
-            if metadata.retry_reason.is_none() {
-                metadata.retry_reason = retry_reason;
-            }
-            if !metadata.unsupported_retry_override {
-                metadata.unsupported_retry_override = unsupported_retry_override;
-            }
-            if metadata.unsupported_retry_override_reason.is_none() {
-                metadata.unsupported_retry_override_reason = unsupported_retry_override_reason;
-            }
-        }
-        data.push(RunSummaryData {
-            id: r.id,
-            kind: r.kind.to_string(),
-            status: r.status.to_string(),
-            automatic_retry_supported,
-            automatic_retry_reason,
-            unsupported_retry_override: metadata.unsupported_retry_override,
-            unsupported_retry_override_reason: metadata.unsupported_retry_override_reason,
-            created_at: r.created_at,
-            started_at: r.started_at,
-            finished_at: r.finished_at,
-            duration_ms: duration_ms(r.started_at, r.finished_at),
-            retry_scheduled_at: metadata.retry_scheduled_at,
-            retry_reason: metadata.retry_reason,
-            blocked_reason: metadata.blocked_reason,
-        });
+        data.push(run_summary_data(&state, r).await?);
     }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -428,11 +436,8 @@ pub async fn update_run(
 
 pub async fn broadcast_run_updated(state: &AppState, run_id: &str) -> Result<(), AppError> {
     if let Some(run) = state.storage.get_run_by_id(run_id).await? {
-        let payload = serde_json::json!({
-            "id": run.id,
-            "kind": run.kind.to_string(),
-            "status": run.status.to_string(),
-        });
+        let payload = serde_json::to_value(run_summary_data(state, run).await?)
+            .map_err(|e| AppError::internal(format!("failed to serialize run update payload: {}", e)))?;
         let _ = state
             .broadcast_tx
             .send(WsEnvelope::new(WsEventType::RunsUpdated, payload));
