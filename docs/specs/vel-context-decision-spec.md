@@ -2,64 +2,100 @@
 Version: 1.0
 Date: 2026-03-16
 
-## Overview
+## Purpose
 
-This system provides three capabilities:
+This spec describes an extension path for context inspection, decision tracing, and feedback handling in Vel.
 
-1. **Inspectable Context Model**
-2. **Decision Trace Logging**
-3. **User Feedback Training Loop**
+It does **not** define a second authoritative user-state system.
 
-Vel maintains a structured model of the user's current context and uses it to guide LLM-driven decisions.
-Users can inspect and correct Vel's understanding in real time.
+## Current Runtime Boundary
+
+Per `docs/status.md`, the current runtime authority for present-tense context is the existing:
+
+- `current_context`
+- `context_timeline`
+- `explain/*` surfaces
+- reducer/inference flow that writes and explains current context
+
+Any work derived from this spec must extend that runtime or its explainability surfaces. It must not introduce a competing belief ledger, a parallel inference engine, or a second independently authoritative context model unless a broader architecture decision explicitly replaces the current stack.
+
+## Current vs Planned
+
+### Current
+
+Vel already has:
+
+- a persistent current-context record
+- a context timeline for material transitions
+- explain surfaces for context, drift, nudges, and commitments
+- signal-, risk-, and policy-informed inference
+
+### Planned Extensions
+
+The ideas in this spec are best interpreted as support for:
+
+1. richer inspection of the existing context runtime
+2. structured decision-trace artifacts
+3. confidence and uncertainty metadata
+4. user feedback loops around existing context decisions
+
+Where this spec uses terms like `belief`, treat them as a possible supporting representation for inspection or explanation, not as a new top-level authority.
 
 ## Core Principles
 
-Vel exposes:
+Vel should expose:
 
-• Beliefs about the user's current context  
-• Confidence and uncertainty  
-• Decision reasoning summaries  
-• Correction mechanisms
+- structured summaries of current context decisions
+- confidence and uncertainty where useful
+- decision reasoning summaries
+- correction and suppression mechanisms
 
-Vel does NOT expose raw chain-of-thought reasoning tokens.
+Vel should not expose raw chain-of-thought reasoning tokens.
 
-Instead it stores structured reasoning artifacts.
+Instead it should store structured reasoning artifacts attached to the current context and explain runtime.
 
 ---
 
-# System Architecture
+# Architecture Direction
+
+Preferred shape:
 
 User Interface
         |
-Context Inspector
+Context Inspector / Explain Surfaces
         |
-Belief Store
+Existing Current Context Runtime
         |
-Decision Engine
+Optional Supporting Inspection Metadata
         |
-LLM + Tools
-        |
-Decision Trace Store
+Decision Trace Artifacts
+
+If additional stores are introduced, they should support inspection, feedback, or uncertainty handling around the existing reducer/runtime.
 
 ---
 
-# Context Belief Model
+# Supporting Context Belief Model
 
-Vel maintains a dynamic set of beliefs about the user's environment and intentions.
+This section describes a possible supporting representation for inspectable context assertions.
 
-Example belief:
+It should be treated as:
+
+- optional
+- subordinate to the existing current-context runtime
+- useful for explanation, uncertainty, and feedback
+
+Example assertion:
 
 "You are preparing to leave for a meeting"
 
-Each belief contains metadata:
+Useful metadata includes:
 
 - confidence
 - source signals
 - temporal scope
 - epistemic status
 
-Beliefs are sorted by confidence and surfaced in the UI.
+If such entries are stored, they should be sortable and inspectable, but they should not replace the authoritative `current_context` output.
 
 ---
 
