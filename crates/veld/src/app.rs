@@ -110,9 +110,35 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
         .route("/v1/sync/activity", post(routes::sync::sync_activity))
         .route("/v1/sync/git", post(routes::sync::sync_git))
+        .route("/v1/sync/messaging", post(routes::sync::sync_messaging))
         .route("/v1/sync/notes", post(routes::sync::sync_notes))
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
+        .route("/api/integrations", get(routes::integrations::get_integrations))
+        .route(
+            "/api/integrations/google-calendar",
+            axum::routing::patch(routes::integrations::patch_google_calendar),
+        )
+        .route(
+            "/api/integrations/google-calendar/disconnect",
+            post(routes::integrations::disconnect_google_calendar),
+        )
+        .route(
+            "/api/integrations/google-calendar/auth/start",
+            post(routes::integrations::start_google_calendar_auth),
+        )
+        .route(
+            "/api/integrations/google-calendar/oauth/callback",
+            get(routes::integrations::google_calendar_oauth_callback),
+        )
+        .route(
+            "/api/integrations/todoist",
+            axum::routing::patch(routes::integrations::patch_todoist),
+        )
+        .route(
+            "/api/integrations/todoist/disconnect",
+            post(routes::integrations::disconnect_todoist),
+        )
         .route(
             "/v1/synthesis/week",
             post(routes::synthesis::synthesis_week),
@@ -3075,6 +3101,124 @@ END:VCALENDAR
         );
 
         let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    async fn sync_messaging_ingests_snapshot_and_suppresses_duplicates() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!(
+            "vel_messages_{}.json",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let snapshot = serde_json::json!({
+            "source": "messaging",
+            "account_id": "local-default",
+            "threads": [
+                {
+                    "thread_id": "thr_ops",
+                    "platform": "sms",
+                    "title": "Review reschedule",
+                    "participants": [
+                        { "id": "me", "name": "Me", "is_me": true },
+                        { "id": "+15551234567", "name": "Sam", "is_me": false }
+                    ],
+                    "latest_timestamp": 1700003000,
+                    "waiting_state": "me",
+                    "scheduling_related": true,
+                    "urgent": true,
+                    "summary": "Need to answer the review reschedule request.",
+                    "snippet": "Can we move the review to 3?"
+                }
+            ]
+        });
+        std::fs::write(&file_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = vel_config::AppConfig {
+            messaging_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        for _ in 0..2 {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/v1/sync/messaging")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+        }
+
+        let signals = storage
+            .list_signals(Some("message_thread"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].source, "messaging");
+        assert_eq!(
+            signals[0].source_ref.as_deref(),
+            Some("messaging:sms:local-default:thr_ops:1700003000")
+        );
+        assert_eq!(signals[0].payload_json["platform"], "sms");
+        assert_eq!(signals[0].payload_json["thread_id"], "thr_ops");
+        assert_eq!(signals[0].payload_json["waiting_state"], "me");
+        assert_eq!(signals[0].payload_json["scheduling_related"], true);
+        assert_eq!(signals[0].payload_json["urgent"], true);
+        assert_eq!(signals[0].payload_json["snippet"], "Can we move the review to 3?");
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    async fn evaluate_includes_messaging_summary_in_current_context() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "message_thread".to_string(),
+                source: "messaging".to_string(),
+                source_ref: Some(format!("messaging:gmail:default:thr_1:{}", now)),
+                timestamp: now,
+                payload_json: Some(serde_json::json!({
+                    "thread_id": "thr_1",
+                    "platform": "gmail",
+                    "title": "Dimitri follow-up",
+                    "participants": [
+                        { "id": "me@example.com", "name": "Me", "is_me": true },
+                        { "id": "dimitri@example.com", "name": "Dimitri", "is_me": false }
+                    ],
+                    "latest_timestamp": now,
+                    "waiting_state": "me",
+                    "scheduling_related": true,
+                    "urgent": true,
+                    "snippet": "Can you send the updated draft?"
+                })),
+            })
+            .await
+            .unwrap();
+
+        let evaluate_result = crate::services::evaluate::run(&storage, &test_policy_config()).await;
+        assert!(evaluate_result.is_ok());
+
+        let (_, context_json) = storage.get_current_context().await.unwrap().unwrap();
+        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        assert_eq!(context["message_waiting_on_me_count"], 1);
+        assert_eq!(context["message_scheduling_thread_count"], 1);
+        assert_eq!(context["message_urgent_thread_count"], 1);
+        assert_eq!(
+            context["message_summary"]["top_threads"][0]["title"],
+            "Dimitri follow-up"
+        );
     }
 
     #[tokio::test]

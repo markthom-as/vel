@@ -33,6 +33,10 @@ pub fn run(config: &AppConfig, json: bool) -> anyhow::Result<()> {
         "transcript_snapshot_path: {}",
         config.transcript_snapshot_path.as_deref().unwrap_or("-")
     );
+    println!(
+        "messaging_snapshot_path: {}",
+        config.messaging_snapshot_path.as_deref().unwrap_or("-")
+    );
     Ok(())
 }
 

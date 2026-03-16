@@ -173,6 +173,11 @@ function summarizeContext(context: JsonValue): Array<[string, string]> {
     'global_risk_level',
     'global_risk_score',
     'git_activity_summary',
+    'message_waiting_on_me_count',
+    'message_waiting_on_others_count',
+    'message_scheduling_thread_count',
+    'message_urgent_thread_count',
+    'message_summary',
   ];
 
   return keys

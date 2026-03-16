@@ -264,6 +264,10 @@ impl ApiClient {
         self.post_empty("/v1/sync/transcripts").await
     }
 
+    pub async fn sync_messaging(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
+        self.post_empty("/v1/sync/messaging").await
+    }
+
     pub async fn list_nudges(&self) -> anyhow::Result<ApiResponse<Vec<NudgeData>>> {
         self.get("/v1/nudges").await
     }

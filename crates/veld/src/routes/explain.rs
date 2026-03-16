@@ -244,6 +244,14 @@ fn signal_summary(signal: &SignalRecord) -> SignalExplainSummary {
             "role": payload.get("role").and_then(|value| value.as_str()),
             "source": payload.get("source").and_then(|value| value.as_str()),
         }),
+        "message_thread" => serde_json::json!({
+            "platform": payload.get("platform").and_then(|value| value.as_str()),
+            "title": payload.get("title").and_then(|value| value.as_str()),
+            "waiting_state": payload.get("waiting_state").and_then(|value| value.as_str()),
+            "scheduling_related": payload.get("scheduling_related").and_then(|value| value.as_bool()),
+            "urgent": payload.get("urgent").and_then(|value| value.as_bool()),
+            "snippet": payload.get("snippet").and_then(|value| value.as_str()),
+        }),
         "note_document" => serde_json::json!({
             "path": payload.get("path").and_then(|value| value.as_str()),
             "title": payload.get("title").and_then(|value| value.as_str()),

@@ -28,6 +28,8 @@ pub struct AppConfig {
     pub activity_snapshot_path: Option<String>,
     /// Git: path to local git activity snapshot JSON.
     pub git_snapshot_path: Option<String>,
+    /// Messaging: path to local messaging snapshot JSON.
+    pub messaging_snapshot_path: Option<String>,
     /// Notes: file or directory path for markdown/plaintext note sync.
     pub notes_path: Option<String>,
     /// Transcripts: path to assistant/chat transcript snapshot JSON.
@@ -57,6 +59,7 @@ impl Default for AppConfig {
             todoist_snapshot_path: None,
             activity_snapshot_path: None,
             git_snapshot_path: None,
+            messaging_snapshot_path: None,
             notes_path: None,
             transcript_snapshot_path: None,
         }
@@ -75,6 +78,7 @@ struct FileConfig {
     todoist_snapshot_path: Option<String>,
     activity_snapshot_path: Option<String>,
     git_snapshot_path: Option<String>,
+    messaging_snapshot_path: Option<String>,
     notes_path: Option<String>,
     transcript_snapshot_path: Option<String>,
 }
@@ -130,6 +134,9 @@ impl AppConfig {
         if file.git_snapshot_path.is_some() {
             self.git_snapshot_path = file.git_snapshot_path;
         }
+        if file.messaging_snapshot_path.is_some() {
+            self.messaging_snapshot_path = file.messaging_snapshot_path;
+        }
         if file.notes_path.is_some() {
             self.notes_path = file.notes_path;
         }
@@ -169,6 +176,9 @@ impl AppConfig {
         if let Some(value) = env_map.get("VEL_GIT_SNAPSHOT_PATH") {
             self.git_snapshot_path = Some(value.clone());
         }
+        if let Some(value) = env_map.get("VEL_MESSAGING_SNAPSHOT_PATH") {
+            self.messaging_snapshot_path = Some(value.clone());
+        }
         if let Some(value) = env_map.get("VEL_NOTES_PATH") {
             self.notes_path = Some(value.clone());
         }
@@ -196,11 +206,19 @@ mod tests {
         let env_map = HashMap::from([
             ("VEL_BIND_ADDR".to_string(), "0.0.0.0:9999".to_string()),
             ("VEL_DB_PATH".to_string(), "/tmp/vel.sqlite".to_string()),
+            (
+                "VEL_MESSAGING_SNAPSHOT_PATH".to_string(),
+                "/tmp/messaging.json".to_string(),
+            ),
         ]);
 
         config.apply_env_map(&env_map);
 
         assert_eq!(config.bind_addr, "0.0.0.0:9999");
         assert_eq!(config.db_path, "/tmp/vel.sqlite");
+        assert_eq!(
+            config.messaging_snapshot_path.as_deref(),
+            Some("/tmp/messaging.json")
+        );
     }
 }

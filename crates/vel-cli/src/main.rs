@@ -355,6 +355,7 @@ enum SyncCommand {
     Git,
     Notes,
     Transcripts,
+    Messaging,
 }
 
 #[derive(Debug, Subcommand)]
@@ -550,6 +551,7 @@ async fn main() -> anyhow::Result<()> {
             SyncCommand::Git => commands::sync::run_git(&client).await,
             SyncCommand::Notes => commands::sync::run_notes(&client).await,
             SyncCommand::Transcripts => commands::sync::run_transcripts(&client).await,
+            SyncCommand::Messaging => commands::sync::run_messaging(&client).await,
         },
         Command::Nudges { json } => commands::nudges::run_list(&client, json).await,
         Command::Nudge { command } => match command {
@@ -642,6 +644,17 @@ mod tests {
         match cli.command {
             Command::Today { json } => assert!(json),
             _ => panic!("expected today command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_sync_messaging() {
+        let cli = Cli::try_parse_from(["vel", "sync", "messaging"]).unwrap();
+        match cli.command {
+            Command::Sync {
+                command: SyncCommand::Messaging,
+            } => {}
+            _ => panic!("expected sync messaging command"),
         }
     }
 

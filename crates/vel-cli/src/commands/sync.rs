@@ -63,3 +63,16 @@ pub async fn run_transcripts(client: &ApiClient) -> anyhow::Result<()> {
     println!("transcripts: {} signals ingested", d.signals_ingested);
     Ok(())
 }
+
+pub async fn run_messaging(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client
+        .sync_messaging()
+        .await
+        .context("sync messaging")?;
+    let d = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("messaging: {} signals ingested", d.signals_ingested);
+    Ok(())
+}

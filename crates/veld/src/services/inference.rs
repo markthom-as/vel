@@ -63,6 +63,10 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         .iter()
         .filter(|s| s.signal_type == "calendar_event")
         .collect();
+    let message_threads: Vec<_> = signals_today
+        .iter()
+        .filter(|s| s.signal_type == "message_thread")
+        .collect();
     let latest_git_activity = signals_today
         .iter()
         .filter(|s| s.signal_type == "git_activity")
@@ -122,6 +126,62 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     } else {
         "unknown"
     };
+    let waiting_on_me_threads: Vec<_> = message_threads
+        .iter()
+        .filter(|signal| {
+            signal
+                .payload_json
+                .get("waiting_state")
+                .and_then(|value| value.as_str())
+                == Some("me")
+        })
+        .collect();
+    let waiting_on_others_count = message_threads
+        .iter()
+        .filter(|signal| {
+            signal
+                .payload_json
+                .get("waiting_state")
+                .and_then(|value| value.as_str())
+                == Some("others")
+        })
+        .count();
+    let scheduling_thread_count = message_threads
+        .iter()
+        .filter(|signal| {
+            signal
+                .payload_json
+                .get("scheduling_related")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false)
+        })
+        .count();
+    let urgent_thread_count = message_threads
+        .iter()
+        .filter(|signal| {
+            signal
+                .payload_json
+                .get("urgent")
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false)
+        })
+        .count();
+    let top_message_threads: Vec<serde_json::Value> = waiting_on_me_threads
+        .iter()
+        .take(3)
+        .map(|signal| {
+            serde_json::json!({
+                "thread_id": signal.payload_json.get("thread_id").and_then(|value| value.as_str()),
+                "platform": signal.payload_json.get("platform").and_then(|value| value.as_str()),
+                "title": signal.payload_json.get("title").and_then(|value| value.as_str()),
+                "waiting_state": signal.payload_json.get("waiting_state").and_then(|value| value.as_str()),
+                "scheduling_related": signal.payload_json.get("scheduling_related").and_then(|value| value.as_bool()),
+                "urgent": signal.payload_json.get("urgent").and_then(|value| value.as_bool()),
+                "latest_timestamp": signal.payload_json.get("latest_timestamp").and_then(|value| value.as_i64()),
+                "snippet": signal.payload_json.get("snippet").and_then(|value| value.as_str()),
+            })
+        })
+        .collect();
 
     let mode = if prep_window_active {
         "meeting_mode"
@@ -179,6 +239,7 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
                     | "shell_login"
                     | "computer_activity"
                     | "git_activity"
+                    | "message_thread"
             )
         })
         .take(50)
@@ -273,6 +334,17 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
             "insertions": summary.insertions,
             "deletions": summary.deletions,
         })),
+        "message_waiting_on_me_count": waiting_on_me_threads.len(),
+        "message_waiting_on_others_count": waiting_on_others_count,
+        "message_scheduling_thread_count": scheduling_thread_count,
+        "message_urgent_thread_count": urgent_thread_count,
+        "message_summary": {
+            "waiting_on_me_count": waiting_on_me_threads.len(),
+            "waiting_on_others_count": waiting_on_others_count,
+            "scheduling_thread_count": scheduling_thread_count,
+            "urgent_thread_count": urgent_thread_count,
+            "top_threads": top_message_threads,
+        },
         "leave_by_ts": leave_by_ts,
         "next_event_start_ts": next_event_start_ts,
     });
