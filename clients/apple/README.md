@@ -12,9 +12,9 @@ Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-cl
 ## Prerequisites
 
 - Xcode 15+ (Swift 5.9)
-- **veld** running (e.g. `veld` in the repo root, or `cargo run -p veld`). Default base URL: `http://localhost:4242`.
+- **veld** running (e.g. `veld` in the repo root, or `cargo run -p veld`). Default bind address: `127.0.0.1:4130` (base URL `http://127.0.0.1:4130`).
 
-On a physical device, set the daemon base URL (e.g. `http://<your-mac-ip>:4242`) in the app or via UserDefaults key `vel_base_url` until a Settings bundle is added.
+On a physical device, set the daemon base URL (e.g. `http://<your-mac-ip>:4130`) in the app or via UserDefaults key `vel_base_url` until a Settings bundle is added.
 
 ## 1. Open the project in Xcode
 

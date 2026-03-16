@@ -13,14 +13,14 @@ struct VelMacApp: App {
     }
 }
 
-/// Reuse same store pattern as iOS; configure base URL (e.g. http://localhost:4242).
+/// Reuse same store pattern as iOS; configure base URL (default http://localhost:4130).
 final class VelClientStore: ObservableObject {
     let client: VelAPI.VelClient
     @Published var isReachable = false
     @Published var errorMessage: String?
 
     init() {
-        client = VelAPI.VelClient(baseURL: URL(string: "http://localhost:4242")!)
+        client = VelAPI.VelClient(baseURL: URL(string: "http://localhost:4130")!)
     }
 
     func checkReachability() async {

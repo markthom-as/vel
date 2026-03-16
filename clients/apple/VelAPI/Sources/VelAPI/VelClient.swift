@@ -1,12 +1,12 @@
 import Foundation
 
 /// HTTP client for the Vel daemon (veld) API. All clients talk to the same core.
-/// Configure baseURL (e.g. http://localhost:4242) before use.
+/// Configure baseURL (default http://localhost:4130) before use.
 public final class VelClient: Sendable {
     public var baseURL: URL
     private let session: URLSession
 
-    public init(baseURL: URL = URL(string: "http://localhost:4242")!, session: URLSession = .shared) {
+    public init(baseURL: URL = URL(string: "http://localhost:4130")!, session: URLSession = .shared) {
         self.baseURL = baseURL
         self.session = session
     }

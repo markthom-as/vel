@@ -18,8 +18,8 @@ final class VelClientStore: ObservableObject {
     @Published var errorMessage: String?
 
     init() {
-        // Default: localhost. Override with UserDefaults or Settings bundle for device/simulator.
-        var url = URL(string: "http://localhost:4242")!
+        // Default: localhost talking to veld on 4130. Override with UserDefaults or Settings bundle for device/simulator.
+        var url = URL(string: "http://localhost:4130")!
         #if !targetEnvironment(simulator)
         // On device, use your machine's IP or a configured host
         if let host = UserDefaults.standard.string(forKey: "vel_base_url"), let u = URL(string: host) {

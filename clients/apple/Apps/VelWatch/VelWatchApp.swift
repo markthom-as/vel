@@ -12,7 +12,7 @@ struct VelWatchApp: App {
 }
 
 final class VelWatchStore: ObservableObject {
-    let client = VelAPI.VelClient(baseURL: URL(string: "http://localhost:4242")!)
+    let client = VelAPI.VelClient(baseURL: URL(string: "http://localhost:4130")!)
     @Published var message: String = "Vel"
     @Published var nudgeCount: Int = 0
 
