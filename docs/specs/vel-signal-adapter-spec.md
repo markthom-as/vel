@@ -60,21 +60,21 @@ Meaning:
 ---
 # 3. Adapter Modules
 
-Create adapters under:
+Implemented adapters currently live under:
 
 ```
-crates/vel-signals/adapters/
+crates/veld/src/adapters/
 ```
 
 Initial adapters:
 
 ```
-calendar_adapter
-todoist_adapter
-activity_adapter
-capture_adapter
-transcript_adapter
-feedback_adapter
+calendar
+todoist
+activity
+git
+notes
+transcripts
 ```
 
 ---
@@ -86,14 +86,10 @@ Source systems:
 - Apple Calendar
 - ICS feeds
 
-Signal types produced:
+Current signal type produced:
 
 ```
-calendar_event_created
-calendar_event_updated
-calendar_event_deleted
-calendar_event_started
-calendar_event_ended
+calendar_event
 ```
 
 Payload example:
@@ -102,19 +98,23 @@ Payload example:
 {
   "event_id": "...",
   "title": "...",
-  "start_time": 1700000000,
-  "end_time": 1700003600,
+  "start": 1700000000,
+  "end": 1700003600,
   "location": "...",
+  "description": "...",
+  "status": "confirmed",
+  "url": "https://...",
   "attendees": ["..."],
-  "calendar": "..."
+  "prep_minutes": 15,
+  "travel_minutes": 20
 }
 ```
 
 Adapter responsibilities:
 
-- detect event changes
 - normalize timestamps
-- emit signals
+- emit replay-safe normalized event signals from ICS snapshots/feeds
+- preserve event metadata needed by inference and explain surfaces
 
 Adapter must **not** infer:
 
@@ -133,13 +133,10 @@ Sources:
 - Apple Reminders
 - task snapshots
 
-Signal types:
+Current signal type:
 
 ```
-task_created
-task_updated
-task_completed
-task_deleted
+external_task
 ```
 
 Payload example:
@@ -148,7 +145,8 @@ Payload example:
 {
   "task_id": "...",
   "content": "...",
-  "due_time": 1700000000,
+  "checked": false,
+  "due": "2026-03-16",
   "labels": ["health"],
   "priority": 3,
   "project": "..."
@@ -157,9 +155,9 @@ Payload example:
 
 Responsibilities:
 
-- track task state changes
-- emit completion events
-- normalize due times
+- normalize task snapshots into replay-safe signals
+- reconcile linked commitments in place from external task lifecycle
+- preserve due/project/label metadata for downstream context and review
 
 ---
 # 6. Activity Adapter
@@ -174,9 +172,9 @@ Signal types:
 
 ```
 shell_login
-shell_exit
 computer_activity
 idle_state
+vel_invocation
 ```
 
 Payload example:
@@ -188,41 +186,18 @@ Payload example:
 }
 ```
 
-Later expansions may include:
+Current dedicated expansion:
 
-- application focus
-- directory activity
-- git commits
+- `git_activity` is emitted by the separate git adapter
 
 ---
 # 7. Capture Adapter
 
-Source:
+Notes and captures are not currently a general “capture adapter” signal layer.
 
-Vel CLI captures.
-
-Signal types:
-
-```
-capture_created
-capture_updated
-capture_promoted
-```
-
-Payload example:
-
-```
-{
-  "capture_id": "...",
-  "content": "todo: review budget",
-  "tags": ["todo","finance"]
-}
-```
-
-Responsibilities:
-
-- record captures as signals
-- link to capture table entries
+- raw captures are stored directly through the capture system
+- notes sync emits replay-safe `note_document` captures plus `note_document` signals
+- capture promotion into commitments remains a capture/runtime concern, not an adapter concern
 
 ---
 # 8. Transcript Adapter
@@ -233,12 +208,10 @@ Sources:
 - Vel native assistant conversations
 - future agent transcripts
 
-Signal types:
+Current signal type:
 
 ```
 assistant_message
-assistant_conversation_start
-assistant_conversation_end
 ```
 
 Payload example:
@@ -256,6 +229,7 @@ Responsibilities:
 
 - normalize messages
 - preserve order
+- dedupe replay by stable transcript identity
 - allow thread linking later
 
 Adapters must **not** attempt heavy interpretation.
@@ -314,8 +288,11 @@ Examples:
 
 ```
 vel sync calendar
-vel sync tasks
-vel ingest transcripts
+vel sync todoist
+vel sync activity
+vel sync git
+vel sync notes
+vel sync transcripts
 ```
 
 ---

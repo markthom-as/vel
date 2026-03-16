@@ -4,12 +4,12 @@ Status: Integration roadmap for Vel
 
 Purpose: Define external data sources and their priority.
 
-## Phase 1 (Required for MVP)
+## Implemented Foundations
 
 ### Calendar
 Fields required:
 - title
-- start_time
+- start / end
 - location
 - prep_minutes
 - travel_minutes
@@ -23,7 +23,7 @@ Influences:
 ### Todoist / Reminders
 Fields:
 - task title
-- due time
+- due
 - completion status
 - labels/project
 
@@ -43,18 +43,37 @@ Influences:
 - drift detection
 - attention state
 
-## Phase 2
+### Git Activity
+Signals:
+- git activity snapshots
+- branch / repo / operation metadata
+
+Influences:
+- inferred activity
+- workstation/coding evidence
+- explain surfaces
+
+### Notes / Local Documents
+Signals:
+- replay-safe note document captures
+- note document signals
+
+Influences:
+- recall
+- project continuity
+- later synthesis/review work
 
 ### Transcript / Chat Ingestion
 Sources:
 - ChatGPT logs
-- meeting transcripts
-- captured voice sessions
+- assistant transcript snapshots
 
 Influences:
 - thread graph
 - ideation linking
 - project synthesis
+
+## Next Priority Extensions
 
 ### Feedback Signals
 Inputs:
@@ -66,7 +85,17 @@ Influences:
 - self‑model
 - nudge tuning
 
-## Phase 3
+### Calendar Hardening Follow-up
+- recurrence fidelity
+- richer attendee/travel/prep metadata
+- better snapshot/update coverage
+
+### Messaging Awareness
+- conversation threads
+- response debt
+- scheduling negotiation
+
+## Later Extensions
 
 ### Apple Signals
 - watch acknowledgements
@@ -77,27 +106,22 @@ Influences:
 - signals
 - attention detection
 
-### Messaging Awareness
-- conversation threads
-- response debt
-- scheduling negotiation
-
 ## Adapter Pattern
 
 All integrations must emit canonical Vel signals:
 
 signal {
   id
-  source_type
-  entity_type
-  entity_id
+  signal_type
+  source
+  source_ref
+  timestamp
   payload_json
-  created_at
 }
 
 Adapters must:
 1. normalize external data
-2. emit signals
+2. emit replay-safe signals where stable external identity exists
 3. avoid business logic
 
 ## Sync Strategy
