@@ -1203,6 +1203,101 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sync_activity_ingests_snapshot_events() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!("vel_activity_{}.json", uuid::Uuid::new_v4().simple()));
+        let snapshot = serde_json::json!({
+            "source": "workstation",
+            "events": [
+                {
+                    "signal_type": "shell_login",
+                    "timestamp": 1700001000,
+                    "host": "ws-1",
+                    "details": { "tty": "pts/1" }
+                },
+                {
+                    "signal_type": "computer_activity",
+                    "timestamp": 1700001060,
+                    "host": "ws-1",
+                    "details": { "app": "zed" }
+                }
+            ]
+        });
+        std::fs::write(&file_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = vel_config::AppConfig {
+            activity_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/activity")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let shell_signals = storage.list_signals(Some("shell_login"), None, 10).await.unwrap();
+        let activity_signals = storage
+            .list_signals(Some("computer_activity"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(shell_signals.len(), 1);
+        assert_eq!(activity_signals.len(), 1);
+        assert_eq!(shell_signals[0].source, "workstation");
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
+    async fn inference_uses_shell_login_as_workstation_activity() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "shell_login".to_string(),
+                source: "workstation".to_string(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+                payload_json: Some(serde_json::json!({ "host": "ws-1", "activity": "shell_login" })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+
+        let eval_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(eval_resp.status(), StatusCode::OK);
+
+        let ctx_resp = app
+            .oneshot(Request::builder().uri("/v1/context/current").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(ctx_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(ctx_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["context"]["inferred_activity"], "computer_active");
+        assert_eq!(json["data"]["context"]["morning_state"], "engaged");
+    }
+
+    #[tokio::test]
     async fn chat_settings_get_and_patch() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

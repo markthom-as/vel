@@ -30,7 +30,12 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     let active_nudges = storage.list_nudges(Some("active"), 50).await?;
     let snoozed_nudges = storage.list_nudges(Some("snoozed"), 50).await?;
 
-    let has_vel_invocation = signals_today.iter().any(|s| s.signal_type == "vel_invocation");
+    let has_workstation_activity = signals_today.iter().any(|s| {
+        matches!(
+            s.signal_type.as_str(),
+            "vel_invocation" | "shell_login" | "computer_activity"
+        )
+    });
     let meds_open = open_commitments.iter().any(|c| c.commitment_kind.as_deref() == Some("medication"));
     let all_commitments = storage.list_commitments(None, None, Some("medication"), 100).await?;
     let meds_done_today = all_commitments.iter().any(|c| {
@@ -74,7 +79,7 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         .map(|lb| now_ts >= lb - 15 * 60 && first_event.map(|e| now_ts < e.timestamp).unwrap_or(false))
         .unwrap_or(false);
 
-    let morning_started = has_vel_invocation || meds_done_today;
+    let morning_started = has_workstation_activity || meds_done_today;
     let state_name = if prep_window_active && !morning_started {
         "at_risk"
     } else if morning_started {
@@ -85,7 +90,7 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         "inactive"
     };
 
-    let inferred_activity = if has_vel_invocation {
+    let inferred_activity = if has_workstation_activity {
         "computer_active"
     } else {
         "unknown"
@@ -137,7 +142,12 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
 
     let signals_used: Vec<String> = signals_today
         .iter()
-        .filter(|s| s.signal_type == "calendar_event" || s.signal_type == "vel_invocation")
+        .filter(|s| {
+            matches!(
+                s.signal_type.as_str(),
+                "calendar_event" | "vel_invocation" | "shell_login" | "computer_activity"
+            )
+        })
         .take(50)
         .map(|s| s.signal_id.clone())
         .collect();

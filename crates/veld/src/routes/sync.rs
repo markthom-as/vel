@@ -30,7 +30,7 @@ pub async fn sync_todoist(State(state): State<AppState>) -> Result<Json<ApiRespo
 }
 
 pub async fn sync_activity(State(state): State<AppState>) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = adapters::activity::ingest_vel_invocation(&state.storage).await?;
+    let count = adapters::activity::ingest(&state.storage, &state.config).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
