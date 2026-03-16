@@ -7,6 +7,7 @@ pub mod doctor;
 pub mod evaluate;
 pub mod explain;
 pub mod health;
+pub mod integrations;
 pub mod nudges;
 pub mod risk;
 pub mod runs;

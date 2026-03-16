@@ -197,6 +197,50 @@ pub struct EndOfDayData {
     pub what_may_matter_tomorrow: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationCalendarData {
+    pub id: String,
+    pub summary: String,
+    pub primary: bool,
+    pub selected: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoogleCalendarIntegrationData {
+    pub configured: bool,
+    pub connected: bool,
+    pub has_client_id: bool,
+    pub has_client_secret: bool,
+    pub calendars: Vec<IntegrationCalendarData>,
+    pub all_calendars_selected: bool,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TodoistIntegrationData {
+    pub configured: bool,
+    pub connected: bool,
+    pub has_api_token: bool,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationsData {
+    pub google_calendar: GoogleCalendarIntegrationData,
+    pub todoist: TodoistIntegrationData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoogleCalendarAuthStartData {
+    pub auth_url: String,
+}
+
 // --- Chat / Web surfaces ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

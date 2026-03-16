@@ -75,6 +75,45 @@ export interface SettingsData {
   toggle_reminders?: boolean;
 }
 
+export interface IntegrationCalendarData {
+  id: string;
+  summary: string;
+  primary: boolean;
+  selected: boolean;
+}
+
+export interface GoogleCalendarIntegrationData {
+  configured: boolean;
+  connected: boolean;
+  has_client_id: boolean;
+  has_client_secret: boolean;
+  calendars: IntegrationCalendarData[];
+  all_calendars_selected: boolean;
+  last_sync_at: number | null;
+  last_sync_status: string | null;
+  last_error: string | null;
+  last_item_count: number | null;
+}
+
+export interface TodoistIntegrationData {
+  configured: boolean;
+  connected: boolean;
+  has_api_token: boolean;
+  last_sync_at: number | null;
+  last_sync_status: string | null;
+  last_error: string | null;
+  last_item_count: number | null;
+}
+
+export interface IntegrationsData {
+  google_calendar: GoogleCalendarIntegrationData;
+  todoist: TodoistIntegrationData;
+}
+
+export interface GoogleCalendarAuthStartData {
+  auth_url: string;
+}
+
 export interface RunSummaryData {
   id: string;
   kind: string;
@@ -177,11 +216,7 @@ export interface WsInterventionsUpdatedEvent {
   payload: InterventionActionData;
 }
 
-export interface RunUpdateEventData {
-  id: string;
-  kind: string;
-  status: string;
-}
+export type RunUpdateEventData = RunSummaryData;
 
 export interface WsRunsUpdatedEvent {
   type: 'runs:updated';
@@ -307,12 +342,7 @@ export function decodeInterventionActionData(value: unknown): InterventionAction
 }
 
 export function decodeRunUpdateEventData(value: unknown): RunUpdateEventData {
-  const record = expectRecord(value, 'run update');
-  return {
-    id: expectString(record.id, 'run update.id'),
-    kind: expectString(record.kind, 'run update.kind'),
-    status: expectString(record.status, 'run update.status'),
-  };
+  return decodeRunSummaryData(value);
 }
 
 export function decodeCurrentContextData(value: unknown): CurrentContextData {
@@ -380,6 +410,74 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.toggle_reminders === undefined
         ? undefined
         : expectBoolean(record.toggle_reminders, 'settings.toggle_reminders'),
+  };
+}
+
+export function decodeIntegrationCalendarData(value: unknown): IntegrationCalendarData {
+  const record = expectRecord(value, 'integration calendar');
+  return {
+    id: expectString(record.id, 'integration calendar.id'),
+    summary: expectString(record.summary, 'integration calendar.summary'),
+    primary: expectBoolean(record.primary, 'integration calendar.primary'),
+    selected: expectBoolean(record.selected, 'integration calendar.selected'),
+  };
+}
+
+export function decodeGoogleCalendarIntegrationData(value: unknown): GoogleCalendarIntegrationData {
+  const record = expectRecord(value, 'google calendar integration');
+  return {
+    configured: expectBoolean(record.configured, 'google calendar integration.configured'),
+    connected: expectBoolean(record.connected, 'google calendar integration.connected'),
+    has_client_id: expectBoolean(record.has_client_id, 'google calendar integration.has_client_id'),
+    has_client_secret: expectBoolean(
+      record.has_client_secret,
+      'google calendar integration.has_client_secret',
+    ),
+    calendars: decodeArray(record.calendars ?? [], decodeIntegrationCalendarData),
+    all_calendars_selected: expectBoolean(
+      record.all_calendars_selected,
+      'google calendar integration.all_calendars_selected',
+    ),
+    last_sync_at: expectNullableNumber(record.last_sync_at, 'google calendar integration.last_sync_at'),
+    last_sync_status: expectNullableString(
+      record.last_sync_status,
+      'google calendar integration.last_sync_status',
+    ),
+    last_error: expectNullableString(record.last_error, 'google calendar integration.last_error'),
+    last_item_count: expectNullableNumber(
+      record.last_item_count,
+      'google calendar integration.last_item_count',
+    ),
+  };
+}
+
+export function decodeTodoistIntegrationData(value: unknown): TodoistIntegrationData {
+  const record = expectRecord(value, 'todoist integration');
+  return {
+    configured: expectBoolean(record.configured, 'todoist integration.configured'),
+    connected: expectBoolean(record.connected, 'todoist integration.connected'),
+    has_api_token: expectBoolean(record.has_api_token, 'todoist integration.has_api_token'),
+    last_sync_at: expectNullableNumber(record.last_sync_at, 'todoist integration.last_sync_at'),
+    last_sync_status: expectNullableString(record.last_sync_status, 'todoist integration.last_sync_status'),
+    last_error: expectNullableString(record.last_error, 'todoist integration.last_error'),
+    last_item_count: expectNullableNumber(record.last_item_count, 'todoist integration.last_item_count'),
+  };
+}
+
+export function decodeIntegrationsData(value: unknown): IntegrationsData {
+  const record = expectRecord(value, 'integrations');
+  return {
+    google_calendar: decodeGoogleCalendarIntegrationData(
+      record.google_calendar ?? {},
+    ),
+    todoist: decodeTodoistIntegrationData(record.todoist ?? {}),
+  };
+}
+
+export function decodeGoogleCalendarAuthStartData(value: unknown): GoogleCalendarAuthStartData {
+  const record = expectRecord(value, 'google auth start');
+  return {
+    auth_url: expectString(record.auth_url, 'google auth start.auth_url'),
   };
 }
 

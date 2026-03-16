@@ -6,6 +6,8 @@ import {
   decodeContextExplainData,
   decodeCurrentContextData,
   decodeDriftExplainData,
+  decodeGoogleCalendarAuthStartData,
+  decodeIntegrationsData,
   decodeInboxItemData,
   decodeMessageData,
   decodeNullable,
@@ -17,7 +19,9 @@ import {
   type ContextExplainData,
   type CurrentContextData,
   type DriftExplainData,
+  type GoogleCalendarAuthStartData,
   type InboxItemData,
+  type IntegrationsData,
   type MessageData,
   type ProvenanceData,
   type RunSummaryData,
@@ -34,6 +38,7 @@ export const queryKeys = {
   contextExplain: () => ['context', 'explain'] as const,
   driftExplain: () => ['context', 'drift-explain'] as const,
   settings: () => ['settings'] as const,
+  integrations: () => ['integrations'] as const,
   runs: (limit: number) => ['runs', limit] as const,
   provenance: (messageId: string | null) => ['messages', messageId, 'provenance'] as const,
 };
@@ -99,6 +104,17 @@ export function loadRecentRuns(limit: number): Promise<ApiResponse<RunSummaryDat
     `/v1/runs?limit=${limit}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeRunSummaryData)),
   );
+}
+
+export function loadIntegrations(): Promise<ApiResponse<IntegrationsData>> {
+  return apiGet<ApiResponse<IntegrationsData>>(
+    '/api/integrations',
+    (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function decodeGoogleCalendarAuthStartResponse(value: unknown): ApiResponse<GoogleCalendarAuthStartData> {
+  return decodeApiResponse(value, decodeGoogleCalendarAuthStartData);
 }
 
 export function loadProvenance(messageId: string): Promise<ApiResponse<ProvenanceData>> {

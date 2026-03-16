@@ -8,6 +8,7 @@ pub mod context_runs;
 pub mod doctor;
 pub mod evaluate;
 pub mod inference;
+pub mod integrations;
 pub mod nudge_engine;
 pub mod risk;
 pub mod suggestions;

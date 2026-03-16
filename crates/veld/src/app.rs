@@ -3632,6 +3632,118 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn integrations_google_calendar_settings_and_auth_start() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let config = AppConfig {
+            base_url: "http://127.0.0.1:4130".to_string(),
+            ..Default::default()
+        };
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let patch_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/integrations/google-calendar")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"client_id":"gcal-client","client_secret":"gcal-secret"}"#.to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::OK);
+        let patch_body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let patch_json: serde_json::Value = serde_json::from_slice(&patch_body).unwrap();
+        assert_eq!(patch_json["data"]["google_calendar"]["configured"], true);
+        assert_eq!(patch_json["data"]["google_calendar"]["connected"], false);
+        assert_eq!(patch_json["data"]["google_calendar"]["has_client_id"], true);
+        assert_eq!(patch_json["data"]["google_calendar"]["has_client_secret"], true);
+
+        let auth_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/integrations/google-calendar/auth/start")
+                    .body(Body::from("{}".to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(auth_resp.status(), StatusCode::OK);
+        let auth_body = axum::body::to_bytes(auth_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let auth_json: serde_json::Value = serde_json::from_slice(&auth_body).unwrap();
+        let auth_url = auth_json["data"]["auth_url"]
+            .as_str()
+            .expect("auth_url should be returned");
+        assert!(auth_url.starts_with("https://accounts.google.com/o/oauth2/v2/auth?"));
+        assert!(auth_url.contains("client_id=gcal-client"));
+        assert!(auth_url.contains("redirect_uri=http%3A%2F%2F127.0.0.1%3A4130%2Fapi%2Fintegrations%2Fgoogle-calendar%2Foauth%2Fcallback"));
+        assert!(auth_url.contains("scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly"));
+    }
+
+    #[tokio::test]
+    async fn integrations_todoist_patch_and_disconnect() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let patch_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/integrations/todoist")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"api_token":"todoist-token"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::OK);
+        let patch_body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let patch_json: serde_json::Value = serde_json::from_slice(&patch_body).unwrap();
+        assert_eq!(patch_json["data"]["todoist"]["configured"], true);
+        assert_eq!(patch_json["data"]["todoist"]["connected"], true);
+        assert_eq!(patch_json["data"]["todoist"]["has_api_token"], true);
+
+        let disconnect_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/integrations/todoist/disconnect")
+                    .body(Body::from("{}".to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(disconnect_resp.status(), StatusCode::OK);
+        let disconnect_body = axum::body::to_bytes(disconnect_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let disconnect_json: serde_json::Value = serde_json::from_slice(&disconnect_body).unwrap();
+        assert_eq!(disconnect_json["data"]["todoist"]["configured"], false);
+        assert_eq!(disconnect_json["data"]["todoist"]["connected"], false);
+        assert_eq!(disconnect_json["data"]["todoist"]["has_api_token"], false);
+        assert_eq!(disconnect_json["data"]["todoist"]["last_sync_status"], "disconnected");
+    }
+
+    #[tokio::test]
     async fn chat_intervention_snooze_404_for_nonexistent() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
