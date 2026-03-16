@@ -4,6 +4,7 @@ members = [
   "crates/vel-config",
   "crates/vel-storage",
   "crates/vel-api-types",
+  "crates/vel-llm",
   "crates/veld",
   "crates/vel-cli",
 ]

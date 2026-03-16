@@ -6,9 +6,15 @@ use vel_storage::Storage;
 
 use crate::{policy_config::PolicyConfig, routes, state::AppState};
 
-pub fn build_app(storage: Storage, config: AppConfig, policy_config: PolicyConfig) -> Router {
+pub fn build_app(
+    storage: Storage,
+    config: AppConfig,
+    policy_config: PolicyConfig,
+    llm_router: Option<std::sync::Arc<vel_llm::Router>>,
+    chat_profile_id: Option<String>,
+) -> Router {
     let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
-    let state = AppState::new(storage, config, policy_config, broadcast_tx);
+    let state = AppState::new(storage, config, policy_config, broadcast_tx, llm_router, chat_profile_id);
 
     Router::new()
         .route("/v1/health", get(routes::health::health))
@@ -62,7 +68,7 @@ pub fn build_app(storage: Storage, config: AppConfig, policy_config: PolicyConfi
 mod tests {
     use super::*;
     use crate::policy_config::PolicyConfig;
-    use axum::{body::Body, http::{Request, StatusCode}};
+    use axum::{body::Body, http::{Method, Request, StatusCode}};
     use tower::util::ServiceExt;
 
     fn test_policy_config() -> PolicyConfig {
@@ -73,7 +79,7 @@ mod tests {
     async fn health_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
 
         let response = app
             .oneshot(Request::builder().uri("/v1/health").body(Body::empty()).unwrap())
@@ -87,7 +93,7 @@ mod tests {
     async fn doctor_endpoint_returns_ok_with_schema_version() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
 
         let response = app
             .oneshot(Request::builder().uri("/v1/doctor").body(Body::empty()).unwrap())
@@ -110,7 +116,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
 
         let response = app
             .oneshot(
@@ -129,7 +135,7 @@ mod tests {
     async fn today_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
 
         let response = app
             .oneshot(
@@ -150,7 +156,7 @@ mod tests {
     async fn context_today_creates_run_artifact_and_ref() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config());
+        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
 
         let today_resp = app
             .clone()
@@ -211,7 +217,7 @@ mod tests {
             artifact_root: file_path.to_string_lossy().to_string(),
             ..Default::default()
         };
-        let app = build_app(storage.clone(), config, test_policy_config());
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
 
         let today_resp = app
             .oneshot(
@@ -240,7 +246,7 @@ mod tests {
     async fn end_of_day_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
 
         let response = app
             .oneshot(
@@ -259,7 +265,7 @@ mod tests {
     async fn create_artifact_returns_ok_and_get_returns_it() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
 
         let create_body = serde_json::json!({
             "artifact_type": "transcript",
@@ -316,7 +322,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let eval_resp = app
             .clone()
             .oneshot(
@@ -370,7 +376,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let nudges_resp = app
             .oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap())
@@ -392,7 +398,7 @@ mod tests {
     async fn context_explain_includes_signals_and_commitments_used() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let resp = app.oneshot(Request::builder().uri("/v1/explain/context").body(Body::empty()).unwrap()).await.unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
@@ -412,7 +418,7 @@ mod tests {
 
         let storage = Storage::connect(&path_str).await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
 
         let storage2 = Storage::connect(&path_str).await.unwrap();
@@ -449,7 +455,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let nudges_resp = app.clone().oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
         let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
@@ -554,7 +560,7 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let resp = app.oneshot(Request::builder().uri("/v1/context/current").body(Body::empty()).unwrap()).await.unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
@@ -574,7 +580,7 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let resp = app.oneshot(Request::builder().uri("/v1/risk").body(Body::empty()).unwrap()).await.unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
@@ -591,7 +597,7 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let nudges_resp = app.clone().oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
         let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
@@ -638,7 +644,7 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
         let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
@@ -659,7 +665,7 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         let (_, _, meds_id, prep_id, _) = canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let resp = app.oneshot(Request::builder().uri("/v1/explain/context").body(Body::empty()).unwrap()).await.unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
@@ -679,7 +685,7 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let resp = app
             .oneshot(
                 Request::builder()
@@ -703,7 +709,7 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         let (_, _, meds_id, _, _) = canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let _ = app.clone().oneshot(
             Request::builder()
@@ -728,7 +734,7 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let context_resp = app.clone().oneshot(Request::builder().uri("/v1/context/current").body(Body::empty()).unwrap()).await.unwrap();
         let body = axum::body::to_bytes(context_resp.into_body(), usize::MAX).await.unwrap();
@@ -766,7 +772,7 @@ mod tests {
                 .await
                 .unwrap();
         }
-        let app = build_app(storage, AppConfig::default(), test_policy_config());
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
         let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
         let resp = app.oneshot(Request::builder().uri("/v1/suggestions").body(Body::empty()).unwrap()).await.unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
@@ -775,5 +781,210 @@ mod tests {
         let suggestions = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
         let commute_buf: Vec<_> = suggestions.iter().filter(|s| s["suggestion_type"].as_str() == Some("increase_commute_buffer")).collect();
         assert!(!commute_buf.is_empty(), "increase_commute_buffer suggestion should appear after repeated commute danger (variant C)");
+    }
+
+    // --- Chat API (ticket 034) ---
+
+    #[tokio::test]
+    async fn chat_list_conversations_empty() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let resp = app
+            .oneshot(Request::builder().uri("/api/conversations").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json["ok"].as_bool().unwrap());
+        assert!(json["data"].as_array().map(|a| a.is_empty()).unwrap_or(false));
+    }
+
+    #[tokio::test]
+    async fn chat_create_conversation_then_list() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let create_body = r#"{"title":"Test conv","kind":"general"}"#;
+        let create_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/conversations")
+                    .header("content-type", "application/json")
+                    .body(Body::from(create_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(create_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json["ok"].as_bool().unwrap());
+        let id = json["data"]["id"].as_str().unwrap();
+        assert!(id.starts_with("conv_"));
+
+        let list_resp = app
+            .oneshot(Request::builder().uri("/api/conversations").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(list_resp.status(), StatusCode::OK);
+        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX).await.unwrap();
+        let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
+        let convs = list_json["data"].as_array().unwrap();
+        assert_eq!(convs.len(), 1);
+        assert_eq!(convs[0]["id"].as_str().unwrap(), id);
+    }
+
+    #[tokio::test]
+    async fn chat_get_conversation_404() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/conversations/conv_nonexistent")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn chat_create_message_then_list() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let create_conv = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/conversations")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"title":"T","kind":"general"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX).await.unwrap();
+        let conv_json: serde_json::Value = serde_json::from_slice(&conv_body).unwrap();
+        let conv_id = conv_json["data"]["id"].as_str().unwrap();
+
+        let msg_body = r#"{"role":"user","kind":"text","content":{"text":"hello"}}"#;
+        let msg_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/conversations/{}/messages", conv_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(msg_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(msg_resp.status(), StatusCode::OK);
+        let msg_resp_body = axum::body::to_bytes(msg_resp.into_body(), usize::MAX).await.unwrap();
+        let msg_json: serde_json::Value = serde_json::from_slice(&msg_resp_body).unwrap();
+        let user_msg = &msg_json["data"]["user_message"];
+        assert!(user_msg["id"].as_str().unwrap().starts_with("msg_"));
+        assert_eq!(user_msg["content"]["text"].as_str().unwrap(), "hello");
+
+        let list_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/conversations/{}/messages", conv_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list_resp.status(), StatusCode::OK);
+        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX).await.unwrap();
+        let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
+        assert_eq!(list_json["data"].as_array().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn chat_inbox_empty() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let resp = app
+            .oneshot(Request::builder().uri("/api/inbox").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json["ok"].as_bool().unwrap());
+        assert!(json["data"].as_array().map(|a| a.is_empty()).unwrap_or(false));
+    }
+
+    #[tokio::test]
+    async fn chat_settings_get_and_patch() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let get_resp = app
+            .clone()
+            .oneshot(Request::builder().uri("/api/settings").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(get_resp.status(), StatusCode::OK);
+
+        let patch_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/settings")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"disable_proactive":true}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json["data"]["disable_proactive"].as_bool().unwrap());
+    }
+
+    #[tokio::test]
+    async fn chat_intervention_snooze_404_for_nonexistent() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/interventions/intv_nonexistent/snooze")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"minutes":15}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn ws_endpoint_responds_to_get() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let resp = app
+            .oneshot(Request::builder().uri("/ws").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert!(!resp.status().is_success());
+        assert_ne!(resp.status(), StatusCode::NOT_FOUND);
     }
 }

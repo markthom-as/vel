@@ -23,6 +23,7 @@ uuid.workspace = true
 vel-api-types = { path = "../vel-api-types" }
 vel-config = { path = "../vel-config" }
 vel-core = { path = "../vel-core" }
+vel-llm = { path = "../vel-llm" }
 vel-storage = { path = "../vel-storage" }
 reqwest = { workspace = true }
 serde_yaml.workspace = true

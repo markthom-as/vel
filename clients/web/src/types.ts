@@ -27,6 +27,14 @@ export interface MessageData {
   updated_at: number | null;
 }
 
+/** Response from POST /api/conversations/:id/messages: user message + optional assistant reply. */
+export interface CreateMessageResponse {
+  user_message: MessageData;
+  assistant_message?: MessageData | null;
+  /** When assistant reply was requested but failed (e.g. LLM unreachable). */
+  assistant_error?: string | null;
+}
+
 export interface InboxItemData {
   id: string;
   message_id: string;

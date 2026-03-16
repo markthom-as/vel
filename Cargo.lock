@@ -2516,6 +2516,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "vel-llm"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
 name = "vel-storage"
 version = "0.1.0"
 dependencies = [
@@ -2554,6 +2566,7 @@ dependencies = [
  "vel-api-types",
  "vel-config",
  "vel-core",
+ "vel-llm",
  "vel-storage",
 ]
 

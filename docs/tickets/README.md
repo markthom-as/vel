@@ -57,6 +57,48 @@ Architecture and convergence tickets from repo review: evaluate/read boundary, i
 - **Index:** [repo-feedback/README.md](repo-feedback/README.md)
 - **Tickets:** `001-enforce-evaluate-read-boundary.md` … `009-rationalize-docs-status-and-implementation-roadmap.md`
 
+### 7. Context reasoning (`context-reasoning/`)
+
+Context/decision spec and tickets: belief store, context inference engine, inspector UI, decision trace logging, explanation UI, debug inspector, feedback learning loop, belief expiration, confidence calibration, introspection report.
+
+- **Spec:** [docs/specs/vel-context-decision-spec.md](../specs/vel-context-decision-spec.md)
+- **Tickets:** `TICKET-001-context-belief-store.md` … `TICKET-010-introspection-report.md`
+
+### 8. Agent runtime (`agent-runtime/`)
+
+Agent runtime spec and tickets: runtime skeleton (spec loader, lifecycle, spawn validation, return contracts), executor integration (capability tokens, RPC, tool logging), memory contracts (typed read/write, provenance), introspection + HUD, replay + reflection.
+
+- **Spec:** [docs/specs/vel-agent-runtime-spec.md](../specs/vel-agent-runtime-spec.md)
+- **Tickets:** `TICKET-001-runtime-skeleton.md` … `TICKET-005-replay-reflection.md`
+- **Related specs:** [vel-cognitive-loop-spec.md](../specs/vel-cognitive-loop-spec.md), [vel-stavrobot-integration-spec.md](../specs/vel-stavrobot-integration-spec.md)
+
+### 9. Uncertainty & clarification (`uncertainty/`)
+
+Uncertainty as first-class runtime: domain model, confidence scoring, clarification policy engine, ledger persistence, resolvers (user, agent, retrieval, validation), ask-before-acting preferences, uncertainty panel and clarification inbox, assumption review, telemetry/calibration, agent output contract.
+
+- **Spec:** [docs/specs/vel-uncertainty-architecture-spec.md](../specs/vel-uncertainty-architecture-spec.md)
+- **Tickets:** `TICKET-001-uncertainty-domain-model.md` … `TICKET-012-agent-output-contract-update.md`
+
+### 10. Task HUD (`task-hud/`)
+
+Task HUD subsystem: task core crate, DB schema/migrations, actions engine, ranking engine, HUD policy, HUD view model, desktop HUD UI, inference engine, ritual tasks, risk-engine integration, voice bridge, glance API for mobile/watch, ambient mode, AR HUD protocol spec.
+
+- **Spec:** [docs/specs/vel-task-hud-spec.md](../specs/vel-task-hud-spec.md)
+- **Tickets:** `01-task-core-crate.md` … `14-ar-hud-protocol-spec.md`
+
+### 11. Orchestration Navs (`orchestration/`)
+
+Core orchestration stack for Nav-based execution: task model, Nav trait, capability model, Nav registry, delegation engine, context scoping, result integration, persistent task store, Nav trust profiles, reflection engine, observability layer, initial Nav implementations.
+
+- **Tickets:** `001_task_model.md` … `012_initial_navs.md`
+
+### 12. Self-knowledge system (`self-knowledge/`)
+
+Documentation and source-code awareness: repo indexer, self-knowledge graph, evidence-backed claims and confidence, doc/code drift detection, navigation APIs, system map + coverage CLI, reasoning context integration, self-awareness dashboard, git freshness and change hotspots, maintenance loop.
+
+- **Spec:** [docs/specs/vel-self-knowledge-system-spec.md](../specs/vel-self-knowledge-system-spec.md)
+- **Tickets:** `SK-001-knowledge-indexer.md` … `SK-010-maintenance-automation-loop.md`
+
 ---
 
 ## Product spec pack (docs)

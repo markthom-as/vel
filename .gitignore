@@ -8,3 +8,6 @@ var/
 .idea/
 .vscode/
 
+# Downloaded model weights (see scripts/download-chat-model.sh)
+configs/models/weights/
+

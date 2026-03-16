@@ -15,10 +15,12 @@ pub struct ApiClient {
 
 impl ApiClient {
     pub fn new(base_url: String) -> Self {
-        Self {
-            http: Client::new(),
-            base_url,
-        }
+        let http = Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .expect("reqwest client");
+        Self { http, base_url }
     }
 
     pub async fn health(&self) -> anyhow::Result<ApiResponse<HealthData>> {

@@ -2,6 +2,7 @@ mod adapters;
 mod app;
 mod broadcast;
 mod errors;
+mod llm;
 mod policy_config;
 mod routes;
 mod services;
@@ -54,11 +55,14 @@ async fn main() -> anyhow::Result<()> {
     let storage_for_worker = storage.clone();
     tokio::spawn(worker::run_ingestion_worker(storage_for_worker));
 
+    let (llm_router, chat_profile_id) = llm::build_chat_router();
+    let llm_router = llm_router.map(std::sync::Arc::new);
+
     let bind_addr = config.bind_addr.clone();
     let listener = TcpListener::bind(&config.bind_addr)
         .await
         .with_context(|| format!("binding {}", config.bind_addr))?;
-    let app = app::build_app(storage, config, policy_config);
+    let app = app::build_app(storage, config, policy_config, llm_router, chat_profile_id);
 
     info!(bind_addr = %bind_addr, "veld starting");
     axum::serve(listener, app)

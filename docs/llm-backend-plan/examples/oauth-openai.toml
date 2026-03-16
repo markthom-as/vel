@@ -1,0 +1,14 @@
+id = "oauth-openai"
+provider = "openai_oauth"
+base_url = "http://127.0.0.1:8014/v1"
+model = "gpt-5.4"
+context_window = 128000
+max_output_tokens = 4096
+temperature = 0.2
+supports_tools = true
+supports_json = true
+supports_reasoning = true
+latency_class = "deep"
+locality = "remote_via_local_proxy"
+data_policy = "redact_first"
+enabled = false

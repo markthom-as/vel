@@ -1,0 +1,104 @@
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { MessageRenderer } from './MessageRenderer'
+import type { MessageData } from '../types'
+
+describe('MessageRenderer', () => {
+  it('renders text message content', () => {
+    const message: MessageData = {
+      id: 'msg_1',
+      conversation_id: 'conv_1',
+      role: 'user',
+      kind: 'text',
+      content: { text: 'Hello world' },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+    render(<MessageRenderer message={message} />)
+    expect(screen.getByText('Hello world')).toBeInTheDocument()
+    expect(screen.getByText(/user · text/)).toBeInTheDocument()
+  })
+
+  it('renders reminder card with title', () => {
+    const message: MessageData = {
+      id: 'msg_2',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'reminder_card',
+      content: { title: 'Call mom', reason: 'Birthday' },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+    render(<MessageRenderer message={message} />)
+    expect(screen.getByText('Call mom')).toBeInTheDocument()
+  })
+
+  it('renders risk card with commitment title and level', () => {
+    const message: MessageData = {
+      id: 'msg_3',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'risk_card',
+      content: { commitment_title: 'Ship feature', risk_level: 'high' },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+    render(<MessageRenderer message={message} />)
+    expect(screen.getByText('Ship feature')).toBeInTheDocument()
+    expect(screen.getByText(/high/)).toBeInTheDocument()
+  })
+
+  it('calls onSnooze when Snooze is clicked', () => {
+    const onSnooze = vi.fn()
+    const message: MessageData = {
+      id: 'msg_4',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'text',
+      content: { text: 'Nudge' },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+    render(
+      <MessageRenderer
+        message={message}
+        interventionId="intv_1"
+        onSnooze={onSnooze}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /snooze/i }))
+    expect(onSnooze).toHaveBeenCalledWith('intv_1')
+  })
+
+  it('calls onShowWhy when Show why is clicked', () => {
+    const onShowWhy = vi.fn()
+    const message: MessageData = {
+      id: 'msg_5',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'text',
+      content: { text: 'Nudge' },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+    render(
+      <MessageRenderer
+        message={message}
+        interventionId="intv_1"
+        onShowWhy={onShowWhy}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /show why/i }))
+    expect(onShowWhy).toHaveBeenCalledWith('msg_5')
+  })
+})

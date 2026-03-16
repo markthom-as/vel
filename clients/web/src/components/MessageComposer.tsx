@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
 import { apiPost } from '../api/client';
-import type { ApiResponse, MessageData } from '../types';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import type { ApiResponse, CreateMessageResponse, MessageData } from '../types';
 
 interface MessageComposerProps {
   conversationId: string;
-  onSent: (message: MessageData) => void;
+  onSent: (userMessage: MessageData, assistantMessage?: MessageData | null) => void;
 }
 
 export function MessageComposer({ conversationId, onSent }: MessageComposerProps) {
@@ -12,19 +13,40 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const appendVoiceTranscript = useCallback((transcript: string) => {
+    setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  }, []);
+
+  const {
+    isSupported: voiceSupported,
+    isListening,
+    error: voiceError,
+    start: startVoice,
+    stop: stopVoice,
+    interimTranscript,
+  } = useSpeechRecognition({
+    onResult: appendVoiceTranscript,
+    continuous: true,
+  });
+
   const send = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
     setError(null);
     setSending(true);
     try {
-      const res = await apiPost<ApiResponse<MessageData>>(
+      const res = await apiPost<ApiResponse<CreateMessageResponse>>(
         `/api/conversations/${conversationId}/messages`,
         { role: 'user', kind: 'text', content: { text: trimmed } }
       );
       if (res.ok && res.data) {
-        onSent(res.data);
+        onSent(res.data.user_message, res.data.assistant_message ?? null);
         setText('');
+        if (res.data.assistant_error) {
+          setError(res.data.assistant_error);
+        }
+      } else if (res.ok && !res.data) {
+        setError("Server didn't return the message. Try again.");
       } else {
         setError(res.error?.message ?? 'Send failed');
       }
@@ -42,32 +64,97 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
     }
   };
 
+  const toggleVoice = () => {
+    if (voiceError) setError(null);
+    if (isListening) stopVoice();
+    else startVoice();
+  };
+
+  const displayError = error ?? voiceError ?? null;
+
   return (
     <div className="shrink-0 border-t border-zinc-800 p-3">
-      {error && (
+      {displayError && (
         <p className="max-w-2xl mx-auto mb-2 text-red-400 text-sm" role="alert">
-          {error}
+          {displayError}
         </p>
       )}
-      <div className="flex gap-2 max-w-2xl mx-auto">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Message… (Enter to send, Shift+Enter for newline)"
-          rows={2}
-          className="flex-1 rounded-lg bg-zinc-800/50 border border-zinc-700 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
-          disabled={sending}
-        />
+      <div className="flex gap-2 max-w-2xl mx-auto items-end">
+        <div className="flex-1 flex flex-col gap-1">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Message… (Enter to send, Shift+Enter for newline)"
+            rows={2}
+            className="w-full rounded-lg bg-zinc-800/50 border border-zinc-700 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+            disabled={sending}
+          />
+          {interimTranscript && (
+            <p className="text-zinc-500 text-xs" aria-live="polite">
+              Listening… {interimTranscript}
+            </p>
+          )}
+        </div>
+        {voiceSupported && (
+          <button
+            type="button"
+            onClick={toggleVoice}
+            disabled={sending}
+            aria-pressed={isListening}
+            aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+            title={isListening ? 'Stop listening' : 'Speak to type'}
+            className={`shrink-0 p-2.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50 disabled:pointer-events-none ${
+              isListening
+                ? 'bg-red-900/40 border-red-600/60 text-red-200'
+                : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100'
+            }`}
+          >
+            <MicIcon listening={isListening} />
+          </button>
+        )}
         <button
           type="button"
           onClick={send}
           disabled={sending || !text.trim()}
+          aria-label="Send"
           className="shrink-0 px-4 py-2 rounded-lg bg-emerald-700 text-white font-medium hover:bg-emerald-600 disabled:opacity-50 disabled:pointer-events-none"
         >
           {sending ? '…' : 'Send'}
         </button>
       </div>
     </div>
+  );
+}
+
+function MicIcon({ listening }: { listening: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="w-5 h-5"
+      aria-hidden
+    >
+      {listening ? (
+        <>
+          <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z" />
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+          <line x1="12" y1="19" x2="12" y2="22" />
+          <line x1="8" y1="22" x2="16" y2="22" />
+        </>
+      ) : (
+        <>
+          <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z" />
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+          <line x1="12" y1="19" x2="12" y2="22" />
+          <line x1="8" y1="22" x2="16" y2="22" />
+        </>
+      )}
+    </svg>
   );
 }

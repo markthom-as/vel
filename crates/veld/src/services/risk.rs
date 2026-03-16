@@ -17,7 +17,9 @@ const LOW_MAX: f64 = 0.24;
 const MEDIUM_MAX: f64 = 0.49;
 const HIGH_MAX: f64 = 0.74;
 
+/// Snapshot of computed risk for a commitment. Returned by [run]; callers currently persist via storage and may ignore the vec.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct RiskSnapshot {
     pub commitment_id: String,
     pub risk_score: f64,

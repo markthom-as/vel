@@ -9,6 +9,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use vel_api_types::ApiResponse;
+use vel_llm::{LlmRequest, Message as LlmMessage};
 use vel_storage::{ConversationInsert, EventLogInsert, MessageInsert};
 
 use crate::broadcast::WsEnvelope;
@@ -56,6 +57,17 @@ pub struct MessageData {
     pub importance: Option<String>,
     pub created_at: i64,
     pub updated_at: Option<i64>,
+}
+
+/// Response from creating a message: user message plus optional assistant reply.
+#[derive(Debug, Clone, Serialize)]
+pub struct CreateMessageResponse {
+    pub user_message: MessageData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assistant_message: Option<MessageData>,
+    /// When assistant reply was requested but failed (e.g. LLM unreachable).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assistant_error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -129,6 +141,21 @@ fn message_record_to_data(r: vel_storage::MessageRecord) -> Result<MessageData, 
         created_at: r.created_at,
         updated_at: r.updated_at,
     })
+}
+
+/// Extract plain text from a message record for LLM context (kind "text" -> content.text, else raw).
+fn message_record_to_llm_content(r: &vel_storage::MessageRecord) -> String {
+    let content: serde_json::Value = serde_json::from_str(&r.content_json)
+        .unwrap_or_else(|_| serde_json::json!({ "raw": r.content_json }));
+    if r.kind == "text" {
+        content
+            .get("text")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string()
+    } else {
+        content.to_string()
+    }
 }
 
 fn intervention_record_to_inbox_item(r: vel_storage::InterventionRecord) -> InboxItemData {
@@ -281,7 +308,7 @@ pub async fn create_message(
     State(state): State<AppState>,
     Path(conversation_id): Path<String>,
     Json(payload): Json<MessageCreateRequest>,
-) -> Result<Json<ApiResponse<MessageData>>, AppError> {
+) -> Result<Json<ApiResponse<CreateMessageResponse>>, AppError> {
     let conversation_id = conversation_id.trim();
     let _ = state
         .storage
@@ -316,11 +343,107 @@ pub async fn create_message(
         .get_message(&id)
         .await?
         .ok_or_else(|| AppError::internal("message not found after create"))?;
-    let data = message_record_to_data(msg)?;
-    let payload = serde_json::to_value(&data).unwrap_or_else(|_| serde_json::json!({ "id": id }));
-    let _ = state.broadcast_tx.send(WsEnvelope::new("messages:new", payload));
+    let user_data = message_record_to_data(msg)?;
+    let ws_payload = serde_json::to_value(&user_data).unwrap_or_else(|_| serde_json::json!({ "id": id }));
+    let _ = state.broadcast_tx.send(WsEnvelope::new("messages:new", ws_payload));
+
+    let (assistant_message, assistant_error) = if let (Some(ref router), Some(ref profile_id)) = (state.llm_router.as_ref(), state.chat_profile_id.as_ref()) {
+        tracing::info!(conversation_id = %conversation_id, "calling LLM for assistant reply");
+        match generate_assistant_reply(&state, conversation_id, profile_id, router).await {
+            Ok(Some(assistant_data)) => {
+                let payload = serde_json::to_value(&assistant_data).unwrap_or_default();
+                let _ = state.broadcast_tx.send(WsEnvelope::new("messages:new", payload));
+                (Some(assistant_data), None)
+            }
+            Ok(None) => (None, None),
+            Err(e) => {
+                let msg = e.to_string();
+                tracing::error!(error = %e, "assistant reply failed");
+                (None, Some(msg))
+            }
+        }
+    } else {
+        (
+            None,
+            Some("Chat model not configured. Set VEL_LLM_MODEL and run llama-server, or see configs/models/README.md.".to_string()),
+        )
+    };
+
+    let response = CreateMessageResponse {
+        user_message: user_data,
+        assistant_message,
+        assistant_error,
+    };
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    Ok(Json(ApiResponse::success(response, request_id)))
+}
+
+/// Load conversation history, call LLM, persist and return assistant message. Returns Ok(None) on empty or error.
+async fn generate_assistant_reply(
+    state: &AppState,
+    conversation_id: &str,
+    profile_id: &str,
+    router: &vel_llm::Router,
+) -> Result<Option<MessageData>, AppError> {
+    let list = state
+        .storage
+        .list_messages_by_conversation(conversation_id, 50)
+        .await?;
+    let messages: Vec<LlmMessage> = list
+        .iter()
+        .map(|r| LlmMessage {
+            role: r.role.clone(),
+            content: message_record_to_llm_content(r),
+        })
+        .filter(|m| !m.content.is_empty() || m.role == "assistant")
+        .collect();
+    if messages.is_empty() {
+        return Ok(None);
+    }
+    let system = "You are Vel, a helpful assistant for capture, recall, and daily orientation. Be concise and direct.".to_string();
+    let req = LlmRequest {
+        system,
+        messages,
+        tools: vec![],
+        response_format: vel_llm::ResponseFormat::Text,
+        temperature: 0.2,
+        max_output_tokens: 2048,
+        model_profile: profile_id.to_string(),
+        metadata: serde_json::json!({}),
+    };
+    let res = router.generate(&req).await.map_err(|e| AppError::internal(e.to_string()))?;
+    let text = res.text.unwrap_or_default().trim().to_string();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    let assistant_id = format!("msg_{}", Uuid::new_v4().simple());
+    let content_json = serde_json::to_string(&serde_json::json!({ "text": text })).unwrap_or_default();
+    state
+        .storage
+        .create_message(MessageInsert {
+            id: assistant_id.clone(),
+            conversation_id: conversation_id.to_string(),
+            role: "assistant".to_string(),
+            kind: "text".to_string(),
+            content_json,
+            status: None,
+            importance: None,
+        })
+        .await?;
+    emit_chat_event(
+        state,
+        "message.created",
+        "message",
+        &assistant_id,
+        serde_json::json!({ "id": assistant_id, "conversation_id": conversation_id, "kind": "text" }),
+    )
+    .await;
+    let assistant_msg = state
+        .storage
+        .get_message(&assistant_id)
+        .await?
+        .ok_or_else(|| AppError::internal("assistant message not found after create"))?;
+    message_record_to_data(assistant_msg).map(Some)
 }
 
 // --- Inbox handler ---

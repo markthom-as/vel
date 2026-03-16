@@ -1,0 +1,9 @@
+[default]
+chat = "local-qwen3-coder"
+codegen = "local-qwen3-coder"
+tool_use = "local-qwen3-coder"
+summarize = "local-qwen25-fast"
+classify = "local-qwen25-fast"
+rename = "local-qwen25-fast"
+commit_message = "local-qwen25-fast"
+fallback_remote = "oauth-openai"

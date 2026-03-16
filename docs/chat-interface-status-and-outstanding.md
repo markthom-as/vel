@@ -11,14 +11,14 @@
 | 025–027 | **Done** | Card renderer (reminder, risk, suggestion, summary); inline actions (snooze, resolve, dismiss, show why); inbox view |
 | 028     | **Done** | Context panel (GET /v1/context/current) |
 | 029–033 | **Done** | Provenance API + drawer; settings API + UI; seed script; New conversation in sidebar |
-| 034     | **Outstanding** | Backend tests for chat API, WebSocket, repos |
-| 035     | **Outstanding** | Frontend tests for renderer, actions, settings |
+| 034     | **Done** | Backend tests: chat list/create/get 404, create message then list, inbox empty, settings get/patch, intervention snooze 404, WebSocket GET /ws |
+| 035     | **Done** | Frontend tests: MessageRenderer (text, cards, onSnooze/onShowWhy), MessageComposer (send, error), SettingsPage (load, Back, apiPatch on toggle) |
 
 ## Alignment with docs
 
 - **Specs:** [vel-chat-interface-implementation-brief.md](specs/vel-chat-interface-implementation-brief.md), [vel-chat-execution-plan.md](specs/vel-chat-execution-plan.md) — API shape, domain model, WebSocket, React client match current implementation.
-- **Ticket pack:** [docs/tickets/](tickets/) — 001–033 implemented as above; 034–035 not done.
-- **Status / index:** [status.md](status.md), [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md) — chat section says “through 033” and “034 backend tests, 035 frontend tests” remaining; consistent with this file.
+- **Ticket pack:** [docs/tickets/](tickets/) — 001–035 implemented (034–035 tests added).
+- **Status / index:** [status.md](status.md), [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md) — update chat section to “through 035” when those docs are next edited.
 
 ## “Nothing happens when I send a message”
 
@@ -29,7 +29,5 @@
 
 ## Outstanding (concise)
 
-1. **034 — Backend tests:** Chat routes, WebSocket handler, conversation/message/intervention repos (and event_log where used by chat).
-2. **035 — Frontend tests:** MessageRenderer (text + cards), inline actions, settings page, composer send/error.
-3. **Optional:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.
-4. **Optional:** Real-time message list updates via WebSocket (client currently only appends on send; could subscribe to `messages:new` for the current thread).
+1. **Optional:** Inbox “Open thread” link to conversation/message; quiet_hours in settings UI when backend supports it; provenance `signals` / `policy_decisions` populated from real data.
+2. **Optional:** Real-time message list updates via WebSocket (client currently only appends on send; could subscribe to `messages:new` for the current thread).

@@ -1,3 +1,7 @@
+mod models;
+
+pub use models::{load_model_profiles, load_routing, ModelProfile, RoutingConfig};
+
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs, path::Path};
 
@@ -28,6 +32,8 @@ pub enum ConfigError {
     Read(#[from] std::io::Error),
     #[error("failed to parse config file: {0}")]
     Parse(#[from] toml::de::Error),
+    #[error("config validation: {0}")]
+    Validation(String),
 }
 
 impl Default for AppConfig {

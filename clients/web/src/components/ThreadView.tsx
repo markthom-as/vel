@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { apiGet, apiPost } from '../api/client';
 import type { ApiResponse, MessageData, InboxItemData } from '../types';
 import { MessageRenderer } from './MessageRenderer';
@@ -15,6 +15,7 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [interventionsByMessageId, setInterventionsByMessageId] = useState<Record<string, string>>({});
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!conversationId) {
@@ -56,6 +57,18 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       if (!cancelled) setInterventionsByMessageId((prev) => ({ ...prev, ...map }));
     });
     return () => { cancelled = true; };
+  }, [messages]);
+
+  // Autoscroll to the bottom when messages change (standard chat behavior).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // Smooth scroll, but fall back gracefully.
+    try {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    } catch {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages]);
 
   const handleSnooze = useCallback(async (interventionId: string) => {
@@ -107,7 +120,7 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-4 relative">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 relative">
         <div className="max-w-2xl mx-auto">
           {messages.length === 0 && (
             <p className="text-zinc-500 text-sm">No messages yet.</p>
@@ -131,9 +144,14 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
           />
         )}
       </div>
+      <p className="shrink-0 px-4 py-1 text-zinc-600 text-xs max-w-2xl mx-auto">
+        To get assistant replies, configure a chat model in configs/models/routing.toml and run the model backend.
+      </p>
       <MessageComposer
         conversationId={conversationId}
-        onSent={(msg) => setMessages((prev) => [...prev, msg])}
+        onSent={(userMsg, assistantMsg) =>
+          setMessages((prev) => [...prev, userMsg, ...(assistantMsg ? [assistantMsg] : [])])
+        }
       />
     </>
   );
