@@ -4,8 +4,8 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
     QueryBuilder, Row, Sqlite, SqlitePool,
 };
-use std::{fs, path::Path};
 use std::str::FromStr;
+use std::{fs, path::Path};
 use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
@@ -353,13 +353,23 @@ impl Storage {
 
     pub async fn insert_capture(&self, input: CaptureInsert) -> Result<CaptureId, StorageError> {
         let capture_id = CaptureId::new();
+        self.insert_capture_with_id(capture_id.clone(), input)
+            .await?;
+        Ok(capture_id)
+    }
+
+    pub async fn insert_capture_with_id(
+        &self,
+        capture_id: CaptureId,
+        input: CaptureInsert,
+    ) -> Result<bool, StorageError> {
         let job_id = JobId::new();
         let now = OffsetDateTime::now_utc();
         let metadata = json!({});
 
-        sqlx::query(
+        let result = sqlx::query(
             r#"
-            INSERT INTO captures (
+            INSERT OR IGNORE INTO captures (
                 capture_id,
                 capture_type,
                 content_text,
@@ -381,6 +391,10 @@ impl Storage {
         .bind(metadata.to_string())
         .execute(&self.pool)
         .await?;
+
+        if result.rows_affected() == 0 {
+            return Ok(false);
+        }
 
         sqlx::query(
             r#"
@@ -404,7 +418,7 @@ impl Storage {
         .execute(&self.pool)
         .await?;
 
-        Ok(capture_id)
+        Ok(true)
     }
 
     pub async fn capture_count(&self) -> Result<i64, StorageError> {
@@ -481,11 +495,15 @@ impl Storage {
             .collect::<Result<Vec<_>, _>>()
     }
 
-    pub async fn insert_commitment(&self, input: CommitmentInsert) -> Result<CommitmentId, StorageError> {
+    pub async fn insert_commitment(
+        &self,
+        input: CommitmentInsert,
+    ) -> Result<CommitmentId, StorageError> {
         let id = CommitmentId::new();
         let now = OffsetDateTime::now_utc().unix_timestamp();
-        let metadata_str = serde_json::to_string(input.metadata_json.as_ref().unwrap_or(&json!({})))
-            .map_err(|e| StorageError::Validation(e.to_string()))?;
+        let metadata_str =
+            serde_json::to_string(input.metadata_json.as_ref().unwrap_or(&json!({})))
+                .map_err(|e| StorageError::Validation(e.to_string()))?;
         let due_ts = input.due_at.map(|t| t.unix_timestamp());
         sqlx::query(
             r#"
@@ -564,7 +582,9 @@ impl Storage {
         metadata_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
-        let resolved = status.and_then(|s| (s == CommitmentStatus::Done || s == CommitmentStatus::Cancelled).then_some(now));
+        let resolved = status.and_then(|s| {
+            (s == CommitmentStatus::Done || s == CommitmentStatus::Cancelled).then_some(now)
+        });
         let current: Option<Commitment> = self.get_commitment_by_id(id).await?;
         let Some(c) = current else {
             return Err(StorageError::Validation("commitment not found".to_string()));
@@ -752,7 +772,8 @@ impl Storage {
                     timestamp: row.try_get("timestamp")?,
                     role: row.try_get("role")?,
                     content: row.try_get("content")?,
-                    metadata_json: serde_json::from_str(&metadata_str).unwrap_or_else(|_| json!({})),
+                    metadata_json: serde_json::from_str(&metadata_str)
+                        .unwrap_or_else(|_| json!({})),
                     created_at: row.try_get("created_at")?,
                 })
             })
@@ -762,7 +783,10 @@ impl Storage {
 
     // --- Inferred state (Phase C) ---
 
-    pub async fn insert_inferred_state(&self, input: InferredStateInsert) -> Result<String, StorageError> {
+    pub async fn insert_inferred_state(
+        &self,
+        input: InferredStateInsert,
+    ) -> Result<String, StorageError> {
         let state_id = format!("ist_{}", Uuid::new_v4().simple());
         let now = OffsetDateTime::now_utc().unix_timestamp();
         let context_str = serde_json::to_string(input.context_json.as_ref().unwrap_or(&json!({})))
@@ -781,7 +805,11 @@ impl Storage {
         Ok(state_id)
     }
 
-    pub async fn list_inferred_state_recent(&self, state_name: Option<&str>, limit: u32) -> Result<Vec<InferredStateRecord>, StorageError> {
+    pub async fn list_inferred_state_recent(
+        &self,
+        state_name: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<InferredStateRecord>, StorageError> {
         let limit = limit.min(100) as i64;
         let rows = sqlx::query(
             r#"
@@ -797,7 +825,9 @@ impl Storage {
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(|row| map_inferred_state_row(&row)).collect()
+        rows.into_iter()
+            .map(|row| map_inferred_state_row(&row))
+            .collect()
     }
 
     // --- Nudges (Phase D) ---
@@ -840,7 +870,11 @@ impl Storage {
         row.map(|r| map_nudge_row(&r)).transpose()
     }
 
-    pub async fn list_nudges(&self, state_filter: Option<&str>, limit: u32) -> Result<Vec<NudgeRecord>, StorageError> {
+    pub async fn list_nudges(
+        &self,
+        state_filter: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<NudgeRecord>, StorageError> {
         let limit = limit.min(100) as i64;
         let rows = sqlx::query(
             r#"
@@ -889,7 +923,11 @@ impl Storage {
         Ok(row)
     }
 
-    pub async fn set_current_context(&self, computed_at: i64, context_json: &str) -> Result<(), StorageError> {
+    pub async fn set_current_context(
+        &self,
+        computed_at: i64,
+        context_json: &str,
+    ) -> Result<(), StorageError> {
         sqlx::query(
             r#"INSERT OR REPLACE INTO current_context (id, computed_at, context_json) VALUES (1, ?, ?)"#,
         )
@@ -921,7 +959,10 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn list_context_timeline(&self, limit: u32) -> Result<Vec<(String, i64, String)>, StorageError> {
+    pub async fn list_context_timeline(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<(String, i64, String)>, StorageError> {
         let limit = limit.min(100) as i64;
         let rows = sqlx::query_as::<_, (String, i64, String)>(
             r#"SELECT id, timestamp, context_json FROM context_timeline ORDER BY timestamp DESC LIMIT ?"#,
@@ -958,7 +999,10 @@ impl Storage {
         Ok(())
     }
 
-    pub async fn get_thread_by_id(&self, id: &str) -> Result<Option<(String, String, String, String, String, i64, i64)>, StorageError> {
+    pub async fn get_thread_by_id(
+        &self,
+        id: &str,
+    ) -> Result<Option<(String, String, String, String, String, i64, i64)>, StorageError> {
         let row = sqlx::query_as::<_, (String, String, String, String, String, i64, i64)>(
             r#"SELECT id, thread_type, title, status, metadata_json, created_at, updated_at FROM threads WHERE id = ?"#,
         )
@@ -968,7 +1012,11 @@ impl Storage {
         Ok(row)
     }
 
-    pub async fn list_threads(&self, status_filter: Option<&str>, limit: u32) -> Result<Vec<(String, String, String, String, i64, i64)>, StorageError> {
+    pub async fn list_threads(
+        &self,
+        status_filter: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<(String, String, String, String, i64, i64)>, StorageError> {
         let limit = limit.min(100) as i64;
         let rows = if let Some(s) = status_filter {
             sqlx::query_as::<_, (String, String, String, String, i64, i64)>(
@@ -1023,7 +1071,10 @@ impl Storage {
         Ok(id)
     }
 
-    pub async fn list_thread_links(&self, thread_id: &str) -> Result<Vec<(String, String, String, String)>, StorageError> {
+    pub async fn list_thread_links(
+        &self,
+        thread_id: &str,
+    ) -> Result<Vec<(String, String, String, String)>, StorageError> {
         let rows = sqlx::query_as::<_, (String, String, String, String)>(
             r#"SELECT id, entity_type, entity_id, relation_type FROM thread_links WHERE thread_id = ? ORDER BY created_at ASC"#,
         )
@@ -1081,7 +1132,10 @@ impl Storage {
         Ok(rows)
     }
 
-    pub async fn get_suggestion_by_id(&self, id: &str) -> Result<Option<(String, String, String, String, i64, Option<i64>)>, StorageError> {
+    pub async fn get_suggestion_by_id(
+        &self,
+        id: &str,
+    ) -> Result<Option<(String, String, String, String, i64, Option<i64>)>, StorageError> {
         let row = sqlx::query_as::<_, (String, String, String, String, i64, Option<i64>)>(
             r#"SELECT id, suggestion_type, state, payload_json, created_at, resolved_at FROM suggestions WHERE id = ?"#,
         )
@@ -1109,14 +1163,12 @@ impl Storage {
             .execute(&self.pool)
             .await?;
         } else {
-            sqlx::query(
-                r#"UPDATE suggestions SET state = ?, resolved_at = ? WHERE id = ?"#,
-            )
-            .bind(state)
-            .bind(resolved_at)
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
+            sqlx::query(r#"UPDATE suggestions SET state = ?, resolved_at = ? WHERE id = ?"#)
+                .bind(state)
+                .bind(resolved_at)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
         }
         Ok(())
     }
@@ -1146,7 +1198,11 @@ impl Storage {
         Ok(id)
     }
 
-    pub async fn list_commitment_risk_recent(&self, commitment_id: &str, limit: u32) -> Result<Vec<(String, f64, String, String, i64)>, StorageError> {
+    pub async fn list_commitment_risk_recent(
+        &self,
+        commitment_id: &str,
+        limit: u32,
+    ) -> Result<Vec<(String, f64, String, String, i64)>, StorageError> {
         let limit = limit.min(50) as i64;
         let rows = sqlx::query_as::<_, (String, f64, String, String, i64)>(
             r#"SELECT id, risk_score, risk_level, factors_json, computed_at FROM commitment_risk WHERE commitment_id = ? ORDER BY computed_at DESC LIMIT ?"#,
@@ -1159,7 +1215,9 @@ impl Storage {
     }
 
     /// Latest risk snapshot per commitment (for listing current risk).
-    pub async fn list_commitment_risk_latest_all(&self) -> Result<Vec<(String, String, f64, String, String, i64)>, StorageError> {
+    pub async fn list_commitment_risk_latest_all(
+        &self,
+    ) -> Result<Vec<(String, String, f64, String, String, i64)>, StorageError> {
         let rows = sqlx::query_as::<_, (String, String, f64, String, String, i64)>(
             r#"SELECT cr.id, cr.commitment_id, cr.risk_score, cr.risk_level, cr.factors_json, cr.computed_at
                FROM commitment_risk cr
@@ -1523,9 +1581,11 @@ impl Storage {
         input_json: &JsonValue,
     ) -> Result<(), StorageError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
-        let input_str = serde_json::to_string(input_json).map_err(|e| StorageError::Validation(e.to_string()))?;
+        let input_str = serde_json::to_string(input_json)
+            .map_err(|e| StorageError::Validation(e.to_string()))?;
         let run_created_payload = json!({ "kind": kind.to_string() });
-        let payload_str = serde_json::to_string(&run_created_payload).map_err(|e| StorageError::Validation(e.to_string()))?;
+        let payload_str = serde_json::to_string(&run_created_payload)
+            .map_err(|e| StorageError::Validation(e.to_string()))?;
         let event_id = format!("evt_{}", Uuid::new_v4().simple());
         let mut tx = self.pool.begin().await?;
         sqlx::query(
@@ -1611,7 +1671,9 @@ impl Storage {
         q = q.bind(limit);
 
         let rows = q.fetch_all(&self.pool).await?;
-        rows.into_iter().map(|row| map_run_row(&row)).collect::<Result<Vec<_>, _>>()
+        rows.into_iter()
+            .map(|row| map_run_row(&row))
+            .collect::<Result<Vec<_>, _>>()
     }
 
     pub async fn update_run_status(
@@ -1623,8 +1685,12 @@ impl Storage {
         output_json: Option<&JsonValue>,
         error_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
-        let output_str = output_json.map(|v| serde_json::to_string(v).map_err(|e| StorageError::Validation(e.to_string()))).transpose()?;
-        let error_str = error_json.map(|v| serde_json::to_string(v).map_err(|e| StorageError::Validation(e.to_string()))).transpose()?;
+        let output_str = output_json
+            .map(|v| serde_json::to_string(v).map_err(|e| StorageError::Validation(e.to_string())))
+            .transpose()?;
+        let error_str = error_json
+            .map(|v| serde_json::to_string(v).map_err(|e| StorageError::Validation(e.to_string())))
+            .transpose()?;
         sqlx::query(
             r#"
             UPDATE runs SET status = ?,
@@ -1654,7 +1720,8 @@ impl Storage {
     ) -> Result<(), StorageError> {
         let event_id = format!("evt_{}", Uuid::new_v4().simple());
         let now = OffsetDateTime::now_utc().unix_timestamp();
-        let payload_str = serde_json::to_string(payload_json).map_err(|e| StorageError::Validation(e.to_string()))?;
+        let payload_str = serde_json::to_string(payload_json)
+            .map_err(|e| StorageError::Validation(e.to_string()))?;
         sqlx::query(
             r#"
             INSERT INTO run_events (event_id, run_id, seq, event_type, payload_json, created_at)
@@ -1682,7 +1749,9 @@ impl Storage {
         .bind(run_id)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(map_run_event_row).collect::<Result<Vec<_>, _>>()
+        rows.into_iter()
+            .map(map_run_event_row)
+            .collect::<Result<Vec<_>, _>>()
     }
 
     pub async fn create_ref(&self, ref_: &Ref) -> Result<(), StorageError> {
@@ -1720,7 +1789,9 @@ impl Storage {
         .bind(from_id)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(map_ref_row).collect::<Result<Vec<_>, _>>()
+        rows.into_iter()
+            .map(map_ref_row)
+            .collect::<Result<Vec<_>, _>>()
     }
 
     pub async fn list_refs_to(&self, to_type: &str, to_id: &str) -> Result<Vec<Ref>, StorageError> {
@@ -1734,12 +1805,17 @@ impl Storage {
         .bind(to_id)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(map_ref_row).collect::<Result<Vec<_>, _>>()
+        rows.into_iter()
+            .map(map_ref_row)
+            .collect::<Result<Vec<_>, _>>()
     }
 
     // --- Conversations (chat) ---
 
-    pub async fn create_conversation(&self, input: ConversationInsert) -> Result<ConversationId, StorageError> {
+    pub async fn create_conversation(
+        &self,
+        input: ConversationInsert,
+    ) -> Result<ConversationId, StorageError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
         sqlx::query(
             r#"INSERT INTO conversations (id, title, kind, pinned, archived, created_at, updated_at)
@@ -1786,7 +1862,10 @@ impl Storage {
             .collect::<Result<Vec<_>, _>>()
     }
 
-    pub async fn get_conversation(&self, id: &str) -> Result<Option<ConversationRecord>, StorageError> {
+    pub async fn get_conversation(
+        &self,
+        id: &str,
+    ) -> Result<Option<ConversationRecord>, StorageError> {
         let row = sqlx::query(
             r#"SELECT id, title, kind, pinned, archived, created_at, updated_at
                FROM conversations WHERE id = ?"#,
@@ -1883,11 +1962,7 @@ impl Storage {
         row.map(|r| map_message_row(&r)).transpose()
     }
 
-    pub async fn update_message_status(
-        &self,
-        id: &str,
-        status: &str,
-    ) -> Result<(), StorageError> {
+    pub async fn update_message_status(&self, id: &str, status: &str) -> Result<(), StorageError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
         sqlx::query(r#"UPDATE messages SET status = ?, updated_at = ? WHERE id = ?"#)
             .bind(status)
@@ -1978,7 +2053,10 @@ impl Storage {
             .collect::<Result<Vec<_>, _>>()
     }
 
-    pub async fn get_intervention(&self, id: &str) -> Result<Option<InterventionRecord>, StorageError> {
+    pub async fn get_intervention(
+        &self,
+        id: &str,
+    ) -> Result<Option<InterventionRecord>, StorageError> {
         let row = sqlx::query(
             r#"SELECT id, message_id, kind, state, surfaced_at, resolved_at, snoozed_until, confidence, source_json, provenance_json
                FROM interventions WHERE id = ?"#,
@@ -2090,20 +2168,28 @@ impl Storage {
 
     // --- Settings (chat/client) ---
 
-    pub async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, serde_json::Value>, StorageError> {
+    pub async fn get_all_settings(
+        &self,
+    ) -> Result<std::collections::HashMap<String, serde_json::Value>, StorageError> {
         let rows = sqlx::query_as::<_, (String, String)>("SELECT key, value_json FROM settings")
             .fetch_all(&self.pool)
             .await?;
         let mut out = std::collections::HashMap::new();
         for (k, v) in rows {
-            let val: serde_json::Value = serde_json::from_str(&v).unwrap_or(serde_json::Value::Null);
+            let val: serde_json::Value =
+                serde_json::from_str(&v).unwrap_or(serde_json::Value::Null);
             out.insert(k, val);
         }
         Ok(out)
     }
 
-    pub async fn set_setting(&self, key: &str, value: &serde_json::Value) -> Result<(), StorageError> {
-        let json = serde_json::to_string(value).map_err(|e| StorageError::Validation(e.to_string()))?;
+    pub async fn set_setting(
+        &self,
+        key: &str,
+        value: &serde_json::Value,
+    ) -> Result<(), StorageError> {
+        let json =
+            serde_json::to_string(value).map_err(|e| StorageError::Validation(e.to_string()))?;
         sqlx::query("INSERT INTO settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json")
             .bind(key)
             .bind(&json)
@@ -2249,12 +2335,18 @@ fn map_commitment_row(row: &sqlx::sqlite::SqliteRow) -> Result<Commitment, Stora
         text: row.try_get("text")?,
         source_type: row.try_get("source_type")?,
         source_id: row.try_get("source_id")?,
-        status: status.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
-        due_at: row.try_get::<Option<i64>, _>("due_at")?.and_then(|t| timestamp_to_datetime(t).ok()),
+        status: status
+            .parse()
+            .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        due_at: row
+            .try_get::<Option<i64>, _>("due_at")?
+            .and_then(|t| timestamp_to_datetime(t).ok()),
         project: row.try_get("project")?,
         commitment_kind: row.try_get("commitment_kind")?,
         created_at: timestamp_to_datetime(created_at)?,
-        resolved_at: row.try_get::<Option<i64>, _>("resolved_at")?.and_then(|t| timestamp_to_datetime(t).ok()),
+        resolved_at: row
+            .try_get::<Option<i64>, _>("resolved_at")?
+            .and_then(|t| timestamp_to_datetime(t).ok()),
         metadata_json,
     })
 }
@@ -2271,7 +2363,9 @@ fn map_signal_row(row: &sqlx::sqlite::SqliteRow) -> Result<SignalRecord, Storage
     })
 }
 
-fn map_inferred_state_row(row: &sqlx::sqlite::SqliteRow) -> Result<InferredStateRecord, StorageError> {
+fn map_inferred_state_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<InferredStateRecord, StorageError> {
     let context_str: String = row.try_get("context_json")?;
     Ok(InferredStateRecord {
         state_id: row.try_get("state_id")?,
@@ -2313,14 +2407,24 @@ fn map_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<Run, StorageError> {
     let error_str: Option<String> = row.try_get("error_json")?;
     Ok(Run {
         id: RunId::from(row.try_get::<String, _>("run_id")?),
-        kind: kind.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
-        status: status.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        kind: kind
+            .parse()
+            .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        status: status
+            .parse()
+            .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
         input_json: parse_json_value(&input_str)?,
         output_json: output_str.as_deref().map(parse_json_value).transpose()?,
         error_json: error_str.as_deref().map(parse_json_value).transpose()?,
         created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
-        started_at: row.try_get::<Option<i64>, _>("started_at")?.map(timestamp_to_datetime).transpose()?,
-        finished_at: row.try_get::<Option<i64>, _>("finished_at")?.map(timestamp_to_datetime).transpose()?,
+        started_at: row
+            .try_get::<Option<i64>, _>("started_at")?
+            .map(timestamp_to_datetime)
+            .transpose()?,
+        finished_at: row
+            .try_get::<Option<i64>, _>("finished_at")?
+            .map(timestamp_to_datetime)
+            .transpose()?,
     })
 }
 
@@ -2331,7 +2435,9 @@ fn map_run_event_row(row: sqlx::sqlite::SqliteRow) -> Result<RunEvent, StorageEr
         id: row.try_get("event_id")?,
         run_id: RunId::from(row.try_get::<String, _>("run_id")?),
         seq: row.try_get::<i64, _>("seq")? as u32,
-        event_type: event_type.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        event_type: event_type
+            .parse()
+            .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
         payload_json: parse_json_value(&payload_str)?,
         created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
     })
@@ -2345,7 +2451,9 @@ fn map_ref_row(row: sqlx::sqlite::SqliteRow) -> Result<Ref, StorageError> {
         from_id: row.try_get("from_id")?,
         to_type: row.try_get("to_type")?,
         to_id: row.try_get("to_id")?,
-        relation_type: relation_type.parse().map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
+        relation_type: relation_type
+            .parse()
+            .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
         created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
     })
 }
@@ -2436,8 +2544,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(results.len(), 2);
-        assert!(results.iter().all(|result| result.capture_type == "quick_note"));
-        assert!(results.iter().all(|result| result.source_device.as_deref() == Some("phone")));
+        assert!(results
+            .iter()
+            .all(|result| result.capture_type == "quick_note"));
+        assert!(results
+            .iter()
+            .all(|result| result.source_device.as_deref() == Some("phone")));
         assert!(results[0].snippet.to_lowercase().contains("lidar"));
         assert!(results[1].snippet.to_lowercase().contains("lidar"));
     }
@@ -2457,14 +2569,23 @@ mod tests {
             .await
             .unwrap();
 
-        let job = storage.claim_next_pending_job("capture_ingest").await.unwrap();
+        let job = storage
+            .claim_next_pending_job("capture_ingest")
+            .await
+            .unwrap();
         let job = job.expect("one pending job");
         assert_eq!(job.job_type, "capture_ingest");
         assert!(job.payload_json.contains("capture_id"));
 
-        storage.mark_job_succeeded(&job.job_id.to_string()).await.unwrap();
+        storage
+            .mark_job_succeeded(&job.job_id.to_string())
+            .await
+            .unwrap();
 
-        let again = storage.claim_next_pending_job("capture_ingest").await.unwrap();
+        let again = storage
+            .claim_next_pending_job("capture_ingest")
+            .await
+            .unwrap();
         assert!(again.is_none());
     }
 
@@ -2496,7 +2617,10 @@ mod tests {
         assert_eq!(record.artifact_id.to_string(), id.to_string());
         assert_eq!(record.artifact_type, "transcript");
         assert_eq!(record.title.as_deref(), Some("Meeting notes"));
-        assert_eq!(record.storage_uri, "file:///var/artifacts/transcripts/abc.txt");
+        assert_eq!(
+            record.storage_uri,
+            "file:///var/artifacts/transcripts/abc.txt"
+        );
         assert_eq!(record.content_hash.as_deref(), Some("sha256:abc"));
 
         let missing = storage.get_artifact_by_id("art_nonexistent").await.unwrap();
@@ -2512,7 +2636,11 @@ mod tests {
 
         let run_id = vel_core::RunId::new();
         storage
-            .create_run(&run_id, RunKind::ContextGeneration, &json!({"context_kind":"today"}))
+            .create_run(
+                &run_id,
+                RunKind::ContextGeneration,
+                &json!({"context_kind":"today"}),
+            )
             .await
             .unwrap();
 
@@ -2521,16 +2649,29 @@ mod tests {
         assert_eq!(runs[0].id.to_string(), run_id.to_string());
         assert_eq!(runs[0].status, vel_core::RunStatus::Queued);
 
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.kind, RunKind::ContextGeneration);
 
         let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].event_type.to_string(), "run_created");
 
-        let ref_ = Ref::new("run", run_id.as_ref(), "artifact", "art_1", RefRelationType::AttachedTo);
+        let ref_ = Ref::new(
+            "run",
+            run_id.as_ref(),
+            "artifact",
+            "art_1",
+            RefRelationType::AttachedTo,
+        );
         storage.create_ref(&ref_).await.unwrap();
-        let from_refs = storage.list_refs_from("run", run_id.as_ref()).await.unwrap();
+        let from_refs = storage
+            .list_refs_from("run", run_id.as_ref())
+            .await
+            .unwrap();
         assert_eq!(from_refs.len(), 1);
         assert_eq!(from_refs[0].to_id, "art_1");
     }

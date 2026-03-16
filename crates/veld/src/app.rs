@@ -1,4 +1,7 @@
-use axum::{routing::{get, post}, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use vel_config::AppConfig;
@@ -14,25 +17,57 @@ pub fn build_app(
     chat_profile_id: Option<String>,
 ) -> Router {
     let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
-    let state = AppState::new(storage, config, policy_config, broadcast_tx, llm_router, chat_profile_id);
+    let state = AppState::new(
+        storage,
+        config,
+        policy_config,
+        broadcast_tx,
+        llm_router,
+        chat_profile_id,
+    );
 
     Router::new()
         .route("/v1/health", get(routes::health::health))
         .route("/v1/doctor", get(routes::doctor::doctor))
-        .route("/v1/captures", get(routes::captures::list_captures).post(routes::captures::create_capture))
+        .route(
+            "/v1/captures",
+            get(routes::captures::list_captures).post(routes::captures::create_capture),
+        )
         .route("/v1/captures/:id", get(routes::captures::get_capture))
-        .route("/v1/commitments", get(routes::commitments::list_commitments).post(routes::commitments::create_commitment))
-        .route("/v1/commitments/:id", get(routes::commitments::get_commitment).patch(routes::commitments::update_commitment))
-        .route("/v1/commitments/:id/dependencies", get(routes::commitments::list_commitment_dependencies).post(routes::commitments::add_commitment_dependency))
+        .route(
+            "/v1/commitments",
+            get(routes::commitments::list_commitments).post(routes::commitments::create_commitment),
+        )
+        .route(
+            "/v1/commitments/:id",
+            get(routes::commitments::get_commitment).patch(routes::commitments::update_commitment),
+        )
+        .route(
+            "/v1/commitments/:id/dependencies",
+            get(routes::commitments::list_commitment_dependencies)
+                .post(routes::commitments::add_commitment_dependency),
+        )
         .route("/v1/risk", get(routes::risk::compute_and_list))
         .route("/v1/risk/:id", get(routes::risk::get_commitment_risk))
         .route("/v1/suggestions", get(routes::suggestions::list))
-        .route("/v1/suggestions/:id", get(routes::suggestions::get).patch(routes::suggestions::update))
-        .route("/v1/artifacts", get(routes::artifacts::list_artifacts).post(routes::artifacts::create_artifact))
-        .route("/v1/artifacts/latest", get(routes::artifacts::get_artifact_latest))
+        .route(
+            "/v1/suggestions/:id",
+            get(routes::suggestions::get).patch(routes::suggestions::update),
+        )
+        .route(
+            "/v1/artifacts",
+            get(routes::artifacts::list_artifacts).post(routes::artifacts::create_artifact),
+        )
+        .route(
+            "/v1/artifacts/latest",
+            get(routes::artifacts::get_artifact_latest),
+        )
         .route("/v1/artifacts/:id", get(routes::artifacts::get_artifact))
         .route("/v1/runs", get(routes::runs::list_runs))
-        .route("/v1/runs/:id", get(routes::runs::get_run).patch(routes::runs::update_run))
+        .route(
+            "/v1/runs/:id",
+            get(routes::runs::get_run).patch(routes::runs::update_run),
+        )
         .route("/v1/context/today", get(routes::context::today))
         .route("/v1/context/morning", get(routes::context::morning))
         .route("/v1/context/end-of-day", get(routes::context::end_of_day))
@@ -40,13 +75,28 @@ pub fn build_app(
         .route("/v1/context/timeline", get(routes::context::timeline))
         .route("/v1/explain/nudge/:id", get(routes::explain::explain_nudge))
         .route("/v1/explain/context", get(routes::explain::explain_context))
-        .route("/v1/explain/commitment/:id", get(routes::explain::explain_commitment))
+        .route(
+            "/v1/explain/commitment/:id",
+            get(routes::explain::explain_commitment),
+        )
         .route("/v1/explain/drift", get(routes::explain::explain_drift))
-        .route("/v1/threads", get(routes::threads::list_threads).post(routes::threads::create_thread))
-        .route("/v1/threads/:id", get(routes::threads::get_thread).patch(routes::threads::update_thread))
-        .route("/v1/threads/:id/links", post(routes::threads::add_thread_link))
+        .route(
+            "/v1/threads",
+            get(routes::threads::list_threads).post(routes::threads::create_thread),
+        )
+        .route(
+            "/v1/threads/:id",
+            get(routes::threads::get_thread).patch(routes::threads::update_thread),
+        )
+        .route(
+            "/v1/threads/:id/links",
+            post(routes::threads::add_thread_link),
+        )
         .route("/v1/search", get(routes::search::search))
-        .route("/v1/signals", get(routes::signals::list_signals).post(routes::signals::create_signal))
+        .route(
+            "/v1/signals",
+            get(routes::signals::list_signals).post(routes::signals::create_signal),
+        )
         .route("/v1/nudges", get(routes::nudges::list_nudges))
         .route("/v1/nudges/:id", get(routes::nudges::get_nudge))
         .route("/v1/nudges/:id/done", post(routes::nudges::nudge_done))
@@ -54,10 +104,17 @@ pub fn build_app(
         .route("/v1/sync/calendar", post(routes::sync::sync_calendar))
         .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
         .route("/v1/sync/activity", post(routes::sync::sync_activity))
+        .route("/v1/sync/notes", post(routes::sync::sync_notes))
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
-        .route("/v1/synthesis/week", post(routes::synthesis::synthesis_week))
-        .route("/v1/synthesis/project/:slug", post(routes::synthesis::synthesis_project))
+        .route(
+            "/v1/synthesis/week",
+            post(routes::synthesis::synthesis_week),
+        )
+        .route(
+            "/v1/synthesis/project/:slug",
+            post(routes::synthesis::synthesis_project),
+        )
         .route("/ws", get(routes::ws::ws_handler))
         .merge(routes::chat::chat_routes())
         .with_state(state)
@@ -69,7 +126,10 @@ pub fn build_app(
 mod tests {
     use super::*;
     use crate::policy_config::PolicyConfig;
-    use axum::{body::Body, http::{Method, Request, StatusCode}};
+    use axum::{
+        body::Body,
+        http::{Method, Request, StatusCode},
+    };
     use tower::util::ServiceExt;
 
     fn test_policy_config() -> PolicyConfig {
@@ -80,10 +140,21 @@ mod tests {
     async fn health_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let response = app
-            .oneshot(Request::builder().uri("/v1/health").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -94,10 +165,21 @@ mod tests {
     async fn doctor_endpoint_returns_ok_with_schema_version() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let response = app
-            .oneshot(Request::builder().uri("/v1/doctor").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/doctor")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -117,7 +199,13 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let response = app
             .oneshot(
@@ -136,7 +224,13 @@ mod tests {
     async fn today_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let response = app
             .oneshot(
@@ -157,7 +251,13 @@ mod tests {
     async fn context_today_creates_run_artifact_and_ref() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let today_resp = app
             .clone()
@@ -192,8 +292,15 @@ mod tests {
             "event sequence should match"
         );
 
-        let refs_from_run = storage.list_refs_from("run", run.id.as_ref()).await.unwrap();
-        assert_eq!(refs_from_run.len(), 1, "run should have one ref (run → artifact)");
+        let refs_from_run = storage
+            .list_refs_from("run", run.id.as_ref())
+            .await
+            .unwrap();
+        assert_eq!(
+            refs_from_run.len(),
+            1,
+            "run should have one ref (run → artifact)"
+        );
         assert_eq!(refs_from_run[0].to_type, "artifact");
 
         let artifact_id = &refs_from_run[0].to_id;
@@ -203,7 +310,11 @@ mod tests {
         assert_eq!(art.storage_kind, vel_core::ArtifactStorageKind::Managed);
         assert_eq!(art.artifact_type, "context_brief");
         assert!(art.storage_uri.contains("context/today"));
-        assert!(art.content_hash.as_deref().map(|h| h.starts_with("sha256:")).unwrap_or(false));
+        assert!(art
+            .content_hash
+            .as_deref()
+            .map(|h| h.starts_with("sha256:"))
+            .unwrap_or(false));
     }
 
     #[tokio::test]
@@ -237,7 +348,10 @@ mod tests {
         assert_eq!(run.status, vel_core::RunStatus::Failed);
         assert!(run.error_json.is_some());
 
-        let refs_from_run = storage.list_refs_from("run", run.id.as_ref()).await.unwrap();
+        let refs_from_run = storage
+            .list_refs_from("run", run.id.as_ref())
+            .await
+            .unwrap();
         assert!(refs_from_run.is_empty(), "no artifact ref on failure");
 
         let _ = std::fs::remove_file(&file_path);
@@ -247,7 +361,13 @@ mod tests {
     async fn end_of_day_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let response = app
             .oneshot(
@@ -266,7 +386,13 @@ mod tests {
     async fn create_artifact_returns_ok_and_get_returns_it() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let create_body = serde_json::json!({
             "artifact_type": "transcript",
@@ -323,7 +449,13 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let eval_resp = app
             .clone()
             .oneshot(
@@ -346,14 +478,22 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(nudges_resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let nudges = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
+        let nudges = json["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default();
         let commute_nudges: Vec<_> = nudges
             .iter()
             .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time"))
             .collect();
-        assert!(commute_nudges.is_empty(), "commute nudge must not trigger when travel_minutes missing");
+        assert!(
+            commute_nudges.is_empty(),
+            "commute nudge must not trigger when travel_minutes missing"
+        );
     }
 
     /// Canonical day: commute nudge fires when calendar event has travel_minutes and we are in leave-by window.
@@ -377,21 +517,50 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         let nudges_resp = app
-            .oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(nudges_resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let nudges = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
+        let nudges = json["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default();
         let commute_nudges: Vec<_> = nudges
             .iter()
             .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time"))
             .collect();
-        assert!(!commute_nudges.is_empty(), "commute nudge must fire when travel_minutes set and in leave-by window");
+        assert!(
+            !commute_nudges.is_empty(),
+            "commute nudge must fire when travel_minutes set and in leave-by window"
+        );
     }
 
     /// Context explain returns signals_used and commitments_used.
@@ -399,41 +568,122 @@ mod tests {
     async fn context_explain_includes_signals_and_commitments_used() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let resp = app.oneshot(Request::builder().uri("/v1/explain/context").body(Body::empty()).unwrap()).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/explain/context")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert!(json["data"]["signals_used"].is_array(), "signals_used must be present");
-        assert!(json["data"]["commitments_used"].is_array(), "commitments_used must be present");
-        assert!(json["data"]["reasons"].is_array(), "reasons must be present");
+        assert!(
+            json["data"]["signals_used"].is_array(),
+            "signals_used must be present"
+        );
+        assert!(
+            json["data"]["commitments_used"].is_array(),
+            "commitments_used must be present"
+        );
+        assert!(
+            json["data"]["reasons"].is_array(),
+            "reasons must be present"
+        );
     }
 
     /// Read boundary: explain endpoints must not create commitment_risk or nudge_events rows (repo-feedback 001).
     #[tokio::test]
     async fn explain_endpoints_do_not_mutate_persisted_state() {
         let dir = std::env::temp_dir();
-        let path = dir.join(format!("vel_read_boundary_{}.db", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()));
+        let path = dir.join(format!(
+            "vel_read_boundary_{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        ));
         let path_str = path.to_string_lossy().to_string();
 
         let storage = Storage::connect(&path_str).await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         let storage2 = Storage::connect(&path_str).await.unwrap();
         let risk_before = storage2.count_commitment_risk().await.unwrap();
         let nudge_events_before = storage2.count_nudge_events().await.unwrap();
 
-        let _ = app.clone().oneshot(Request::builder().uri("/v1/explain/context").body(Body::empty()).unwrap()).await.unwrap();
-        let _ = app.clone().oneshot(Request::builder().uri("/v1/explain/drift").body(Body::empty()).unwrap()).await.unwrap();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/explain/context")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/explain/drift")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
 
         let risk_after = storage2.count_commitment_risk().await.unwrap();
         let nudge_events_after = storage2.count_nudge_events().await.unwrap();
 
-        assert_eq!(risk_before, risk_after, "explain must not create commitment_risk rows");
-        assert_eq!(nudge_events_before, nudge_events_after, "explain must not create nudge_events rows");
+        assert_eq!(
+            risk_before, risk_after,
+            "explain must not create commitment_risk rows"
+        );
+        assert_eq!(
+            nudge_events_before, nudge_events_after,
+            "explain must not create nudge_events rows"
+        );
 
         let _ = std::fs::remove_file(&path);
     }
@@ -456,14 +706,48 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let nudges_resp = app.clone().oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
-        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let nudges = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
-        let meds_nudge = nudges.iter().find(|n| n["nudge_type"].as_str() == Some("meds_not_logged"));
-        let nudge_id = meds_nudge.and_then(|n| n["nudge_id"].as_str()).expect("meds nudge should exist");
+        let nudges = json["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default();
+        let meds_nudge = nudges
+            .iter()
+            .find(|n| n["nudge_type"].as_str() == Some("meds_not_logged"));
+        let nudge_id = meds_nudge
+            .and_then(|n| n["nudge_id"].as_str())
+            .expect("meds nudge should exist");
         let done_resp = app
             .clone()
             .oneshot(
@@ -476,9 +760,29 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(done_resp.status(), StatusCode::OK);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let nudges_resp2 = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
-        let body2 = axum::body::to_bytes(nudges_resp2.into_body(), usize::MAX).await.unwrap();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_resp2 = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body2 = axum::body::to_bytes(nudges_resp2.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json2: serde_json::Value = serde_json::from_slice(&body2).unwrap();
         let resolved: Vec<_> = json2["data"]
             .as_array()
@@ -487,7 +791,11 @@ mod tests {
             .filter(|n| n["nudge_id"].as_str() == Some(nudge_id))
             .collect();
         assert_eq!(resolved.len(), 1, "nudge should appear exactly once");
-        assert_eq!(resolved[0]["state"].as_str(), Some("resolved"), "resolved nudge must stay resolved after second evaluate");
+        assert_eq!(
+            resolved[0]["state"].as_str(),
+            Some("resolved"),
+            "resolved nudge must stay resolved after second evaluate"
+        );
     }
 
     // --- Canonical day fixture: Meeting with Dimitri at 11:00, prep 30 min, travel 40 min, meds/prep/commute open ---
@@ -551,7 +859,13 @@ mod tests {
             })
             .await
             .unwrap();
-        (event_start, now_ts, meds_id.as_ref().to_string(), prep_id.as_ref().to_string(), commute_id.as_ref().to_string())
+        (
+            event_start,
+            now_ts,
+            meds_id.as_ref().to_string(),
+            prep_id.as_ref().to_string(),
+            commute_id.as_ref().to_string(),
+        )
     }
 
     /// §6.1 Context assertions: prep/commute window, meds status, next commitment present.
@@ -561,16 +875,51 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let resp = app.oneshot(Request::builder().uri("/v1/context/current").body(Body::empty()).unwrap()).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let data = &json["data"];
-        assert!(data.get("prep_window_active").is_some(), "prep_window_active must be present");
-        assert!(data.get("commute_window_active").is_some(), "commute_window_active must be present");
-        assert!(data.get("meds_status").is_some(), "meds_status must be present");
+        assert!(
+            data.get("prep_window_active").is_some(),
+            "prep_window_active must be present"
+        );
+        assert!(
+            data.get("commute_window_active").is_some(),
+            "commute_window_active must be present"
+        );
+        assert!(
+            data.get("meds_status").is_some(),
+            "meds_status must be present"
+        );
         assert!(data.get("mode").is_some(), "mode must be present");
     }
 
@@ -581,14 +930,46 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let resp = app.oneshot(Request::builder().uri("/v1/risk").body(Body::empty()).unwrap()).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/risk")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let list = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
-        assert!(!list.is_empty(), "risk list should be non-empty when commitments exist");
+        let list = json["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default();
+        assert!(
+            !list.is_empty(),
+            "risk list should be non-empty when commitments exist"
+        );
     }
 
     /// §6.3 Nudge: snooze suppresses repeated firing until snoozed_until.
@@ -598,31 +979,103 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let nudges_resp = app.clone().oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
-        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let nudges = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
-        let commute = nudges.iter().find(|n| n["nudge_type"].as_str() == Some("commute_leave_time"));
-        let nudge_id = commute.and_then(|n| n["nudge_id"].as_str()).expect("commute nudge should exist");
+        let nudges = json["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default();
+        let commute = nudges
+            .iter()
+            .find(|n| n["nudge_type"].as_str() == Some("commute_leave_time"));
+        let nudge_id = commute
+            .and_then(|n| n["nudge_id"].as_str())
+            .expect("commute nudge should exist");
         let _snooze_until = now_ts + 15 * 60;
         let snooze_body = serde_json::json!({ "minutes": 15 }).to_string();
-        let _ = app.clone().oneshot(
-            Request::builder()
-                .method("POST")
-                .uri(format!("/v1/nudges/{}/snooze", nudge_id))
-                .header("content-type", "application/json")
-                .body(Body::from(snooze_body))
-                .unwrap(),
-        ).await.unwrap();
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let nudges_resp2 = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
-        let body2 = axum::body::to_bytes(nudges_resp2.into_body(), usize::MAX).await.unwrap();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/nudges/{}/snooze", nudge_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(snooze_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_resp2 = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body2 = axum::body::to_bytes(nudges_resp2.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json2: serde_json::Value = serde_json::from_slice(&body2).unwrap();
-        let same_nudge: Vec<_> = json2["data"].as_array().map(|v| v.as_slice()).unwrap_or_default().iter().filter(|n| n["nudge_id"].as_str() == Some(nudge_id)).collect();
-        assert_eq!(same_nudge.len(), 1, "snoozed nudge should still appear once");
-        assert_eq!(same_nudge[0]["state"].as_str(), Some("snoozed"), "nudge should be snoozed");
+        let same_nudge: Vec<_> = json2["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
+            .iter()
+            .filter(|n| n["nudge_id"].as_str() == Some(nudge_id))
+            .collect();
+        assert_eq!(
+            same_nudge.len(),
+            1,
+            "snoozed nudge should still appear once"
+        );
+        assert_eq!(
+            same_nudge[0]["state"].as_str(),
+            Some("snoozed"),
+            "nudge should be snoozed"
+        );
     }
 
     /// §6.3 Nudge: event start suppresses or resolves stale commute nudge.
@@ -645,18 +1098,50 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
-        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let active_commute: Vec<_> = json["data"]
             .as_array()
             .into_iter()
             .flatten()
-            .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time") && n["state"].as_str() == Some("active"))
+            .filter(|n| {
+                n["nudge_type"].as_str() == Some("commute_leave_time")
+                    && n["state"].as_str() == Some("active")
+            })
             .collect();
-        assert!(active_commute.is_empty(), "commute nudge should be resolved or absent after event start passed");
+        assert!(
+            active_commute.is_empty(),
+            "commute nudge should be resolved or absent after event start passed"
+        );
     }
 
     /// §6.5 Explain: context explain references commitment ids and signal ids.
@@ -666,17 +1151,57 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         let (_, _, meds_id, prep_id, _) = canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let resp = app.oneshot(Request::builder().uri("/v1/explain/context").body(Body::empty()).unwrap()).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/explain/context")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let commitments_used = json["data"]["commitments_used"].as_array().map(|v| v.as_slice()).unwrap_or_default();
-        let signals_used = json["data"]["signals_used"].as_array().map(|v| v.as_slice()).unwrap_or_default();
-        assert!(!signals_used.is_empty(), "signals_used must reference calendar signal");
-        let commitment_ids: Vec<&str> = commitments_used.iter().filter_map(|c| c.as_str()).collect();
-        assert!(commitment_ids.contains(&meds_id.as_str()) || commitment_ids.contains(&prep_id.as_str()), "commitments_used should include fixture commitments");
+        let commitments_used = json["data"]["commitments_used"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default();
+        let signals_used = json["data"]["signals_used"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default();
+        assert!(
+            !signals_used.is_empty(),
+            "signals_used must reference calendar signal"
+        );
+        let commitment_ids: Vec<&str> =
+            commitments_used.iter().filter_map(|c| c.as_str()).collect();
+        assert!(
+            commitment_ids.contains(&meds_id.as_str())
+                || commitment_ids.contains(&prep_id.as_str()),
+            "commitments_used should include fixture commitments"
+        );
     }
 
     /// §6.6 Synthesis: project synthesis artifact created with open commitments.
@@ -686,7 +1211,13 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let resp = app
             .oneshot(
                 Request::builder()
@@ -698,9 +1229,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert!(json["data"].get("artifact_id").is_some() || json["data"].get("run_id").is_some(), "project synthesis should return artifact or run");
+        assert!(
+            json["data"].get("artifact_id").is_some() || json["data"].get("run_id").is_some(),
+            "project synthesis should return artifact or run"
+        );
     }
 
     /// Variant A (success path): meds done reduces active nudges.
@@ -710,22 +1246,75 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         let (_, _, meds_id, _, _) = canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let _ = app.clone().oneshot(
-            Request::builder()
-                .method("PATCH")
-                .uri(format!("/v1/commitments/{}", meds_id))
-                .header("content-type", "application/json")
-                .body(Body::from(r#"{"status":"done"}"#))
-                .unwrap(),
-        ).await.unwrap();
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
-        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/v1/commitments/{}", meds_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"status":"done"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let meds_nudges: Vec<_> = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default().iter().filter(|n| n["nudge_type"].as_str() == Some("meds_not_logged") && (n["state"].as_str() == Some("active") || n["state"].as_str() == Some("snoozed"))).collect();
-        assert!(meds_nudges.is_empty(), "meds nudge should be gone after commitment done");
+        let meds_nudges: Vec<_> = json["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
+            .iter()
+            .filter(|n| {
+                n["nudge_type"].as_str() == Some("meds_not_logged")
+                    && (n["state"].as_str() == Some("active")
+                        || n["state"].as_str() == Some("snoozed"))
+            })
+            .collect();
+        assert!(
+            meds_nudges.is_empty(),
+            "meds nudge should be gone after commitment done"
+        );
     }
 
     /// Variant B (drift path): in danger window, drift and commute nudge present.
@@ -735,18 +1324,67 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         canonical_day_fixture(&storage, now_ts, 35).await;
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let context_resp = app.clone().oneshot(Request::builder().uri("/v1/context/current").body(Body::empty()).unwrap()).await.unwrap();
-        let body = axum::body::to_bytes(context_resp.into_body(), usize::MAX).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let context_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(context_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let ctx: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let drift_type = ctx["data"].get("drift_type");
-        let nudges_resp = app.oneshot(Request::builder().uri("/v1/nudges").body(Body::empty()).unwrap()).await.unwrap();
-        let nbody = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX).await.unwrap();
+        let nudges_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nbody = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let njson: serde_json::Value = serde_json::from_slice(&nbody).unwrap();
-        let commute: Vec<_> = njson["data"].as_array().map(|v| v.as_slice()).unwrap_or_default().iter().filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time")).collect();
-        assert!(!commute.is_empty(), "commute nudge should exist in danger window (variant B)");
-        assert!(drift_type.is_some() || ctx["data"].get("attention_state").is_some(), "drift or attention state should be present");
+        let commute: Vec<_> = njson["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
+            .iter()
+            .filter(|n| n["nudge_type"].as_str() == Some("commute_leave_time"))
+            .collect();
+        assert!(
+            !commute.is_empty(),
+            "commute nudge should exist in danger window (variant B)"
+        );
+        assert!(
+            drift_type.is_some() || ctx["data"].get("attention_state").is_some(),
+            "drift or attention state should be present"
+        );
     }
 
     /// Variant C (suggestion path): repeated commute danger triggers increase_commute_buffer suggestion.
@@ -773,14 +1411,46 @@ mod tests {
                 .await
                 .unwrap();
         }
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
-        let _ = app.clone().oneshot(Request::builder().method("POST").uri("/v1/evaluate").body(Body::empty()).unwrap()).await.unwrap();
-        let resp = app.oneshot(Request::builder().uri("/v1/suggestions").body(Body::empty()).unwrap()).await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/suggestions")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let suggestions = json["data"].as_array().map(|v| v.as_slice()).unwrap_or_default();
-        let commute_buf: Vec<_> = suggestions.iter().filter(|s| s["suggestion_type"].as_str() == Some("increase_commute_buffer")).collect();
+        let suggestions = json["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default();
+        let commute_buf: Vec<_> = suggestions
+            .iter()
+            .filter(|s| s["suggestion_type"].as_str() == Some("increase_commute_buffer"))
+            .collect();
         assert!(!commute_buf.is_empty(), "increase_commute_buffer suggestion should appear after repeated commute danger (variant C)");
     }
 
@@ -790,23 +1460,45 @@ mod tests {
     async fn chat_list_conversations_empty() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let resp = app
-            .oneshot(Request::builder().uri("/api/conversations").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/conversations")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["ok"].as_bool().unwrap());
-        assert!(json["data"].as_array().map(|a| a.is_empty()).unwrap_or(false));
+        assert!(json["data"]
+            .as_array()
+            .map(|a| a.is_empty())
+            .unwrap_or(false));
     }
 
     #[tokio::test]
     async fn chat_create_conversation_then_list() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let create_body = r#"{"title":"Test conv","kind":"general"}"#;
         let create_resp = app
             .clone()
@@ -821,18 +1513,27 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(create_resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(create_resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(create_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["ok"].as_bool().unwrap());
         let id = json["data"]["id"].as_str().unwrap();
         assert!(id.starts_with("conv_"));
 
         let list_resp = app
-            .oneshot(Request::builder().uri("/api/conversations").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/conversations")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(list_resp.status(), StatusCode::OK);
-        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX).await.unwrap();
+        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
         let convs = list_json["data"].as_array().unwrap();
         assert_eq!(convs.len(), 1);
@@ -843,7 +1544,13 @@ mod tests {
     async fn chat_get_conversation_404() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let resp = app
             .oneshot(
                 Request::builder()
@@ -860,7 +1567,13 @@ mod tests {
     async fn chat_create_message_then_list() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let create_conv = app
             .clone()
             .oneshot(
@@ -873,7 +1586,9 @@ mod tests {
             )
             .await
             .unwrap();
-        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX).await.unwrap();
+        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let conv_json: serde_json::Value = serde_json::from_slice(&conv_body).unwrap();
         let conv_id = conv_json["data"]["id"].as_str().unwrap();
 
@@ -891,7 +1606,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(msg_resp.status(), StatusCode::OK);
-        let msg_resp_body = axum::body::to_bytes(msg_resp.into_body(), usize::MAX).await.unwrap();
+        let msg_resp_body = axum::body::to_bytes(msg_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let msg_json: serde_json::Value = serde_json::from_slice(&msg_resp_body).unwrap();
         let user_msg = &msg_json["data"]["user_message"];
         assert!(user_msg["id"].as_str().unwrap().starts_with("msg_"));
@@ -907,7 +1624,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(list_resp.status(), StatusCode::OK);
-        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX).await.unwrap();
+        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
         assert_eq!(list_json["data"].as_array().unwrap().len(), 1);
     }
@@ -916,16 +1635,32 @@ mod tests {
     async fn chat_inbox_empty() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let resp = app
-            .oneshot(Request::builder().uri("/api/inbox").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/inbox")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["ok"].as_bool().unwrap());
-        assert!(json["data"].as_array().map(|a| a.is_empty()).unwrap_or(false));
+        assert!(json["data"]
+            .as_array()
+            .map(|a| a.is_empty())
+            .unwrap_or(false));
     }
 
     #[tokio::test]
@@ -969,7 +1704,13 @@ mod tests {
             })
             .await
             .unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let resp = app
             .oneshot(
@@ -981,7 +1722,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let data = json["data"].as_array().unwrap();
         assert_eq!(data.len(), 1);
@@ -993,7 +1736,13 @@ mod tests {
     async fn chat_assistant_card_message_creates_intervention() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let create_conv = app
             .clone()
@@ -1007,7 +1756,9 @@ mod tests {
             )
             .await
             .unwrap();
-        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX).await.unwrap();
+        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let conv_json: serde_json::Value = serde_json::from_slice(&conv_body).unwrap();
         let conv_id = conv_json["data"]["id"].as_str().unwrap();
 
@@ -1025,7 +1776,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(msg_resp.status(), StatusCode::OK);
-        let msg_resp_body = axum::body::to_bytes(msg_resp.into_body(), usize::MAX).await.unwrap();
+        let msg_resp_body = axum::body::to_bytes(msg_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let msg_json: serde_json::Value = serde_json::from_slice(&msg_resp_body).unwrap();
         let message_id = msg_json["data"]["user_message"]["id"].as_str().unwrap();
 
@@ -1042,14 +1795,22 @@ mod tests {
             .list_events_by_aggregate("intervention", interventions[0].id.as_ref(), 10)
             .await
             .unwrap();
-        assert!(events.iter().any(|event| event.event_name == "intervention.created"));
+        assert!(events
+            .iter()
+            .any(|event| event.event_name == "intervention.created"));
     }
 
     #[tokio::test]
     async fn chat_assistant_text_message_does_not_create_intervention() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let create_conv = app
             .clone()
@@ -1063,7 +1824,9 @@ mod tests {
             )
             .await
             .unwrap();
-        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX).await.unwrap();
+        let conv_body = axum::body::to_bytes(create_conv.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let conv_json: serde_json::Value = serde_json::from_slice(&conv_body).unwrap();
         let conv_id = conv_json["data"]["id"].as_str().unwrap();
 
@@ -1095,7 +1858,10 @@ mod tests {
         storage.migrate().await.unwrap();
 
         let dir = std::env::temp_dir();
-        let file_path = dir.join(format!("vel_transcripts_{}.json", uuid::Uuid::new_v4().simple()));
+        let file_path = dir.join(format!(
+            "vel_transcripts_{}.json",
+            uuid::Uuid::new_v4().simple()
+        ));
         let snapshot = serde_json::json!({
             "source": "chatgpt",
             "conversation_id": "conv_external",
@@ -1142,7 +1908,10 @@ mod tests {
         assert_eq!(transcripts[0].source, "chatgpt");
         assert_eq!(transcripts[0].role, "user");
 
-        let signals = storage.list_signals(Some("assistant_message"), None, 10).await.unwrap();
+        let signals = storage
+            .list_signals(Some("assistant_message"), None, 10)
+            .await
+            .unwrap();
         assert_eq!(signals.len(), 2);
         assert_eq!(signals[0].source, "chatgpt");
 
@@ -1155,7 +1924,10 @@ mod tests {
         storage.migrate().await.unwrap();
 
         let dir = std::env::temp_dir();
-        let file_path = dir.join(format!("vel_transcripts_{}.json", uuid::Uuid::new_v4().simple()));
+        let file_path = dir.join(format!(
+            "vel_transcripts_{}.json",
+            uuid::Uuid::new_v4().simple()
+        ));
         let snapshot = serde_json::json!([
             {
                 "id": "tr_fixed_1",
@@ -1196,7 +1968,10 @@ mod tests {
             .unwrap();
         assert_eq!(transcripts.len(), 1);
 
-        let signals = storage.list_signals(Some("assistant_message"), None, 10).await.unwrap();
+        let signals = storage
+            .list_signals(Some("assistant_message"), None, 10)
+            .await
+            .unwrap();
         assert_eq!(signals.len(), 1);
 
         let _ = std::fs::remove_file(&file_path);
@@ -1208,7 +1983,10 @@ mod tests {
         storage.migrate().await.unwrap();
 
         let dir = std::env::temp_dir();
-        let file_path = dir.join(format!("vel_activity_{}.json", uuid::Uuid::new_v4().simple()));
+        let file_path = dir.join(format!(
+            "vel_activity_{}.json",
+            uuid::Uuid::new_v4().simple()
+        ));
         let snapshot = serde_json::json!({
             "source": "workstation",
             "events": [
@@ -1246,7 +2024,10 @@ mod tests {
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
 
-        let shell_signals = storage.list_signals(Some("shell_login"), None, 10).await.unwrap();
+        let shell_signals = storage
+            .list_signals(Some("shell_login"), None, 10)
+            .await
+            .unwrap();
         let activity_signals = storage
             .list_signals(Some("computer_activity"), None, 10)
             .await
@@ -1259,6 +2040,92 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sync_notes_ingests_markdown_files_as_captures() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir().join(format!("vel_notes_{}", uuid::Uuid::new_v4().simple()));
+        let nested_dir = dir.join("daily");
+        std::fs::create_dir_all(&nested_dir).unwrap();
+        std::fs::write(nested_dir.join("today.md"), "# Today\nShip notes sync\n").unwrap();
+        std::fs::write(dir.join("ignore.json"), "{\"skip\":true}").unwrap();
+
+        let config = vel_config::AppConfig {
+            notes_path: Some(dir.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/notes")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let captures = storage.list_captures_recent(10, false).await.unwrap();
+        assert_eq!(captures.len(), 1);
+        assert_eq!(captures[0].capture_type, "note_document");
+        assert!(captures[0].content_text.contains("Ship notes sync"));
+
+        let signals = storage
+            .list_signals(Some("note_document"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].source, "notes");
+        assert_eq!(signals[0].payload_json["path"], "daily/today.md");
+        assert_eq!(signals[0].payload_json["title"], "Today");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn sync_notes_replay_is_deduplicated() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir().join(format!("vel_notes_{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("ideas.md"), "# Ideas\nMore context\n").unwrap();
+
+        let config = vel_config::AppConfig {
+            notes_path: Some(dir.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        for _ in 0..2 {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/v1/sync/notes")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+        }
+
+        assert_eq!(storage.capture_count().await.unwrap(), 1);
+        let signals = storage
+            .list_signals(Some("note_document"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
     async fn inference_uses_shell_login_as_workstation_activity() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -1267,11 +2134,19 @@ mod tests {
                 signal_type: "shell_login".to_string(),
                 source: "workstation".to_string(),
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
-                payload_json: Some(serde_json::json!({ "host": "ws-1", "activity": "shell_login" })),
+                payload_json: Some(
+                    serde_json::json!({ "host": "ws-1", "activity": "shell_login" }),
+                ),
             })
             .await
             .unwrap();
-        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
 
         let eval_resp = app
             .clone()
@@ -1287,13 +2162,23 @@ mod tests {
         assert_eq!(eval_resp.status(), StatusCode::OK);
 
         let ctx_resp = app
-            .oneshot(Request::builder().uri("/v1/context/current").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(ctx_resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(ctx_resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(ctx_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(json["data"]["context"]["inferred_activity"], "computer_active");
+        assert_eq!(
+            json["data"]["context"]["inferred_activity"],
+            "computer_active"
+        );
         assert_eq!(json["data"]["context"]["morning_state"], "engaged");
     }
 
@@ -1301,10 +2186,21 @@ mod tests {
     async fn chat_settings_get_and_patch() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage.clone(), AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let get_resp = app
             .clone()
-            .oneshot(Request::builder().uri("/api/settings").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/settings")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
         assert_eq!(get_resp.status(), StatusCode::OK);
@@ -1321,7 +2217,9 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(patch_resp.status(), StatusCode::OK);
-        let body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX).await.unwrap();
+        let body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["data"]["disable_proactive"].as_bool().unwrap());
     }
@@ -1330,7 +2228,13 @@ mod tests {
     async fn chat_intervention_snooze_404_for_nonexistent() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let resp = app
             .oneshot(
                 Request::builder()
@@ -1349,7 +2253,13 @@ mod tests {
     async fn ws_endpoint_responds_to_get() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let app = build_app(storage, AppConfig::default(), test_policy_config(), None, None);
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
         let resp = app
             .oneshot(Request::builder().uri("/ws").body(Body::empty()).unwrap())
             .await

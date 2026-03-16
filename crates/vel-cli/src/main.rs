@@ -165,9 +165,15 @@ enum Command {
 
 #[derive(Debug, Subcommand)]
 enum SuggestionCommand {
-    Inspect { id: String },
-    Accept { id: String },
-    Reject { id: String },
+    Inspect {
+        id: String,
+    },
+    Accept {
+        id: String,
+    },
+    Reject {
+        id: String,
+    },
     Modify {
         id: String,
         #[arg(long)]
@@ -185,9 +191,15 @@ enum ThreadCommand {
         #[arg(long)]
         json: bool,
     },
-    Inspect { id: String },
-    Close { id: String },
-    Reopen { id: String },
+    Inspect {
+        id: String,
+    },
+    Close {
+        id: String,
+    },
+    Reopen {
+        id: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -243,8 +255,14 @@ enum ConfigCommand {
 
 #[derive(Debug, Subcommand)]
 enum ReviewCommand {
-    Today { #[arg(long)] json: bool },
-    Week { #[arg(long)] json: bool },
+    Today {
+        #[arg(long)]
+        json: bool,
+    },
+    Week {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -274,8 +292,15 @@ enum ImportCommand {
 
 #[derive(Debug, Subcommand)]
 enum SynthesizeCommand {
-    Week { #[arg(long)] json: bool },
-    Project { name: String, #[arg(long)] json: bool },
+    Week {
+        #[arg(long)]
+        json: bool,
+    },
+    Project {
+        name: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -287,11 +312,19 @@ enum CommitmentCommand {
         #[arg(long)]
         project: Option<String>,
     },
-    Done { id: String },
-    Cancel { id: String },
-    Inspect { id: String },
+    Done {
+        id: String,
+    },
+    Cancel {
+        id: String,
+    },
+    Inspect {
+        id: String,
+    },
     /// List dependencies (children) of a commitment
-    Dependencies { id: String },
+    Dependencies {
+        id: String,
+    },
     /// Add a dependency: child commitment required by parent
     AddDependency {
         parent_id: String,
@@ -306,29 +339,48 @@ enum SyncCommand {
     Calendar,
     Todoist,
     Activity,
+    Notes,
     Transcripts,
 }
 
 #[derive(Debug, Subcommand)]
 enum NudgeCommand {
-    Done { id: String },
+    Done {
+        id: String,
+    },
     Snooze {
         id: String,
         #[arg(long, default_value = "10")]
         minutes: u32,
     },
-    Inspect { id: String },
+    Inspect {
+        id: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
 enum ExplainCommand {
-    Nudge { id: String, #[arg(long)] json: bool },
+    Nudge {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Explain current context (what shaped it)
-    Context { #[arg(long)] json: bool },
+    Context {
+        #[arg(long)]
+        json: bool,
+    },
     /// Explain a commitment (risk, why in context)
-    Commitment { id: String, #[arg(long)] json: bool },
+    Commitment {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
     /// Explain current drift/attention state
-    Drift { #[arg(long)] json: bool },
+    Drift {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[tokio::main]
@@ -346,8 +398,12 @@ async fn main() -> anyhow::Result<()> {
             stdin,
             r#type: capture_type,
             source,
-        } => commands::capture::run(&client, text, stdin, capture_type.clone(), source.clone()).await,
-        Command::Recent { limit, today, json } => commands::recent::run(&client, limit, today, json).await,
+        } => {
+            commands::capture::run(&client, text, stdin, capture_type.clone(), source.clone()).await
+        }
+        Command::Recent { limit, today, json } => {
+            commands::recent::run(&client, limit, today, json).await
+        }
         Command::Today { json } => commands::today::run(&client, json).await,
         Command::Morning { json } => commands::morning::run(&client, json).await,
         Command::EndOfDay { json } => commands::end_of_day::run(&client, json).await,
@@ -366,40 +422,92 @@ async fn main() -> anyhow::Result<()> {
             InspectCommand::Artifact { id } => commands::inspect::run_artifact(&client, &id).await,
         },
         Command::Run { command } => match command {
-            RunCommand::List { kind, today, limit, json } => commands::runs::run_list(&client, kind.as_deref(), today, limit, json).await,
-            RunCommand::Inspect { id, json } => commands::runs::run_inspect(&client, &id, json).await,
-            RunCommand::Status { id, status } => commands::runs::run_status(&client, &id, &status).await,
+            RunCommand::List {
+                kind,
+                today,
+                limit,
+                json,
+            } => commands::runs::run_list(&client, kind.as_deref(), today, limit, json).await,
+            RunCommand::Inspect { id, json } => {
+                commands::runs::run_inspect(&client, &id, json).await
+            }
+            RunCommand::Status { id, status } => {
+                commands::runs::run_status(&client, &id, &status).await
+            }
         },
         Command::Review { command } => match command {
             ReviewCommand::Today { json } => commands::review::run_today(&client, json).await,
             ReviewCommand::Week { json } => commands::review::run_week(&client, json).await,
         },
         Command::Artifact { command } => match command {
-            ArtifactCommand::Latest { r#type: t, json } => commands::artifact::run_latest(&client, &t, json).await,
+            ArtifactCommand::Latest { r#type: t, json } => {
+                commands::artifact::run_latest(&client, &t, json).await
+            }
         },
         Command::Import { command } => match command {
-            ImportCommand::File { path, r#type: t } => commands::import_::run_file(&client, &path, &t).await,
+            ImportCommand::File { path, r#type: t } => {
+                commands::import_::run_file(&client, &path, &t).await
+            }
             ImportCommand::Lines { r#type: t } => commands::import_::run_lines(&client, &t).await,
-            ImportCommand::CaptureUrl { url } => commands::import_::run_capture_url(&client, &url).await,
+            ImportCommand::CaptureUrl { url } => {
+                commands::import_::run_capture_url(&client, &url).await
+            }
         },
-        Command::Export { captures, runs, artifacts, format, json } => commands::export_::run(&client, captures, runs, artifacts, format.as_str(), json).await,
+        Command::Export {
+            captures,
+            runs,
+            artifacts,
+            format,
+            json,
+        } => {
+            commands::export_::run(&client, captures, runs, artifacts, format.as_str(), json).await
+        }
         Command::Backup {} => commands::backup::run(&config).await,
         Command::Synthesize { command } => match command {
             SynthesizeCommand::Week { json } => commands::synthesize::run_week(&client, json).await,
-            SynthesizeCommand::Project { name, json } => commands::synthesize::run_project(&client, &name, json).await,
+            SynthesizeCommand::Project { name, json } => {
+                commands::synthesize::run_project(&client, &name, json).await
+            }
         },
-        Command::Commitments { status, project, limit, json } => {
-            commands::commitments::run_list(&client, status.as_deref(), project.as_deref(), limit, json).await
+        Command::Commitments {
+            status,
+            project,
+            limit,
+            json,
+        } => {
+            commands::commitments::run_list(
+                &client,
+                status.as_deref(),
+                project.as_deref(),
+                limit,
+                json,
+            )
+            .await
         }
         Command::Commitment { command } => match command {
-            CommitmentCommand::Add { text, kind, project } => {
-                commands::commitments::run_add(&client, &text, kind.as_deref(), project.as_deref()).await
+            CommitmentCommand::Add {
+                text,
+                kind,
+                project,
+            } => {
+                commands::commitments::run_add(&client, &text, kind.as_deref(), project.as_deref())
+                    .await
             }
             CommitmentCommand::Done { id } => commands::commitments::run_done(&client, &id).await,
-            CommitmentCommand::Cancel { id } => commands::commitments::run_cancel(&client, &id).await,
-            CommitmentCommand::Inspect { id } => commands::commitments::run_inspect(&client, &id).await,
-            CommitmentCommand::Dependencies { id } => commands::commitments::run_dependencies(&client, &id).await,
-            CommitmentCommand::AddDependency { parent_id, child_id, r#type: t } => {
+            CommitmentCommand::Cancel { id } => {
+                commands::commitments::run_cancel(&client, &id).await
+            }
+            CommitmentCommand::Inspect { id } => {
+                commands::commitments::run_inspect(&client, &id).await
+            }
+            CommitmentCommand::Dependencies { id } => {
+                commands::commitments::run_dependencies(&client, &id).await
+            }
+            CommitmentCommand::AddDependency {
+                parent_id,
+                child_id,
+                r#type: t,
+            } => {
                 commands::commitments::run_add_dependency(&client, &parent_id, &child_id, &t).await
             }
         },
@@ -407,27 +515,40 @@ async fn main() -> anyhow::Result<()> {
             SyncCommand::Calendar => commands::sync::run_calendar(&client).await,
             SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
             SyncCommand::Activity => commands::sync::run_activity(&client).await,
+            SyncCommand::Notes => commands::sync::run_notes(&client).await,
             SyncCommand::Transcripts => commands::sync::run_transcripts(&client).await,
         },
         Command::Nudges { json } => commands::nudges::run_list(&client, json).await,
         Command::Nudge { command } => match command {
             NudgeCommand::Done { id } => commands::nudges::run_done(&client, &id).await,
-            NudgeCommand::Snooze { id, minutes } => commands::nudges::run_snooze(&client, &id, minutes).await,
+            NudgeCommand::Snooze { id, minutes } => {
+                commands::nudges::run_snooze(&client, &id, minutes).await
+            }
             NudgeCommand::Inspect { id } => commands::nudges::run_inspect(&client, &id).await,
         },
         Command::Evaluate {} => commands::evaluate::run(&client).await,
         Command::Context { command } => match command {
             ContextCommand::Show { json } => commands::context::run_current(&client, json).await,
-            ContextCommand::Timeline { limit, json } => commands::context::run_timeline(&client, limit, json).await,
+            ContextCommand::Timeline { limit, json } => {
+                commands::context::run_timeline(&client, limit, json).await
+            }
         },
         Command::Explain { command } => match command {
-            ExplainCommand::Nudge { id, json } => commands::explain::run_nudge(&client, &id, json).await,
+            ExplainCommand::Nudge { id, json } => {
+                commands::explain::run_nudge(&client, &id, json).await
+            }
             ExplainCommand::Context { json } => commands::explain::run_context(&client, json).await,
-            ExplainCommand::Commitment { id, json } => commands::explain::run_commitment(&client, &id, json).await,
+            ExplainCommand::Commitment { id, json } => {
+                commands::explain::run_commitment(&client, &id, json).await
+            }
             ExplainCommand::Drift { json } => commands::explain::run_drift(&client, json).await,
         },
         Command::Thread { command } => match command {
-            ThreadCommand::List { status, limit, json } => commands::threads::run_list(&client, status.as_deref(), limit, json).await,
+            ThreadCommand::List {
+                status,
+                limit,
+                json,
+            } => commands::threads::run_list(&client, status.as_deref(), limit, json).await,
             ThreadCommand::Inspect { id } => commands::threads::run_inspect(&client, &id).await,
             ThreadCommand::Close { id } => commands::threads::run_close(&client, &id).await,
             ThreadCommand::Reopen { id } => commands::threads::run_reopen(&client, &id).await,
@@ -436,12 +557,22 @@ async fn main() -> anyhow::Result<()> {
             Some(ref id) => commands::risk::run_commitment(&client, id, json).await,
             None => commands::risk::run_list(&client, json).await,
         },
-        Command::Suggestions { state, json } => commands::suggestions::run_list(&client, state.as_deref(), json).await,
+        Command::Suggestions { state, json } => {
+            commands::suggestions::run_list(&client, state.as_deref(), json).await
+        }
         Command::Suggestion { command } => match command {
-            SuggestionCommand::Inspect { id } => commands::suggestions::run_inspect(&client, &id).await,
-            SuggestionCommand::Accept { id } => commands::suggestions::run_accept(&client, &id).await,
-            SuggestionCommand::Reject { id } => commands::suggestions::run_reject(&client, &id).await,
-            SuggestionCommand::Modify { id, payload } => commands::suggestions::run_modify(&client, &id, payload.as_deref()).await,
+            SuggestionCommand::Inspect { id } => {
+                commands::suggestions::run_inspect(&client, &id).await
+            }
+            SuggestionCommand::Accept { id } => {
+                commands::suggestions::run_accept(&client, &id).await
+            }
+            SuggestionCommand::Reject { id } => {
+                commands::suggestions::run_reject(&client, &id).await
+            }
+            SuggestionCommand::Modify { id, payload } => {
+                commands::suggestions::run_modify(&client, &id, payload.as_deref()).await
+            }
         },
     }
 }

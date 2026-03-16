@@ -26,6 +26,8 @@ pub struct AppConfig {
     pub todoist_snapshot_path: Option<String>,
     /// Activity: path to workstation activity snapshot JSON.
     pub activity_snapshot_path: Option<String>,
+    /// Notes: file or directory path for markdown/plaintext note sync.
+    pub notes_path: Option<String>,
     /// Transcripts: path to assistant/chat transcript snapshot JSON.
     pub transcript_snapshot_path: Option<String>,
 }
@@ -52,6 +54,7 @@ impl Default for AppConfig {
             calendar_ics_path: None,
             todoist_snapshot_path: None,
             activity_snapshot_path: None,
+            notes_path: None,
             transcript_snapshot_path: None,
         }
     }
@@ -68,6 +71,7 @@ struct FileConfig {
     calendar_ics_path: Option<String>,
     todoist_snapshot_path: Option<String>,
     activity_snapshot_path: Option<String>,
+    notes_path: Option<String>,
     transcript_snapshot_path: Option<String>,
 }
 
@@ -119,6 +123,9 @@ impl AppConfig {
         if file.activity_snapshot_path.is_some() {
             self.activity_snapshot_path = file.activity_snapshot_path;
         }
+        if file.notes_path.is_some() {
+            self.notes_path = file.notes_path;
+        }
         if file.transcript_snapshot_path.is_some() {
             self.transcript_snapshot_path = file.transcript_snapshot_path;
         }
@@ -151,6 +158,9 @@ impl AppConfig {
         }
         if let Some(value) = env_map.get("VEL_ACTIVITY_SNAPSHOT_PATH") {
             self.activity_snapshot_path = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_NOTES_PATH") {
+            self.notes_path = Some(value.clone());
         }
         if let Some(value) = env_map.get("VEL_TRANSCRIPT_SNAPSHOT_PATH") {
             self.transcript_snapshot_path = Some(value.clone());

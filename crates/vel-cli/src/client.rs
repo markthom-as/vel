@@ -2,9 +2,10 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use vel_api_types::{
-    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest, CommitmentData,
-    CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData, HealthData, MorningData,
-    NudgeData, NudgeSnoozeRequest, SearchQuery, SearchResults, SynthesisWeekData, SyncResultData, TodayData,
+    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest,
+    CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData,
+    HealthData, MorningData, NudgeData, NudgeSnoozeRequest, SearchQuery, SearchResults,
+    SyncResultData, SynthesisWeekData, TodayData,
 };
 
 #[derive(Clone)]
@@ -31,7 +32,10 @@ impl ApiClient {
         self.get("/v1/doctor").await
     }
 
-    pub async fn get_capture(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::ContextCapture>> {
+    pub async fn get_capture(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::ContextCapture>> {
         self.get(&format!("/v1/captures/{}", id)).await
     }
 
@@ -68,7 +72,10 @@ impl ApiClient {
         self.get(&path).await
     }
 
-    pub async fn get_run(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::RunDetailData>> {
+    pub async fn get_run(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::RunDetailData>> {
         self.get(&format!("/v1/runs/{}", id)).await
     }
 
@@ -88,7 +95,10 @@ impl ApiClient {
         crate::client::decode_response(response).await
     }
 
-    pub async fn get_artifact(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::ArtifactData>> {
+    pub async fn get_artifact(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::ArtifactData>> {
         self.get(&format!("/v1/artifacts/{}", id)).await
     }
 
@@ -108,7 +118,10 @@ impl ApiClient {
         self.get(&path).await
     }
 
-    pub async fn capture(&self, request: CaptureCreateRequest) -> anyhow::Result<ApiResponse<CaptureCreateResponse>> {
+    pub async fn capture(
+        &self,
+        request: CaptureCreateRequest,
+    ) -> anyhow::Result<ApiResponse<CaptureCreateResponse>> {
         let response = self
             .http
             .post(format!("{}{}", self.base_url, "/v1/captures"))
@@ -177,7 +190,8 @@ impl ApiClient {
         &self,
         commitment_id: &str,
     ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::CommitmentDependencyData>>> {
-        self.get(&format!("/v1/commitments/{}/dependencies", commitment_id)).await
+        self.get(&format!("/v1/commitments/{}/dependencies", commitment_id))
+            .await
     }
 
     pub async fn add_commitment_dependency(
@@ -192,7 +206,10 @@ impl ApiClient {
         });
         let response = self
             .http
-            .post(format!("{}/v1/commitments/{}/dependencies", self.base_url, parent_id))
+            .post(format!(
+                "{}/v1/commitments/{}/dependencies",
+                self.base_url, parent_id
+            ))
             .json(&body)
             .send()
             .await
@@ -236,6 +253,10 @@ impl ApiClient {
         self.post_empty("/v1/sync/activity").await
     }
 
+    pub async fn sync_notes(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
+        self.post_empty("/v1/sync/notes").await
+    }
+
     pub async fn sync_transcripts(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
         self.post_empty("/v1/sync/transcripts").await
     }
@@ -258,7 +279,11 @@ impl ApiClient {
         decode_response(response).await
     }
 
-    pub async fn nudge_snooze(&self, id: &str, minutes: u32) -> anyhow::Result<ApiResponse<NudgeData>> {
+    pub async fn nudge_snooze(
+        &self,
+        id: &str,
+        minutes: u32,
+    ) -> anyhow::Result<ApiResponse<NudgeData>> {
         let body = NudgeSnoozeRequest { minutes };
         let response = self
             .http
@@ -278,16 +303,24 @@ impl ApiClient {
         self.post_empty("/v1/synthesis/week").await
     }
 
-    pub async fn synthesis_project(&self, project_slug: &str) -> anyhow::Result<ApiResponse<SynthesisWeekData>> {
+    pub async fn synthesis_project(
+        &self,
+        project_slug: &str,
+    ) -> anyhow::Result<ApiResponse<SynthesisWeekData>> {
         let path = format!("/v1/synthesis/project/{}", project_slug);
         self.post_empty(&path).await
     }
 
-    pub async fn get_current_context(&self) -> anyhow::Result<ApiResponse<Option<vel_api_types::CurrentContextData>>> {
+    pub async fn get_current_context(
+        &self,
+    ) -> anyhow::Result<ApiResponse<Option<vel_api_types::CurrentContextData>>> {
         self.get("/v1/context/current").await
     }
 
-    pub async fn get_explain_nudge(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::NudgeExplainData>> {
+    pub async fn get_explain_nudge(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::NudgeExplainData>> {
         self.get(&format!("/v1/explain/nudge/{}", id)).await
     }
 
@@ -295,7 +328,8 @@ impl ApiClient {
         &self,
         limit: u32,
     ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::ContextTimelineEntry>>> {
-        self.get(&format!("/v1/context/timeline?limit={}", limit)).await
+        self.get(&format!("/v1/context/timeline?limit={}", limit))
+            .await
     }
 
     pub async fn get_explain_context(
@@ -308,7 +342,8 @@ impl ApiClient {
         &self,
         commitment_id: &str,
     ) -> anyhow::Result<ApiResponse<vel_api_types::CommitmentExplainData>> {
-        self.get(&format!("/v1/explain/commitment/{}", commitment_id)).await
+        self.get(&format!("/v1/explain/commitment/{}", commitment_id))
+            .await
     }
 
     pub async fn get_explain_drift(
@@ -329,7 +364,10 @@ impl ApiClient {
         self.get(&path).await
     }
 
-    pub async fn get_thread(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::ThreadData>> {
+    pub async fn get_thread(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::ThreadData>> {
         self.get(&format!("/v1/threads/{}", id)).await
     }
 
@@ -337,7 +375,10 @@ impl ApiClient {
         self.get("/v1/risk").await
     }
 
-    pub async fn get_risk_commitment(&self, commitment_id: &str) -> anyhow::Result<ApiResponse<vel_api_types::RiskData>> {
+    pub async fn get_risk_commitment(
+        &self,
+        commitment_id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::RiskData>> {
         self.get(&format!("/v1/risk/{}", commitment_id)).await
     }
 
@@ -354,7 +395,10 @@ impl ApiClient {
         self.get(&path).await
     }
 
-    pub async fn get_suggestion(&self, id: &str) -> anyhow::Result<ApiResponse<vel_api_types::SuggestionData>> {
+    pub async fn get_suggestion(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::SuggestionData>> {
         self.get(&format!("/v1/suggestions/{}", id)).await
     }
 
@@ -415,7 +459,9 @@ impl ApiClient {
     }
 }
 
-async fn decode_response<T: DeserializeOwned>(response: reqwest::Response) -> anyhow::Result<ApiResponse<T>> {
+async fn decode_response<T: DeserializeOwned>(
+    response: reqwest::Response,
+) -> anyhow::Result<ApiResponse<T>> {
     let status = response.status();
     let body = response.text().await.context("reading response body")?;
     let parsed: ApiResponse<T> = serde_json::from_str(&body).context("parsing api response")?;
