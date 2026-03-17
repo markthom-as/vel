@@ -7,6 +7,7 @@ pub mod context_generation;
 pub mod context_runs;
 pub mod doctor;
 pub mod evaluate;
+pub mod components;
 pub mod inference;
 pub mod integrations;
 pub mod nudge_engine;

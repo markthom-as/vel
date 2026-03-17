@@ -124,6 +124,26 @@ export interface IntegrationsData {
   transcripts: LocalIntegrationData;
 }
 
+export interface ComponentData {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  last_restarted_at: number | null;
+  last_error: string | null;
+  restart_count: number;
+}
+
+export interface ComponentLogEventData {
+  id: string;
+  component_id: string;
+  event_name: string;
+  status: string;
+  message: string;
+  payload: JsonValue;
+  created_at: number;
+}
+
 export interface GoogleCalendarAuthStartData {
   auth_url: string;
 }
@@ -516,6 +536,35 @@ export function decodeIntegrationsData(value: unknown): IntegrationsData {
     messaging: decodeLocalIntegrationData(record.messaging ?? {}),
     notes: decodeLocalIntegrationData(record.notes ?? {}),
     transcripts: decodeLocalIntegrationData(record.transcripts ?? {}),
+  };
+}
+
+export function decodeComponentData(value: unknown): ComponentData {
+  const record = expectRecord(value, 'component');
+  return {
+    id: expectString(record.id, 'component.id'),
+    name: expectString(record.name, 'component.name'),
+    description: expectString(record.description, 'component.description'),
+    status: expectString(record.status, 'component.status'),
+    last_restarted_at: expectNullableNumber(
+      record.last_restarted_at,
+      'component.last_restarted_at',
+    ),
+    last_error: expectNullableString(record.last_error, 'component.last_error'),
+    restart_count: expectNumber(record.restart_count, 'component.restart_count'),
+  };
+}
+
+export function decodeComponentLogEventData(value: unknown): ComponentLogEventData {
+  const record = expectRecord(value, 'component log event');
+  return {
+    id: expectString(record.id, 'component log event.id'),
+    component_id: expectString(record.component_id, 'component log event.component_id'),
+    event_name: expectString(record.event_name, 'component log event.event_name'),
+    status: expectString(record.status, 'component log event.status'),
+    message: expectString(record.message, 'component log event.message'),
+    payload: decodeJsonValue(record.payload ?? null),
+    created_at: expectNumber(record.created_at, 'component log event.created_at'),
   };
 }
 

@@ -1,4 +1,4 @@
-import { apiGet } from '../api/client';
+import { apiGet, apiPost } from '../api/client';
 import {
   decodeApiResponse,
   decodeCommitmentData,
@@ -7,6 +7,8 @@ import {
   decodeContextExplainData,
   decodeCurrentContextData,
   decodeDriftExplainData,
+  decodeComponentData,
+  decodeComponentLogEventData,
   decodeGoogleCalendarAuthStartData,
   decodeIntegrationsData,
   decodeInboxItemData,
@@ -21,6 +23,8 @@ import {
   type CommitmentData,
   type CurrentContextData,
   type DriftExplainData,
+  type ComponentData,
+  type ComponentLogEventData,
   type GoogleCalendarAuthStartData,
   type InboxItemData,
   type IntegrationsData,
@@ -41,6 +45,8 @@ export const queryKeys = {
   driftExplain: () => ['context', 'drift-explain'] as const,
   settings: () => ['settings'] as const,
   integrations: () => ['integrations'] as const,
+  components: () => ['components'] as const,
+  componentLogs: (componentId: string) => ['components', componentId, 'logs'] as const,
   commitments: (limit: number) => ['commitments', limit] as const,
   runs: (limit: number) => ['runs', limit] as const,
   provenance: (messageId: string | null) => ['messages', messageId, 'provenance'] as const,
@@ -113,6 +119,30 @@ export function loadIntegrations(): Promise<ApiResponse<IntegrationsData>> {
   return apiGet<ApiResponse<IntegrationsData>>(
     '/api/integrations',
     (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function loadComponents(): Promise<ApiResponse<ComponentData[]>> {
+  return apiGet<ApiResponse<ComponentData[]>>(
+    '/api/components',
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeComponentData)),
+  );
+}
+
+export function loadComponentLogs(
+  componentId: string,
+  limit = 50,
+): Promise<ApiResponse<ComponentLogEventData[]>> {
+  return apiGet<ApiResponse<ComponentLogEventData[]>>(
+    `/api/components/${encodeURIComponent(componentId.trim())}/logs?limit=${limit}`,
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeComponentLogEventData)),
+  );
+}
+
+export function restartComponent(componentId: string): Promise<ApiResponse<ComponentData>> {
+  return apiPost<ApiResponse<ComponentData>>(
+    `/api/components/${encodeURIComponent(componentId.trim())}/restart`,
+    {},
   );
 }
 

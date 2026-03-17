@@ -9,6 +9,8 @@ use vel_storage::Storage;
 
 use crate::{policy_config::PolicyConfig, routes, state::AppState};
 
+/// Builds the app from storage/config; used by tests. Production uses build_app_with_state.
+#[allow(dead_code)]
 pub fn build_app(
     storage: Storage,
     config: AppConfig,
@@ -114,6 +116,15 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/sync/notes", post(routes::sync::sync_notes))
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
+        .route("/api/components", get(routes::components::list_components))
+        .route(
+            "/api/components/:id/logs",
+            get(routes::components::list_component_logs),
+        )
+        .route(
+            "/api/components/:id/restart",
+            post(routes::components::restart_component),
+        )
         .route("/api/integrations", get(routes::integrations::get_integrations))
         .route(
             "/api/integrations/google-calendar",
@@ -3875,6 +3886,134 @@ END:VCALENDAR
         assert!(integrations_json["data"]["messaging"]["last_error"].as_str().is_some());
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn list_components_returns_all_known_components() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/components")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let data = json["data"].as_array().expect("components array");
+        assert_eq!(data.len(), 8);
+        let ids: Vec<&str> = data
+            .iter()
+            .map(|entry| entry["id"].as_str().unwrap_or_default())
+            .collect();
+        assert!(ids.contains(&"google-calendar"));
+        assert!(ids.contains(&"todoist"));
+        assert!(ids.contains(&"activity"));
+        assert!(ids.contains(&"git"));
+        assert!(ids.contains(&"messaging"));
+        assert!(ids.contains(&"notes"));
+        assert!(ids.contains(&"transcripts"));
+        assert!(ids.contains(&"evaluate"));
+        assert_eq!(json["data"][0]["status"], "idle");
+    }
+
+    #[tokio::test]
+    async fn restart_unknown_component_returns_404() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/components/does-not-exist/restart")
+                    .body(Body::from("{}".to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["ok"], false);
+        assert_eq!(json["error"]["code"], "not_found");
+    }
+
+    #[tokio::test]
+    async fn restart_evaluate_emits_status_and_logs() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let restart_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/components/evaluate/restart")
+                    .body(Body::from("{}".to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(restart_resp.status(), StatusCode::OK);
+        let restart_body = axum::body::to_bytes(restart_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let restart_json: serde_json::Value = serde_json::from_slice(&restart_body).unwrap();
+        assert_eq!(restart_json["ok"], true);
+        assert_eq!(restart_json["data"]["id"], "evaluate");
+        assert_eq!(restart_json["data"]["status"], "ok");
+        assert_eq!(restart_json["data"]["restart_count"], 1);
+        assert!(restart_json["data"]["last_restarted_at"].as_i64().unwrap_or(0) > 0);
+
+        let logs_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/components/evaluate/logs")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(logs_resp.status(), StatusCode::OK);
+        let logs_body = axum::body::to_bytes(logs_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let logs_json: serde_json::Value = serde_json::from_slice(&logs_body).unwrap();
+        let logs = logs_json["data"].as_array().expect("logs array");
+        assert!(!logs.is_empty());
+        assert!(logs.iter().any(|entry| entry["event_name"] == "component.restart.requested"));
+        assert!(logs.iter().any(|entry| entry["event_name"] == "component.restart.completed"));
     }
 
     #[tokio::test]

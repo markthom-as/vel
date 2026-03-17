@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiPatch, apiPost } from '../api/client';
 import { subscribeWs } from '../realtime/ws';
 import type {
+  ComponentData,
+  ComponentLogEventData,
   IntegrationsData,
   LocalIntegrationData,
   RunSummaryData,
@@ -11,7 +13,10 @@ import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type { QueryKey } from '../data/query';
 import {
   decodeGoogleCalendarAuthStartResponse,
+  loadComponentLogs,
+  loadComponents,
   loadIntegrations,
+  restartComponent,
   loadRecentRuns,
   loadSettings,
   queryKeys,
@@ -67,7 +72,14 @@ interface IntegrationFeedbackState {
   actionId: number;
 }
 
-type SettingsTab = 'general' | 'integrations' | 'runs';
+type SettingsTab = 'general' | 'integrations' | 'components' | 'runs';
+
+type ComponentActionState =
+  | {
+      status: 'success' | 'error';
+      message: string;
+    }
+  | { status: 'idle'; message: string };
 
 const DEFAULT_INTEGRATIONS: IntegrationsData = {
   google_calendar: {
@@ -217,10 +229,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [saving, setSaving] = useState(false);
   const [pendingIntegrationActions, setPendingIntegrationActions] = useState<Record<string, true>>({});
+  const [pendingComponentActions, setPendingComponentActions] = useState<Record<string, true>>({});
   const [googleClientId, setGoogleClientId] = useState('');
   const [googleClientSecret, setGoogleClientSecret] = useState('');
   const [todoistToken, setTodoistToken] = useState('');
   const [integrationFeedback, setIntegrationFeedback] = useState<Record<string, IntegrationFeedbackState>>({});
+  const [componentActions, setComponentActions] = useState<Record<string, ComponentActionState>>({});
+  const [expandedComponentLogs, setExpandedComponentLogs] = useState<Record<string, true>>({});
   const [actingRuns, setActingRuns] = useState<Record<string, true>>({});
   const [pendingOverrideRunId, setPendingOverrideRunId] = useState<string | null>(null);
   const [retryDrafts, setRetryDrafts] = useState<Record<string, RetryDraft>>({});
@@ -228,10 +243,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const nextIntegrationActionIdRef = useRef(0);
   const latestIntegrationActionIdRef = useRef(0);
   const nextRunActionIdRef = useRef(0);
+  const nextComponentActionIdRef = useRef(0);
+  const latestComponentActionIdRef = useRef(0);
   const latestRunActionIdByRunRef = useRef<Record<string, number>>({});
   const runLimit = 6;
   const settingsKey = useMemo(() => queryKeys.settings(), []);
   const integrationsKey = useMemo(() => queryKeys.integrations(), []);
+  const componentsKey = useMemo(() => queryKeys.components(), []);
   const runsKey = useMemo(() => queryKeys.runs(runLimit), []);
   const currentContextKey = useMemo(() => queryKeys.currentContext(), []);
   const {
@@ -268,6 +286,14 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       const response = await loadRecentRuns(runLimit);
       return response.ok && response.data ? response.data : [];
     },
+  );
+  const { data: components = [], error: componentsLoadError } = useQuery<ComponentData[]>(
+    componentsKey,
+    async () => {
+      const response = await loadComponents();
+      return response.ok && response.data ? response.data : [];
+    },
+    { enabled: activeTab === 'components' },
   );
 
   useEffect(() => {
@@ -329,6 +355,87 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const refreshIntegrationViews = () => {
     invalidateQuery(integrationsKey, { refetch: true });
     invalidateQuery(currentContextKey, { refetch: true });
+  };
+
+  const refreshComponentViews = () => {
+    invalidateQuery(componentsKey, { refetch: true });
+    Object.keys(expandedComponentLogs).forEach((componentId) => {
+      invalidateQuery(queryKeys.componentLogs(componentId), { refetch: true });
+    });
+  };
+
+  const updateComponentLogsVisibility = (componentId: string, nextVisible: boolean) => {
+    setExpandedComponentLogs((current) => {
+      if (nextVisible) {
+        return {
+          ...current,
+          [componentId]: true,
+        };
+      }
+      const next = { ...current };
+      delete next[componentId];
+      return next;
+    });
+  };
+
+  const beginComponentAction = (componentId: string): number => {
+    const actionId = nextComponentActionIdRef.current + 1;
+    nextComponentActionIdRef.current = actionId;
+    latestComponentActionIdRef.current = actionId;
+    setPendingComponentActions((current) => ({
+      ...current,
+      [componentId]: true,
+    }));
+    setComponentActions((current) => {
+      const next = { ...current };
+      delete next[componentId];
+      return next;
+    });
+    return actionId;
+  };
+
+  const finishComponentAction = (
+    componentId: string,
+    actionId: number,
+    message?: Omit<ComponentActionState, 'message'> & { message: string },
+  ) => {
+    setPendingComponentActions((current) => {
+      if (!current[componentId]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[componentId];
+      return next;
+    });
+
+    if (latestComponentActionIdRef.current !== actionId || !message) {
+      return;
+    }
+
+    setComponentActions((current) => ({
+      ...current,
+      [componentId]: message,
+    }));
+  };
+
+  const restartComponentAction = async (component: ComponentData) => {
+    const actionId = beginComponentAction(component.id);
+    try {
+      const response = await restartComponent(component.id);
+      if (!response.ok) {
+        throw new Error(response.error?.message ?? 'Failed to restart component');
+      }
+      refreshComponentViews();
+      finishComponentAction(component.id, actionId, {
+        status: 'success',
+        message: `${component.name} restarted (${response.data?.status ?? 'ok'}).`,
+      });
+    } catch (error) {
+      finishComponentAction(component.id, actionId, {
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   };
 
   const beginIntegrationAction = (key: IntegrationActionKey): number => {
@@ -683,7 +790,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       </button>
       <h2 className="text-xl font-medium text-zinc-200 mb-6">Settings</h2>
       <div className="mb-8 flex gap-2 border-b border-zinc-800 pb-3">
-        {(['general', 'integrations', 'runs'] as const).map((tab) => (
+        {(['general', 'integrations', 'components', 'runs'] as const).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -991,6 +1098,32 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         </section>
       ) : null}
 
+      {activeTab === 'components' ? (
+        <section className="space-y-8">
+          {componentsLoadError ? (
+            <div className="rounded-lg border border-amber-900/80 bg-amber-950/30 p-4 text-sm text-amber-200">
+              Components API unavailable: {componentsLoadError}. Restart `veld` to pick up the latest backend routes.
+            </div>
+          ) : null}
+
+          {components.length === 0 ? (
+            <p className="text-sm text-zinc-500">No components loaded yet.</p>
+          ) : null}
+
+          {components.map((component) => (
+            <ComponentCard
+              key={component.id}
+              component={component}
+              action={componentActions[component.id]}
+              isExpanded={Boolean(expandedComponentLogs[component.id])}
+              isRestarting={Boolean(pendingComponentActions[component.id])}
+              onRestart={() => void restartComponentAction(component)}
+              onToggleLogs={() => updateComponentLogsVisibility(component.id, !expandedComponentLogs[component.id])}
+            />
+          ))}
+        </section>
+      ) : null}
+
       {activeTab === 'runs' ? (
       <section className="mt-2">
         <div className="mb-3">
@@ -1181,6 +1314,123 @@ function formatTimestamp(value: string): string {
     return value;
   }
   return date.toLocaleString();
+}
+
+function formatTimestampMs(value: number): string {
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.getTime())) {
+    return `${value}`;
+  }
+  return date.toLocaleString();
+}
+
+function ComponentCard({
+  component,
+  action,
+  isExpanded,
+  isRestarting,
+  onRestart,
+  onToggleLogs,
+}: {
+  component: ComponentData;
+  action?: ComponentActionState;
+  isExpanded: boolean;
+  isRestarting: boolean;
+  onRestart: () => void;
+  onToggleLogs: () => void;
+}) {
+  const logsKey = useMemo(() => queryKeys.componentLogs(component.id), [component.id]);
+  const { loading: logsLoading, data: logs = [] } = useQuery<ComponentLogEventData[]>(
+    logsKey,
+    async () => {
+      const response = await loadComponentLogs(component.id);
+      return response.ok && response.data ? response.data : [];
+    },
+    { enabled: isExpanded },
+  );
+
+  return (
+    <article className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-medium text-zinc-100">{component.name}</h3>
+          <p className="mt-1 text-sm text-zinc-500">{component.description}</p>
+        </div>
+        <span
+          className={`rounded-full px-2 py-1 text-xs ${
+            component.status === 'ok' ? 'bg-emerald-950 text-emerald-300' : 'bg-zinc-800 text-zinc-400'
+          }`}
+        >
+          {component.status}
+        </span>
+      </div>
+      <div className="mt-4 grid gap-1 text-sm text-zinc-400">
+        <p>Restarts: {component.restart_count}</p>
+        <p>
+          Last run:{' '}
+          {component.last_restarted_at
+            ? new Date(component.last_restarted_at * 1000).toLocaleString()
+            : 'never'}
+        </p>
+        {component.last_error ? <p className="text-rose-400">Last error: {component.last_error}</p> : null}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void onRestart()}
+          disabled={isRestarting}
+          className="rounded-md border border-emerald-900 px-3 py-1.5 text-sm text-emerald-200 transition hover:border-emerald-700 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+        >
+          {isRestarting ? 'Restarting…' : 'Restart now'}
+        </button>
+        <button
+          type="button"
+          onClick={() => void onToggleLogs()}
+          className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+        >
+          {isExpanded ? 'Hide logs' : 'Show logs'}
+        </button>
+      </div>
+      {action ? (
+        <p className={`mt-3 text-sm ${action.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+          {action.message}
+        </p>
+      ) : null}
+      {isExpanded ? (
+        <div className="mt-4 rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <h4 className="text-sm font-medium text-zinc-300">Recent logs</h4>
+          {logsLoading ? (
+            <p className="mt-2 text-sm text-zinc-500">Loading logs…</p>
+          ) : logs.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500">No logs yet.</p>
+          ) : (
+            <ul className="mt-2 space-y-2 text-sm text-zinc-300">
+              {logs.slice(0, 10).map((entry) => (
+                <li key={entry.id} className="rounded border border-zinc-800 bg-zinc-900/70 p-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-xs text-zinc-500">{formatTimestampMs(entry.created_at)}</span>
+                    <span
+                      className={`rounded px-2 py-0.5 text-[11px] ${
+                        entry.status === 'success'
+                          ? 'bg-emerald-950 text-emerald-300'
+                          : entry.status === 'error'
+                            ? 'bg-rose-950 text-rose-300'
+                            : 'bg-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      {entry.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-zinc-200">{entry.message}</p>
+                  <p className="mt-1 text-xs text-zinc-500">{entry.event_name}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+    </article>
+  );
 }
 
 function canScheduleRetry(run: RunSummaryData): boolean {

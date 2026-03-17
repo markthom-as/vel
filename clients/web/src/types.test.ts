@@ -3,8 +3,11 @@ import {
   decodeApiResponse,
   decodeCreateMessageResponse,
   decodeCurrentContextData,
+  decodeComponentData,
+  decodeComponentLogEventData,
   decodeIntegrationsData,
   decodeNullable,
+  decodeArray,
   decodeWsEvent,
 } from './types'
 
@@ -144,6 +147,53 @@ describe('transport decoders', () => {
 
     expect(response.data?.activity.source_path).toBe('/tmp/activity.json')
     expect(response.data?.activity.last_item_count).toBe(4)
+  })
+
+  it('decodes component arrays with restart metadata', () => {
+    const response = decodeApiResponse(
+      {
+        ok: true,
+        data: [
+          {
+            id: 'evaluate',
+            name: 'Evaluate',
+            description: 'Run full evaluation',
+            status: 'ok',
+            last_restarted_at: 1_700_000_000,
+            last_error: null,
+            restart_count: 3,
+          },
+        ],
+        meta: { request_id: 'req_components' },
+      },
+      (value) => decodeArray(value, decodeComponentData),
+    )
+
+    expect(response.data?.[0].id).toBe('evaluate')
+    expect(response.data?.[0].restart_count).toBe(3)
+  })
+
+  it('decodes component log events with created_at and payload', () => {
+    const response = decodeApiResponse(
+      {
+        ok: true,
+        data: {
+          id: 'log_eval_1',
+          component_id: 'evaluate',
+          event_name: 'component.restart.completed',
+          status: 'success',
+          message: 'Evaluate complete',
+          payload: { requested_at: 1_700_000_100 },
+          created_at: 1_700_000_200,
+        },
+        meta: { request_id: 'req_component_log' },
+      },
+      decodeComponentLogEventData,
+    )
+
+    expect(response.data?.component_id).toBe('evaluate')
+    expect(response.data?.payload).toEqual({ requested_at: 1_700_000_100 })
+    expect(response.data?.created_at).toBe(1_700_000_200)
   })
 
   it('decodes websocket message events', () => {

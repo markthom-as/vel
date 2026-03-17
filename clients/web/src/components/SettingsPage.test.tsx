@@ -55,6 +55,18 @@ async function openIntegrationsTab(container: HTMLElement) {
   return root
 }
 
+async function openComponentsTab(container: HTMLElement) {
+  const root = getSettingsRoot(container)
+  await waitFor(() => {
+    expect(within(root).getByRole('button', { name: /^components$/i })).toBeInTheDocument()
+  })
+  fireEvent.click(within(root).getByRole('button', { name: /^components$/i }))
+  await waitFor(() => {
+    expect(within(root).getByRole('heading', { name: /google-calendar/i })).toBeInTheDocument()
+  })
+  return root
+}
+
 describe('SettingsPage', () => {
   beforeEach(() => {
     clearQueryCache()
@@ -175,9 +187,70 @@ describe('SettingsPage', () => {
               retry_scheduled_at: '2026-03-16T22:05:00Z',
               retry_reason: 'operator_override',
               blocked_reason: null,
-            },
+          },
           ],
           meta: { request_id: 'req_runs' },
+        } as never
+      }
+      if (path === '/api/components') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'google-calendar',
+              name: 'Google Calendar',
+              description: 'Calendar ingest',
+              status: 'ok',
+              last_restarted_at: 1_700_000_000,
+              last_error: null,
+              restart_count: 0,
+            },
+            {
+              id: 'todoist',
+              name: 'Todoist',
+              description: 'Task ingest',
+              status: 'ok',
+              last_restarted_at: 1_700_000_000,
+              last_error: null,
+              restart_count: 2,
+            },
+            {
+              id: 'evaluate',
+              name: 'Evaluate',
+              description: 'Evaluate all pipelines',
+              status: 'idle',
+              last_restarted_at: null,
+              last_error: null,
+              restart_count: 0,
+            },
+          ],
+          meta: { request_id: 'req_components' },
+        } as never
+      }
+      if (path === '/api/components/evaluate/logs?limit=50') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'log_eval_1',
+              component_id: 'evaluate',
+              event_name: 'component.restart.requested',
+              status: 'running',
+              message: 'component restart requested',
+              payload: {},
+              created_at: 1_700_000_100,
+            },
+            {
+              id: 'log_eval_2',
+              component_id: 'evaluate',
+              event_name: 'component.restart.completed',
+              status: 'success',
+              message: 'Evaluate complete',
+              payload: {},
+              created_at: 1_700_000_200,
+            },
+          ],
+          meta: { request_id: 'req_component_logs' },
         } as never
       }
       throw new Error(`unexpected apiGet path: ${path}`)
@@ -336,6 +409,75 @@ describe('SettingsPage', () => {
       expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/notes', {})
     })
     expect(within(root).getByText('Notes synced.')).toBeInTheDocument()
+  })
+
+  it('renders component cards in the components tab', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openComponentsTab(container)
+
+    expect(within(root).getByRole('heading', { name: /google calendar/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /todoist/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /evaluate/i })).toBeInTheDocument()
+    expect(within(root).getByText('Calendar ingest')).toBeInTheDocument()
+    expect(within(root).getByText(/Restarts: 0/)).toBeInTheDocument()
+  })
+
+  it('expands component logs and shows restart event history', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openComponentsTab(container)
+
+    const evaluateCard = within(root).getByRole('heading', { name: /evaluate/i }).closest('.rounded-lg')
+    expect(evaluateCard).not.toBeNull()
+    fireEvent.click(within(evaluateCard as HTMLElement).getByRole('button', { name: /show logs/i }))
+
+    await waitFor(() => {
+      expect(within(evaluateCard as HTMLElement).getByText('Recent logs')).toBeInTheDocument()
+    })
+    expect(within(evaluateCard as HTMLElement).getByText('component.restart.requested')).toBeInTheDocument()
+    expect(within(evaluateCard as HTMLElement).getByText('component.restart.completed')).toBeInTheDocument()
+  })
+
+  it('restarts a component and shows success feedback', async () => {
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        id: 'evaluate',
+        name: 'Evaluate',
+        description: 'Evaluate all pipelines',
+        status: 'ok',
+        last_restarted_at: 1_700_000_300,
+        last_error: null,
+        restart_count: 3,
+      },
+      meta: { request_id: 'req_restart_eval' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openComponentsTab(container)
+
+    const evaluateCard = within(root).getByRole('heading', { name: /evaluate/i }).closest('.rounded-lg')
+    expect(evaluateCard).not.toBeNull()
+    fireEvent.click(within(evaluateCard as HTMLElement).getByRole('button', { name: /restart now/i }))
+
+    await waitFor(() => {
+      expect(within(evaluateCard as HTMLElement).getByText('evaluate restarted (ok).')).toBeInTheDocument()
+    })
+    expect(client.apiPost).toHaveBeenCalledWith('/api/components/evaluate/restart')
+  })
+
+  it('shows an error message when component restart fails', async () => {
+    vi.mocked(client.apiPost).mockRejectedValueOnce(new Error('component panic'))
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openComponentsTab(container)
+
+    const evaluateCard = within(root).getByRole('heading', { name: /evaluate/i }).closest('.rounded-lg')
+    expect(evaluateCard).not.toBeNull()
+    fireEvent.click(within(evaluateCard as HTMLElement).getByRole('button', { name: /restart now/i }))
+
+    await waitFor(() => {
+      expect(within(evaluateCard as HTMLElement).getByText('component panic')).toBeInTheDocument()
+    })
   })
 
   it('renders recent run policy and override metadata', async () => {
