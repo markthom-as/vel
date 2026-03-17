@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   decodeApiResponse,
+  decodeCommitmentData,
   decodeCreateMessageResponse,
   decodeCurrentContextData,
   decodeComponentData,
@@ -195,6 +196,24 @@ describe('transport decoders', () => {
     expect(response.data?.component_id).toBe('evaluate')
     expect(response.data?.payload).toEqual({ requested_at: 1_700_000_100 })
     expect(response.data?.created_at).toBe(1_700_000_200)
+  })
+
+  it('requires RFC3339 commitment datetime fields', () => {
+    expect(() =>
+      decodeCommitmentData({
+        id: 'commit_1',
+        text: 'Ship feature',
+        source_type: 'manual',
+        source_id: null,
+        status: 'open',
+        due_at: [2026, 75, 9, 30, 0, 0],
+        project: null,
+        commitment_kind: 'todo',
+        created_at: [2026, 75, 8, 0, 0, 0],
+        resolved_at: null,
+        metadata: {},
+      }),
+    ).toThrow(/commitment\.due_at/)
   })
 
   it('decodes websocket message events', () => {

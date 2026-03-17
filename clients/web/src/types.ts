@@ -672,9 +672,6 @@ function decodeDateTimeString(value: unknown, label: string): string {
   if (typeof value === 'string') {
     return value;
   }
-  if (Array.isArray(value)) {
-    return decodeTimeTuple(value, label);
-  }
   throw new Error(`Expected ${label} to be a string`);
 }
 
@@ -683,24 +680,6 @@ function decodeNullableDateTimeString(value: unknown, label: string): string | n
     return null;
   }
   return decodeDateTimeString(value, label);
-}
-
-function decodeTimeTuple(value: unknown[], label: string): string {
-  if (value.length < 6) {
-    throw new Error(`Expected ${label} tuple to have at least 6 items`);
-  }
-  const [year, ordinal, hour, minute, second] = value;
-  if (
-    typeof year !== 'number'
-    || typeof ordinal !== 'number'
-    || typeof hour !== 'number'
-    || typeof minute !== 'number'
-    || typeof second !== 'number'
-  ) {
-    throw new Error(`Expected ${label} tuple numbers`);
-  }
-  const date = new Date(Date.UTC(year, 0, ordinal, hour, minute, second));
-  return date.toISOString();
 }
 
 export function decodeProvenanceEvent(value: unknown): ProvenanceEvent {
