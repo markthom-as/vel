@@ -15,9 +15,19 @@ Context endpoints (today/morning/end-of-day) are **run-backed**: each request cr
 
 See [docs/status.md](docs/status.md) for details. Start doc navigation from [docs/README.md](docs/README.md). Canonical runtime concepts: [docs/runtime-concepts.md](docs/runtime-concepts.md).
 
+User-facing setup and operation docs now start at [docs/user/README.md](docs/user/README.md).
+
 ## Build and run (dev)
 
 From the repo root:
+
+On Nix hosts, Vel expects the shell environment to provide:
+
+- `obsidian` for the local notes/vault workflow
+- `obsidian-export` for Obsidian vault CLI export tooling
+- `swift` and `swiftpm` for Apple-client checks
+
+The checked-in [shell.nix](shell.nix) includes these requirements.
 
 | Command | Description |
 |--------|-------------|
@@ -86,19 +96,35 @@ The repo-local `vel.toml` points the current workspace at local integration seed
 
 - calendar ICS: `var/integrations/calendar/local.ics`
 - Todoist snapshot: `var/integrations/todoist/snapshot.json`
+- activity snapshot: `var/integrations/activity/snapshot.json`
+- health snapshot: `var/integrations/health/snapshot.json`
+- git snapshot: `var/integrations/git/snapshot.json`
+- messaging snapshot: `var/integrations/messaging/snapshot.json`
+- notes root: `var/integrations/notes`
+- transcript snapshot: `var/integrations/transcripts/snapshot.json`
+- agent specs: `config/agent-specs.yaml`
 - primary LLM model: `configs/models/weights/qwen3-coder-30b-a3b-instruct-q4_k_m.gguf`
 - fast LLM model: `configs/models/weights/qwen2.5-coder-14b-instruct-q4_k_m.gguf`
 
-These are local file-based inputs for `vel sync calendar` and `vel sync todoist`. Replace them with your real exported ICS feed and Todoist snapshot when you are ready, keeping the same config keys:
+These are local file-based inputs for sync/bootstrap flows. Replace them with your real exports or local mirrors when you are ready, keeping the same config keys:
 
 ```toml
+agent_spec_path = "config/agent-specs.yaml"
 llm_model_path = "configs/models/weights/qwen3-coder-30b-a3b-instruct-*.gguf"
 llm_fast_model_path = "configs/models/weights/qwen2.5-coder-14b-instruct-*.gguf"
 calendar_ics_path = "var/integrations/calendar/local.ics"
 todoist_snapshot_path = "var/integrations/todoist/snapshot.json"
+activity_snapshot_path = "var/integrations/activity/snapshot.json"
+health_snapshot_path = "var/integrations/health/snapshot.json"
+git_snapshot_path = "var/integrations/git/snapshot.json"
+messaging_snapshot_path = "var/integrations/messaging/snapshot.json"
+notes_path = "var/integrations/notes"
+transcript_snapshot_path = "var/integrations/transcripts/snapshot.json"
 ```
 
 On macOS, `veld` also auto-discovers local source files for `activity`, `health`, `messaging`, `notes`, `git`, and `transcripts` under `~/Library/Application Support/Vel/...` when present, then performs a startup bootstrap sync so those sources can influence current context without manual path entry.
+
+Cluster bootstrap metadata now also exposes capability hints for richer clients: node capabilities, repo branch-sync support, and validation/build-test profiles grouped by environment (`api`, `web`, `apple`, `repo`, `runtime`). Structured branch-sync and validation requests can be queued through the existing client sync action lane.
 
 ## Operator commands
 

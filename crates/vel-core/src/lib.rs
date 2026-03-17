@@ -1,3 +1,4 @@
+pub mod command;
 pub mod commitment;
 pub mod context;
 pub mod intervention;
@@ -9,6 +10,11 @@ pub mod run;
 pub mod types;
 pub mod uncertainty;
 
+pub use command::{
+    CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,
+    RelationOperation, ResolutionConfidence, ResolutionMeta, ResolvedCommand, TargetSelector,
+    TypedTarget,
+};
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
 pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
 pub use intervention::{Intervention, InterventionState};

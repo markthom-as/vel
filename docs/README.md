@@ -17,6 +17,8 @@ These files describe the current implementation and operational reality.
 - [status.md](status.md): canonical implementation ledger
 - [api.md](api.md): HTTP/API surface overview
 - [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md): coverage map for documented subsystems
+- [specs/vel-user-documentation-spec.md](specs/vel-user-documentation-spec.md): target shape for full-fat end-user documentation
+- [user/README.md](user/README.md): canonical user-facing docs entrypoint
 
 ### Active plan
 

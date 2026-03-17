@@ -42,7 +42,14 @@ Start with [docs/README.md](README.md) if you need the shortest authoritative re
 ## Operator Tooling
 - CLI cockpit spec — [spec](specs/vel-operator-cockpit-spec.md)
 - command language / structured DSL — [spec](specs/vel-command-language-spec.md)
+- command language implementation note — [spec](specs/vel-command-language-implementation-note.md)
+- command language Rust layout — [spec](specs/vel-command-language-rust-layout.md)
 - explain commands — [status](status.md)
+
+## User Documentation
+- full-fat end-user documentation target — [spec](specs/vel-user-documentation-spec.md)
+- shipped implementation truth for user-facing maturity claims — [status](status.md)
+- current user-docs entrypoint — [docs/user/README.md](user/README.md)
 
 ## Testing
 - canonical day fixture — [spec](specs/vel-canonical-day-fixture-spec.md)
