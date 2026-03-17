@@ -17,6 +17,8 @@ use crate::state::AppState;
 const LOOP_INTERVAL: Duration = Duration::from_secs(5);
 const JOB_TYPE_CAPTURE_INGEST: &str = "capture_ingest";
 const RETRY_BATCH_LIMIT: u32 = 10;
+const QUEUED_REPO_SYNC_WORKER_CLASS: &str = "repo_sync";
+const QUEUED_REPO_SYNC_CAPABILITY: &str = "branch_sync";
 const QUEUED_VALIDATION_WORKER_CLASS: &str = "validation";
 const QUEUED_VALIDATION_CAPABILITY: &str = "build_test_profiles";
 
@@ -280,30 +282,49 @@ fn run_retry_due_runs_loop_once(state: &AppState) -> LoopFuture<'_> {
 fn run_queue_work_scheduler_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
         let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state);
-        if !bootstrap
+        if bootstrap
+            .capabilities
+            .iter()
+            .any(|capability| capability == QUEUED_REPO_SYNC_CAPABILITY)
+        {
+            let claimed = crate::services::client_sync::claim_next_work_for_worker(
+                state,
+                vel_api_types::WorkAssignmentClaimNextRequestData {
+                    node_id: bootstrap.node_id.clone(),
+                    worker_id: bootstrap.node_id.clone(),
+                    worker_class: Some(QUEUED_REPO_SYNC_WORKER_CLASS.to_string()),
+                    capability: Some(QUEUED_REPO_SYNC_CAPABILITY.to_string()),
+                },
+            )
+            .await?;
+
+            if let Some(claim) = claimed.claim {
+                process_claimed_branch_sync_work(state, claim).await?;
+                return Ok(());
+            }
+        }
+
+        if bootstrap
             .capabilities
             .iter()
             .any(|capability| capability == QUEUED_VALIDATION_CAPABILITY)
         {
-            return Ok(());
+            let claimed = crate::services::client_sync::claim_next_work_for_worker(
+                state,
+                vel_api_types::WorkAssignmentClaimNextRequestData {
+                    node_id: bootstrap.node_id.clone(),
+                    worker_id: bootstrap.node_id,
+                    worker_class: Some(QUEUED_VALIDATION_WORKER_CLASS.to_string()),
+                    capability: Some(QUEUED_VALIDATION_CAPABILITY.to_string()),
+                },
+            )
+            .await?;
+
+            if let Some(claim) = claimed.claim {
+                process_claimed_validation_work(state, claim).await?;
+            }
         }
 
-        let claimed = crate::services::client_sync::claim_next_work_for_worker(
-            state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
-                node_id: bootstrap.node_id.clone(),
-                worker_id: bootstrap.node_id,
-                worker_class: Some(QUEUED_VALIDATION_WORKER_CLASS.to_string()),
-                capability: Some(QUEUED_VALIDATION_CAPABILITY.to_string()),
-            },
-        )
-        .await?;
-
-        let Some(claim) = claimed.claim else {
-            return Ok(());
-        };
-
-        process_claimed_validation_work(state, claim).await?;
         Ok(())
     })
 }
@@ -459,7 +480,7 @@ async fn process_claimed_validation_work(
         match serde_json::from_value(claim.queue_item.request_payload.clone()) {
             Ok(request) => request,
             Err(error) => {
-                fail_claimed_validation_work(
+                fail_claimed_work(
                     state,
                     &claim.receipt.receipt_id,
                     format!("invalid queued validation payload: {error}"),
@@ -471,7 +492,7 @@ async fn process_claimed_validation_work(
     let command_hint = match validation_command_hint(state, &request) {
         Some(command_hint) => command_hint,
         None => {
-            fail_claimed_validation_work(
+            fail_claimed_work(
                 state,
                 &claim.receipt.receipt_id,
                 format!(
@@ -519,7 +540,88 @@ async fn process_claimed_validation_work(
     Ok(())
 }
 
-async fn fail_claimed_validation_work(
+async fn process_claimed_branch_sync_work(
+    state: &AppState,
+    claim: vel_api_types::WorkAssignmentClaimedWorkData,
+) -> Result<(), crate::errors::AppError> {
+    let _load = state.worker_runtime.begin_work();
+    let started_at = time::OffsetDateTime::now_utc().unix_timestamp();
+    crate::services::client_sync::update_work_assignment_receipt(
+        state,
+        vel_api_types::WorkAssignmentUpdateRequest {
+            receipt_id: claim.receipt.receipt_id.clone(),
+            status: vel_api_types::WorkAssignmentStatusData::Started,
+            started_at: Some(started_at),
+            completed_at: None,
+            result: None,
+            error_message: None,
+        },
+    )
+    .await?;
+
+    let request: vel_api_types::BranchSyncRequestData =
+        match serde_json::from_value(claim.queue_item.request_payload.clone()) {
+            Ok(request) => request,
+            Err(error) => {
+                fail_claimed_work(
+                    state,
+                    &claim.receipt.receipt_id,
+                    format!("invalid queued branch sync payload: {error}"),
+                )
+                .await?;
+                return Ok(());
+            }
+        };
+
+    let capability = match branch_sync_capability(state, &request) {
+        Some(capability) => capability,
+        None => {
+            fail_claimed_work(
+                state,
+                &claim.receipt.receipt_id,
+                "branch sync capability is not available on this node".to_string(),
+            )
+            .await?;
+            return Ok(());
+        }
+    };
+
+    let completed_at = time::OffsetDateTime::now_utc().unix_timestamp();
+    match execute_branch_sync_command(&request, &capability.default_remote).await {
+        Ok(result) => {
+            crate::services::client_sync::update_work_assignment_receipt(
+                state,
+                vel_api_types::WorkAssignmentUpdateRequest {
+                    receipt_id: claim.receipt.receipt_id,
+                    status: vel_api_types::WorkAssignmentStatusData::Completed,
+                    started_at: None,
+                    completed_at: Some(completed_at),
+                    result: Some(result),
+                    error_message: None,
+                },
+            )
+            .await?;
+        }
+        Err(error_message) => {
+            crate::services::client_sync::update_work_assignment_receipt(
+                state,
+                vel_api_types::WorkAssignmentUpdateRequest {
+                    receipt_id: claim.receipt.receipt_id,
+                    status: vel_api_types::WorkAssignmentStatusData::Failed,
+                    started_at: None,
+                    completed_at: Some(completed_at),
+                    result: None,
+                    error_message: Some(error_message),
+                },
+            )
+            .await?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn fail_claimed_work(
     state: &AppState,
     receipt_id: &str,
     error_message: String,
@@ -548,6 +650,106 @@ fn validation_command_hint(
         .into_iter()
         .find(|profile| profile.profile_id == request.profile_id)
         .map(|profile| profile.command_hint)
+}
+
+fn branch_sync_capability(
+    state: &AppState,
+    request: &vel_api_types::BranchSyncRequestData,
+) -> Option<vel_api_types::BranchSyncCapabilityData> {
+    crate::services::client_sync::cluster_bootstrap_data(state)
+        .branch_sync
+        .filter(|capability| capability.repo_root == request.repo_root)
+}
+
+#[cfg(not(test))]
+async fn execute_branch_sync_command(
+    request: &vel_api_types::BranchSyncRequestData,
+    default_remote: &str,
+) -> Result<String, String> {
+    let repo_root = request.repo_root.clone();
+    let remote = request
+        .remote
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| default_remote.to_string());
+    let branch = request.branch.clone();
+    let mode = request.mode.as_deref().unwrap_or("pull").to_string();
+    let command = match mode.as_str() {
+        "fetch" => format!(
+            "git fetch {} {}",
+            shell_escape(&remote),
+            shell_escape(&branch)
+        ),
+        "pull" => format!(
+            "git pull {} {}",
+            shell_escape(&remote),
+            shell_escape(&branch)
+        ),
+        "push" => format!(
+            "git push {} HEAD:{}",
+            shell_escape(&remote),
+            shell_escape(&branch)
+        ),
+        unsupported => {
+            return Err(format!("unsupported branch sync mode: {unsupported}"));
+        }
+    };
+    let command_for_exec = command.clone();
+    let output = tokio::task::spawn_blocking(move || {
+        Command::new("zsh")
+            .arg("-lc")
+            .arg(&command_for_exec)
+            .current_dir(&repo_root)
+            .output()
+            .map_err(|error| format!("failed to run branch sync command: {error}"))
+    })
+    .await
+    .map_err(|error| format!("failed to join branch sync command task: {error}"))??;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if output.status.success() {
+        let summary = if stdout.is_empty() {
+            format!("branch sync succeeded: {command}")
+        } else {
+            format!("branch sync succeeded: {command}; stdout={stdout}")
+        };
+        Ok(summary.chars().take(400).collect())
+    } else {
+        let code = output.status.code().unwrap_or(-1);
+        let summary = if stderr.is_empty() {
+            format!("branch sync failed ({code}): {command}")
+        } else {
+            format!("branch sync failed ({code}): {command}; stderr={stderr}")
+        };
+        Err(summary.chars().take(400).collect())
+    }
+}
+
+#[cfg(not(test))]
+fn shell_escape(value: &str) -> String {
+    let escaped = value.replace('\'', "'\\''");
+    format!("'{}'", escaped)
+}
+
+#[cfg(test)]
+async fn execute_branch_sync_command(
+    request: &vel_api_types::BranchSyncRequestData,
+    default_remote: &str,
+) -> Result<String, String> {
+    let remote = request.remote.as_deref().unwrap_or(default_remote);
+    let mode = request.mode.as_deref().unwrap_or("pull");
+    if mode == "explode" {
+        return Err(format!(
+            "simulated branch sync failure: {} {} {}",
+            mode, remote, request.branch
+        ));
+    }
+
+    Ok(format!(
+        "simulated branch sync success: {} {} {} @ {}",
+        mode, remote, request.branch, request.repo_root
+    ))
 }
 
 #[cfg(not(test))]
@@ -695,11 +897,47 @@ async fn process_retry_ready_run(
 
 #[cfg(test)]
 mod tests {
-    use super::{poll_once, registered_loops_with_policy};
+    use super::{
+        poll_once, registered_loops_with_policy, QUEUED_VALIDATION_CAPABILITY,
+        QUEUED_VALIDATION_WORKER_CLASS,
+    };
     use crate::state::AppState;
     use vel_config::AppConfig;
     use vel_core::{LoopKind, RunEventType, RunId, RunKind, RunStatus};
-    use vel_storage::Storage;
+    use vel_storage::{SignalInsert, Storage};
+
+    async fn insert_queued_signal(
+        storage: &Storage,
+        target_node_id: &str,
+        signal_type: &str,
+        work_request_id: &str,
+        target_worker_class: &str,
+        requested_capability: &str,
+        request_payload: serde_json::Value,
+    ) {
+        storage
+            .insert_signal(SignalInsert {
+                signal_type: signal_type.to_string(),
+                source: "cluster_work_router".to_string(),
+                source_ref: Some(work_request_id.to_string()),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+                payload_json: Some(serde_json::json!({
+                    "request": request_payload,
+                    "queued_via": "test",
+                    "queued_at": time::OffsetDateTime::now_utc().unix_timestamp(),
+                    "routing": {
+                        "work_request_id": work_request_id,
+                        "authority_node_id": target_node_id,
+                        "authority_epoch": 1,
+                        "target_node_id": target_node_id,
+                        "target_worker_class": target_worker_class,
+                        "requested_capability": requested_capability,
+                    }
+                })),
+            })
+            .await
+            .unwrap();
+    }
 
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
@@ -844,6 +1082,152 @@ mod tests {
             .as_deref()
             .unwrap_or_default()
             .contains("simulated validation success"));
+    }
+
+    #[tokio::test]
+    async fn poll_once_processes_queued_branch_sync_work() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        let routed = crate::services::client_sync::queue_branch_sync_request(
+            &state,
+            vel_api_types::BranchSyncRequestData {
+                repo_root: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../..")
+                    .to_string_lossy()
+                    .to_string(),
+                branch: "main".to_string(),
+                remote: Some("origin".to_string()),
+                base_branch: Some("main".to_string()),
+                mode: Some("pull".to_string()),
+                requested_by: Some("worker-test".to_string()),
+            },
+            "test",
+            Some("wrkreq-worker-branch-sync".to_string()),
+        )
+        .await
+        .unwrap();
+
+        poll_once(&state).await.unwrap();
+
+        let receipts = storage
+            .list_work_assignments(Some(&routed.work_request_id), None)
+            .await
+            .unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].status.to_string(), "completed");
+        assert!(receipts[0]
+            .result
+            .as_deref()
+            .unwrap_or_default()
+            .contains("simulated branch sync success"));
+    }
+
+    #[tokio::test]
+    async fn poll_once_marks_failed_branch_sync_receipt() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        let routed = crate::services::client_sync::queue_branch_sync_request(
+            &state,
+            vel_api_types::BranchSyncRequestData {
+                repo_root: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../..")
+                    .to_string_lossy()
+                    .to_string(),
+                branch: "main".to_string(),
+                remote: Some("origin".to_string()),
+                base_branch: Some("main".to_string()),
+                mode: Some("explode".to_string()),
+                requested_by: Some("worker-test".to_string()),
+            },
+            "test",
+            Some("wrkreq-worker-branch-sync-fail".to_string()),
+        )
+        .await
+        .unwrap();
+
+        poll_once(&state).await.unwrap();
+
+        let receipts = storage
+            .list_work_assignments(Some(&routed.work_request_id), None)
+            .await
+            .unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].status.to_string(), "failed");
+        assert!(receipts[0]
+            .error_message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("simulated branch sync failure"));
+    }
+
+    #[tokio::test]
+    async fn poll_once_marks_invalid_validation_payload_failed() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state);
+
+        insert_queued_signal(
+            &storage,
+            &bootstrap.node_id,
+            "client_validation_requested",
+            "wrkreq-invalid-validation",
+            QUEUED_VALIDATION_WORKER_CLASS,
+            QUEUED_VALIDATION_CAPABILITY,
+            serde_json::json!({
+                "repo_root": std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../..")
+                    .to_string_lossy()
+                    .to_string(),
+                "environment": "repo",
+            }),
+        )
+        .await;
+
+        poll_once(&state).await.unwrap();
+
+        let receipts = storage
+            .list_work_assignments(Some("wrkreq-invalid-validation"), None)
+            .await
+            .unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].status.to_string(), "failed");
+        assert!(receipts[0]
+            .error_message
+            .as_deref()
+            .unwrap_or_default()
+            .contains("invalid queued validation payload"));
     }
 
     #[tokio::test]
