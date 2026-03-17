@@ -121,6 +121,15 @@ describe('transport decoders', () => {
             last_item_count: 4,
             guidance: null,
           },
+          health: {
+            configured: true,
+            source_path: '/tmp/health.json',
+            last_sync_at: 14,
+            last_sync_status: 'ok',
+            last_error: null,
+            last_item_count: 2,
+            guidance: null,
+          },
           git: {
             configured: false,
             source_path: null,
@@ -168,6 +177,7 @@ describe('transport decoders', () => {
     )
 
     expect(response.data?.activity.source_path).toBe('/tmp/activity.json')
+    expect(response.data?.health.source_path).toBe('/tmp/health.json')
     expect(response.data?.activity.last_item_count).toBe(4)
     expect(response.data?.google_calendar.guidance?.action).toBe('Save credentials')
   })
@@ -183,6 +193,10 @@ describe('transport decoders', () => {
           git_activity: {
             timestamp: 1710000000,
             summary: { repo: 'vel', branch: 'main' },
+          },
+          health: {
+            timestamp: 1710000030,
+            summary: { metric_type: 'sleep_hours', value: 7.5 },
           },
           note_document: {
             timestamp: 1710000060,
@@ -208,6 +222,10 @@ describe('transport decoders', () => {
         git_activity: {
           timestamp: 1710000000,
           summary: { repo: 'vel', branch: 'main' },
+        },
+        health: {
+          timestamp: 1710000030,
+          summary: { metric_type: 'sleep_hours', value: 7.5 },
         },
         note_document: {
           timestamp: 1710000060,
@@ -259,6 +277,11 @@ describe('transport decoders', () => {
             label: 'Git activity',
             timestamp: 1710000000,
             summary: { repo: 'vel' },
+          },
+          health: {
+            label: 'Recent health signal',
+            timestamp: 1710000030,
+            summary: { metric_type: 'sleep_hours', value: 7.5 },
           },
           note_document: {
             label: 'Recent note',
@@ -323,6 +346,11 @@ describe('transport decoders', () => {
           label: 'Git activity',
           timestamp: 1710000000,
           summary: { repo: 'vel' },
+        },
+        health: {
+          label: 'Recent health signal',
+          timestamp: 1710000030,
+          summary: { metric_type: 'sleep_hours', value: 7.5 },
         },
         note_document: {
           label: 'Recent note',

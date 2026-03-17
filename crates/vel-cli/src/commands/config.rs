@@ -43,6 +43,10 @@ pub fn run(config: &AppConfig, json: bool) -> anyhow::Result<()> {
         config.activity_snapshot_path.as_deref().unwrap_or("-")
     );
     println!(
+        "health_snapshot_path: {}",
+        config.health_snapshot_path.as_deref().unwrap_or("-")
+    );
+    println!(
         "git_snapshot_path: {}",
         config.git_snapshot_path.as_deref().unwrap_or("-")
     );

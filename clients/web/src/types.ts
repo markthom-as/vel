@@ -135,6 +135,7 @@ export interface IntegrationsData {
   google_calendar: GoogleCalendarIntegrationData;
   todoist: TodoistIntegrationData;
   activity: LocalIntegrationData;
+  health: LocalIntegrationData;
   git: LocalIntegrationData;
   messaging: LocalIntegrationData;
   notes: LocalIntegrationData;
@@ -299,6 +300,7 @@ export interface NowSourceActivityData {
 
 export interface NowSourcesData {
   git_activity: NowSourceActivityData | null;
+  health: NowSourceActivityData | null;
   note_document: NowSourceActivityData | null;
   assistant_message: NowSourceActivityData | null;
 }
@@ -366,6 +368,7 @@ export interface ContextSourceSummaryData {
 
 export interface ContextSourceSummariesData {
   git_activity: ContextSourceSummaryData | null;
+  health: ContextSourceSummaryData | null;
   note_document: ContextSourceSummaryData | null;
   assistant_message: ContextSourceSummaryData | null;
 }
@@ -692,6 +695,7 @@ export function decodeNowData(value: unknown): NowData {
     },
     sources: {
       git_activity: decodeNullable(sources.git_activity, decodeNowSourceActivityData),
+      health: decodeNullable(sources.health, decodeNowSourceActivityData),
       note_document: decodeNullable(sources.note_document, decodeNowSourceActivityData),
       assistant_message: decodeNullable(
         sources.assistant_message,
@@ -746,6 +750,13 @@ export function decodeContextExplainData(value: unknown): ContextExplainData {
         const summary = expectRecord(item, 'context explain.source_summaries.git_activity');
         return {
           timestamp: expectUnixSeconds(summary.timestamp, 'context explain.source_summaries.git_activity.timestamp'),
+          summary: decodeJsonValue(summary.summary),
+        };
+      }),
+      health: decodeNullable(sourceSummaries.health, (item) => {
+        const summary = expectRecord(item, 'context explain.source_summaries.health');
+        return {
+          timestamp: expectUnixSeconds(summary.timestamp, 'context explain.source_summaries.health.timestamp'),
           summary: decodeJsonValue(summary.summary),
         };
       }),
@@ -893,6 +904,7 @@ export function decodeIntegrationsData(value: unknown): IntegrationsData {
     ),
     todoist: decodeTodoistIntegrationData(record.todoist ?? {}),
     activity: decodeLocalIntegrationData(record.activity ?? {}),
+    health: decodeLocalIntegrationData(record.health ?? {}),
     git: decodeLocalIntegrationData(record.git ?? {}),
     messaging: decodeLocalIntegrationData(record.messaging ?? {}),
     notes: decodeLocalIntegrationData(record.notes ?? {}),
