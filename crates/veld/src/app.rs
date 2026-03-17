@@ -4911,6 +4911,91 @@ END:VCALENDAR
         assert_eq!(envelope.payload["id"], "evaluate");
         assert_eq!(envelope.payload["status"], "ok");
         assert_eq!(envelope.payload["restart_count"], 1);
+
+        let context_envelope = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+            .await
+            .expect("context websocket event should be broadcast after evaluate restart")
+            .expect("context websocket event should be readable");
+        assert_eq!(context_envelope.event_type.to_string(), "context:updated");
+        assert!(context_envelope.payload["computed_at"]
+            .as_i64()
+            .unwrap_or_default()
+            > 0);
+        assert!(context_envelope.payload["context"].is_object());
+    }
+
+    #[tokio::test]
+    async fn evaluate_emits_context_updated_websocket_event() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
+        let mut rx = broadcast_tx.subscribe();
+        let state = crate::state::AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            broadcast_tx,
+            None,
+            None,
+        );
+        let app = build_app_with_state(state);
+
+        let evaluate_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/evaluate")
+                    .body(Body::from("{}".to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(evaluate_resp.status(), StatusCode::OK);
+
+        let envelope = rx
+            .recv()
+            .await
+            .expect("websocket event should be broadcast");
+        assert_eq!(envelope.event_type.to_string(), "context:updated");
+        assert!(envelope.payload["computed_at"].as_i64().unwrap_or_default() > 0);
+        assert!(envelope.payload["context"].is_object());
+    }
+
+    #[tokio::test]
+    async fn restart_evaluate_emits_context_updated_websocket_event() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
+        let mut rx = broadcast_tx.subscribe();
+        let state = crate::state::AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            broadcast_tx,
+            None,
+            None,
+        );
+        let app = build_app_with_state(state);
+
+        let restart_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/components/evaluate/restart")
+                    .body(Body::from("{}".to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(restart_resp.status(), StatusCode::OK);
+
+        let first = rx.recv().await.expect("components websocket event should be broadcast");
+        assert_eq!(first.event_type.to_string(), "components:updated");
+
+        let second = rx.recv().await.expect("context websocket event should be broadcast");
+        assert_eq!(second.event_type.to_string(), "context:updated");
+        assert!(second.payload["computed_at"].as_i64().unwrap_or_default() > 0);
+        assert!(second.payload["context"].is_object());
     }
 
     #[tokio::test]

@@ -38,11 +38,12 @@ pub async fn restart_component(
     Path(component_id): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<ComponentData>>, AppError> {
+    let component_id = component_id.trim().to_string();
     let component = services::components::restart_component(
         &state.storage,
         &state.config,
         &state.policy_config,
-        component_id.trim(),
+        &component_id,
     )
     .await?;
     let payload = serde_json::to_value(&component).map_err(|error| {
@@ -51,6 +52,9 @@ pub async fn restart_component(
     let _ = state
         .broadcast_tx
         .send(WsEnvelope::new(WsEventType::ComponentsUpdated, payload));
+    if component_id == "evaluate" {
+        let _ = crate::routes::evaluate::broadcast_context_updated(&state).await;
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(component, request_id)))
 }

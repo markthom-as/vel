@@ -365,6 +365,8 @@ pub enum WsEventType {
     InterventionsNew,
     #[serde(rename = "interventions:updated")]
     InterventionsUpdated,
+    #[serde(rename = "context:updated")]
+    ContextUpdated,
     #[serde(rename = "runs:updated")]
     RunsUpdated,
     #[serde(rename = "components:updated")]
@@ -377,6 +379,7 @@ impl std::fmt::Display for WsEventType {
             Self::MessagesNew => "messages:new",
             Self::InterventionsNew => "interventions:new",
             Self::InterventionsUpdated => "interventions:updated",
+            Self::ContextUpdated => "context:updated",
             Self::RunsUpdated => "runs:updated",
             Self::ComponentsUpdated => "components:updated",
         };
@@ -392,6 +395,7 @@ impl std::str::FromStr for WsEventType {
             "messages:new" => Ok(Self::MessagesNew),
             "interventions:new" => Ok(Self::InterventionsNew),
             "interventions:updated" => Ok(Self::InterventionsUpdated),
+            "context:updated" => Ok(Self::ContextUpdated),
             "runs:updated" => Ok(Self::RunsUpdated),
             "components:updated" => Ok(Self::ComponentsUpdated),
             other => Err(format!("unknown websocket event type: {}", other)),

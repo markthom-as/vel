@@ -5,6 +5,15 @@ use vel_api_types::{ApiResponse, SyncResultData};
 
 use crate::{adapters, errors::AppError, services, state::AppState};
 
+async fn evaluate_and_broadcast_context(state: &AppState) {
+    if services::evaluate::run(&state.storage, &state.policy_config)
+        .await
+        .is_ok()
+    {
+        let _ = crate::routes::evaluate::broadcast_context_updated(state).await;
+    }
+}
+
 pub async fn sync_calendar(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
@@ -22,7 +31,7 @@ pub async fn sync_calendar(
                 return Err(error);
             }
         };
-    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
+    evaluate_and_broadcast_context(&state).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -49,7 +58,7 @@ pub async fn sync_todoist(
             return Err(error);
         }
     };
-    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
+    evaluate_and_broadcast_context(&state).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -76,7 +85,7 @@ pub async fn sync_activity(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "activity", count).await;
-    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
+    evaluate_and_broadcast_context(&state).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -103,7 +112,7 @@ pub async fn sync_git(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "git", count).await;
-    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
+    evaluate_and_broadcast_context(&state).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -130,7 +139,7 @@ pub async fn sync_messaging(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "messaging", count).await;
-    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
+    evaluate_and_broadcast_context(&state).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -157,7 +166,7 @@ pub async fn sync_notes(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "notes", count).await;
-    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
+    evaluate_and_broadcast_context(&state).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -184,7 +193,7 @@ pub async fn sync_transcripts(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "transcripts", count).await;
-    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
+    evaluate_and_broadcast_context(&state).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {

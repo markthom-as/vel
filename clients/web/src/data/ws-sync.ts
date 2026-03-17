@@ -1,6 +1,7 @@
 import type {
   ComponentData,
   ConversationData,
+  CurrentContextData,
   InboxItemData,
   MessageData,
   RunSummaryData,
@@ -134,6 +135,18 @@ function applyInterventionUpdated(id: string, state: string) {
   }
 }
 
+function applyContextUpdated(currentContext: CurrentContextData) {
+  setQueryData(queryKeys.currentContext(), currentContext);
+  invalidateQuery(queryKeys.contextExplain(), { refetch: true });
+  invalidateQuery(queryKeys.driftExplain(), { refetch: true });
+
+  for (const key of listLoadedQueryKeys()) {
+    if (key.length === 2 && key[0] === 'commitments') {
+      invalidateQuery(key, { refetch: true });
+    }
+  }
+}
+
 function applyWsEvent(event: WsEvent) {
   switch (event.type) {
     case 'messages:new':
@@ -144,6 +157,9 @@ function applyWsEvent(event: WsEvent) {
       break;
     case 'interventions:updated':
       applyInterventionUpdated(event.payload.id, event.payload.state);
+      break;
+    case 'context:updated':
+      applyContextUpdated(event.payload);
       break;
     case 'runs:updated':
       updateRunsCache(event.payload);

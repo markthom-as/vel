@@ -278,6 +278,12 @@ export interface WsInterventionsUpdatedEvent {
   payload: InterventionActionData;
 }
 
+export interface WsContextUpdatedEvent {
+  type: 'context:updated';
+  timestamp: Rfc3339Timestamp;
+  payload: CurrentContextData;
+}
+
 export type RunUpdateEventData = RunSummaryData;
 
 export interface WsRunsUpdatedEvent {
@@ -296,6 +302,7 @@ export type WsEvent =
   | WsMessageNewEvent
   | WsInterventionsNewEvent
   | WsInterventionsUpdatedEvent
+  | WsContextUpdatedEvent
   | WsRunsUpdatedEvent
   | WsComponentsUpdatedEvent;
 
@@ -740,6 +747,12 @@ export function decodeWsEvent(value: unknown): WsEvent {
         type,
         timestamp,
         payload: decodeInterventionActionData(record.payload),
+      };
+    case 'context:updated':
+      return {
+        type,
+        timestamp,
+        payload: decodeCurrentContextData(record.payload),
       };
     case 'runs:updated':
       return {

@@ -284,6 +284,29 @@ describe('transport decoders', () => {
     })
   })
 
+  it('decodes websocket context update events', () => {
+    const event = decodeWsEvent({
+      type: 'context:updated',
+      timestamp: '2026-03-16T12:08:00Z',
+      payload: {
+        computed_at: 1710000000,
+        context: {
+          mode: 'focus',
+          global_risk_level: 'high',
+        },
+      },
+    })
+
+    expect(event.type).toBe('context:updated')
+    if (event.type === 'context:updated') {
+      expect(event.payload.computed_at).toBe(1710000000)
+      expect(event.payload.context).toEqual({
+        mode: 'focus',
+        global_risk_level: 'high',
+      })
+    }
+  })
+
   it('decodes websocket component update events', () => {
     const event = decodeWsEvent({
       type: 'components:updated',
