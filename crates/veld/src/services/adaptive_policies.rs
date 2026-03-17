@@ -11,6 +11,18 @@ const ADAPTIVE_POLICY_OVERRIDES_KEY: &str = "adaptive_policy_overrides";
 pub struct AdaptivePolicyOverrides {
     pub default_prep_minutes: Option<u32>,
     pub commute_buffer_minutes: Option<u32>,
+    #[serde(default)]
+    pub default_prep_source_suggestion_id: Option<String>,
+    #[serde(default)]
+    pub default_prep_source_title: Option<String>,
+    #[serde(default)]
+    pub default_prep_source_accepted_at: Option<i64>,
+    #[serde(default)]
+    pub commute_buffer_source_suggestion_id: Option<String>,
+    #[serde(default)]
+    pub commute_buffer_source_title: Option<String>,
+    #[serde(default)]
+    pub commute_buffer_source_accepted_at: Option<i64>,
 }
 
 pub async fn load(storage: &Storage) -> Result<AdaptivePolicyOverrides, AppError> {
@@ -23,10 +35,11 @@ pub async fn load(storage: &Storage) -> Result<AdaptivePolicyOverrides, AppError
 
 pub async fn apply_suggestion_acceptance(
     storage: &Storage,
-    suggestion_type: &str,
-    payload: &serde_json::Value,
+    suggestion: &vel_storage::SuggestionRecord,
+    accepted_at: i64,
 ) -> Result<bool, AppError> {
-    let suggested_minutes = payload
+    let suggested_minutes = suggestion
+        .payload_json
         .get("suggested_minutes")
         .and_then(serde_json::Value::as_u64)
         .and_then(|value| u32::try_from(value).ok());
@@ -35,12 +48,15 @@ pub async fn apply_suggestion_acceptance(
     };
 
     let mut overrides = load(storage).await?;
-    let changed = match suggestion_type {
+    let changed = match suggestion.suggestion_type.as_str() {
         "increase_commute_buffer" => {
             if overrides.commute_buffer_minutes == Some(suggested_minutes) {
                 false
             } else {
                 overrides.commute_buffer_minutes = Some(suggested_minutes);
+                overrides.commute_buffer_source_suggestion_id = Some(suggestion.id.clone());
+                overrides.commute_buffer_source_title = suggestion.title.clone();
+                overrides.commute_buffer_source_accepted_at = Some(accepted_at);
                 true
             }
         }
@@ -49,6 +65,9 @@ pub async fn apply_suggestion_acceptance(
                 false
             } else {
                 overrides.default_prep_minutes = Some(suggested_minutes);
+                overrides.default_prep_source_suggestion_id = Some(suggestion.id.clone());
+                overrides.default_prep_source_title = suggestion.title.clone();
+                overrides.default_prep_source_accepted_at = Some(accepted_at);
                 true
             }
         }
@@ -77,27 +96,61 @@ mod tests {
         let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
 
-        assert!(
-            apply_suggestion_acceptance(
-                &storage,
-                "increase_commute_buffer",
-                &serde_json::json!({ "suggested_minutes": 30 }),
-            )
-            .await
-            .unwrap()
-        );
-        assert!(
-            apply_suggestion_acceptance(
-                &storage,
-                "increase_prep_window",
-                &serde_json::json!({ "suggested_minutes": 45 }),
-            )
-            .await
-            .unwrap()
-        );
+        assert!(apply_suggestion_acceptance(
+            &storage,
+            &vel_storage::SuggestionRecord {
+                id: "sug_commute".to_string(),
+                suggestion_type: "increase_commute_buffer".to_string(),
+                state: "pending".to_string(),
+                title: Some("Increase commute buffer".to_string()),
+                summary: None,
+                priority: 0,
+                confidence: None,
+                dedupe_key: None,
+                payload_json: serde_json::json!({ "suggested_minutes": 30 }),
+                decision_context_json: None,
+                evidence_count: 0,
+                created_at: 10,
+                resolved_at: None,
+            },
+            100,
+        )
+        .await
+        .unwrap());
+        assert!(apply_suggestion_acceptance(
+            &storage,
+            &vel_storage::SuggestionRecord {
+                id: "sug_prep".to_string(),
+                suggestion_type: "increase_prep_window".to_string(),
+                state: "pending".to_string(),
+                title: Some("Increase prep window".to_string()),
+                summary: None,
+                priority: 0,
+                confidence: None,
+                dedupe_key: None,
+                payload_json: serde_json::json!({ "suggested_minutes": 45 }),
+                decision_context_json: None,
+                evidence_count: 0,
+                created_at: 20,
+                resolved_at: None,
+            },
+            200,
+        )
+        .await
+        .unwrap());
 
         let overrides = load(&storage).await.unwrap();
         assert_eq!(overrides.commute_buffer_minutes, Some(30));
         assert_eq!(overrides.default_prep_minutes, Some(45));
+        assert_eq!(
+            overrides.commute_buffer_source_suggestion_id.as_deref(),
+            Some("sug_commute")
+        );
+        assert_eq!(
+            overrides.default_prep_source_suggestion_id.as_deref(),
+            Some("sug_prep")
+        );
+        assert_eq!(overrides.commute_buffer_source_accepted_at, Some(100));
+        assert_eq!(overrides.default_prep_source_accepted_at, Some(200));
     }
 }
