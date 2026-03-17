@@ -11,8 +11,8 @@ use uuid::Uuid;
 use vel_core::{
     ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus,
     ContextCapture, ConversationId, EventId, InterventionId, JobId, JobStatus, MessageId,
-    OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus,
-    SearchResult, SyncClass,
+    OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType, RunId, RunKind,
+    RunStatus, SearchResult, SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -128,6 +128,56 @@ pub struct NudgeEventRecord {
     pub event_type: String,
     pub payload_json: JsonValue,
     pub timestamp: i64,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct SuggestionInsertV2 {
+    pub suggestion_type: String,
+    pub state: String,
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub priority: i64,
+    pub confidence: Option<String>,
+    pub dedupe_key: Option<String>,
+    pub payload_json: JsonValue,
+    pub decision_context_json: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SuggestionRecord {
+    pub id: String,
+    pub suggestion_type: String,
+    pub state: String,
+    pub title: Option<String>,
+    pub summary: Option<String>,
+    pub priority: i64,
+    pub confidence: Option<String>,
+    pub dedupe_key: Option<String>,
+    pub payload_json: JsonValue,
+    pub decision_context_json: Option<JsonValue>,
+    pub created_at: i64,
+    pub resolved_at: Option<i64>,
+    pub evidence_count: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct SuggestionEvidenceInsert {
+    pub suggestion_id: String,
+    pub evidence_type: String,
+    pub ref_id: String,
+    pub evidence_json: Option<JsonValue>,
+    pub weight: Option<f64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SuggestionEvidenceRecord {
+    pub id: String,
+    pub suggestion_id: String,
+    pub evidence_type: String,
+    pub ref_id: String,
+    pub evidence_json: Option<JsonValue>,
+    pub weight: Option<f64>,
     pub created_at: i64,
 }
 
@@ -1198,15 +1248,64 @@ impl Storage {
         state: &str,
         payload_json: &str,
     ) -> Result<String, StorageError> {
+        let payload_json = serde_json::from_str(payload_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        self.insert_suggestion_v2(SuggestionInsertV2 {
+            suggestion_type: suggestion_type.to_string(),
+            state: state.to_string(),
+            title: None,
+            summary: None,
+            priority: 50,
+            confidence: None,
+            dedupe_key: None,
+            payload_json,
+            decision_context_json: None,
+        })
+        .await
+    }
+
+    pub async fn insert_suggestion_v2(
+        &self,
+        input: SuggestionInsertV2,
+    ) -> Result<String, StorageError> {
         let id = format!("sug_{}", Uuid::new_v4().simple());
         let now = OffsetDateTime::now_utc().unix_timestamp();
+        let payload_json = serde_json::to_string(&input.payload_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        let decision_context_json = input
+            .decision_context_json
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
         sqlx::query(
-            r#"INSERT INTO suggestions (id, suggestion_type, state, payload_json, created_at) VALUES (?, ?, ?, ?, ?)"#,
+            r#"
+            INSERT INTO suggestions (
+                id,
+                suggestion_type,
+                state,
+                title,
+                summary,
+                priority,
+                confidence,
+                dedupe_key,
+                payload_json,
+                decision_context_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
         )
         .bind(&id)
-        .bind(suggestion_type)
-        .bind(state)
+        .bind(&input.suggestion_type)
+        .bind(&input.state)
+        .bind(&input.title)
+        .bind(&input.summary)
+        .bind(input.priority)
+        .bind(&input.confidence)
+        .bind(&input.dedupe_key)
         .bind(payload_json)
+        .bind(decision_context_json)
         .bind(now)
         .execute(&self.pool)
         .await?;
@@ -1217,38 +1316,196 @@ impl Storage {
         &self,
         state_filter: Option<&str>,
         limit: u32,
-    ) -> Result<Vec<(String, String, String, String, i64, Option<i64>)>, StorageError> {
+    ) -> Result<Vec<SuggestionRecord>, StorageError> {
         let limit = limit.min(100) as i64;
-        let rows = if let Some(s) = state_filter {
-            sqlx::query_as::<_, (String, String, String, String, i64, Option<i64>)>(
-                r#"SELECT id, suggestion_type, state, payload_json, created_at, resolved_at FROM suggestions WHERE state = ? ORDER BY created_at DESC LIMIT ?"#,
-            )
-            .bind(s)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await?
-        } else {
-            sqlx::query_as::<_, (String, String, String, String, i64, Option<i64>)>(
-                r#"SELECT id, suggestion_type, state, payload_json, created_at, resolved_at FROM suggestions ORDER BY created_at DESC LIMIT ?"#,
-            )
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await?
-        };
-        Ok(rows)
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                s.id,
+                s.suggestion_type,
+                s.state,
+                s.title,
+                s.summary,
+                s.priority,
+                s.confidence,
+                s.dedupe_key,
+                s.payload_json,
+                s.decision_context_json,
+                s.created_at,
+                s.resolved_at,
+                CAST(COUNT(se.id) AS INTEGER) AS evidence_count
+            FROM suggestions s
+            LEFT JOIN suggestion_evidence se ON se.suggestion_id = s.id
+            WHERE (? IS NULL OR s.state = ?)
+            GROUP BY
+                s.id,
+                s.suggestion_type,
+                s.state,
+                s.title,
+                s.summary,
+                s.priority,
+                s.confidence,
+                s.dedupe_key,
+                s.payload_json,
+                s.decision_context_json,
+                s.created_at,
+                s.resolved_at
+            ORDER BY s.created_at DESC, s.rowid DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(state_filter)
+        .bind(state_filter)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(|row| map_suggestion_row(&row)).collect()
     }
 
     pub async fn get_suggestion_by_id(
         &self,
         id: &str,
-    ) -> Result<Option<(String, String, String, String, i64, Option<i64>)>, StorageError> {
-        let row = sqlx::query_as::<_, (String, String, String, String, i64, Option<i64>)>(
-            r#"SELECT id, suggestion_type, state, payload_json, created_at, resolved_at FROM suggestions WHERE id = ?"#,
+    ) -> Result<Option<SuggestionRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                s.id,
+                s.suggestion_type,
+                s.state,
+                s.title,
+                s.summary,
+                s.priority,
+                s.confidence,
+                s.dedupe_key,
+                s.payload_json,
+                s.decision_context_json,
+                s.created_at,
+                s.resolved_at,
+                CAST(COUNT(se.id) AS INTEGER) AS evidence_count
+            FROM suggestions s
+            LEFT JOIN suggestion_evidence se ON se.suggestion_id = s.id
+            WHERE s.id = ?
+            GROUP BY
+                s.id,
+                s.suggestion_type,
+                s.state,
+                s.title,
+                s.summary,
+                s.priority,
+                s.confidence,
+                s.dedupe_key,
+                s.payload_json,
+                s.decision_context_json,
+                s.created_at,
+                s.resolved_at
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
         .await?;
-        Ok(row)
+        row.map(|row| map_suggestion_row(&row)).transpose()
+    }
+
+    pub async fn insert_suggestion_evidence(
+        &self,
+        input: SuggestionEvidenceInsert,
+    ) -> Result<String, StorageError> {
+        let id = format!("sugev_{}", Uuid::new_v4().simple());
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let evidence_json = input
+            .evidence_json
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO suggestion_evidence (
+                id,
+                suggestion_id,
+                evidence_type,
+                ref_id,
+                evidence_json,
+                weight,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&id)
+        .bind(&input.suggestion_id)
+        .bind(&input.evidence_type)
+        .bind(&input.ref_id)
+        .bind(evidence_json)
+        .bind(input.weight)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(id)
+    }
+
+    pub async fn list_suggestion_evidence(
+        &self,
+        suggestion_id: &str,
+    ) -> Result<Vec<SuggestionEvidenceRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, suggestion_id, evidence_type, ref_id, evidence_json, weight, created_at
+            FROM suggestion_evidence
+            WHERE suggestion_id = ?
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(suggestion_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(|row| map_suggestion_evidence_row(&row)).collect()
+    }
+
+    pub async fn find_recent_suggestion_by_dedupe_key(
+        &self,
+        dedupe_key: &str,
+    ) -> Result<Option<SuggestionRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                s.id,
+                s.suggestion_type,
+                s.state,
+                s.title,
+                s.summary,
+                s.priority,
+                s.confidence,
+                s.dedupe_key,
+                s.payload_json,
+                s.decision_context_json,
+                s.created_at,
+                s.resolved_at,
+                CAST(COUNT(se.id) AS INTEGER) AS evidence_count
+            FROM suggestions s
+            LEFT JOIN suggestion_evidence se ON se.suggestion_id = s.id
+            WHERE s.dedupe_key = ?
+            GROUP BY
+                s.id,
+                s.suggestion_type,
+                s.state,
+                s.title,
+                s.summary,
+                s.priority,
+                s.confidence,
+                s.dedupe_key,
+                s.payload_json,
+                s.decision_context_json,
+                s.created_at,
+                s.resolved_at
+            ORDER BY s.created_at DESC, s.rowid DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(dedupe_key)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|row| map_suggestion_row(&row)).transpose()
     }
 
     pub async fn update_suggestion_state(
@@ -2844,6 +3101,48 @@ fn map_nudge_event_row(row: &sqlx::sqlite::SqliteRow) -> Result<NudgeEventRecord
     })
 }
 
+fn map_suggestion_row(row: &sqlx::sqlite::SqliteRow) -> Result<SuggestionRecord, StorageError> {
+    let payload_json = row.try_get::<String, _>("payload_json")?;
+    let decision_context_json = row.try_get::<Option<String>, _>("decision_context_json")?;
+    let evidence_count = row.try_get::<i64, _>("evidence_count")?;
+    Ok(SuggestionRecord {
+        id: row.try_get("id")?,
+        suggestion_type: row.try_get("suggestion_type")?,
+        state: row.try_get("state")?,
+        title: row.try_get("title")?,
+        summary: row.try_get("summary")?,
+        priority: row.try_get("priority")?,
+        confidence: row.try_get("confidence")?,
+        dedupe_key: row.try_get("dedupe_key")?,
+        payload_json: parse_json_value(&payload_json)?,
+        decision_context_json: decision_context_json
+            .as_deref()
+            .map(parse_json_value)
+            .transpose()?,
+        created_at: row.try_get("created_at")?,
+        resolved_at: row.try_get("resolved_at")?,
+        evidence_count: evidence_count.max(0) as u32,
+    })
+}
+
+fn map_suggestion_evidence_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<SuggestionEvidenceRecord, StorageError> {
+    let evidence_json = row.try_get::<Option<String>, _>("evidence_json")?;
+    Ok(SuggestionEvidenceRecord {
+        id: row.try_get("id")?,
+        suggestion_id: row.try_get("suggestion_id")?,
+        evidence_type: row.try_get("evidence_type")?,
+        ref_id: row.try_get("ref_id")?,
+        evidence_json: evidence_json
+            .as_deref()
+            .map(parse_json_value)
+            .transpose()?,
+        weight: row.try_get("weight")?,
+        created_at: row.try_get("created_at")?,
+    })
+}
+
 fn map_runtime_loop_row(row: &sqlx::sqlite::SqliteRow) -> Result<RuntimeLoopRecord, StorageError> {
     let enabled: i64 = row.try_get("enabled")?;
     Ok(RuntimeLoopRecord {
@@ -3267,5 +3566,111 @@ mod tests {
         assert!(reset.finished_at.is_none());
         assert!(reset.output_json.is_none());
         assert!(reset.error_json.is_none());
+    }
+
+    #[tokio::test]
+    async fn insert_and_list_suggestion_v2_with_evidence() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let suggestion_id = storage
+            .insert_suggestion_v2(SuggestionInsertV2 {
+                suggestion_type: "increase_commute_buffer".to_string(),
+                state: "pending".to_string(),
+                title: Some("Increase commute buffer".to_string()),
+                summary: Some("Repeated commute danger nudges detected.".to_string()),
+                priority: 70,
+                confidence: Some("medium".to_string()),
+                dedupe_key: Some("increase_commute_buffer".to_string()),
+                payload_json: json!({
+                    "type": "increase_commute_buffer",
+                    "current_minutes": 20,
+                    "suggested_minutes": 30
+                }),
+                decision_context_json: Some(json!({
+                    "summary": "Resolved 2 commute danger nudges in the last 7 days.",
+                    "count": 2
+                })),
+            })
+            .await
+            .unwrap();
+
+        storage
+            .insert_suggestion_evidence(SuggestionEvidenceInsert {
+                suggestion_id: suggestion_id.clone(),
+                evidence_type: "nudge".to_string(),
+                ref_id: "nud_123".to_string(),
+                evidence_json: Some(json!({ "level": "danger" })),
+                weight: Some(1.0),
+            })
+            .await
+            .unwrap();
+
+        let suggestion = storage
+            .get_suggestion_by_id(&suggestion_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(suggestion.title.as_deref(), Some("Increase commute buffer"));
+        assert_eq!(suggestion.priority, 70);
+        assert_eq!(suggestion.confidence.as_deref(), Some("medium"));
+        assert_eq!(suggestion.evidence_count, 1);
+        assert_eq!(
+            suggestion
+                .decision_context_json
+                .as_ref()
+                .and_then(|json| json.get("summary"))
+                .and_then(JsonValue::as_str),
+            Some("Resolved 2 commute danger nudges in the last 7 days.")
+        );
+
+        let evidence = storage.list_suggestion_evidence(&suggestion_id).await.unwrap();
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].evidence_type, "nudge");
+        assert_eq!(evidence[0].ref_id, "nud_123");
+    }
+
+    #[tokio::test]
+    async fn find_recent_suggestion_by_dedupe_key_prefers_latest() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let first_id = storage
+            .insert_suggestion_v2(SuggestionInsertV2 {
+                suggestion_type: "increase_prep_window".to_string(),
+                state: "rejected".to_string(),
+                title: Some("Increase prep window".to_string()),
+                summary: None,
+                priority: 55,
+                confidence: Some("low".to_string()),
+                dedupe_key: Some("increase_prep_window".to_string()),
+                payload_json: json!({ "type": "increase_prep_window" }),
+                decision_context_json: None,
+            })
+            .await
+            .unwrap();
+        let second_id = storage
+            .insert_suggestion_v2(SuggestionInsertV2 {
+                suggestion_type: "increase_prep_window".to_string(),
+                state: "pending".to_string(),
+                title: Some("Increase prep window".to_string()),
+                summary: None,
+                priority: 60,
+                confidence: Some("medium".to_string()),
+                dedupe_key: Some("increase_prep_window".to_string()),
+                payload_json: json!({ "type": "increase_prep_window", "suggested_minutes": 45 }),
+                decision_context_json: None,
+            })
+            .await
+            .unwrap();
+
+        let latest = storage
+            .find_recent_suggestion_by_dedupe_key("increase_prep_window")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_ne!(latest.id, first_id);
+        assert_eq!(latest.id, second_id);
+        assert_eq!(latest.state, "pending");
     }
 }

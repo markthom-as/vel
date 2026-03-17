@@ -6,6 +6,28 @@ use vel_api_types::{ApiResponse, SuggestionData, SuggestionUpdateRequest};
 
 use crate::{errors::AppError, state::AppState};
 
+fn map_suggestion(record: vel_storage::SuggestionRecord) -> SuggestionData {
+    SuggestionData {
+        id: record.id,
+        suggestion_type: record.suggestion_type,
+        state: record.state,
+        title: record.title,
+        summary: record.summary,
+        priority: record.priority,
+        confidence: record.confidence,
+        evidence_count: record.evidence_count,
+        decision_context_summary: record
+            .decision_context_json
+            .as_ref()
+            .and_then(|json| json.get("summary"))
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        payload: record.payload_json,
+        created_at: record.created_at,
+        resolved_at: record.resolved_at,
+    }
+}
+
 #[derive(Debug, serde::Deserialize)]
 pub struct ListSuggestionsQuery {
     pub state: Option<String>,
@@ -21,22 +43,7 @@ pub async fn list(
         .storage
         .list_suggestions(q.state.as_deref(), limit)
         .await?;
-    let data: Vec<SuggestionData> = rows
-        .into_iter()
-        .map(
-            |(id, stype, state, payload_json, created_at, resolved_at)| {
-                let payload = serde_json::from_str(&payload_json).unwrap_or(serde_json::json!({}));
-                SuggestionData {
-                    id,
-                    suggestion_type: stype,
-                    state,
-                    payload,
-                    created_at,
-                    resolved_at,
-                }
-            },
-        )
-        .collect();
+    let data: Vec<SuggestionData> = rows.into_iter().map(map_suggestion).collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -50,16 +57,7 @@ pub async fn get(
         .get_suggestion_by_id(id.trim())
         .await?
         .ok_or_else(|| AppError::not_found("suggestion not found"))?;
-    let (id, stype, state, payload_json, created_at, resolved_at) = row;
-    let payload = serde_json::from_str(&payload_json).unwrap_or(serde_json::json!({}));
-    let data = SuggestionData {
-        id,
-        suggestion_type: stype,
-        state,
-        payload,
-        created_at,
-        resolved_at,
-    };
+    let data = map_suggestion(row);
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -104,16 +102,7 @@ pub async fn update(
         )
         .await?;
     let row = state.storage.get_suggestion_by_id(id).await?.unwrap();
-    let (id, stype, state, payload_json, created_at, resolved_at) = row;
-    let payload = serde_json::from_str(&payload_json).unwrap_or(serde_json::json!({}));
-    let data = SuggestionData {
-        id,
-        suggestion_type: stype,
-        state,
-        payload,
-        created_at,
-        resolved_at,
-    };
+    let data = map_suggestion(row);
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

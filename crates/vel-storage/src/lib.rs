@@ -5,6 +5,7 @@ pub use db::{
     CaptureInsert, CommitmentInsert, ConversationInsert, ConversationRecord, EventLogInsert,
     EventLogRecord, InferredStateInsert, InterventionInsert, InterventionRecord, MessageInsert,
     MessageRecord, NudgeInsert, NudgeRecord, PendingJob, RetryReadyRun, RuntimeLoopRecord,
-    SearchFilters, SignalInsert, SignalRecord, Storage, StorageError,
+    SearchFilters, SignalInsert, SignalRecord, Storage, StorageError, SuggestionEvidenceInsert,
+    SuggestionEvidenceRecord, SuggestionInsertV2, SuggestionRecord,
 };
 pub use vel_core::{ContextCapture, OrientationSnapshot, SearchResult};

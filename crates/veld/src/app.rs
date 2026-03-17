@@ -2924,6 +2924,15 @@ mod tests {
             .filter(|s| s["suggestion_type"].as_str() == Some("increase_commute_buffer"))
             .collect();
         assert!(!commute_buf.is_empty(), "increase_commute_buffer suggestion should appear after repeated commute danger (variant C)");
+        assert_eq!(
+            commute_buf[0]["title"].as_str(),
+            Some("Increase commute buffer")
+        );
+        assert!(commute_buf[0]["summary"].as_str().is_some());
+        assert_eq!(commute_buf[0]["priority"].as_i64(), Some(70));
+        assert_eq!(commute_buf[0]["confidence"].as_str(), Some("medium"));
+        assert_eq!(commute_buf[0]["evidence_count"].as_u64(), Some(2));
+        assert!(commute_buf[0]["decision_context_summary"].as_str().is_some());
     }
 
     // --- Chat API (ticket 034) ---
