@@ -57,8 +57,20 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/risk/:id", get(routes::risk::get_commitment_risk))
         .route("/v1/suggestions", get(routes::suggestions::list))
         .route(
+            "/v1/suggestions/:id/evidence",
+            get(routes::suggestions::evidence),
+        )
+        .route(
             "/v1/suggestions/:id",
             get(routes::suggestions::get).patch(routes::suggestions::update),
+        )
+        .route(
+            "/v1/suggestions/:id/accept",
+            post(routes::suggestions::accept),
+        )
+        .route(
+            "/v1/suggestions/:id/reject",
+            post(routes::suggestions::reject),
         )
         .route(
             "/v1/artifacts",
@@ -1729,11 +1741,33 @@ mod tests {
             .unwrap();
 
         let storage2 = Storage::connect(&path_str).await.unwrap();
+        let suggestion_id = storage2
+            .insert_suggestion_v2(vel_storage::SuggestionInsertV2 {
+                suggestion_type: "increase_prep_window".to_string(),
+                state: "pending".to_string(),
+                title: Some("Increase prep window".to_string()),
+                summary: Some("Prep nudges keep repeating.".to_string()),
+                priority: 60,
+                confidence: Some("medium".to_string()),
+                dedupe_key: Some("increase_prep_window".to_string()),
+                payload_json: serde_json::json!({
+                    "type": "increase_prep_window",
+                    "current_minutes": 30,
+                    "suggested_minutes": 45
+                }),
+                decision_context_json: Some(serde_json::json!({
+                    "summary": "Resolved prep-window nudges repeated in the recent window."
+                })),
+            })
+            .await
+            .unwrap();
         let current_context_before = storage2.get_current_context().await.unwrap();
         let inferred_state_before = storage2.count_inferred_state().await.unwrap();
         let context_timeline_before = storage2.count_context_timeline().await.unwrap();
         let risk_before = storage2.count_commitment_risk().await.unwrap();
         let nudge_events_before = storage2.count_nudge_events().await.unwrap();
+        let runs_before = storage2.list_runs(20, None, None).await.unwrap().len();
+        let suggestions_before = storage2.list_suggestions(None, 20).await.unwrap().len();
         let nudge_id = storage2
             .list_nudges(None, 10)
             .await
@@ -1790,6 +1824,36 @@ mod tests {
         let resp = app
             .clone()
             .oneshot(
+                Request::builder().uri("/v1/now").body(Body::empty()).unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/suggestions")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/suggestions/{}", suggestion_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
+            .clone()
+            .oneshot(
                 Request::builder()
                     .uri("/v1/context/current")
                     .body(Body::empty())
@@ -1815,6 +1879,8 @@ mod tests {
         let context_timeline_after = storage2.count_context_timeline().await.unwrap();
         let risk_after = storage2.count_commitment_risk().await.unwrap();
         let nudge_events_after = storage2.count_nudge_events().await.unwrap();
+        let runs_after = storage2.list_runs(20, None, None).await.unwrap().len();
+        let suggestions_after = storage2.list_suggestions(None, 20).await.unwrap().len();
 
         assert_eq!(
             current_context_before, current_context_after,
@@ -1835,6 +1901,14 @@ mod tests {
         assert_eq!(
             nudge_events_before, nudge_events_after,
             "read-only explain/context routes must not create nudge_events rows"
+        );
+        assert_eq!(
+            runs_before, runs_after,
+            "read-only operator routes must not create run rows"
+        );
+        assert_eq!(
+            suggestions_before, suggestions_after,
+            "read-only operator routes must not mutate suggestions"
         );
 
         let _ = std::fs::remove_file(&path);
