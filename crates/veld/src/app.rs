@@ -3016,6 +3016,149 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn accepting_commute_buffer_suggestion_updates_overrides_and_recomputes_context() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let event_start = now_ts + 40 * 60;
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "test".to_string(),
+                source_ref: Some("adaptive-commute".to_string()),
+                timestamp: event_start,
+                payload_json: Some(serde_json::json!({
+                    "start_time": event_start,
+                    "title": "Meeting with Dimitri",
+                    "travel_minutes": 20
+                })),
+            })
+            .await
+            .unwrap();
+        let suggestion_id = storage
+            .insert_suggestion_v2(vel_storage::SuggestionInsertV2 {
+                suggestion_type: "increase_commute_buffer".to_string(),
+                state: "pending".to_string(),
+                title: Some("Increase commute buffer".to_string()),
+                summary: Some("Leave earlier for similar meetings.".to_string()),
+                priority: 55,
+                confidence: Some("medium".to_string()),
+                dedupe_key: Some("increase_commute_buffer".to_string()),
+                payload_json: serde_json::json!({
+                    "type": "increase_commute_buffer",
+                    "current_minutes": 20,
+                    "suggested_minutes": 30
+                }),
+                decision_context_json: Some(serde_json::json!({
+                    "summary": "Repeated commute danger nudges."
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_before = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_before_body = axum::body::to_bytes(nudges_before.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let nudges_before_json: serde_json::Value =
+            serde_json::from_slice(&nudges_before_body).unwrap();
+        assert!(
+            nudges_before_json["data"]
+                .as_array()
+                .map(|items| items.iter().all(|item| {
+                    item["nudge_type"].as_str() != Some("commute_leave_time")
+                }))
+                .unwrap_or(true),
+            "baseline evaluation should not create a commute nudge before the adaptive override"
+        );
+
+        let accept_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/v1/suggestions/{}", suggestion_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"state":"accepted"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(accept_resp.status(), StatusCode::OK);
+
+        let overrides = storage
+            .get_all_settings()
+            .await
+            .unwrap()
+            .remove("adaptive_policy_overrides")
+            .expect("adaptive overrides should be stored after accepting suggestion");
+        assert_eq!(overrides["commute_buffer_minutes"].as_u64(), Some(30));
+
+        let nudges_after = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let nudges_after_body = axum::body::to_bytes(nudges_after.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let nudges_after_json: serde_json::Value =
+            serde_json::from_slice(&nudges_after_body).unwrap();
+        assert!(
+            nudges_after_json["data"]
+                .as_array()
+                .map(|items| items.iter().any(|item| {
+                    item["nudge_type"].as_str() == Some("commute_leave_time")
+                }))
+                .unwrap_or(false),
+            "accepting the commute-buffer suggestion should trigger a reevaluation with an earlier leave-by window"
+        );
+
+        let current_context = storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("current context should exist after reevaluation");
+        let context_json: serde_json::Value = serde_json::from_str(&current_context.1).unwrap();
+        assert_eq!(
+            context_json["leave_by_ts"].as_i64(),
+            Some(event_start - 30 * 60)
+        );
+    }
+
+    #[tokio::test]
     async fn evaluate_creates_multiple_suggestion_families_in_priority_order() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

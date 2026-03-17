@@ -70,6 +70,7 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
     let now_ts = now.unix_timestamp();
     let start_of_today = crate::services::timezone::start_of_local_day_timestamp(&timezone, now)?;
+    let adaptive_overrides = crate::services::adaptive_policies::load(storage).await?;
 
     let inputs = collect_inputs(storage, start_of_today).await?;
     let InferenceInputs {
@@ -105,7 +106,7 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         .filter(|s| s.signal_type == "git_activity")
         .max_by_key(|s| s.timestamp);
     let first_event = select_next_event(&calendar_events, now_ts);
-    let temporal_windows = derive_temporal_windows(first_event, now_ts);
+    let temporal_windows = derive_temporal_windows(first_event, now_ts, &adaptive_overrides);
 
     let recent_git_summary = latest_git_activity
         .and_then(build_git_activity_summary)
@@ -331,6 +332,7 @@ fn derive_meds_status(
 fn derive_temporal_windows(
     first_event: Option<&vel_storage::SignalRecord>,
     now_ts: i64,
+    adaptive_overrides: &crate::services::adaptive_policies::AdaptivePolicyOverrides,
 ) -> TemporalWindows {
     let prep_minutes = first_event
         .and_then(|event| {
@@ -339,7 +341,13 @@ fn derive_temporal_windows(
                 .get("prep_minutes")
                 .and_then(|value| value.as_i64())
         })
-        .unwrap_or(DEFAULT_PREP_MINUTES);
+        .unwrap_or(DEFAULT_PREP_MINUTES)
+        .max(
+            adaptive_overrides
+                .default_prep_minutes
+                .map(i64::from)
+                .unwrap_or(DEFAULT_PREP_MINUTES),
+        );
     let travel_minutes = first_event
         .and_then(|event| {
             event
@@ -347,7 +355,13 @@ fn derive_temporal_windows(
                 .get("travel_minutes")
                 .and_then(|value| value.as_i64())
         })
-        .unwrap_or(DEFAULT_TRAVEL_MINUTES);
+        .unwrap_or(DEFAULT_TRAVEL_MINUTES)
+        .max(
+            adaptive_overrides
+                .commute_buffer_minutes
+                .map(i64::from)
+                .unwrap_or(DEFAULT_TRAVEL_MINUTES),
+        );
     let prep_start = first_event.map(|event| event.timestamp - prep_minutes * 60);
     let leave_by_ts = first_event.map(|event| event.timestamp - travel_minutes * 60);
     let next_event_start_ts = first_event.map(|event| event.timestamp);
@@ -1075,7 +1089,11 @@ mod tests {
             created_at: event_ts,
         };
 
-        let windows = derive_temporal_windows(Some(&event), now_ts);
+        let windows = derive_temporal_windows(
+            Some(&event),
+            now_ts,
+            &crate::services::adaptive_policies::AdaptivePolicyOverrides::default(),
+        );
 
         assert!(windows.prep_window_active);
         assert!(windows.commute_window_active);

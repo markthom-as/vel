@@ -90,7 +90,7 @@ pub async fn update(
     Json(body): Json<SuggestionUpdateRequest>,
 ) -> Result<Json<ApiResponse<SuggestionData>>, AppError> {
     let id = id.trim();
-    let _existing = state
+    let existing = state
         .storage
         .get_suggestion_by_id(id)
         .await?
@@ -123,6 +123,17 @@ pub async fn update(
             },
         )
         .await?;
+    if new_state == "accepted" {
+        let applied = crate::services::adaptive_policies::apply_suggestion_acceptance(
+            &state.storage,
+            &existing.suggestion_type,
+            &existing.payload_json,
+        )
+        .await?;
+        if applied {
+            let _ = crate::services::evaluate::run_and_broadcast(&state).await;
+        }
+    }
     let row = state.storage.get_suggestion_by_id(id).await?.unwrap();
     let mut data = map_suggestion(row.clone());
     data.decision_context = row.decision_context_json;
