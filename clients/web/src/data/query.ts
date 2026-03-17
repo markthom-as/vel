@@ -206,6 +206,17 @@ export function getQueryData<T>(key: QueryKey): T | undefined {
   return getEntry<T>(key).data;
 }
 
+export function listLoadedQueryKeys(): QueryKey[] {
+  const keys: QueryKey[] = [];
+  for (const [serialized, entry] of cache.entries()) {
+    if (!entry.hasLoaded) {
+      continue;
+    }
+    keys.push(JSON.parse(serialized) as QueryKey);
+  }
+  return keys;
+}
+
 export function invalidateQuery(key: QueryKey, options: { refetch?: boolean } = {}): void {
   const entry = getEntry(key);
   const wasStale = entry.stale;

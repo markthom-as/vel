@@ -4,6 +4,7 @@ import { InboxView } from './InboxView'
 import * as api from '../api/client'
 import type { WsEnvelope } from '../types'
 import { clearQueryCache } from '../data/query'
+import { resetWsQuerySyncForTests } from '../data/ws-sync'
 
 const subscribeWs = vi.fn()
 
@@ -23,6 +24,7 @@ vi.mock('../realtime/ws', () => ({
 describe('InboxView realtime sync', () => {
   beforeEach(() => {
     clearQueryCache()
+    resetWsQuerySyncForTests()
     subscribeWs.mockReset()
     vi.mocked(api.apiGet).mockReset()
   })

@@ -1,9 +1,8 @@
 import { useEffect, useMemo } from 'react';
-import type { ConversationData, WsEvent } from '../types';
-import { setQueryData, useQuery } from '../data/query';
+import type { ConversationData } from '../types';
+import { useQuery } from '../data/query';
 import { loadConversationList, queryKeys } from '../data/resources';
-import { reconcileConversationFromMessage } from '../data/chat-state';
-import { subscribeWs } from '../realtime/ws';
+import { subscribeWsQuerySync } from '../data/ws-sync';
 import { SurfaceState } from './SurfaceState';
 
 interface ConversationListProps {
@@ -22,14 +21,8 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   );
 
   useEffect(() => {
-    return subscribeWs((event: WsEvent) => {
-      if (event.type === 'messages:new') {
-        setQueryData<ConversationData[]>(conversationsKey, (prev = []) =>
-          reconcileConversationFromMessage(prev, event.payload),
-        );
-      }
-    });
-  }, [conversationsKey]);
+    return subscribeWsQuerySync();
+  }, []);
 
   if (loading) return <SurfaceState message="Loading conversations…" />;
   if (error) return <SurfaceState message={error} tone="danger" />;

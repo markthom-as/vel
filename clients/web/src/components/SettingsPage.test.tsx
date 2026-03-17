@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { SettingsPage } from './SettingsPage'
 import * as client from '../api/client'
 import { clearQueryCache } from '../data/query'
+import { resetWsQuerySyncForTests } from '../data/ws-sync'
 import type { WsEnvelope } from '../types'
 
 const subscribeWs = vi.fn()
@@ -70,6 +71,7 @@ async function openComponentsTab(container: HTMLElement) {
 describe('SettingsPage', () => {
   beforeEach(() => {
     clearQueryCache()
+    resetWsQuerySyncForTests()
     vi.useRealTimers()
     subscribeWs.mockReset()
     vi.mocked(client.apiGet).mockReset()

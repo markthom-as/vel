@@ -1,24 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiPost } from '../api/client';
-import type { ConversationData, InboxItemData, MessageData, WsEvent } from '../types';
+import type { InboxItemData, MessageData } from '../types';
 import { getQueryData, invalidateQuery, setQueryData, useQuery } from '../data/query';
 import {
   appendUniqueMessages,
-  markPendingInterventionActionConfirmed,
   prunePendingInterventionActions,
   reconcileConfirmedSend,
-  reconcileConversationFromMessage,
-  reconcileIncomingMessage,
   removeInterventionById,
   setPendingInterventionAction,
   type PendingInterventionAction,
-  upsertInboxItem,
 } from '../data/chat-state';
 import { loadConversationInterventions, loadConversationMessages, queryKeys } from '../data/resources';
+import { subscribeWsQuerySync } from '../data/ws-sync';
 import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
-import { subscribeWs } from '../realtime/ws';
 import { SurfaceState } from './SurfaceState';
 
 interface ThreadViewProps {
@@ -87,58 +83,8 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   }, {});
 
   useEffect(() => {
-    if (!conversationId) {
-      return () => {};
-    }
-
-    return subscribeWs((event: WsEvent) => {
-      if (event.type === 'messages:new') {
-        const message = event.payload;
-        if (message.conversation_id !== conversationId) {
-          return;
-        }
-        setQueryData<MessageData[]>(messagesKey, (prev = []) =>
-          reconcileIncomingMessage(prev, message),
-        );
-        setQueryData<ConversationData[]>(
-          conversationsKey,
-          (prev = []) => reconcileConversationFromMessage(prev, message),
-        );
-        return;
-      }
-      if (event.type === 'interventions:new') {
-        const payload = event.payload;
-        if (!messages.some((message) => message.id === payload.message_id)) {
-          return;
-        }
-        setQueryData<InboxItemData[]>(
-          interventionsKey,
-          (prev = []) => upsertInboxItem(prev, payload, pendingInterventionActions),
-        );
-        setQueryData<InboxItemData[]>(inboxKey, (prev = []) =>
-          upsertInboxItem(prev, payload, pendingInterventionActions),
-        );
-        return;
-      }
-      if (event.type === 'interventions:updated') {
-        setQueryData<Record<string, PendingInterventionAction>>(
-          pendingInterventionActionsKey,
-          (prev = {}) => markPendingInterventionActionConfirmed(prev, event.payload.id, event.payload.state),
-        );
-        invalidateQuery(interventionsKey, { refetch: true });
-        invalidateQuery(inboxKey, { refetch: true });
-      }
-    });
-  }, [
-    conversationId,
-    conversationsKey,
-    inboxKey,
-    interventionsKey,
-    messages,
-    messagesKey,
-    pendingInterventionActions,
-    pendingInterventionActionsKey,
-  ]);
+    return subscribeWsQuerySync();
+  }, []);
 
   useEffect(() => {
     setQueryData<Record<string, PendingInterventionAction>>(

@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiPatch, apiPost } from '../api/client';
-import { subscribeWs } from '../realtime/ws';
 import type {
   ComponentData,
   ComponentLogEventData,
   IntegrationLogEventData,
   IntegrationsData,
   LocalIntegrationData,
-  RunSummaryData,
   SettingsData,
+  RunSummaryData,
 } from '../types';
 import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type { QueryKey } from '../data/query';
+import { subscribeWsQuerySync } from '../data/ws-sync';
 import {
   decodeGoogleCalendarAuthStartResponse,
   loadComponentLogs,
@@ -196,18 +196,6 @@ function updateRunsCache(
   });
 }
 
-function updateComponentsCache(componentsKey: QueryKey, component: ComponentData) {
-  setQueryData<ComponentData[]>(componentsKey, (current = []) => {
-    const next = [...current];
-    const index = next.findIndex((existing) => existing.id === component.id);
-    if (index >= 0) {
-      next[index] = component;
-      return next;
-    }
-    return [...next, component];
-  });
-}
-
 function extractRunSummaryData(value: unknown): RunSummaryData | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -315,14 +303,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   );
 
   useEffect(() => {
-    return subscribeWs((event) => {
-      if (event.type === 'runs:updated') {
-        updateRunsCache(runsKey, runLimit, event.payload);
-      } else if (event.type === 'components:updated') {
-        updateComponentsCache(componentsKey, event.payload);
-      }
-    });
-  }, [componentsKey, runLimit, runsKey]);
+    return subscribeWsQuerySync();
+  }, []);
 
   useEffect(() => {
     if (!pendingOverrideRunId) {

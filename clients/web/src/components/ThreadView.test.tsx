@@ -4,6 +4,7 @@ import { ThreadView } from './ThreadView'
 import * as api from '../api/client'
 import type { WsEnvelope } from '../types'
 import { clearQueryCache } from '../data/query'
+import { resetWsQuerySyncForTests } from '../data/ws-sync'
 
 const subscribeWs = vi.fn()
 
@@ -29,6 +30,7 @@ vi.mock('../realtime/ws', () => ({
 describe('ThreadView realtime sync', () => {
   beforeEach(() => {
     clearQueryCache()
+    resetWsQuerySyncForTests()
     subscribeWs.mockReset()
     vi.mocked(api.apiGet).mockReset()
     vi.mocked(api.apiPost).mockReset()

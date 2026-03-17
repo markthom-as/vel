@@ -1,14 +1,12 @@
 import { useEffect, useMemo } from 'react';
-import type { InboxItemData, WsEvent } from '../types';
-import { invalidateQuery, setQueryData, useQuery } from '../data/query';
+import type { InboxItemData } from '../types';
+import { setQueryData, useQuery } from '../data/query';
 import {
-  markPendingInterventionActionConfirmed,
   prunePendingInterventionActions,
-  upsertInboxItem,
   type PendingInterventionAction,
 } from '../data/chat-state';
 import { loadInbox, queryKeys } from '../data/resources';
-import { subscribeWs } from '../realtime/ws';
+import { subscribeWsQuerySync } from '../data/ws-sync';
 import { SurfaceState } from './SurfaceState';
 
 export function InboxView() {
@@ -32,24 +30,8 @@ export function InboxView() {
   const visibleItems = items.filter((item) => pendingInterventionActions[item.id] === undefined);
 
   useEffect(() => {
-    return subscribeWs((event: WsEvent) => {
-      if (event.type === 'interventions:new') {
-        const payload = event.payload;
-        setQueryData<InboxItemData[]>(inboxKey, (prev = []) =>
-          upsertInboxItem(prev, payload, pendingInterventionActions),
-        );
-        return;
-      }
-      if (event.type === 'interventions:updated') {
-        setQueryData<Record<string, PendingInterventionAction>>(
-          pendingInterventionActionsKey,
-          (prev = {}) =>
-            markPendingInterventionActionConfirmed(prev, event.payload.id, event.payload.state),
-        );
-        invalidateQuery(inboxKey, { refetch: true });
-      }
-    });
-  }, [inboxKey, pendingInterventionActions, pendingInterventionActionsKey]);
+    return subscribeWsQuerySync();
+  }, []);
 
   useEffect(() => {
     setQueryData<Record<string, PendingInterventionAction>>(
