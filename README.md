@@ -15,7 +15,13 @@ Context endpoints (today/morning/end-of-day) are **run-backed**: each request cr
 
 See [docs/status.md](docs/status.md) for details. Start doc navigation from [docs/README.md](docs/README.md). Canonical runtime concepts: [docs/runtime-concepts.md](docs/runtime-concepts.md).
 
-User-facing setup and operation docs now start at [docs/user/README.md](docs/user/README.md).
+## User Docs
+
+If you are running Vel as an operator (not working on internals), start here:
+
+- [docs/user/README.md](docs/user/README.md)
+- [docs/user/quickstart.md](docs/user/quickstart.md)
+- [docs/user/setup.md](docs/user/setup.md)
 
 ## Build and run (dev)
 

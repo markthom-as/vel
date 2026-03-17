@@ -30,7 +30,7 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 3. [Daily Use](daily-use.md) for the repeated workflow once Vel is running.
 4. [Surfaces](surfaces.md) for what the main UI and CLI surfaces mean.
 5. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
-6. [Integrations](integrations/README.md) for local-source and Apple/macOS setup details.
+6. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
 7. [Privacy](privacy.md) for the current local-first trust model and data locations.
 8. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
 
