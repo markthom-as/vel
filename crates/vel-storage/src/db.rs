@@ -9,10 +9,11 @@ use std::{fs, path::Path};
 use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
-    ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus,
-    ContextCapture, ConversationId, EventId, InterventionId, JobId, JobStatus, MessageId,
-    OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType, RunId, RunKind,
-    RunStatus, SearchResult, SyncClass,
+    AgentMemoryScope, AgentReturnContract, AgentRunRecord, AgentRunStatus, ArtifactId,
+    ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus, ContextCapture,
+    ConversationId, EventId, InterventionId, JobId, JobStatus, MessageId, OrientationSnapshot,
+    PrivacyClass, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult,
+    SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -205,6 +206,24 @@ pub struct SuggestionFeedbackRecord {
 pub struct SuggestionFeedbackSummary {
     pub accepted_and_policy_changed: u32,
     pub rejected_incorrect: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentRunInsert {
+    pub run_id: String,
+    pub agent_id: String,
+    pub parent_run_id: Option<String>,
+    pub status: AgentRunStatus,
+    pub mission_input: JsonValue,
+    pub deadline_ts: Option<i64>,
+    pub ttl_seconds: u64,
+    pub expires_at: i64,
+    pub waiting_reason: Option<String>,
+    pub return_contract: String,
+    pub max_tool_calls: u32,
+    pub max_tokens: u32,
+    pub allowed_tools: Vec<String>,
+    pub memory_scope: AgentMemoryScope,
 }
 
 #[derive(Debug, Clone)]
@@ -1413,7 +1432,9 @@ impl Storage {
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(|row| map_suggestion_row(&row)).collect()
+        rows.into_iter()
+            .map(|row| map_suggestion_row(&row))
+            .collect()
     }
 
     pub async fn get_suggestion_by_id(
@@ -1513,7 +1534,9 @@ impl Storage {
         .bind(suggestion_id)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(|row| map_suggestion_evidence_row(&row)).collect()
+        rows.into_iter()
+            .map(|row| map_suggestion_evidence_row(&row))
+            .collect()
     }
 
     pub async fn insert_suggestion_feedback(
@@ -2334,6 +2357,175 @@ impl Storage {
         .await?;
         tx.commit().await?;
         Ok(())
+    }
+
+    pub async fn create_agent_run(&self, input: AgentRunInsert) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let mission_input_json = serde_json::to_string(&input.mission_input)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        let allowed_tools_json = serde_json::to_string(&input.allowed_tools)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        let memory_scope_json = serde_json::to_string(&input.memory_scope)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO agent_runs (
+                run_id,
+                agent_id,
+                parent_run_id,
+                status,
+                mission_input_json,
+                deadline_ts,
+                ttl_seconds,
+                expires_at,
+                waiting_reason,
+                return_contract,
+                max_tool_calls,
+                max_tokens,
+                allowed_tools_json,
+                memory_scope_json,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&input.run_id)
+        .bind(&input.agent_id)
+        .bind(&input.parent_run_id)
+        .bind(input.status.to_string())
+        .bind(mission_input_json)
+        .bind(input.deadline_ts)
+        .bind(input.ttl_seconds as i64)
+        .bind(input.expires_at)
+        .bind(&input.waiting_reason)
+        .bind(&input.return_contract)
+        .bind(input.max_tool_calls as i64)
+        .bind(input.max_tokens as i64)
+        .bind(allowed_tools_json)
+        .bind(memory_scope_json)
+        .bind(now)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_agent_run(
+        &self,
+        run_id: &str,
+    ) -> Result<Option<AgentRunRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                run_id,
+                agent_id,
+                parent_run_id,
+                status,
+                mission_input_json,
+                deadline_ts,
+                ttl_seconds,
+                expires_at,
+                waiting_reason,
+                return_contract,
+                max_tool_calls,
+                max_tokens,
+                allowed_tools_json,
+                memory_scope_json,
+                summary,
+                confidence,
+                structured_output_json,
+                created_at,
+                updated_at
+            FROM agent_runs
+            WHERE run_id = ?
+            "#,
+        )
+        .bind(run_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|row| map_agent_run_row(&row)).transpose()
+    }
+
+    pub async fn update_agent_run_state(
+        &self,
+        run_id: &str,
+        status: AgentRunStatus,
+        waiting_reason: Option<&str>,
+        summary: Option<&str>,
+        confidence: Option<f64>,
+        structured_output: Option<&AgentReturnContract>,
+    ) -> Result<(), StorageError> {
+        let structured_output_json = structured_output
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            UPDATE agent_runs
+            SET status = ?,
+                waiting_reason = ?,
+                summary = COALESCE(?, summary),
+                confidence = COALESCE(?, confidence),
+                structured_output_json = COALESCE(?, structured_output_json),
+                updated_at = ?
+            WHERE run_id = ?
+            "#,
+        )
+        .bind(status.to_string())
+        .bind(waiting_reason)
+        .bind(summary)
+        .bind(confidence)
+        .bind(structured_output_json)
+        .bind(now)
+        .bind(run_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_expired_agent_runs(
+        &self,
+        now_ts: i64,
+        limit: u32,
+    ) -> Result<Vec<AgentRunRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                run_id,
+                agent_id,
+                parent_run_id,
+                status,
+                mission_input_json,
+                deadline_ts,
+                ttl_seconds,
+                expires_at,
+                waiting_reason,
+                return_contract,
+                max_tool_calls,
+                max_tokens,
+                allowed_tools_json,
+                memory_scope_json,
+                summary,
+                confidence,
+                structured_output_json,
+                created_at,
+                updated_at
+            FROM agent_runs
+            WHERE expires_at <= ?
+              AND status IN ('queued', 'running', 'waiting')
+            ORDER BY expires_at ASC
+            LIMIT ?
+            "#,
+        )
+        .bind(now_ts)
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_agent_run_row(&row))
+            .collect()
     }
 
     pub async fn get_run_by_id(&self, run_id: &str) -> Result<Option<Run>, StorageError> {
@@ -3449,10 +3641,7 @@ fn map_suggestion_evidence_row(
         suggestion_id: row.try_get("suggestion_id")?,
         evidence_type: row.try_get("evidence_type")?,
         ref_id: row.try_get("ref_id")?,
-        evidence_json: evidence_json
-            .as_deref()
-            .map(parse_json_value)
-            .transpose()?,
+        evidence_json: evidence_json.as_deref().map(parse_json_value).transpose()?,
         weight: row.try_get("weight")?,
         created_at: row.try_get("created_at")?,
     })
@@ -3473,9 +3662,7 @@ fn map_suggestion_feedback_row(
     })
 }
 
-fn map_uncertainty_row(
-    row: &sqlx::sqlite::SqliteRow,
-) -> Result<UncertaintyRecord, StorageError> {
+fn map_uncertainty_row(row: &sqlx::sqlite::SqliteRow) -> Result<UncertaintyRecord, StorageError> {
     let reasons_json = row.try_get::<String, _>("reasons_json")?;
     let missing_evidence_json = row.try_get::<Option<String>, _>("missing_evidence_json")?;
     Ok(UncertaintyRecord {
@@ -3494,6 +3681,43 @@ fn map_uncertainty_row(
         status: row.try_get("status")?,
         created_at: row.try_get("created_at")?,
         resolved_at: row.try_get("resolved_at")?,
+    })
+}
+
+fn map_agent_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<AgentRunRecord, StorageError> {
+    let mission_input_json = row.try_get::<String, _>("mission_input_json")?;
+    let allowed_tools_json = row.try_get::<String, _>("allowed_tools_json")?;
+    let memory_scope_json = row.try_get::<String, _>("memory_scope_json")?;
+    let structured_output_json = row.try_get::<Option<String>, _>("structured_output_json")?;
+    Ok(AgentRunRecord {
+        run_id: row.try_get("run_id")?,
+        agent_id: row.try_get("agent_id")?,
+        parent_run_id: row.try_get("parent_run_id")?,
+        status: row
+            .try_get::<String, _>("status")?
+            .parse()
+            .map_err(|error: vel_core::VelCoreError| StorageError::Validation(error.to_string()))?,
+        mission_input: parse_json_value(&mission_input_json)?,
+        deadline_ts: row.try_get("deadline_ts")?,
+        ttl_seconds: row.try_get::<i64, _>("ttl_seconds")?.max(0) as u64,
+        expires_at: row.try_get("expires_at")?,
+        waiting_reason: row.try_get("waiting_reason")?,
+        return_contract: row.try_get("return_contract")?,
+        max_tool_calls: row.try_get::<i64, _>("max_tool_calls")?.max(0) as u32,
+        max_tokens: row.try_get::<i64, _>("max_tokens")?.max(0) as u32,
+        allowed_tools: serde_json::from_str(&allowed_tools_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?,
+        memory_scope: serde_json::from_str(&memory_scope_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?,
+        summary: row.try_get("summary")?,
+        confidence: row.try_get("confidence")?,
+        structured_output: structured_output_json
+            .as_deref()
+            .map(serde_json::from_str)
+            .transpose()
+            .map_err(|error| StorageError::Validation(error.to_string()))?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?,
     })
 }
 
@@ -3978,7 +4202,10 @@ mod tests {
             Some("Resolved 2 commute danger nudges in the last 7 days.")
         );
 
-        let evidence = storage.list_suggestion_evidence(&suggestion_id).await.unwrap();
+        let evidence = storage
+            .list_suggestion_evidence(&suggestion_id)
+            .await
+            .unwrap();
         assert_eq!(evidence.len(), 1);
         assert_eq!(evidence[0].evidence_type, "nudge");
         assert_eq!(evidence[0].ref_id, "nud_123");
@@ -4110,7 +4337,10 @@ mod tests {
             .await
             .unwrap();
 
-        let open = storage.list_uncertainty_records(Some("open"), 10).await.unwrap();
+        let open = storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap();
         assert_eq!(open.len(), 1);
         assert_eq!(open[0].id, id);
         assert_eq!(open[0].resolution_mode, "defer");
@@ -4133,12 +4363,10 @@ mod tests {
             .unwrap();
         assert_eq!(resolved.status, "resolved");
         assert!(resolved.resolved_at.is_some());
-        assert!(
-            storage
-                .list_uncertainty_records(Some("open"), 10)
-                .await
-                .unwrap()
-                .is_empty()
-        );
+        assert!(storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap()
+            .is_empty());
     }
 }

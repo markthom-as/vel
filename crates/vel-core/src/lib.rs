@@ -1,3 +1,4 @@
+pub mod agent_runtime;
 pub mod commitment;
 pub mod context;
 pub mod intervention;
@@ -9,6 +10,7 @@ pub mod run;
 pub mod types;
 pub mod uncertainty;
 
+pub use agent_runtime::{AgentRunRecord, AgentRunStatus};
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
 pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
 pub use intervention::{Intervention, InterventionState};
@@ -19,7 +21,11 @@ pub use message::{
 };
 pub use provenance::{Ref, RefRelationType};
 pub use risk::{sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
-pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
+pub use run::{
+    AgentBudgets, AgentKind, AgentMemoryScope, AgentPriority, AgentReturnContract,
+    AgentReturnEvidence, AgentReturnStatus, AgentReturnedArtifact, AgentSpawnRequest, AgentSpec,
+    AgentSuggestedAction, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus,
+};
 pub use types::{ConversationId, EventId, InterventionId, MessageId};
 pub use uncertainty::{ResolutionMode, UncertaintyStatus};
 

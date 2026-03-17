@@ -35,6 +35,9 @@ pub fn build_app_with_state(state: AppState) -> Router {
     Router::new()
         .route("/v1/health", get(routes::health::health))
         .route("/v1/doctor", get(routes::doctor::doctor))
+        .route("/v1/agents/specs", get(routes::agents::list_specs))
+        .route("/v1/agents/runs", post(routes::agents::spawn_run))
+        .route("/v1/agents/runs/:id", get(routes::agents::get_run))
         .route(
             "/v1/captures",
             get(routes::captures::list_captures).post(routes::captures::create_capture),
@@ -124,8 +127,14 @@ pub fn build_app_with_state(state: AppState) -> Router {
             "/v1/nudges/:id/dismiss",
             post(routes::nudges::nudge_dismiss),
         )
-        .route("/v1/uncertainty", get(routes::uncertainty::list_uncertainty))
-        .route("/v1/uncertainty/:id", get(routes::uncertainty::get_uncertainty))
+        .route(
+            "/v1/uncertainty",
+            get(routes::uncertainty::list_uncertainty),
+        )
+        .route(
+            "/v1/uncertainty/:id",
+            get(routes::uncertainty::get_uncertainty),
+        )
         .route(
             "/v1/uncertainty/:id/resolve",
             post(routes::uncertainty::resolve_uncertainty),
@@ -265,6 +274,131 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn agent_specs_endpoint_lists_bundled_specs() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/agents/specs")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<Vec<vel_api_types::AgentSpecData>> =
+            serde_json::from_slice(&body).unwrap();
+        let specs = payload.data.unwrap();
+        assert!(specs.iter().any(|spec| spec.id == "research_agent"));
+    }
+
+    #[tokio::test]
+    async fn agent_runtime_can_spawn_and_inspect_run() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let spawn_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/agents/runs")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"spec_id":"research_agent","input":{"topic":"agent runtime"}}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(spawn_response.status(), StatusCode::OK);
+        let spawn_body = axum::body::to_bytes(spawn_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let spawn_json: serde_json::Value = serde_json::from_slice(&spawn_body).unwrap();
+        let run_id = spawn_json["data"]["run_id"].as_str().unwrap().to_string();
+        assert_eq!(spawn_json["data"]["spec_id"], "research_agent");
+        assert_eq!(spawn_json["data"]["status"], "queued");
+
+        let inspect_response = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/agents/runs/{}", run_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(inspect_response.status(), StatusCode::OK);
+        let inspect_body = axum::body::to_bytes(inspect_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let inspect_json: serde_json::Value = serde_json::from_slice(&inspect_body).unwrap();
+        assert_eq!(inspect_json["data"]["run_id"], run_id);
+        assert_eq!(inspect_json["data"]["spec_id"], "research_agent");
+        assert_eq!(
+            inspect_json["data"]["mission_input"]["topic"],
+            "agent runtime"
+        );
+    }
+
+    #[tokio::test]
+    async fn agent_runtime_rejects_missing_parent_run() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/agents/runs")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"spec_id":"research_agent","input":{"topic":"agent runtime"},"parent_run_id":"run_missing"}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(payload["error"]["code"], "validation_error");
     }
 
     #[tokio::test]
@@ -503,8 +637,14 @@ mod tests {
             .await
             .unwrap();
         let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
-        assert_eq!(list_json["data"].as_array().map(|items| items.len()), Some(1));
-        assert_eq!(list_json["data"][0]["id"].as_str(), Some(uncertainty_id.as_str()));
+        assert_eq!(
+            list_json["data"].as_array().map(|items| items.len()),
+            Some(1)
+        );
+        assert_eq!(
+            list_json["data"][0]["id"].as_str(),
+            Some(uncertainty_id.as_str())
+        );
         assert_eq!(list_json["data"][0]["status"].as_str(), Some("open"));
 
         let inspect_resp = app
@@ -526,7 +666,10 @@ mod tests {
             inspect_json["data"]["subject_id"].as_str(),
             Some("increase_commute_buffer")
         );
-        assert_eq!(inspect_json["data"]["resolution_mode"].as_str(), Some("defer"));
+        assert_eq!(
+            inspect_json["data"]["resolution_mode"].as_str(),
+            Some("defer")
+        );
 
         let resolve_resp = app
             .oneshot(
@@ -1969,7 +2112,10 @@ mod tests {
         let resp = app
             .clone()
             .oneshot(
-                Request::builder().uri("/v1/now").body(Body::empty()).unwrap(),
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
             )
             .await
             .unwrap();
@@ -3157,7 +3303,9 @@ mod tests {
         );
         assert_eq!(commute_buf[0]["confidence"].as_str(), Some("medium"));
         assert_eq!(commute_buf[0]["evidence_count"].as_u64(), Some(3));
-        assert!(commute_buf[0]["decision_context_summary"].as_str().is_some());
+        assert!(commute_buf[0]["decision_context_summary"]
+            .as_str()
+            .is_some());
 
         let suggestion_id = commute_buf[0]["id"]
             .as_str()
@@ -3191,7 +3339,9 @@ mod tests {
             .expect("inspect response should include suggestion evidence");
         assert_eq!(evidence.len(), 3);
         assert!(
-            evidence.iter().all(|item| item["evidence_type"].as_str() == Some("nudge")),
+            evidence
+                .iter()
+                .all(|item| item["evidence_type"].as_str() == Some("nudge")),
             "suggestion evidence should point back to the nudges that triggered it"
         );
 
@@ -3331,9 +3481,9 @@ mod tests {
         assert!(
             nudges_before_json["data"]
                 .as_array()
-                .map(|items| items.iter().all(|item| {
-                    item["nudge_type"].as_str() != Some("commute_leave_time")
-                }))
+                .map(|items| items
+                    .iter()
+                    .all(|item| { item["nudge_type"].as_str() != Some("commute_leave_time") }))
                 .unwrap_or(true),
             "baseline evaluation should not create a commute nudge before the adaptive override"
         );
@@ -3440,7 +3590,9 @@ mod tests {
                     .method("POST")
                     .uri(format!("/v1/suggestions/{}/reject", suggestion_id))
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"reason":"not useful right now"}"#.to_string()))
+                    .body(Body::from(
+                        r#"{"reason":"not useful right now"}"#.to_string(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -3563,12 +3715,10 @@ mod tests {
                 .unwrap();
         }
 
-        let created = crate::services::suggestions::evaluate_after_nudges(
-            &storage,
-            &test_policy_config(),
-        )
-        .await
-        .unwrap();
+        let created =
+            crate::services::suggestions::evaluate_after_nudges(&storage, &test_policy_config())
+                .await
+                .unwrap();
         assert_eq!(created, 1);
 
         let suggestions = storage.list_suggestions(Some("pending"), 10).await.unwrap();
@@ -3576,18 +3726,19 @@ mod tests {
             .iter()
             .find(|suggestion| suggestion.suggestion_type == "add_followup_block")
             .expect("follow-up suggestion should exist");
-        assert!(
-            suggestions
-                .iter()
-                .all(|suggestion| suggestion.suggestion_type != "increase_commute_buffer")
-        );
+        assert!(suggestions
+            .iter()
+            .all(|suggestion| suggestion.suggestion_type != "increase_commute_buffer"));
         assert!(followup.priority > 50);
         let uncertainties = storage
             .list_uncertainty_records(Some("open"), 10)
             .await
             .unwrap();
         assert_eq!(uncertainties.len(), 1);
-        assert_eq!(uncertainties[0].subject_id.as_deref(), Some("increase_commute_buffer"));
+        assert_eq!(
+            uncertainties[0].subject_id.as_deref(),
+            Some("increase_commute_buffer")
+        );
         assert_eq!(uncertainties[0].resolution_mode, "defer");
     }
 
@@ -5936,8 +6087,10 @@ END:VCALENDAR
     async fn integrations_local_source_path_patch_is_used_for_sync() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
-        let dir =
-            std::env::temp_dir().join(format!("vel_notes_override_{}", uuid::Uuid::new_v4().simple()));
+        let dir = std::env::temp_dir().join(format!(
+            "vel_notes_override_{}",
+            uuid::Uuid::new_v4().simple()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("plan.md"), "# Plan\nShip the smooth path.\n").unwrap();
         let notes_path = dir.to_string_lossy().to_string();
@@ -6004,7 +6157,10 @@ END:VCALENDAR
             .unwrap();
         let integrations_json: serde_json::Value =
             serde_json::from_slice(&integrations_body).unwrap();
-        assert_eq!(integrations_json["data"]["notes"]["source_path"], notes_path);
+        assert_eq!(
+            integrations_json["data"]["notes"]["source_path"],
+            notes_path
+        );
         assert_eq!(integrations_json["data"]["notes"]["last_sync_status"], "ok");
         assert_eq!(integrations_json["data"]["notes"]["last_item_count"], 1);
     }
@@ -6505,8 +6661,14 @@ END:VCALENDAR
             json["data"]["schedule"]["upcoming_events"][0]["title"],
             "Design review"
         );
-        assert_eq!(json["data"]["sources"]["git_activity"]["label"], "Git activity");
-        assert_eq!(json["data"]["sources"]["git_activity"]["summary"]["repo"], "vel");
+        assert_eq!(
+            json["data"]["sources"]["git_activity"]["label"],
+            "Git activity"
+        );
+        assert_eq!(
+            json["data"]["sources"]["git_activity"]["summary"]["repo"],
+            "vel"
+        );
         assert_eq!(
             json["data"]["sources"]["note_document"]["summary"]["path"],
             "daily/today.md"
@@ -6755,7 +6917,10 @@ END:VCALENDAR
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(json["data"]["schedule"]["upcoming_events"], serde_json::json!([]));
+        assert_eq!(
+            json["data"]["schedule"]["upcoming_events"],
+            serde_json::json!([])
+        );
         assert_eq!(
             json["data"]["schedule"]["empty_message"],
             "No calendars are selected in Settings."

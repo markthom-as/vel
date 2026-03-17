@@ -1,0 +1,19 @@
+specs:
+  - id: research_agent
+    mission: gather relevant information about a topic and return structured findings
+    kind: subagent
+    allowed_tools:
+      - web.search
+      - web.fetch
+    memory_scope:
+      constitution: true
+      topic_pads:
+        - project_vel
+      event_query: limited
+    return_contract: research_summary_v1
+    ttl_seconds: 180
+    budgets:
+      max_tool_calls: 12
+      max_tokens: 24000
+      max_memory_queries: 5
+      max_side_effects: 1

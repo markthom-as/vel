@@ -1,6 +1,6 @@
 //! `vel agents specs|spawn|inspect` — agent runtime helpers.
 
-use crate::client::{AgentSpecData, ApiClient};
+use crate::client::ApiClient;
 use anyhow::Context;
 use serde_json::Value;
 

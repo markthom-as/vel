@@ -62,8 +62,7 @@ struct NextCommitmentSummary {
     due_at: Option<i64>,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 struct CommitmentPriority {
     due_bucket: u8,
     due_sort: i64,
@@ -877,9 +876,7 @@ fn commitment_priority(
     };
     let risk_rank = u32::MAX - snapshot_risk_rank(snapshot);
     let updated_at = commitment_updated_at(commitment);
-    let recent_activity_bucket = if updated_at
-        >= now_ts - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS
-    {
+    let recent_activity_bucket = if updated_at >= now_ts - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS {
         0
     } else {
         1
@@ -1390,8 +1387,8 @@ mod tests {
         });
         let commitments = [stale, recent];
 
-        let selected = select_next_commitment(&commitments, &[], now_ts)
-            .expect("expected a commitment");
+        let selected =
+            select_next_commitment(&commitments, &[], now_ts).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_recent");
     }
@@ -1409,8 +1406,8 @@ mod tests {
         });
         let commitments = [older, recent];
 
-        let selected = select_next_commitment(&commitments, &[], ranking_now)
-            .expect("expected a commitment");
+        let selected =
+            select_next_commitment(&commitments, &[], ranking_now).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_recent");
     }

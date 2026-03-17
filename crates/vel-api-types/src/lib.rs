@@ -507,6 +507,111 @@ pub struct RunSummaryData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSpecData {
+    pub id: String,
+    pub mission: String,
+    pub kind: String,
+    pub allowed_tools: Vec<String>,
+    pub memory_scope: AgentMemoryScopeData,
+    pub return_contract: String,
+    pub ttl_seconds: u64,
+    pub budgets: AgentBudgetsData,
+    #[serde(default)]
+    pub mission_input_schema: Option<JsonValue>,
+    #[serde(default)]
+    pub side_effect_policy: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSpecListData {
+    pub specs: Vec<AgentSpecData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentMemoryScopeData {
+    pub constitution: bool,
+    pub topic_pads: Vec<String>,
+    pub event_query: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentBudgetsData {
+    pub max_tool_calls: u32,
+    pub max_tokens: u32,
+    pub max_memory_queries: Option<u32>,
+    pub max_side_effects: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSpawnRequestData {
+    pub agent_id: String,
+    #[serde(default)]
+    pub mission_input: JsonValue,
+    #[serde(default)]
+    pub parent_run_id: Option<RunId>,
+    #[serde(default)]
+    pub deadline: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub priority: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRuntimeViewData {
+    pub run_id: RunId,
+    pub spec_id: String,
+    pub status: String,
+    pub kind: String,
+    pub mission_input: JsonValue,
+    #[serde(default)]
+    pub parent_run_id: Option<RunId>,
+    #[serde(default)]
+    pub deadline: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub priority: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub started_at: Option<OffsetDateTime>,
+    pub finished_at: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub waiting_reason: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub confidence: Option<f64>,
+    #[serde(default)]
+    pub output: Option<JsonValue>,
+    pub return_contract: Option<AgentReturnContractData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentReturnContractData {
+    pub status: String,
+    pub summary: String,
+    pub evidence: Vec<AgentReturnEvidenceData>,
+    pub confidence: f64,
+    pub suggested_actions: Vec<AgentSuggestedActionData>,
+    pub artifacts: Vec<AgentReturnedArtifactData>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentReturnEvidenceData {
+    pub kind: String,
+    pub value: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSuggestedActionData {
+    pub action_type: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentReturnedArtifactData {
+    pub artifact_type: String,
+    pub location: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunEventData {
     pub seq: u32,
     pub event_type: String,
