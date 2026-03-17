@@ -7,7 +7,7 @@ use time::OffsetDateTime;
 use vel_core::CommitmentStatus;
 use vel_storage::{NudgeInsert, Storage};
 
-use crate::policy_config::PolicyConfig;
+use crate::policy_config::{PolicyCommuteLeaveTime, PolicyConfig};
 use crate::services::risk::list_latest_snapshots;
 
 fn nudge_level_rank(level: &str) -> u8 {
@@ -27,6 +27,22 @@ fn suppresses_new_nudge(nudge: &vel_storage::NudgeRecord, nudge_type: &str, now_
                     .snoozed_until
                     .map(|snoozed_until| snoozed_until > now_ts)
                     .unwrap_or(true)))
+}
+
+fn commute_level_message(
+    now_ts: i64,
+    leave_by_ts: i64,
+    config: &PolicyCommuteLeaveTime,
+) -> Option<(&'static str, &'static str)> {
+    if now_ts >= leave_by_ts - i64::from(config.danger_before_minutes) * 60 {
+        Some(("danger", "You may be late unless you leave now."))
+    } else if now_ts >= leave_by_ts - i64::from(config.warning_before_minutes) * 60 {
+        Some(("warning", "You should leave soon."))
+    } else if now_ts >= leave_by_ts - i64::from(config.gentle_before_minutes) * 60 {
+        Some(("gentle", "Leave-by time is approaching."))
+    } else {
+        None
+    }
 }
 
 async fn reactivate_snoozed_nudge_for_higher_urgency(
@@ -488,24 +504,8 @@ pub async fn evaluate(
             count += 1;
         } else {
             let leave_by = leave_by_ts.unwrap();
-            let gentle_before = commute_cfg
-                .map(|c| c.gentle_before_minutes as i64)
-                .unwrap_or(20);
-            let warning_before = commute_cfg
-                .map(|c| c.warning_before_minutes as i64)
-                .unwrap_or(5);
-            let danger_before = commute_cfg
-                .map(|c| c.danger_before_minutes as i64)
-                .unwrap_or(0);
-            let level_message: Option<(&str, &str)> = if now_ts >= leave_by - danger_before * 60 {
-                Some(("danger", "You may be late unless you leave now."))
-            } else if now_ts >= leave_by - warning_before * 60 {
-                Some(("warning", "You should leave soon."))
-            } else if now_ts >= leave_by - gentle_before * 60 {
-                Some(("gentle", "Leave-by time is approaching."))
-            } else {
-                None
-            };
+            let level_message =
+                commute_cfg.and_then(|config| commute_level_message(now_ts, leave_by, config));
             if let Some((lvl, msg)) = level_message {
                 let explanation = serde_json::json!({
                     "policy": "commute_leave_time",
@@ -722,4 +722,39 @@ pub async fn evaluate(
     }
 
     Ok(count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn commute_level_message_uses_policy_thresholds() {
+        let config = PolicyCommuteLeaveTime {
+            enabled: true,
+            require_travel_minutes: true,
+            gentle_before_minutes: 20,
+            warning_before_minutes: 5,
+            danger_before_minutes: 0,
+            default_snooze_minutes: 5,
+        };
+        let leave_by_ts = 10_000;
+
+        assert_eq!(
+            commute_level_message(leave_by_ts - 21 * 60, leave_by_ts, &config),
+            None
+        );
+        assert_eq!(
+            commute_level_message(leave_by_ts - 20 * 60, leave_by_ts, &config),
+            Some(("gentle", "Leave-by time is approaching."))
+        );
+        assert_eq!(
+            commute_level_message(leave_by_ts - 5 * 60, leave_by_ts, &config),
+            Some(("warning", "You should leave soon."))
+        );
+        assert_eq!(
+            commute_level_message(leave_by_ts, leave_by_ts, &config),
+            Some(("danger", "You may be late unless you leave now."))
+        );
+    }
 }
