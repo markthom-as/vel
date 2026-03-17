@@ -168,7 +168,7 @@ async fn apply_state_transition(
     } else {
         None
     };
-    let payload_json = merged_payload(existing, payload_override, reason);
+    let payload_json = merged_payload(existing, payload_override, reason.clone());
     state
         .storage
         .update_suggestion_state(
@@ -178,6 +178,11 @@ async fn apply_state_transition(
             payload_json.as_deref(),
         )
         .await?;
+    let feedback_payload = payload_json
+        .as_deref()
+        .map(serde_json::from_str::<serde_json::Value>)
+        .transpose()
+        .map_err(|error| AppError::internal(format!("parse suggestion feedback payload: {error}")))?;
     if new_state == "accepted" {
         let applied = crate::services::adaptive_policies::apply_suggestion_acceptance(
             &state.storage,
@@ -185,15 +190,55 @@ async fn apply_state_transition(
             &existing.payload_json,
         )
         .await?;
+        state
+            .storage
+            .insert_suggestion_feedback(vel_storage::SuggestionFeedbackInsert {
+                suggestion_id: existing.id.clone(),
+                outcome_type: if applied {
+                    "accepted_and_policy_changed".to_string()
+                } else {
+                    "accepted_no_effect".to_string()
+                },
+                notes: reason.clone(),
+                observed_at: now_ts,
+                payload_json: feedback_payload.clone(),
+            })
+            .await?;
         if applied {
             let _ = crate::services::evaluate::run_and_broadcast(state).await;
         }
+    } else if new_state == "rejected" {
+        state
+            .storage
+            .insert_suggestion_feedback(vel_storage::SuggestionFeedbackInsert {
+                suggestion_id: existing.id.clone(),
+                outcome_type: rejection_outcome_type(reason.as_deref()).to_string(),
+                notes: reason.clone(),
+                observed_at: now_ts,
+                payload_json: feedback_payload,
+            })
+            .await?;
     }
     let row = state.storage.get_suggestion_by_id(&existing.id).await?.unwrap();
     let mut data = map_suggestion(row.clone());
     data.decision_context = row.decision_context_json;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+fn rejection_outcome_type(reason: Option<&str>) -> &'static str {
+    let Some(reason) = reason else {
+        return "rejected_not_useful";
+    };
+    let normalized = reason.to_ascii_lowercase();
+    if normalized.contains("incorrect")
+        || normalized.contains("wrong")
+        || normalized.contains("inaccurate")
+    {
+        "rejected_incorrect"
+    } else {
+        "rejected_not_useful"
+    }
 }
 
 fn merged_payload(

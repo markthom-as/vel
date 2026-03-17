@@ -43,6 +43,7 @@ pub async fn evaluate_after_nudges(
     let now_ts = OffsetDateTime::now_utc().unix_timestamp();
     let candidates = collect_candidates(storage, policy_config, now_ts).await?;
     let candidates = suppress_candidates(storage, suggestion_policy, candidates, now_ts).await?;
+    let candidates = apply_feedback_history(storage, candidates).await?;
     let candidates = rank_candidates(
         candidates,
         current_global_risk_score(storage).await?,
@@ -260,6 +261,37 @@ async fn suppress_candidates(
     Ok(accepted)
 }
 
+async fn apply_feedback_history(
+    storage: &Storage,
+    mut candidates: Vec<SuggestionCandidate>,
+) -> Result<Vec<SuggestionCandidate>, crate::errors::AppError> {
+    for candidate in &mut candidates {
+        let summary = storage
+            .summarize_suggestion_feedback(&candidate.suggestion_type.to_string())
+            .await?;
+        if summary.accepted_and_policy_changed > 0 {
+            let boost = i64::from(summary.accepted_and_policy_changed.min(3)) * 5;
+            candidate.priority += boost;
+            candidate.confidence = raise_confidence(candidate.confidence);
+        }
+        if summary.rejected_incorrect > 0 {
+            let penalty = i64::from(summary.rejected_incorrect.min(3)) * 8;
+            candidate.priority -= penalty;
+            candidate.confidence = lower_confidence(candidate.confidence);
+        }
+        if let Some(context) = candidate.decision_context.as_object_mut() {
+            context.insert(
+                "feedback_history".to_string(),
+                serde_json::json!({
+                    "accepted_and_policy_changed": summary.accepted_and_policy_changed,
+                    "rejected_incorrect": summary.rejected_incorrect,
+                }),
+            );
+        }
+    }
+    Ok(candidates)
+}
+
 async fn should_suppress_candidate(
     storage: &Storage,
     suggestion_policy: &SuggestionPolicies,
@@ -326,6 +358,22 @@ fn accepted_policy_already_applied(
             )
         }
         _ => false,
+    }
+}
+
+fn raise_confidence(confidence: ConfidenceBand) -> ConfidenceBand {
+    match confidence {
+        SuggestionConfidence::Low => SuggestionConfidence::Medium,
+        SuggestionConfidence::Medium => SuggestionConfidence::High,
+        SuggestionConfidence::High => SuggestionConfidence::High,
+    }
+}
+
+fn lower_confidence(confidence: ConfidenceBand) -> ConfidenceBand {
+    match confidence {
+        SuggestionConfidence::High => SuggestionConfidence::Medium,
+        SuggestionConfidence::Medium => SuggestionConfidence::Low,
+        SuggestionConfidence::Low => SuggestionConfidence::Low,
     }
 }
 

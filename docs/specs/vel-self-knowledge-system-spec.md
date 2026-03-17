@@ -305,9 +305,9 @@ Responsibilities:
 - incremental reindex on repo changes
 - recompute affected claims and drift findings
 - generate remediation suggestions
+- record suggestion outcomes so repeated accept/reject patterns can be inspected and reused by deterministic ranking rules
 - (optionally) draft patches or internal tickets behind strict policy gates
 
 ## Implementation Tickets
 
 See [docs/tickets/self-knowledge/](../tickets/self-knowledge/README.md) for the SK-001–SK-010 ticket pack.
-

@@ -182,6 +182,32 @@ pub struct SuggestionEvidenceRecord {
 }
 
 #[derive(Debug, Clone)]
+pub struct SuggestionFeedbackInsert {
+    pub suggestion_id: String,
+    pub outcome_type: String,
+    pub notes: Option<String>,
+    pub observed_at: i64,
+    pub payload_json: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SuggestionFeedbackRecord {
+    pub id: String,
+    pub suggestion_id: String,
+    pub outcome_type: String,
+    pub notes: Option<String>,
+    pub observed_at: i64,
+    pub payload_json: Option<JsonValue>,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SuggestionFeedbackSummary {
+    pub accepted_and_policy_changed: u32,
+    pub rejected_incorrect: u32,
+}
+
+#[derive(Debug, Clone)]
 pub struct ConversationInsert {
     pub id: String,
     pub title: Option<String>,
@@ -1460,6 +1486,91 @@ impl Storage {
         .fetch_all(&self.pool)
         .await?;
         rows.into_iter().map(|row| map_suggestion_evidence_row(&row)).collect()
+    }
+
+    pub async fn insert_suggestion_feedback(
+        &self,
+        input: SuggestionFeedbackInsert,
+    ) -> Result<String, StorageError> {
+        let id = format!("sugfb_{}", Uuid::new_v4().simple());
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let payload_json = input
+            .payload_json
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO suggestion_feedback (
+                id,
+                suggestion_id,
+                outcome_type,
+                notes,
+                observed_at,
+                payload_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&id)
+        .bind(&input.suggestion_id)
+        .bind(&input.outcome_type)
+        .bind(&input.notes)
+        .bind(input.observed_at)
+        .bind(payload_json)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(id)
+    }
+
+    pub async fn list_suggestion_feedback(
+        &self,
+        suggestion_id: &str,
+    ) -> Result<Vec<SuggestionFeedbackRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, suggestion_id, outcome_type, notes, observed_at, payload_json, created_at
+            FROM suggestion_feedback
+            WHERE suggestion_id = ?
+            ORDER BY observed_at DESC, created_at DESC
+            "#,
+        )
+        .bind(suggestion_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_suggestion_feedback_row(&row))
+            .collect()
+    }
+
+    pub async fn summarize_suggestion_feedback(
+        &self,
+        suggestion_type: &str,
+    ) -> Result<SuggestionFeedbackSummary, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                COALESCE(SUM(CASE WHEN sf.outcome_type = 'accepted_and_policy_changed' THEN 1 ELSE 0 END), 0)
+                    AS accepted_and_policy_changed,
+                COALESCE(SUM(CASE WHEN sf.outcome_type = 'rejected_incorrect' THEN 1 ELSE 0 END), 0)
+                    AS rejected_incorrect
+            FROM suggestion_feedback sf
+            INNER JOIN suggestions s ON s.id = sf.suggestion_id
+            WHERE s.suggestion_type = ?
+            "#,
+        )
+        .bind(suggestion_type)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(SuggestionFeedbackSummary {
+            accepted_and_policy_changed: row
+                .try_get::<i64, _>("accepted_and_policy_changed")?
+                .max(0) as u32,
+            rejected_incorrect: row.try_get::<i64, _>("rejected_incorrect")?.max(0) as u32,
+        })
     }
 
     pub async fn find_recent_suggestion_by_dedupe_key(
@@ -3143,6 +3254,21 @@ fn map_suggestion_evidence_row(
     })
 }
 
+fn map_suggestion_feedback_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<SuggestionFeedbackRecord, StorageError> {
+    let payload_json = row.try_get::<Option<String>, _>("payload_json")?;
+    Ok(SuggestionFeedbackRecord {
+        id: row.try_get("id")?,
+        suggestion_id: row.try_get("suggestion_id")?,
+        outcome_type: row.try_get("outcome_type")?,
+        notes: row.try_get("notes")?,
+        observed_at: row.try_get("observed_at")?,
+        payload_json: payload_json.as_deref().map(parse_json_value).transpose()?,
+        created_at: row.try_get("created_at")?,
+    })
+}
+
 fn map_runtime_loop_row(row: &sqlx::sqlite::SqliteRow) -> Result<RuntimeLoopRecord, StorageError> {
     let enabled: i64 = row.try_get("enabled")?;
     Ok(RuntimeLoopRecord {
@@ -3672,5 +3798,62 @@ mod tests {
         assert_ne!(latest.id, first_id);
         assert_eq!(latest.id, second_id);
         assert_eq!(latest.state, "pending");
+    }
+
+    #[tokio::test]
+    async fn suggestion_feedback_round_trips_and_summarizes_by_family() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let suggestion_id = storage
+            .insert_suggestion_v2(SuggestionInsertV2 {
+                suggestion_type: "increase_commute_buffer".to_string(),
+                state: "accepted".to_string(),
+                title: Some("Increase commute buffer".to_string()),
+                summary: None,
+                priority: 70,
+                confidence: Some("medium".to_string()),
+                dedupe_key: Some("increase_commute_buffer".to_string()),
+                payload_json: json!({ "type": "increase_commute_buffer" }),
+                decision_context_json: None,
+            })
+            .await
+            .unwrap();
+
+        storage
+            .insert_suggestion_feedback(SuggestionFeedbackInsert {
+                suggestion_id: suggestion_id.clone(),
+                outcome_type: "accepted_and_policy_changed".to_string(),
+                notes: Some("accepted from API".to_string()),
+                observed_at: 100,
+                payload_json: Some(json!({ "source": "test" })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_suggestion_feedback(SuggestionFeedbackInsert {
+                suggestion_id: suggestion_id.clone(),
+                outcome_type: "rejected_incorrect".to_string(),
+                notes: Some("later found incorrect".to_string()),
+                observed_at: 200,
+                payload_json: None,
+            })
+            .await
+            .unwrap();
+
+        let feedback = storage
+            .list_suggestion_feedback(&suggestion_id)
+            .await
+            .unwrap();
+        assert_eq!(feedback.len(), 2);
+        assert_eq!(feedback[0].outcome_type, "rejected_incorrect");
+        assert_eq!(feedback[1].outcome_type, "accepted_and_policy_changed");
+
+        let summary = storage
+            .summarize_suggestion_feedback("increase_commute_buffer")
+            .await
+            .unwrap();
+        assert_eq!(summary.accepted_and_policy_changed, 1);
+        assert_eq!(summary.rejected_incorrect, 1);
     }
 }

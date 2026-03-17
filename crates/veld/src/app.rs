@@ -3214,6 +3214,12 @@ mod tests {
             .remove("adaptive_policy_overrides")
             .expect("adaptive overrides should be stored after accepting suggestion");
         assert_eq!(overrides["commute_buffer_minutes"].as_u64(), Some(30));
+        let feedback = storage
+            .list_suggestion_feedback(suggestion_id.as_ref())
+            .await
+            .unwrap();
+        assert_eq!(feedback.len(), 1);
+        assert_eq!(feedback[0].outcome_type, "accepted_and_policy_changed");
 
         let nudges_after = app
             .clone()
@@ -3307,6 +3313,125 @@ mod tests {
             Some("not useful right now")
         );
         assert!(stored.resolved_at.is_some());
+        let feedback = storage
+            .list_suggestion_feedback(suggestion_id.as_ref())
+            .await
+            .unwrap();
+        assert_eq!(feedback.len(), 1);
+        assert_eq!(feedback[0].outcome_type, "rejected_not_useful");
+        assert_eq!(feedback[0].notes.as_deref(), Some("not useful right now"));
+    }
+
+    #[tokio::test]
+    async fn feedback_history_adjusts_future_suggestion_scoring() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let recent = now_ts - 3600;
+
+        for _ in 0..2 {
+            let prior_commute = storage
+                .insert_suggestion_v2(vel_storage::SuggestionInsertV2 {
+                    suggestion_type: "increase_commute_buffer".to_string(),
+                    state: "rejected".to_string(),
+                    title: Some("Increase commute buffer".to_string()),
+                    summary: None,
+                    priority: 70,
+                    confidence: Some("medium".to_string()),
+                    dedupe_key: None,
+                    payload_json: serde_json::json!({
+                        "type": "increase_commute_buffer",
+                        "suggested_minutes": 30
+                    }),
+                    decision_context_json: None,
+                })
+                .await
+                .unwrap();
+            storage
+                .insert_suggestion_feedback(vel_storage::SuggestionFeedbackInsert {
+                    suggestion_id: prior_commute,
+                    outcome_type: "rejected_incorrect".to_string(),
+                    notes: Some("travel estimate was wrong".to_string()),
+                    observed_at: recent,
+                    payload_json: None,
+                })
+                .await
+                .unwrap();
+        }
+
+        for _ in 0..2 {
+            let prior_followup = storage
+                .insert_suggestion_v2(vel_storage::SuggestionInsertV2 {
+                    suggestion_type: "add_followup_block".to_string(),
+                    state: "accepted".to_string(),
+                    title: Some("Add follow-up block".to_string()),
+                    summary: None,
+                    priority: 50,
+                    confidence: Some("medium".to_string()),
+                    dedupe_key: None,
+                    payload_json: serde_json::json!({
+                        "type": "add_followup_block",
+                        "suggested_block_minutes": 20
+                    }),
+                    decision_context_json: None,
+                })
+                .await
+                .unwrap();
+            storage
+                .insert_suggestion_feedback(vel_storage::SuggestionFeedbackInsert {
+                    suggestion_id: prior_followup,
+                    outcome_type: "accepted_and_policy_changed".to_string(),
+                    notes: Some("helpful".to_string()),
+                    observed_at: recent,
+                    payload_json: None,
+                })
+                .await
+                .unwrap();
+        }
+
+        for (nudge_type, level) in [
+            ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+        ] {
+            storage
+                .insert_nudge(vel_storage::NudgeInsert {
+                    nudge_type: nudge_type.to_string(),
+                    level: level.to_string(),
+                    state: "resolved".to_string(),
+                    related_commitment_id: None,
+                    message: format!("{} happened", nudge_type),
+                    snoozed_until: None,
+                    resolved_at: Some(recent),
+                    signals_snapshot_json: None,
+                    inference_snapshot_json: None,
+                    metadata_json: None,
+                })
+                .await
+                .unwrap();
+        }
+
+        let created = crate::services::suggestions::evaluate_after_nudges(
+            &storage,
+            &test_policy_config(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(created, 2);
+
+        let suggestions = storage.list_suggestions(Some("pending"), 10).await.unwrap();
+        let commute = suggestions
+            .iter()
+            .find(|suggestion| suggestion.suggestion_type == "increase_commute_buffer")
+            .expect("commute suggestion should exist");
+        let followup = suggestions
+            .iter()
+            .find(|suggestion| suggestion.suggestion_type == "add_followup_block")
+            .expect("follow-up suggestion should exist");
+        assert_eq!(commute.confidence.as_deref(), Some("low"));
+        assert!(followup.priority > 50);
     }
 
     #[tokio::test]
