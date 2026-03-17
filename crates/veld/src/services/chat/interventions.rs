@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use vel_api_types::{InboxItemData, MessageData, WsEventType};
+use vel_api_types::{InboxItemData, InterventionActionData, MessageData, WsEventType};
 use vel_storage::InterventionInsert;
 
 use crate::{
@@ -85,4 +85,95 @@ pub(crate) async fn create_intervention_for_message_if_needed(
         .send(WsEnvelope::new(WsEventType::InterventionsNew, ws_payload));
 
     Ok(Some(data))
+}
+
+pub(crate) async fn snooze_intervention(
+    state: &AppState,
+    id: &str,
+    until_ts: i64,
+) -> Result<InterventionActionData, AppError> {
+    let id = id.trim();
+    let _ = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    state.storage.snooze_intervention(id, until_ts).await?;
+    emit_chat_event(
+        state,
+        "intervention.snoozed",
+        "intervention",
+        id,
+        serde_json::json!({ "id": id, "snoozed_until": until_ts }),
+    )
+    .await;
+    let payload = InterventionActionData {
+        id: id.to_string(),
+        state: "snoozed".to_string(),
+    };
+    let _ = state.broadcast_tx.send(WsEnvelope::new(
+        WsEventType::InterventionsUpdated,
+        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+    ));
+    Ok(payload)
+}
+
+pub(crate) async fn resolve_intervention(
+    state: &AppState,
+    id: &str,
+) -> Result<InterventionActionData, AppError> {
+    let id = id.trim();
+    let _ = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    state.storage.resolve_intervention(id).await?;
+    emit_chat_event(
+        state,
+        "intervention.resolved",
+        "intervention",
+        id,
+        serde_json::json!({ "id": id }),
+    )
+    .await;
+    let payload = InterventionActionData {
+        id: id.to_string(),
+        state: "resolved".to_string(),
+    };
+    let _ = state.broadcast_tx.send(WsEnvelope::new(
+        WsEventType::InterventionsUpdated,
+        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+    ));
+    Ok(payload)
+}
+
+pub(crate) async fn dismiss_intervention(
+    state: &AppState,
+    id: &str,
+) -> Result<InterventionActionData, AppError> {
+    let id = id.trim();
+    let _ = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    state.storage.dismiss_intervention(id).await?;
+    emit_chat_event(
+        state,
+        "intervention.dismissed",
+        "intervention",
+        id,
+        serde_json::json!({ "id": id }),
+    )
+    .await;
+    let payload = InterventionActionData {
+        id: id.to_string(),
+        state: "dismissed".to_string(),
+    };
+    let _ = state.broadcast_tx.send(WsEnvelope::new(
+        WsEventType::InterventionsUpdated,
+        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+    ));
+    Ok(payload)
 }
