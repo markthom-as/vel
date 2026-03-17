@@ -183,6 +183,17 @@ export interface RunSummaryData {
   blocked_reason: string | null;
 }
 
+export interface LoopData {
+  kind: string;
+  enabled: boolean;
+  interval_seconds: number;
+  last_started_at: UnixSeconds | null;
+  last_finished_at: UnixSeconds | null;
+  last_status: string | null;
+  last_error: string | null;
+  next_due_at: UnixSeconds | null;
+}
+
 export interface SuggestionEvidenceData {
   id: string;
   evidence_type: string;
@@ -880,6 +891,20 @@ export function decodeRunSummaryData(value: unknown): RunSummaryData {
     ),
     retry_reason: expectNullableString(record.retry_reason, 'run summary.retry_reason'),
     blocked_reason: expectNullableString(record.blocked_reason, 'run summary.blocked_reason'),
+  };
+}
+
+export function decodeLoopData(value: unknown): LoopData {
+  const record = expectRecord(value, 'loop');
+  return {
+    kind: expectString(record.kind, 'loop.kind'),
+    enabled: expectBoolean(record.enabled, 'loop.enabled'),
+    interval_seconds: expectNumber(record.interval_seconds, 'loop.interval_seconds'),
+    last_started_at: expectNullableUnixSeconds(record.last_started_at, 'loop.last_started_at'),
+    last_finished_at: expectNullableUnixSeconds(record.last_finished_at, 'loop.last_finished_at'),
+    last_status: expectNullableString(record.last_status, 'loop.last_status'),
+    last_error: expectNullableString(record.last_error, 'loop.last_error'),
+    next_due_at: expectNullableUnixSeconds(record.next_due_at, 'loop.next_due_at'),
   };
 }
 

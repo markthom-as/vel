@@ -6,6 +6,7 @@ import type {
   IntegrationLogEventData,
   IntegrationsData,
   LocalIntegrationData,
+  LoopData,
   SettingsData,
   RunSummaryData,
 } from '../types';
@@ -20,12 +21,14 @@ import {
   loadComponents,
   loadIntegrations,
   loadIntegrationLogs,
+  loadLoops,
   loadRecentRuns,
   loadSettings,
   queryKeys,
   restartComponent,
   syncSource as syncSourceRequest,
   updateGoogleCalendarIntegration,
+  updateLoop,
   updateRun,
   updateSettings,
   updateTodoistIntegration,
@@ -82,7 +85,16 @@ interface IntegrationFeedbackState {
   actionId: number;
 }
 
-type SettingsTab = 'general' | 'integrations' | 'components' | 'runs';
+type SettingsTab = 'general' | 'integrations' | 'components' | 'runs' | 'loops';
+
+interface LoopDraft {
+  intervalSeconds: string;
+}
+
+interface LoopActionState {
+  status: 'success' | 'error';
+  message: string;
+}
 
 type ComponentActionState =
   | {
@@ -237,6 +249,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [pendingOverrideRunId, setPendingOverrideRunId] = useState<string | null>(null);
   const [retryDrafts, setRetryDrafts] = useState<Record<string, RetryDraft>>({});
   const [runActionState, setRunActionState] = useState<Record<string, RunActionState>>({});
+  const [actingLoops, setActingLoops] = useState<Record<string, true>>({});
+  const [loopDrafts, setLoopDrafts] = useState<Record<string, LoopDraft>>({});
+  const [loopActionState, setLoopActionState] = useState<Record<string, LoopActionState>>({});
   const nextIntegrationActionIdRef = useRef(0);
   const latestIntegrationActionIdByKeyRef = useRef<Record<IntegrationActionKey, number>>(
     {} as Record<IntegrationActionKey, number>,
@@ -250,6 +265,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const integrationsKey = useMemo(() => queryKeys.integrations(), []);
   const componentsKey = useMemo(() => queryKeys.components(), []);
   const runsKey = useMemo(() => queryKeys.runs(runLimit), []);
+  const loopsKey = useMemo(() => queryKeys.loops(), []);
   const currentContextKey = useMemo(() => queryKeys.currentContext(), []);
   const {
     data: settings = {},
@@ -294,6 +310,14 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     },
     { enabled: activeTab === 'components' },
   );
+  const { data: loops = [] } = useQuery<LoopData[]>(
+    loopsKey,
+    async () => {
+      const response = await loadLoops();
+      return response.ok && response.data ? response.data : [];
+    },
+    { enabled: activeTab === 'loops' },
+  );
 
   useEffect(() => {
     return subscribeWsQuerySync();
@@ -337,6 +361,23 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       return changed ? next : current;
     });
   }, [runs]);
+
+  useEffect(() => {
+    if (loops.length === 0) {
+      return;
+    }
+    setLoopDrafts((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const loop of loops) {
+        if (!next[loop.kind]) {
+          next[loop.kind] = { intervalSeconds: String(loop.interval_seconds) };
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [loops]);
 
   const update = async (key: keyof SettingsData, value: boolean | unknown) => {
     setSaving(true);
@@ -793,6 +834,74 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     }
   };
 
+  const saveLoop = async (loop: LoopData, enabled: boolean) => {
+    const draft = loopDrafts[loop.kind];
+    const intervalSeconds = Number.parseInt(
+      draft?.intervalSeconds?.trim() || String(loop.interval_seconds),
+      10,
+    );
+    if (!Number.isFinite(intervalSeconds) || intervalSeconds <= 0) {
+      setLoopActionState((current) => ({
+        ...current,
+        [loop.kind]: {
+          status: 'error',
+          message: 'Interval seconds must be a positive integer.',
+        },
+      }));
+      return;
+    }
+
+    setActingLoops((current) => ({
+      ...current,
+      [loop.kind]: true,
+    }));
+    setLoopActionState((current) => {
+      const next = { ...current };
+      delete next[loop.kind];
+      return next;
+    });
+
+    try {
+      const response = await updateLoop(loop.kind, {
+        enabled,
+        interval_seconds: intervalSeconds,
+      });
+      const updatedLoop = response.ok ? response.data ?? null : null;
+      if (updatedLoop) {
+        setQueryData<LoopData[]>(loopsKey, (current = []) => current.map((entry) => (
+          entry.kind === updatedLoop.kind ? updatedLoop : entry
+        )));
+        setLoopDrafts((current) => ({
+          ...current,
+          [updatedLoop.kind]: {
+            intervalSeconds: String(updatedLoop.interval_seconds),
+          },
+        }));
+      }
+      setLoopActionState((current) => ({
+        ...current,
+        [loop.kind]: {
+          status: 'success',
+          message: 'Loop updated.',
+        },
+      }));
+    } catch (error) {
+      setLoopActionState((current) => ({
+        ...current,
+        [loop.kind]: {
+          status: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      }));
+    } finally {
+      setActingLoops((current) => {
+        const next = { ...current };
+        delete next[loop.kind];
+        return next;
+      });
+    }
+  };
+
   if (loading) return <div className="p-8 text-zinc-500">Loading settings…</div>;
 
   return (
@@ -806,7 +915,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       </button>
       <h2 className="text-xl font-medium text-zinc-200 mb-6">Settings</h2>
       <div className="mb-8 flex gap-2 border-b border-zinc-800 pb-3">
-        {(['general', 'integrations', 'components', 'runs'] as const).map((tab) => (
+        {(['general', 'integrations', 'components', 'runs', 'loops'] as const).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -1371,6 +1480,88 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
         </div>
       </section>
       ) : null}
+
+      {activeTab === 'loops' ? (
+        <section className="space-y-4">
+          <div>
+            <h3 className="text-lg font-medium text-zinc-200">Runtime loops</h3>
+            <p className="text-sm text-zinc-500">
+              Enable or slow down durable backend loops without dropping to the CLI.
+            </p>
+          </div>
+          {loops.length === 0 ? (
+            <p className="text-sm text-zinc-500">No loop records yet.</p>
+          ) : (
+            loops.map((loop) => (
+              <article key={loop.kind} className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-zinc-100">{loop.kind}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Next due {loop.next_due_at ? formatUnixTimestamp(loop.next_due_at) : '—'}
+                    </p>
+                    {loop.last_status ? (
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Last status {loop.last_status}
+                        {loop.last_error ? ` · ${loop.last_error}` : ''}
+                      </p>
+                    ) : null}
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={loop.enabled}
+                      onChange={(event) => void saveLoop(loop, event.target.checked)}
+                      disabled={Boolean(actingLoops[loop.kind])}
+                      className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    Enabled
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
+                  <label className="flex-1 space-y-1">
+                    <span className="text-xs uppercase tracking-wide text-zinc-500">Interval seconds</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={loopDrafts[loop.kind]?.intervalSeconds ?? String(loop.interval_seconds)}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setLoopDrafts((current) => ({
+                          ...current,
+                          [loop.kind]: {
+                            intervalSeconds: nextValue,
+                          },
+                        }));
+                      }}
+                      disabled={Boolean(actingLoops[loop.kind])}
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void saveLoop(loop, loop.enabled)}
+                    disabled={Boolean(actingLoops[loop.kind])}
+                    className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+                  >
+                    {actingLoops[loop.kind] ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+                {loopActionState[loop.kind] ? (
+                  <p
+                    className={`mt-3 text-sm ${
+                      loopActionState[loop.kind]?.status === 'error' ? 'text-rose-400' : 'text-emerald-400'
+                    }`}
+                  >
+                    {loopActionState[loop.kind]?.message}
+                  </p>
+                ) : null}
+              </article>
+            ))
+          )}
+        </section>
+      ) : null}
       {saving && <p className="text-zinc-500 text-sm mt-4">Saving…</p>}
     </div>
   );
@@ -1380,6 +1571,14 @@ function formatTimestamp(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
+  }
+  return date.toLocaleString();
+}
+
+function formatUnixTimestamp(value: number): string {
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.getTime())) {
+    return `${value}`;
   }
   return date.toLocaleString();
 }

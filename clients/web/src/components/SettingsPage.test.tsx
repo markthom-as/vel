@@ -68,6 +68,18 @@ async function openComponentsTab(container: HTMLElement) {
   return root
 }
 
+async function openLoopsTab(container: HTMLElement) {
+  const root = getSettingsRoot(container)
+  await waitFor(() => {
+    expect(within(root).getByRole('button', { name: /^loops$/i })).toBeInTheDocument()
+  })
+  fireEvent.click(within(root).getByRole('button', { name: /^loops$/i }))
+  await waitFor(() => {
+    expect(within(root).getByRole('heading', { name: /runtime loops/i })).toBeInTheDocument()
+  })
+  return root
+}
+
 describe('SettingsPage', () => {
   beforeEach(() => {
     clearQueryCache()
@@ -232,6 +244,24 @@ describe('SettingsPage', () => {
             },
           ],
           meta: { request_id: 'req_components' },
+        } as never
+      }
+      if (path === '/v1/loops') {
+        return {
+          ok: true,
+          data: [
+            {
+              kind: 'evaluate_current_state',
+              enabled: true,
+              interval_seconds: 300,
+              last_started_at: 1_710_000_000,
+              last_finished_at: 1_710_000_030,
+              last_status: 'success',
+              last_error: null,
+              next_due_at: 1_710_000_300,
+            },
+          ],
+          meta: { request_id: 'req_loops' },
         } as never
       }
       if (path === '/api/components/evaluate/logs?limit=50') {
@@ -1112,6 +1142,39 @@ describe('SettingsPage', () => {
     expect(within(evaluateCard as HTMLElement).getByText('Restarts: 3')).toBeInTheDocument()
     expect(within(evaluateCard as HTMLElement).getByText('Last error: restart failed')).toBeInTheDocument()
     expect(within(evaluateCard as HTMLElement).getByText('error')).toBeInTheDocument()
+  })
+
+  it('updates runtime loops from the loops tab', async () => {
+    vi.mocked(client.apiPatch).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        kind: 'evaluate_current_state',
+        enabled: false,
+        interval_seconds: 600,
+        last_started_at: 1_710_000_000,
+        last_finished_at: 1_710_000_030,
+        last_status: 'success',
+        last_error: null,
+        next_due_at: 1_710_000_600,
+      },
+      meta: { request_id: 'req_loop_patch' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openLoopsTab(container)
+
+    fireEvent.change(within(root).getByDisplayValue('300'), { target: { value: '600' } })
+    fireEvent.click(within(root).getByLabelText(/enabled/i))
+
+    await waitFor(() => {
+      expect(vi.mocked(client.apiPatch)).toHaveBeenCalledWith(
+        '/v1/loops/evaluate_current_state',
+        { enabled: false, interval_seconds: 600 },
+        expect.any(Function),
+      )
+    })
+
+    expect(within(root).getByText('Loop updated.')).toBeInTheDocument()
   })
 
   it('subscribes to websocket updates for runs', async () => {

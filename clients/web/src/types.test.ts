@@ -7,6 +7,7 @@ import {
   decodeComponentData,
   decodeComponentLogEventData,
   decodeIntegrationsData,
+  decodeLoopData,
   decodeNowData,
   decodeNullable,
   decodeArray,
@@ -313,6 +314,30 @@ describe('transport decoders', () => {
       },
       created_at: 1710000000,
       resolved_at: null,
+    })
+  })
+
+  it('decodes runtime loop payloads', () => {
+    expect(
+      decodeLoopData({
+        kind: 'evaluate_current_state',
+        enabled: true,
+        interval_seconds: 300,
+        last_started_at: 1710000000,
+        last_finished_at: 1710000030,
+        last_status: 'success',
+        last_error: null,
+        next_due_at: 1710000300,
+      }),
+    ).toEqual({
+      kind: 'evaluate_current_state',
+      enabled: true,
+      interval_seconds: 300,
+      last_started_at: 1710000000,
+      last_finished_at: 1710000030,
+      last_status: 'success',
+      last_error: null,
+      next_due_at: 1710000300,
     })
   })
 

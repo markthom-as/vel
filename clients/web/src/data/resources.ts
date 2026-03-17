@@ -14,6 +14,7 @@ import {
   decodeIntegrationsData,
   decodeInboxItemData,
   decodeInterventionActionData,
+  decodeLoopData,
   decodeMessageData,
   decodeNowData,
   decodeNullable,
@@ -34,6 +35,7 @@ import {
   type InboxItemData,
   type IntegrationsData,
   type InterventionActionData,
+  type LoopData,
   type MessageData,
   type NowData,
   type ProvenanceData,
@@ -74,6 +76,7 @@ export const queryKeys = {
   driftExplain: () => ['context', 'drift-explain'] as const,
   settings: () => ['settings'] as const,
   integrations: () => ['integrations'] as const,
+  loops: () => ['loops'] as const,
   components: () => ['components'] as const,
   componentLogs: (componentId: string) => ['components', componentId, 'logs'] as const,
   integrationLogs: (integrationId: string) => ['integrations', integrationId, 'logs'] as const,
@@ -170,6 +173,13 @@ export function loadIntegrations(): Promise<ApiResponse<IntegrationsData>> {
   return apiGet<ApiResponse<IntegrationsData>>(
     '/api/integrations',
     (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function loadLoops(): Promise<ApiResponse<LoopData[]>> {
+  return apiGet<ApiResponse<LoopData[]>>(
+    '/v1/loops',
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeLoopData)),
   );
 }
 
@@ -290,6 +300,17 @@ export function updateRun(
     `/v1/runs/${runId}`,
     patch,
     (value) => decodeApiResponse(value, decodeRunSummaryData),
+  );
+}
+
+export function updateLoop(
+  loopKind: string,
+  patch: Record<string, unknown>,
+): Promise<ApiResponse<LoopData>> {
+  return apiPatch<ApiResponse<LoopData>>(
+    `/v1/loops/${encodeURIComponent(loopKind.trim())}`,
+    patch,
+    (value) => decodeApiResponse(value, decodeLoopData),
   );
 }
 
