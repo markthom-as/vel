@@ -2,10 +2,19 @@
 title: Vel Ticket Packs
 status: active
 owner: agent
+class: convergence
+authority: design
+status_model:
+  - active
+  - normalized
+  - partial
+  - archived
+source_of_truth: docs/status.md
 labels:
   - planning
   - tickets
 created: 2026-03-15
+updated: 2026-03-17
 ---
 
 # Vel — Ticket Pack Index
@@ -27,7 +36,32 @@ Use this file to answer:
 
 Do **not** use this file alone to decide what has shipped.
 
+Shared pack schema:
+
+- [docs/tickets/pack-schema.md](pack-schema.md)
+
 ## How to read this directory
+
+This index is itself a schema-driven classification layer, not a shipped-behavior ledger.
+
+Pack schema for this index:
+
+- `class: convergence`
+- `authority: design`
+- `status_model: active | normalized | partial | archived`
+- `source_of_truth: docs/status.md`
+
+Entry criteria:
+
+- use this file to decide which pack to consult,
+- use this file to compare pack maturity and authority,
+- use this file when multiple packs appear to overlap.
+
+Exit criteria:
+
+- every actively used pack is classified by maturity and authority,
+- the index points to the current normalization rules,
+- pack readers know when to prefer `docs/status.md` instead.
 
 Ticket packs fall into three practical maturity classes:
 
@@ -79,6 +113,10 @@ Audit-derived convergence pack for repo truth, hermetic tests, ticket-pack norma
 - **Spec:** [docs/specs/vel-repo-audit-hardening-spec.md](../specs/vel-repo-audit-hardening-spec.md)
 - **Use when:** reconciling docs/tickets/specs/code state and turning audit findings into sequenced cleanup work.
 - **Caution:** this pack is for convergence and modularization planning; use `docs/status.md` for shipped behavior.
+
+Normalization note:
+
+- this is the current reference pack for the shared schema in [pack-schema.md](pack-schema.md)
 
 ### Near-term design / expansion
 

@@ -244,13 +244,13 @@ Important current alignment:
 
 Measured local hotspots:
 
-- [crates/veld/src/app.rs](/home/jove/code/vel/crates/veld/src/app.rs): 8380 lines
+- [crates/veld/src/app.rs](/home/jove/code/vel/crates/veld/src/app.rs): 8664 lines
 - [crates/vel-storage/src/db.rs](/home/jove/code/vel/crates/vel-storage/src/db.rs): 5256 lines
 - [clients/web/src/components/SettingsPage.tsx](/home/jove/code/vel/clients/web/src/components/SettingsPage.tsx): 2371 lines
 - [crates/veld/src/services/integrations.rs](/home/jove/code/vel/crates/veld/src/services/integrations.rs): 2076 lines
 - [crates/vel-api-types/src/lib.rs](/home/jove/code/vel/crates/vel-api-types/src/lib.rs): 1765 lines
 - [crates/veld/src/services/inference.rs](/home/jove/code/vel/crates/veld/src/services/inference.rs): 1621 lines
-- [crates/veld/src/services/client_sync.rs](/home/jove/code/vel/crates/veld/src/services/client_sync.rs): 1548 lines
+- [crates/veld/src/services/client_sync.rs](/home/jove/code/vel/crates/veld/src/services/client_sync.rs): 1561 lines
 - [clients/web/src/types.ts](/home/jove/code/vel/clients/web/src/types.ts): 1495 lines
 - [crates/veld/src/routes/chat.rs](/home/jove/code/vel/crates/veld/src/routes/chat.rs): 1055 lines
 

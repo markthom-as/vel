@@ -51,8 +51,8 @@ Do not use this pack alone to answer "what is shipped now".
 
 - `001` docs truth repair and entrypoint alignment: done
 - `002` hermetic local-integration tests and loop behavior: in_progress
-- `003` pack schema and maturity normalization: todo
-- `004` architecture map and module-boundary audit: todo
+- `003` pack schema and maturity normalization: in_progress
+- `004` architecture map and module-boundary audit: in_progress
 - `005` chat service-boundary extraction plan: todo
 - `006` storage-layer modularization plan: todo
 - `007` frontend surface decomposition plan: todo

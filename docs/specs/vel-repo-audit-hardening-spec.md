@@ -83,6 +83,8 @@ Before any major decomposition pass, create and maintain:
 - candidate extraction seams,
 - acceptance tests that preserve behavior during extraction.
 
+Use [docs/specs/vel-architecture-audit-method.md](vel-architecture-audit-method.md) as the required process for this work.
+
 The goal is architectural compression, not file-count inflation.
 
 ## 5. Ticket packs need a shared schema
@@ -124,6 +126,7 @@ This reduces ambiguity across packs without erasing local detail.
 - define pack schema
 - classify current packs by maturity and authority
 - reduce ambiguity between active convergence and speculative architecture
+- make pack READMEs converge on a shared metadata and section model
 
 # Big-picture modularization process
 

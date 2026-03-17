@@ -1,6 +1,6 @@
 ---
 title: Ticket-pack schema and maturity normalization
-status: todo
+status: in_progress
 owner: agent
 type: documentation
 priority: high
@@ -27,3 +27,15 @@ Define and roll out a shared schema for active, expansion, and speculative ticke
 - active packs clearly state class, authority, and source of truth
 - ticket-pack index can classify packs consistently
 - pack status language no longer varies arbitrarily where it causes confusion
+
+## Current normalization artifact
+
+- [docs/tickets/pack-schema.md](../pack-schema.md)
+
+Initial normalization target set:
+
+- [docs/tickets/README.md](../README.md)
+- [docs/tickets/repo-feedback/README.md](../repo-feedback/README.md)
+- [docs/tickets/multi-client-swarm/README.md](../multi-client-swarm/README.md)
+- [docs/tickets/agent-runtime/README.md](../agent-runtime/README.md)
+- [docs/tickets/full-spec-pack/README.md](../full-spec-pack/README.md)

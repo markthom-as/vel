@@ -477,11 +477,12 @@ This allows the swarm scheduler to place work intelligently without out-of-band 
 The scheduler is the first consumer of queued receipts. It drives placement, retries, and reclamation through the newly shipped queue endpoints:
 
 - `GET /v1/sync/work-queue` shows all pending work for a node–worker-class combination after filtering out work whose latest receipt is terminal (`completed`, `cancelled`).
+- `POST /v1/sync/work-queue/claim-next` lets a worker claim the next eligible queued unit without reimplementing receipt filtering and retry logic client-side.
 - `POST /v1/sync/work-assignments` claims a work request and records a `claimed` receipt; the scheduler includes its `worker_id`, `work_request_id`, and the targeted `node_id`.
 - `PATCH /v1/sync/work-assignments` moves receipts through `started`, `completed`, `failed`, or `cancelled` so both the scheduler and operator surfaces can follow progress.
 - `GET /v1/sync/work-assignments` exposes the receipt history for inspection, replay, and eventual audit.
 
-The scheduler must treat receipts older than the configured stale window (currently ~300 seconds) as reclaimable and may reassign the work unless the latest receipt is `completed` or `cancelled`. Duplicate incoming requests should look up the latest receipt and reuse it if it is still `claimed`, `started`, or `completed`; only a terminal/fresh failure or stale timeout should cause the scheduler to enqueue the unit again.
+The scheduler must treat receipts older than the configured stale window (currently ~300 seconds) as reclaimable and may reassign the work unless the latest receipt is `completed` or `cancelled`. Duplicate incoming requests should look up the latest receipt and reuse it if it is still `claimed`, `started`, or `completed`; only a terminal/fresh failure or stale timeout should cause the scheduler to enqueue the unit again. Queue surfaces should also expose enough metadata for operators and workers to explain the decision: at minimum `attempt_count`, `claimable_now`, `claim_reason`, and `next_retry_at`.
 
 Failure receipts should carry reason metadata so the scheduler can escalate, rerun on a different worker class, or present a clarification request rather than looping forever. Queue inspection also serves as a live backlog view so the scheduler can throttle new dispatches when too many items are already pending or when the configured `queue_depth` exceeds the worker’s advertised capacity.
 
@@ -614,6 +615,7 @@ As of the current repo state, the following read/write subset exists:
 - `POST /v1/sync/work-assignments`
 - `PATCH /v1/sync/work-assignments`
 - `GET /v1/sync/work-queue`
+- `POST /v1/sync/work-queue/claim-next`
 - `POST /v1/sync/actions`
 
 This is only a bootstrap slice of the full cluster-sync design.
@@ -628,6 +630,8 @@ What is present now:
 - worker-aware routing for queued validation and branch-sync requests
 - receipt-backed work claim/start/complete/fail lifecycle
 - queue inspection for pending node/worker-class work after receipt-state filtering
+- queue-level retry metadata (`attempt_count`, `claimable_now`, `claim_reason`, `next_retry_at`)
+- a `claim-next` scheduler primitive for workers that need the next eligible queued unit without reimplementing receipt filtering
 
 What is not yet present:
 

@@ -1,6 +1,39 @@
-# Vel Repo Feedback Tickets — 2026-03-15
+---
+title: Vel repo feedback ticket pack
+status: active
+owner: agent
+class: convergence
+authority: execution
+status_model:
+  - todo
+  - in_progress
+  - done
+  - deferred
+source_of_truth: docs/status.md
+created: 2026-03-15
+updated: 2026-03-17
+---
+
+# Vel Repo Feedback Tickets
 
 This packet contains repo-review tickets based on the uploaded `vel-main` snapshot.
+
+## Pack schema
+
+- `class: convergence`
+- `authority: execution`
+- `status_model: todo | in_progress | done | deferred`
+- `source_of_truth: docs/status.md`
+
+## Entry criteria
+
+Use this pack when:
+
+- tightening current architecture boundaries,
+- reconciling prior review findings with live code,
+- choosing convergence work adjacent to the newer audit-hardening pack.
+
+Use [repo-audit-hardening/README.md](../repo-audit-hardening/README.md) first when the task is primarily about repo truth, pack normalization, or pre-decomposition architecture mapping.
 
 ## Summary
 
@@ -45,3 +78,9 @@ Current practical state in this packet:
 7. `007-clean-up-web-shell-and-remove-starter-template-residue.md`
 8. `008-establish-build-ci-and-repo-truth-checks.md`
 9. `009-rationalize-docs-status-and-implementation-roadmap.md`
+
+## Exit criteria
+
+- remaining review-derived cleanup is either completed, deferred, or superseded,
+- overlapping work has been moved under the normalized hardening lane where appropriate,
+- the pack no longer acts as an ambiguous second convergence queue.
