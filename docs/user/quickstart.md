@@ -91,7 +91,16 @@ make dev
 
 That runs both `veld` and the web dev server together.
 
-## 8. Optional: use local source snapshots
+## 8. Optional: choose a fuller deployment path
+
+If you want either:
+
+- a reproducible host-side Nix environment, or
+- a persistent NAS/container deployment
+
+see [Deployment And Setup](deployment.md).
+
+## 9. Optional: use local source snapshots
 
 The repo-local `vel.toml` already points at local seed inputs under `var/integrations/`.
 

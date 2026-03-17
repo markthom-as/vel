@@ -26,18 +26,20 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 ## Start here
 
 1. [Quickstart](quickstart.md) for the shortest path from repo clone to first useful result.
-2. [Setup](setup.md) for config, storage, integrations, and macOS source setup.
-3. [Daily Use](daily-use.md) for the repeated workflow once Vel is running.
-4. [Surfaces](surfaces.md) for what the main UI and CLI surfaces mean.
-5. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
-6. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
-7. [Privacy](privacy.md) for the current local-first trust model and data locations.
-8. [Vocabulary](../vocabulary.md) for the canonical meanings of Vel domain and command-language terms.
-9. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
+2. [Deployment And Setup](deployment.md) for the main Nix and Docker runtime paths.
+3. [Setup](setup.md) for config, storage, integrations, and macOS source setup.
+4. [Daily Use](daily-use.md) for the repeated workflow once Vel is running.
+5. [Surfaces](surfaces.md) for what the main UI and CLI surfaces mean.
+6. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
+7. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
+8. [Privacy](privacy.md) for the current local-first trust model and data locations.
+9. [Vocabulary](../vocabulary.md) for the canonical meanings of Vel domain and command-language terms.
+10. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
 
 ## What works now
 
 - `veld` runs a local daemon and HTTP API.
+- `veld` can also run as a persistent Docker container for NAS/local network deployment.
 - `vel` provides the main operator CLI.
 - captures, commitments, context generation, nudges, recent/review flows, and artifact/run inspection are implemented.
 - local integrations can be ingested from files or snapshots.

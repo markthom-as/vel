@@ -75,6 +75,15 @@ cargo run -p vel-cli -- morning
 cargo run -p vel-cli -- config show
 ```
 
+## Deployment Options
+
+Vel now ships two practical runtime paths beyond ad hoc local development:
+
+- Nix-hosted execution via [shell.nix](shell.nix)
+- Docker/NAS deployment via [docker-compose.yml](docker-compose.yml)
+
+The full setup guide for both is in [docs/user/deployment.md](docs/user/deployment.md).
+
 ## Hugging Face CLI
 
 The repo declares the official Hugging Face CLI (`hf`) as a project-scoped Nix shell dependency in `shell.nix`.

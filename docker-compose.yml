@@ -1,0 +1,27 @@
+services:
+  veld:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: veld:latest
+    container_name: veld
+    restart: unless-stopped
+    ports:
+      - "4130:4130"
+    environment:
+      VEL_BIND_ADDR: 0.0.0.0:4130
+      VEL_BASE_URL: http://127.0.0.1:4130
+      VEL_DB_PATH: /data/db/vel.sqlite
+      VEL_ARTIFACT_ROOT: /data/artifacts
+      VEL_LOG_LEVEL: info
+      VEL_AGENT_SPEC_PATH: /app/config/agent-specs.yaml
+      VEL_MODELS_DIR: /app/configs/models
+      VEL_POLICIES_PATH: /app/config/policies.yaml
+    volumes:
+      - ./var/docker/vel:/data
+    healthcheck:
+      test: ["CMD", "vel", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

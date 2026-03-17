@@ -14,6 +14,12 @@ The default local daemon address is:
 
 - `http://127.0.0.1:4130`
 
+For Docker/NAS deployment, the containerized daemon binds:
+
+- `0.0.0.0:4130` inside the container
+
+For the full Nix and Docker deployment paths, see [Deployment And Setup](deployment.md).
+
 ## Local storage
 
 The default repo-local development layout is:

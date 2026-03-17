@@ -1,0 +1,8 @@
+.git
+.github
+target
+var
+clients
+node_modules
+npm-debug.log
+docs

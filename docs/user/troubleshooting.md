@@ -32,6 +32,19 @@ What to do:
 3. rerun `cargo run -p vel-cli -- health`
 4. if using Apple clients, verify `vel_base_url`, `vel_tailscale_url`, or `vel_lan_base_url`
 
+If you are using the reproducible Nix path instead of a host-installed toolchain, use:
+
+```bash
+make nix-dev-api
+```
+
+If you are using the Docker/NAS path, use:
+
+```bash
+docker compose ps
+docker compose logs veld
+```
+
 If the daemon still does not start cleanly, use `vel doctor` and inspect the configured `db_path` and `artifact_root`.
 
 ## Current context is empty or stale
