@@ -5706,7 +5706,7 @@ END:VCALENDAR
                     .uri("/api/settings")
                     .header("content-type", "application/json")
                     .body(Body::from(
-                        r#"{"disable_proactive":true,"timezone":"America/Denver"}"#.to_string(),
+                        r#"{"disable_proactive":true,"ask_before_acting_mode":"hands_off","timezone":"America/Denver"}"#.to_string(),
                     ))
                     .unwrap(),
             )
@@ -5718,6 +5718,7 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["data"]["disable_proactive"].as_bool().unwrap());
+        assert_eq!(json["data"]["ask_before_acting_mode"], "hands_off");
         assert_eq!(json["data"]["timezone"], "America/Denver");
     }
 
@@ -5745,6 +5746,78 @@ END:VCALENDAR
             .await
             .unwrap();
         assert_eq!(patch_resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn hands_off_mode_surfaces_borderline_suggestion_instead_of_deferring_it() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let recent = now_ts - 3600;
+
+        storage
+            .set_setting("ask_before_acting_mode", &serde_json::json!("hands_off"))
+            .await
+            .unwrap();
+
+        storage
+            .set_current_context(
+                now_ts,
+                &serde_json::json!({
+                    "global_risk_level": "high",
+                    "global_risk_score": 0.8,
+                    "attention_state": "focused",
+                    "message_waiting_on_me_count": 2
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+
+        for (nudge_type, level) in [
+            ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+        ] {
+            storage
+                .insert_nudge(vel_storage::NudgeInsert {
+                    nudge_type: nudge_type.to_string(),
+                    level: level.to_string(),
+                    state: "resolved".to_string(),
+                    related_commitment_id: None,
+                    message: format!("{} happened", nudge_type),
+                    snoozed_until: None,
+                    resolved_at: Some(recent),
+                    signals_snapshot_json: None,
+                    inference_snapshot_json: None,
+                    metadata_json: None,
+                })
+                .await
+                .unwrap();
+        }
+
+        let created =
+            crate::services::suggestions::evaluate_after_nudges(&storage, &test_policy_config())
+                .await
+                .unwrap();
+        assert_eq!(created, 2);
+
+        let suggestions = storage.list_suggestions(Some("pending"), 10).await.unwrap();
+        assert!(suggestions
+            .iter()
+            .any(|suggestion| suggestion.suggestion_type == "increase_commute_buffer"));
+        assert!(storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]

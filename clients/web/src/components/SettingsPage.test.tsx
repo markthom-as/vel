@@ -97,6 +97,7 @@ describe('SettingsPage', () => {
             disable_proactive: false,
             toggle_risks: true,
             toggle_reminders: true,
+            ask_before_acting_mode: 'balanced',
             timezone: 'America/Denver',
           },
           meta: { request_id: 'req_1' },
@@ -414,6 +415,27 @@ describe('SettingsPage', () => {
       expect(client.apiPatch).toHaveBeenCalledWith(
         '/api/settings',
         { timezone: 'America/Los_Angeles' },
+        expect.any(Function),
+      )
+    })
+  })
+
+  it('saves ask-before-acting mode through settings api', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    await waitFor(() => {
+      const root = getSettingsRoot(container)
+      expect(within(root).getByLabelText(/ask-before-acting mode/i)).toBeInTheDocument()
+    })
+
+    const root = getSettingsRoot(container)
+    fireEvent.change(within(root).getByLabelText(/ask-before-acting mode/i), {
+      target: { value: 'hands_off' },
+    })
+
+    await waitFor(() => {
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/settings',
+        { ask_before_acting_mode: 'hands_off' },
         expect.any(Function),
       )
     })

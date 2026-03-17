@@ -80,6 +80,7 @@ export interface SettingsData {
   disable_proactive?: boolean;
   toggle_risks?: boolean;
   toggle_reminders?: boolean;
+  ask_before_acting_mode?: string;
   timezone?: string | null;
 }
 
@@ -803,6 +804,10 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.toggle_reminders === undefined
         ? undefined
         : expectBoolean(record.toggle_reminders, 'settings.toggle_reminders'),
+    ask_before_acting_mode:
+      record.ask_before_acting_mode === undefined
+        ? undefined
+        : expectString(record.ask_before_acting_mode, 'settings.ask_before_acting_mode'),
     timezone:
       record.timezone === undefined
         ? undefined

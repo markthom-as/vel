@@ -27,7 +27,7 @@ pub use run::{
     AgentSuggestedAction, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus,
 };
 pub use types::{ConversationId, EventId, InterventionId, MessageId};
-pub use uncertainty::{ResolutionMode, UncertaintyStatus};
+pub use uncertainty::{AskBeforeActingMode, ResolutionMode, UncertaintyStatus};
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};

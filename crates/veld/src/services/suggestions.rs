@@ -69,8 +69,10 @@ async fn collect_candidates(
             nudge.state == "resolved" && nudge.level == "danger"
         });
     if resolved_commute_danger.len() >= suggestion_policy.commute.threshold {
-        let (confidence, confidence_score) =
-            candidate_confidence(resolved_commute_danger.len(), suggestion_policy.commute.threshold);
+        let (confidence, confidence_score) = candidate_confidence(
+            resolved_commute_danger.len(),
+            suggestion_policy.commute.threshold,
+        );
         let current_minutes = current_commute_minutes(policy_config);
         let suggested_minutes = current_minutes + suggestion_policy.commute.increment_minutes;
         candidates.push(build_candidate(
@@ -139,8 +141,10 @@ async fn collect_candidates(
         matches!(nudge.state.as_str(), "active" | "resolved")
     });
     if morning_drift.len() >= suggestion_policy.morning_drift.threshold {
-        let (confidence, confidence_score) =
-            candidate_confidence(morning_drift.len(), suggestion_policy.morning_drift.threshold);
+        let (confidence, confidence_score) = candidate_confidence(
+            morning_drift.len(),
+            suggestion_policy.morning_drift.threshold,
+        );
         candidates.push(build_candidate(
             SuggestionType::AddStartRoutine,
             35,
@@ -291,17 +295,15 @@ async fn apply_feedback_history(
             let boost = i64::from(summary.accepted_and_policy_changed.min(3)) * 5;
             candidate.priority += boost;
             candidate.confidence_score = (candidate.confidence_score + 0.18).clamp(0.0, 1.0);
-            candidate.confidence = crate::services::uncertainty::band_from_score(
-                candidate.confidence_score,
-            );
+            candidate.confidence =
+                crate::services::uncertainty::band_from_score(candidate.confidence_score);
         }
         if summary.rejected_incorrect > 0 {
             let penalty = i64::from(summary.rejected_incorrect.min(3)) * 8;
             candidate.priority -= penalty;
             candidate.confidence_score = (candidate.confidence_score - 0.22).clamp(0.0, 1.0);
-            candidate.confidence = crate::services::uncertainty::band_from_score(
-                candidate.confidence_score,
-            );
+            candidate.confidence =
+                crate::services::uncertainty::band_from_score(candidate.confidence_score);
         }
         if let Some(context) = candidate.decision_context.as_object_mut() {
             context.insert(
@@ -320,11 +322,13 @@ async fn defer_low_confidence_candidates(
     storage: &Storage,
     candidates: Vec<SuggestionCandidate>,
 ) -> Result<Vec<SuggestionCandidate>, crate::errors::AppError> {
+    let ask_before_mode = crate::services::uncertainty::ask_before_acting_mode(storage).await?;
     let mut accepted = Vec::new();
     for candidate in candidates {
         let resolution_mode = crate::services::uncertainty::resolution_mode_for(
             candidate.confidence_score,
             "suggestion_generation",
+            ask_before_mode,
         );
         if resolution_mode == vel_core::ResolutionMode::Proceed {
             accepted.push(candidate);
@@ -438,10 +442,7 @@ fn candidate_confidence(count: usize, threshold: usize) -> (ConfidenceBand, f64)
         1 => 0.58,
         _ => 0.76,
     };
-    (
-        crate::services::uncertainty::band_from_score(score),
-        score,
-    )
+    (crate::services::uncertainty::band_from_score(score), score)
 }
 
 fn missing_evidence_for_candidate(candidate: &SuggestionCandidate) -> JsonValue {

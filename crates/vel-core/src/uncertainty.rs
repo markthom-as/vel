@@ -60,6 +60,53 @@ impl Display for UncertaintyStatus {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AskBeforeActingMode {
+    HandsOff,
+    Balanced,
+    HighClarity,
+    DelegateToAgentsFirst,
+    AskBeforeDestructiveActionsOnly,
+}
+
+impl Default for AskBeforeActingMode {
+    fn default() -> Self {
+        Self::Balanced
+    }
+}
+
+impl Display for AskBeforeActingMode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::HandsOff => "hands_off",
+            Self::Balanced => "balanced",
+            Self::HighClarity => "high_clarity",
+            Self::DelegateToAgentsFirst => "delegate_to_agents_first",
+            Self::AskBeforeDestructiveActionsOnly => "ask_before_destructive_actions_only",
+        };
+        f.write_str(value)
+    }
+}
+
+impl FromStr for AskBeforeActingMode {
+    type Err = crate::VelCoreError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "hands_off" => Ok(Self::HandsOff),
+            "balanced" => Ok(Self::Balanced),
+            "high_clarity" => Ok(Self::HighClarity),
+            "delegate_to_agents_first" => Ok(Self::DelegateToAgentsFirst),
+            "ask_before_destructive_actions_only" => Ok(Self::AskBeforeDestructiveActionsOnly),
+            _ => Err(crate::VelCoreError::Validation(format!(
+                "unknown ask-before-acting mode: {}",
+                value
+            ))),
+        }
+    }
+}
+
 impl FromStr for UncertaintyStatus {
     type Err = crate::VelCoreError;
 

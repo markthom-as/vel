@@ -782,6 +782,7 @@ pub struct SettingsUpdateRequest {
     pub disable_proactive: Option<bool>,
     pub toggle_risks: Option<bool>,
     pub toggle_reminders: Option<bool>,
+    pub ask_before_acting_mode: Option<String>,
     pub timezone: Option<String>,
 }
 
@@ -808,6 +809,19 @@ pub async fn patch_settings(
         state
             .storage
             .set_setting("toggle_reminders", &serde_json::json!(v))
+            .await?;
+    }
+    if let Some(value) = payload.ask_before_acting_mode {
+        let mode = value
+            .trim()
+            .parse::<vel_core::AskBeforeActingMode>()
+            .map_err(|error| AppError::bad_request(error.to_string()))?;
+        state
+            .storage
+            .set_setting(
+                "ask_before_acting_mode",
+                &serde_json::json!(mode.to_string()),
+            )
             .await?;
     }
     if let Some(value) = payload.timezone {

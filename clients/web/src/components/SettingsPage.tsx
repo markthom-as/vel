@@ -99,6 +99,34 @@ interface GuidanceActionButton {
 
 type SettingsTab = 'general' | 'integrations' | 'components' | 'runs' | 'loops';
 
+const ASK_BEFORE_ACTING_MODES = [
+  {
+    value: 'hands_off',
+    label: 'Hands off',
+    detail: 'Show borderline suggestions instead of deferring them unless confidence is very low.',
+  },
+  {
+    value: 'balanced',
+    label: 'Balanced',
+    detail: 'Default caution level for uncertainty-driven interruption and deferral.',
+  },
+  {
+    value: 'high_clarity',
+    label: 'High clarity',
+    detail: 'Defer more borderline actions so Vel asks for stronger evidence first.',
+  },
+  {
+    value: 'delegate_to_agents_first',
+    label: 'Delegate first',
+    detail: 'Bias toward resolver/delegation paths before surfacing uncertain actions.',
+  },
+  {
+    value: 'ask_before_destructive_actions_only',
+    label: 'Destructive only',
+    detail: 'Keep interruptions low and reserve extra caution for the riskiest decisions.',
+  },
+] as const;
+
 interface LoopDraft {
   intervalSeconds: string;
 }
@@ -1087,6 +1115,35 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                 Save timezone
               </button>
             </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <label className="space-y-2">
+              <span className="text-zinc-300">Ask-before-acting mode</span>
+              <p className="text-sm text-zinc-500">
+                Tunes how aggressively Vel defers borderline actions into uncertainty instead of
+                surfacing them immediately.
+              </p>
+              <select
+                aria-label="Ask-before-acting mode"
+                value={settings.ask_before_acting_mode ?? 'balanced'}
+                onChange={(event) => update('ask_before_acting_mode', event.target.value)}
+                disabled={saving}
+                className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+              >
+                {ASK_BEFORE_ACTING_MODES.map((mode) => (
+                  <option key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500">
+                {
+                  ASK_BEFORE_ACTING_MODES.find(
+                    (mode) => mode.value === (settings.ask_before_acting_mode ?? 'balanced'),
+                  )?.detail
+                }
+              </p>
+            </label>
           </div>
         </div>
       ) : null}
