@@ -182,6 +182,12 @@ pub async fn run_command(client: &ApiClient, input: Vec<String>, json: bool) -> 
             println!("Daemon plan:");
             println!("  mode: {:?}", plan.mode);
             println!("  summary: {}", plan.summary);
+            if let Some(hints) = plan.intent_hints {
+                println!("  intent hints:");
+                println!("    target_kind: {}", hints.target_kind);
+                println!("    mode: {}", hints.mode);
+                println!("    suggestions: {}", hints.suggestions.join(", "));
+            }
             if !plan.steps.is_empty() {
                 println!("  steps:");
                 for step in plan.steps {

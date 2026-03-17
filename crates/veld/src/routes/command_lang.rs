@@ -2,8 +2,9 @@ use axum::{extract::State, Json};
 use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, CommandExecuteRequest, CommandExecutionPayloadData, CommandExecutionPlanData,
-    CommandExecutionResultData, CommandPlanModeData, CommandPlanRequest, CommandPlanStepData,
-    CommandValidationData, CommandValidationIssueCodeData, CommandValidationIssueData,
+    CommandExecutionResultData, CommandIntentHintsData, CommandPlanModeData, CommandPlanRequest,
+    CommandPlanStepData, CommandValidationData, CommandValidationIssueCodeData,
+    CommandValidationIssueData,
 };
 
 use crate::{errors::AppError, services, state::AppState};
@@ -88,6 +89,11 @@ fn plan_to_data(plan: services::command_lang::CommandExecutionPlan) -> CommandEx
                 detail: step.detail,
             })
             .collect(),
+        intent_hints: plan.intent_hints.map(|hints| CommandIntentHintsData {
+            target_kind: hints.target_kind.to_string(),
+            mode: hints.mode,
+            suggestions: hints.suggestions,
+        }),
         validation: CommandValidationData {
             is_valid: plan.validation.is_valid,
             issues: plan

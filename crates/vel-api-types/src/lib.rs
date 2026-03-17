@@ -82,12 +82,21 @@ pub struct CommandPlanStepData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandIntentHintsData {
+    pub target_kind: String,
+    pub mode: String,
+    pub suggestions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandExecutionPlanData {
     pub operation: String,
     pub target_kinds: Vec<String>,
     pub mode: CommandPlanModeData,
     pub summary: String,
     pub steps: Vec<CommandPlanStepData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intent_hints: Option<CommandIntentHintsData>,
     pub validation: CommandValidationData,
 }
 

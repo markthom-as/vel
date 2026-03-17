@@ -54,12 +54,20 @@ pub struct CommandPlanStep {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandIntentHints {
+    pub target_kind: DomainKind,
+    pub mode: String,
+    pub suggestions: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommandExecutionPlan {
     pub operation: DomainOperation,
     pub target_kinds: Vec<DomainKind>,
     pub mode: CommandPlanMode,
     pub summary: String,
     pub steps: Vec<CommandPlanStep>,
+    pub intent_hints: Option<CommandIntentHints>,
     pub validation: CommandValidation,
 }
 
@@ -95,6 +103,7 @@ pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
     let target_kinds = command.targets.iter().map(|t| t.kind).collect::<Vec<_>>();
     let steps = build_plan_steps(command);
     let summary = build_summary(command, mode, target_kinds.len());
+    let intent_hints = build_intent_hints(command);
 
     CommandExecutionPlan {
         operation: command.operation,
@@ -102,6 +111,7 @@ pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
         mode,
         summary,
         steps,
+        intent_hints,
         validation,
     }
 }
@@ -238,6 +248,32 @@ fn build_summary(command: &ResolvedCommand, mode: CommandPlanMode, target_count:
             CommandPlanMode::Unsupported => "unsupported",
         }
     )
+}
+
+fn build_intent_hints(command: &ResolvedCommand) -> Option<CommandIntentHints> {
+    let target_kind = command.targets.first()?.kind;
+    let mode = match target_kind {
+        DomainKind::Context => "execute",
+        DomainKind::SpecDraft | DomainKind::ExecutionPlan | DomainKind::DelegationPlan => {
+            "planning_artifact"
+        }
+        _ => "create",
+    };
+    let suggestions = match target_kind {
+        DomainKind::Capture => vec!["quick capture", "feature request", "inbox note"],
+        DomainKind::Commitment => vec!["open commitment", "project link", "due date"],
+        DomainKind::Context => vec!["today review", "week review", "read only"],
+        DomainKind::SpecDraft => vec!["planned doc", "suggested path", "design constraints"],
+        DomainKind::ExecutionPlan => vec!["task breakdown", "ordered steps", "planning only"],
+        DomainKind::DelegationPlan => vec!["worker split", "ownership", "review gate"],
+        _ => vec!["typed target"],
+    };
+
+    Some(CommandIntentHints {
+        target_kind,
+        mode: mode.to_string(),
+        suggestions: suggestions.into_iter().map(ToString::to_string).collect(),
+    })
 }
 
 fn requires_targets(operation: DomainOperation) -> bool {
@@ -398,7 +434,7 @@ async fn execute_review_context(
             return Err(AppError::bad_request(format!(
                 "unsupported review scope `{}`",
                 other
-            )))
+            )));
         }
     };
 
@@ -692,6 +728,30 @@ mod tests {
         assert_eq!(plan.mode, CommandPlanMode::DryRunOnly);
         assert!(plan.validation.is_valid);
         assert!(plan.summary.contains("dry_run_only"));
+        assert_eq!(
+            plan.intent_hints.as_ref().map(|hints| hints.mode.as_str()),
+            Some("execute")
+        );
+    }
+
+    #[test]
+    fn build_plan_for_delegation_includes_planning_hints() {
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget::new(DomainKind::DelegationPlan)],
+            ..ResolvedCommand::default()
+        };
+
+        let plan = build_execution_plan(&command);
+        assert_eq!(plan.mode, CommandPlanMode::Ready);
+        assert_eq!(
+            plan.intent_hints.as_ref().map(|hints| hints.target_kind),
+            Some(DomainKind::DelegationPlan)
+        );
+        assert_eq!(
+            plan.intent_hints.as_ref().map(|hints| hints.mode.as_str()),
+            Some("planning_artifact")
+        );
     }
 
     #[tokio::test]

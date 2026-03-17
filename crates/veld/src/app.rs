@@ -1222,6 +1222,152 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn duplicate_queue_request_after_failed_receipt_returns_retry_backoff_status() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_app_state(storage.clone());
+
+        let routed = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-retry-status".to_string()),
+        )
+        .await
+        .unwrap();
+        let claimed = crate::services::client_sync::claim_work_assignment(
+            &state,
+            vel_api_types::WorkAssignmentClaimRequestData {
+                work_request_id: routed.work_request_id.clone(),
+                worker_id: "worker-1".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        crate::services::client_sync::update_work_assignment_receipt(
+            &state,
+            vel_api_types::WorkAssignmentUpdateRequest {
+                receipt_id: claimed.receipt_id,
+                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                started_at: None,
+                completed_at: Some(now),
+                result: None,
+                error_message: Some("boom".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+
+        let duplicate = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-retry-status".to_string()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(duplicate.work_request_id, routed.work_request_id);
+        assert_eq!(duplicate.status, "retry_backoff");
+    }
+
+    #[tokio::test]
+    async fn queued_work_respects_policy_retry_exhaustion() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut policy_config = test_policy_config();
+        policy_config.queued_work.validation.max_failure_attempts = 1;
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            policy_config,
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        let routed = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-retry-exhausted".to_string()),
+        )
+        .await
+        .unwrap();
+        let claimed = crate::services::client_sync::claim_work_assignment(
+            &state,
+            vel_api_types::WorkAssignmentClaimRequestData {
+                work_request_id: routed.work_request_id.clone(),
+                worker_id: "worker-1".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        crate::services::client_sync::update_work_assignment_receipt(
+            &state,
+            vel_api_types::WorkAssignmentUpdateRequest {
+                receipt_id: claimed.receipt_id,
+                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                started_at: None,
+                completed_at: Some(time::OffsetDateTime::now_utc().unix_timestamp() - 120),
+                result: None,
+                error_message: Some("boom".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+
+        let queue = crate::services::client_sync::list_worker_queue(
+            &state,
+            "vel-node",
+            Some("validation"),
+            Some("build_test_profiles"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(queue.len(), 1);
+        assert_eq!(queue[0].claim_reason.as_deref(), Some("retry_exhausted"));
+        assert!(!queue[0].claimable_now);
+
+        let next = crate::services::client_sync::claim_next_work_for_worker(
+            &state,
+            vel_api_types::WorkAssignmentClaimNextRequestData {
+                node_id: "vel-node".to_string(),
+                worker_id: "worker-2".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        assert!(next.claim.is_none());
+    }
+
+    #[tokio::test]
     async fn loops_endpoint_lists_known_runtime_loops() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -1564,6 +1710,14 @@ mod tests {
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["data"]["operation"].as_str(), Some("execute"));
         assert_eq!(json["data"]["mode"].as_str(), Some("dry_run_only"));
+        assert_eq!(
+            json["data"]["intent_hints"]["target_kind"].as_str(),
+            Some("context")
+        );
+        assert_eq!(
+            json["data"]["intent_hints"]["mode"].as_str(),
+            Some("execute")
+        );
         assert_eq!(json["data"]["validation"]["is_valid"].as_bool(), Some(true));
         assert_eq!(
             json["data"]["steps"][2]["title"].as_str(),
