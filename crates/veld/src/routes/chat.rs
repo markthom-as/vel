@@ -13,168 +13,20 @@ use vel_api_types::{
     CreateMessageResponse, InboxItemData, InterventionActionData, MessageCreateRequest,
     MessageData, ProvenanceData, ProvenanceEvent, WsEventType,
 };
-use vel_core::normalize_risk_level;
-use vel_llm::{LlmError, LlmRequest, Message as LlmMessage, ProviderError};
-use vel_storage::{ConversationInsert, EventLogInsert, InterventionInsert, MessageInsert};
+use vel_storage::ConversationInsert;
 
 use crate::broadcast::WsEnvelope;
+use crate::services::chat::{
+    assistant::generate_assistant_reply,
+    events::emit_chat_event,
+    mapping::{
+        conversation_record_to_data, intervention_record_to_inbox_item, message_record_to_data,
+    },
+    messages::create_user_message,
+    provenance::{build_linked_objects, build_policy_decisions, build_provenance_signals},
+    settings::settings_payload,
+};
 use crate::{errors::AppError, state::AppState};
-
-// --- Helpers: append event and map storage -> DTO ---
-
-async fn emit_chat_event(
-    state: &AppState,
-    event_name: &str,
-    aggregate_type: &str,
-    aggregate_id: &str,
-    payload: serde_json::Value,
-) {
-    let _ = state
-        .storage
-        .append_event(EventLogInsert {
-            id: None,
-            event_name: event_name.to_string(),
-            aggregate_type: Some(aggregate_type.to_string()),
-            aggregate_id: Some(aggregate_id.to_string()),
-            payload_json: payload.to_string(),
-        })
-        .await;
-}
-
-fn conversation_record_to_data(r: vel_storage::ConversationRecord) -> ConversationData {
-    ConversationData {
-        id: r.id.as_ref().to_string(),
-        title: r.title,
-        kind: r.kind,
-        pinned: r.pinned,
-        archived: r.archived,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-    }
-}
-
-fn message_record_to_data(r: vel_storage::MessageRecord) -> Result<MessageData, AppError> {
-    let content: serde_json::Value = serde_json::from_str(&r.content_json)
-        .unwrap_or_else(|_| serde_json::json!({ "raw": r.content_json }));
-    Ok(MessageData {
-        id: r.id.as_ref().to_string(),
-        conversation_id: r.conversation_id.as_ref().to_string(),
-        role: r.role,
-        kind: r.kind,
-        content,
-        status: r.status,
-        importance: r.importance,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-    })
-}
-
-/// Extract plain text from a message record for LLM context (kind "text" -> content.text, else raw).
-fn message_record_to_llm_content(r: &vel_storage::MessageRecord) -> String {
-    let content: serde_json::Value = serde_json::from_str(&r.content_json)
-        .unwrap_or_else(|_| serde_json::json!({ "raw": r.content_json }));
-    if r.kind == "text" {
-        content
-            .get("text")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string()
-    } else {
-        content.to_string()
-    }
-}
-
-fn intervention_record_to_inbox_item(r: vel_storage::InterventionRecord) -> InboxItemData {
-    InboxItemData {
-        id: r.id.as_ref().to_string(),
-        message_id: r.message_id.as_ref().to_string(),
-        kind: r.kind,
-        state: r.state,
-        surfaced_at: r.surfaced_at,
-        snoozed_until: r.snoozed_until,
-        confidence: r.confidence,
-    }
-}
-
-fn intervention_kind_for_message(message: &MessageData) -> Option<&'static str> {
-    if message.role != "assistant" {
-        return None;
-    }
-    match message.kind.as_str() {
-        "reminder_card" => Some("reminder"),
-        "risk_card" => Some("risk"),
-        "suggestion_card" => Some("suggestion"),
-        _ => None,
-    }
-}
-
-async fn create_intervention_for_message_if_needed(
-    state: &AppState,
-    message: &MessageData,
-) -> Result<Option<InboxItemData>, AppError> {
-    let intervention_kind = match intervention_kind_for_message(message) {
-        Some(kind) => kind,
-        None => return Ok(None),
-    };
-
-    let intervention_id = format!("intv_{}", Uuid::new_v4().simple());
-    let surfaced_at = time::OffsetDateTime::now_utc().unix_timestamp();
-    state
-        .storage
-        .create_intervention(InterventionInsert {
-            id: intervention_id.clone(),
-            message_id: message.id.clone(),
-            kind: intervention_kind.to_string(),
-            state: "active".to_string(),
-            surfaced_at,
-            resolved_at: None,
-            snoozed_until: None,
-            confidence: None,
-            source_json: Some(message.content.to_string()),
-            provenance_json: Some(
-                serde_json::json!({
-                    "message_id": message.id,
-                    "message_kind": message.kind,
-                    "conversation_id": message.conversation_id,
-                })
-                .to_string(),
-            ),
-        })
-        .await?;
-
-    let data = InboxItemData {
-        id: intervention_id.clone(),
-        message_id: message.id.clone(),
-        kind: intervention_kind.to_string(),
-        state: "active".to_string(),
-        surfaced_at,
-        snoozed_until: None,
-        confidence: None,
-    };
-
-    emit_chat_event(
-        state,
-        "intervention.created",
-        "intervention",
-        &intervention_id,
-        serde_json::json!({
-            "id": intervention_id,
-            "message_id": message.id,
-            "kind": intervention_kind,
-            "state": "active",
-            "conversation_id": message.conversation_id,
-        }),
-    )
-    .await;
-
-    let ws_payload =
-        serde_json::to_value(&data).unwrap_or_else(|_| serde_json::json!({ "id": data.id }));
-    let _ = state
-        .broadcast_tx
-        .send(WsEnvelope::new(WsEventType::InterventionsNew, ws_payload));
-
-    Ok(Some(data))
-}
 
 // --- Conversation handlers ---
 
@@ -313,47 +165,7 @@ pub async fn create_message(
     Json(payload): Json<MessageCreateRequest>,
 ) -> Result<Json<ApiResponse<CreateMessageResponse>>, AppError> {
     let conversation_id = conversation_id.trim();
-    let _ = state
-        .storage
-        .get_conversation(conversation_id)
-        .await?
-        .ok_or_else(|| AppError::not_found("conversation not found"))?;
-    let id = format!("msg_{}", Uuid::new_v4().simple());
-    let content_json = serde_json::to_string(&payload.content)
-        .map_err(|e| AppError::bad_request(e.to_string()))?;
-    let kind = payload.kind.clone();
-    state
-        .storage
-        .create_message(MessageInsert {
-            id: id.clone(),
-            conversation_id: conversation_id.to_string(),
-            role: payload.role,
-            kind: kind.clone(),
-            content_json,
-            status: None,
-            importance: None,
-        })
-        .await?;
-    emit_chat_event(
-        &state,
-        "message.created",
-        "message",
-        &id,
-        serde_json::json!({ "id": id, "conversation_id": conversation_id, "kind": kind }),
-    )
-    .await;
-    let msg = state
-        .storage
-        .get_message(&id)
-        .await?
-        .ok_or_else(|| AppError::internal("message not found after create"))?;
-    let created_message = message_record_to_data(msg)?;
-    let _ = create_intervention_for_message_if_needed(&state, &created_message).await?;
-    let ws_payload =
-        serde_json::to_value(&created_message).unwrap_or_else(|_| serde_json::json!({ "id": id }));
-    let _ = state
-        .broadcast_tx
-        .send(WsEnvelope::new(WsEventType::MessagesNew, ws_payload));
+    let created_message = create_user_message(&state, conversation_id, &payload).await?;
 
     let (assistant_message, assistant_error) = if let (Some(router), Some(profile_id)) =
         (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
@@ -396,120 +208,6 @@ pub async fn create_message(
     };
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(response, request_id)))
-}
-
-/// Load conversation history, call LLM, persist and return assistant message. Returns Ok(None) on empty or error.
-async fn generate_assistant_reply(
-    state: &AppState,
-    conversation_id: &str,
-    profile_id: &str,
-    fallback_profile_id: Option<&str>,
-    router: &vel_llm::Router,
-) -> Result<Option<MessageData>, AppError> {
-    let list = state
-        .storage
-        .list_messages_by_conversation(conversation_id, 50)
-        .await?;
-    let messages: Vec<LlmMessage> = list
-        .iter()
-        .map(|r| LlmMessage {
-            role: r.role.clone(),
-            content: message_record_to_llm_content(r),
-        })
-        .filter(|m| !m.content.is_empty() || m.role == "assistant")
-        .collect();
-    if messages.is_empty() {
-        return Ok(None);
-    }
-    let system = "You are Vel, a helpful assistant for capture, recall, and daily orientation. Be concise and direct.".to_string();
-    let profile_ids = {
-        let mut ids = vec![profile_id];
-        if let Some(fallback_profile_id) = fallback_profile_id {
-            if fallback_profile_id != profile_id {
-                ids.push(fallback_profile_id);
-            }
-        }
-        ids
-    };
-    for (idx, attempt_profile_id) in profile_ids.iter().enumerate() {
-        let req = LlmRequest {
-            system: system.clone(),
-            messages: messages.clone(),
-            tools: vec![],
-            response_format: vel_llm::ResponseFormat::Text,
-            temperature: 0.2,
-            max_output_tokens: 2048,
-            model_profile: attempt_profile_id.to_string(),
-            metadata: serde_json::json!({}),
-        };
-        let res = router.generate(&req).await;
-        match res {
-            Ok(res) => {
-                let text = res.text.unwrap_or_default().trim().to_string();
-                if text.is_empty() {
-                    return Ok(None);
-                }
-                let assistant_id = format!("msg_{}", Uuid::new_v4().simple());
-                let content_json =
-                    serde_json::to_string(&serde_json::json!({ "text": text })).unwrap_or_default();
-                state
-                    .storage
-                    .create_message(MessageInsert {
-                        id: assistant_id.clone(),
-                        conversation_id: conversation_id.to_string(),
-                        role: "assistant".to_string(),
-                        kind: "text".to_string(),
-                        content_json,
-                        status: None,
-                        importance: None,
-                    })
-                    .await?;
-                emit_chat_event(
-                    state,
-                    "message.created",
-                    "message",
-                    &assistant_id,
-                    serde_json::json!({ "id": assistant_id, "conversation_id": conversation_id, "kind": "text" }),
-                )
-                .await;
-                let assistant_msg =
-                    state
-                        .storage
-                        .get_message(&assistant_id)
-                        .await?
-                        .ok_or_else(|| {
-                            AppError::internal("assistant message not found after create")
-                        })?;
-                return message_record_to_data(assistant_msg).map(Some);
-            }
-            Err(err) => {
-                let should_try_fallback =
-                    idx + 1 < profile_ids.len() && should_fallback_for_assistant_error(&err);
-                if should_try_fallback {
-                    tracing::warn!(
-                        from_profile = attempt_profile_id,
-                        to_profile = fallback_profile_id,
-                        error = %err,
-                        "primary chat profile failed, falling back"
-                    );
-                    continue;
-                }
-                return Err(AppError::internal(err.to_string()));
-            }
-        }
-    }
-    Ok(None)
-}
-
-fn should_fallback_for_assistant_error(error: &LlmError) -> bool {
-    match error {
-        LlmError::NoProviderForProfile(_) => true,
-        LlmError::Config(_) => false,
-        LlmError::Provider(provider_error) => matches!(
-            provider_error,
-            ProviderError::Transport(_) | ProviderError::Protocol(_) | ProviderError::Backend(_)
-        ),
-    }
 }
 
 // --- Inbox handler ---
@@ -617,171 +315,6 @@ pub async fn get_message_provenance(
     };
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
-}
-
-fn build_linked_objects(
-    message: &MessageData,
-    interventions: &[vel_storage::InterventionRecord],
-) -> Vec<serde_json::Value> {
-    let mut linked_objects = vec![serde_json::json!({
-        "kind": "message",
-        "id": message.id,
-        "conversation_id": message.conversation_id,
-        "role": message.role,
-        "message_kind": message.kind,
-    })];
-
-    for intervention in interventions {
-        let mut object = serde_json::json!({
-            "kind": "intervention",
-            "id": intervention.id.as_ref(),
-            "message_id": intervention.message_id.as_ref(),
-            "intervention_kind": intervention.kind,
-            "state": intervention.state,
-            "surfaced_at": intervention.surfaced_at,
-            "snoozed_until": intervention.snoozed_until,
-            "confidence": intervention.confidence,
-        });
-        if let Some(source) = parse_optional_json_str(intervention.source_json.as_deref()) {
-            object["source"] = source;
-        }
-        if let Some(provenance) = parse_optional_json_str(intervention.provenance_json.as_deref()) {
-            object["provenance"] = provenance;
-        }
-        linked_objects.push(object);
-    }
-
-    linked_objects
-}
-
-fn build_provenance_signals(
-    message: &MessageData,
-    interventions: &[vel_storage::InterventionRecord],
-) -> Vec<serde_json::Value> {
-    let mut signals = Vec::new();
-
-    if let Some(signal) = message_signal_summary(message) {
-        signals.push(signal);
-    }
-
-    for intervention in interventions {
-        if let Some(source) = parse_optional_json_str(intervention.source_json.as_deref()) {
-            signals.push(serde_json::json!({
-                "kind": "intervention_source",
-                "intervention_id": intervention.id.as_ref(),
-                "intervention_kind": intervention.kind,
-                "payload": source,
-            }));
-        }
-        if let Some(provenance) = parse_optional_json_str(intervention.provenance_json.as_deref()) {
-            signals.push(serde_json::json!({
-                "kind": "intervention_provenance",
-                "intervention_id": intervention.id.as_ref(),
-                "payload": provenance,
-            }));
-        }
-    }
-
-    signals
-}
-
-fn build_policy_decisions(
-    message: &MessageData,
-    interventions: &[vel_storage::InterventionRecord],
-) -> Vec<serde_json::Value> {
-    let mut policy_decisions = Vec::new();
-
-    if let Some(decision) = message_policy_summary(message) {
-        policy_decisions.push(decision);
-    }
-
-    for intervention in interventions {
-        policy_decisions.push(serde_json::json!({
-            "kind": "intervention_state",
-            "intervention_id": intervention.id.as_ref(),
-            "intervention_kind": intervention.kind,
-            "state": intervention.state,
-            "confidence": intervention.confidence,
-        }));
-    }
-
-    policy_decisions
-}
-
-fn message_signal_summary(message: &MessageData) -> Option<serde_json::Value> {
-    match message.kind.as_str() {
-        "reminder_card" => Some(serde_json::json!({
-            "kind": "message_content",
-            "message_kind": message.kind,
-            "title": message.content.get("title").and_then(|value| value.as_str()),
-            "reason": message.content.get("reason").and_then(|value| value.as_str()),
-            "confidence": message.content.get("confidence").and_then(|value| value.as_f64()),
-        })),
-        "risk_card" => Some(serde_json::json!({
-            "kind": "message_content",
-            "message_kind": message.kind,
-            "commitment_title": message.content.get("commitment_title").and_then(|value| value.as_str()),
-            "risk_level": message
-                .content
-                .get("risk_level")
-                .and_then(|value| value.as_str())
-                .map(normalize_risk_level),
-            "top_drivers": message.content.get("top_drivers").cloned().unwrap_or(serde_json::Value::Null),
-            "proposed_next_step": message.content.get("proposed_next_step").and_then(|value| value.as_str()),
-        })),
-        "suggestion_card" => Some(serde_json::json!({
-            "kind": "message_content",
-            "message_kind": message.kind,
-            "suggestion_text": message.content.get("suggestion_text").and_then(|value| value.as_str()),
-            "expected_benefit": message.content.get("expected_benefit").and_then(|value| value.as_str()),
-            "linked_goal": message.content.get("linked_goal").and_then(|value| value.as_str()),
-        })),
-        _ => None,
-    }
-}
-
-fn message_policy_summary(message: &MessageData) -> Option<serde_json::Value> {
-    match message.kind.as_str() {
-        "reminder_card" => Some(serde_json::json!({
-            "kind": "message_policy",
-            "message_kind": message.kind,
-            "reason": message.content.get("reason").and_then(|value| value.as_str()),
-            "confidence": message.content.get("confidence").and_then(|value| value.as_f64()),
-        })),
-        "risk_card" => Some(serde_json::json!({
-            "kind": "message_policy",
-            "message_kind": message.kind,
-            "risk_level": message
-                .content
-                .get("risk_level")
-                .and_then(|value| value.as_str())
-                .map(normalize_risk_level),
-            "top_drivers": message.content.get("top_drivers").cloned().unwrap_or(serde_json::Value::Null),
-            "proposed_next_step": message.content.get("proposed_next_step").and_then(|value| value.as_str()),
-        })),
-        "suggestion_card" => Some(serde_json::json!({
-            "kind": "message_policy",
-            "message_kind": message.kind,
-            "expected_benefit": message.content.get("expected_benefit").and_then(|value| value.as_str()),
-            "linked_goal": message.content.get("linked_goal").and_then(|value| value.as_str()),
-        })),
-        _ => None,
-    }
-}
-
-fn parse_optional_json_str(value: Option<&str>) -> Option<serde_json::Value> {
-    value.and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
-}
-
-async fn settings_payload(storage: &vel_storage::Storage) -> Result<serde_json::Value, AppError> {
-    let mut map = storage.get_all_settings().await?;
-    let adaptive_overrides = crate::services::adaptive_policies::load(storage).await?;
-    map.insert(
-        "adaptive_policy_overrides".to_string(),
-        serde_json::to_value(adaptive_overrides)
-            .map_err(|error| AppError::internal(error.to_string()))?,
-    );
-    Ok(serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({})))
 }
 
 // --- Settings (031) ---
@@ -988,43 +521,56 @@ pub fn chat_routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        message_policy_summary, message_signal_summary, should_fallback_for_assistant_error,
-    };
     use serde_json::json;
     use vel_api_types::MessageData;
     use vel_llm::{LlmError, ProviderError};
 
     #[test]
     fn should_fallback_for_assistant_error_true_when_retryable() {
-        assert!(should_fallback_for_assistant_error(
-            &LlmError::NoProviderForProfile("primary".to_string(),)
-        ));
-        assert!(should_fallback_for_assistant_error(&LlmError::Provider(
-            ProviderError::Transport("conn reset".to_string()),
-        )));
-        assert!(should_fallback_for_assistant_error(&LlmError::Provider(
-            ProviderError::Protocol("json decode".to_string()),
-        )));
-        assert!(should_fallback_for_assistant_error(&LlmError::Provider(
-            ProviderError::Backend("rate limit".to_string()),
-        )));
+        assert!(
+            crate::services::chat::assistant::should_fallback_for_assistant_error(
+                &LlmError::NoProviderForProfile("primary".to_string(),)
+            )
+        );
+        assert!(
+            crate::services::chat::assistant::should_fallback_for_assistant_error(
+                &LlmError::Provider(ProviderError::Transport("conn reset".to_string()),)
+            )
+        );
+        assert!(
+            crate::services::chat::assistant::should_fallback_for_assistant_error(
+                &LlmError::Provider(ProviderError::Protocol("json decode".to_string()),)
+            )
+        );
+        assert!(
+            crate::services::chat::assistant::should_fallback_for_assistant_error(
+                &LlmError::Provider(ProviderError::Backend("rate limit".to_string()),)
+            )
+        );
     }
 
     #[test]
     fn should_fallback_for_assistant_error_false_when_not_retryable() {
-        assert!(!should_fallback_for_assistant_error(&LlmError::Config(
-            "invalid routing".to_string(),
-        )));
-        assert!(!should_fallback_for_assistant_error(&LlmError::Provider(
-            ProviderError::Capability("unsupported tools".to_string()),
-        )));
-        assert!(!should_fallback_for_assistant_error(&LlmError::Provider(
-            ProviderError::Auth("invalid token".to_string()),
-        )));
-        assert!(!should_fallback_for_assistant_error(&LlmError::Provider(
-            ProviderError::RateLimit("maxed".to_string()),
-        )));
+        assert!(
+            !crate::services::chat::assistant::should_fallback_for_assistant_error(
+                &LlmError::Config("invalid routing".to_string(),)
+            )
+        );
+        assert!(
+            !crate::services::chat::assistant::should_fallback_for_assistant_error(
+                &LlmError::Provider(ProviderError::Capability("unsupported tools".to_string(),),)
+            )
+        );
+        assert!(
+            !crate::services::chat::assistant::should_fallback_for_assistant_error(
+                &LlmError::Provider(ProviderError::Auth("invalid token".to_string()),)
+            )
+        );
+        assert!(
+            !crate::services::chat::assistant::should_fallback_for_assistant_error(
+                &LlmError::Provider(ProviderError::RateLimit("maxed".to_string()),)
+            )
+        );
     }
 
     #[test]
@@ -1046,8 +592,10 @@ mod tests {
             updated_at: None,
         };
 
-        let signal_summary = message_signal_summary(&message).expect("signal summary");
-        let policy_summary = message_policy_summary(&message).expect("policy summary");
+        let signal_summary = crate::services::chat::provenance::message_signal_summary(&message)
+            .expect("signal summary");
+        let policy_summary = crate::services::chat::provenance::message_policy_summary(&message)
+            .expect("policy summary");
 
         assert_eq!(signal_summary["risk_level"], "unknown");
         assert_eq!(policy_summary["risk_level"], "unknown");
