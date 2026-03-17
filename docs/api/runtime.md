@@ -157,6 +157,7 @@ Those remain planned architecture surfaces under the Phase 2 connect workstream.
 ### `POST /v1/sync/health`
 ### `POST /v1/sync/git`
 ### `POST /v1/sync/messaging`
+### `POST /v1/sync/reminders`
 ### `POST /v1/sync/notes`
 ### `POST /v1/sync/transcripts`
 ### `GET /v1/sync/bootstrap`

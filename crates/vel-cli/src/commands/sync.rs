@@ -87,6 +87,16 @@ pub async fn run_messaging(client: &ApiClient) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub async fn run_reminders(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client.sync_reminders().await.context("sync reminders")?;
+    let d = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("reminders: {} signals ingested", d.signals_ingested);
+    Ok(())
+}
+
 pub async fn run_bootstrap(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     let resp = client.sync_bootstrap().await.context("sync bootstrap")?;
     if json {

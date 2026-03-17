@@ -248,8 +248,7 @@ model = "m"
 
     #[test]
     fn model_routing_template_parses() {
-        let routing =
-            load_routing(repo_models_path("templates/routing.template.toml")).unwrap();
+        let routing = load_routing(repo_models_path("templates/routing.template.toml")).unwrap();
         assert_eq!(
             routing.profile_for_task("chat"),
             Some("local-primary-profile")

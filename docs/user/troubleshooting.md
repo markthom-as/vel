@@ -99,7 +99,7 @@ Common causes:
 Symptoms:
 
 - `veld` does not pick up Apple-local sources automatically
-- startup does not seem to ingest activity, health, messages, notes, git, or transcripts
+- startup does not seem to ingest activity, health, messages, reminders, notes, git, or transcripts
 
 What to check:
 
@@ -114,24 +114,26 @@ Expected current locations:
 - `health/snapshot.json`
 - `git/snapshot.json`
 - `messages/snapshot.json`
+- `reminders/snapshot.json`
 - `notes/`
 - `transcripts/snapshot.json`
 
 If these files do not exist, auto-discovery has nothing to ingest.
 
-## VelMac is running but messages or health still do not appear
+## VelMac is running but messages, reminders, or health still do not appear
 
 Symptoms:
 
 - VelMac launches but does not produce useful local Apple data
-- `health` or `messaging` remains missing or degraded
+- `health`, `messaging`, or `reminders` remains missing or degraded
 
 What to check:
 
 1. confirm `VelMac` has permission to access the needed data
 2. for health, confirm HealthKit is available and authorization was granted
 3. for messages, confirm the host allows reading `~/Library/Messages/chat.db`
-4. on macOS, grant Full Disk Access if required by host policy
+4. for reminders, confirm EventKit reminders authorization was granted
+5. on macOS, grant Full Disk Access if required by host policy
 
 Important current reality:
 

@@ -8,6 +8,9 @@ import AppKit
 #if canImport(HealthKit)
 import HealthKit
 #endif
+#if canImport(EventKit)
+import EventKit
+#endif
 
 public struct VelActivitySnapshot: Codable, Sendable {
     public var source: String
@@ -64,6 +67,30 @@ public struct VelMessagingSnapshot: Codable, Sendable {
     }
 }
 
+public struct VelRemindersSnapshot: Codable, Sendable {
+    public var source: String
+    public var account_id: String?
+    public var generated_at: Int
+    public var reminders: [Reminder]
+
+    public struct Reminder: Codable, Sendable {
+        public var reminder_id: String
+        public var title: String
+        public var list_id: String?
+        public var list_title: String?
+        public var notes: String?
+        public var due_at: Int?
+        public var completed: Bool
+        public var completed_at: Int?
+        public var priority: Int?
+        public var tags: [String]?
+        public var metadata: [String: String]?
+        public var updated_at: Int?
+        public var source: String?
+        public var source_ref: String?
+    }
+}
+
 public struct VelLocalExportReport: Sendable {
     public var writtenSources: [VelLocalSourceKind]
     public var syncedSources: [VelLocalSourceKind]
@@ -99,6 +126,10 @@ public actor VelLocalSnapshotWriter {
         try write(snapshot, to: try snapshotURL(for: .messaging))
     }
 
+    public func writeRemindersSnapshot(_ snapshot: VelRemindersSnapshot) throws -> URL {
+        try write(snapshot, to: try snapshotURL(for: .reminders))
+    }
+
     public func snapshotURL(for source: VelLocalSourceKind) throws -> URL {
         let base = try applicationSupportRoot()
         switch source {
@@ -110,6 +141,8 @@ public actor VelLocalSnapshotWriter {
             return base.appendingPathComponent("git/snapshot.json", isDirectory: false)
         case .messaging:
             return base.appendingPathComponent("messages/snapshot.json", isDirectory: false)
+        case .reminders:
+            return base.appendingPathComponent("reminders/snapshot.json", isDirectory: false)
         case .notes:
             return base.appendingPathComponent("notes", isDirectory: true)
         case .transcripts:
@@ -214,6 +247,18 @@ public actor VelMacLocalSourceExporter {
             report.errors.append("messaging: \(error.localizedDescription)")
         }
 
+        do {
+            if try await exportRemindersSnapshot(limit: 100) != nil {
+                report.writtenSources.append(.reminders)
+                if let client {
+                    _ = try await client.syncLocalSource(.reminders)
+                    report.syncedSources.append(.reminders)
+                }
+            }
+        } catch {
+            report.errors.append("reminders: \(error.localizedDescription)")
+        }
+
         return report
     }
 
@@ -261,11 +306,24 @@ public actor VelMacLocalSourceExporter {
         #if canImport(HealthKit)
         guard HKHealthStore.isHealthDataAvailable() else { return nil }
         let store = HKHealthStore()
-        let metrics: [HKQuantityTypeIdentifier] = [.stepCount, .activeEnergyBurned]
-        let quantityTypes = Set(metrics.compactMap(HKObjectType.quantityType(forIdentifier:)))
-        try await requestAuthorization(store: store, types: quantityTypes)
+        let quantityMetrics: [HKQuantityTypeIdentifier] = [
+            .stepCount,
+            .activeEnergyBurned,
+            .heartRate,
+            .appleStandHour,
+            .bloodPressureSystolic,
+            .bloodPressureDiastolic
+        ]
+        let quantityTypes = Set(quantityMetrics.compactMap(HKObjectType.quantityType(forIdentifier:)))
+        var readTypes = Set<HKObjectType>()
+        readTypes.formUnion(quantityTypes)
+        if let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) {
+            readTypes.insert(sleepType)
+        }
+        try await requestAuthorization(store: store, types: readTypes)
 
         let startOfDay = Calendar.current.startOfDay(for: Date())
+        let sleepWindowStart = Calendar.current.date(byAdding: .hour, value: -12, to: startOfDay) ?? startOfDay
         let stepCount = try await cumulativeSum(
             store: store,
             type: .stepCount,
@@ -278,9 +336,37 @@ public actor VelMacLocalSourceExporter {
             unit: HKUnit.kilocalorie(),
             startDate: startOfDay
         )
+        let standHours = try await cumulativeSum(
+            store: store,
+            type: .appleStandHour,
+            unit: HKUnit.count(),
+            startDate: startOfDay
+        )
+        let heartRate = try await discreteAverage(
+            store: store,
+            type: .heartRate,
+            unit: HKUnit.count().unitDivided(by: HKUnit.minute()),
+            startDate: startOfDay
+        )
+        let bloodPressureSystolic = try await latestQuantityValue(
+            store: store,
+            type: .bloodPressureSystolic,
+            unit: HKUnit.millimeterOfMercury()
+        )
+        let bloodPressureDiastolic = try await latestQuantityValue(
+            store: store,
+            type: .bloodPressureDiastolic,
+            unit: HKUnit.millimeterOfMercury()
+        )
+        let sleepHours = try await sleepDurationHours(
+            store: store,
+            startDate: sleepWindowStart,
+            endDate: Date()
+        )
 
         var samples: [VelHealthSnapshot.Sample] = []
         let timestamp = Int(Date().timeIntervalSince1970)
+        let dayOrdinal = Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? timestamp
         if let stepCount {
             samples.append(.init(
                 metric_type: "step_count",
@@ -290,7 +376,7 @@ public actor VelMacLocalSourceExporter {
                 source: "healthkit",
                 source_app: "Health",
                 device: "Apple Health",
-                source_ref: "healthkit:step_count:\(Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? timestamp)",
+                source_ref: "healthkit:step_count:\(dayOrdinal)",
                 metadata: ["window": "today"]
             ))
         }
@@ -303,12 +389,124 @@ public actor VelMacLocalSourceExporter {
                 source: "healthkit",
                 source_app: "Health",
                 device: "Apple Health",
-                source_ref: "healthkit:active_energy_burned:\(Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? timestamp)",
+                source_ref: "healthkit:active_energy_burned:\(dayOrdinal)",
                 metadata: ["window": "today"]
+            ))
+        }
+        if let standHours {
+            samples.append(.init(
+                metric_type: "stand_hours",
+                timestamp: timestamp,
+                value: standHours,
+                unit: "count",
+                source: "healthkit",
+                source_app: "Health",
+                device: "Apple Health",
+                source_ref: "healthkit:stand_hours:\(dayOrdinal)",
+                metadata: ["window": "today"]
+            ))
+        }
+        if let heartRate {
+            samples.append(.init(
+                metric_type: "heart_rate_bpm",
+                timestamp: timestamp,
+                value: heartRate,
+                unit: "count/min",
+                source: "healthkit",
+                source_app: "Health",
+                device: "Apple Health",
+                source_ref: "healthkit:heart_rate_bpm:\(dayOrdinal)",
+                metadata: ["window": "today", "aggregation": "average"]
+            ))
+        }
+        if let bloodPressureSystolic {
+            samples.append(.init(
+                metric_type: "blood_pressure_systolic",
+                timestamp: timestamp,
+                value: bloodPressureSystolic,
+                unit: "mmHg",
+                source: "healthkit",
+                source_app: "Health",
+                device: "Apple Health",
+                source_ref: "healthkit:blood_pressure_systolic:\(dayOrdinal)",
+                metadata: ["window": "latest"]
+            ))
+        }
+        if let bloodPressureDiastolic {
+            samples.append(.init(
+                metric_type: "blood_pressure_diastolic",
+                timestamp: timestamp,
+                value: bloodPressureDiastolic,
+                unit: "mmHg",
+                source: "healthkit",
+                source_app: "Health",
+                device: "Apple Health",
+                source_ref: "healthkit:blood_pressure_diastolic:\(dayOrdinal)",
+                metadata: ["window": "latest"]
+            ))
+        }
+        if let sleepHours {
+            samples.append(.init(
+                metric_type: "sleep_hours",
+                timestamp: timestamp,
+                value: sleepHours,
+                unit: "h",
+                source: "healthkit",
+                source_app: "Health",
+                device: "Apple Health",
+                source_ref: "healthkit:sleep_hours:\(dayOrdinal)",
+                metadata: ["window": "overnight"]
             ))
         }
         guard !samples.isEmpty else { return nil }
         return try await writer.writeHealthSnapshot(.init(source: "healthkit", samples: samples))
+        #else
+        return nil
+        #endif
+    }
+
+    public func exportRemindersSnapshot(limit: Int) async throws -> URL? {
+        #if canImport(EventKit)
+        let store = EKEventStore()
+        try await requestRemindersAuthorization(store: store)
+        let reminders = try await fetchReminders(store: store, limit: max(limit, 1))
+        guard !reminders.isEmpty else { return nil }
+
+        let generatedAt = Int(Date().timeIntervalSince1970)
+        let payload = reminders.map { reminder -> VelRemindersSnapshot.Reminder in
+            let dueAt = reminder.dueDateComponents
+                .flatMap { Calendar.current.date(from: $0) }
+                .map { Int($0.timeIntervalSince1970) }
+            let completedAt = reminder.completionDate.map { Int($0.timeIntervalSince1970) }
+            let updatedAt = reminder.lastModifiedDate.map { Int($0.timeIntervalSince1970) }
+            let sourceRef = "eventkit:reminder:\(reminder.calendarItemIdentifier):\(updatedAt ?? generatedAt)"
+            return VelRemindersSnapshot.Reminder(
+                reminder_id: reminder.calendarItemIdentifier,
+                title: reminder.title,
+                list_id: reminder.calendar.calendarIdentifier,
+                list_title: reminder.calendar.title,
+                notes: reminder.notes,
+                due_at: dueAt,
+                completed: reminder.isCompleted,
+                completed_at: completedAt,
+                priority: reminder.priority,
+                tags: nil,
+                metadata: [
+                    "calendar_source": reminder.calendar.source.title,
+                    "calendar_type": "\(reminder.calendar.type.rawValue)"
+                ],
+                updated_at: updatedAt,
+                source: "apple_reminders",
+                source_ref: sourceRef
+            )
+        }
+        let snapshot = VelRemindersSnapshot(
+            source: "apple_reminders",
+            account_id: "local-default",
+            generated_at: generatedAt,
+            reminders: payload
+        )
+        return try await writer.writeRemindersSnapshot(snapshot)
         #else
         return nil
         #endif
@@ -439,6 +637,163 @@ public actor VelMacLocalSourceExporter {
                 continuation.resume(returning: value)
             }
             store.execute(query)
+        }
+    }
+
+    private func discreteAverage(
+        store: HKHealthStore,
+        type: HKQuantityTypeIdentifier,
+        unit: HKUnit,
+        startDate: Date
+    ) async throws -> Double? {
+        guard let quantityType = HKObjectType.quantityType(forIdentifier: type) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date())
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Double?, Error>) in
+            let query = HKStatisticsQuery(
+                quantityType: quantityType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, result, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let value = result?.averageQuantity()?.doubleValue(for: unit)
+                continuation.resume(returning: value)
+            }
+            store.execute(query)
+        }
+    }
+
+    private func latestQuantityValue(
+        store: HKHealthStore,
+        type: HKQuantityTypeIdentifier,
+        unit: HKUnit
+    ) async throws -> Double? {
+        guard let quantityType = HKObjectType.quantityType(forIdentifier: type) else { return nil }
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Double?, Error>) in
+            let query = HKSampleQuery(
+                sampleType: quantityType,
+                predicate: nil,
+                limit: 1,
+                sortDescriptors: [sort]
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let value = (samples?.first as? HKQuantitySample)?
+                    .quantity
+                    .doubleValue(for: unit)
+                continuation.resume(returning: value)
+            }
+            store.execute(query)
+        }
+    }
+
+    private func sleepDurationHours(
+        store: HKHealthStore,
+        startDate: Date,
+        endDate: Date
+    ) async throws -> Double? {
+        guard let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else {
+            return nil
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+        let samples: [HKCategorySample] = try await withCheckedThrowingContinuation { continuation in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: [sort]
+            ) { _, results, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                let mapped = (results as? [HKCategorySample]) ?? []
+                continuation.resume(returning: mapped)
+            }
+            store.execute(query)
+        }
+
+        var asleepValues = Set<Int>([HKCategoryValueSleepAnalysis.asleep.rawValue])
+        if #available(macOS 13.0, *) {
+            asleepValues.insert(HKCategoryValueSleepAnalysis.asleepCore.rawValue)
+            asleepValues.insert(HKCategoryValueSleepAnalysis.asleepDeep.rawValue)
+            asleepValues.insert(HKCategoryValueSleepAnalysis.asleepREM.rawValue)
+            asleepValues.insert(HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue)
+        }
+
+        let seconds = samples
+            .filter { asleepValues.contains($0.value) }
+            .reduce(0.0) { partial, sample in
+                partial + sample.endDate.timeIntervalSince(sample.startDate)
+            }
+        guard seconds > 0 else { return nil }
+        return seconds / 3600.0
+    }
+    #endif
+
+    #if canImport(EventKit)
+    private func requestRemindersAuthorization(store: EKEventStore) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            store.requestAccess(to: .reminder) { granted, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if granted {
+                    continuation.resume(returning: ())
+                } else {
+                    continuation.resume(throwing: NSError(
+                        domain: "VelMacLocalSourceExporter",
+                        code: 2,
+                        userInfo: [NSLocalizedDescriptionKey: "Reminders authorization was denied"]
+                    ))
+                }
+            }
+        }
+    }
+
+    private func fetchReminders(store: EKEventStore, limit: Int) async throws -> [EKReminder] {
+        let incomplete = try await fetchReminders(
+            store: store,
+            predicate: store.predicateForIncompleteReminders(
+                withDueDateStarting: nil,
+                ending: nil,
+                calendars: nil
+            )
+        )
+        let completeStart = Calendar.current.date(byAdding: .day, value: -14, to: Date())
+        let completed = try await fetchReminders(
+            store: store,
+            predicate: store.predicateForCompletedReminders(
+                withCompletionDateStarting: completeStart,
+                ending: Date(),
+                calendars: nil
+            )
+        )
+        let all = (incomplete + completed)
+            .sorted { left, right in
+                let leftUpdated = left.lastModifiedDate ?? left.creationDate ?? .distantPast
+                let rightUpdated = right.lastModifiedDate ?? right.creationDate ?? .distantPast
+                return leftUpdated > rightUpdated
+            }
+        if all.count <= limit {
+            return all
+        }
+        return Array(all.prefix(limit))
+    }
+
+    private func fetchReminders(
+        store: EKEventStore,
+        predicate: NSPredicate?
+    ) async throws -> [EKReminder] {
+        try await withCheckedThrowingContinuation { continuation in
+            store.fetchReminders(matching: predicate) { reminders in
+                continuation.resume(returning: reminders ?? [])
+            }
         }
     }
     #endif

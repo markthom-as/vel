@@ -13,6 +13,7 @@ It is a subset of the full connector model described in `docs/cognitive-agent-ar
 - health from snapshot JSON
 - git from snapshot JSON
 - messaging from snapshot JSON
+- reminders from snapshot JSON
 - notes from a file or directory
 - transcripts from snapshot JSON
 
@@ -43,6 +44,7 @@ Look for:
 - `health_snapshot_path`
 - `git_snapshot_path`
 - `messaging_snapshot_path`
+- `reminders_snapshot_path`
 - `notes_path`
 - `transcript_snapshot_path`
 
@@ -57,6 +59,7 @@ cargo run -p vel-cli -- sync activity
 cargo run -p vel-cli -- sync health
 cargo run -p vel-cli -- sync git
 cargo run -p vel-cli -- sync messaging
+cargo run -p vel-cli -- sync reminders
 cargo run -p vel-cli -- sync notes
 cargo run -p vel-cli -- sync transcripts
 ```
@@ -98,7 +101,7 @@ Practical setup:
 
 ## Messaging and health
 
-`messaging` and `health` are currently snapshot-backed. If the export file is not updated, Vel has nothing new to ingest.
+`messaging`, `reminders`, and `health` are currently snapshot-backed. If the export file is not updated, Vel has nothing new to ingest.
 
 That is especially relevant on macOS where the exporter or host permissions determine whether those snapshots exist.
 

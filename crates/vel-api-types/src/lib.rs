@@ -1046,6 +1046,7 @@ pub struct IntegrationsData {
     pub health: LocalIntegrationData,
     pub git: LocalIntegrationData,
     pub messaging: LocalIntegrationData,
+    pub reminders: LocalIntegrationData,
     pub notes: LocalIntegrationData,
     pub transcripts: LocalIntegrationData,
 }

@@ -4,5 +4,6 @@ pub mod git;
 pub mod health;
 pub mod messaging;
 pub mod notes;
+pub mod reminders;
 pub mod todoist;
 pub mod transcripts;

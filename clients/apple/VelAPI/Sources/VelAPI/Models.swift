@@ -268,6 +268,7 @@ public enum VelLocalSourceKind: String, Codable, Sendable, CaseIterable {
     case health
     case git
     case messaging
+    case reminders
     case notes
     case transcripts
 }

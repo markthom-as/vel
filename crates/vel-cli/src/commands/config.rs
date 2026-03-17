@@ -66,6 +66,10 @@ pub fn run(config: &AppConfig, json: bool) -> anyhow::Result<()> {
         "messaging_snapshot_path: {}",
         config.messaging_snapshot_path.as_deref().unwrap_or("-")
     );
+    println!(
+        "reminders_snapshot_path: {}",
+        config.reminders_snapshot_path.as_deref().unwrap_or("-")
+    );
     Ok(())
 }
 

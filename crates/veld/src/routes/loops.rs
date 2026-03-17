@@ -64,6 +64,11 @@ fn configured_loop_defaults(state: &AppState, loop_kind: vel_core::LoopKind) -> 
             .sync_messaging_loop()
             .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
             .unwrap_or((true, 300)),
+        vel_core::LoopKind::SyncReminders => state
+            .policy_config
+            .sync_reminders_loop()
+            .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
+            .unwrap_or((false, 600)),
         vel_core::LoopKind::SyncNotes => state
             .policy_config
             .sync_notes_loop()
@@ -99,6 +104,7 @@ async fn ensure_known_loop_rows(state: &AppState) -> Result<(), AppError> {
         vel_core::LoopKind::SyncHealth,
         vel_core::LoopKind::SyncGit,
         vel_core::LoopKind::SyncMessaging,
+        vel_core::LoopKind::SyncReminders,
         vel_core::LoopKind::SyncNotes,
         vel_core::LoopKind::SyncTranscripts,
         vel_core::LoopKind::WeeklySynthesis,

@@ -15,8 +15,10 @@ use vel_api_types::{
     IntegrationGuidanceData, IntegrationLogEventData, IntegrationsData, LocalIntegrationData,
 };
 use vel_config::AppConfig;
-use vel_core::IntegrationFamily;
-use vel_storage::{IntegrationConnectionFilters, SignalRecord, Storage};
+use vel_core::{IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider};
+use vel_storage::{
+    IntegrationConnectionFilters, IntegrationConnectionInsert, SignalRecord, Storage,
+};
 
 const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
 const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
@@ -24,6 +26,7 @@ const ACTIVITY_SETTINGS_KEY: &str = "integration_activity";
 const HEALTH_SETTINGS_KEY: &str = "integration_health";
 const GIT_SETTINGS_KEY: &str = "integration_git";
 const MESSAGING_SETTINGS_KEY: &str = "integration_messaging";
+const REMINDERS_SETTINGS_KEY: &str = "integration_reminders";
 const NOTES_SETTINGS_KEY: &str = "integration_notes";
 const TRANSCRIPTS_SETTINGS_KEY: &str = "integration_transcripts";
 
@@ -229,6 +232,20 @@ pub async fn run_messaging_sync(storage: &Storage, config: &AppConfig) -> Result
     }
 }
 
+pub async fn run_reminders_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    let runtime_config = runtime_local_config(storage, config).await?;
+    match adapters::reminders::ingest(storage, &runtime_config).await {
+        Ok(count) => {
+            let _ = record_sync_success(storage, "reminders", count).await;
+            Ok(count)
+        }
+        Err(error) => {
+            let _ = record_sync_error(storage, "reminders", &error.to_string()).await;
+            Err(error)
+        }
+    }
+}
+
 pub async fn run_notes_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
     let runtime_config = runtime_local_config(storage, config).await?;
     match adapters::notes::ingest(storage, &runtime_config).await {
@@ -276,6 +293,9 @@ pub async fn bootstrap_local_context_sources(
     if runtime_config.messaging_snapshot_path.is_some() {
         ingested += run_messaging_sync(storage, config).await?;
     }
+    if runtime_config.reminders_snapshot_path.is_some() {
+        ingested += run_reminders_sync(storage, config).await?;
+    }
     if runtime_config.notes_path.is_some() {
         ingested += run_notes_sync(storage, config).await?;
     }
@@ -293,6 +313,7 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
     let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
     let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
     let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
+    let reminders = load_local_settings(storage, REMINDERS_SETTINGS_KEY).await?;
     let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
     Ok(IntegrationsData {
@@ -326,6 +347,14 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
             ),
             &messaging,
         ),
+        reminders: local_status(
+            integrations_host::effective_local_source_path(
+                "reminders",
+                reminders.source_path.as_deref(),
+                None,
+            ),
+            &reminders,
+        ),
         notes: local_status(
             integrations_host::effective_local_source_path(
                 "notes",
@@ -355,6 +384,7 @@ pub async fn get_integrations_with_config(
     let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
     let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
     let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
+    let reminders = load_local_settings(storage, REMINDERS_SETTINGS_KEY).await?;
     let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
     Ok(IntegrationsData {
@@ -391,6 +421,14 @@ pub async fn get_integrations_with_config(
                 config.messaging_snapshot_path.as_deref(),
             ),
             &messaging,
+        ),
+        reminders: local_status(
+            integrations_host::effective_local_source_path(
+                "reminders",
+                reminders.source_path.as_deref(),
+                config.reminders_snapshot_path.as_deref(),
+            ),
+            &reminders,
         ),
         notes: local_status(
             integrations_host::effective_local_source_path(
@@ -443,12 +481,113 @@ pub async fn list_integration_logs(
         .collect())
 }
 
+struct FoundationConnectionSeed {
+    family: IntegrationFamily,
+    provider_key: &'static str,
+    display_name: &'static str,
+    status: IntegrationConnectionStatus,
+}
+
+fn foundation_connection_seeds() -> &'static [FoundationConnectionSeed] {
+    &[
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Calendar,
+            provider_key: "google_calendar",
+            display_name: "Google Calendar",
+            status: IntegrationConnectionStatus::Pending,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Tasks,
+            provider_key: "todoist",
+            display_name: "Todoist",
+            status: IntegrationConnectionStatus::Pending,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Activity,
+            provider_key: "activity",
+            display_name: "Computer Activity",
+            status: IntegrationConnectionStatus::Connected,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Health,
+            provider_key: "health",
+            display_name: "Apple Health",
+            status: IntegrationConnectionStatus::Connected,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Git,
+            provider_key: "git",
+            display_name: "Git Activity",
+            status: IntegrationConnectionStatus::Connected,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Messaging,
+            provider_key: "messaging",
+            display_name: "Messaging",
+            status: IntegrationConnectionStatus::Connected,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Tasks,
+            provider_key: "reminders",
+            display_name: "Apple Reminders",
+            status: IntegrationConnectionStatus::Connected,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Notes,
+            provider_key: "notes",
+            display_name: "Notes",
+            status: IntegrationConnectionStatus::Connected,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Transcripts,
+            provider_key: "transcripts",
+            display_name: "Transcripts",
+            status: IntegrationConnectionStatus::Connected,
+        },
+    ]
+}
+
+async fn seed_foundation_integration_connections_if_empty(
+    storage: &Storage,
+) -> Result<(), AppError> {
+    let existing = storage
+        .list_integration_connections(IntegrationConnectionFilters {
+            family: None,
+            provider_key: None,
+            include_disabled: true,
+        })
+        .await?;
+    if !existing.is_empty() {
+        return Ok(());
+    }
+
+    for seed in foundation_connection_seeds() {
+        let provider =
+            IntegrationProvider::new(seed.family, seed.provider_key).map_err(|error| {
+                AppError::internal(format!("foundation integration provider: {error}"))
+            })?;
+        storage
+            .insert_integration_connection(IntegrationConnectionInsert {
+                family: seed.family,
+                provider,
+                status: seed.status,
+                display_name: seed.display_name.to_string(),
+                account_ref: None,
+                metadata_json: serde_json::json!({ "foundation": true }),
+            })
+            .await?;
+    }
+
+    Ok(())
+}
+
 pub async fn list_integration_connections(
     storage: &Storage,
     family: Option<&str>,
     provider_key: Option<&str>,
     include_disabled: bool,
 ) -> Result<Vec<IntegrationConnectionData>, AppError> {
+    seed_foundation_integration_connections_if_empty(storage).await?;
     let family = family
         .map(str::trim)
         .filter(|value| !value.is_empty())
@@ -501,6 +640,7 @@ pub async fn get_integration_connection(
     storage: &Storage,
     connection_id: &str,
 ) -> Result<IntegrationConnectionData, AppError> {
+    seed_foundation_integration_connections_if_empty(storage).await?;
     let connection = storage
         .get_integration_connection(connection_id.trim())
         .await?
@@ -535,6 +675,7 @@ pub async fn list_integration_connection_events(
     connection_id: &str,
     limit: Option<u32>,
 ) -> Result<Vec<IntegrationConnectionEventData>, AppError> {
+    seed_foundation_integration_connections_if_empty(storage).await?;
     let connection_id = connection_id.trim();
     let _ = storage
         .get_integration_connection(connection_id)
@@ -696,7 +837,7 @@ pub async fn record_sync_error(
             integrations_todoist::record_sync_error(storage, error).await?;
             append_sync_event(storage, "todoist", "error", 0, Some(error)).await?;
         }
-        "activity" | "health" | "git" | "messaging" | "notes" | "transcripts" => {
+        "activity" | "health" | "git" | "messaging" | "reminders" | "notes" | "transcripts" => {
             update_local_sync_settings(
                 storage,
                 local_settings_key(source),
@@ -725,7 +866,7 @@ pub async fn record_sync_success(
     item_count: u32,
 ) -> Result<(), AppError> {
     match source {
-        "activity" | "health" | "git" | "messaging" | "notes" | "transcripts" => {
+        "activity" | "health" | "git" | "messaging" | "reminders" | "notes" | "transcripts" => {
             update_local_sync_settings(
                 storage,
                 local_settings_key(source),
@@ -987,6 +1128,7 @@ fn local_settings_key(source: &str) -> &'static str {
         "health" => HEALTH_SETTINGS_KEY,
         "git" => GIT_SETTINGS_KEY,
         "messaging" => MESSAGING_SETTINGS_KEY,
+        "reminders" => REMINDERS_SETTINGS_KEY,
         "notes" => NOTES_SETTINGS_KEY,
         "transcripts" => TRANSCRIPTS_SETTINGS_KEY,
         _ => "",
@@ -999,6 +1141,7 @@ fn local_integration_id(source: &str) -> &'static str {
         "health" => "health",
         "git" => "git",
         "messaging" => "messaging",
+        "reminders" => "reminders",
         "notes" => "notes",
         "transcripts" => "transcripts",
         _ => "",
@@ -1013,6 +1156,7 @@ async fn runtime_local_config(
     let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
     let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
     let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
+    let reminders = load_local_settings(storage, REMINDERS_SETTINGS_KEY).await?;
     let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
 
@@ -1036,6 +1180,11 @@ async fn runtime_local_config(
         "messaging",
         messaging.source_path.as_deref(),
         config.messaging_snapshot_path.as_deref(),
+    );
+    runtime.reminders_snapshot_path = integrations_host::effective_local_source_path(
+        "reminders",
+        reminders.source_path.as_deref(),
+        config.reminders_snapshot_path.as_deref(),
     );
     runtime.notes_path = integrations_host::effective_local_source_path(
         "notes",
@@ -1289,5 +1438,26 @@ mod tests {
             .expect("bootstrap + evaluate should persist current context");
         let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
         assert_eq!(context["message_waiting_on_me_count"], 1);
+    }
+
+    #[tokio::test]
+    async fn list_integration_connections_seeds_foundation_connectors_when_empty() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let connections = list_integration_connections(&storage, None, None, true)
+            .await
+            .expect("listing connections should succeed");
+        assert!(!connections.is_empty());
+        let provider_keys: Vec<&str> = connections
+            .iter()
+            .map(|connection| connection.provider_key.as_str())
+            .collect();
+        assert!(provider_keys.contains(&"activity"));
+        assert!(provider_keys.contains(&"health"));
+        assert!(provider_keys.contains(&"messaging"));
+        assert!(provider_keys.contains(&"reminders"));
+        assert!(provider_keys.contains(&"notes"));
+        assert!(provider_keys.contains(&"transcripts"));
     }
 }

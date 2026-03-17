@@ -77,6 +77,7 @@ pub struct LoopPolicies {
     pub sync_health: Option<LoopPolicy>,
     pub sync_git: Option<LoopPolicy>,
     pub sync_messaging: Option<LoopPolicy>,
+    pub sync_reminders: Option<LoopPolicy>,
     pub sync_notes: Option<LoopPolicy>,
     pub sync_transcripts: Option<LoopPolicy>,
     pub weekly_synthesis: Option<LoopPolicy>,
@@ -224,6 +225,10 @@ impl Default for LoopPolicies {
                 enabled: true,
                 interval_seconds: 300,
             }),
+            sync_reminders: Some(LoopPolicy {
+                enabled: false,
+                interval_seconds: 600,
+            }),
             sync_notes: Some(LoopPolicy {
                 enabled: false,
                 interval_seconds: 900,
@@ -342,6 +347,9 @@ impl PolicyConfig {
     pub fn sync_messaging_loop(&self) -> Option<&LoopPolicy> {
         self.loops.sync_messaging.as_ref()
     }
+    pub fn sync_reminders_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_reminders.as_ref()
+    }
     pub fn sync_notes_loop(&self) -> Option<&LoopPolicy> {
         self.loops.sync_notes.as_ref()
     }
@@ -397,6 +405,7 @@ mod tests {
         assert!(config.sync_activity_loop().is_some());
         assert!(config.sync_health_loop().is_some());
         assert!(config.sync_messaging_loop().is_some());
+        assert!(config.sync_reminders_loop().is_some());
         assert!(config.weekly_synthesis_loop().is_some());
         assert!(config.stale_nudge_reconciliation_loop().is_some());
         assert!(config.suggestions().enabled);
@@ -420,6 +429,7 @@ mod tests {
         assert!(!config.sync_activity_loop().unwrap().enabled);
         assert!(!config.sync_health_loop().unwrap().enabled);
         assert_eq!(config.sync_messaging_loop().unwrap().interval_seconds, 300);
+        assert!(!config.sync_reminders_loop().unwrap().enabled);
         assert_eq!(
             config.weekly_synthesis_loop().unwrap().interval_seconds,
             86_400
@@ -449,7 +459,8 @@ mod tests {
 
     #[test]
     fn repo_policy_template_loads() {
-        let config = PolicyConfig::load(repo_path("config/templates/policies.template.yaml")).unwrap();
+        let config =
+            PolicyConfig::load(repo_path("config/templates/policies.template.yaml")).unwrap();
         assert!(config.queue_work_scheduler_loop().is_some());
         assert!(config.suggestions().enabled);
     }

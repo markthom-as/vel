@@ -48,6 +48,11 @@ const COMPONENT_SPECS: &[ComponentSpec] = &[
         description: "Ingest local messaging snapshots and waiting-state signals.",
     },
     ComponentSpec {
+        id: "reminders",
+        name: "Reminders",
+        description: "Ingest local reminders snapshots into reminder signals.",
+    },
+    ComponentSpec {
         id: "notes",
         name: "Notes",
         description: "Ingest local notes into captures and signals.",
@@ -290,6 +295,11 @@ async fn restart_messaging(storage: &Storage, config: &AppConfig) -> Result<Stri
     Ok(format!("Messaging ingest complete: {} signals", signals))
 }
 
+async fn restart_reminders(storage: &Storage, config: &AppConfig) -> Result<String, AppError> {
+    let signals = adapters::reminders::ingest(storage, config).await?;
+    Ok(format!("Reminders ingest complete: {} signals", signals))
+}
+
 async fn restart_notes(storage: &Storage, config: &AppConfig) -> Result<String, AppError> {
     let signals = adapters::notes::ingest(storage, config).await?;
     Ok(format!("Notes ingest complete: {} captures", signals))
@@ -324,6 +334,7 @@ async fn restart_component_by_id(
         "health" => restart_health(storage, config).await,
         "git" => restart_git(storage, config).await,
         "messaging" => restart_messaging(storage, config).await,
+        "reminders" => restart_reminders(storage, config).await,
         "notes" => restart_notes(storage, config).await,
         "transcripts" => restart_transcripts(storage, config).await,
         "evaluate" => restart_evaluate(storage, policy_config).await,

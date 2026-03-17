@@ -69,6 +69,13 @@ fn only_enabled_loop(loop_policy: Option<(&str, u64)>) -> PolicyConfig {
                 .map(|(_, interval)| interval)
                 .unwrap_or(300),
         }),
+        sync_reminders: Some(LoopPolicy {
+            enabled: matches!(loop_policy, Some(("sync_reminders", _))),
+            interval_seconds: loop_policy
+                .filter(|(kind, _)| *kind == "sync_reminders")
+                .map(|(_, interval)| interval)
+                .unwrap_or(600),
+        }),
         sync_notes: Some(LoopPolicy {
             enabled: matches!(loop_policy, Some(("sync_notes", _))),
             interval_seconds: loop_policy

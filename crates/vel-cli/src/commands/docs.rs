@@ -108,9 +108,9 @@ mod tests {
         assert!(paths.contains(
             &"docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md"
         ));
-        assert!(paths.contains(
-            &"docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md"
-        ));
+        assert!(
+            paths.contains(&"docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md")
+        );
         assert!(!paths.contains(&"docs/status.md"));
         assert!(!paths.contains(&"docs/architecture.md"));
     }

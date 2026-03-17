@@ -146,7 +146,7 @@ Today it includes:
 
 - Google Calendar connection and sync
 - Todoist token save/disconnect/sync
-- local path-backed integrations for activity, git, messaging, notes, and transcripts
+- local path-backed integrations for activity, git, messaging, reminders, notes, and transcripts
 - integration history, last sync state, and guidance
 
 Use Settings when the issue is configuration, credentials, or source path, not when the issue is just stale derived context.

@@ -110,6 +110,7 @@ You can manually sync them with commands such as:
 cargo run -p vel-cli -- sync activity
 cargo run -p vel-cli -- sync health
 cargo run -p vel-cli -- sync messaging
+cargo run -p vel-cli -- sync reminders
 cargo run -p vel-cli -- sync notes
 ```
 

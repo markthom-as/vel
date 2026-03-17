@@ -531,6 +531,7 @@ enum SyncCommand {
     Notes,
     Transcripts,
     Messaging,
+    Reminders,
 }
 
 #[derive(Debug, Subcommand)]
@@ -841,6 +842,7 @@ async fn main() -> anyhow::Result<()> {
             SyncCommand::Notes => commands::sync::run_notes(&client).await,
             SyncCommand::Transcripts => commands::sync::run_transcripts(&client).await,
             SyncCommand::Messaging => commands::sync::run_messaging(&client).await,
+            SyncCommand::Reminders => commands::sync::run_reminders(&client).await,
         },
         Command::Nudges { json } => commands::nudges::run_list(&client, json).await,
         Command::Nudge { command } => match command {
@@ -1074,6 +1076,17 @@ mod tests {
                 command: SyncCommand::Messaging,
             } => {}
             _ => panic!("expected sync messaging command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_sync_reminders() {
+        let cli = Cli::try_parse_from(["vel", "sync", "reminders"]).unwrap();
+        match cli.command {
+            Command::Sync {
+                command: SyncCommand::Reminders,
+            } => {}
+            _ => panic!("expected sync reminders command"),
         }
     }
 

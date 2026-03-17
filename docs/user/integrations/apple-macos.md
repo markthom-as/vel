@@ -17,6 +17,7 @@ Today, `VelMac` can write local snapshots for:
 - activity
 - health
 - messaging
+- reminders
 
 `veld` on macOS can auto-discover local files for:
 
@@ -24,6 +25,7 @@ Today, `VelMac` can write local snapshots for:
 - health
 - git
 - messaging
+- reminders
 - notes
 - transcripts
 
@@ -39,6 +41,7 @@ Expected current locations:
 - `health/snapshot.json`
 - `git/snapshot.json`
 - `messages/snapshot.json`
+- `reminders/snapshot.json`
 - `notes/`
 - `transcripts/snapshot.json`
 
@@ -51,6 +54,7 @@ Current exported behavior:
 - activity heartbeat from the running app
 - health summary snapshot when HealthKit is available and authorized
 - recent message-thread snapshot from the local Messages database
+- reminder snapshot from EventKit when Reminders access is granted
 
 If the daemon is reachable, `VelMac` can also ask `veld` to sync those sources after export.
 
@@ -64,6 +68,15 @@ Health export depends on:
 
 - HealthKit availability on the host
 - authorization being granted
+
+Current exported metrics include:
+
+- step count
+- active energy burned
+- sleep hours
+- heart rate
+- stand hours
+- blood pressure (systolic/diastolic)
 
 If authorization is denied, the health snapshot may not be written.
 
@@ -79,6 +92,13 @@ Depending on the machine and policy, this may require:
 
 If the process cannot read the Messages database, the messaging snapshot may not be written.
 
+### Reminders
+
+Reminders export depends on:
+
+- EventKit availability on the host
+- Reminders authorization being granted
+
 ## How to verify it is working
 
 1. confirm the snapshot files exist in `~/Library/Application Support/Vel/`
@@ -91,6 +111,7 @@ Useful commands:
 cargo run -p vel-cli -- sync activity
 cargo run -p vel-cli -- sync health
 cargo run -p vel-cli -- sync messaging
+cargo run -p vel-cli -- sync reminders
 cargo run -p vel-cli -- evaluate
 ```
 

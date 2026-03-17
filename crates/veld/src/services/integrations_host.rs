@@ -10,6 +10,7 @@ const LOCAL_INTEGRATION_IDS: &[&str] = &[
     "health",
     "git",
     "messaging",
+    "reminders",
     "notes",
     "transcripts",
 ];
@@ -32,6 +33,7 @@ pub(crate) fn sanitize_missing_default_local_sources(config: &mut AppConfig) {
     sanitize_missing_default_local_path("health", &mut config.health_snapshot_path);
     sanitize_missing_default_local_path("git", &mut config.git_snapshot_path);
     sanitize_missing_default_local_path("messaging", &mut config.messaging_snapshot_path);
+    sanitize_missing_default_local_path("reminders", &mut config.reminders_snapshot_path);
     sanitize_missing_default_local_path("notes", &mut config.notes_path);
     sanitize_missing_default_local_path("transcripts", &mut config.transcript_snapshot_path);
 }
@@ -119,6 +121,10 @@ pub(crate) fn auto_local_source_path_from_home(
             home.join("Library/Application Support/Vel/notes"),
             home.join("Library/Application Support/Vel/integrations/notes"),
         ],
+        "reminders" => vec![
+            home.join("Library/Application Support/Vel/reminders/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/reminders/snapshot.json"),
+        ],
         "transcripts" => vec![
             home.join("Library/Application Support/Vel/transcripts/snapshot.json"),
             home.join("Library/Application Support/Vel/integrations/transcripts/snapshot.json"),
@@ -135,7 +141,9 @@ pub(crate) fn auto_local_source_path_from_home(
 
 fn auto_local_source_path_from_support_roots(integration_id: &str, home: &Path) -> Option<String> {
     let suffix = match integration_id {
-        "activity" | "health" | "git" | "messaging" | "transcripts" => "snapshot.json",
+        "activity" | "health" | "git" | "messaging" | "reminders" | "transcripts" => {
+            "snapshot.json"
+        }
         "notes" => "",
         _ => return None,
     };
@@ -241,5 +249,24 @@ mod tests {
             Some("var/integrations/messaging/snapshot.json"),
         );
         assert_eq!(resolved.as_deref(), Some(configured));
+    }
+
+    #[test]
+    fn auto_discovers_macos_reminders_snapshot_from_home() {
+        let home = unique_temp_dir("mac-reminders-home");
+        let snapshot_path = home.join("Library/Application Support/Vel/reminders/snapshot.json");
+        fs::create_dir_all(
+            snapshot_path
+                .parent()
+                .expect("snapshot parent should exist"),
+        )
+        .expect("snapshot parent dir should be created");
+        fs::write(&snapshot_path, "{}").expect("snapshot fixture should be written");
+
+        let resolved = auto_local_source_path_from_home("reminders", &home)
+            .expect("reminders snapshot should be discovered");
+        assert_eq!(resolved, snapshot_path.to_string_lossy());
+
+        let _ = fs::remove_dir_all(home);
     }
 }

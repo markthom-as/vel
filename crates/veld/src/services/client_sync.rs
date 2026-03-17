@@ -191,7 +191,9 @@ async fn swarm_clients_from_workers(
             sync_base_url: Some(worker.sync_base_url.clone()),
             ping_ms: worker.ping_ms,
             heartbeat_age_seconds: Some(
-                workers.generated_at.saturating_sub(worker.last_heartbeat_at),
+                workers
+                    .generated_at
+                    .saturating_sub(worker.last_heartbeat_at),
             ),
             last_heartbeat_at: Some(worker.last_heartbeat_at),
             last_upstream_sync_at: worker.last_upstream_sync_at,

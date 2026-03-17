@@ -170,6 +170,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/sync/health", post(routes::sync::sync_health))
         .route("/v1/sync/git", post(routes::sync::sync_git))
         .route("/v1/sync/messaging", post(routes::sync::sync_messaging))
+        .route("/v1/sync/reminders", post(routes::sync::sync_reminders))
         .route("/v1/sync/notes", post(routes::sync::sync_notes))
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/sync/bootstrap", get(routes::sync::sync_bootstrap))
@@ -9181,7 +9182,7 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let data = json["data"].as_array().expect("components array");
-        assert_eq!(data.len(), 9);
+        assert_eq!(data.len(), 10);
         let ids: Vec<&str> = data
             .iter()
             .map(|entry| entry["id"].as_str().unwrap_or_default())
@@ -9192,6 +9193,7 @@ END:VCALENDAR
         assert!(ids.contains(&"health"));
         assert!(ids.contains(&"git"));
         assert!(ids.contains(&"messaging"));
+        assert!(ids.contains(&"reminders"));
         assert!(ids.contains(&"notes"));
         assert!(ids.contains(&"transcripts"));
         assert!(ids.contains(&"evaluate"));

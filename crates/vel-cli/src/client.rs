@@ -376,6 +376,10 @@ impl ApiClient {
         self.post_empty("/v1/sync/messaging").await
     }
 
+    pub async fn sync_reminders(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
+        self.post_empty("/v1/sync/reminders").await
+    }
+
     pub async fn sync_bootstrap(&self) -> anyhow::Result<ApiResponse<SyncBootstrapData>> {
         self.get("/v1/sync/bootstrap").await
     }
@@ -407,7 +411,7 @@ impl ApiClient {
         provider_key: Option<&str>,
         include_disabled: bool,
     ) -> anyhow::Result<ApiResponse<Vec<IntegrationConnectionData>>> {
-        let mut path = "/v1/integrations/connections".to_string();
+        let mut path = "/api/integrations/connections".to_string();
         let mut params = Vec::new();
         if let Some(family) = family.filter(|value| !value.is_empty()) {
             params.push(format!("family={family}"));
@@ -429,7 +433,7 @@ impl ApiClient {
         &self,
         id: &str,
     ) -> anyhow::Result<ApiResponse<IntegrationConnectionData>> {
-        self.get(&format!("/v1/integrations/connections/{}", id))
+        self.get(&format!("/api/integrations/connections/{}", id))
             .await
     }
 
@@ -438,7 +442,7 @@ impl ApiClient {
         id: &str,
         limit: Option<u32>,
     ) -> anyhow::Result<ApiResponse<Vec<IntegrationConnectionEventData>>> {
-        let mut path = format!("/v1/integrations/connections/{id}/events");
+        let mut path = format!("/api/integrations/connections/{id}/events");
         if let Some(limit) = limit {
             path.push_str(&format!("?limit={limit}"));
         }

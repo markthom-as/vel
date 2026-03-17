@@ -25,6 +25,7 @@ const DEFAULT_ACTIVITY_SNAPSHOT_PATH: &str = "var/integrations/activity/snapshot
 const DEFAULT_HEALTH_SNAPSHOT_PATH: &str = "var/integrations/health/snapshot.json";
 const DEFAULT_GIT_SNAPSHOT_PATH: &str = "var/integrations/git/snapshot.json";
 const DEFAULT_MESSAGING_SNAPSHOT_PATH: &str = "var/integrations/messaging/snapshot.json";
+const DEFAULT_REMINDERS_SNAPSHOT_PATH: &str = "var/integrations/reminders/snapshot.json";
 const DEFAULT_NOTES_PATH: &str = "var/integrations/notes";
 const DEFAULT_TRANSCRIPT_SNAPSHOT_PATH: &str = "var/integrations/transcripts/snapshot.json";
 
@@ -56,6 +57,8 @@ pub struct AppConfig {
     pub git_snapshot_path: Option<String>,
     /// Messaging: path to local messaging snapshot JSON.
     pub messaging_snapshot_path: Option<String>,
+    /// Reminders: path to local reminders snapshot JSON.
+    pub reminders_snapshot_path: Option<String>,
     /// Notes: file or directory path for markdown/plaintext note sync.
     pub notes_path: Option<String>,
     /// Transcripts: path to assistant/chat transcript snapshot JSON.
@@ -231,6 +234,7 @@ impl Default for AppConfig {
             health_snapshot_path: Some(DEFAULT_HEALTH_SNAPSHOT_PATH.to_string()),
             git_snapshot_path: Some(DEFAULT_GIT_SNAPSHOT_PATH.to_string()),
             messaging_snapshot_path: Some(DEFAULT_MESSAGING_SNAPSHOT_PATH.to_string()),
+            reminders_snapshot_path: Some(DEFAULT_REMINDERS_SNAPSHOT_PATH.to_string()),
             notes_path: Some(DEFAULT_NOTES_PATH.to_string()),
             transcript_snapshot_path: Some(DEFAULT_TRANSCRIPT_SNAPSHOT_PATH.to_string()),
         }
@@ -245,6 +249,7 @@ pub fn is_default_local_source_path(kind: &str, path: &str) -> bool {
         "health" => path == DEFAULT_HEALTH_SNAPSHOT_PATH,
         "git" => path == DEFAULT_GIT_SNAPSHOT_PATH,
         "messaging" => path == DEFAULT_MESSAGING_SNAPSHOT_PATH,
+        "reminders" => path == DEFAULT_REMINDERS_SNAPSHOT_PATH,
         "notes" => path == DEFAULT_NOTES_PATH,
         "transcripts" => path == DEFAULT_TRANSCRIPT_SNAPSHOT_PATH,
         _ => false,
@@ -280,6 +285,7 @@ struct FileConfig {
     health_snapshot_path: Option<String>,
     git_snapshot_path: Option<String>,
     messaging_snapshot_path: Option<String>,
+    reminders_snapshot_path: Option<String>,
     notes_path: Option<String>,
     transcript_snapshot_path: Option<String>,
 }
@@ -394,6 +400,9 @@ impl AppConfig {
         if file.messaging_snapshot_path.is_some() {
             self.messaging_snapshot_path = file.messaging_snapshot_path;
         }
+        if file.reminders_snapshot_path.is_some() {
+            self.reminders_snapshot_path = file.reminders_snapshot_path;
+        }
         if file.notes_path.is_some() {
             self.notes_path = file.notes_path;
         }
@@ -460,6 +469,9 @@ impl AppConfig {
         if let Some(value) = env_map.get("VEL_MESSAGING_SNAPSHOT_PATH") {
             self.messaging_snapshot_path = Some(value.clone());
         }
+        if let Some(value) = env_map.get("VEL_REMINDERS_SNAPSHOT_PATH") {
+            self.reminders_snapshot_path = Some(value.clone());
+        }
         if let Some(value) = env_map.get("VEL_NOTES_PATH") {
             self.notes_path = Some(value.clone());
         }
@@ -515,6 +527,10 @@ mod tests {
             config.messaging_snapshot_path.as_deref(),
             Some(DEFAULT_MESSAGING_SNAPSHOT_PATH)
         );
+        assert_eq!(
+            config.reminders_snapshot_path.as_deref(),
+            Some(DEFAULT_REMINDERS_SNAPSHOT_PATH)
+        );
         assert_eq!(config.notes_path.as_deref(), Some(DEFAULT_NOTES_PATH));
         assert_eq!(
             config.transcript_snapshot_path.as_deref(),
@@ -553,6 +569,10 @@ mod tests {
                 "VEL_AGENT_SPEC_PATH".to_string(),
                 "/tmp/agent-specs.yaml".to_string(),
             ),
+            (
+                "VEL_REMINDERS_SNAPSHOT_PATH".to_string(),
+                "/tmp/reminders.json".to_string(),
+            ),
         ]);
 
         config.apply_env_map(&env_map);
@@ -573,6 +593,10 @@ mod tests {
         assert_eq!(
             config.messaging_snapshot_path.as_deref(),
             Some("/tmp/messaging.json")
+        );
+        assert_eq!(
+            config.reminders_snapshot_path.as_deref(),
+            Some("/tmp/reminders.json")
         );
         assert_eq!(
             config.agent_spec_path.as_deref(),
@@ -621,7 +645,10 @@ budgets:
         let template = fs::read_to_string(repo_path("config/templates/vel.toml.template")).unwrap();
         let parsed = toml::from_str::<FileConfig>(&template).unwrap();
         assert_eq!(parsed.bind_addr.as_deref(), Some("127.0.0.1:4130"));
-        assert_eq!(parsed.agent_spec_path.as_deref(), Some("config/agent-specs.yaml"));
+        assert_eq!(
+            parsed.agent_spec_path.as_deref(),
+            Some("config/agent-specs.yaml")
+        );
     }
 
     #[test]
@@ -646,8 +673,8 @@ budgets:
 
     #[test]
     fn repo_live_agent_specs_parse() {
-        let specs = AppConfig::load_agent_specs_from_path(repo_path("config/agent-specs.yaml"))
-            .unwrap();
+        let specs =
+            AppConfig::load_agent_specs_from_path(repo_path("config/agent-specs.yaml")).unwrap();
         assert!(!specs.is_empty());
         assert_eq!(specs[0].id, "research_agent");
     }

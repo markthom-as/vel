@@ -14,6 +14,7 @@ pub(crate) fn canonical_integration_id(integration_id: &str) -> Option<&'static 
         "activity" => Some("activity"),
         "git" => Some("git"),
         "messaging" => Some("messaging"),
+        "reminders" => Some("reminders"),
         "notes" => Some("notes"),
         "transcripts" => Some("transcripts"),
         _ => None,

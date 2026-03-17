@@ -49,6 +49,7 @@ The most important local config keys are:
 - `health_snapshot_path`
 - `git_snapshot_path`
 - `messaging_snapshot_path`
+- `reminders_snapshot_path`
 - `notes_path`
 - `transcript_snapshot_path`
 
@@ -66,6 +67,7 @@ Current local source inputs:
 - health from snapshot JSON
 - git from snapshot JSON
 - messaging from snapshot JSON
+- reminders from snapshot JSON
 - notes from a file or directory
 - transcripts from snapshot JSON
 
@@ -78,6 +80,7 @@ cargo run -p vel-cli -- sync activity
 cargo run -p vel-cli -- sync health
 cargo run -p vel-cli -- sync git
 cargo run -p vel-cli -- sync messaging
+cargo run -p vel-cli -- sync reminders
 cargo run -p vel-cli -- sync notes
 cargo run -p vel-cli -- sync transcripts
 ```
@@ -102,6 +105,7 @@ Current auto-discovered locations:
 - `health/snapshot.json`
 - `git/snapshot.json`
 - `messages/snapshot.json`
+- `reminders/snapshot.json`
 - `notes/`
 - `transcripts/snapshot.json`
 
@@ -116,12 +120,15 @@ Current snapshot-backed exports:
 - activity heartbeat
 - health summary snapshot
 - recent messages thread snapshot
+- reminders snapshot
 
 Important caveats:
 
 - this is still snapshot-based ingestion, not full direct system integration inside Rust
 - health export depends on HealthKit availability and authorization
+- health snapshot can include step count, active energy, sleep hours, heart rate, stand hours, and blood pressure
 - messages export reads the local Messages database and may require Full Disk Access on macOS
+- reminders export depends on EventKit reminders authorization
 - if the daemon is unreachable, snapshots can still be written locally but daemon sync happens later
 
 For the Apple client details, see [clients/apple/README.md](../../clients/apple/README.md).

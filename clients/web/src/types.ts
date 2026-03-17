@@ -151,6 +151,7 @@ export interface IntegrationsData {
   health: LocalIntegrationData;
   git: LocalIntegrationData;
   messaging: LocalIntegrationData;
+  reminders?: LocalIntegrationData;
   notes: LocalIntegrationData;
   transcripts: LocalIntegrationData;
 }
@@ -1132,6 +1133,7 @@ export function decodeIntegrationsData(value: unknown): IntegrationsData {
     health: decodeLocalIntegrationData(record.health ?? {}),
     git: decodeLocalIntegrationData(record.git ?? {}),
     messaging: decodeLocalIntegrationData(record.messaging ?? {}),
+    reminders: decodeLocalIntegrationData(record.reminders ?? {}),
     notes: decodeLocalIntegrationData(record.notes ?? {}),
     transcripts: decodeLocalIntegrationData(record.transcripts ?? {}),
   };

@@ -5,7 +5,7 @@ Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel da
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), quick capture + push-to-talk voice capture, offline cache + queued actions.
 - **VelWatch** — Apple Watch: brief “what matters now” summary (mode + next commitment), nudge quick actions (done/snooze), quick capture/check-in/task entry, cached fallback.
-- **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages snapshot export into Vel’s Application Support tree.
+- **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages/reminders snapshot export into Vel’s Application Support tree.
 
 Current architecture and planning references: [Master Plan](../../docs/MASTER_PLAN.md), [overarching concept spec](../../docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md), [HLC sync implementation ticket](../../docs/tickets/phase-2/005-hlc-sync-implementation.md), and [tester-readiness onboarding ticket](../../docs/tickets/phase-2/012-tester-readiness-onboarding.md).
 
@@ -163,17 +163,20 @@ Current snapshot outputs:
 - `activity/snapshot.json`
 - `health/snapshot.json`
 - `messages/snapshot.json`
+- `reminders/snapshot.json`
 
 Current behavior:
 
 - activity writes a lightweight local heartbeat from the running app
-- health writes a same-day summary snapshot when HealthKit is available and authorization is granted
+- health writes a same-day summary snapshot (step count, active energy, sleep hours, heart rate, stand hours, blood pressure) when HealthKit is available and authorization is granted
 - messages writes a recent-thread snapshot from the local Messages database, then asks `veld` to sync it when the daemon is reachable
+- reminders writes recent reminders from EventKit and asks `veld` to sync when reachable
 
 Current caveats:
 
 - Health export is snapshot-based through HealthKit, not a long-running background sync
 - Messages export reads `~/Library/Messages/chat.db` via `sqlite3`; on macOS this may require Full Disk Access depending on host policy
+- Reminders export requires EventKit reminders authorization
 - when `veld` is unreachable, `VelMac` still writes snapshots locally but cannot trigger daemon sync until a later reachability check
 
 ## 1. Open the project in Xcode
@@ -268,6 +271,6 @@ VelAPI can be extended with more endpoints (commitments, captures, explain, risk
 ## Design notes
 
 - **One brain**: All logic (inference, risk, nudges) lives in veld; clients only display and send actions.
-- **Offline mode**: Apple clients now cache context/nudges/commitments and queue user actions locally; `VelMac` also exports local activity/health/messages snapshots for daemon sync. The clients still must not fork local policy or inference.
+- **Offline mode**: Apple clients now cache context/nudges/commitments and queue user actions locally; `VelMac` also exports local activity/health/messages/reminders snapshots for daemon sync. The clients still must not fork local policy or inference.
 - **Calm, analytical**: Spec calls for non-chirpy, non-preachy tone; Watch stays ultra-brief.
 - **Same repo**: Apple clients live here (not a separate repo) until the core API and release cadence are stable.

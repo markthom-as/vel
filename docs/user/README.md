@@ -42,7 +42,7 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 - `vel` provides the main operator CLI.
 - captures, commitments, context generation, nudges, recent/review flows, and artifact/run inspection are implemented.
 - local integrations can be ingested from files or snapshots.
-- on macOS, `veld` auto-discovers local `activity`, `health`, `git`, `messaging`, `notes`, and `transcripts` sources under `~/Library/Application Support/Vel/...` when they exist.
+- on macOS, `veld` auto-discovers local `activity`, `health`, `git`, `messaging`, `reminders`, `notes`, and `transcripts` sources under `~/Library/Application Support/Vel/...` when they exist.
 
 ## What is still partial
 
