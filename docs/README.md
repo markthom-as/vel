@@ -16,6 +16,7 @@ These files describe the current implementation and operational reality.
 
 - [status.md](status.md): canonical implementation ledger
 - [api.md](api.md): HTTP/API surface overview
+- [vocabulary.md](vocabulary.md): canonical glossary, vocabulary index, and appendix for Vel terms; programmatic source lives in `vel-core`
 - [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md): coverage map for documented subsystems
 - [specs/vel-user-documentation-spec.md](specs/vel-user-documentation-spec.md): target shape for full-fat end-user documentation
 - [user/README.md](user/README.md): canonical user-facing docs entrypoint
@@ -26,6 +27,7 @@ These files describe the current implementation and operational reality.
 These files describe the current implementation sequence and near-term convergence work.
 
 - [tickets/README.md](tickets/README.md): ticket-pack inventory, maturity index, and triage entry point
+- [tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md): current audit-derived hardening and modularization sequence
 - [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md): one active convergence packet for architecture and cleanup work
 - [roadmap.md](roadmap.md): broader product direction, subordinate to `status.md` for shipped behavior
 

@@ -14,6 +14,7 @@ Vel is a **local-first cognition runtime** for capture, recall, and daily orient
 Context endpoints (today/morning/end-of-day) are **run-backed**: each request creates a run, writes a managed JSON artifact, and links run → artifact; inspect with `vel run inspect <id>`.
 
 See [docs/status.md](docs/status.md) for details. Start doc navigation from [docs/README.md](docs/README.md). Canonical runtime concepts: [docs/runtime-concepts.md](docs/runtime-concepts.md).
+Canonical terminology appendix: [docs/vocabulary.md](docs/vocabulary.md).
 
 ## User Docs
 

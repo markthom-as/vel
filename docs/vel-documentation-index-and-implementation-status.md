@@ -44,6 +44,7 @@ Start with [docs/README.md](README.md) if you need the shortest authoritative re
 - command language / structured DSL — [spec](specs/vel-command-language-spec.md)
 - command language implementation note — [spec](specs/vel-command-language-implementation-note.md)
 - command language Rust layout — [spec](specs/vel-command-language-rust-layout.md)
+- terminology, glossary, and DSL/domain vocabulary — [docs](vocabulary.md)
 - explain commands — [status](status.md)
 
 ## User Documentation

@@ -55,6 +55,7 @@ const makefile = readFile('Makefile');
 const status = readFile('docs/status.md');
 const repoFeedbackReadme = readFile('docs/tickets/repo-feedback/README.md');
 const ticketsReadme = readFile('docs/tickets/README.md');
+const apiChat = readFile('docs/api/chat.md');
 const repoFeedbackDir = path.join(repoRoot, 'docs', 'tickets', 'repo-feedback');
 
 const requiredReadmeCommands = [
@@ -134,8 +135,24 @@ ensure(
   'docs/README.md does not mention the repo-feedback packet',
 );
 ensure(
+  docsReadme.includes('[tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md)'),
+  'docs/README.md does not mention the repo-audit-hardening packet',
+);
+ensure(
   ticketsReadme.includes('ticket inventory and triage index'),
   'docs/tickets/README.md does not describe itself as the ticket inventory and triage index',
+);
+ensure(
+  ticketsReadme.includes('repo-audit-hardening/README.md'),
+  'docs/tickets/README.md does not list the repo-audit-hardening packet',
+);
+ensure(
+  ticketsReadme.includes('037-chat-remote-fallback-for-assistant-generation.md'),
+  'docs/tickets/README.md does not include chat ticket 037 in the convenience list',
+);
+ensure(
+  apiChat.includes('### `GET /ws`'),
+  'docs/api/chat.md does not document the live /ws websocket entrypoint',
 );
 ensure(
   ticketsReadme.includes('[docs/status.md](../status.md)'),

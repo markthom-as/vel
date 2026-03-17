@@ -61,10 +61,13 @@ Response:
 
 ## WebSocket
 
-### `GET /api/ws`
+### `GET /ws`
 
 WebSocket events include (see `vel-chat-execution-plan` for full list):
 
 - `messages:new`
+- `interventions:new`
 - `interventions:updated`
-
+- `context:updated`
+- `runs:updated`
+- `components:updated`

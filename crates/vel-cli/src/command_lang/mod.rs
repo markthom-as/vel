@@ -10,6 +10,7 @@ pub mod tokenize;
 use crate::client::ApiClient;
 use anyhow::bail;
 use serde_json::json;
+use vel_api_types::CommandExecutionPayloadData;
 
 use ast::{PhraseFamily, Verb};
 use infer::parse_and_resolve;
@@ -93,15 +94,37 @@ async fn execute_via_service(
     if json_output {
         println!("{}", serde_json::to_string_pretty(&data)?);
     } else {
-        println!("result_kind: {}", data.result_kind);
-        if let Some(capture_id) = data
-            .payload
-            .get("capture_id")
-            .and_then(serde_json::Value::as_str)
-        {
-            println!("capture_id: {}", capture_id);
-        } else {
-            println!("{}", serde_json::to_string_pretty(&data.payload)?);
+        match &data.result {
+            CommandExecutionPayloadData::CaptureCreated(result) => {
+                println!("result_kind: capture_created");
+                println!("capture_id: {}", result.capture_id);
+            }
+            CommandExecutionPayloadData::CommitmentCreated(result) => {
+                println!("result_kind: commitment_created");
+                println!("commitment_id: {}", result.id);
+                println!("text: {}", result.text);
+            }
+            CommandExecutionPayloadData::ArtifactCreated(result) => {
+                println!("result_kind: artifact_created");
+                println!("artifact_id: {}", result.artifact_id);
+                println!("artifact_type: {}", result.artifact_type);
+            }
+            CommandExecutionPayloadData::ReviewToday(result) => {
+                println!("result_kind: review_today");
+                println!("capture_count: {}", result.capture_count);
+                println!("{}", serde_json::to_string_pretty(result)?);
+            }
+            CommandExecutionPayloadData::ReviewWeek(result) => {
+                println!("result_kind: review_week");
+                println!("capture_count: {}", result.capture_count);
+                println!("{}", serde_json::to_string_pretty(result)?);
+            }
+        }
+        if !data.warnings.is_empty() {
+            println!("warnings:");
+            for warning in &data.warnings {
+                println!("- {}", warning);
+            }
         }
     }
 

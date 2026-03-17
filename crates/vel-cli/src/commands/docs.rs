@@ -34,6 +34,12 @@ const DOCS: &[DocEntry] = &[
         description: "Domain and storage model reference.",
     },
     DocEntry {
+        category: "core",
+        title: "Vocabulary",
+        path: "docs/vocabulary.md",
+        description: "Canonical glossary, appendix, and DSL/domain terminology index.",
+    },
+    DocEntry {
         category: "user",
         title: "User Docs",
         path: "docs/user/README.md",

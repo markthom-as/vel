@@ -1184,6 +1184,35 @@ export function SettingsPage({
                 )}
             </div>
           </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-zinc-200">Documentation</h3>
+                <p className="text-sm text-zinc-500">
+                  Core Vel docs and user-specific operating docs are part of the product surface. Open these repo paths locally when you need authoritative guidance.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <DocumentationCard
+                  title="Core documentation"
+                  docs={[
+                    ['Docs Guide', 'docs/README.md', 'Top-level docs authority and navigation.'],
+                    ['Status', 'docs/status.md', 'Canonical shipped behavior and implementation truth.'],
+                    ['Architecture', 'docs/architecture.md', 'System structure and runtime boundaries.'],
+                  ]}
+                />
+                <DocumentationCard
+                  title="Your Vel documentation"
+                  docs={[
+                    ['User Docs', 'docs/user/README.md', 'Operator-facing entrypoint.'],
+                    ['Quickstart', 'docs/user/quickstart.md', 'Shortest path to first working setup.'],
+                    ['Setup', 'docs/user/setup.md', 'Configuration, integrations, and macOS local-source setup.'],
+                    ['Daily Use', 'docs/user/daily-use.md', 'Repeated workflow for day-to-day use.'],
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -2316,4 +2345,27 @@ function localGuidanceActions(
     default:
       return [];
   }
+}
+
+function DocumentationCard({
+  title,
+  docs,
+}: {
+  title: string;
+  docs: Array<[string, string, string]>;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+      <h4 className="text-sm font-medium text-zinc-100">{title}</h4>
+      <div className="mt-3 space-y-3">
+        {docs.map(([label, path, summary]) => (
+          <div key={path}>
+            <p className="text-sm text-zinc-200">{label}</p>
+            <p className="font-mono text-xs text-zinc-400">{path}</p>
+            <p className="text-xs text-zinc-500">{summary}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

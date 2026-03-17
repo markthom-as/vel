@@ -32,7 +32,8 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 5. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
 6. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
 7. [Privacy](privacy.md) for the current local-first trust model and data locations.
-8. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
+8. [Vocabulary](../vocabulary.md) for the canonical meanings of Vel domain and command-language terms.
+9. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
 
 ## What works now
 

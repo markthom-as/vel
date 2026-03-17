@@ -453,6 +453,23 @@ describe('SettingsPage', () => {
     expect(within(root).getByText(/from increase prep window/i)).toBeInTheDocument()
   })
 
+  it('renders documentation entrypoints in general settings', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+
+    await waitFor(() => {
+      const root = getSettingsRoot(container)
+      expect(within(root).getByRole('heading', { name: 'Documentation' })).toBeInTheDocument()
+    })
+
+    const root = getSettingsRoot(container)
+    expect(within(root).getByText('Core documentation')).toBeInTheDocument()
+    expect(within(root).getByText('Your Vel documentation')).toBeInTheDocument()
+    expect(within(root).getByText('docs/README.md')).toBeInTheDocument()
+    expect(within(root).getByText('docs/status.md')).toBeInTheDocument()
+    expect(within(root).getByText('docs/user/README.md')).toBeInTheDocument()
+    expect(within(root).getByText('docs/user/quickstart.md')).toBeInTheDocument()
+  })
+
   it('keeps todoist sync active while google credential save is pending', async () => {
     const googleSave = createDeferred<unknown>()
     vi.mocked(client.apiPatch).mockImplementationOnce(() => googleSave.promise as never)
