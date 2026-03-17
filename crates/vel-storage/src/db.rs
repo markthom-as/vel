@@ -3392,11 +3392,90 @@ impl Storage {
         .map(map_context_capture_row)
         .collect::<Result<Vec<_>, _>>()?;
 
+        let recent_signal_summaries = self
+            .list_signals(None, Some(seven_days_ago.unix_timestamp()), 100)
+            .await?
+            .into_iter()
+            .filter_map(|signal| summarize_signal_for_orientation(&signal))
+            .take(25)
+            .collect();
+
         Ok(OrientationSnapshot {
             recent_today,
             recent_week,
+            recent_signal_summaries,
         })
     }
+}
+
+fn summarize_signal_for_orientation(signal: &SignalRecord) -> Option<String> {
+    let payload = &signal.payload_json;
+    match signal.signal_type.as_str() {
+        "calendar_event" => payload
+            .get("title")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(|title| format!("event {}", title.trim())),
+        "external_task" => payload
+            .get("text")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(|text| format!("todo {}", text.trim())),
+        "git_activity" => {
+            let summary = payload
+                .get("summary")
+                .and_then(serde_json::Value::as_str)
+                .or_else(|| payload.get("operation").and_then(serde_json::Value::as_str))
+                .filter(|value| !value.trim().is_empty())?;
+            let repo = payload
+                .get("repo_name")
+                .or_else(|| payload.get("repo"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("repo");
+            Some(format!("git {} {}", repo, summary.trim()))
+        }
+        "message_thread" => {
+            let summary = payload
+                .get("summary")
+                .or_else(|| payload.get("snippet"))
+                .and_then(serde_json::Value::as_str)
+                .filter(|value| !value.trim().is_empty())?;
+            let waiting_state = payload
+                .get("waiting_state")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("message");
+            Some(format!("{} {}", waiting_state.replace('_', " "), summary.trim()))
+        }
+        "health_metric" => {
+            let metric = payload
+                .get("metric")
+                .or_else(|| payload.get("summary"))
+                .and_then(serde_json::Value::as_str)
+                .filter(|value| !value.trim().is_empty())?;
+            Some(format!("health {}", metric.trim()))
+        }
+        "assistant_message" => payload
+            .get("content")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(|content| format!("assistant {}", truncate_summary(content.trim(), 96))),
+        "note_document" => payload
+            .get("title")
+            .or_else(|| payload.get("path"))
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(|title| format!("note {}", title.trim())),
+        _ => None,
+    }
+}
+
+fn truncate_summary(value: &str, max_chars: usize) -> String {
+    if value.chars().count() <= max_chars {
+        return value.to_string();
+    }
+    let mut truncated = value.chars().take(max_chars.saturating_sub(1)).collect::<String>();
+    truncated.push('…');
+    truncated
 }
 
 fn map_search_row(row: sqlx::sqlite::SqliteRow) -> Result<SearchResult, StorageError> {

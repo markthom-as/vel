@@ -6,10 +6,9 @@ use vel_api_types::{EndOfDayData, MorningData, TodayData};
 use vel_core::OrientationSnapshot;
 
 pub fn build_today(snapshot: &OrientationSnapshot) -> TodayData {
-    let reminders =
-        extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
-    let focus_candidates =
-        extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let source_text = combined_source_text(snapshot);
+    let reminders = extract_commitments(source_text.iter().map(String::as_str));
+    let focus_candidates = extract_focus_candidates(source_text.iter().map(String::as_str));
     TodayData {
         date: OffsetDateTime::now_utc().date().to_string(),
         recent_captures: snapshot
@@ -24,10 +23,9 @@ pub fn build_today(snapshot: &OrientationSnapshot) -> TodayData {
 }
 
 pub fn build_morning(snapshot: &OrientationSnapshot) -> MorningData {
-    let top_active_threads =
-        extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
-    let pending_commitments =
-        extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let source_text = combined_source_text(snapshot);
+    let top_active_threads = extract_focus_candidates(source_text.iter().map(String::as_str));
+    let pending_commitments = extract_commitments(source_text.iter().map(String::as_str));
     MorningData {
         date: OffsetDateTime::now_utc().date().to_string(),
         suggested_focus: top_active_threads.first().cloned(),
@@ -38,10 +36,9 @@ pub fn build_morning(snapshot: &OrientationSnapshot) -> MorningData {
 }
 
 pub fn build_end_of_day(snapshot: &OrientationSnapshot) -> EndOfDayData {
-    let what_remains_open =
-        extract_commitments(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
-    let what_may_matter_tomorrow =
-        extract_focus_candidates(snapshot.recent_week.iter().map(|c| c.content_text.as_str()));
+    let source_text = combined_source_text(snapshot);
+    let what_remains_open = extract_commitments(source_text.iter().map(String::as_str));
+    let what_may_matter_tomorrow = extract_focus_candidates(source_text.iter().map(String::as_str));
     EndOfDayData {
         date: OffsetDateTime::now_utc().date().to_string(),
         what_was_done: snapshot
@@ -53,6 +50,15 @@ pub fn build_end_of_day(snapshot: &OrientationSnapshot) -> EndOfDayData {
         what_remains_open: what_remains_open.into_iter().take(10).collect(),
         what_may_matter_tomorrow: what_may_matter_tomorrow.into_iter().take(5).collect(),
     }
+}
+
+fn combined_source_text(snapshot: &OrientationSnapshot) -> Vec<String> {
+    snapshot
+        .recent_week
+        .iter()
+        .map(|capture| capture.content_text.clone())
+        .chain(snapshot.recent_signal_summaries.iter().cloned())
+        .collect()
 }
 
 fn extract_focus_candidates<'a>(captures: impl Iterator<Item = &'a str>) -> Vec<String> {
@@ -174,5 +180,21 @@ mod tests {
             .into_iter(),
         );
         assert_eq!(commitments.len(), 2);
+    }
+
+    #[test]
+    fn signal_summaries_contribute_to_brief_terms() {
+        let snapshot = OrientationSnapshot {
+            recent_today: Vec::new(),
+            recent_week: Vec::new(),
+            recent_signal_summaries: vec![
+                "todo follow up with Dimitri on forecast".to_string(),
+                "waiting on me forecast review".to_string(),
+            ],
+        };
+
+        let today = build_today(&snapshot);
+        assert!(today.reminders.iter().any(|item| item.contains("follow up")));
+        assert!(today.focus_candidates.iter().any(|item| item.contains("forecast")));
     }
 }

@@ -2558,6 +2558,90 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
+    #[tokio::test]
+    async fn context_briefs_include_recent_signal_summaries() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "external_task".to_string(),
+                source: "todoist".to_string(),
+                source_ref: Some("todoist:followup".to_string()),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+                payload_json: Some(serde_json::json!({
+                    "text": "follow up with Dimitri about the forecast"
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "message_thread".to_string(),
+                source: "messaging".to_string(),
+                source_ref: Some("thread:budget".to_string()),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+                payload_json: Some(serde_json::json!({
+                    "waiting_state": "waiting_on_me",
+                    "summary": "forecast review reply"
+                })),
+            })
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let today_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/today")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(today_resp.status(), StatusCode::OK);
+        let today_body = axum::body::to_bytes(today_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let today_json: serde_json::Value = serde_json::from_slice(&today_body).unwrap();
+        let reminders = today_json["data"]["reminders"]
+            .as_array()
+            .expect("today reminders");
+        let focus = today_json["data"]["focus_candidates"]
+            .as_array()
+            .expect("today focus candidates");
+        assert!(reminders
+            .iter()
+            .any(|item| item == "todo follow up with Dimitri about the forecast"));
+        assert!(focus.iter().any(|item| item == "forecast"));
+
+        let morning_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/morning")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(morning_resp.status(), StatusCode::OK);
+        let morning_body = axum::body::to_bytes(morning_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let morning_json: serde_json::Value = serde_json::from_slice(&morning_body).unwrap();
+        assert_eq!(
+            morning_json["data"]["suggested_focus"].as_str(),
+            Some("forecast")
+        );
+    }
+
     /// Canonical runtime integration test: context generation flows through run → artifact → refs.
     /// Verifies run creation, status transitions, event sequence, artifact creation, and provenance refs.
     #[tokio::test]

@@ -31,4 +31,5 @@ pub struct SearchResult {
 pub struct OrientationSnapshot {
     pub recent_today: Vec<ContextCapture>,
     pub recent_week: Vec<ContextCapture>,
+    pub recent_signal_summaries: Vec<String>,
 }
