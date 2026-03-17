@@ -137,7 +137,7 @@ const GLOSSARY: &[GlossaryEntry] = &[
         term: "capture",
         category: GlossaryCategory::Command,
         summary: "DSL verb for creating a capture from inline text.",
-        aliases: &[],
+        aliases: &["note"],
         related_terms: &["capture", "should"],
         domain_kind: None,
         dsl_selectors: &[],
@@ -161,7 +161,7 @@ const GLOSSARY: &[GlossaryEntry] = &[
         term: "commit",
         category: GlossaryCategory::Command,
         summary: "DSL verb for creating an open commitment from inline text.",
-        aliases: &[],
+        aliases: &["todo"],
         related_terms: &["commitment", "should"],
         domain_kind: None,
         dsl_selectors: &[],
@@ -240,26 +240,42 @@ pub fn dsl_registry_entries() -> impl Iterator<Item = &'static GlossaryEntry> {
     GLOSSARY.iter().filter(|entry| entry.domain_kind.is_some())
 }
 
+pub fn should_command_verb_entries() -> impl Iterator<Item = &'static GlossaryEntry> {
+    GLOSSARY.iter().filter(|entry| {
+        entry.category == GlossaryCategory::Command && entry.slug.ends_with("-verb")
+    })
+}
+
+pub fn normalize_should_command_verb(token: &str) -> Option<&'static str> {
+    should_command_verb_entries().find_map(|entry| {
+        if entry.term == token || entry.aliases.contains(&token) {
+            Some(entry.term)
+        } else {
+            None
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{glossary_entries, glossary_entry_for_kind, SHOULD_COMMAND_VERBS};
+    use super::{
+        glossary_entries, glossary_entry_for_kind, normalize_should_command_verb,
+        should_command_verb_entries, SHOULD_COMMAND_VERBS,
+    };
     use crate::DomainKind;
 
     #[test]
     fn domain_kinds_have_glossary_entries() {
         assert_eq!(
-            glossary_entry_for_kind(DomainKind::Capture)
-                .map(|entry| entry.term),
+            glossary_entry_for_kind(DomainKind::Capture).map(|entry| entry.term),
             Some("capture")
         );
         assert_eq!(
-            glossary_entry_for_kind(DomainKind::Commitment)
-                .map(|entry| entry.term),
+            glossary_entry_for_kind(DomainKind::Commitment).map(|entry| entry.term),
             Some("commitment")
         );
         assert_eq!(
-            glossary_entry_for_kind(DomainKind::ExecutionPlan)
-                .map(|entry| entry.term),
+            glossary_entry_for_kind(DomainKind::ExecutionPlan).map(|entry| entry.term),
             Some("execution plan")
         );
     }
@@ -270,5 +286,16 @@ mod tests {
             .iter()
             .any(|entry| !entry.command_examples.is_empty()));
         assert!(SHOULD_COMMAND_VERBS.contains(&"review"));
+    }
+
+    #[test]
+    fn normalizes_should_command_verb_aliases() {
+        let verbs = should_command_verb_entries()
+            .map(|entry| entry.term)
+            .collect::<Vec<_>>();
+        assert!(verbs.contains(&"capture"));
+        assert_eq!(normalize_should_command_verb("note"), Some("capture"));
+        assert_eq!(normalize_should_command_verb("todo"), Some("commit"));
+        assert_eq!(normalize_should_command_verb("unknown"), None);
     }
 }

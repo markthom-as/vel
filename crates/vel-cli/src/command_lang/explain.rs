@@ -7,12 +7,14 @@ pub fn render_explanation(resolution: &CommandResolution) -> String {
         "Parsed `{}` as {:?} -> {}",
         resolution.parsed.source_text, resolution.parsed.family, resolution.parsed.verb
     ));
-    if let Some(kind) = resolution.resolved.targets.first().map(|target| target.kind) {
+    if let Some(kind) = resolution
+        .resolved
+        .targets
+        .first()
+        .map(|target| target.kind)
+    {
         if let Some(entry) = glossary_entry_for_kind(kind) {
-            out.push(format!(
-                "Vocabulary: {} — {}",
-                entry.term, entry.summary
-            ));
+            out.push(format!("Vocabulary: {} — {}", entry.term, entry.summary));
         }
     }
     for assumption in &resolution.intent.assumptions {

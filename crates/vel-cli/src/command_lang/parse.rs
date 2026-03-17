@@ -1,6 +1,7 @@
 use crate::command_lang::ast::{ParsedCommand, PhraseFamily, Verb};
 use crate::command_lang::tokenize::tokenize;
 use anyhow::{bail, Result};
+use vel_core::normalize_should_command_verb;
 
 pub fn parse(input: &[String]) -> Result<ParsedCommand> {
     let tokens = tokenize(input)?;
@@ -21,20 +22,10 @@ fn parse_should(tokens: Vec<String>, source_text: String) -> Result<ParsedComman
         bail!("`should` commands require a verb and a target");
     }
 
-    let verb = match tokens[1].as_str() {
-        "capture" => Verb::Capture,
-        "feature" => Verb::Feature,
-        "review" => Verb::Review,
-        "commit" => Verb::Commit,
-        "remind" => Verb::Remind,
-        "synthesize" => Verb::Synthesize,
-        "import" => Verb::Import,
-        "explain" => Verb::Explain,
-        "spec" => Verb::Spec,
-        "plan" => Verb::Plan,
-        "delegate" => Verb::Delegate,
-        other => bail!("unsupported `should` verb `{other}`"),
-    };
+    let canonical_verb =
+        normalize_should_command_verb(tokens[1].as_str()).unwrap_or(tokens[1].as_str());
+    let verb = Verb::from_keyword(canonical_verb)
+        .ok_or_else(|| anyhow::anyhow!("unsupported `should` verb `{}`", tokens[1]))?;
 
     let target_tokens = tokens[2..].to_vec();
     if target_tokens.is_empty() {
@@ -78,6 +69,32 @@ mod tests {
         let parsed = parse(&input).expect("parse");
         assert_eq!(parsed.verb, Verb::Feature);
         assert_eq!(parsed.target_tokens, vec!["message", "triage"]);
+    }
+
+    #[test]
+    fn parses_should_capture_alias_from_shared_vocabulary() {
+        let input = vec![
+            "should".to_string(),
+            "note".to_string(),
+            "remember".to_string(),
+            "this".to_string(),
+        ];
+        let parsed = parse(&input).expect("parse");
+        assert_eq!(parsed.verb, Verb::Capture);
+        assert_eq!(parsed.target_tokens, vec!["remember", "this"]);
+    }
+
+    #[test]
+    fn parses_should_commit_alias_from_shared_vocabulary() {
+        let input = vec![
+            "should".to_string(),
+            "todo".to_string(),
+            "write".to_string(),
+            "tests".to_string(),
+        ];
+        let parsed = parse(&input).expect("parse");
+        assert_eq!(parsed.verb, Verb::Commit);
+        assert_eq!(parsed.target_tokens, vec!["write", "tests"]);
     }
 
     #[test]

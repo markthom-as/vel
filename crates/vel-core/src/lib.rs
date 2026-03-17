@@ -37,7 +37,8 @@ pub use types::{ConversationId, EventId, IntegrationConnectionId, InterventionId
 pub use uncertainty::{ResolutionMode, UncertaintyStatus};
 pub use vocabulary::{
     dsl_registry_entries, glossary_entries, glossary_entry, glossary_entry_for_kind,
-    GlossaryCategory, GlossaryEntry, SHOULD_COMMAND_VERBS,
+    normalize_should_command_verb, should_command_verb_entries, GlossaryCategory, GlossaryEntry,
+    SHOULD_COMMAND_VERBS,
 };
 
 use serde::{Deserialize, Serialize};

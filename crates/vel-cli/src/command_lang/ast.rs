@@ -42,6 +42,25 @@ impl Display for Verb {
     }
 }
 
+impl Verb {
+    pub fn from_keyword(value: &str) -> Option<Self> {
+        match value {
+            "capture" => Some(Self::Capture),
+            "feature" => Some(Self::Feature),
+            "commit" => Some(Self::Commit),
+            "remind" => Some(Self::Remind),
+            "review" => Some(Self::Review),
+            "synthesize" => Some(Self::Synthesize),
+            "import" => Some(Self::Import),
+            "explain" => Some(Self::Explain),
+            "spec" => Some(Self::Spec),
+            "plan" => Some(Self::Plan),
+            "delegate" => Some(Self::Delegate),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ParsedCommand {
     pub family: PhraseFamily,
