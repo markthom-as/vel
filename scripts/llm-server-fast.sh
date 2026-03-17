@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Start llama-server for Vel's primary coding/chat model on port 8012.
-# Defaults to the repo's small bootstrap GGUF if no primary model is configured.
+# Start llama-server for Vel's fast utility model on port 8013.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,30 +23,26 @@ if [[ -z "$LLAMA_SERVER_BIN" ]] && command -v nix &>/dev/null; then
   fi
 fi
 if [[ -z "$LLAMA_SERVER_BIN" ]]; then
-  echo "Chat: llama-server not available on PATH and nixpkgs#llama-cpp was not found; assistant replies disabled."
+  echo "Fast model: llama-server not available on PATH and nixpkgs#llama-cpp was not found; fast profile disabled."
   exit 0
 fi
 
-DEFAULT_MODEL="$ROOT/configs/models/weights/qwen2.5-1.5b-instruct-q4_k_m.gguf"
-CONFIG_MODEL="$(config_value llm_model_path || true)"
-MODEL="${VEL_LLM_MODEL:-${MODEL:-${CONFIG_MODEL:-}}}"
-if [[ -z "$MODEL" ]] && [[ -f "$DEFAULT_MODEL" ]]; then
-  MODEL="$DEFAULT_MODEL"
-fi
+CONFIG_MODEL="$(config_value llm_fast_model_path || true)"
+MODEL="${VEL_LLM_FAST_MODEL:-${MODEL:-${CONFIG_MODEL:-}}}"
 if [[ -z "$MODEL" ]]; then
-  echo "Chat: no model configured and no default GGUF found; assistant replies disabled. Set VEL_LLM_MODEL to a .gguf path to enable."
+  echo "Fast model: no model configured. Set VEL_LLM_FAST_MODEL to a .gguf path to enable."
   exit 0
 fi
 if [[ ! -f "$MODEL" ]]; then
-  echo "Chat: model file not found: $MODEL; assistant replies disabled."
+  echo "Fast model: model file not found: $MODEL; fast profile disabled."
   exit 0
 fi
 
-HOST="${VEL_LLM_HOST:-127.0.0.1}"
-PORT="${VEL_LLM_PORT:-8012}"
-CTX="${VEL_LLM_CTX:-16384}"
+HOST="${VEL_LLM_FAST_HOST:-127.0.0.1}"
+PORT="${VEL_LLM_FAST_PORT:-8013}"
+CTX="${VEL_LLM_FAST_CTX:-8192}"
 
-echo "Starting primary LLM server (port $PORT)..."
+echo "Starting fast LLM server (port $PORT)..."
 exec "$LLAMA_SERVER_BIN" \
   --model "$MODEL" \
   --host "$HOST" \
@@ -56,4 +51,4 @@ exec "$LLAMA_SERVER_BIN" \
   --ctx-size "$CTX" \
   --n-gpu-layers 999 \
   --threads "$(nproc)" \
-  --parallel 2
+  --parallel 4

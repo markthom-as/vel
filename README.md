@@ -57,16 +57,36 @@ cargo run -p vel-cli -- morning
 cargo run -p vel-cli -- config show
 ```
 
+## Hugging Face CLI
+
+The repo declares the official Hugging Face CLI (`hf`) as a project-scoped Nix shell dependency in `shell.nix`.
+
+From the repo root:
+
+```bash
+nix-shell --run 'hf --help'
+```
+
+To verify the local LLM setup that `make dev` expects, run:
+
+```bash
+make check-llm-setup
+```
+
 ## Local integration defaults
 
 The repo-local `vel.toml` points the current workspace at local integration seed files:
 
 - calendar ICS: `var/integrations/calendar/local.ics`
 - Todoist snapshot: `var/integrations/todoist/snapshot.json`
+- primary LLM model: `configs/models/weights/qwen3-coder-30b-a3b-instruct-q4_k_m.gguf`
+- fast LLM model: `configs/models/weights/qwen2.5-coder-14b-instruct-q4_k_m.gguf`
 
 These are local file-based inputs for `vel sync calendar` and `vel sync todoist`. Replace them with your real exported ICS feed and Todoist snapshot when you are ready, keeping the same config keys:
 
 ```toml
+llm_model_path = "configs/models/weights/qwen3-coder-30b-a3b-instruct-*.gguf"
+llm_fast_model_path = "configs/models/weights/qwen2.5-coder-14b-instruct-*.gguf"
 calendar_ics_path = "var/integrations/calendar/local.ics"
 todoist_snapshot_path = "var/integrations/todoist/snapshot.json"
 ```

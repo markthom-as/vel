@@ -1,10 +1,10 @@
 # Primary local chat / coding profile for local dev.
-# In this checkout it is wired to the downloaded Qwen2.5 1.5B GGUF on port 8012.
+# Intended to point at a dedicated llama-server instance on port 8012.
 id = "local-qwen3-coder"
 provider = "llama_cpp"
 base_url = "http://127.0.0.1:8012/v1"
-model = "qwen2.5-1.5b-instruct-q4_k_m.gguf"
-context_window = 8192
+model = "qwen3-coder-30b-a3b"
+context_window = 16384
 max_output_tokens = 4096
 temperature = 0.2
 supports_tools = true

@@ -1,7 +1,7 @@
 # Vel — top-level build and dev
 # veld binds 127.0.0.1:4130 by default; web client uses VITE_API_URL (default http://localhost:4130).
 
-.PHONY: build build-api build-web clean dev dev-api dev-web download-chat-model install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data
+.PHONY: build build-api build-web clean dev dev-api dev-web download-chat-model check-llm-setup install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data
 
 build: build-api build-web
 
@@ -47,6 +47,9 @@ verify: verify-repo-truth fmt-check clippy-check lint-web test
 # Download default chat model (Qwen2.5-1.5B-Instruct, ~1.1 GB) to configs/models/weights/. After this, make dev uses it when llama-server is on PATH.
 download-chat-model:
 	@bash scripts/download-chat-model.sh
+
+check-llm-setup:
+	@bash scripts/check-llm-setup.sh
 
 # Seed sample chat data. Requires veld running (default http://localhost:4130).
 seed:

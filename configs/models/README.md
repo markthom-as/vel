@@ -11,16 +11,26 @@ You can add an `openai_oauth` profile (example: `oauth-openai`) for optional ove
 
 ## Local dev (make dev)
 
-Chat assistant replies use the profile in `routing.toml` under `chat` (e.g. `local-qwen3-coder`, port 8012). To run the LLM backend as part of `make dev`:
+Chat assistant replies use the profile in `routing.toml` under `chat` (e.g. `local-qwen3-coder`, port 8012). The fast utility profile uses `local-qwen25-fast` on port 8013. To run the LLM backend as part of `make dev`:
 
 1. **Download the default chat model (once):**
    ```bash
    ./scripts/download-chat-model.sh
    ```
-   This fetches Qwen2.5-1.5B-Instruct (q4_k_m, ~1.1 GB) into `configs/models/weights/`. `make dev` will use it automatically if **VEL_LLM_MODEL** is not set.
+   This fetches Qwen2.5-1.5B-Instruct (q4_k_m, ~1.1 GB) into `configs/models/weights/`. `make dev` will use it automatically as the primary fallback if **VEL_LLM_MODEL** is not set.
 
 2. Install [llama.cpp](https://github.com/ggerganov/llama.cpp) and ensure `llama-server` is on your PATH.
 
-3. Run `make dev`. The script starts the LLM server (when the model file and `llama-server` exist), then veld, then the web app. Ctrl+C stops all.
+3. For the intended two-tier setup, put the model paths in `vel.toml`:
+   - `llm_model_path = "/path/to/qwen3-coder-30b-a3b-instruct-*.gguf"`
+   - `llm_fast_model_path = "/path/to/qwen2.5-coder-14b-instruct-*.gguf"`
 
-To use a different model, set **VEL_LLM_MODEL** to your .gguf path before `make dev`.
+   Environment variables still override file config:
+   - `VEL_LLM_MODEL`
+   - `VEL_LLM_FAST_MODEL`
+
+4. Run `make dev`. The script starts the primary server when `VEL_LLM_MODEL` is available and the fast server when `VEL_LLM_FAST_MODEL` is set, then starts veld and the web app. Ctrl+C stops all.
+
+To run the servers manually, use `scripts/llm-server.sh` for the primary model and `scripts/llm-server-fast.sh` for the fast model.
+
+Before starting, use `make check-llm-setup` to confirm model paths, `llama-server`, and GPU visibility from the current shell.
