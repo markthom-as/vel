@@ -521,6 +521,12 @@ fn foundation_connection_seeds() -> &'static [FoundationConnectionSeed] {
             status: IntegrationConnectionStatus::Connected,
         },
         FoundationConnectionSeed {
+            family: IntegrationFamily::Git,
+            provider_key: "gh",
+            display_name: "GitHub (gh)",
+            status: IntegrationConnectionStatus::Connected,
+        },
+        FoundationConnectionSeed {
             family: IntegrationFamily::Messaging,
             provider_key: "messaging",
             display_name: "Messaging",
@@ -557,11 +563,16 @@ async fn seed_foundation_integration_connections_if_empty(
             include_disabled: true,
         })
         .await?;
-    if !existing.is_empty() {
-        return Ok(());
-    }
+    let mut existing_providers: std::collections::HashSet<(IntegrationFamily, String)> = existing
+        .into_iter()
+        .map(|connection| (connection.provider.family, connection.provider.key))
+        .collect();
 
     for seed in foundation_connection_seeds() {
+        let provider_key = seed.provider_key.to_string();
+        if existing_providers.contains(&(seed.family, provider_key.clone())) {
+            continue;
+        }
         let provider =
             IntegrationProvider::new(seed.family, seed.provider_key).map_err(|error| {
                 AppError::internal(format!("foundation integration provider: {error}"))
@@ -576,6 +587,7 @@ async fn seed_foundation_integration_connections_if_empty(
                 metadata_json: serde_json::json!({ "foundation": true }),
             })
             .await?;
+        existing_providers.insert((seed.family, provider_key));
     }
 
     Ok(())
@@ -1462,10 +1474,43 @@ mod tests {
             .map(|connection| connection.provider_key.as_str())
             .collect();
         assert!(provider_keys.contains(&"activity"));
+        assert!(provider_keys.contains(&"git"));
+        assert!(provider_keys.contains(&"gh"));
         assert!(provider_keys.contains(&"health"));
         assert!(provider_keys.contains(&"messaging"));
         assert!(provider_keys.contains(&"reminders"));
         assert!(provider_keys.contains(&"notes"));
         assert!(provider_keys.contains(&"transcripts"));
+    }
+
+    #[tokio::test]
+    async fn list_integration_connections_backfills_missing_foundation_connectors() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        storage
+            .insert_integration_connection(IntegrationConnectionInsert {
+                family: IntegrationFamily::Messaging,
+                provider: IntegrationProvider::new(IntegrationFamily::Messaging, "signal").unwrap(),
+                status: IntegrationConnectionStatus::Connected,
+                display_name: "Signal".to_string(),
+                account_ref: None,
+                metadata_json: serde_json::json!({}),
+            })
+            .await
+            .expect("custom connector insert should succeed");
+
+        let connections = list_integration_connections(&storage, None, None, true)
+            .await
+            .expect("listing connections should succeed");
+        assert!(!connections.is_empty());
+
+        let provider_keys: Vec<&str> = connections
+            .iter()
+            .map(|connection| connection.provider_key.as_str())
+            .collect();
+        assert!(provider_keys.contains(&"signal"));
+        assert!(provider_keys.contains(&"git"));
+        assert!(provider_keys.contains(&"gh"));
     }
 }
