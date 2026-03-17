@@ -47,6 +47,7 @@ const makefile = readFile('Makefile');
 const status = readFile('docs/status.md');
 const repoFeedbackReadme = readFile('docs/tickets/repo-feedback/README.md');
 const ticketsReadme = readFile('docs/tickets/README.md');
+const repoFeedbackDir = path.join(repoRoot, 'docs', 'tickets', 'repo-feedback');
 
 const requiredReadmeCommands = [
   'make build',
@@ -160,6 +161,30 @@ ensure(
   repoFeedbackReadme.includes('finish convergence before adding breadth'),
   'repo-feedback README lost the convergence priority statement',
 );
+if (fs.existsSync(repoFeedbackDir)) {
+  const repoFeedbackStatuses = new Map();
+  for (const entry of fs.readdirSync(repoFeedbackDir).filter((name) => name.endsWith('.md'))) {
+    if (entry === 'README.md') continue;
+    const content = readFile(path.join('docs/tickets/repo-feedback', entry));
+    const statusMatch = content.match(/^status:\s*([a-z_]+)$/m);
+    ensure(statusMatch, `repo-feedback ticket missing status frontmatter: ${entry}`);
+    if (!statusMatch) continue;
+    const statusValue = statusMatch[1];
+    ensure(
+      ['done', 'in_progress', 'deferred'].includes(statusValue),
+      `repo-feedback ticket has ambiguous status (${statusValue}): ${entry}`,
+    );
+    repoFeedbackStatuses.set(entry, statusValue);
+  }
+  ensure(
+    [...repoFeedbackStatuses.values()].some((statusValue) => statusValue === 'done'),
+    'repo-feedback packet does not record any completed tickets',
+  );
+  ensure(
+    [...repoFeedbackStatuses.values()].some((statusValue) => statusValue === 'in_progress'),
+    'repo-feedback packet does not record any in-progress tickets',
+  );
+}
 ensure(
   status.includes('Repo-feedback follow-through'),
   'docs/status.md does not record repo-feedback follow-through',
