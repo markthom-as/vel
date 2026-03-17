@@ -1,6 +1,7 @@
 use crate::{
     infra, integrations,
     mapping::{parse_json_value, timestamp_to_datetime},
+    repositories::signals_repo,
     runs, runtime_cluster, runtime_loops, threads,
 };
 use serde_json::{json, Value as JsonValue};
@@ -968,36 +969,7 @@ impl Storage {
     // --- Signals (Phase B) ---
 
     pub async fn insert_signal(&self, input: SignalInsert) -> Result<String, StorageError> {
-        if let Some(source_ref) = input.source_ref.as_deref() {
-            if let Some(existing_id) = sqlx::query_scalar::<_, String>(
-                r#"SELECT signal_id FROM signals WHERE source = ? AND source_ref = ? LIMIT 1"#,
-            )
-            .bind(&input.source)
-            .bind(source_ref)
-            .fetch_optional(&self.pool)
-            .await?
-            {
-                return Ok(existing_id);
-            }
-        }
-
-        let signal_id = format!("sig_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let payload_str = serde_json::to_string(input.payload_json.as_ref().unwrap_or(&json!({})))
-            .map_err(|e| StorageError::Validation(e.to_string()))?;
-        sqlx::query(
-            r#"INSERT INTO signals (signal_id, signal_type, source, source_ref, timestamp, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"#,
-        )
-        .bind(&signal_id)
-        .bind(&input.signal_type)
-        .bind(&input.source)
-        .bind(&input.source_ref)
-        .bind(input.timestamp)
-        .bind(&payload_str)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(signal_id)
+        signals_repo::insert_signal(&self.pool, input).await
     }
 
     pub async fn list_signals(
@@ -1006,45 +978,14 @@ impl Storage {
         since_ts: Option<i64>,
         limit: u32,
     ) -> Result<Vec<SignalRecord>, StorageError> {
-        let limit = limit.min(500) as i64;
-        let rows = sqlx::query(
-            r#"
-            SELECT signal_id, signal_type, source, source_ref, timestamp, payload_json, created_at
-            FROM signals
-            WHERE (? IS NULL OR signal_type = ?) AND (? IS NULL OR timestamp >= ?)
-            ORDER BY timestamp DESC
-            LIMIT ?
-            "#,
-        )
-        .bind(signal_type)
-        .bind(signal_type)
-        .bind(since_ts)
-        .bind(since_ts)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter().map(|row| map_signal_row(&row)).collect()
+        signals_repo::list_signals(&self.pool, signal_type, since_ts, limit).await
     }
 
     pub async fn list_signals_by_ids(
         &self,
         signal_ids: &[String],
     ) -> Result<Vec<SignalRecord>, StorageError> {
-        if signal_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut query = QueryBuilder::<Sqlite>::new(
-            "SELECT signal_id, signal_type, source, source_ref, timestamp, payload_json, created_at FROM signals WHERE signal_id IN (",
-        );
-        let mut separated = query.separated(", ");
-        for signal_id in signal_ids {
-            separated.push_bind(signal_id);
-        }
-        query.push(") ORDER BY timestamp DESC");
-
-        let rows = query.build().fetch_all(&self.pool).await?;
-        rows.into_iter().map(|row| map_signal_row(&row)).collect()
+        signals_repo::list_signals_by_ids(&self.pool, signal_ids).await
     }
 
     // --- Assistant transcripts ---
@@ -3365,19 +3306,6 @@ fn map_commitment_row(row: &sqlx::sqlite::SqliteRow) -> Result<Commitment, Stora
             .try_get::<Option<i64>, _>("resolved_at")?
             .and_then(|t| timestamp_to_datetime(t).ok()),
         metadata_json,
-    })
-}
-
-fn map_signal_row(row: &sqlx::sqlite::SqliteRow) -> Result<SignalRecord, StorageError> {
-    let payload_str: String = row.try_get("payload_json")?;
-    Ok(SignalRecord {
-        signal_id: row.try_get("signal_id")?,
-        signal_type: row.try_get("signal_type")?,
-        source: row.try_get("source")?,
-        source_ref: row.try_get("source_ref")?,
-        timestamp: row.try_get("timestamp")?,
-        payload_json: serde_json::from_str(&payload_str).unwrap_or_else(|_| json!({})),
-        created_at: row.try_get("created_at")?,
     })
 }
 

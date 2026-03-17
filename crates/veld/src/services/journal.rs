@@ -1,6 +1,5 @@
 use time::OffsetDateTime;
 use tracing::warn;
-use vel_api_types::{CaptureCreateResponse, MoodJournalCreateRequest, PainJournalCreateRequest};
 use vel_core::PrivacyClass;
 use vel_storage::{CaptureInsert, SignalInsert, Storage};
 
@@ -9,10 +8,32 @@ use crate::errors::AppError;
 const MOOD_CAPTURE_TYPE: &str = "mood_log";
 const PAIN_CAPTURE_TYPE: &str = "pain_log";
 
+#[derive(Debug, Clone)]
+pub struct MoodJournalInput {
+    pub score: u8,
+    pub label: Option<String>,
+    pub note: Option<String>,
+    pub source_device: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PainJournalInput {
+    pub severity: u8,
+    pub location: Option<String>,
+    pub note: Option<String>,
+    pub source_device: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct JournalCaptureAccepted {
+    pub capture_id: vel_core::CaptureId,
+    pub accepted_at: OffsetDateTime,
+}
+
 pub async fn record_mood(
     storage: &Storage,
-    payload: MoodJournalCreateRequest,
-) -> Result<CaptureCreateResponse, AppError> {
+    payload: MoodJournalInput,
+) -> Result<JournalCaptureAccepted, AppError> {
     if !(1..=10).contains(&payload.score) {
         return Err(AppError::bad_request("mood score must be between 1 and 10"));
     }
@@ -46,7 +67,7 @@ pub async fn record_mood(
     )
     .await;
 
-    Ok(CaptureCreateResponse {
+    Ok(JournalCaptureAccepted {
         capture_id,
         accepted_at: now,
     })
@@ -54,8 +75,8 @@ pub async fn record_mood(
 
 pub async fn record_pain(
     storage: &Storage,
-    payload: PainJournalCreateRequest,
-) -> Result<CaptureCreateResponse, AppError> {
+    payload: PainJournalInput,
+) -> Result<JournalCaptureAccepted, AppError> {
     if payload.severity > 10 {
         return Err(AppError::bad_request(
             "pain severity must be between 0 and 10",
@@ -91,7 +112,7 @@ pub async fn record_pain(
     )
     .await;
 
-    Ok(CaptureCreateResponse {
+    Ok(JournalCaptureAccepted {
         capture_id,
         accepted_at: now,
     })

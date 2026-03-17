@@ -1,6 +1,6 @@
 ---
 title: Auth-By-Default HTTP Surfaces & Deny-By-Default Routing
-status: planned
+status: in-progress
 owner: staff-eng
 type: architecture
 priority: high
@@ -49,10 +49,10 @@ This ticket formalizes route classes, auth defaults, and deny-by-default behavio
 
 # Acceptance Criteria
 
-1. [ ] Every mounted HTTP route belongs to an explicit exposure class.
-2. [ ] New route additions require an explicit auth/exposure choice in code review.
-3. [ ] Undefined or unsupported routes/actions reject safely by default.
-4. [ ] API docs identify intentional public surfaces and authenticated surfaces.
+1. [x] Every mounted HTTP route belongs to an explicit exposure class.
+2. [x] New route additions require an explicit auth/exposure choice in code review.
+3. [x] Undefined or unsupported routes/actions reject safely by default.
+4. [x] API docs identify intentional public surfaces and authenticated surfaces.
 
 # Verification & Regression
 

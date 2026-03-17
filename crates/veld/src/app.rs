@@ -1,4 +1,8 @@
 use axum::{
+    body::Body,
+    http::{header, Request, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
@@ -9,31 +13,55 @@ use vel_storage::Storage;
 
 use crate::{policy_config::PolicyConfig, routes, state::AppState};
 
-/// Builds the app from storage/config; used by tests. Production uses build_app_with_state.
-#[allow(dead_code)]
-pub fn build_app(
-    storage: Storage,
-    config: AppConfig,
-    policy_config: PolicyConfig,
-    llm_router: Option<std::sync::Arc<vel_llm::Router>>,
-    chat_profile_id: Option<String>,
-) -> Router {
-    let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
-    let state = AppState::new(
-        storage,
-        config,
-        policy_config,
-        broadcast_tx,
-        llm_router,
-        chat_profile_id,
-    );
+const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
+const WORKER_AUTH_HEADER: &str = "x-vel-worker-token";
 
-    build_app_with_state(state)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RouteExposureClass {
+    LocalPublic,
+    OperatorAuthenticated,
+    WorkerAuthenticated,
+    FutureExternal,
 }
 
-pub fn build_app_with_state(state: AppState) -> Router {
+#[derive(Debug, Clone, Default)]
+struct HttpExposurePolicy {
+    operator_api_token: Option<String>,
+    worker_api_token: Option<String>,
+}
+
+impl HttpExposurePolicy {
+    fn from_env() -> Self {
+        Self {
+            operator_api_token: std::env::var("VEL_OPERATOR_API_TOKEN").ok(),
+            worker_api_token: std::env::var("VEL_WORKER_API_TOKEN").ok(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ExposureGate {
+    class: RouteExposureClass,
+    policy: HttpExposurePolicy,
+}
+
+impl ExposureGate {
+    fn new(class: RouteExposureClass, policy: HttpExposurePolicy) -> Self {
+        Self { class, policy }
+    }
+}
+
+fn public_routes() -> Router<AppState> {
     Router::new()
         .route("/v1/health", get(routes::health::health))
+        .route(
+            "/api/integrations/google-calendar/oauth/callback",
+            get(routes::integrations::google_calendar_oauth_callback),
+        )
+}
+
+fn operator_authenticated_routes() -> Router<AppState> {
+    Router::new()
         .route("/v1/command/plan", post(routes::command_lang::plan_command))
         .route(
             "/v1/command/execute",
@@ -41,14 +69,6 @@ pub fn build_app_with_state(state: AppState) -> Router {
         )
         .route("/v1/cluster/bootstrap", get(routes::cluster::bootstrap))
         .route("/v1/cluster/workers", get(routes::cluster::workers))
-        .route(
-            "/v1/cluster/branch-sync",
-            post(routes::cluster::branch_sync_request),
-        )
-        .route(
-            "/v1/cluster/validation",
-            post(routes::cluster::validation_request),
-        )
         .route("/v1/doctor", get(routes::doctor::doctor))
         .route(
             "/v1/captures",
@@ -175,27 +195,6 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/sync/bootstrap", get(routes::sync::sync_bootstrap))
         .route("/v1/sync/cluster", get(routes::sync::sync_cluster))
-        .route("/v1/sync/heartbeat", post(routes::sync::sync_heartbeat))
-        .route(
-            "/v1/sync/work-assignments",
-            get(routes::sync::list_work_assignments)
-                .post(routes::sync::claim_work_assignment)
-                .patch(routes::sync::update_work_assignment),
-        )
-        .route("/v1/sync/work-queue", get(routes::sync::list_worker_queue))
-        .route(
-            "/v1/sync/work-queue/claim-next",
-            post(routes::sync::claim_next_worker_queue_item),
-        )
-        .route("/v1/sync/actions", post(routes::sync::sync_actions))
-        .route(
-            "/v1/sync/branch-sync",
-            post(routes::sync::sync_branch_sync_request),
-        )
-        .route(
-            "/v1/sync/validation",
-            post(routes::sync::sync_validation_request),
-        )
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
         .route("/api/components", get(routes::components::list_components))
         .route(
@@ -243,10 +242,6 @@ pub fn build_app_with_state(state: AppState) -> Router {
             post(routes::integrations::start_google_calendar_auth),
         )
         .route(
-            "/api/integrations/google-calendar/oauth/callback",
-            get(routes::integrations::google_calendar_oauth_callback),
-        )
-        .route(
             "/api/integrations/todoist",
             axum::routing::patch(routes::integrations::patch_todoist),
         )
@@ -264,6 +259,184 @@ pub fn build_app_with_state(state: AppState) -> Router {
         )
         .route("/ws", get(routes::ws::ws_handler))
         .merge(routes::chat::chat_routes())
+}
+
+fn worker_authenticated_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/v1/cluster/branch-sync",
+            post(routes::cluster::branch_sync_request),
+        )
+        .route(
+            "/v1/cluster/validation",
+            post(routes::cluster::validation_request),
+        )
+        .route("/v1/sync/heartbeat", post(routes::sync::sync_heartbeat))
+        .route(
+            "/v1/sync/work-assignments",
+            get(routes::sync::list_work_assignments)
+                .post(routes::sync::claim_work_assignment)
+                .patch(routes::sync::update_work_assignment),
+        )
+        .route("/v1/sync/work-queue", get(routes::sync::list_worker_queue))
+        .route(
+            "/v1/sync/work-queue/claim-next",
+            post(routes::sync::claim_next_worker_queue_item),
+        )
+        .route("/v1/sync/actions", post(routes::sync::sync_actions))
+        .route(
+            "/v1/sync/branch-sync",
+            post(routes::sync::sync_branch_sync_request),
+        )
+        .route(
+            "/v1/sync/validation",
+            post(routes::sync::sync_validation_request),
+        )
+}
+
+fn extract_bearer_token(request: &Request<Body>) -> Option<&str> {
+    request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn extract_header_token<'a>(request: &'a Request<Body>, header_name: &str) -> Option<&'a str> {
+    request
+        .headers()
+        .get(header_name)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn expected_token_for_class<'a>(
+    class: RouteExposureClass,
+    policy: &'a HttpExposurePolicy,
+) -> Option<(&'static str, &'a str)> {
+    match class {
+        RouteExposureClass::LocalPublic => None,
+        RouteExposureClass::OperatorAuthenticated => policy
+            .operator_api_token
+            .as_deref()
+            .map(|token| (OPERATOR_AUTH_HEADER, token)),
+        RouteExposureClass::WorkerAuthenticated => policy
+            .worker_api_token
+            .as_deref()
+            .map(|token| (WORKER_AUTH_HEADER, token)),
+        RouteExposureClass::FutureExternal => Some((OPERATOR_AUTH_HEADER, "")),
+    }
+}
+
+fn unauthorized_response(class: RouteExposureClass) -> Response {
+    match class {
+        RouteExposureClass::OperatorAuthenticated => (
+            StatusCode::UNAUTHORIZED,
+            format!("missing or invalid auth token in {OPERATOR_AUTH_HEADER} or Authorization"),
+        )
+            .into_response(),
+        RouteExposureClass::WorkerAuthenticated => (
+            StatusCode::UNAUTHORIZED,
+            format!("missing or invalid auth token in {WORKER_AUTH_HEADER} or Authorization"),
+        )
+            .into_response(),
+        RouteExposureClass::FutureExternal => (
+            StatusCode::FORBIDDEN,
+            "future_external route class is disabled by default",
+        )
+            .into_response(),
+        RouteExposureClass::LocalPublic => {
+            (StatusCode::INTERNAL_SERVER_ERROR, "invalid exposure class").into_response()
+        }
+    }
+}
+
+async fn enforce_exposure_gate(
+    axum::extract::State(gate): axum::extract::State<ExposureGate>,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    if gate.class == RouteExposureClass::LocalPublic {
+        return next.run(request).await;
+    }
+
+    if gate.class == RouteExposureClass::FutureExternal {
+        return unauthorized_response(gate.class);
+    }
+
+    let Some((header_name, expected_token)) = expected_token_for_class(gate.class, &gate.policy)
+    else {
+        return next.run(request).await;
+    };
+
+    let provided =
+        extract_header_token(&request, header_name).or_else(|| extract_bearer_token(&request));
+    match provided {
+        Some(token) if token == expected_token => next.run(request).await,
+        _ => unauthorized_response(gate.class),
+    }
+}
+
+async fn deny_undefined_route() -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        "route is not defined for this authority runtime",
+    )
+        .into_response()
+}
+
+/// Builds the app from storage/config; used by tests. Production uses build_app_with_state.
+#[allow(dead_code)]
+pub fn build_app(
+    storage: Storage,
+    config: AppConfig,
+    policy_config: PolicyConfig,
+    llm_router: Option<std::sync::Arc<vel_llm::Router>>,
+    chat_profile_id: Option<String>,
+) -> Router {
+    let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
+    let state = AppState::new(
+        storage,
+        config,
+        policy_config,
+        broadcast_tx,
+        llm_router,
+        chat_profile_id,
+    );
+
+    build_app_with_state(state)
+}
+
+pub fn build_app_with_state(state: AppState) -> Router {
+    build_app_with_policy(state, HttpExposurePolicy::from_env())
+}
+
+fn build_app_with_policy(state: AppState, exposure_policy: HttpExposurePolicy) -> Router {
+    let operator_auth_gate = ExposureGate::new(
+        RouteExposureClass::OperatorAuthenticated,
+        exposure_policy.clone(),
+    );
+    let worker_auth_gate =
+        ExposureGate::new(RouteExposureClass::WorkerAuthenticated, exposure_policy);
+
+    Router::new()
+        .merge(public_routes())
+        .merge(
+            operator_authenticated_routes().layer(middleware::from_fn_with_state(
+                operator_auth_gate,
+                enforce_exposure_gate,
+            )),
+        )
+        .merge(
+            worker_authenticated_routes().layer(middleware::from_fn_with_state(
+                worker_auth_gate,
+                enforce_exposure_gate,
+            )),
+        )
+        .fallback(deny_undefined_route)
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
@@ -303,6 +476,10 @@ mod tests {
         )
     }
 
+    fn test_app_with_policy(storage: Storage, exposure_policy: HttpExposurePolicy) -> Router {
+        build_app_with_policy(test_app_state(storage), exposure_policy)
+    }
+
     #[tokio::test]
     async fn health_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
@@ -326,6 +503,126 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn operator_route_requires_token_when_operator_policy_is_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+            },
+        );
+
+        let denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/doctor")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+
+        let allowed = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/doctor")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(allowed.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn worker_route_requires_token_when_worker_policy_is_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: Some("worker-secret".to_string()),
+            },
+        );
+
+        let denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/heartbeat")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+
+        let allowed = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/heartbeat")
+                    .header(WORKER_AUTH_HEADER, "worker-secret")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(allowed.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn public_route_stays_accessible_when_auth_policies_are_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: Some("worker-secret".to_string()),
+            },
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn undefined_route_is_denied_by_default() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(storage, HttpExposurePolicy::default());
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/not-a-real-route")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]

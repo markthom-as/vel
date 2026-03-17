@@ -75,7 +75,10 @@ cargo run -p veld &
 VELD_PID=$!
 
 echo "Waiting for veld on port $PORT..."
-for i in {1..30}; do
+READY_TIMEOUT_SECONDS="${VELD_READY_TIMEOUT_SECONDS:-120}"
+READY_POLL_INTERVAL_SECONDS="${VELD_READY_POLL_INTERVAL_SECONDS:-0.5}"
+MAX_POLLS="$(awk "BEGIN { printf \"%d\", ($READY_TIMEOUT_SECONDS / $READY_POLL_INTERVAL_SECONDS) + 0.999 }")"
+for ((i = 1; i <= MAX_POLLS; i++)); do
   if curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/v1/health" 2>/dev/null | grep -q 200; then
     break
   fi
@@ -83,10 +86,10 @@ for i in {1..30}; do
     echo "veld exited unexpectedly"
     exit 1
   fi
-  sleep 0.5
+  sleep "$READY_POLL_INTERVAL_SECONDS"
 done
 if ! curl -s -o /dev/null "http://127.0.0.1:$PORT/v1/health" 2>/dev/null; then
-  echo "veld did not become ready in time"
+  echo "veld did not become ready in time (${READY_TIMEOUT_SECONDS}s)"
   kill "$VELD_PID" 2>/dev/null || true
   exit 1
 fi

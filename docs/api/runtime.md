@@ -4,6 +4,25 @@ This document describes the currently mounted runtime API exposed by `veld` unde
 
 For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md). For route-level authority, inspect `crates/veld/src/app.rs`.
 
+## Exposure Classes And Auth Boundary
+
+`build_app_with_state` now mounts routes through explicit exposure classes:
+
+- `local_public`: no auth gate (intentionally public local runtime surfaces only).
+- `operator_authenticated`: operator routes gated by centralized auth policy when `VEL_OPERATOR_API_TOKEN` is configured.
+- `worker_authenticated`: worker/sync coordination routes gated by centralized auth policy when `VEL_WORKER_API_TOKEN` is configured.
+- `future_external`: reserved class; deny-by-default.
+
+Auth extraction is centralized at the route-class boundary in `crates/veld/src/app.rs`.
+Supported credentials for authenticated classes:
+
+- class header: `x-vel-operator-token` or `x-vel-worker-token`
+- bearer fallback: `Authorization: Bearer <token>`
+
+When the corresponding environment token is unset, the class still remains explicit in code but token enforcement is disabled for local compatibility.
+
+Undefined routes are fail-closed with an explicit `404` fallback handler.
+
 ## Health, diagnostics, and planning
 
 ### `GET /v1/health`
@@ -11,6 +30,11 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 
 - daemon and storage health
 - effective runtime diagnostics
+
+Exposure:
+
+- `GET /v1/health`: `local_public`
+- `GET /v1/doctor`: `operator_authenticated`
 
 ### `POST /v1/command/plan`
 ### `POST /v1/command/execute`
@@ -28,6 +52,13 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 ### `POST /v1/cluster/validation`
 
 - cluster coordination requests for branch-sync and validation flows
+
+Exposure:
+
+- `GET /v1/cluster/bootstrap`: `operator_authenticated`
+- `GET /v1/cluster/workers`: `operator_authenticated`
+- `POST /v1/cluster/branch-sync`: `worker_authenticated`
+- `POST /v1/cluster/validation`: `worker_authenticated`
 
 Not currently shipped:
 
@@ -171,6 +202,17 @@ Those remain planned architecture surfaces under the Phase 2 connect workstream.
 ### `POST /v1/sync/validation`
 
 - local-source sync, distributed coordination, and worker assignment surfaces
+
+Exposure:
+
+- `POST /v1/sync/heartbeat`: `worker_authenticated`
+- `GET|POST|PATCH /v1/sync/work-assignments`: `worker_authenticated`
+- `GET /v1/sync/work-queue`: `worker_authenticated`
+- `POST /v1/sync/work-queue/claim-next`: `worker_authenticated`
+- `POST /v1/sync/actions`: `worker_authenticated`
+- `POST /v1/sync/branch-sync`: `worker_authenticated`
+- `POST /v1/sync/validation`: `worker_authenticated`
+- remaining `/v1/sync/*` routes in this section: `operator_authenticated`
 
 ### `POST /v1/evaluate`
 

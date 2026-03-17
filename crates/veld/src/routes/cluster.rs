@@ -27,6 +27,7 @@ pub async fn workers(
     Ok(Json(ApiResponse::success(data, request_id)))
 }
 
+#[allow(dead_code)]
 pub async fn clients(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SwarmClientsData>>, AppError> {

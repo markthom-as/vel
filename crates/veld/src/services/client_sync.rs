@@ -157,6 +157,7 @@ pub async fn build_sync_cluster_state(state: &AppState) -> Result<SyncClusterSta
     })
 }
 
+#[allow(dead_code)]
 pub async fn swarm_clients_data(state: &AppState) -> Result<SwarmClientsData, AppError> {
     let workers = cluster_workers_data(state).await?;
     let clients = swarm_clients_from_workers(state, &workers).await?;

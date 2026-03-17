@@ -7,6 +7,7 @@ use vel_api_types::{ApiResponse, ConnectInstanceData};
 
 use crate::{errors::AppError, state::AppState};
 
+#[allow(dead_code)]
 pub async fn list_instances(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<Vec<ConnectInstanceData>>>, AppError> {
@@ -16,6 +17,7 @@ pub async fn list_instances(
     Ok(Json(ApiResponse::success(data, request_id)))
 }
 
+#[allow(dead_code)]
 pub async fn get_instance(
     State(state): State<AppState>,
     Path(instance_id): Path<String>,
