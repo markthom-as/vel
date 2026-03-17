@@ -287,6 +287,21 @@ export interface SuggestionAdaptivePolicyData {
   active_override: AdaptivePolicyOverrideData | null;
 }
 
+export interface UncertaintyData {
+  id: string;
+  subject_type: string;
+  subject_id: string | null;
+  decision_kind: string;
+  confidence_band: string;
+  confidence_score: number | null;
+  reasons: JsonValue;
+  missing_evidence: JsonValue | null;
+  resolution_mode: string;
+  status: string;
+  created_at: UnixSeconds;
+  resolved_at: UnixSeconds | null;
+}
+
 export interface CurrentContextData {
   computed_at: UnixSeconds;
   context: JsonValue;
@@ -1327,6 +1342,24 @@ export function decodeSuggestionData(value: unknown): SuggestionData {
     payload: decodeJsonValue(record.payload),
     created_at: expectUnixSeconds(record.created_at, 'suggestion.created_at'),
     resolved_at: expectNullableUnixSeconds(record.resolved_at, 'suggestion.resolved_at'),
+  };
+}
+
+export function decodeUncertaintyData(value: unknown): UncertaintyData {
+  const record = expectRecord(value, 'uncertainty');
+  return {
+    id: expectString(record.id, 'uncertainty.id'),
+    subject_type: expectString(record.subject_type, 'uncertainty.subject_type'),
+    subject_id: expectNullableString(record.subject_id, 'uncertainty.subject_id'),
+    decision_kind: expectString(record.decision_kind, 'uncertainty.decision_kind'),
+    confidence_band: expectString(record.confidence_band, 'uncertainty.confidence_band'),
+    confidence_score: expectNullableNumber(record.confidence_score, 'uncertainty.confidence_score'),
+    reasons: decodeJsonValue(record.reasons),
+    missing_evidence: decodeNullable(record.missing_evidence, decodeJsonValue),
+    resolution_mode: expectString(record.resolution_mode, 'uncertainty.resolution_mode'),
+    status: expectString(record.status, 'uncertainty.status'),
+    created_at: expectUnixSeconds(record.created_at, 'uncertainty.created_at'),
+    resolved_at: expectNullableUnixSeconds(record.resolved_at, 'uncertainty.resolved_at'),
   };
 }
 

@@ -12,6 +12,7 @@ pub mod explain;
 pub mod export_;
 pub mod health;
 pub mod import_;
+pub mod integrations;
 pub mod inspect;
 pub mod loops;
 pub mod morning;

@@ -101,6 +101,14 @@ enum Command {
         #[command(subcommand)]
         command: ReviewCommand,
     },
+    Integrations {
+        #[command(subcommand)]
+        command: IntegrationsCommand,
+    },
+    Integration {
+        #[command(subcommand)]
+        command: IntegrationCommand,
+    },
     Artifact {
         #[command(subcommand)]
         command: ArtifactCommand,
@@ -242,6 +250,31 @@ enum ThreadCommand {
     },
     Reopen {
         id: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum IntegrationsCommand {
+    Connections {
+        #[arg(long)]
+        family: Option<String>,
+        #[arg(long)]
+        provider_key: Option<String>,
+        #[arg(long)]
+        include_disabled: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum IntegrationCommand {
+    Inspect {
+        id: String,
+        #[arg(long, default_value = "10")]
+        events_limit: u32,
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -591,6 +624,31 @@ async fn main() -> anyhow::Result<()> {
         Command::Review { command } => match command {
             ReviewCommand::Today { json } => commands::review::run_today(&client, json).await,
             ReviewCommand::Week { json } => commands::review::run_week(&client, json).await,
+        },
+        Command::Integrations { command } => match command {
+            IntegrationsCommand::Connections {
+                family,
+                provider_key,
+                include_disabled,
+                json,
+            } => {
+                commands::integrations::run_list_connections(
+                    &client,
+                    family.as_deref(),
+                    provider_key.as_deref(),
+                    include_disabled,
+                    json,
+                )
+                .await
+            }
+        },
+        Command::Integration { command } => match command {
+            IntegrationCommand::Inspect {
+                id,
+                events_limit,
+                json,
+            } => commands::integrations::run_inspect_connection(&client, &id, events_limit, json)
+                .await,
         },
         Command::Artifact { command } => match command {
             ArtifactCommand::Latest { r#type: t, json } => {
@@ -1010,6 +1068,68 @@ mod tests {
             Command::Sync {
                 command: SyncCommand::Health,
             } => {}
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_integrations_connections() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "integrations",
+            "connections",
+            "--family",
+            "messaging",
+            "--provider-key",
+            "imessage",
+            "--include-disabled",
+            "--json",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Integrations {
+                command:
+                    IntegrationsCommand::Connections {
+                        family,
+                        provider_key,
+                        include_disabled,
+                        json,
+                    },
+            } => {
+                assert_eq!(family.as_deref(), Some("messaging"));
+                assert_eq!(provider_key.as_deref(), Some("imessage"));
+                assert!(include_disabled);
+                assert!(json);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_integration_inspect() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "integration",
+            "inspect",
+            "conn_123",
+            "--events-limit",
+            "25",
+            "--json",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Integration {
+                command:
+                    IntegrationCommand::Inspect {
+                        id,
+                        events_limit,
+                        json,
+                    },
+            } => {
+                assert_eq!(id, "conn_123");
+                assert_eq!(events_limit, 25);
+                assert!(json);
+            }
             other => panic!("unexpected command: {:?}", other),
         }
     }

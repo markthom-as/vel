@@ -5,10 +5,11 @@ use vel_api_types::{
     ApiResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
     ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
     CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
-    CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData, HealthData, LoopData,
-    LoopUpdateRequest, MorningData, NudgeData, NudgeSnoozeRequest, QueuedWorkRoutingData,
-    RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData,
-    SyncResultData, SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
+    CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData, HealthData,
+    IntegrationConnectionData, IntegrationConnectionEventData, LoopData, LoopUpdateRequest,
+    MorningData, NudgeData, NudgeSnoozeRequest, QueuedWorkRoutingData, RunUpdateRequest,
+    SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData, SyncResultData,
+    SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -378,6 +379,49 @@ impl ApiClient {
 
     pub async fn sync_cluster_state(&self) -> anyhow::Result<ApiResponse<SyncClusterStateData>> {
         self.get("/v1/sync/cluster").await
+    }
+
+    pub async fn list_integration_connections(
+        &self,
+        family: Option<&str>,
+        provider_key: Option<&str>,
+        include_disabled: bool,
+    ) -> anyhow::Result<ApiResponse<Vec<IntegrationConnectionData>>> {
+        let mut path = "/v1/integrations/connections".to_string();
+        let mut params = Vec::new();
+        if let Some(family) = family.filter(|value| !value.is_empty()) {
+            params.push(format!("family={family}"));
+        }
+        if let Some(provider_key) = provider_key.filter(|value| !value.is_empty()) {
+            params.push(format!("provider_key={provider_key}"));
+        }
+        if include_disabled {
+            params.push("include_disabled=true".to_string());
+        }
+        if !params.is_empty() {
+            path.push('?');
+            path.push_str(&params.join("&"));
+        }
+        self.get(&path).await
+    }
+
+    pub async fn get_integration_connection(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<IntegrationConnectionData>> {
+        self.get(&format!("/v1/integrations/connections/{}", id)).await
+    }
+
+    pub async fn list_integration_connection_events(
+        &self,
+        id: &str,
+        limit: Option<u32>,
+    ) -> anyhow::Result<ApiResponse<Vec<IntegrationConnectionEventData>>> {
+        let mut path = format!("/v1/integrations/connections/{id}/events");
+        if let Some(limit) = limit {
+            path.push_str(&format!("?limit={limit}"));
+        }
+        self.get(&path).await
     }
 
     pub async fn sync_branch_sync_request(

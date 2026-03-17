@@ -22,6 +22,7 @@ import {
   decodeRunSummaryData,
   decodeSettingsData,
   decodeSuggestionData,
+  decodeUncertaintyData,
   type ApiResponse,
   type ConversationData,
   type ContextExplainData,
@@ -42,6 +43,7 @@ import {
   type RunSummaryData,
   type SettingsData,
   type SuggestionData,
+  type UncertaintyData,
 } from '../types';
 
 interface SyncResultData {
@@ -86,6 +88,7 @@ export const queryKeys = {
   inbox: () => ['inbox'] as const,
   suggestions: (state: string) => ['suggestions', state] as const,
   suggestion: (suggestionId: string | null) => ['suggestions', suggestionId] as const,
+  uncertainty: (status: string) => ['uncertainty', status] as const,
   pendingInterventionActions: () => ['interventions', 'pending-actions'] as const,
   now: () => ['now'] as const,
   currentContext: () => ['context', 'current'] as const,
@@ -141,6 +144,21 @@ export function loadSuggestion(suggestionId: string): Promise<ApiResponse<Sugges
   return apiGet<ApiResponse<SuggestionData>>(
     `/v1/suggestions/${encodeURIComponent(suggestionId.trim())}`,
     (value) => decodeApiResponse(value, decodeSuggestionData),
+  );
+}
+
+export function loadUncertainty(status = 'open'): Promise<ApiResponse<UncertaintyData[]>> {
+  return apiGet<ApiResponse<UncertaintyData[]>>(
+    `/v1/uncertainty?status=${encodeURIComponent(status)}&limit=50`,
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeUncertaintyData)),
+  );
+}
+
+export function resolveUncertainty(uncertaintyId: string): Promise<ApiResponse<UncertaintyData>> {
+  return apiPost<ApiResponse<UncertaintyData>>(
+    `/v1/uncertainty/${encodeURIComponent(uncertaintyId.trim())}/resolve`,
+    {},
+    (value) => decodeApiResponse(value, decodeUncertaintyData),
   );
 }
 
