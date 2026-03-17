@@ -4349,6 +4349,7 @@ END:VCALENDAR
     async fn sync_transcripts_ingests_rows_and_signals() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
 
         let dir = std::env::temp_dir();
         let file_path = dir.join(format!(
@@ -4360,13 +4361,13 @@ END:VCALENDAR
             "conversation_id": "conv_external",
             "messages": [
                 {
-                    "timestamp": 1700000000,
+                    "timestamp": now - 60,
                     "role": "user",
                     "content": "What did we decide about Vel?",
                     "metadata": { "project_hint": "vel" }
                 },
                 {
-                    "timestamp": 1700000060,
+                    "timestamp": now,
                     "role": "assistant",
                     "content": "You said to prioritize repeated personal use.",
                     "metadata": {}
@@ -4407,6 +4408,20 @@ END:VCALENDAR
             .unwrap();
         assert_eq!(signals.len(), 2);
         assert_eq!(signals[0].source, "chatgpt");
+
+        let (_, context_json) = storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("transcript sync should trigger evaluate and store current context");
+        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        assert_eq!(context["inferred_activity"], "assistant_reflection");
+        assert_eq!(
+            context["assistant_message_summary"]["conversation_id"],
+            "conv_external"
+        );
+        assert_eq!(context["assistant_message_summary"]["role"], "assistant");
+        assert_eq!(context["assistant_message_summary"]["source"], "chatgpt");
 
         let _ = std::fs::remove_file(&file_path);
     }
@@ -4574,6 +4589,16 @@ END:VCALENDAR
         assert_eq!(signals[0].source, "notes");
         assert_eq!(signals[0].payload_json["path"], "daily/today.md");
         assert_eq!(signals[0].payload_json["title"], "Today");
+
+        let (_, context_json) = storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("notes sync should trigger evaluate and store current context");
+        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        assert_eq!(context["inferred_activity"], "note_review");
+        assert_eq!(context["note_document_summary"]["path"], "daily/today.md");
+        assert_eq!(context["note_document_summary"]["title"], "Today");
 
         let _ = std::fs::remove_dir_all(&dir);
     }
