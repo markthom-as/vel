@@ -1,20 +1,38 @@
 import AVFoundation
+import PhotosUI
 import Speech
 import SwiftUI
 import VelAPI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 private enum VeliOSTab: Hashable {
     case today
     case nudges
     case activity
+    case capture
     case voice
     case settings
+}
+
+private struct CaptureDraftSeed: Equatable {
+    let id: UUID
+    let transcript: String
+    let note: String
+
+    init(transcript: String, note: String = "") {
+        id = UUID()
+        self.transcript = transcript
+        self.note = note
+    }
 }
 
 struct ContentView: View {
     @EnvironmentObject var store: VelClientStore
     @State private var selectedTab: VeliOSTab = .today
     @StateObject private var voiceModel = VoiceCaptureModel()
+    @State private var captureSeed: CaptureDraftSeed?
 
     var body: some View {
         NavigationStack {
@@ -37,7 +55,22 @@ struct ContentView: View {
                         Label("Activity", systemImage: "chart.line.uptrend.xyaxis")
                     }
 
-                VoiceTab(store: store, voiceModel: voiceModel)
+                CaptureTab(
+                    store: store,
+                    voiceModel: voiceModel,
+                    incomingSeed: $captureSeed
+                )
+                    .tag(VeliOSTab.capture)
+                    .tabItem {
+                        Label("Capture", systemImage: "camera")
+                    }
+
+                VoiceTab(store: store, voiceModel: voiceModel) { transcript in
+                    let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    captureSeed = CaptureDraftSeed(transcript: trimmed)
+                    selectedTab = .capture
+                }
                     .tag(VeliOSTab.voice)
                     .tabItem {
                         Label("Voice", systemImage: "waveform")
@@ -83,6 +116,8 @@ struct ContentView: View {
             return "Nudges"
         case .activity:
             return "Activity"
+        case .capture:
+            return "Capture"
         case .voice:
             return "Voice Capture"
         case .settings:
@@ -283,9 +318,525 @@ private struct ActivityTab: View {
     }
 }
 
+private struct CaptureTab: View {
+    @ObservedObject var store: VelClientStore
+    @ObservedObject var voiceModel: VoiceCaptureModel
+    @Binding var incomingSeed: CaptureDraftSeed?
+
+    @State private var noteText = ""
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedPhotoData: Data?
+    @State private var selectedPhotoSummary: String?
+    @State private var seededVoiceTranscript: String?
+    @State private var includeVoiceContext = true
+    @State private var includeContextSnapshot = true
+    @State private var includeEmbeddedPhotoData = true
+    @State private var embeddedPhotoData: Data?
+    @State private var embeddedPhotoSummary: String?
+    @State private var embeddedPhotoWarning: String?
+    @State private var statusMessage: String?
+    @State private var photoLoadError: String?
+
+    private var trimmedNote: String {
+        noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var availableVoiceTranscript: String? {
+        let seeded = seededVoiceTranscript?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !seeded.isEmpty {
+            return seeded
+        }
+        let current = voiceModel.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !current.isEmpty {
+            return current
+        }
+        if let latest = voiceModel.history.first?.transcript.trimmingCharacters(in: .whitespacesAndNewlines), !latest.isEmpty {
+            return latest
+        }
+        return nil
+    }
+
+    private var hasContextSnapshotContent: Bool {
+        if store.context?.context != nil {
+            return true
+        }
+        return !store.nudges.isEmpty || !store.commitments.isEmpty
+    }
+
+    private var hasDraftContent: Bool {
+        !trimmedNote.isEmpty
+            || selectedPhotoData != nil
+            || (includeVoiceContext && availableVoiceTranscript != nil)
+            || (includeContextSnapshot && hasContextSnapshotContent)
+    }
+
+    private var payloadPreview: String {
+        buildMultimodalPayload(
+            note: trimmedNote,
+            voiceTranscript: includeVoiceContext ? availableVoiceTranscript : nil,
+            photoData: selectedPhotoData,
+            photoSummary: selectedPhotoSummary,
+            embeddedPhotoData: includeEmbeddedPhotoData ? embeddedPhotoData : nil,
+            includeContextSnapshot: includeContextSnapshot,
+            includeBinaryData: false
+        )
+    }
+
+    private var estimatedPayloadBytes: Int {
+        var total = payloadPreview.lengthOfBytes(using: .utf8)
+        if includeEmbeddedPhotoData, let embeddedPhotoData {
+            total += estimatedBase64Length(for: embeddedPhotoData.count)
+        }
+        return total
+    }
+
+    var body: some View {
+        List {
+            Section("Draft inputs") {
+                PhotosPicker(
+                    selection: $selectedPhotoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    Label(
+                        selectedPhotoData == nil ? "Select photo" : "Replace photo",
+                        systemImage: "photo.on.rectangle.angled"
+                    )
+                }
+                .buttonStyle(.bordered)
+
+                if let photoLoadError, !photoLoadError.isEmpty {
+                    Text(photoLoadError)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                }
+
+                TextField("Add note or context", text: $noteText, axis: .vertical)
+                    .textInputAutocapitalization(.sentences)
+
+                if let transcript = availableVoiceTranscript {
+                    Toggle("Include voice transcript context", isOn: $includeVoiceContext)
+                    Text(transcript)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                } else {
+                    Text("No voice transcript available yet. Use Voice tab to record one.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                Toggle("Include current context snapshot", isOn: $includeContextSnapshot)
+                    .disabled(!hasContextSnapshotContent)
+                if includeContextSnapshot {
+                    Text(contextSnapshotPreview())
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
+                }
+            }
+
+            Section("Photo preview") {
+                if let data = selectedPhotoData {
+#if canImport(UIKit)
+                    if let image = UIImage(data: data) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 220)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    } else {
+                        Text("Image preview unavailable.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+#else
+                    Text("Image preview is unavailable on this platform.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+#endif
+                    if let summary = selectedPhotoSummary {
+                        Text(summary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Toggle("Embed compressed photo bytes", isOn: $includeEmbeddedPhotoData)
+                        .disabled(embeddedPhotoData == nil)
+
+                    if let embeddedPhotoSummary, !embeddedPhotoSummary.isEmpty {
+                        Text(embeddedPhotoSummary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let embeddedPhotoWarning, !embeddedPhotoWarning.isEmpty {
+                        Text(embeddedPhotoWarning)
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                    }
+                } else {
+                    Text("No photo selected.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Payload preview") {
+                Text(payloadPreview)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
+                Text("Estimated payload size: \(ByteCountFormatter.string(fromByteCount: Int64(estimatedPayloadBytes), countStyle: .file))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Section("Save") {
+                Button("Save multimodal capture") {
+                    saveCapture()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!hasDraftContent)
+
+                Button("Clear draft", role: .destructive) {
+                    clearDraft()
+                }
+                .buttonStyle(.bordered)
+                .disabled(!hasDraftContent && selectedPhotoData == nil)
+
+                if let statusMessage, !statusMessage.isEmpty {
+                    Text(statusMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .onChange(of: selectedPhotoItem) { item in
+            Task { await loadPhoto(from: item) }
+        }
+        .onAppear {
+            applyIncomingSeedIfNeeded()
+        }
+        .onChange(of: incomingSeed?.id) { _ in
+            applyIncomingSeedIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func loadPhoto(from item: PhotosPickerItem?) async {
+        guard let item else {
+            selectedPhotoData = nil
+            selectedPhotoSummary = nil
+            embeddedPhotoData = nil
+            embeddedPhotoSummary = nil
+            embeddedPhotoWarning = nil
+            includeEmbeddedPhotoData = true
+            photoLoadError = nil
+            return
+        }
+
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                selectedPhotoData = nil
+                selectedPhotoSummary = nil
+                photoLoadError = "Could not load selected photo."
+                return
+            }
+            selectedPhotoData = data
+            selectedPhotoSummary = summarizePhoto(data: data)
+            prepareEmbeddedPhoto(data: data)
+            photoLoadError = nil
+        } catch {
+            selectedPhotoData = nil
+            selectedPhotoSummary = nil
+            embeddedPhotoData = nil
+            embeddedPhotoSummary = nil
+            embeddedPhotoWarning = nil
+            photoLoadError = "Photo import failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func prepareEmbeddedPhoto(data: Data) {
+#if canImport(UIKit)
+        guard let image = UIImage(data: data) else {
+            embeddedPhotoData = nil
+            embeddedPhotoSummary = nil
+            embeddedPhotoWarning = "Could not decode image for inline payload encoding."
+            includeEmbeddedPhotoData = false
+            return
+        }
+
+        let maxBytes = 900_000
+        let qualities: [CGFloat] = [0.82, 0.70, 0.58, 0.46, 0.34]
+        for quality in qualities {
+            guard let jpeg = image.jpegData(compressionQuality: quality) else { continue }
+            guard jpeg.count <= maxBytes else { continue }
+            embeddedPhotoData = jpeg
+            includeEmbeddedPhotoData = true
+            embeddedPhotoSummary = "Inline JPEG payload: \(ByteCountFormatter.string(fromByteCount: Int64(jpeg.count), countStyle: .file)) (quality \(Int(quality * 100))%)."
+            embeddedPhotoWarning = nil
+            return
+        }
+
+        embeddedPhotoData = nil
+        embeddedPhotoSummary = nil
+        includeEmbeddedPhotoData = false
+        embeddedPhotoWarning = "Photo is too large for inline payload. Capture will include metadata only."
+#else
+        embeddedPhotoData = nil
+        embeddedPhotoSummary = nil
+        embeddedPhotoWarning = nil
+        includeEmbeddedPhotoData = false
+#endif
+    }
+
+    private func summarizePhoto(data: Data) -> String {
+        let bytes = ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+#if canImport(UIKit)
+        if let image = UIImage(data: data) {
+            let width = Int(image.size.width * image.scale)
+            let height = Int(image.size.height * image.scale)
+            return "\(width)x\(height) px · \(bytes)"
+        }
+#endif
+        return bytes
+    }
+
+    private func saveCapture() {
+        let transcript = includeVoiceContext ? availableVoiceTranscript : nil
+        let payload = buildMultimodalPayload(
+            note: trimmedNote,
+            voiceTranscript: transcript,
+            photoData: selectedPhotoData,
+            photoSummary: selectedPhotoSummary,
+            embeddedPhotoData: includeEmbeddedPhotoData ? embeddedPhotoData : nil,
+            includeContextSnapshot: includeContextSnapshot,
+            includeBinaryData: true
+        )
+
+        Task {
+            await store.createCapture(
+                text: payload,
+                type: "multimodal_note",
+                source: "apple_ios_multimodal"
+            )
+
+            if store.isReachable {
+                statusMessage = "Multimodal capture submitted."
+            } else {
+                statusMessage = "Multimodal capture queued for sync."
+            }
+            clearDraft(keepStatus: true)
+        }
+    }
+
+    private func clearDraft(keepStatus: Bool = false) {
+        noteText = ""
+        selectedPhotoItem = nil
+        selectedPhotoData = nil
+        selectedPhotoSummary = nil
+        seededVoiceTranscript = nil
+        embeddedPhotoData = nil
+        embeddedPhotoSummary = nil
+        embeddedPhotoWarning = nil
+        includeEmbeddedPhotoData = true
+        photoLoadError = nil
+        includeVoiceContext = true
+        includeContextSnapshot = true
+        if !keepStatus {
+            statusMessage = nil
+        }
+    }
+
+    private func buildMultimodalPayload(
+        note: String,
+        voiceTranscript: String?,
+        photoData: Data?,
+        photoSummary: String?,
+        embeddedPhotoData: Data?,
+        includeContextSnapshot: Bool,
+        includeBinaryData: Bool
+    ) -> String {
+        var lines: [String] = [
+            "multimodal_capture:",
+            "captured_at: \(iso8601Now())",
+            "client_surface: ios_capture_tab"
+        ]
+
+        if let photoData {
+            lines.append("image_size_bytes: \(photoData.count)")
+        }
+        if let photoSummary, !photoSummary.isEmpty {
+            lines.append("image_summary: \(photoSummary)")
+        }
+        if let embeddedPhotoData {
+            lines.append("image_payload_format: jpeg_base64")
+            lines.append("image_payload_bytes: \(embeddedPhotoData.count)")
+            if includeBinaryData {
+                lines.append("image_payload_base64: \(embeddedPhotoData.base64EncodedString())")
+            } else {
+                lines.append("image_payload_base64: <omitted in preview>")
+            }
+        }
+
+        if includeContextSnapshot {
+            appendContextSnapshotLines(to: &lines)
+        }
+
+        if let voiceTranscript, !voiceTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            lines.append("")
+            lines.append("voice_transcript:")
+            lines.append(voiceTranscript)
+        }
+
+        if !note.isEmpty {
+            lines.append("")
+            lines.append("note:")
+            lines.append(note)
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func appendContextSnapshotLines(to lines: inout [String]) {
+        lines.append("")
+        lines.append("context_snapshot:")
+
+        guard let context = store.context?.context else {
+            lines.append("context_unavailable: true")
+            return
+        }
+
+        if let mode = context.mode, !mode.isEmpty {
+            lines.append("mode: \(mode)")
+        }
+        if let morning = context.morning_state, !morning.isEmpty {
+            lines.append("morning_state: \(morning)")
+        }
+        if let meds = context.meds_status, !meds.isEmpty {
+            lines.append("meds_status: \(meds)")
+        }
+        if let attention = context.attention_state, !attention.isEmpty {
+            lines.append("attention_state: \(attention)")
+        }
+        if let drift = context.drift_type, !drift.isEmpty {
+            lines.append("drift_type: \(drift)")
+        }
+        if let prep = context.prep_window_active {
+            lines.append("prep_window_active: \(prep)")
+        }
+        if let commute = context.commute_window_active {
+            lines.append("commute_window_active: \(commute)")
+        }
+        if let leaveBy = context.leave_by_ts {
+            lines.append("leave_by: \(formatUnix(leaveBy))")
+        }
+        if let nextEvent = context.next_event_start_ts {
+            lines.append("next_event_start: \(formatUnix(nextEvent))")
+        }
+
+        let activeNudges = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+        lines.append("active_nudges_count: \(activeNudges.count)")
+        if let topNudge = activeNudges.first {
+            lines.append("top_nudge_message: \(topNudge.message)")
+        }
+
+        if let nextCommitment = resolveNextCommitment(preferredID: context.next_commitment_id) {
+            lines.append("next_commitment_text: \(nextCommitment.text)")
+            if let dueAt = nextCommitment.due_at {
+                lines.append("next_commitment_due: \(formatUnix(dueAt))")
+            }
+        }
+    }
+
+    private func resolveNextCommitment(preferredID: String?) -> CommitmentData? {
+        let open = store.commitments.filter { $0.status == "open" }
+        if let preferredID, let matched = open.first(where: { $0.id == preferredID }) {
+            return matched
+        }
+        return open.sorted { lhs, rhs in
+            switch (lhs.due_at, rhs.due_at) {
+            case let (l?, r?):
+                return l < r
+            case (.some, .none):
+                return true
+            case (.none, .some):
+                return false
+            case (.none, .none):
+                return lhs.text < rhs.text
+            }
+        }.first
+    }
+
+    private func contextSnapshotPreview() -> String {
+        guard let context = store.context?.context else {
+            return "Context is not cached yet. Refresh when Vel is reachable."
+        }
+        var parts: [String] = []
+        if let mode = context.mode, !mode.isEmpty {
+            parts.append("Mode \(mode)")
+        }
+        if let morning = context.morning_state, !morning.isEmpty {
+            parts.append("Morning \(morning)")
+        }
+        if let meds = context.meds_status, !meds.isEmpty {
+            parts.append("Meds \(meds)")
+        }
+        if context.prep_window_active == true {
+            parts.append("Prep active")
+        }
+        if context.commute_window_active == true {
+            parts.append("Commute active")
+        }
+        if let topNudge = store.nudges.first(where: { $0.state == "active" || $0.state == "snoozed" }) {
+            parts.append("Top nudge: \(topNudge.message)")
+        }
+        if let nextCommitment = resolveNextCommitment(preferredID: context.next_commitment_id) {
+            parts.append("Next: \(nextCommitment.text)")
+        }
+        if parts.isEmpty {
+            return "Context snapshot will include whatever fields are currently available."
+        }
+        return parts.joined(separator: " • ")
+    }
+
+    private func estimatedBase64Length(for byteCount: Int) -> Int {
+        ((byteCount + 2) / 3) * 4
+    }
+
+    private func applyIncomingSeedIfNeeded() {
+        guard let incomingSeed else { return }
+        let transcript = incomingSeed.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let note = incomingSeed.note.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !transcript.isEmpty {
+            seededVoiceTranscript = transcript
+            includeVoiceContext = true
+        }
+
+        if !note.isEmpty {
+            if trimmedNote.isEmpty {
+                noteText = note
+            } else {
+                noteText = "\(trimmedNote)\n\(note)"
+            }
+        }
+
+        statusMessage = "Draft seeded from voice transcript."
+        self.incomingSeed = nil
+    }
+
+    private func iso8601Now() -> String {
+        ISO8601DateFormatter().string(from: Date())
+    }
+}
+
 private struct VoiceTab: View {
     @ObservedObject var store: VelClientStore
     @ObservedObject var voiceModel: VoiceCaptureModel
+    let onOpenCaptureComposer: (String) -> Void
 
     var body: some View {
         List {
@@ -393,6 +944,12 @@ private struct VoiceTab: View {
                 Text("Voice submissions always preserve transcript provenance as a voice capture in Vel.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+
+                Button("Open multimodal composer") {
+                    onOpenCaptureComposer(voiceModel.transcript)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!voiceModel.hasTranscript)
             }
 
             Section("Quick commands") {
@@ -451,6 +1008,11 @@ private struct VoiceTab: View {
                         Text("Suggested: \(entry.suggestedIntent.displayLabel)")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
+
+                        Button("Use In Capture Tab") {
+                            onOpenCaptureComposer(entry.transcript)
+                        }
+                        .buttonStyle(.bordered)
                     }
                     .padding(.vertical, 4)
                 }

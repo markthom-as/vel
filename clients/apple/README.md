@@ -3,7 +3,7 @@
 Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel daemon (veld)** over HTTP; no business logic in the client.
 
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
-- **VeliOS** — iPhone: Today/Nudges/Activity/Voice/Settings shell, quick capture + push-to-talk voice capture, offline cache + queued actions.
+- **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), quick capture + push-to-talk voice capture, offline cache + queued actions.
 - **VelWatch** — Apple Watch: brief “what matters now” summary (mode + next commitment), nudge quick actions (done/snooze), cached fallback.
 - **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages snapshot export into Vel’s Application Support tree.
 
@@ -129,6 +129,16 @@ Voice capture notes:
 - supported voice query intents: morning briefing, current context, next commitment, active nudges, and explain-why
 - supported voice action intents include commitment creation and targeted commitment done (for example, `mark meds done`)
 - voice responses can be spoken back with built-in TTS playback
+- voice transcript handoff can open the Capture tab directly for multimodal draft composition
+
+Multimodal capture notes:
+
+- iOS Capture tab supports multimodal drafts with photo + note + optional voice transcript context
+- optional inline photo payload encoding (compressed JPEG + base64) can be embedded for richer multimodal processing
+- optional current-context snapshot fields can be attached to each multimodal draft
+- saved as capture type `multimodal_note` from source `apple_ios_multimodal`
+- photo metadata (dimensions/size), transcript context, and payload preview are exposed before save
+- when captures are queued offline, requested capture type/source metadata is preserved in queued payload text
 
 Bootstrap metadata now also advertises node execution capabilities:
 

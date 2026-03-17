@@ -167,7 +167,9 @@ final class VelClientStore: ObservableObject {
                 _ = try await client.createCapture(text: text, type: type, source: source)
             },
             queueFallback: {
-                offlineStore.enqueueCaptureCreate(text: text)
+                offlineStore.enqueueCaptureCreate(
+                    text: queuedCaptureText(text: text, type: type, source: source)
+                )
             }
         )
     }
@@ -207,5 +209,21 @@ final class VelClientStore: ObservableObject {
         commitments = offlineStore.cachedCommitmentsApplyingPendingActions()
         signals = offlineStore.cachedSignals()
         pendingActionCount = offlineStore.pendingActionCount()
+    }
+
+    private func queuedCaptureText(text: String, type: String, source: String) -> String {
+        let cleanType = type.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanType != "note" || cleanSource != "apple" else {
+            return text
+        }
+
+        return [
+            "queued_capture_metadata:",
+            "requested_capture_type: \(cleanType)",
+            "requested_source_device: \(cleanSource)",
+            "",
+            text
+        ].joined(separator: "\n")
     }
 }

@@ -33,9 +33,8 @@ final class VelWatchStore: ObservableObject {
         let cached = offlineStore.cachedNudgesApplyingPendingActions()
         let cachedContext = offlineStore.cachedContext()
         let cachedCommitments = offlineStore.cachedCommitmentsApplyingPendingActions()
-        var hasCachedContent = false
-        if !cached.isEmpty {
-            hasCachedContent = true
+        let hasCachedContent = !cached.isEmpty
+        if hasCachedContent {
             let active = cached.filter { $0.state == "active" || $0.state == "snoozed" }
             await MainActor.run {
                 nudgeCount = active.count
