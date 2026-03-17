@@ -84,7 +84,7 @@ The repo now has an initial shipped slice of the cluster/sync design:
 
 These surfaces provide authority metadata, Tailscale-aware routing metadata, unified client cache hydration, low-risk action batching, a durable heartbeat-backed worker registry, receipt-aware work-unit assignment, queue inspection for pending worker-class work, queue-level retry/reclaim metadata, a `claim-next` scheduler primitive, and first-pass queued-work placement metadata. A background scheduler loop now polls `POST /v1/sync/work-queue/claim-next` via the runtime loops surface, keeps receipts in sync with retries/backoff, and surfaces loop events for operators.
 
-Queue inspection now integrates the scheduler's retry/reclaim rules: stale `claimed` receipts (currently >300 s) are visible as reclaimable units, duplicate queue attempts check the latest receipt before enqueuing, and failures surface retriable reasons instead of silently dropping the work.
+Queue inspection now integrates the scheduler's retry/reclaim rules: stale `claimed` receipts (currently >300 s) are visible as reclaimable units, duplicate queue attempts check the latest receipt before enqueuing, failures surface retriable reasons instead of silently dropping the work, and retry timing/exhaustion is now driven by per-work-type policy config rather than hardcoded queue behavior.
 
 They do not yet provide:
 
