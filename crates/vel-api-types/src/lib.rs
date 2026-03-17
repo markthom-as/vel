@@ -89,6 +89,14 @@ pub struct CommandIntentHintsData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandDelegationHintsData {
+    pub worker_roles: Vec<String>,
+    pub coordination: String,
+    pub approval_required: bool,
+    pub linked_record_strategy: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandExecutionPlanData {
     pub operation: String,
     pub target_kinds: Vec<String>,
@@ -97,7 +105,15 @@ pub struct CommandExecutionPlanData {
     pub steps: Vec<CommandPlanStepData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub intent_hints: Option<CommandIntentHintsData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delegation_hints: Option<CommandDelegationHintsData>,
     pub validation: CommandValidationData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanningArtifactCreatedData {
+    pub artifact: ArtifactData,
+    pub thread: ThreadData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,9 +137,9 @@ pub enum CommandExecutionPayloadData {
     CaptureCreated(CaptureCreateResponse),
     CommitmentCreated(CommitmentData),
     ArtifactCreated(ArtifactData),
-    SpecDraftCreated(ArtifactData),
-    ExecutionPlanCreated(ArtifactData),
-    DelegationPlanCreated(ArtifactData),
+    SpecDraftCreated(PlanningArtifactCreatedData),
+    ExecutionPlanCreated(PlanningArtifactCreatedData),
+    DelegationPlanCreated(PlanningArtifactCreatedData),
     ReviewToday(CommandReviewSummaryData),
     ReviewWeek(CommandReviewSummaryData),
 }
