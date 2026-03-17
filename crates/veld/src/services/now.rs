@@ -6,7 +6,7 @@ use vel_api_types::{
     NowSummaryData, NowTaskData, NowTasksData,
 };
 use vel_config::AppConfig;
-use vel_core::{normalize_risk_level, Commitment, CommitmentStatus};
+use vel_core::{normalize_risk_level, Commitment, CommitmentStatus, ContextMigrator};
 use vel_storage::{SignalRecord, Storage};
 
 use crate::{errors::AppError, services::integrations};
@@ -18,6 +18,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
         return Ok(empty_now(now_ts, &timezone.name));
     };
     let context: JsonValue = serde_json::from_str(&context_json).unwrap_or_else(|_| json!({}));
+    let _ = ContextMigrator::from_json_value(context.clone());
 
     let commitments = storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
@@ -528,7 +529,7 @@ fn label(key: &str, text: &str) -> NowLabelData {
 mod tests {
     use super::*;
     use time::{Duration, Month};
-    use vel_core::{CommitmentId, CommitmentStatus};
+    use vel_core::{CommitmentId, CommitmentStatus, ContextMigrator};
 
     #[test]
     fn pending_medication_today_outranks_ordinary_task() {
@@ -609,6 +610,24 @@ mod tests {
 
         assert_eq!(summary.level, "unknown");
         assert_eq!(summary.label, "unknown · 40%");
+    }
+
+    #[test]
+    fn now_context_shape_parses_with_typed_context_migrator() {
+        let context = json!({
+            "computed_at": 1_700_000_000i64,
+            "mode": "morning_mode",
+            "morning_state": "underway",
+            "meds_status": "pending",
+            "attention_confidence": 0.9,
+            "signals_used": ["sig_1"],
+            "commitments_used": ["com_1"],
+            "risk_used": ["risk_1"]
+        });
+
+        let typed = ContextMigrator::from_json_value(context).expect("context should parse");
+        assert_eq!(typed.mode, "morning_mode");
+        assert_eq!(typed.attention_confidence, Some(0.9));
     }
 
     fn fixed_now() -> OffsetDateTime {

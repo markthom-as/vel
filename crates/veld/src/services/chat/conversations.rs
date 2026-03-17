@@ -1,17 +1,29 @@
 use uuid::Uuid;
-use vel_api_types::{ConversationCreateRequest, ConversationData, ConversationUpdateRequest};
-use vel_storage::ConversationInsert;
+use vel_storage::{ConversationInsert, ConversationRecord};
 
 use crate::{
     errors::AppError,
-    services::chat::{events::emit_chat_event, mapping::conversation_record_to_data},
+    services::chat::events::emit_chat_event,
     state::AppState,
 };
 
+#[derive(Debug, Clone)]
+pub(crate) struct ConversationCreateInput {
+    pub title: Option<String>,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ConversationUpdateInput {
+    pub title: Option<String>,
+    pub pinned: Option<bool>,
+    pub archived: Option<bool>,
+}
+
 pub(crate) async fn create_conversation(
     state: &AppState,
-    payload: ConversationCreateRequest,
-) -> Result<ConversationData, AppError> {
+    payload: ConversationCreateInput,
+) -> Result<ConversationRecord, AppError> {
     let id = format!("conv_{}", Uuid::new_v4().simple());
     let kind = payload.kind.clone();
     state
@@ -37,14 +49,14 @@ pub(crate) async fn create_conversation(
         .get_conversation(&id)
         .await?
         .ok_or_else(|| AppError::internal("conversation not found after create"))?;
-    Ok(conversation_record_to_data(conversation))
+    Ok(conversation)
 }
 
 pub(crate) async fn update_conversation(
     state: &AppState,
     id: &str,
-    payload: ConversationUpdateRequest,
-) -> Result<ConversationData, AppError> {
+    payload: ConversationUpdateInput,
+) -> Result<ConversationRecord, AppError> {
     let id = id.trim();
     if let Some(title) = payload.title {
         state.storage.rename_conversation(id, &title).await?;
@@ -68,5 +80,5 @@ pub(crate) async fn update_conversation(
         .get_conversation(id)
         .await?
         .ok_or_else(|| AppError::not_found("conversation not found"))?;
-    Ok(conversation_record_to_data(conversation))
+    Ok(conversation)
 }

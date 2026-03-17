@@ -1,5 +1,4 @@
 use uuid::Uuid;
-use vel_api_types::{CreateMessageResponse, MessageCreateRequest, MessageData, WsEventType};
 use vel_storage::MessageInsert;
 
 use crate::{
@@ -7,10 +6,54 @@ use crate::{
     errors::AppError,
     services::chat::{
         assistant::generate_assistant_reply, events::emit_chat_event,
-        interventions::create_intervention_for_message_if_needed, mapping::message_record_to_data,
+        interventions::{create_intervention_for_message_if_needed, InterventionMessageInput},
+        mapping::message_record_to_data,
     },
     state::AppState,
 };
+
+#[derive(Debug, Clone)]
+pub(crate) struct ChatMessageCreateInput {
+    pub role: String,
+    pub kind: String,
+    pub content: serde_json::Value,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ChatMessage {
+    pub id: String,
+    pub conversation_id: String,
+    pub role: String,
+    pub kind: String,
+    pub content: serde_json::Value,
+    pub status: Option<String>,
+    pub importance: Option<String>,
+    pub created_at: i64,
+    pub updated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ChatMessageCreateResult {
+    pub user_message: ChatMessage,
+    pub assistant_message: Option<ChatMessage>,
+    pub assistant_error: Option<String>,
+}
+
+impl From<vel_api_types::MessageData> for ChatMessage {
+    fn from(value: vel_api_types::MessageData) -> Self {
+        Self {
+            id: value.id,
+            conversation_id: value.conversation_id,
+            role: value.role,
+            kind: value.kind,
+            content: value.content,
+            status: value.status,
+            importance: value.importance,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
+    }
+}
 
 fn chat_model_not_configured_error() -> String {
     "Chat model not configured. Set VEL_LLM_MODEL and run llama-server, or see configs/models/README.md.".to_string()
@@ -19,8 +62,8 @@ fn chat_model_not_configured_error() -> String {
 pub(crate) async fn create_user_message(
     state: &AppState,
     conversation_id: &str,
-    payload: &MessageCreateRequest,
-) -> Result<MessageData, AppError> {
+    payload: &ChatMessageCreateInput,
+) -> Result<ChatMessage, AppError> {
     let conversation_id = conversation_id.trim();
     let _ = state
         .storage
@@ -58,14 +101,24 @@ pub(crate) async fn create_user_message(
         .get_message(&id)
         .await?
         .ok_or_else(|| AppError::internal("message not found after create"))?;
-    let created_message = message_record_to_data(msg)?;
-    let _ = create_intervention_for_message_if_needed(state, &created_message).await?;
+    let created_message = ChatMessage::from(message_record_to_data(msg)?);
+    let _ = create_intervention_for_message_if_needed(
+        state,
+        &InterventionMessageInput {
+            id: created_message.id.clone(),
+            conversation_id: created_message.conversation_id.clone(),
+            role: created_message.role.clone(),
+            kind: created_message.kind.clone(),
+            content: created_message.content.clone(),
+        },
+    )
+    .await?;
 
     let ws_payload =
         serde_json::to_value(&created_message).unwrap_or_else(|_| serde_json::json!({ "id": id }));
     let _ = state
         .broadcast_tx
-        .send(WsEnvelope::new(WsEventType::MessagesNew, ws_payload));
+        .send(WsEnvelope::new(vel_api_types::WsEventType::MessagesNew, ws_payload));
 
     Ok(created_message)
 }
@@ -73,8 +126,8 @@ pub(crate) async fn create_user_message(
 pub(crate) async fn create_message_response(
     state: &AppState,
     conversation_id: &str,
-    payload: &MessageCreateRequest,
-) -> Result<CreateMessageResponse, AppError> {
+    payload: &ChatMessageCreateInput,
+) -> Result<ChatMessageCreateResult, AppError> {
     let conversation_id = conversation_id.trim();
     let user_message = create_user_message(state, conversation_id, payload).await?;
 
@@ -96,7 +149,7 @@ pub(crate) async fn create_message_response(
                 let _ = state
                     .broadcast_tx
                     .send(WsEnvelope::new(WsEventType::MessagesNew, ws_payload));
-                (Some(assistant_message), None)
+                (Some(ChatMessage::from(assistant_message)), None)
             }
             Ok(None) => (None, None),
             Err(error) => {
@@ -108,7 +161,7 @@ pub(crate) async fn create_message_response(
         (None, Some(chat_model_not_configured_error()))
     };
 
-    Ok(CreateMessageResponse {
+    Ok(ChatMessageCreateResult {
         user_message,
         assistant_message,
         assistant_error,

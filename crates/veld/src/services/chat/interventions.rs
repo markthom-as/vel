@@ -1,5 +1,4 @@
 use uuid::Uuid;
-use vel_api_types::{InboxItemData, InterventionActionData, MessageData, WsEventType};
 use vel_storage::InterventionInsert;
 
 use crate::{
@@ -7,7 +6,33 @@ use crate::{
     state::AppState,
 };
 
-fn intervention_kind_for_message(message: &MessageData) -> Option<&'static str> {
+#[derive(Debug, Clone)]
+pub(crate) struct InterventionMessageInput {
+    pub id: String,
+    pub conversation_id: String,
+    pub role: String,
+    pub kind: String,
+    pub content: serde_json::Value,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct InterventionInboxItem {
+    pub id: String,
+    pub message_id: String,
+    pub kind: String,
+    pub state: String,
+    pub surfaced_at: i64,
+    pub snoozed_until: Option<i64>,
+    pub confidence: Option<f64>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct InterventionAction {
+    pub id: String,
+    pub state: String,
+}
+
+fn intervention_kind_for_message(message: &InterventionMessageInput) -> Option<&'static str> {
     if message.role != "assistant" {
         return None;
     }
@@ -21,8 +46,8 @@ fn intervention_kind_for_message(message: &MessageData) -> Option<&'static str> 
 
 pub(crate) async fn create_intervention_for_message_if_needed(
     state: &AppState,
-    message: &MessageData,
-) -> Result<Option<InboxItemData>, AppError> {
+    message: &InterventionMessageInput,
+) -> Result<Option<InterventionInboxItem>, AppError> {
     let intervention_kind = match intervention_kind_for_message(message) {
         Some(kind) => kind,
         None => return Ok(None),
@@ -53,7 +78,7 @@ pub(crate) async fn create_intervention_for_message_if_needed(
         })
         .await?;
 
-    let data = InboxItemData {
+    let data = InterventionInboxItem {
         id: intervention_id.clone(),
         message_id: message.id.clone(),
         kind: intervention_kind.to_string(),
@@ -82,7 +107,10 @@ pub(crate) async fn create_intervention_for_message_if_needed(
         serde_json::to_value(&data).unwrap_or_else(|_| serde_json::json!({ "id": data.id }));
     let _ = state
         .broadcast_tx
-        .send(WsEnvelope::new(WsEventType::InterventionsNew, ws_payload));
+        .send(WsEnvelope::new(
+            vel_api_types::WsEventType::InterventionsNew,
+            ws_payload,
+        ));
 
     Ok(Some(data))
 }
@@ -91,7 +119,7 @@ pub(crate) async fn snooze_intervention(
     state: &AppState,
     id: &str,
     until_ts: i64,
-) -> Result<InterventionActionData, AppError> {
+) -> Result<InterventionAction, AppError> {
     let id = id.trim();
     let _ = state
         .storage
@@ -107,12 +135,12 @@ pub(crate) async fn snooze_intervention(
         serde_json::json!({ "id": id, "snoozed_until": until_ts }),
     )
     .await;
-    let payload = InterventionActionData {
+    let payload = InterventionAction {
         id: id.to_string(),
         state: "snoozed".to_string(),
     };
     let _ = state.broadcast_tx.send(WsEnvelope::new(
-        WsEventType::InterventionsUpdated,
+        vel_api_types::WsEventType::InterventionsUpdated,
         serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
     ));
     Ok(payload)
@@ -121,7 +149,7 @@ pub(crate) async fn snooze_intervention(
 pub(crate) async fn resolve_intervention(
     state: &AppState,
     id: &str,
-) -> Result<InterventionActionData, AppError> {
+) -> Result<InterventionAction, AppError> {
     let id = id.trim();
     let _ = state
         .storage
@@ -137,12 +165,12 @@ pub(crate) async fn resolve_intervention(
         serde_json::json!({ "id": id }),
     )
     .await;
-    let payload = InterventionActionData {
+    let payload = InterventionAction {
         id: id.to_string(),
         state: "resolved".to_string(),
     };
     let _ = state.broadcast_tx.send(WsEnvelope::new(
-        WsEventType::InterventionsUpdated,
+        vel_api_types::WsEventType::InterventionsUpdated,
         serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
     ));
     Ok(payload)
@@ -151,7 +179,7 @@ pub(crate) async fn resolve_intervention(
 pub(crate) async fn dismiss_intervention(
     state: &AppState,
     id: &str,
-) -> Result<InterventionActionData, AppError> {
+) -> Result<InterventionAction, AppError> {
     let id = id.trim();
     let _ = state
         .storage
@@ -167,12 +195,12 @@ pub(crate) async fn dismiss_intervention(
         serde_json::json!({ "id": id }),
     )
     .await;
-    let payload = InterventionActionData {
+    let payload = InterventionAction {
         id: id.to_string(),
         state: "dismissed".to_string(),
     };
     let _ = state.broadcast_tx.send(WsEnvelope::new(
-        WsEventType::InterventionsUpdated,
+        vel_api_types::WsEventType::InterventionsUpdated,
         serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
     ));
     Ok(payload)
