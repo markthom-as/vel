@@ -41,6 +41,7 @@ Start with [docs/README.md](README.md) if you need the shortest authoritative re
 
 ## Operator Tooling
 - CLI cockpit spec — [spec](specs/vel-operator-cockpit-spec.md)
+- command language / structured DSL — [spec](specs/vel-command-language-spec.md)
 - explain commands — [status](status.md)
 
 ## Testing
