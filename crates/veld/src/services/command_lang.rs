@@ -1072,7 +1072,10 @@ mod tests {
             CommandExecutionPayload::ExecutionPlanCreated(payload) => {
                 assert_eq!(payload.artifact.artifact_type, "execution_plan");
                 assert_eq!(payload.thread.thread_type, "planning_execution");
-                assert_eq!(payload.thread.planning_kind.as_deref(), Some("execution_plan"));
+                assert_eq!(
+                    payload.thread.planning_kind.as_deref(),
+                    Some("execution_plan")
+                );
                 assert_eq!(payload.thread.status, "planned");
             }
             other => panic!("unexpected result payload: {other:?}"),
@@ -1103,7 +1106,10 @@ mod tests {
             CommandExecutionPayload::DelegationPlanCreated(payload) => {
                 assert_eq!(payload.artifact.artifact_type, "delegation_plan");
                 assert_eq!(payload.thread.thread_type, "planning_delegation");
-                assert_eq!(payload.thread.planning_kind.as_deref(), Some("delegation_plan"));
+                assert_eq!(
+                    payload.thread.planning_kind.as_deref(),
+                    Some("delegation_plan")
+                );
                 assert_eq!(payload.thread.status, "planned");
             }
             other => panic!("unexpected result payload: {other:?}"),

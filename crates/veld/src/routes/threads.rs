@@ -26,9 +26,7 @@ fn planning_thread_fields(thread_type: &str, status: &str) -> (Option<String>, O
         "planning_delegation" => Some("delegation_plan".to_string()),
         _ => None,
     };
-    let lifecycle_stage = planning_kind
-        .as_ref()
-        .map(|_| status.to_string());
+    let lifecycle_stage = planning_kind.as_ref().map(|_| status.to_string());
     (planning_kind, lifecycle_stage)
 }
 
