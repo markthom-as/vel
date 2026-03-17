@@ -7,6 +7,7 @@ use std::fmt;
 use uuid::Uuid;
 use vel_api_types::ApiResponse;
 
+#[derive(Debug)]
 pub struct AppError {
     status: StatusCode,
     code: &'static str,
