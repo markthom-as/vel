@@ -17,8 +17,10 @@ use crate::state::AppState;
 const LOOP_INTERVAL: Duration = Duration::from_secs(5);
 const JOB_TYPE_CAPTURE_INGEST: &str = "capture_ingest";
 const RETRY_BATCH_LIMIT: u32 = 10;
+#[cfg(test)]
 const QUEUED_REPO_SYNC_WORKER_CLASS: &str = "repo_sync";
 const QUEUED_REPO_SYNC_CAPABILITY: &str = "branch_sync";
+#[cfg(test)]
 const QUEUED_VALIDATION_WORKER_CLASS: &str = "validation";
 const QUEUED_VALIDATION_CAPABILITY: &str = "build_test_profiles";
 
@@ -890,7 +892,8 @@ async fn process_retry_ready_run(
 #[cfg(test)]
 mod tests {
     use super::{
-        poll_once, registered_loops_with_policy, QUEUED_VALIDATION_CAPABILITY,
+        poll_once, registered_loops_with_policy, QUEUED_REPO_SYNC_CAPABILITY,
+        QUEUED_REPO_SYNC_WORKER_CLASS, QUEUED_VALIDATION_CAPABILITY,
         QUEUED_VALIDATION_WORKER_CLASS,
     };
     use crate::state::AppState;
@@ -907,16 +910,39 @@ mod tests {
         requested_capability: &str,
         request_payload: serde_json::Value,
     ) {
+        insert_queued_signal_at(
+            storage,
+            target_node_id,
+            signal_type,
+            work_request_id,
+            target_worker_class,
+            requested_capability,
+            request_payload,
+            time::OffsetDateTime::now_utc().unix_timestamp(),
+        )
+        .await;
+    }
+
+    async fn insert_queued_signal_at(
+        storage: &Storage,
+        target_node_id: &str,
+        signal_type: &str,
+        work_request_id: &str,
+        target_worker_class: &str,
+        requested_capability: &str,
+        request_payload: serde_json::Value,
+        timestamp: i64,
+    ) {
         storage
             .insert_signal(SignalInsert {
                 signal_type: signal_type.to_string(),
                 source: "cluster_work_router".to_string(),
                 source_ref: Some(work_request_id.to_string()),
-                timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+                timestamp,
                 payload_json: Some(serde_json::json!({
                     "request": request_payload,
                     "queued_via": "test",
-                    "queued_at": time::OffsetDateTime::now_utc().unix_timestamp(),
+                    "queued_at": timestamp,
                     "routing": {
                         "work_request_id": work_request_id,
                         "authority_node_id": target_node_id,
@@ -1220,6 +1246,76 @@ mod tests {
             .as_deref()
             .unwrap_or_default()
             .contains("invalid queued validation payload"));
+    }
+
+    #[tokio::test]
+    async fn poll_once_claims_oldest_queued_work_across_classes() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state);
+        let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .to_string_lossy()
+            .to_string();
+
+        insert_queued_signal_at(
+            &storage,
+            &bootstrap.node_id,
+            "client_validation_requested",
+            "wrkreq-oldest-validation",
+            QUEUED_VALIDATION_WORKER_CLASS,
+            QUEUED_VALIDATION_CAPABILITY,
+            serde_json::json!({
+                "repo_root": repo_root,
+                "profile_id": "repo-verify",
+                "environment": "repo",
+            }),
+            10,
+        )
+        .await;
+        insert_queued_signal_at(
+            &storage,
+            &bootstrap.node_id,
+            "client_branch_sync_requested",
+            "wrkreq-newer-branch-sync",
+            QUEUED_REPO_SYNC_WORKER_CLASS,
+            QUEUED_REPO_SYNC_CAPABILITY,
+            serde_json::json!({
+                "repo_root": std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../..")
+                    .to_string_lossy()
+                    .to_string(),
+                "branch": "main",
+                "remote": "origin",
+                "mode": "pull",
+            }),
+            20,
+        )
+        .await;
+
+        poll_once(&state).await.unwrap();
+
+        let validation_receipts = storage
+            .list_work_assignments(Some("wrkreq-oldest-validation"), None)
+            .await
+            .unwrap();
+        let branch_sync_receipts = storage
+            .list_work_assignments(Some("wrkreq-newer-branch-sync"), None)
+            .await
+            .unwrap();
+        assert_eq!(validation_receipts.len(), 1);
+        assert_eq!(validation_receipts[0].status.to_string(), "completed");
+        assert!(branch_sync_receipts.is_empty());
     }
 
     #[tokio::test]
