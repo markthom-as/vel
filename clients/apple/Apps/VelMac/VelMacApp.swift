@@ -17,6 +17,7 @@ struct VelMacApp: App {
 final class VelClientStore: ObservableObject {
     let client: VelAPI.VelClient
     let offlineStore = VelAPI.VelOfflineStore()
+    let localExporter = VelAPI.VelMacLocalSourceExporter()
     @Published var isReachable = false
     @Published var errorMessage: String?
     @Published var activeBaseURL: String?
@@ -36,11 +37,14 @@ final class VelClientStore: ObservableObject {
             client.baseURL = candidate
             do {
                 _ = try await client.health()
+                let exportReport = await localExporter.bootstrap(using: client)
                 let bootstrap = try await client.clusterBootstrap()
                 _ = await offlineStore.drainQueuedActions(using: client)
                 await MainActor.run {
                     isReachable = true
-                    errorMessage = nil
+                    errorMessage = exportReport.errors.isEmpty
+                        ? nil
+                        : exportReport.errors.joined(separator: " | ")
                     activeBaseURL = candidate.absoluteString
                     activeTransport = bootstrap.sync_transport
                     authorityLabel = bootstrap.node_display_name
@@ -52,13 +56,20 @@ final class VelClientStore: ObservableObject {
             }
         }
 
+        let exportReport = await localExporter.bootstrap(using: nil)
         await MainActor.run {
             isReachable = false
             activeBaseURL = nil
             activeTransport = nil
             authorityLabel = nil
             pendingActionCount = offlineStore.pendingActionCount()
-            errorMessage = "No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url."
+            let exportMessage = exportReport.errors.isEmpty ? nil : exportReport.errors.joined(separator: " | ")
+            errorMessage = [
+                "No reachable Vel endpoint. Configure vel_tailscale_url or vel_base_url.",
+                exportMessage
+            ]
+            .compactMap { $0 }
+            .joined(separator: " ")
         }
     }
 

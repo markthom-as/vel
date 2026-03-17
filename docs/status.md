@@ -75,7 +75,7 @@ This file should answer four questions quickly:
 
 - **Global events** — Startup events (`DAEMON_STARTED`, `CONFIG_LOADED`, `SCHEMA_MIGRATION_COMPLETE`) implemented; runtime `config_updated` on hot reload not implemented (role remains narrow and documented).
 - **Uncertainty runtime breadth** — Durable storage, suggestion deferral, and operator inspection are implemented; inference/chat uncertainty recording and calibration outcomes are not yet implemented.
-- **Apple bootstrap clients** — `clients/apple` now has bootstrap iPhone/watchOS/macOS shells with shared VelAPI transport, endpoint candidate resolution (`vel_tailscale_url`, `vel_lan_base_url`, `vel_base_url`, localhost fallback), cluster-bootstrap-aware connection display, cached context/nudges/commitments, and queued offline actions for nudge/commitment/capture flows. This is still bootstrap-level client work, not a full offline-capable Apple product.
+- **Apple bootstrap clients** — `clients/apple` now has bootstrap iPhone/watchOS/macOS shells with shared VelAPI transport, endpoint candidate resolution (`vel_tailscale_url`, `vel_lan_base_url`, `vel_base_url`, localhost fallback), cluster-bootstrap-aware connection display, cached context/nudges/commitments, and queued offline actions for nudge/commitment/capture flows. `VelMac` also exports local activity/health/messages snapshots into `~/Library/Application Support/Vel/...` and can trigger daemon sync for those local sources. This is still bootstrap-level client work, not a full offline-capable Apple product.
 
 ## Planned next
 

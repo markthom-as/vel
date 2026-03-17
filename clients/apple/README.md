@@ -5,7 +5,7 @@ Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel da
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VeliOS** — iPhone: context, nudges, commitments, quick capture, offline cache + queued actions.
 - **VelWatch** — Apple Watch: brief “what matters now”, nudge count, cached fallback.
-- **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout).
+- **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages snapshot export into Vel’s Application Support tree.
 
 Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-client-spec.md), [vel-rust-swift-boundary-spec](../../docs/specs/vel-rust-swift-boundary-spec.md) (Rust = brain, Swift = body; API-first), [vel-apple-offline-mode-spec](../../docs/specs/vel-apple-offline-mode-spec.md) (cache + action queue + stale-aware offline mode). Repo guidance: [docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md](../../docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md) (Apple clients in same repo, under `clients/apple/`).
 
@@ -99,6 +99,6 @@ VelAPI can be extended with more endpoints (commitments, captures, explain, risk
 ## Design notes
 
 - **One brain**: All logic (inference, risk, nudges) lives in veld; clients only display and send actions.
-- **Offline mode**: Apple clients now cache context/nudges/commitments and queue user actions locally; they still must not fork local policy or inference.
+- **Offline mode**: Apple clients now cache context/nudges/commitments and queue user actions locally; `VelMac` also exports local activity/health/messages snapshots for daemon sync. The clients still must not fork local policy or inference.
 - **Calm, analytical**: Spec calls for non-chirpy, non-preachy tone; Watch stays ultra-brief.
 - **Same repo**: Apple clients live here (not a separate repo) until the core API and release cadence are stable.
