@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../api/client'
 import { clearQueryCache } from '../data/query'
 import { ProvenanceDrawer } from './ProvenanceDrawer'
@@ -12,6 +12,10 @@ describe('ProvenanceDrawer cache reuse', () => {
   beforeEach(() => {
     clearQueryCache()
     vi.mocked(api.apiGet).mockReset()
+  })
+
+  afterEach(() => {
+    cleanup()
   })
 
   it('reuses cached provenance when the same message is reopened', async () => {
@@ -86,7 +90,7 @@ describe('ProvenanceDrawer cache reuse', () => {
     render(<ProvenanceDrawer messageId="msg_2" onClose={() => {}} />)
 
     await waitFor(() => {
-      expect(screen.getByText('Signals')).toBeInTheDocument()
+      expect(screen.getByText('Touched vel runtime')).toBeInTheDocument()
     })
 
     expect(screen.getByText('Policy decisions')).toBeInTheDocument()
@@ -97,5 +101,35 @@ describe('ProvenanceDrawer cache reuse', () => {
     expect(screen.getByText('assistant card was actionable')).toBeInTheDocument()
     expect(screen.getByText('conversation')).toBeInTheDocument()
     expect(screen.getByText('conv_1')).toBeInTheDocument()
+  })
+
+  it('allows raw payload inspection per structured item', async () => {
+    vi.mocked(api.apiGet).mockResolvedValue({
+      ok: true,
+      data: {
+        message_id: 'msg_3',
+        events: [],
+        signals: [
+          {
+            signal_type: 'message_thread',
+            source: 'messaging',
+            summary: 'Waiting on reply',
+            payload_hint: 'thread-42',
+          },
+        ],
+        policy_decisions: [],
+        linked_objects: [],
+      },
+      meta: { request_id: 'req_3' },
+    })
+
+    const view = render(<ProvenanceDrawer messageId="msg_3" onClose={() => {}} />)
+
+    await waitFor(() => {
+      expect(within(view.container).getByText('Waiting on reply')).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(view.container).getByRole('button', { name: /show raw/i }))
+    expect(within(view.container).getByText('thread-42')).toBeInTheDocument()
   })
 })
