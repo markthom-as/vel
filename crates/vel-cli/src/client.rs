@@ -409,7 +409,8 @@ impl ApiClient {
         &self,
         id: &str,
     ) -> anyhow::Result<ApiResponse<IntegrationConnectionData>> {
-        self.get(&format!("/v1/integrations/connections/{}", id)).await
+        self.get(&format!("/v1/integrations/connections/{}", id))
+            .await
     }
 
     pub async fn list_integration_connection_events(

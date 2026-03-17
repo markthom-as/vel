@@ -2102,6 +2102,71 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn command_execute_endpoint_warns_when_planning_title_is_defaulted() {
+        let db_path = format!(
+            "/tmp/vel_command_spec_warning_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/execute")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "create",
+                                "targets": [
+                                    {
+                                        "kind": "spec_draft",
+                                        "attributes": {}
+                                    }
+                                ],
+                                "inferred": {
+                                    "planning_status": "planned"
+                                },
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["warnings"][0].as_str(),
+            Some("no topic, goal, or text was provided; defaulted spec_draft title")
+        );
+        assert_eq!(
+            json["data"]["result"]["data"]["artifact"]["title"].as_str(),
+            Some("spec draft")
+        );
+    }
+
+    #[tokio::test]
     async fn command_execute_endpoint_creates_spec_draft_artifact() {
         let db_path = format!("/tmp/vel_command_spec_{}.db", uuid::Uuid::new_v4().simple());
         let storage = Storage::connect(&db_path).await.unwrap();

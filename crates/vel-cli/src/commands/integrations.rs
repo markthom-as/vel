@@ -116,7 +116,10 @@ pub async fn run_inspect_connection(
     } else {
         println!("events:");
         for event in events {
-            println!("  - {}  {}  {}", event.id, event.event_type, event.timestamp);
+            println!(
+                "  - {}  {}  {}",
+                event.id, event.event_type, event.timestamp
+            );
             println!("    {}", serde_json::to_string_pretty(&event.payload)?);
         }
     }

@@ -394,8 +394,18 @@ fn planning_title_for_target(command: &ResolvedCommand, target_kind: DomainKind)
                 .attributes
                 .get("topic")
                 .and_then(|value| value.as_str())
-                .or_else(|| target.attributes.get("goal").and_then(|value| value.as_str()))
-                .or_else(|| target.attributes.get("text").and_then(|value| value.as_str()))
+                .or_else(|| {
+                    target
+                        .attributes
+                        .get("goal")
+                        .and_then(|value| value.as_str())
+                })
+                .or_else(|| {
+                    target
+                        .attributes
+                        .get("text")
+                        .and_then(|value| value.as_str())
+                })
         })
         .or_else(|| {
             command
@@ -1123,7 +1133,8 @@ mod tests {
             targets: vec![TypedTarget::new(DomainKind::SpecDraft)],
             ..ResolvedCommand::default()
         };
-        let (spec_title, spec_defaulted) = planning_title_for_target(&command, DomainKind::SpecDraft);
+        let (spec_title, spec_defaulted) =
+            planning_title_for_target(&command, DomainKind::SpecDraft);
         assert_eq!(spec_title, "spec draft");
         assert!(spec_defaulted);
 

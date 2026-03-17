@@ -647,8 +647,10 @@ async fn main() -> anyhow::Result<()> {
                 id,
                 events_limit,
                 json,
-            } => commands::integrations::run_inspect_connection(&client, &id, events_limit, json)
-                .await,
+            } => {
+                commands::integrations::run_inspect_connection(&client, &id, events_limit, json)
+                    .await
+            }
         },
         Command::Artifact { command } => match command {
             ArtifactCommand::Latest { r#type: t, json } => {
