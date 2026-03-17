@@ -4,6 +4,7 @@
 
 use crate::client::ApiClient;
 use anyhow::Context;
+use vel_core::normalize_risk_level;
 
 pub async fn run_current(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     let resp = client
@@ -62,6 +63,7 @@ pub async fn run_current(client: &ApiClient, json: bool) -> anyhow::Result<()> {
                     "Global risk: {}",
                     c.get("global_risk_level")
                         .and_then(serde_json::Value::as_str)
+                        .map(normalize_risk_level)
                         .unwrap_or("—")
                 );
                 if let Some(git) = c.get("git_activity_summary") {
@@ -137,9 +139,21 @@ pub async fn run_timeline(client: &ApiClient, limit: u32, json: bool) -> anyhow:
             let risk = c
                 .get("global_risk_level")
                 .and_then(serde_json::Value::as_str)
+                .map(normalize_risk_level)
                 .unwrap_or("—");
             println!("{} morning_state -> {}  mode -> {}  prep_window_active -> {}  meds_status -> {}  global_risk_level -> {}", ts, morning, mode, prep, meds, risk);
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_context_risk_display_uses_shared_risk_normalization() {
+        assert_eq!(normalize_risk_level("danger"), "unknown");
+        assert_eq!(normalize_risk_level("high"), "high");
+    }
 }
