@@ -4,9 +4,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::json;
 use time::OffsetDateTime;
-use vel_api_types::{
-    ConnectInstanceCapabilityManifestData, ConnectInstanceData, ConnectRuntimeCapabilityData,
-};
 use vel_core::{
     ConnectInstance, ConnectInstanceCapabilityManifest, ConnectInstanceStatus,
     ConnectRuntimeCapability,
@@ -34,7 +31,7 @@ struct ConnectInstanceAccumulator {
 
 pub async fn list_connect_instances(
     state: &AppState,
-) -> Result<Vec<ConnectInstanceData>, AppError> {
+) -> Result<Vec<ConnectInstance>, AppError> {
     let workers = crate::services::client_sync::cluster_workers_data(state).await?;
     let mut nodes: BTreeMap<String, ConnectInstanceAccumulator> = BTreeMap::new();
 
@@ -100,17 +97,13 @@ pub async fn list_connect_instances(
         }
     }
 
-    Ok(nodes
-        .into_values()
-        .map(connect_instance_from_accumulator)
-        .map(connect_instance_to_data)
-        .collect())
+    Ok(nodes.into_values().map(connect_instance_from_accumulator).collect())
 }
 
 pub async fn get_connect_instance(
     state: &AppState,
     id: &str,
-) -> Result<Option<ConnectInstanceData>, AppError> {
+) -> Result<Option<ConnectInstance>, AppError> {
     let instances = list_connect_instances(state).await?;
     Ok(instances
         .into_iter()
@@ -229,49 +222,6 @@ fn pick_preferred_option(current: Option<String>, next: Option<String>) -> Optio
     current
         .filter(|value| !value.trim().is_empty())
         .or_else(|| next.filter(|value| !value.trim().is_empty()))
-}
-
-fn connect_instance_to_data(instance: ConnectInstance) -> ConnectInstanceData {
-    ConnectInstanceData {
-        id: instance.id,
-        node_id: instance.node_id,
-        display_name: instance.display_name,
-        connection_id: instance.connection_id,
-        status: instance.status.to_string(),
-        reachability: instance.reachability,
-        sync_base_url: instance.sync_base_url,
-        sync_transport: instance.sync_transport,
-        tailscale_base_url: instance.tailscale_base_url,
-        lan_base_url: instance.lan_base_url,
-        localhost_base_url: instance.localhost_base_url,
-        worker_ids: instance.worker_ids,
-        worker_classes: instance.worker_classes,
-        last_seen_at: instance
-            .last_seen_at
-            .map(|timestamp| timestamp.unix_timestamp()),
-        manifest: ConnectInstanceCapabilityManifestData {
-            worker_classes: instance.manifest.worker_classes,
-            capabilities: instance.manifest.capabilities,
-            launchable_runtimes: instance
-                .manifest
-                .launchable_runtimes
-                .into_iter()
-                .map(|runtime| ConnectRuntimeCapabilityData {
-                    runtime_id: runtime.runtime_id,
-                    display_name: runtime.display_name,
-                    supports_launch: runtime.supports_launch,
-                    supports_interactive_followup: runtime.supports_interactive_followup,
-                    supports_native_open: runtime.supports_native_open,
-                    supports_host_agent_control: runtime.supports_host_agent_control,
-                })
-                .collect(),
-            supports_agent_launch: instance.manifest.supports_agent_launch,
-            supports_interactive_followup: instance.manifest.supports_interactive_followup,
-            supports_native_open: instance.manifest.supports_native_open,
-            supports_host_agent_control: instance.manifest.supports_host_agent_control,
-        },
-        metadata: instance.metadata_json,
-    }
 }
 
 #[cfg(test)]
