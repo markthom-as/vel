@@ -1,5 +1,10 @@
 # Policy configuration for Vel. Required at startup. See docs/specs/vel-agent-next-steps-policy-config-commute.md
 
+loops:
+  evaluate_current_state:
+    enabled: true
+    interval_seconds: 300
+
 policies:
   meds_not_logged:
     enabled: true

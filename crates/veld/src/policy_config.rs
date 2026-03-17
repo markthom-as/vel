@@ -6,6 +6,8 @@ use std::path::Path;
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct PolicyConfig {
+    #[serde(default)]
+    pub loops: LoopPolicies,
     pub policies: PoliciesMap,
 }
 
@@ -59,6 +61,17 @@ pub struct PolicyMorningDrift {
     pub warning_after_minutes: u32,
     pub danger_after_minutes: u32,
     pub default_snooze_minutes: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoopPolicies {
+    pub evaluate_current_state: Option<LoopPolicy>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoopPolicy {
+    pub enabled: bool,
+    pub interval_seconds: u64,
 }
 
 impl Default for PoliciesMap {
@@ -122,6 +135,23 @@ impl Default for PolicyMorningDrift {
     }
 }
 
+impl Default for LoopPolicies {
+    fn default() -> Self {
+        Self {
+            evaluate_current_state: Some(LoopPolicy::default()),
+        }
+    }
+}
+
+impl Default for LoopPolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval_seconds: 300,
+        }
+    }
+}
+
 impl PolicyConfig {
     /// Load policy config from path. Fails clearly if file is missing or malformed.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, PolicyConfigError> {
@@ -146,6 +176,9 @@ impl PolicyConfig {
     pub fn morning_drift(&self) -> Option<&PolicyMorningDrift> {
         self.policies.morning_drift.as_ref()
     }
+    pub fn evaluate_current_state_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.evaluate_current_state.as_ref()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -167,8 +200,16 @@ mod tests {
         assert!(config.meeting_prep_window().is_some());
         assert!(config.commute_leave_time().is_some());
         assert!(config.morning_drift().is_some());
+        assert!(config.evaluate_current_state_loop().is_some());
         assert!(config.meeting_prep_window().unwrap().default_prep_minutes == 30);
         assert!(config.commute_leave_time().unwrap().require_travel_minutes);
+        assert_eq!(
+            config
+                .evaluate_current_state_loop()
+                .unwrap()
+                .interval_seconds,
+            300
+        );
     }
 
     #[test]

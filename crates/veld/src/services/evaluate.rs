@@ -4,7 +4,11 @@
 //! Read-only surfaces (explain, context/current, context/timeline, GET risk) must **not** call this module
 //! or any of the recompute services (risk::run, inference::run, nudge_engine::evaluate, suggestions::evaluate_after_nudges).
 
-use crate::{errors::AppError, policy_config::PolicyConfig};
+use crate::{
+    broadcast::WsEnvelope, errors::AppError, policy_config::PolicyConfig, state::AppState,
+};
+use serde_json::json;
+use vel_api_types::{CurrentContextData, WsEventType};
 use vel_storage::Storage;
 
 /// Result of a full evaluation run.
@@ -32,4 +36,22 @@ pub async fn run(
         inferred_states: states as u32,
         nudges_created_or_updated: nudges,
     })
+}
+
+pub async fn broadcast_context_updated(state: &AppState) -> Result<(), AppError> {
+    let Some((computed_at, context_json)) = state.storage.get_current_context().await? else {
+        return Ok(());
+    };
+    let context = serde_json::from_str(&context_json).unwrap_or_else(|_| json!({}));
+    let payload = serde_json::to_value(CurrentContextData {
+        computed_at,
+        context,
+    })
+    .map_err(|error| {
+        AppError::internal(format!("serialize current context for websocket: {error}"))
+    })?;
+    let _ = state
+        .broadcast_tx
+        .send(WsEnvelope::new(WsEventType::ContextUpdated, payload));
+    Ok(())
 }

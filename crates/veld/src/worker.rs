@@ -17,7 +17,7 @@ const JOB_TYPE_CAPTURE_INGEST: &str = "capture_ingest";
 const RETRY_BATCH_LIMIT: u32 = 10;
 
 pub async fn run_background_workers(state: AppState) {
-    for loop_definition in registered_loops() {
+    for loop_definition in registered_loops_with_policy(&state.policy_config) {
         if !loop_definition.enabled {
             debug!(loop_kind = %loop_definition.kind, "background loop disabled");
             continue;
@@ -45,7 +45,14 @@ type LoopFuture<'a> = std::pin::Pin<
     Box<dyn std::future::Future<Output = Result<(), crate::errors::AppError>> + Send + 'a>,
 >;
 
-fn registered_loops() -> Vec<LoopDefinition> {
+fn registered_loops_with_policy(
+    policy_config: &crate::policy_config::PolicyConfig,
+) -> Vec<LoopDefinition> {
+    let evaluate_loop = policy_config
+        .evaluate_current_state_loop()
+        .cloned()
+        .unwrap_or_default();
+
     vec![
         LoopDefinition {
             kind: LoopKind::CaptureIngest,
@@ -58,6 +65,12 @@ fn registered_loops() -> Vec<LoopDefinition> {
             interval: LOOP_INTERVAL,
             enabled: true,
             runner: run_retry_due_runs_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::EvaluateCurrentState,
+            interval: Duration::from_secs(evaluate_loop.interval_seconds),
+            enabled: evaluate_loop.enabled,
+            runner: run_evaluate_current_state_loop_once,
         },
     ]
 }
@@ -80,7 +93,7 @@ async fn run_registered_loop(state: AppState, loop_definition: LoopDefinition) {
 }
 
 async fn run_registered_loops_once(state: &AppState) -> Result<(), crate::errors::AppError> {
-    for loop_definition in registered_loops()
+    for loop_definition in registered_loops_with_policy(&state.policy_config)
         .into_iter()
         .filter(|loop_definition| loop_definition.enabled)
     {
@@ -151,6 +164,14 @@ fn run_retry_due_runs_loop_once(state: &AppState) -> LoopFuture<'_> {
                 warn!(error = %error, "run retry execution failed");
             }
         }
+        Ok(())
+    })
+}
+
+fn run_evaluate_current_state_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        crate::services::evaluate::run(&state.storage, &state.policy_config).await?;
+        crate::services::evaluate::broadcast_context_updated(state).await?;
         Ok(())
     })
 }
@@ -257,7 +278,7 @@ async fn process_retry_ready_run(
 
 #[cfg(test)]
 mod tests {
-    use super::{poll_once, registered_loops};
+    use super::{poll_once, registered_loops_with_policy};
     use crate::state::AppState;
     use vel_config::AppConfig;
     use vel_core::{LoopKind, RunEventType, RunId, RunKind, RunStatus};
@@ -265,10 +286,11 @@ mod tests {
 
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
-        let loops = registered_loops();
-        assert_eq!(loops.len(), 2);
+        let loops = registered_loops_with_policy(&crate::policy_config::PolicyConfig::default());
+        assert_eq!(loops.len(), 3);
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
+        assert_eq!(loops[2].kind, LoopKind::EvaluateCurrentState);
         assert!(loops.iter().all(|loop_definition| loop_definition.enabled));
     }
 
@@ -290,7 +312,7 @@ mod tests {
         poll_once(&state).await.unwrap();
 
         let loops = storage.list_runtime_loops().await.unwrap();
-        assert_eq!(loops.len(), 2);
+        assert_eq!(loops.len(), 3);
         assert!(loops
             .iter()
             .all(|loop_record| loop_record.last_started_at.is_some()));
@@ -303,6 +325,9 @@ mod tests {
         assert!(loops
             .iter()
             .all(|loop_record| loop_record.next_due_at.is_some()));
+        assert!(loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "evaluate_current_state"));
     }
 
     #[tokio::test]
