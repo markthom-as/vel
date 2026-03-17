@@ -97,6 +97,20 @@ pub struct CommandDelegationHintsData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandPlannedLinkData {
+    pub entity_type: String,
+    pub relation_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandPlannedRecordData {
+    pub record_type: String,
+    pub title: String,
+    #[serde(default)]
+    pub links: Vec<CommandPlannedLinkData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandExecutionPlanData {
     pub operation: String,
     pub target_kinds: Vec<String>,
@@ -107,6 +121,8 @@ pub struct CommandExecutionPlanData {
     pub intent_hints: Option<CommandIntentHintsData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delegation_hints: Option<CommandDelegationHintsData>,
+    #[serde(default)]
+    pub planned_records: Vec<CommandPlannedRecordData>,
     pub validation: CommandValidationData,
 }
 
@@ -1664,6 +1680,10 @@ pub struct ThreadData {
     pub thread_type: String,
     pub title: String,
     pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub planning_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lifecycle_stage: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(skip_serializing_if = "Option::is_none")]

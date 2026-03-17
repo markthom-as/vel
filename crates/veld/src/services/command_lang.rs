@@ -70,6 +70,19 @@ pub struct CommandDelegationHints {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandPlannedLink {
+    pub entity_type: String,
+    pub relation_type: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandPlannedRecord {
+    pub record_type: String,
+    pub title: String,
+    pub links: Vec<CommandPlannedLink>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommandExecutionPlan {
     pub operation: DomainOperation,
     pub target_kinds: Vec<DomainKind>,
@@ -78,6 +91,7 @@ pub struct CommandExecutionPlan {
     pub steps: Vec<CommandPlanStep>,
     pub intent_hints: Option<CommandIntentHints>,
     pub delegation_hints: Option<CommandDelegationHints>,
+    pub planned_records: Vec<CommandPlannedRecord>,
     pub validation: CommandValidation,
 }
 
@@ -115,6 +129,7 @@ pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
     let summary = build_summary(command, mode, target_kinds.len());
     let intent_hints = build_intent_hints(command);
     let delegation_hints = build_delegation_hints(command);
+    let planned_records = build_planned_records(command);
 
     CommandExecutionPlan {
         operation: command.operation,
@@ -124,6 +139,7 @@ pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
         steps,
         intent_hints,
         delegation_hints,
+        planned_records,
         validation,
     }
 }
@@ -310,6 +326,81 @@ fn build_delegation_hints(command: &ResolvedCommand) -> Option<CommandDelegation
         approval_required: true,
         linked_record_strategy: "artifact_plus_thread".to_string(),
     })
+}
+
+fn build_planned_records(command: &ResolvedCommand) -> Vec<CommandPlannedRecord> {
+    let Some(target) = command.targets.first() else {
+        return Vec::new();
+    };
+
+    let planning_title = target
+        .attributes
+        .get("topic")
+        .and_then(|value| value.as_str())
+        .or_else(|| {
+            target
+                .attributes
+                .get("goal")
+                .and_then(|value| value.as_str())
+        })
+        .or_else(|| {
+            target
+                .attributes
+                .get("text")
+                .and_then(|value| value.as_str())
+        })
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("planned command");
+
+    match target.kind {
+        DomainKind::SpecDraft => vec![
+            CommandPlannedRecord {
+                record_type: "artifact".to_string(),
+                title: format!("spec_draft: {planning_title}"),
+                links: vec![],
+            },
+            CommandPlannedRecord {
+                record_type: "thread".to_string(),
+                title: format!("spec thread: {planning_title}"),
+                links: vec![CommandPlannedLink {
+                    entity_type: "artifact".to_string(),
+                    relation_type: "primary".to_string(),
+                }],
+            },
+        ],
+        DomainKind::ExecutionPlan => vec![
+            CommandPlannedRecord {
+                record_type: "artifact".to_string(),
+                title: format!("execution_plan: {planning_title}"),
+                links: vec![],
+            },
+            CommandPlannedRecord {
+                record_type: "thread".to_string(),
+                title: format!("plan thread: {planning_title}"),
+                links: vec![CommandPlannedLink {
+                    entity_type: "artifact".to_string(),
+                    relation_type: "primary".to_string(),
+                }],
+            },
+        ],
+        DomainKind::DelegationPlan => vec![
+            CommandPlannedRecord {
+                record_type: "artifact".to_string(),
+                title: format!("delegation_plan: {planning_title}"),
+                links: vec![],
+            },
+            CommandPlannedRecord {
+                record_type: "thread".to_string(),
+                title: format!("delegation thread: {planning_title}"),
+                links: vec![CommandPlannedLink {
+                    entity_type: "artifact".to_string(),
+                    relation_type: "primary".to_string(),
+                }],
+            },
+        ],
+        _ => Vec::new(),
+    }
 }
 
 fn requires_targets(operation: DomainOperation) -> bool {
@@ -705,9 +796,9 @@ async fn create_planning_thread(
 ) -> Result<ThreadData, AppError> {
     let thread_id = format!("thr_{}", Uuid::new_v4().simple());
     let thread_type = match artifact_type {
-        "spec_draft" => "spec",
-        "execution_plan" => "plan",
-        "delegation_plan" => "delegation",
+        "spec_draft" => "planning_spec",
+        "execution_plan" => "planning_execution",
+        "delegation_plan" => "planning_delegation",
         _ => "planning",
     };
     let title = artifact
@@ -724,7 +815,7 @@ async fn create_planning_thread(
 
     state
         .storage
-        .insert_thread(&thread_id, thread_type, &title, "open", &metadata)
+        .insert_thread(&thread_id, thread_type, &title, "planned", &metadata)
         .await?;
     state
         .storage
@@ -745,11 +836,20 @@ async fn create_planning_thread(
 
 fn thread_row_to_data(row: (String, String, String, String, String, i64, i64)) -> ThreadData {
     let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row;
+    let planning_kind = match thread_type.as_str() {
+        "planning_spec" => Some("spec".to_string()),
+        "planning_execution" => Some("execution_plan".to_string()),
+        "planning_delegation" => Some("delegation_plan".to_string()),
+        _ => None,
+    };
+    let lifecycle_stage = planning_kind.as_ref().map(|_| status.clone());
     ThreadData {
         id,
         thread_type,
         title,
         status,
+        planning_kind,
+        lifecycle_stage,
         created_at,
         updated_at,
         links: None,
@@ -855,6 +955,9 @@ mod tests {
                 .map(|hints| hints.linked_record_strategy.as_str()),
             Some("artifact_plus_thread")
         );
+        assert_eq!(plan.planned_records.len(), 2);
+        assert_eq!(plan.planned_records[0].record_type, "artifact");
+        assert_eq!(plan.planned_records[1].record_type, "thread");
     }
 
     #[tokio::test]
@@ -937,7 +1040,9 @@ mod tests {
         match result.result {
             CommandExecutionPayload::SpecDraftCreated(payload) => {
                 assert_eq!(payload.artifact.artifact_type, "spec_draft");
-                assert_eq!(payload.thread.thread_type, "spec");
+                assert_eq!(payload.thread.thread_type, "planning_spec");
+                assert_eq!(payload.thread.planning_kind.as_deref(), Some("spec"));
+                assert_eq!(payload.thread.status, "planned");
             }
             other => panic!("unexpected result payload: {other:?}"),
         }
@@ -966,7 +1071,9 @@ mod tests {
         match result.result {
             CommandExecutionPayload::ExecutionPlanCreated(payload) => {
                 assert_eq!(payload.artifact.artifact_type, "execution_plan");
-                assert_eq!(payload.thread.thread_type, "plan");
+                assert_eq!(payload.thread.thread_type, "planning_execution");
+                assert_eq!(payload.thread.planning_kind.as_deref(), Some("execution_plan"));
+                assert_eq!(payload.thread.status, "planned");
             }
             other => panic!("unexpected result payload: {other:?}"),
         }
@@ -995,7 +1102,9 @@ mod tests {
         match result.result {
             CommandExecutionPayload::DelegationPlanCreated(payload) => {
                 assert_eq!(payload.artifact.artifact_type, "delegation_plan");
-                assert_eq!(payload.thread.thread_type, "delegation");
+                assert_eq!(payload.thread.thread_type, "planning_delegation");
+                assert_eq!(payload.thread.planning_kind.as_deref(), Some("delegation_plan"));
+                assert_eq!(payload.thread.status, "planned");
             }
             other => panic!("unexpected result payload: {other:?}"),
         }

@@ -1718,6 +1718,9 @@ mod tests {
             json["data"]["intent_hints"]["mode"].as_str(),
             Some("execute")
         );
+        assert!(json["data"]["planned_records"]
+            .as_array()
+            .is_some_and(|records| records.is_empty()));
         assert_eq!(json["data"]["validation"]["is_valid"].as_bool(), Some(true));
         assert_eq!(
             json["data"]["steps"][2]["title"].as_str(),
@@ -1787,6 +1790,14 @@ mod tests {
         assert_eq!(
             json["data"]["delegation_hints"]["linked_record_strategy"].as_str(),
             Some("artifact_plus_thread")
+        );
+        assert_eq!(
+            json["data"]["planned_records"][0]["record_type"].as_str(),
+            Some("artifact")
+        );
+        assert_eq!(
+            json["data"]["planned_records"][1]["record_type"].as_str(),
+            Some("thread")
         );
     }
 
@@ -2002,13 +2013,26 @@ mod tests {
         );
         assert_eq!(
             json["data"]["result"]["data"]["thread"]["thread_type"].as_str(),
+            Some("planning_spec")
+        );
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["planning_kind"].as_str(),
             Some("spec")
         );
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["lifecycle_stage"].as_str(),
+            Some("planned")
+        );
+        let thread_id = json["data"]["result"]["data"]["thread"]["id"]
+            .as_str()
+            .expect("thread id in payload");
         let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
         let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();
         assert!(stored.is_some());
+        let stored_thread = storage.get_thread_by_id(thread_id).await.unwrap();
+        assert!(stored_thread.is_some());
     }
 
     #[tokio::test]
@@ -2075,13 +2099,26 @@ mod tests {
         );
         assert_eq!(
             json["data"]["result"]["data"]["thread"]["thread_type"].as_str(),
-            Some("plan")
+            Some("planning_execution")
         );
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["planning_kind"].as_str(),
+            Some("execution_plan")
+        );
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["lifecycle_stage"].as_str(),
+            Some("planned")
+        );
+        let thread_id = json["data"]["result"]["data"]["thread"]["id"]
+            .as_str()
+            .expect("thread id in payload");
         let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
         let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();
         assert!(stored.is_some());
+        let stored_thread = storage.get_thread_by_id(thread_id).await.unwrap();
+        assert!(stored_thread.is_some());
     }
 
     #[tokio::test]
@@ -2151,13 +2188,26 @@ mod tests {
         );
         assert_eq!(
             json["data"]["result"]["data"]["thread"]["thread_type"].as_str(),
-            Some("delegation")
+            Some("planning_delegation")
         );
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["planning_kind"].as_str(),
+            Some("delegation_plan")
+        );
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["lifecycle_stage"].as_str(),
+            Some("planned")
+        );
+        let thread_id = json["data"]["result"]["data"]["thread"]["id"]
+            .as_str()
+            .expect("thread id in payload");
         let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
         let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();
         assert!(stored.is_some());
+        let stored_thread = storage.get_thread_by_id(thread_id).await.unwrap();
+        assert!(stored_thread.is_some());
     }
 
     #[tokio::test]

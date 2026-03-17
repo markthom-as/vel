@@ -3,8 +3,9 @@ use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, CommandDelegationHintsData, CommandExecuteRequest, CommandExecutionPayloadData,
     CommandExecutionPlanData, CommandExecutionResultData, CommandIntentHintsData,
-    CommandPlanModeData, CommandPlanRequest, CommandPlanStepData, CommandValidationData,
-    CommandValidationIssueCodeData, CommandValidationIssueData,
+    CommandPlanModeData, CommandPlanRequest, CommandPlanStepData, CommandPlannedLinkData,
+    CommandPlannedRecordData, CommandValidationData, CommandValidationIssueCodeData,
+    CommandValidationIssueData,
 };
 
 use crate::{errors::AppError, services, state::AppState};
@@ -102,6 +103,22 @@ fn plan_to_data(plan: services::command_lang::CommandExecutionPlan) -> CommandEx
                 approval_required: hints.approval_required,
                 linked_record_strategy: hints.linked_record_strategy,
             }),
+        planned_records: plan
+            .planned_records
+            .into_iter()
+            .map(|record| CommandPlannedRecordData {
+                record_type: record.record_type,
+                title: record.title,
+                links: record
+                    .links
+                    .into_iter()
+                    .map(|link| CommandPlannedLinkData {
+                        entity_type: link.entity_type,
+                        relation_type: link.relation_type,
+                    })
+                    .collect(),
+            })
+            .collect(),
         validation: CommandValidationData {
             is_valid: plan.validation.is_valid,
             issues: plan

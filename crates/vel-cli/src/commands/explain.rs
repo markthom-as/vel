@@ -198,6 +198,18 @@ pub async fn run_command(client: &ApiClient, input: Vec<String>, json: bool) -> 
                     hints.linked_record_strategy
                 );
             }
+            if !plan.planned_records.is_empty() {
+                println!("  planned records:");
+                for record in plan.planned_records {
+                    println!("    - {}: {}", record.record_type, record.title);
+                    for link in record.links {
+                        println!(
+                            "      link -> {} ({})",
+                            link.entity_type, link.relation_type
+                        );
+                    }
+                }
+            }
             if !plan.steps.is_empty() {
                 println!("  steps:");
                 for step in plan.steps {
