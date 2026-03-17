@@ -55,32 +55,28 @@ interface EvaluateResultData {
 }
 
 function decodeSyncResultData(value: unknown): SyncResultData {
-  return decodeApiResponse(value, (data) => {
-    const record = data as { source?: unknown; signals_ingested?: unknown };
-    if (typeof record?.source !== 'string' || typeof record?.signals_ingested !== 'number') {
-      throw new Error('Expected sync result payload with source and signals_ingested');
-    }
-    return {
-      source: record.source,
-      signals_ingested: record.signals_ingested,
-    };
-  }).data ?? { source: '', signals_ingested: 0 };
+  const record = value as { source?: unknown; signals_ingested?: unknown };
+  if (typeof record?.source !== 'string' || typeof record?.signals_ingested !== 'number') {
+    throw new Error('Expected sync result payload with source and signals_ingested');
+  }
+  return {
+    source: record.source,
+    signals_ingested: record.signals_ingested,
+  };
 }
 
 function decodeEvaluateResultData(value: unknown): EvaluateResultData {
-  return decodeApiResponse(value, (data) => {
-    const record = data as { inferred_states?: unknown; nudges_created_or_updated?: unknown };
-    if (
-      typeof record?.inferred_states !== 'number'
-      || typeof record?.nudges_created_or_updated !== 'number'
-    ) {
-      throw new Error('Expected evaluate result payload with inferred_states and nudges_created_or_updated');
-    }
-    return {
-      inferred_states: record.inferred_states,
-      nudges_created_or_updated: record.nudges_created_or_updated,
-    };
-  }).data ?? { inferred_states: 0, nudges_created_or_updated: 0 };
+  const record = value as { inferred_states?: unknown; nudges_created_or_updated?: unknown };
+  if (
+    typeof record?.inferred_states !== 'number'
+    || typeof record?.nudges_created_or_updated !== 'number'
+  ) {
+    throw new Error('Expected evaluate result payload with inferred_states and nudges_created_or_updated');
+  }
+  return {
+    inferred_states: record.inferred_states,
+    nudges_created_or_updated: record.nudges_created_or_updated,
+  };
 }
 
 export const queryKeys = {
