@@ -1,6 +1,8 @@
 use crate::client::ApiClient;
 use anyhow::Context;
-use vel_api_types::{ClusterBootstrapData, SyncClusterStateData};
+use vel_api_types::{
+    BranchSyncRequestData, ClusterBootstrapData, SyncClusterStateData, ValidationRequestData,
+};
 
 pub async fn run_calendar(client: &ApiClient) -> anyhow::Result<()> {
     let resp = client.sync_calendar().await.context("sync calendar")?;
@@ -141,6 +143,119 @@ pub async fn run_workers(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("no data"))?;
     print_cluster_state_summary(data);
+    Ok(())
+}
+
+pub async fn run_branch_sync_request(
+    client: &ApiClient,
+    branch: &str,
+    remote: Option<&str>,
+    base_branch: Option<&str>,
+    mode: Option<&str>,
+    requested_by: Option<&str>,
+    use_cluster_surface: bool,
+    json: bool,
+) -> anyhow::Result<()> {
+    let bootstrap = client.sync_bootstrap().await.context("sync bootstrap")?;
+    let data = bootstrap
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    let capability = data
+        .cluster
+        .branch_sync
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("branch sync is unavailable on this node"))?;
+    let request = BranchSyncRequestData {
+        repo_root: capability.repo_root.clone(),
+        branch: branch.to_string(),
+        remote: remote.map(ToString::to_string),
+        base_branch: base_branch.map(ToString::to_string),
+        mode: mode.map(ToString::to_string),
+        requested_by: requested_by.map(ToString::to_string),
+    };
+    let resp = if use_cluster_surface {
+        client
+            .cluster_branch_sync_request(&request)
+            .await
+            .context("queue branch sync request (cluster)")?
+    } else {
+        client
+            .sync_branch_sync_request(&request)
+            .await
+            .context("queue branch sync request (sync)")?
+    };
+    if json {
+        println!("{}", serde_json::to_string_pretty(&resp)?);
+        return Ok(());
+    }
+    let queued = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!(
+        "queued {} as {} on node {} ({})",
+        queued.work_request_id, branch, queued.target_node_id, queued.target_worker_class
+    );
+    Ok(())
+}
+
+pub async fn run_validation_request(
+    client: &ApiClient,
+    profile_id: &str,
+    branch: Option<&str>,
+    environment: Option<&str>,
+    requested_by: Option<&str>,
+    use_cluster_surface: bool,
+    json: bool,
+) -> anyhow::Result<()> {
+    let bootstrap = client.sync_bootstrap().await.context("sync bootstrap")?;
+    let data = bootstrap
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    let repo_root = data
+        .cluster
+        .branch_sync
+        .as_ref()
+        .map(|capability| capability.repo_root.clone())
+        .unwrap_or_else(|| {
+            std::env::current_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                .to_string_lossy()
+                .to_string()
+        });
+
+    let request = ValidationRequestData {
+        repo_root,
+        profile_id: profile_id.to_string(),
+        branch: branch.map(ToString::to_string),
+        environment: environment.map(ToString::to_string),
+        requested_by: requested_by.map(ToString::to_string),
+    };
+    let resp = if use_cluster_surface {
+        client
+            .cluster_validation_request(&request)
+            .await
+            .context("queue validation request (cluster)")?
+    } else {
+        client
+            .sync_validation_request(&request)
+            .await
+            .context("queue validation request (sync)")?
+    };
+    if json {
+        println!("{}", serde_json::to_string_pretty(&resp)?);
+        return Ok(());
+    }
+    let queued = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!(
+        "queued {} for profile {} on node {} ({})",
+        queued.work_request_id, profile_id, queued.target_node_id, queued.target_worker_class
+    );
     Ok(())
 }
 

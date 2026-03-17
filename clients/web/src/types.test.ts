@@ -208,6 +208,7 @@ describe('transport decoders', () => {
             summary: { conversation_id: 'conv_context' },
           },
         },
+        adaptive_policy_overrides: [],
         signals_used: ['sig_1'],
         signal_summaries: [],
         commitments_used: ['commit_1'],
@@ -236,12 +237,13 @@ describe('transport decoders', () => {
           timestamp: 1710000120,
           summary: { conversation_id: 'conv_context' },
         },
-      },
-      signals_used: ['sig_1'],
-      signal_summaries: [],
-      commitments_used: ['commit_1'],
-      risk_used: ['risk_1'],
-      reasons: ['mode: focus'],
+        },
+        adaptive_policy_overrides: [],
+        signals_used: ['sig_1'],
+        signal_summaries: [],
+        commitments_used: ['commit_1'],
+        risk_used: ['risk_1'],
+        reasons: ['mode: focus'],
     })
   })
 
@@ -455,6 +457,7 @@ describe('transport decoders', () => {
         },
         latest_feedback_outcome: 'accepted_and_policy_changed',
         latest_feedback_notes: 'helpful',
+        adaptive_policy: null,
         created_at: 1710000000,
         resolved_at: null,
       }),
@@ -488,6 +491,7 @@ describe('transport decoders', () => {
       },
       latest_feedback_outcome: 'accepted_and_policy_changed',
       latest_feedback_notes: 'helpful',
+      adaptive_policy: null,
       created_at: 1710000000,
       resolved_at: null,
     })

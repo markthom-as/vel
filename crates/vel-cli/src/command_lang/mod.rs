@@ -8,10 +8,8 @@ pub mod registry;
 pub mod tokenize;
 
 use crate::client::ApiClient;
-use crate::commands;
-use anyhow::{bail, Context};
+use anyhow::bail;
 use serde_json::json;
-use vel_api_types::CaptureCreateRequest;
 
 use ast::{PhraseFamily, Verb};
 use infer::parse_and_resolve;
@@ -26,6 +24,11 @@ pub async fn run(
 
     if dry_run {
         if json_output {
+            let service_plan = client
+                .plan_command(&resolution.resolved)
+                .await
+                .ok()
+                .and_then(|response| response.data);
             println!(
                 "{}",
                 serde_json::to_string_pretty(&json!({
@@ -36,47 +39,40 @@ pub async fn run(
                     "explanation": explain::render_explanation(&resolution),
                     "completion_hints": completion::next_tokens(&input),
                     "registry": registry::default_registry(),
+                    "service_plan": service_plan,
                 }))?
             );
         } else {
             println!("{}", preview::render(&resolution));
             println!();
             println!("{}", explain::render_explanation(&resolution));
+            if let Ok(response) = client.plan_command(&resolution.resolved).await {
+                if let Some(plan) = response.data {
+                    println!();
+                    println!("Service plan:");
+                    println!("  Mode: {:?}", plan.mode);
+                    println!("  Summary: {}", plan.summary);
+                    for step in plan.steps {
+                        println!("  - {}: {}", step.title, step.detail);
+                    }
+                    if !plan.validation.issues.is_empty() {
+                        println!("  Validation issues:");
+                        for issue in plan.validation.issues {
+                            println!("    - {:?}: {}", issue.code, issue.message);
+                        }
+                    }
+                }
+            }
         }
         return Ok(());
     }
 
     match (&resolution.parsed.family, &resolution.parsed.verb) {
-        (PhraseFamily::Should, Verb::Capture) => {
-            execute_capture(
-                client,
-                resolution
-                    .parsed
-                    .joined_target()
-                    .context("capture command missing target text")?,
-                "quick_note",
-                json_output,
-            )
-            .await
+        (PhraseFamily::Should, Verb::Capture)
+        | (PhraseFamily::Should, Verb::Feature)
+        | (PhraseFamily::Should, Verb::Review) => {
+            execute_via_service(client, &resolution.resolved, json_output).await
         }
-        (PhraseFamily::Should, Verb::Feature) => {
-            execute_capture(
-                client,
-                resolution
-                    .parsed
-                    .joined_target()
-                    .context("feature command missing target text")?,
-                "feature_request",
-                json_output,
-            )
-            .await
-        }
-        (PhraseFamily::Should, Verb::Review) => match resolution.parsed.primary_target() {
-            Some("today") => commands::review::run_today(client, json_output).await,
-            Some("week") => commands::review::run_week(client, json_output).await,
-            Some(other) => bail!("unsupported review target: {other}"),
-            None => bail!("review command requires a target like `today` or `week`"),
-        },
         _ => bail!(
             "command language execution is not implemented yet for `{}`",
             resolution.parsed.verb
@@ -84,31 +80,29 @@ pub async fn run(
     }
 }
 
-async fn execute_capture(
+async fn execute_via_service(
     client: &ApiClient,
-    content_text: String,
-    capture_type: &str,
+    command: &vel_core::ResolvedCommand,
     json_output: bool,
 ) -> anyhow::Result<()> {
-    let request = CaptureCreateRequest {
-        content_text,
-        capture_type: capture_type.to_string(),
-        source_device: Some("vel-command".to_string()),
-    };
-    let response = client.capture(request).await?;
-    let data = response.data.expect("capture response missing data");
+    let response = client.execute_command(command).await?;
+    let data = response
+        .data
+        .expect("command execute response missing data");
 
     if json_output {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&json!({
-                "capture_id": data.capture_id,
-                "capture_type": capture_type,
-                "source_device": "vel-command",
-            }))?
-        );
+        println!("{}", serde_json::to_string_pretty(&data)?);
     } else {
-        println!("capture_id: {}", data.capture_id);
+        println!("result_kind: {}", data.result_kind);
+        if let Some(capture_id) = data
+            .payload
+            .get("capture_id")
+            .and_then(serde_json::Value::as_str)
+        {
+            println!("capture_id: {}", capture_id);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&data.payload)?);
+        }
     }
 
     Ok(())

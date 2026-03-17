@@ -1,6 +1,7 @@
 pub mod command;
 pub mod commitment;
 pub mod context;
+pub mod integration;
 pub mod intervention;
 pub mod loops;
 pub mod message;
@@ -17,6 +18,11 @@ pub use command::{
 };
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
 pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
+pub use integration::{
+    IntegrationConnection, IntegrationConnectionEvent, IntegrationConnectionEventType,
+    IntegrationConnectionSettingRef, IntegrationConnectionStatus, IntegrationFamily,
+    IntegrationProvider, IntegrationSourceRef,
+};
 pub use intervention::{Intervention, InterventionState};
 pub use loops::LoopKind;
 pub use message::{
@@ -26,7 +32,7 @@ pub use message::{
 pub use provenance::{Ref, RefRelationType};
 pub use risk::{normalize_risk_level, sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
 pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
-pub use types::{ConversationId, EventId, InterventionId, MessageId};
+pub use types::{ConversationId, EventId, IntegrationConnectionId, InterventionId, MessageId};
 pub use uncertainty::{ResolutionMode, UncertaintyStatus};
 
 use serde::{Deserialize, Serialize};

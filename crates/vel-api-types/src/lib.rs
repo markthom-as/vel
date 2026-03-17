@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
-    ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass, RiskFactors,
-    RiskSnapshot, RunId, SyncClass,
+    ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass, ResolvedCommand,
+    RiskFactors, RiskSnapshot, RunId, SyncClass,
 };
 
 /// Wire-level timestamp for resource DTO fields that use Unix seconds.
@@ -35,6 +35,68 @@ pub struct ApiResponse<T> {
     #[serde(default)]
     pub warnings: Vec<String>,
     pub meta: ApiMeta,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandPlanRequest {
+    pub command: ResolvedCommand,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandExecuteRequest {
+    pub command: ResolvedCommand,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandPlanModeData {
+    Ready,
+    DryRunOnly,
+    Unsupported,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandValidationIssueCodeData {
+    UnsupportedOperation,
+    MissingTargets,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandValidationIssueData {
+    pub code: CommandValidationIssueCodeData,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CommandValidationData {
+    pub is_valid: bool,
+    #[serde(default)]
+    pub issues: Vec<CommandValidationIssueData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandPlanStepData {
+    pub title: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandExecutionPlanData {
+    pub operation: String,
+    pub target_kinds: Vec<String>,
+    pub mode: CommandPlanModeData,
+    pub summary: String,
+    pub steps: Vec<CommandPlanStepData>,
+    pub validation: CommandValidationData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandExecutionResultData {
+    pub result_kind: String,
+    pub payload: JsonValue,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 impl<T> ApiResponse<T> {
@@ -141,6 +203,155 @@ pub struct ValidationRequestData {
     pub requested_by: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueuedWorkRoutingKindData {
+    BranchSync,
+    Validation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueuedWorkRoutingData {
+    pub work_request_id: String,
+    pub request_type: QueuedWorkRoutingKindData,
+    pub status: String,
+    pub queued_signal_id: String,
+    pub queued_signal_type: String,
+    pub queued_at: UnixSeconds,
+    pub queued_via: String,
+    pub authority_node_id: String,
+    pub authority_epoch: i64,
+    pub target_node_id: String,
+    pub target_worker_class: String,
+    pub requested_capability: String,
+    #[serde(default)]
+    pub request_payload: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlacementRecommendationData {
+    pub worker_id: String,
+    pub node_id: String,
+    pub capability: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkAssignmentStatusData {
+    Assigned,
+    Started,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentReceiptData {
+    pub receipt_id: String,
+    pub work_request_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+    pub status: WorkAssignmentStatusData,
+    pub assigned_at: UnixSeconds,
+    #[serde(default)]
+    pub started_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub completed_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub result: Option<String>,
+    #[serde(default)]
+    pub error_message: Option<String>,
+    pub last_updated: UnixSeconds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimRequestData {
+    pub work_request_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentUpdateRequest {
+    pub receipt_id: String,
+    pub status: WorkAssignmentStatusData,
+    #[serde(default)]
+    pub started_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub completed_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub result: Option<String>,
+    #[serde(default)]
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncHeartbeatRequestData {
+    pub node_id: String,
+    #[serde(default)]
+    pub node_display_name: Option<String>,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub max_concurrency: Option<u32>,
+    #[serde(default)]
+    pub current_load: Option<u32>,
+    #[serde(default)]
+    pub queue_depth: Option<u32>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub latency_class: Option<String>,
+    #[serde(default)]
+    pub compute_class: Option<String>,
+    #[serde(default)]
+    pub power_class: Option<String>,
+    #[serde(default)]
+    pub recent_failure_rate: Option<f64>,
+    #[serde(default)]
+    pub tailscale_preferred: Option<bool>,
+    #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub tailscale_base_url: Option<String>,
+    #[serde(default)]
+    pub preferred_tailnet_endpoint: Option<String>,
+    #[serde(default)]
+    pub tailscale_reachable: Option<bool>,
+    #[serde(default)]
+    pub lan_base_url: Option<String>,
+    #[serde(default)]
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub last_heartbeat_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub started_at: Option<UnixSeconds>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncHeartbeatResponseData {
+    pub accepted: bool,
+    pub worker_id: String,
+    pub expires_at: UnixSeconds,
+    pub cluster_view_version: UnixSeconds,
+    #[serde(default)]
+    pub placement_hints: Vec<PlacementRecommendationData>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientActionKind {
@@ -216,7 +427,11 @@ pub struct ClusterWorkerStateData {
     #[serde(default)]
     pub node_id: Option<String>,
     #[serde(default)]
+    pub node_display_name: Option<String>,
+    #[serde(default)]
     pub worker_class: Option<String>,
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
     #[serde(default)]
     pub status: Option<String>,
     #[serde(default)]
@@ -238,7 +453,25 @@ pub struct ClusterWorkerStateData {
     #[serde(default)]
     pub tailscale_preferred: Option<bool>,
     #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub tailscale_base_url: Option<String>,
+    #[serde(default)]
+    pub preferred_tailnet_endpoint: Option<String>,
+    #[serde(default)]
+    pub tailscale_reachable: Option<bool>,
+    #[serde(default)]
+    pub lan_base_url: Option<String>,
+    #[serde(default)]
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
     pub last_heartbeat_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub started_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub available_concurrency: Option<u32>,
     #[serde(default)]
     pub capabilities: Vec<String>,
 }
@@ -1014,9 +1247,29 @@ pub struct SuggestionData {
     pub latest_feedback_outcome: Option<String>,
     #[serde(default)]
     pub latest_feedback_notes: Option<String>,
+    #[serde(default)]
+    pub adaptive_policy: Option<SuggestionAdaptivePolicyData>,
     pub payload: JsonValue,
     pub created_at: i64,
     pub resolved_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdaptivePolicyOverrideData {
+    pub policy_key: String,
+    pub value_minutes: u32,
+    pub source_suggestion_id: Option<String>,
+    pub source_title: Option<String>,
+    pub source_accepted_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuggestionAdaptivePolicyData {
+    pub policy_key: String,
+    pub suggested_minutes: u32,
+    pub current_minutes: Option<u32>,
+    pub is_active_source: bool,
+    pub active_override: Option<AdaptivePolicyOverrideData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1389,6 +1642,8 @@ pub struct ContextExplainData {
     pub morning_state: Option<String>,
     pub context: JsonValue,
     pub source_summaries: ContextSourceSummariesData,
+    #[serde(default)]
+    pub adaptive_policy_overrides: Vec<AdaptivePolicyOverrideData>,
     pub signals_used: Vec<String>,
     pub signal_summaries: Vec<SignalExplainSummary>,
     pub commitments_used: Vec<String>,

@@ -2,12 +2,15 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use vel_api_types::{
-    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, ClusterBootstrapData,
-    CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData,
-    EvaluateResultData, HealthData, LoopData, LoopUpdateRequest, MorningData, NudgeData,
-    NudgeSnoozeRequest, RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData,
-    SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData, UncertaintyData,
+    ApiResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
+    ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
+    CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
+    CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData, HealthData, LoopData,
+    LoopUpdateRequest, MorningData, NudgeData, NudgeSnoozeRequest, QueuedWorkRoutingData,
+    RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData,
+    SyncResultData, SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
 };
+use vel_core::ResolvedCommand;
 
 #[derive(Clone)]
 pub struct ApiClient {
@@ -130,6 +133,38 @@ impl ApiClient {
             .await
             .context("sending capture request")?;
 
+        decode_response(response).await
+    }
+
+    pub async fn plan_command(
+        &self,
+        command: &ResolvedCommand,
+    ) -> anyhow::Result<ApiResponse<CommandExecutionPlanData>> {
+        let response = self
+            .http
+            .post(format!("{}{}", self.base_url, "/v1/command/plan"))
+            .json(&CommandPlanRequest {
+                command: command.clone(),
+            })
+            .send()
+            .await
+            .context("sending command plan request")?;
+        decode_response(response).await
+    }
+
+    pub async fn execute_command(
+        &self,
+        command: &ResolvedCommand,
+    ) -> anyhow::Result<ApiResponse<CommandExecutionResultData>> {
+        let response = self
+            .http
+            .post(format!("{}{}", self.base_url, "/v1/command/execute"))
+            .json(&CommandExecuteRequest {
+                command: command.clone(),
+            })
+            .send()
+            .await
+            .context("sending command execute request")?;
         decode_response(response).await
     }
 
@@ -343,6 +378,34 @@ impl ApiClient {
 
     pub async fn sync_cluster_state(&self) -> anyhow::Result<ApiResponse<SyncClusterStateData>> {
         self.get("/v1/sync/cluster").await
+    }
+
+    pub async fn sync_branch_sync_request(
+        &self,
+        body: &BranchSyncRequestData,
+    ) -> anyhow::Result<ApiResponse<QueuedWorkRoutingData>> {
+        self.post_json("/v1/sync/branch-sync", body).await
+    }
+
+    pub async fn sync_validation_request(
+        &self,
+        body: &ValidationRequestData,
+    ) -> anyhow::Result<ApiResponse<QueuedWorkRoutingData>> {
+        self.post_json("/v1/sync/validation", body).await
+    }
+
+    pub async fn cluster_branch_sync_request(
+        &self,
+        body: &BranchSyncRequestData,
+    ) -> anyhow::Result<ApiResponse<QueuedWorkRoutingData>> {
+        self.post_json("/v1/cluster/branch-sync", body).await
+    }
+
+    pub async fn cluster_validation_request(
+        &self,
+        body: &ValidationRequestData,
+    ) -> anyhow::Result<ApiResponse<QueuedWorkRoutingData>> {
+        self.post_json("/v1/cluster/validation", body).await
     }
 
     pub async fn list_nudges(&self) -> anyhow::Result<ApiResponse<Vec<NudgeData>>> {
@@ -563,6 +626,21 @@ impl ApiClient {
         let response = self
             .http
             .post(format!("{}{}", self.base_url, path))
+            .send()
+            .await
+            .with_context(|| format!("POST {}", path))?;
+        decode_response(response).await
+    }
+
+    async fn post_json<T: DeserializeOwned, B: serde::Serialize>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> anyhow::Result<ApiResponse<T>> {
+        let response = self
+            .http
+            .post(format!("{}{}", self.base_url, path))
+            .json(body)
             .send()
             .await
             .with_context(|| format!("POST {}", path))?;

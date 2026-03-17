@@ -6,9 +6,9 @@ use axum::{
 };
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, CommitmentExplainData, ContextExplainData, ContextSourceSummariesData,
-    ContextSourceSummaryData, DriftExplainData, NudgeEventData, NudgeExplainData, RiskData,
-    SignalExplainSummary,
+    AdaptivePolicyOverrideData, ApiResponse, CommitmentExplainData, ContextExplainData,
+    ContextSourceSummariesData, ContextSourceSummaryData, DriftExplainData, NudgeEventData,
+    NudgeExplainData, RiskData, SignalExplainSummary,
 };
 use vel_storage::SignalRecord;
 
@@ -74,6 +74,7 @@ pub async fn explain_context(
     reasons.push(
         "Run `vel evaluate` to recompute; run `vel context timeline` for history.".to_string(),
     );
+    let adaptive_policy_overrides = adaptive_policy_overrides(&state).await?;
     let source_summaries = context_source_summaries(&context);
     let signal_summaries = hydrate_signal_summaries(&state, &signals_used).await?;
     let data = ContextExplainData {
@@ -82,6 +83,7 @@ pub async fn explain_context(
         morning_state,
         context,
         source_summaries,
+        adaptive_policy_overrides,
         signals_used,
         signal_summaries,
         commitments_used,
@@ -228,6 +230,32 @@ fn context_source_summaries(context: &serde_json::Value) -> ContextSourceSummari
         note_document: context_source_summary(context, "note_document_summary"),
         assistant_message: context_source_summary(context, "assistant_message_summary"),
     }
+}
+
+async fn adaptive_policy_overrides(
+    state: &AppState,
+) -> Result<Vec<AdaptivePolicyOverrideData>, AppError> {
+    let overrides = crate::services::adaptive_policies::load(&state.storage).await?;
+    let mut items = Vec::new();
+    if let Some(value_minutes) = overrides.commute_buffer_minutes {
+        items.push(AdaptivePolicyOverrideData {
+            policy_key: "commute_buffer".to_string(),
+            value_minutes,
+            source_suggestion_id: overrides.commute_buffer_source_suggestion_id,
+            source_title: overrides.commute_buffer_source_title,
+            source_accepted_at: overrides.commute_buffer_source_accepted_at,
+        });
+    }
+    if let Some(value_minutes) = overrides.default_prep_minutes {
+        items.push(AdaptivePolicyOverrideData {
+            policy_key: "default_prep".to_string(),
+            value_minutes,
+            source_suggestion_id: overrides.default_prep_source_suggestion_id,
+            source_title: overrides.default_prep_source_title,
+            source_accepted_at: overrides.default_prep_source_accepted_at,
+        });
+    }
+    Ok(items)
 }
 
 fn context_source_summary(

@@ -21,6 +21,10 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    Docs {
+        #[arg(long)]
+        json: bool,
+    },
     Health {
         #[arg(long)]
         json: bool,
@@ -415,6 +419,34 @@ enum SyncCommand {
         #[arg(long)]
         json: bool,
     },
+    BranchSync {
+        branch: String,
+        #[arg(long)]
+        remote: Option<String>,
+        #[arg(long)]
+        base_branch: Option<String>,
+        #[arg(long)]
+        mode: Option<String>,
+        #[arg(long)]
+        requested_by: Option<String>,
+        #[arg(long)]
+        via_cluster: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    Validation {
+        profile_id: String,
+        #[arg(long)]
+        branch: Option<String>,
+        #[arg(long)]
+        environment: Option<String>,
+        #[arg(long)]
+        requested_by: Option<String>,
+        #[arg(long)]
+        via_cluster: bool,
+        #[arg(long)]
+        json: bool,
+    },
     Calendar,
     Todoist,
     Activity,
@@ -463,6 +495,13 @@ enum ExplainCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Explain a command-language input (parse + inferred resolution + daemon plan)
+    Command {
+        #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        input: Vec<String>,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[tokio::main]
@@ -474,6 +513,7 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Command::Doctor { json } => commands::doctor::run(&client, json).await,
+        Command::Docs { json } => commands::docs::run(json),
         Command::Health { json } => commands::health::run(&client, json).await,
         Command::Capture {
             text,
@@ -628,6 +668,46 @@ async fn main() -> anyhow::Result<()> {
             SyncCommand::Bootstrap { json } => commands::sync::run_bootstrap(&client, json).await,
             SyncCommand::Cluster { json } => commands::sync::run_cluster(&client, json).await,
             SyncCommand::Workers { json } => commands::sync::run_workers(&client, json).await,
+            SyncCommand::BranchSync {
+                branch,
+                remote,
+                base_branch,
+                mode,
+                requested_by,
+                via_cluster,
+                json,
+            } => {
+                commands::sync::run_branch_sync_request(
+                    &client,
+                    &branch,
+                    remote.as_deref(),
+                    base_branch.as_deref(),
+                    mode.as_deref(),
+                    requested_by.as_deref(),
+                    via_cluster,
+                    json,
+                )
+                .await
+            }
+            SyncCommand::Validation {
+                profile_id,
+                branch,
+                environment,
+                requested_by,
+                via_cluster,
+                json,
+            } => {
+                commands::sync::run_validation_request(
+                    &client,
+                    &profile_id,
+                    branch.as_deref(),
+                    environment.as_deref(),
+                    requested_by.as_deref(),
+                    via_cluster,
+                    json,
+                )
+                .await
+            }
             SyncCommand::Calendar => commands::sync::run_calendar(&client).await,
             SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
             SyncCommand::Activity => commands::sync::run_activity(&client).await,
@@ -672,6 +752,9 @@ async fn main() -> anyhow::Result<()> {
                 commands::explain::run_commitment(&client, &id, json).await
             }
             ExplainCommand::Drift { json } => commands::explain::run_drift(&client, json).await,
+            ExplainCommand::Command { input, json } => {
+                commands::explain::run_command(&client, input, json).await
+            }
         },
         Command::Thread { command } => match command {
             ThreadCommand::List {
@@ -743,6 +826,58 @@ mod tests {
     }
 
     #[test]
+    fn cli_parses_command_dry_run_json() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "command",
+            "--dry-run",
+            "--json",
+            "inspect",
+            "capture",
+            "cap_123",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Command {
+                input,
+                dry_run,
+                json,
+            } => {
+                assert_eq!(input, vec!["inspect", "capture", "cap_123"]);
+                assert!(dry_run);
+                assert!(json);
+            }
+            _ => panic!("expected command command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_explain_command() {
+        let cli = Cli::try_parse_from([
+            "vel", "explain", "command", "--json", "should", "capture", "remember", "this",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Explain {
+                command: ExplainCommand::Command { input, json },
+            } => {
+                assert_eq!(input, vec!["should", "capture", "remember", "this"]);
+                assert!(json);
+            }
+            _ => panic!("expected explain command subcommand"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_docs_json() {
+        let cli = Cli::try_parse_from(["vel", "docs", "--json"]).unwrap();
+        match cli.command {
+            Command::Docs { json } => assert!(json),
+            _ => panic!("expected docs command"),
+        }
+    }
+
+    #[test]
     fn cli_parses_sync_messaging() {
         let cli = Cli::try_parse_from(["vel", "sync", "messaging"]).unwrap();
         match cli.command {
@@ -783,6 +918,88 @@ mod tests {
                 command: SyncCommand::Workers { json },
             } => assert!(!json),
             _ => panic!("expected sync workers command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_sync_branch_sync() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "sync",
+            "branch-sync",
+            "feature/swarm",
+            "--remote",
+            "origin",
+            "--base-branch",
+            "main",
+            "--mode",
+            "pull",
+            "--requested-by",
+            "cli",
+            "--via-cluster",
+            "--json",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Sync {
+                command:
+                    SyncCommand::BranchSync {
+                        branch,
+                        remote,
+                        base_branch,
+                        mode,
+                        requested_by,
+                        via_cluster,
+                        json,
+                    },
+            } => {
+                assert_eq!(branch, "feature/swarm");
+                assert_eq!(remote.as_deref(), Some("origin"));
+                assert_eq!(base_branch.as_deref(), Some("main"));
+                assert_eq!(mode.as_deref(), Some("pull"));
+                assert_eq!(requested_by.as_deref(), Some("cli"));
+                assert!(via_cluster);
+                assert!(json);
+            }
+            _ => panic!("expected sync branch-sync command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_sync_validation() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "sync",
+            "validation",
+            "repo-verify",
+            "--branch",
+            "main",
+            "--environment",
+            "repo",
+            "--requested-by",
+            "cli",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Sync {
+                command:
+                    SyncCommand::Validation {
+                        profile_id,
+                        branch,
+                        environment,
+                        requested_by,
+                        via_cluster,
+                        json,
+                    },
+            } => {
+                assert_eq!(profile_id, "repo-verify");
+                assert_eq!(branch.as_deref(), Some("main"));
+                assert_eq!(environment.as_deref(), Some("repo"));
+                assert_eq!(requested_by.as_deref(), Some("cli"));
+                assert!(!via_cluster);
+                assert!(!json);
+            }
+            _ => panic!("expected sync validation command"),
         }
     }
 

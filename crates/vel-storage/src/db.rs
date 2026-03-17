@@ -10,9 +10,11 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
     ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus,
-    ContextCapture, ConversationId, EventId, InterventionId, JobId, JobStatus, MessageId,
-    OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus,
-    SearchResult, SyncClass,
+    ContextCapture, ConversationId, EventId, IntegrationConnection, IntegrationConnectionEvent,
+    IntegrationConnectionEventType, IntegrationConnectionId, IntegrationConnectionSettingRef,
+    IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, InterventionId, JobId,
+    JobStatus, MessageId, OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType,
+    RunId, RunKind, RunStatus, SearchResult, SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -402,6 +404,158 @@ pub struct RuntimeLoopRecord {
     pub last_status: Option<String>,
     pub last_error: Option<String>,
     pub next_due_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkAssignmentStatus {
+    Assigned,
+    Started,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl std::fmt::Display for WorkAssignmentStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            WorkAssignmentStatus::Assigned => "assigned",
+            WorkAssignmentStatus::Started => "started",
+            WorkAssignmentStatus::Completed => "completed",
+            WorkAssignmentStatus::Failed => "failed",
+            WorkAssignmentStatus::Cancelled => "cancelled",
+        };
+        write!(f, "{value}")
+    }
+}
+
+impl std::str::FromStr for WorkAssignmentStatus {
+    type Err = vel_core::VelCoreError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "assigned" => Ok(WorkAssignmentStatus::Assigned),
+            "started" => Ok(WorkAssignmentStatus::Started),
+            "completed" => Ok(WorkAssignmentStatus::Completed),
+            "failed" => Ok(WorkAssignmentStatus::Failed),
+            "cancelled" => Ok(WorkAssignmentStatus::Cancelled),
+            _ => Err(vel_core::VelCoreError::Validation(format!(
+                "unknown status {s}"
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkAssignmentInsert {
+    pub receipt_id: Option<String>,
+    pub work_request_id: String,
+    pub worker_id: String,
+    pub worker_class: Option<String>,
+    pub capability: Option<String>,
+    pub status: WorkAssignmentStatus,
+    pub assigned_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkAssignmentUpdate {
+    pub receipt_id: String,
+    pub status: WorkAssignmentStatus,
+    pub started_at: Option<i64>,
+    pub completed_at: Option<i64>,
+    pub result: Option<String>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkAssignmentRecord {
+    pub receipt_id: String,
+    pub work_request_id: String,
+    pub worker_id: String,
+    pub worker_class: Option<String>,
+    pub capability: Option<String>,
+    pub status: WorkAssignmentStatus,
+    pub assigned_at: i64,
+    pub started_at: Option<i64>,
+    pub completed_at: Option<i64>,
+    pub result: Option<String>,
+    pub error_message: Option<String>,
+    pub last_updated: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct IntegrationConnectionInsert {
+    pub family: IntegrationFamily,
+    pub provider: IntegrationProvider,
+    pub status: IntegrationConnectionStatus,
+    pub display_name: String,
+    pub account_ref: Option<String>,
+    pub metadata_json: JsonValue,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct IntegrationConnectionFilters {
+    pub family: Option<IntegrationFamily>,
+    pub provider_key: Option<String>,
+    pub include_disabled: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClusterWorkerUpsert {
+    pub worker_id: String,
+    pub node_id: String,
+    pub node_display_name: Option<String>,
+    pub worker_class: Option<String>,
+    pub worker_classes: Vec<String>,
+    pub capabilities: Vec<String>,
+    pub status: Option<String>,
+    pub max_concurrency: Option<u32>,
+    pub current_load: Option<u32>,
+    pub queue_depth: Option<u32>,
+    pub reachability: Option<String>,
+    pub latency_class: Option<String>,
+    pub compute_class: Option<String>,
+    pub power_class: Option<String>,
+    pub recent_failure_rate: Option<f64>,
+    pub tailscale_preferred: bool,
+    pub sync_base_url: Option<String>,
+    pub sync_transport: Option<String>,
+    pub tailscale_base_url: Option<String>,
+    pub preferred_tailnet_endpoint: Option<String>,
+    pub tailscale_reachable: bool,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    pub last_heartbeat_at: i64,
+    pub started_at: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClusterWorkerRecord {
+    pub worker_id: String,
+    pub node_id: String,
+    pub node_display_name: Option<String>,
+    pub worker_class: Option<String>,
+    pub worker_classes: Vec<String>,
+    pub capabilities: Vec<String>,
+    pub status: Option<String>,
+    pub max_concurrency: Option<u32>,
+    pub current_load: Option<u32>,
+    pub queue_depth: Option<u32>,
+    pub reachability: Option<String>,
+    pub latency_class: Option<String>,
+    pub compute_class: Option<String>,
+    pub power_class: Option<String>,
+    pub recent_failure_rate: Option<f64>,
+    pub tailscale_preferred: bool,
+    pub sync_base_url: Option<String>,
+    pub sync_transport: Option<String>,
+    pub tailscale_base_url: Option<String>,
+    pub preferred_tailnet_endpoint: Option<String>,
+    pub tailscale_reachable: bool,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    pub last_heartbeat_at: i64,
+    pub started_at: Option<i64>,
+    pub updated_at: i64,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -1182,6 +1336,243 @@ impl Storage {
         .fetch_all(&self.pool)
         .await?;
         Ok(rows)
+    }
+
+    // --- Integration foundation (INTG-001) ---
+
+    pub async fn insert_integration_connection(
+        &self,
+        input: IntegrationConnectionInsert,
+    ) -> Result<IntegrationConnectionId, StorageError> {
+        if input.provider.family != input.family {
+            return Err(StorageError::Validation(
+                "integration provider family does not match connection family".to_string(),
+            ));
+        }
+        let id = IntegrationConnectionId::new();
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let metadata_json = serde_json::to_string(&input.metadata_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO integration_connections (
+                id,
+                family,
+                provider_key,
+                status,
+                display_name,
+                account_ref,
+                metadata_json,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(id.as_ref())
+        .bind(input.family.to_string())
+        .bind(&input.provider.key)
+        .bind(input.status.to_string())
+        .bind(&input.display_name)
+        .bind(&input.account_ref)
+        .bind(metadata_json)
+        .bind(now)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(id)
+    }
+
+    pub async fn get_integration_connection(
+        &self,
+        id: &str,
+    ) -> Result<Option<IntegrationConnection>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, family, provider_key, status, display_name, account_ref, metadata_json, created_at, updated_at
+            FROM integration_connections
+            WHERE id = ?
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|row| map_integration_connection_row(&row))
+            .transpose()
+    }
+
+    pub async fn list_integration_connections(
+        &self,
+        filters: IntegrationConnectionFilters,
+    ) -> Result<Vec<IntegrationConnection>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, family, provider_key, status, display_name, account_ref, metadata_json, created_at, updated_at
+            FROM integration_connections
+            WHERE (? IS NULL OR family = ?)
+              AND (? IS NULL OR provider_key = ?)
+              AND (? = 1 OR status != 'disabled')
+            ORDER BY family ASC, provider_key ASC, created_at ASC
+            "#,
+        )
+        .bind(filters.family.map(|family| family.to_string()))
+        .bind(filters.family.map(|family| family.to_string()))
+        .bind(filters.provider_key.as_deref())
+        .bind(filters.provider_key.as_deref())
+        .bind(if filters.include_disabled { 1_i64 } else { 0_i64 })
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_integration_connection_row(&row))
+            .collect()
+    }
+
+    pub async fn update_integration_connection(
+        &self,
+        id: &str,
+        status: Option<IntegrationConnectionStatus>,
+        display_name: Option<&str>,
+        account_ref: Option<Option<&str>>,
+        metadata_json: Option<&JsonValue>,
+    ) -> Result<(), StorageError> {
+        let current = self.get_integration_connection(id).await?.ok_or_else(|| {
+            StorageError::Validation("integration connection not found".to_string())
+        })?;
+        let next_status = status.unwrap_or(current.status);
+        let next_display_name = display_name.unwrap_or(current.display_name.as_str());
+        let next_account_ref = account_ref
+            .map(|value| value.map(ToOwned::to_owned))
+            .unwrap_or(current.account_ref);
+        let next_metadata_json = metadata_json.cloned().unwrap_or(current.metadata_json);
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let metadata_json = serde_json::to_string(&next_metadata_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        sqlx::query(
+            r#"
+            UPDATE integration_connections
+            SET status = ?, display_name = ?, account_ref = ?, metadata_json = ?, updated_at = ?
+            WHERE id = ?
+            "#,
+        )
+        .bind(next_status.to_string())
+        .bind(next_display_name)
+        .bind(next_account_ref)
+        .bind(metadata_json)
+        .bind(now)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn upsert_integration_connection_setting_ref(
+        &self,
+        connection_id: &str,
+        setting_key: &str,
+        setting_value: &str,
+    ) -> Result<(), StorageError> {
+        let id = format!("icsr_{}", Uuid::new_v4().simple());
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            INSERT INTO integration_connection_setting_refs (
+                id,
+                connection_id,
+                setting_key,
+                setting_value,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(connection_id, setting_key) DO UPDATE SET setting_value = excluded.setting_value
+            "#,
+        )
+        .bind(id)
+        .bind(connection_id)
+        .bind(setting_key)
+        .bind(setting_value)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_integration_connection_setting_refs(
+        &self,
+        connection_id: &str,
+    ) -> Result<Vec<IntegrationConnectionSettingRef>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT connection_id, setting_key, setting_value, created_at
+            FROM integration_connection_setting_refs
+            WHERE connection_id = ?
+            ORDER BY setting_key ASC
+            "#,
+        )
+        .bind(connection_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_integration_connection_setting_ref_row(&row))
+            .collect()
+    }
+
+    pub async fn insert_integration_connection_event(
+        &self,
+        connection_id: &str,
+        event_type: IntegrationConnectionEventType,
+        payload_json: &JsonValue,
+        timestamp: i64,
+    ) -> Result<String, StorageError> {
+        let id = format!("icev_{}", Uuid::new_v4().simple());
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let payload_json = serde_json::to_string(payload_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO integration_connection_events (
+                id,
+                connection_id,
+                event_type,
+                payload_json,
+                timestamp,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&id)
+        .bind(connection_id)
+        .bind(event_type.to_string())
+        .bind(payload_json)
+        .bind(timestamp)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(id)
+    }
+
+    pub async fn list_integration_connection_events(
+        &self,
+        connection_id: &str,
+        limit: u32,
+    ) -> Result<Vec<IntegrationConnectionEvent>, StorageError> {
+        let limit = limit.min(100) as i64;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, connection_id, event_type, payload_json, timestamp, created_at
+            FROM integration_connection_events
+            WHERE connection_id = ?
+            ORDER BY timestamp DESC, created_at DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(connection_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_integration_connection_event_row(&row))
+            .collect()
     }
 
     // --- Threads (thread graph) ---
@@ -3187,6 +3578,293 @@ impl Storage {
             .collect::<Result<Vec<_>, _>>()
     }
 
+    pub async fn insert_work_assignment(
+        &self,
+        assignment: WorkAssignmentInsert,
+    ) -> Result<String, StorageError> {
+        let receipt_id = assignment
+            .receipt_id
+            .unwrap_or_else(|| Uuid::new_v4().simple().to_string());
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            INSERT INTO work_assignment_receipts (
+                receipt_id,
+                work_request_id,
+                worker_id,
+                worker_class,
+                capability,
+                status,
+                assigned_at,
+                last_updated
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&receipt_id)
+        .bind(&assignment.work_request_id)
+        .bind(&assignment.worker_id)
+        .bind(&assignment.worker_class)
+        .bind(&assignment.capability)
+        .bind(assignment.status.to_string())
+        .bind(assignment.assigned_at)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(receipt_id)
+    }
+
+    pub async fn update_work_assignment(
+        &self,
+        update: WorkAssignmentUpdate,
+    ) -> Result<WorkAssignmentRecord, StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            UPDATE work_assignment_receipts
+            SET status = ?,
+                started_at = ?,
+                completed_at = ?,
+                result = ?,
+                error_message = ?,
+                last_updated = ?
+            WHERE receipt_id = ?
+            "#,
+        )
+        .bind(update.status.to_string())
+        .bind(update.started_at)
+        .bind(update.completed_at)
+        .bind(update.result)
+        .bind(update.error_message)
+        .bind(now)
+        .bind(&update.receipt_id)
+        .execute(&self.pool)
+        .await?;
+
+        let row = sqlx::query(
+            r#"
+            SELECT
+                receipt_id,
+                work_request_id,
+                worker_id,
+                worker_class,
+                capability,
+                status,
+                assigned_at,
+                started_at,
+                completed_at,
+                result,
+                error_message,
+                last_updated
+            FROM work_assignment_receipts
+            WHERE receipt_id = ?
+            "#,
+        )
+        .bind(&update.receipt_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        map_work_assignment_row(&row)
+    }
+
+    pub async fn list_work_assignments(
+        &self,
+        work_request_id: Option<&str>,
+        worker_id: Option<&str>,
+    ) -> Result<Vec<WorkAssignmentRecord>, StorageError> {
+        let mut query = QueryBuilder::new(
+            r#"
+            SELECT
+                receipt_id,
+                work_request_id,
+                worker_id,
+                worker_class,
+                capability,
+                status,
+                assigned_at,
+                started_at,
+                completed_at,
+                result,
+                error_message,
+                last_updated
+            FROM work_assignment_receipts
+            "#,
+        );
+        query.push("WHERE 1=1");
+        if work_request_id.is_some() {
+            query.push(" AND work_request_id = ");
+            query.push_bind(work_request_id);
+        }
+        if worker_id.is_some() {
+            query.push(" AND worker_id = ");
+            query.push_bind(worker_id);
+        }
+        query.push(" ORDER BY last_updated DESC");
+
+        let rows = query.build().fetch_all(&self.pool).await?;
+        rows.into_iter()
+            .map(|row| map_work_assignment_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn upsert_cluster_worker(
+        &self,
+        worker: ClusterWorkerUpsert,
+    ) -> Result<(), StorageError> {
+        let worker_classes_json = serde_json::to_string(&worker.worker_classes)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        let capabilities_json = serde_json::to_string(&worker.capabilities)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+
+        sqlx::query(
+            r#"
+            INSERT INTO cluster_workers (
+                worker_id,
+                node_id,
+                node_display_name,
+                worker_class,
+                worker_classes_json,
+                capabilities_json,
+                status,
+                max_concurrency,
+                current_load,
+                queue_depth,
+                reachability,
+                latency_class,
+                compute_class,
+                power_class,
+                recent_failure_rate,
+                tailscale_preferred,
+                sync_base_url,
+                sync_transport,
+                tailscale_base_url,
+                preferred_tailnet_endpoint,
+                tailscale_reachable,
+                lan_base_url,
+                localhost_base_url,
+                last_heartbeat_at,
+                started_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(worker_id) DO UPDATE SET
+                node_id = excluded.node_id,
+                node_display_name = excluded.node_display_name,
+                worker_class = excluded.worker_class,
+                worker_classes_json = excluded.worker_classes_json,
+                capabilities_json = excluded.capabilities_json,
+                status = excluded.status,
+                max_concurrency = excluded.max_concurrency,
+                current_load = excluded.current_load,
+                queue_depth = excluded.queue_depth,
+                reachability = excluded.reachability,
+                latency_class = excluded.latency_class,
+                compute_class = excluded.compute_class,
+                power_class = excluded.power_class,
+                recent_failure_rate = excluded.recent_failure_rate,
+                tailscale_preferred = excluded.tailscale_preferred,
+                sync_base_url = excluded.sync_base_url,
+                sync_transport = excluded.sync_transport,
+                tailscale_base_url = excluded.tailscale_base_url,
+                preferred_tailnet_endpoint = excluded.preferred_tailnet_endpoint,
+                tailscale_reachable = excluded.tailscale_reachable,
+                lan_base_url = excluded.lan_base_url,
+                localhost_base_url = excluded.localhost_base_url,
+                last_heartbeat_at = excluded.last_heartbeat_at,
+                started_at = excluded.started_at,
+                updated_at = excluded.updated_at
+            "#,
+        )
+        .bind(&worker.worker_id)
+        .bind(&worker.node_id)
+        .bind(&worker.node_display_name)
+        .bind(&worker.worker_class)
+        .bind(worker_classes_json)
+        .bind(capabilities_json)
+        .bind(&worker.status)
+        .bind(worker.max_concurrency.map(i64::from))
+        .bind(worker.current_load.map(i64::from))
+        .bind(worker.queue_depth.map(i64::from))
+        .bind(&worker.reachability)
+        .bind(&worker.latency_class)
+        .bind(&worker.compute_class)
+        .bind(&worker.power_class)
+        .bind(worker.recent_failure_rate)
+        .bind(if worker.tailscale_preferred {
+            1_i64
+        } else {
+            0_i64
+        })
+        .bind(&worker.sync_base_url)
+        .bind(&worker.sync_transport)
+        .bind(&worker.tailscale_base_url)
+        .bind(&worker.preferred_tailnet_endpoint)
+        .bind(if worker.tailscale_reachable {
+            1_i64
+        } else {
+            0_i64
+        })
+        .bind(&worker.lan_base_url)
+        .bind(&worker.localhost_base_url)
+        .bind(worker.last_heartbeat_at)
+        .bind(worker.started_at)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn expire_cluster_workers(&self, stale_before: i64) -> Result<u64, StorageError> {
+        let result = sqlx::query("DELETE FROM cluster_workers WHERE last_heartbeat_at < ?")
+            .bind(stale_before)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
+    pub async fn list_cluster_workers(&self) -> Result<Vec<ClusterWorkerRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                worker_id,
+                node_id,
+                node_display_name,
+                worker_class,
+                worker_classes_json,
+                capabilities_json,
+                status,
+                max_concurrency,
+                current_load,
+                queue_depth,
+                reachability,
+                latency_class,
+                compute_class,
+                power_class,
+                recent_failure_rate,
+                tailscale_preferred,
+                sync_base_url,
+                sync_transport,
+                tailscale_base_url,
+                preferred_tailnet_endpoint,
+                tailscale_reachable,
+                lan_base_url,
+                localhost_base_url,
+                last_heartbeat_at,
+                started_at,
+                updated_at
+            FROM cluster_workers
+            ORDER BY node_id ASC, worker_id ASC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| map_cluster_worker_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
     pub async fn get_runtime_loop(
         &self,
         loop_kind: &str,
@@ -3522,6 +4200,63 @@ fn map_suggestion_feedback_row(
     })
 }
 
+fn map_integration_connection_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<IntegrationConnection, StorageError> {
+    let family = row.try_get::<String, _>("family")?;
+    let provider_key = row.try_get::<String, _>("provider_key")?;
+    let status = row.try_get::<String, _>("status")?;
+    let metadata_json = row.try_get::<String, _>("metadata_json")?;
+
+    Ok(IntegrationConnection {
+        id: IntegrationConnectionId::from(row.try_get::<String, _>("id")?),
+        provider: IntegrationProvider::new(
+            family.parse().map_err(|error: vel_core::VelCoreError| {
+                StorageError::Validation(error.to_string())
+            })?,
+            provider_key,
+        )
+        .map_err(|error| StorageError::Validation(error.to_string()))?,
+        status: status
+            .parse()
+            .map_err(|error: vel_core::VelCoreError| StorageError::Validation(error.to_string()))?,
+        display_name: row.try_get("display_name")?,
+        account_ref: row.try_get("account_ref")?,
+        metadata_json: parse_json_value(&metadata_json)?,
+        created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
+        updated_at: timestamp_to_datetime(row.try_get("updated_at")?)?,
+    })
+}
+
+fn map_integration_connection_setting_ref_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<IntegrationConnectionSettingRef, StorageError> {
+    Ok(IntegrationConnectionSettingRef {
+        connection_id: IntegrationConnectionId::from(row.try_get::<String, _>("connection_id")?),
+        setting_key: row.try_get("setting_key")?,
+        setting_value: row.try_get("setting_value")?,
+        created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
+    })
+}
+
+fn map_integration_connection_event_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<IntegrationConnectionEvent, StorageError> {
+    let event_type = row.try_get::<String, _>("event_type")?;
+    let payload_json = row.try_get::<String, _>("payload_json")?;
+
+    Ok(IntegrationConnectionEvent {
+        id: row.try_get("id")?,
+        connection_id: IntegrationConnectionId::from(row.try_get::<String, _>("connection_id")?),
+        event_type: event_type
+            .parse()
+            .map_err(|error: vel_core::VelCoreError| StorageError::Validation(error.to_string()))?,
+        payload_json: parse_json_value(&payload_json)?,
+        timestamp: timestamp_to_datetime(row.try_get("timestamp")?)?,
+        created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
+    })
+}
+
 fn map_uncertainty_row(row: &sqlx::sqlite::SqliteRow) -> Result<UncertaintyRecord, StorageError> {
     let reasons_json = row.try_get::<String, _>("reasons_json")?;
     let missing_evidence_json = row.try_get::<Option<String>, _>("missing_evidence_json")?;
@@ -3558,6 +4293,52 @@ fn map_runtime_loop_row(row: &sqlx::sqlite::SqliteRow) -> Result<RuntimeLoopReco
     })
 }
 
+fn map_cluster_worker_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<ClusterWorkerRecord, StorageError> {
+    let worker_classes_json: String = row.try_get("worker_classes_json")?;
+    let capabilities_json: String = row.try_get("capabilities_json")?;
+    let tailscale_preferred: i64 = row.try_get("tailscale_preferred")?;
+    let tailscale_reachable: i64 = row.try_get("tailscale_reachable")?;
+
+    Ok(ClusterWorkerRecord {
+        worker_id: row.try_get("worker_id")?,
+        node_id: row.try_get("node_id")?,
+        node_display_name: row.try_get("node_display_name")?,
+        worker_class: row.try_get("worker_class")?,
+        worker_classes: serde_json::from_str(&worker_classes_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?,
+        capabilities: serde_json::from_str(&capabilities_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?,
+        status: row.try_get("status")?,
+        max_concurrency: row
+            .try_get::<Option<i64>, _>("max_concurrency")?
+            .map(|value| value.max(0) as u32),
+        current_load: row
+            .try_get::<Option<i64>, _>("current_load")?
+            .map(|value| value.max(0) as u32),
+        queue_depth: row
+            .try_get::<Option<i64>, _>("queue_depth")?
+            .map(|value| value.max(0) as u32),
+        reachability: row.try_get("reachability")?,
+        latency_class: row.try_get("latency_class")?,
+        compute_class: row.try_get("compute_class")?,
+        power_class: row.try_get("power_class")?,
+        recent_failure_rate: row.try_get("recent_failure_rate")?,
+        tailscale_preferred: tailscale_preferred != 0,
+        sync_base_url: row.try_get("sync_base_url")?,
+        sync_transport: row.try_get("sync_transport")?,
+        tailscale_base_url: row.try_get("tailscale_base_url")?,
+        preferred_tailnet_endpoint: row.try_get("preferred_tailnet_endpoint")?,
+        tailscale_reachable: tailscale_reachable != 0,
+        lan_base_url: row.try_get("lan_base_url")?,
+        localhost_base_url: row.try_get("localhost_base_url")?,
+        last_heartbeat_at: row.try_get("last_heartbeat_at")?,
+        started_at: row.try_get("started_at")?,
+        updated_at: row.try_get("updated_at")?,
+    })
+}
+
 fn parse_json_value(s: &str) -> Result<JsonValue, StorageError> {
     serde_json::from_str(s).map_err(|e| StorageError::Validation(e.to_string()))
 }
@@ -3588,6 +4369,30 @@ fn map_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<Run, StorageError> {
             .try_get::<Option<i64>, _>("finished_at")?
             .map(timestamp_to_datetime)
             .transpose()?,
+    })
+}
+
+fn map_work_assignment_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<WorkAssignmentRecord, StorageError> {
+    let status_str: String = row.try_get("status")?;
+    let status = status_str.parse().map_err(|e: vel_core::VelCoreError| {
+        StorageError::Validation(format!("invalid work assignment status: {e}"))
+    })?;
+
+    Ok(WorkAssignmentRecord {
+        receipt_id: row.try_get("receipt_id")?,
+        work_request_id: row.try_get("work_request_id")?,
+        worker_id: row.try_get("worker_id")?,
+        worker_class: row.try_get("worker_class")?,
+        capability: row.try_get("capability")?,
+        status,
+        assigned_at: row.try_get("assigned_at")?,
+        started_at: row.try_get("started_at")?,
+        completed_at: row.try_get("completed_at")?,
+        result: row.try_get("result")?,
+        error_message: row.try_get("error_message")?,
+        last_updated: row.try_get("last_updated")?,
     })
 }
 
@@ -3812,6 +4617,102 @@ mod tests {
         assert_eq!(capture_loop.next_due_at, Some(205));
         assert!(capture_loop.last_started_at.is_some());
         assert!(capture_loop.last_finished_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn upsert_list_and_expire_cluster_workers() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        storage
+            .upsert_cluster_worker(ClusterWorkerUpsert {
+                worker_id: "worker-1".to_string(),
+                node_id: "node-1".to_string(),
+                node_display_name: Some("Node One".to_string()),
+                worker_class: Some("validation".to_string()),
+                worker_classes: vec!["validation".to_string()],
+                capabilities: vec!["build_test_profiles".to_string()],
+                status: Some("ready".to_string()),
+                max_concurrency: Some(4),
+                current_load: Some(1),
+                queue_depth: Some(2),
+                reachability: Some("reachable".to_string()),
+                latency_class: Some("low".to_string()),
+                compute_class: Some("standard".to_string()),
+                power_class: Some("ac_or_unknown".to_string()),
+                recent_failure_rate: Some(0.1),
+                tailscale_preferred: true,
+                sync_base_url: Some("http://node-1.tailnet.ts.net:4130".to_string()),
+                sync_transport: Some("tailscale".to_string()),
+                tailscale_base_url: Some("http://node-1.tailnet.ts.net:4130".to_string()),
+                preferred_tailnet_endpoint: Some("http://node-1.tailnet.ts.net:4130".to_string()),
+                tailscale_reachable: true,
+                lan_base_url: Some("http://192.168.1.10:4130".to_string()),
+                localhost_base_url: None,
+                last_heartbeat_at: 100,
+                started_at: Some(90),
+            })
+            .await
+            .unwrap();
+
+        let workers = storage.list_cluster_workers().await.unwrap();
+        assert_eq!(workers.len(), 1);
+        assert_eq!(workers[0].worker_id, "worker-1");
+        assert_eq!(workers[0].node_id, "node-1");
+        assert_eq!(workers[0].worker_classes, vec!["validation"]);
+        assert_eq!(workers[0].capabilities, vec!["build_test_profiles"]);
+
+        let expired = storage.expire_cluster_workers(101).await.unwrap();
+        assert_eq!(expired, 1);
+        assert!(storage.list_cluster_workers().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn work_assignment_lifecycle_inserts_and_updates() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let receipt_id = storage
+            .insert_work_assignment(WorkAssignmentInsert {
+                receipt_id: None,
+                work_request_id: "wrkreq-1".to_string(),
+                worker_id: "worker-1".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+                status: WorkAssignmentStatus::Assigned,
+                assigned_at: 100,
+            })
+            .await
+            .unwrap();
+        assert!(!receipt_id.is_empty());
+
+        let assignments = storage
+            .list_work_assignments(Some("wrkreq-1"), None)
+            .await
+            .unwrap();
+        assert_eq!(assignments.len(), 1);
+        assert_eq!(assignments[0].status, WorkAssignmentStatus::Assigned);
+
+        let updated = storage
+            .update_work_assignment(WorkAssignmentUpdate {
+                receipt_id: receipt_id.clone(),
+                status: WorkAssignmentStatus::Started,
+                started_at: Some(110),
+                completed_at: None,
+                result: None,
+                error_message: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(updated.status, WorkAssignmentStatus::Started);
+        assert_eq!(updated.started_at, Some(110));
+
+        let listed = storage
+            .list_work_assignments(None, Some("worker-1"))
+            .await
+            .unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].receipt_id, receipt_id);
     }
 
     #[tokio::test]
@@ -4215,5 +5116,141 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(recent_resolved.id, id);
+    }
+
+    #[tokio::test]
+    async fn integration_connections_round_trip_with_setting_refs() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let provider = IntegrationProvider::new(IntegrationFamily::Messaging, "signal").unwrap();
+        let connection_id = storage
+            .insert_integration_connection(IntegrationConnectionInsert {
+                family: IntegrationFamily::Messaging,
+                provider: provider.clone(),
+                status: IntegrationConnectionStatus::Pending,
+                display_name: "Signal personal".to_string(),
+                account_ref: Some("+15555550123".to_string()),
+                metadata_json: json!({ "scope": "personal" }),
+            })
+            .await
+            .unwrap();
+
+        storage
+            .upsert_integration_connection_setting_ref(
+                connection_id.as_ref(),
+                "messaging_snapshot_path",
+                "/tmp/signal.json",
+            )
+            .await
+            .unwrap();
+        storage
+            .upsert_integration_connection_setting_ref(
+                connection_id.as_ref(),
+                "messaging_snapshot_path",
+                "/tmp/signal-v2.json",
+            )
+            .await
+            .unwrap();
+
+        let fetched = storage
+            .get_integration_connection(connection_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(fetched.id, connection_id);
+        assert_eq!(fetched.provider, provider);
+        assert_eq!(fetched.status, IntegrationConnectionStatus::Pending);
+        assert_eq!(fetched.display_name, "Signal personal");
+        assert_eq!(fetched.account_ref.as_deref(), Some("+15555550123"));
+        assert_eq!(fetched.metadata_json["scope"], "personal");
+
+        storage
+            .update_integration_connection(
+                connection_id.as_ref(),
+                Some(IntegrationConnectionStatus::Connected),
+                Some("Signal primary"),
+                Some(Some("signal:primary")),
+                Some(&json!({ "scope": "primary" })),
+            )
+            .await
+            .unwrap();
+
+        let listed = storage
+            .list_integration_connections(IntegrationConnectionFilters {
+                family: Some(IntegrationFamily::Messaging),
+                provider_key: Some("signal".to_string()),
+                include_disabled: false,
+            })
+            .await
+            .unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].status, IntegrationConnectionStatus::Connected);
+        assert_eq!(listed[0].display_name, "Signal primary");
+        assert_eq!(listed[0].account_ref.as_deref(), Some("signal:primary"));
+        assert_eq!(listed[0].metadata_json["scope"], "primary");
+
+        let refs = storage
+            .list_integration_connection_setting_refs(connection_id.as_ref())
+            .await
+            .unwrap();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].setting_key, "messaging_snapshot_path");
+        assert_eq!(refs[0].setting_value, "/tmp/signal-v2.json");
+    }
+
+    #[tokio::test]
+    async fn integration_connection_events_append_and_list() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let connection_id = storage
+            .insert_integration_connection(IntegrationConnectionInsert {
+                family: IntegrationFamily::Calendar,
+                provider: IntegrationProvider::new(IntegrationFamily::Calendar, "google").unwrap(),
+                status: IntegrationConnectionStatus::Connected,
+                display_name: "Google workspace".to_string(),
+                account_ref: Some("me@example.com".to_string()),
+                metadata_json: json!({}),
+            })
+            .await
+            .unwrap();
+
+        let first_id = storage
+            .insert_integration_connection_event(
+                connection_id.as_ref(),
+                IntegrationConnectionEventType::SyncStarted,
+                &json!({ "job": "manual" }),
+                1_700_000_100,
+            )
+            .await
+            .unwrap();
+        let second_id = storage
+            .insert_integration_connection_event(
+                connection_id.as_ref(),
+                IntegrationConnectionEventType::SyncSucceeded,
+                &json!({ "items": 42 }),
+                1_700_000_200,
+            )
+            .await
+            .unwrap();
+
+        let events = storage
+            .list_integration_connection_events(connection_id.as_ref(), 10)
+            .await
+            .unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].id, second_id);
+        assert_eq!(
+            events[0].event_type,
+            IntegrationConnectionEventType::SyncSucceeded
+        );
+        assert_eq!(events[0].payload_json["items"], 42);
+        assert_eq!(events[1].id, first_id);
+        assert_eq!(
+            events[1].event_type,
+            IntegrationConnectionEventType::SyncStarted
+        );
+        assert_eq!(events[1].payload_json["job"], "manual");
     }
 }

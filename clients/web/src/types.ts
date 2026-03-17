@@ -237,9 +237,26 @@ export interface SuggestionData {
   evidence: SuggestionEvidenceData[] | null;
   latest_feedback_outcome: string | null;
   latest_feedback_notes: string | null;
+  adaptive_policy: SuggestionAdaptivePolicyData | null;
   payload: JsonValue;
   created_at: UnixSeconds;
   resolved_at: UnixSeconds | null;
+}
+
+export interface AdaptivePolicyOverrideData {
+  policy_key: string;
+  value_minutes: number;
+  source_suggestion_id: string | null;
+  source_title: string | null;
+  source_accepted_at: UnixSeconds | null;
+}
+
+export interface SuggestionAdaptivePolicyData {
+  policy_key: string;
+  suggested_minutes: number;
+  current_minutes: number | null;
+  is_active_source: boolean;
+  active_override: AdaptivePolicyOverrideData | null;
 }
 
 export interface CurrentContextData {
@@ -391,6 +408,7 @@ export interface ContextExplainData {
   morning_state: string | null;
   context: JsonValue;
   source_summaries: ContextSourceSummariesData;
+  adaptive_policy_overrides: AdaptivePolicyOverrideData[];
   signals_used: string[];
   signal_summaries: SignalExplainSummary[];
   commitments_used: string[];
@@ -787,6 +805,25 @@ export function decodeContextExplainData(value: unknown): ContextExplainData {
         };
       }),
     },
+    adaptive_policy_overrides: decodeArray(record.adaptive_policy_overrides ?? [], (item) => {
+      const override = expectRecord(item, 'context explain.adaptive_policy_overrides');
+      return {
+        policy_key: expectString(override.policy_key, 'context explain.adaptive_policy_overrides.policy_key'),
+        value_minutes: expectNumber(override.value_minutes, 'context explain.adaptive_policy_overrides.value_minutes'),
+        source_suggestion_id: expectNullableString(
+          override.source_suggestion_id,
+          'context explain.adaptive_policy_overrides.source_suggestion_id',
+        ),
+        source_title: expectNullableString(
+          override.source_title,
+          'context explain.adaptive_policy_overrides.source_title',
+        ),
+        source_accepted_at: expectNullableUnixSeconds(
+          override.source_accepted_at,
+          'context explain.adaptive_policy_overrides.source_accepted_at',
+        ),
+      };
+    }),
     signals_used: decodeArray(record.signals_used ?? [], (item) => expectString(item, 'context explain.signals_used')),
     signal_summaries: decodeArray(record.signal_summaries ?? [], decodeSignalExplainSummary),
     commitments_used: decodeArray(record.commitments_used ?? [], (item) => expectString(item, 'context explain.commitments_used')),
@@ -1101,6 +1138,50 @@ export function decodeSuggestionEvidenceData(value: unknown): SuggestionEvidence
 
 export function decodeSuggestionData(value: unknown): SuggestionData {
   const record = expectRecord(value, 'suggestion');
+  const adaptivePolicy = decodeNullable(record.adaptive_policy ?? null, (item) => {
+    const policy = expectRecord(item, 'suggestion.adaptive_policy');
+    const activeOverride = decodeNullable(policy.active_override, (overrideValue) => {
+      const override = expectRecord(overrideValue, 'suggestion.adaptive_policy.active_override');
+      return {
+        policy_key: expectString(
+          override.policy_key,
+          'suggestion.adaptive_policy.active_override.policy_key',
+        ),
+        value_minutes: expectNumber(
+          override.value_minutes,
+          'suggestion.adaptive_policy.active_override.value_minutes',
+        ),
+        source_suggestion_id: expectNullableString(
+          override.source_suggestion_id,
+          'suggestion.adaptive_policy.active_override.source_suggestion_id',
+        ),
+        source_title: expectNullableString(
+          override.source_title,
+          'suggestion.adaptive_policy.active_override.source_title',
+        ),
+        source_accepted_at: expectNullableUnixSeconds(
+          override.source_accepted_at,
+          'suggestion.adaptive_policy.active_override.source_accepted_at',
+        ),
+      };
+    });
+    return {
+      policy_key: expectString(policy.policy_key, 'suggestion.adaptive_policy.policy_key'),
+      suggested_minutes: expectNumber(
+        policy.suggested_minutes,
+        'suggestion.adaptive_policy.suggested_minutes',
+      ),
+      current_minutes: expectNullableNumber(
+        policy.current_minutes,
+        'suggestion.adaptive_policy.current_minutes',
+      ),
+      is_active_source: expectBoolean(
+        policy.is_active_source,
+        'suggestion.adaptive_policy.is_active_source',
+      ),
+      active_override: activeOverride,
+    };
+  });
   return {
     id: expectString(record.id, 'suggestion.id'),
     suggestion_type: expectString(record.suggestion_type, 'suggestion.suggestion_type'),
@@ -1124,6 +1205,7 @@ export function decodeSuggestionData(value: unknown): SuggestionData {
       record.latest_feedback_notes ?? null,
       'suggestion.latest_feedback_notes',
     ),
+    adaptive_policy: adaptivePolicy,
     payload: decodeJsonValue(record.payload),
     created_at: expectUnixSeconds(record.created_at, 'suggestion.created_at'),
     resolved_at: expectNullableUnixSeconds(record.resolved_at, 'suggestion.resolved_at'),

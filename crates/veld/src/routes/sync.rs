@@ -1,12 +1,20 @@
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::Json;
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, ClientActionBatchRequest, ClientActionBatchResultData, SyncBootstrapData,
-    SyncClusterStateData, SyncResultData,
+    ApiResponse, BranchSyncRequestData, ClientActionBatchRequest, ClientActionBatchResultData,
+    QueuedWorkRoutingData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
+    SyncHeartbeatResponseData, SyncResultData, ValidationRequestData,
+    WorkAssignmentClaimRequestData, WorkAssignmentReceiptData, WorkAssignmentUpdateRequest,
 };
 
 use crate::{errors::AppError, services, state::AppState};
+
+#[derive(Debug, serde::Deserialize)]
+pub struct WorkAssignmentListQuery {
+    pub work_request_id: Option<String>,
+    pub worker_id: Option<String>,
+}
 
 async fn evaluate_and_broadcast_context(state: &AppState) {
     if services::evaluate::run_and_broadcast(state).await.is_err() {
@@ -43,7 +51,69 @@ pub async fn sync_cluster(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncClusterStateData>>, AppError> {
     state.storage.healthcheck().await?;
-    let data = services::client_sync::build_sync_cluster_state(&state);
+    let data = services::client_sync::build_sync_cluster_state(&state).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn sync_heartbeat(
+    State(state): State<AppState>,
+    Json(payload): Json<SyncHeartbeatRequestData>,
+) -> Result<Json<ApiResponse<SyncHeartbeatResponseData>>, AppError> {
+    let data = services::client_sync::ingest_worker_heartbeat(&state, payload).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn sync_branch_sync_request(
+    State(state): State<AppState>,
+    Json(payload): Json<BranchSyncRequestData>,
+) -> Result<Json<ApiResponse<QueuedWorkRoutingData>>, AppError> {
+    let data =
+        services::client_sync::queue_branch_sync_request(&state, payload, "sync_route", None)
+            .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn sync_validation_request(
+    State(state): State<AppState>,
+    Json(payload): Json<ValidationRequestData>,
+) -> Result<Json<ApiResponse<QueuedWorkRoutingData>>, AppError> {
+    let data = services::client_sync::queue_validation_request(&state, payload, "sync_route", None)
+        .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn claim_work_assignment(
+    State(state): State<AppState>,
+    Json(payload): Json<WorkAssignmentClaimRequestData>,
+) -> Result<Json<ApiResponse<WorkAssignmentReceiptData>>, AppError> {
+    let data = services::client_sync::claim_work_assignment(&state, payload).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn update_work_assignment(
+    State(state): State<AppState>,
+    Json(payload): Json<WorkAssignmentUpdateRequest>,
+) -> Result<Json<ApiResponse<WorkAssignmentReceiptData>>, AppError> {
+    let data = services::client_sync::update_work_assignment_receipt(&state, payload).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn list_work_assignments(
+    State(state): State<AppState>,
+    Query(query): Query<WorkAssignmentListQuery>,
+) -> Result<Json<ApiResponse<Vec<WorkAssignmentReceiptData>>>, AppError> {
+    let data = services::client_sync::list_work_assignment_receipts(
+        &state,
+        query.work_request_id.as_deref(),
+        query.worker_id.as_deref(),
+    )
+    .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

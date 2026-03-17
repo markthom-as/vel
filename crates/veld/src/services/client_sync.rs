@@ -1,18 +1,30 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use serde::Serialize;
 use time::OffsetDateTime;
+use uuid::Uuid;
 use vel_api_types::{
     BranchSyncCapabilityData, BranchSyncRequestData, ClientActionBatchRequest,
     ClientActionBatchResultData, ClientActionData, ClientActionKind, ClientActionResultData,
     ClusterBootstrapData, ClusterNodeStateData, ClusterWorkerStateData, CommitmentCreateRequest,
-    CommitmentData, CurrentContextData, NudgeData, SyncBootstrapData, SyncClusterStateData,
-    ValidationProfileData, ValidationRequestData,
+    CommitmentData, CurrentContextData, NudgeData, QueuedWorkRoutingData,
+    QueuedWorkRoutingKindData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
+    SyncHeartbeatResponseData, ValidationProfileData, ValidationRequestData,
+    WorkAssignmentClaimRequestData, WorkAssignmentReceiptData, WorkAssignmentStatusData,
+    WorkAssignmentUpdateRequest,
 };
 use vel_core::{CommitmentStatus, PrivacyClass};
-use vel_storage::{CaptureInsert, CommitmentInsert, SignalInsert};
+use vel_storage::{
+    CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert, SignalInsert,
+    WorkAssignmentInsert, WorkAssignmentStatus, WorkAssignmentUpdate,
+};
 
 use crate::{errors::AppError, state::AppState};
+
+const WORKER_HEARTBEAT_TTL_SECONDS: i64 = 90;
 
 pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData, AppError> {
     let current_context =
@@ -52,51 +64,323 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData,
     })
 }
 
-pub fn build_sync_cluster_state(state: &AppState) -> SyncClusterStateData {
+pub async fn build_sync_cluster_state(state: &AppState) -> Result<SyncClusterStateData, AppError> {
     let cluster = cluster_bootstrap_data(state);
-    let workers = cluster_workers_data(state);
+    let workers = cluster_workers_data(state).await?;
+    let mut nodes = BTreeMap::new();
 
-    SyncClusterStateData {
+    for worker in &workers.workers {
+        nodes
+            .entry(worker.node_id.clone())
+            .or_insert_with(|| ClusterNodeStateData {
+                node_id: worker.node_id.clone(),
+                node_display_name: Some(worker.node_display_name.clone()),
+                node_class: Some(if worker.node_id == cluster.active_authority_node_id {
+                    "authority".to_string()
+                } else {
+                    "worker".to_string()
+                }),
+                sync_base_url: Some(worker.sync_base_url.clone()),
+                sync_transport: Some(worker.sync_transport.clone()),
+                tailscale_base_url: worker.tailscale_base_url.clone(),
+                lan_base_url: worker.lan_base_url.clone(),
+                localhost_base_url: worker.localhost_base_url.clone(),
+                capabilities: worker.capabilities.clone(),
+                reachability: Some(worker.reachability.clone()),
+                last_seen_at: Some(worker.last_heartbeat_at),
+            });
+    }
+
+    Ok(SyncClusterStateData {
         cluster_view_version: Some(workers.generated_at),
         authority_node_id: Some(cluster.active_authority_node_id.clone()),
         authority_epoch: Some(cluster.active_authority_epoch),
         sync_transport: Some(cluster.sync_transport.clone()),
         cluster: Some(cluster.clone()),
-        nodes: vec![ClusterNodeStateData {
-            node_id: cluster.node_id.clone(),
-            node_display_name: Some(cluster.node_display_name.clone()),
-            node_class: Some("authority".to_string()),
-            sync_base_url: Some(cluster.sync_base_url.clone()),
-            sync_transport: Some(cluster.sync_transport.clone()),
-            tailscale_base_url: cluster.tailscale_base_url.clone(),
-            lan_base_url: cluster.lan_base_url.clone(),
-            localhost_base_url: cluster.localhost_base_url.clone(),
-            capabilities: cluster.capabilities.clone(),
-            reachability: Some("reachable".to_string()),
-            last_seen_at: Some(workers.generated_at),
-        }],
+        nodes: nodes.into_values().collect(),
         workers: workers
             .workers
             .into_iter()
             .map(|worker| ClusterWorkerStateData {
-                worker_id: worker.node_id.clone(),
+                worker_id: worker.worker_id,
                 node_id: Some(worker.node_id),
+                node_display_name: Some(worker.node_display_name),
                 worker_class: worker.worker_classes.first().cloned(),
-                status: Some("ready".to_string()),
+                worker_classes: worker.worker_classes,
+                status: Some(worker.status),
                 max_concurrency: Some(worker.capacity.max_concurrency),
                 current_load: Some(worker.capacity.current_load),
-                queue_depth: Some(0),
+                queue_depth: Some(worker.queue_depth),
                 reachability: Some(worker.reachability),
                 latency_class: Some(worker.latency_class),
                 compute_class: Some(worker.compute_class),
                 power_class: Some(worker.power_class),
-                recent_failure_rate: Some(0.0),
-                tailscale_preferred: Some(worker.tailscale_reachable),
+                recent_failure_rate: Some(worker.recent_failure_rate),
+                tailscale_preferred: Some(worker.tailscale_preferred),
+                sync_base_url: Some(worker.sync_base_url),
+                sync_transport: Some(worker.sync_transport),
+                tailscale_base_url: worker.tailscale_base_url,
+                preferred_tailnet_endpoint: worker.preferred_tailnet_endpoint,
+                tailscale_reachable: Some(worker.tailscale_reachable),
+                lan_base_url: worker.lan_base_url,
+                localhost_base_url: worker.localhost_base_url,
                 last_heartbeat_at: Some(worker.last_heartbeat_at),
+                started_at: Some(worker.started_at),
+                available_concurrency: Some(worker.capacity.available_concurrency),
                 capabilities: worker.capabilities,
             })
             .collect(),
+    })
+}
+
+pub async fn queue_branch_sync_request(
+    state: &AppState,
+    request: BranchSyncRequestData,
+    queued_via: &str,
+    source_ref: Option<String>,
+) -> Result<QueuedWorkRoutingData, AppError> {
+    validate_branch_sync_request(&request)?;
+    queue_work_request(
+        state,
+        QueuedWorkRoutingKindData::BranchSync,
+        serde_json::json!(request),
+        "client_branch_sync_requested",
+        "repo_sync",
+        "branch_sync",
+        queued_via,
+        source_ref,
+    )
+    .await
+}
+
+pub async fn queue_validation_request(
+    state: &AppState,
+    request: ValidationRequestData,
+    queued_via: &str,
+    source_ref: Option<String>,
+) -> Result<QueuedWorkRoutingData, AppError> {
+    validate_validation_request(&request)?;
+    queue_work_request(
+        state,
+        QueuedWorkRoutingKindData::Validation,
+        serde_json::json!(request),
+        "client_validation_requested",
+        "validation",
+        "build_test_profiles",
+        queued_via,
+        source_ref,
+    )
+    .await
+}
+
+async fn queue_work_request(
+    state: &AppState,
+    request_type: QueuedWorkRoutingKindData,
+    request_payload: serde_json::Value,
+    signal_type: &str,
+    target_worker_class: &str,
+    requested_capability: &str,
+    queued_via: &str,
+    source_ref: Option<String>,
+) -> Result<QueuedWorkRoutingData, AppError> {
+    let bootstrap = cluster_bootstrap_data(state);
+    let workers = cluster_workers_data(state).await?;
+    let target_worker = workers
+        .workers
+        .iter()
+        .filter(|worker| {
+            worker
+                .worker_classes
+                .iter()
+                .any(|class| class == target_worker_class)
+                && worker
+                    .capabilities
+                    .iter()
+                    .any(|capability| capability == requested_capability)
+        })
+        .max_by_key(|worker| {
+            (
+                u8::from(worker.tailscale_preferred || worker.tailscale_reachable),
+                u8::from(worker.power_class != "battery"),
+                worker.capacity.available_concurrency,
+                (1000.0 - (worker.recent_failure_rate * 1000.0)).max(0.0) as i64,
+            )
+        })
+        .ok_or_else(|| {
+            AppError::bad_request(format!(
+                "no reachable worker advertises class={} capability={}",
+                target_worker_class, requested_capability
+            ))
+        })?;
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let work_request_id = source_ref
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| format!("wrkreq_{}", Uuid::new_v4().simple()));
+    let signal_payload = serde_json::json!({
+        "request": request_payload.clone(),
+        "queued_via": queued_via,
+        "queued_at": now,
+        "routing": {
+            "work_request_id": work_request_id,
+            "authority_node_id": bootstrap.active_authority_node_id,
+            "authority_epoch": bootstrap.active_authority_epoch,
+            "target_node_id": target_worker.node_id,
+            "target_worker_class": target_worker_class,
+            "requested_capability": requested_capability,
+        }
+    });
+    let signal_id = state
+        .storage
+        .insert_signal(SignalInsert {
+            signal_type: signal_type.to_string(),
+            source: "cluster_work_router".to_string(),
+            source_ref: Some(work_request_id.clone()),
+            timestamp: now,
+            payload_json: Some(signal_payload),
+        })
+        .await?;
+
+    Ok(QueuedWorkRoutingData {
+        work_request_id,
+        request_type,
+        status: "queued".to_string(),
+        queued_signal_id: signal_id,
+        queued_signal_type: signal_type.to_string(),
+        queued_at: now,
+        queued_via: queued_via.to_string(),
+        authority_node_id: bootstrap.active_authority_node_id,
+        authority_epoch: bootstrap.active_authority_epoch,
+        target_node_id: target_worker.node_id.clone(),
+        target_worker_class: target_worker_class.to_string(),
+        requested_capability: requested_capability.to_string(),
+        request_payload,
+    })
+}
+
+pub async fn claim_work_assignment(
+    state: &AppState,
+    request: WorkAssignmentClaimRequestData,
+) -> Result<WorkAssignmentReceiptData, AppError> {
+    let existing = state
+        .storage
+        .list_work_assignments(Some(&request.work_request_id), None)
+        .await?;
+    if let Some(latest) = existing.first() {
+        match latest.status {
+            WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started => {
+                if latest.worker_id == request.worker_id {
+                    return Ok(work_assignment_to_data(latest.clone()));
+                }
+                return Err(AppError::bad_request(format!(
+                    "work request {} is already claimed by worker {}",
+                    request.work_request_id, latest.worker_id
+                )));
+            }
+            WorkAssignmentStatus::Completed => {
+                return Ok(work_assignment_to_data(latest.clone()));
+            }
+            WorkAssignmentStatus::Failed | WorkAssignmentStatus::Cancelled => {}
+        }
     }
+
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let receipt_id = state
+        .storage
+        .insert_work_assignment(WorkAssignmentInsert {
+            receipt_id: None,
+            work_request_id: request.work_request_id.clone(),
+            worker_id: request.worker_id.clone(),
+            worker_class: request.worker_class.clone(),
+            capability: request.capability.clone(),
+            status: WorkAssignmentStatus::Assigned,
+            assigned_at: now,
+        })
+        .await?;
+
+    let _ = state
+        .storage
+        .insert_signal(SignalInsert {
+            signal_type: "work_assignment_claimed".to_string(),
+            source: "cluster_work_router".to_string(),
+            source_ref: Some(receipt_id.clone()),
+            timestamp: now,
+            payload_json: Some(serde_json::json!({
+                "receipt_id": receipt_id,
+                "work_request_id": request.work_request_id,
+                "worker_id": request.worker_id,
+                "worker_class": request.worker_class,
+                "capability": request.capability,
+            })),
+        })
+        .await;
+
+    let created = state
+        .storage
+        .list_work_assignments(Some(&request.work_request_id), Some(&request.worker_id))
+        .await?
+        .into_iter()
+        .find(|assignment| assignment.status == WorkAssignmentStatus::Assigned)
+        .ok_or_else(|| AppError::internal("claimed work assignment was not persisted"))?;
+    Ok(work_assignment_to_data(created))
+}
+
+pub async fn update_work_assignment_receipt(
+    state: &AppState,
+    request: WorkAssignmentUpdateRequest,
+) -> Result<WorkAssignmentReceiptData, AppError> {
+    validate_work_assignment_update(&request)?;
+    let updated = state
+        .storage
+        .update_work_assignment(WorkAssignmentUpdate {
+            receipt_id: request.receipt_id.clone(),
+            status: work_assignment_status_from_data(request.status),
+            started_at: request.started_at,
+            completed_at: request.completed_at,
+            result: request.result.clone(),
+            error_message: request.error_message.clone(),
+        })
+        .await?;
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let signal_type = match updated.status {
+        WorkAssignmentStatus::Assigned => "work_assignment_claimed",
+        WorkAssignmentStatus::Started => "work_assignment_started",
+        WorkAssignmentStatus::Completed => "work_assignment_completed",
+        WorkAssignmentStatus::Failed => "work_assignment_failed",
+        WorkAssignmentStatus::Cancelled => "work_assignment_cancelled",
+    };
+    let _ = state
+        .storage
+        .insert_signal(SignalInsert {
+            signal_type: signal_type.to_string(),
+            source: "cluster_work_router".to_string(),
+            source_ref: Some(updated.receipt_id.clone()),
+            timestamp: now,
+            payload_json: Some(serde_json::json!({
+                "receipt_id": updated.receipt_id,
+                "work_request_id": updated.work_request_id,
+                "worker_id": updated.worker_id,
+                "status": signal_type,
+                "result": updated.result,
+                "error_message": updated.error_message,
+            })),
+        })
+        .await;
+
+    Ok(work_assignment_to_data(updated))
+}
+
+pub async fn list_work_assignment_receipts(
+    state: &AppState,
+    work_request_id: Option<&str>,
+    worker_id: Option<&str>,
+) -> Result<Vec<WorkAssignmentReceiptData>, AppError> {
+    Ok(state
+        .storage
+        .list_work_assignments(work_request_id, worker_id)
+        .await?
+        .into_iter()
+        .map(work_assignment_to_data)
+        .collect())
 }
 
 pub async fn apply_client_actions(
@@ -255,42 +539,24 @@ async fn apply_single_action(
         }
         ClientActionKind::BranchSyncRequest => {
             let request: BranchSyncRequestData = require_payload(action, "branch sync payload")?;
-            validate_branch_sync_request(&request)?;
-            let now = OffsetDateTime::now_utc().unix_timestamp();
-            state
-                .storage
-                .insert_signal(SignalInsert {
-                    signal_type: "client_branch_sync_requested".to_string(),
-                    source: "client_sync".to_string(),
-                    source_ref: action.action_id.clone(),
-                    timestamp: now,
-                    payload_json: Some(serde_json::json!({
-                        "request": request,
-                        "queued_via": "client_sync_actions",
-                        "queued_at": now,
-                    })),
-                })
-                .await?;
+            queue_branch_sync_request(
+                state,
+                request,
+                "client_sync_actions",
+                action.action_id.clone(),
+            )
+            .await?;
             Ok(applied(action, "branch sync request queued"))
         }
         ClientActionKind::ValidationRequest => {
             let request: ValidationRequestData = require_payload(action, "validation payload")?;
-            validate_validation_request(&request)?;
-            let now = OffsetDateTime::now_utc().unix_timestamp();
-            state
-                .storage
-                .insert_signal(SignalInsert {
-                    signal_type: "client_validation_requested".to_string(),
-                    source: "client_sync".to_string(),
-                    source_ref: action.action_id.clone(),
-                    timestamp: now,
-                    payload_json: Some(serde_json::json!({
-                        "request": request,
-                        "queued_via": "client_sync_actions",
-                        "queued_at": now,
-                    })),
-                })
-                .await?;
+            queue_validation_request(
+                state,
+                request,
+                "client_sync_actions",
+                action.action_id.clone(),
+            )
+            .await?;
             Ok(applied(action, "validation request queued"))
         }
     }
@@ -332,6 +598,73 @@ fn applied(action: &ClientActionData, message: &str) -> ClientActionResultData {
         target_id: action.target_id.clone(),
         status: "applied".to_string(),
         message: message.to_string(),
+    }
+}
+
+fn validate_work_assignment_update(request: &WorkAssignmentUpdateRequest) -> Result<(), AppError> {
+    match request.status {
+        WorkAssignmentStatusData::Assigned => Err(AppError::bad_request(
+            "assigned receipts must be created via claim",
+        )),
+        WorkAssignmentStatusData::Started => {
+            if request.started_at.is_none() {
+                return Err(AppError::bad_request("started receipts require started_at"));
+            }
+            Ok(())
+        }
+        WorkAssignmentStatusData::Completed => {
+            if request.completed_at.is_none() {
+                return Err(AppError::bad_request(
+                    "completed receipts require completed_at",
+                ));
+            }
+            Ok(())
+        }
+        WorkAssignmentStatusData::Failed | WorkAssignmentStatusData::Cancelled => {
+            if request.completed_at.is_none() {
+                return Err(AppError::bad_request(
+                    "failed/cancelled receipts require completed_at",
+                ));
+            }
+            Ok(())
+        }
+    }
+}
+
+fn work_assignment_status_from_data(status: WorkAssignmentStatusData) -> WorkAssignmentStatus {
+    match status {
+        WorkAssignmentStatusData::Assigned => WorkAssignmentStatus::Assigned,
+        WorkAssignmentStatusData::Started => WorkAssignmentStatus::Started,
+        WorkAssignmentStatusData::Completed => WorkAssignmentStatus::Completed,
+        WorkAssignmentStatusData::Failed => WorkAssignmentStatus::Failed,
+        WorkAssignmentStatusData::Cancelled => WorkAssignmentStatus::Cancelled,
+    }
+}
+
+fn work_assignment_status_to_data(status: WorkAssignmentStatus) -> WorkAssignmentStatusData {
+    match status {
+        WorkAssignmentStatus::Assigned => WorkAssignmentStatusData::Assigned,
+        WorkAssignmentStatus::Started => WorkAssignmentStatusData::Started,
+        WorkAssignmentStatus::Completed => WorkAssignmentStatusData::Completed,
+        WorkAssignmentStatus::Failed => WorkAssignmentStatusData::Failed,
+        WorkAssignmentStatus::Cancelled => WorkAssignmentStatusData::Cancelled,
+    }
+}
+
+fn work_assignment_to_data(record: vel_storage::WorkAssignmentRecord) -> WorkAssignmentReceiptData {
+    WorkAssignmentReceiptData {
+        receipt_id: record.receipt_id,
+        work_request_id: record.work_request_id,
+        worker_id: record.worker_id,
+        worker_class: record.worker_class,
+        capability: record.capability,
+        status: work_assignment_status_to_data(record.status),
+        assigned_at: record.assigned_at,
+        started_at: record.started_at,
+        completed_at: record.completed_at,
+        result: record.result,
+        error_message: record.error_message,
+        last_updated: record.last_updated,
     }
 }
 
@@ -508,14 +841,19 @@ pub struct ClusterWorkersData {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkerPresenceData {
+    pub worker_id: String,
     pub node_id: String,
     pub node_display_name: String,
     pub worker_classes: Vec<String>,
     pub capabilities: Vec<String>,
+    pub status: String,
+    pub queue_depth: u32,
     pub reachability: String,
     pub latency_class: String,
     pub compute_class: String,
     pub power_class: String,
+    pub recent_failure_rate: f64,
+    pub tailscale_preferred: bool,
     pub last_heartbeat_at: i64,
     pub started_at: i64,
     pub sync_base_url: String,
@@ -535,46 +873,28 @@ pub struct WorkerCapacityData {
     pub available_concurrency: u32,
 }
 
-pub fn cluster_workers_data(state: &AppState) -> ClusterWorkersData {
+pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkersData, AppError> {
+    refresh_local_worker_presence(state).await?;
     let bootstrap = cluster_bootstrap_data(state);
-    let runtime = state.worker_runtime.snapshot();
     let now = OffsetDateTime::now_utc().unix_timestamp();
-    let current_load = runtime.current_load.min(runtime.max_concurrency);
-    let tailscale_reachable = bootstrap
-        .tailscale_base_url
-        .as_ref()
-        .map(|url| !url.trim().is_empty())
-        .unwrap_or(false);
+    let _ = state
+        .storage
+        .expire_cluster_workers(now - WORKER_HEARTBEAT_TTL_SECONDS)
+        .await?;
+    let workers = state
+        .storage
+        .list_cluster_workers()
+        .await?
+        .into_iter()
+        .map(worker_presence_from_record)
+        .collect();
 
-    ClusterWorkersData {
+    Ok(ClusterWorkersData {
         active_authority_node_id: bootstrap.active_authority_node_id.clone(),
         active_authority_epoch: bootstrap.active_authority_epoch,
         generated_at: now,
-        workers: vec![WorkerPresenceData {
-            node_id: bootstrap.node_id.clone(),
-            node_display_name: bootstrap.node_display_name.clone(),
-            worker_classes: worker_classes_for_capabilities(&bootstrap.capabilities),
-            capabilities: bootstrap.capabilities.clone(),
-            reachability: "reachable".to_string(),
-            latency_class: latency_class_for_transport(&bootstrap.sync_transport),
-            compute_class: compute_class_for_capacity(runtime.max_concurrency),
-            power_class: infer_power_class(&bootstrap.node_id),
-            last_heartbeat_at: now,
-            started_at: runtime.started_at,
-            sync_base_url: bootstrap.sync_base_url,
-            sync_transport: bootstrap.sync_transport,
-            preferred_tailnet_endpoint: bootstrap.tailscale_base_url.clone(),
-            tailscale_base_url: bootstrap.tailscale_base_url,
-            tailscale_reachable,
-            lan_base_url: bootstrap.lan_base_url,
-            localhost_base_url: bootstrap.localhost_base_url,
-            capacity: WorkerCapacityData {
-                max_concurrency: runtime.max_concurrency,
-                current_load,
-                available_concurrency: runtime.max_concurrency.saturating_sub(current_load),
-            },
-        }],
-    }
+        workers,
+    })
 }
 
 pub fn cluster_bootstrap_data(state: &AppState) -> ClusterBootstrapData {
@@ -610,6 +930,142 @@ pub fn cluster_bootstrap_data(state: &AppState) -> ClusterBootstrapData {
         capabilities: execution_capabilities(&repo_root),
         branch_sync: branch_sync_capability(&repo_root),
         validation_profiles: validation_profiles(&repo_root),
+    }
+}
+
+pub async fn ingest_worker_heartbeat(
+    state: &AppState,
+    request: SyncHeartbeatRequestData,
+) -> Result<SyncHeartbeatResponseData, AppError> {
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let last_heartbeat_at = request.last_heartbeat_at.unwrap_or(now);
+
+    state
+        .storage
+        .upsert_cluster_worker(ClusterWorkerUpsert {
+            worker_id: request.worker_id.clone(),
+            node_id: request.node_id,
+            node_display_name: request.node_display_name,
+            worker_class: request.worker_classes.first().cloned(),
+            worker_classes: request.worker_classes,
+            capabilities: request.capabilities,
+            status: request.status,
+            max_concurrency: request.max_concurrency,
+            current_load: request.current_load,
+            queue_depth: request.queue_depth,
+            reachability: request.reachability,
+            latency_class: request.latency_class,
+            compute_class: request.compute_class,
+            power_class: request.power_class,
+            recent_failure_rate: request.recent_failure_rate,
+            tailscale_preferred: request.tailscale_preferred.unwrap_or(false),
+            sync_base_url: request.sync_base_url,
+            sync_transport: request.sync_transport,
+            tailscale_base_url: request.tailscale_base_url,
+            preferred_tailnet_endpoint: request.preferred_tailnet_endpoint,
+            tailscale_reachable: request.tailscale_reachable.unwrap_or(false),
+            lan_base_url: request.lan_base_url,
+            localhost_base_url: request.localhost_base_url,
+            last_heartbeat_at,
+            started_at: request.started_at,
+        })
+        .await?;
+
+    Ok(SyncHeartbeatResponseData {
+        accepted: true,
+        worker_id: request.worker_id,
+        expires_at: last_heartbeat_at + WORKER_HEARTBEAT_TTL_SECONDS,
+        cluster_view_version: now,
+        placement_hints: Vec::new(),
+    })
+}
+
+async fn refresh_local_worker_presence(state: &AppState) -> Result<(), AppError> {
+    let bootstrap = cluster_bootstrap_data(state);
+    let runtime = state.worker_runtime.snapshot();
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let current_load = runtime.current_load.min(runtime.max_concurrency);
+    let tailscale_reachable = bootstrap
+        .tailscale_base_url
+        .as_ref()
+        .map(|url| !url.trim().is_empty())
+        .unwrap_or(false);
+    let worker_classes = worker_classes_for_capabilities(&bootstrap.capabilities);
+
+    state
+        .storage
+        .upsert_cluster_worker(ClusterWorkerUpsert {
+            worker_id: bootstrap.node_id.clone(),
+            node_id: bootstrap.node_id.clone(),
+            node_display_name: Some(bootstrap.node_display_name.clone()),
+            worker_class: worker_classes.first().cloned(),
+            worker_classes,
+            capabilities: bootstrap.capabilities.clone(),
+            status: Some("ready".to_string()),
+            max_concurrency: Some(runtime.max_concurrency),
+            current_load: Some(current_load),
+            queue_depth: Some(0),
+            reachability: Some("reachable".to_string()),
+            latency_class: Some(latency_class_for_transport(&bootstrap.sync_transport)),
+            compute_class: Some(compute_class_for_capacity(runtime.max_concurrency)),
+            power_class: Some(infer_power_class(&bootstrap.node_id)),
+            recent_failure_rate: Some(0.0),
+            tailscale_preferred: tailscale_reachable,
+            sync_base_url: Some(bootstrap.sync_base_url),
+            sync_transport: Some(bootstrap.sync_transport),
+            tailscale_base_url: bootstrap.tailscale_base_url.clone(),
+            preferred_tailnet_endpoint: bootstrap.tailscale_base_url,
+            tailscale_reachable,
+            lan_base_url: bootstrap.lan_base_url,
+            localhost_base_url: bootstrap.localhost_base_url,
+            last_heartbeat_at: now,
+            started_at: Some(runtime.started_at),
+        })
+        .await?;
+
+    Ok(())
+}
+
+fn worker_presence_from_record(record: ClusterWorkerRecord) -> WorkerPresenceData {
+    let max_concurrency = record.max_concurrency.unwrap_or(1);
+    let current_load = record.current_load.unwrap_or(0).min(max_concurrency);
+
+    WorkerPresenceData {
+        worker_id: record.worker_id,
+        node_id: record.node_id,
+        node_display_name: record
+            .node_display_name
+            .unwrap_or_else(|| "Vel Node".to_string()),
+        worker_classes: record.worker_classes,
+        capabilities: record.capabilities,
+        status: record.status.unwrap_or_else(|| "ready".to_string()),
+        queue_depth: record.queue_depth.unwrap_or(0),
+        reachability: record
+            .reachability
+            .unwrap_or_else(|| "reachable".to_string()),
+        latency_class: record.latency_class.unwrap_or_else(|| "medium".to_string()),
+        compute_class: record.compute_class.unwrap_or_else(|| "edge".to_string()),
+        power_class: record
+            .power_class
+            .unwrap_or_else(|| "ac_or_unknown".to_string()),
+        recent_failure_rate: record.recent_failure_rate.unwrap_or(0.0),
+        tailscale_preferred: record.tailscale_preferred,
+        last_heartbeat_at: record.last_heartbeat_at,
+        started_at: record.started_at.unwrap_or(record.updated_at),
+        sync_base_url: record.sync_base_url.unwrap_or_default(),
+        sync_transport: record
+            .sync_transport
+            .unwrap_or_else(|| "configured".to_string()),
+        tailscale_base_url: record.tailscale_base_url,
+        preferred_tailnet_endpoint: record.preferred_tailnet_endpoint,
+        tailscale_reachable: record.tailscale_reachable,
+        lan_base_url: record.lan_base_url,
+        localhost_base_url: record.localhost_base_url,
+        capacity: WorkerCapacityData {
+            max_concurrency,
+            current_load,
+            available_concurrency: max_concurrency.saturating_sub(current_load),
+        },
     }
 }
 
@@ -778,6 +1234,71 @@ mod tests {
             .unwrap();
         assert_eq!(signals.len(), 1);
         assert_eq!(signals[0].source_ref.as_deref(), Some("val-1"));
+    }
+
+    #[tokio::test]
+    async fn queue_branch_sync_request_returns_capability_routing_receipt() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_state(storage.clone());
+
+        let result = queue_branch_sync_request(
+            &state,
+            BranchSyncRequestData {
+                repo_root: repo_root().to_string_lossy().to_string(),
+                branch: "main".to_string(),
+                remote: Some("origin".to_string()),
+                base_branch: Some("main".to_string()),
+                mode: Some("pull".to_string()),
+                requested_by: Some("test".to_string()),
+            },
+            "sync_route",
+            Some("wrkreq_test".to_string()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.request_type, QueuedWorkRoutingKindData::BranchSync);
+        assert_eq!(result.status, "queued");
+        assert_eq!(result.work_request_id, "wrkreq_test");
+        assert_eq!(result.target_worker_class, "repo_sync");
+        assert_eq!(result.requested_capability, "branch_sync");
+        assert_eq!(result.queued_signal_type, "client_branch_sync_requested");
+        assert_eq!(result.queued_via, "sync_route");
+
+        let signals = storage
+            .list_signals(Some("client_branch_sync_requested"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].source, "cluster_work_router");
+        assert_eq!(signals[0].source_ref.as_deref(), Some("wrkreq_test"));
+    }
+
+    #[tokio::test]
+    async fn queue_validation_request_rejects_unknown_profile() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_state(storage);
+
+        let error = queue_validation_request(
+            &state,
+            ValidationRequestData {
+                repo_root: repo_root().to_string_lossy().to_string(),
+                profile_id: "unknown-profile".to_string(),
+                branch: None,
+                environment: None,
+                requested_by: None,
+            },
+            "sync_route",
+            None,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("validation profile unknown-profile is not available on this node"));
     }
 
     #[test]

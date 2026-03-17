@@ -221,7 +221,8 @@ fn suggest_spec_path(parsed: &ParsedCommand) -> String {
         .target_tokens
         .iter()
         .map(|token| {
-            token.chars()
+            token
+                .chars()
                 .map(|ch| {
                     if ch.is_ascii_alphanumeric() {
                         ch.to_ascii_lowercase()
@@ -289,7 +290,13 @@ mod tests {
         ];
         let resolution = parse_and_resolve(&input).expect("resolve");
         assert_eq!(resolution.resolved.operation, DomainOperation::Create);
-        assert_eq!(resolution.resolved.targets[0].kind, DomainKind::ExecutionPlan);
-        assert_eq!(resolution.resolved.inferred["suggested_title"], "offline bootstrap");
+        assert_eq!(
+            resolution.resolved.targets[0].kind,
+            DomainKind::ExecutionPlan
+        );
+        assert_eq!(
+            resolution.resolved.inferred["suggested_title"],
+            "offline bootstrap"
+        );
     }
 }

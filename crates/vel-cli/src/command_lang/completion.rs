@@ -3,13 +3,7 @@ pub fn next_tokens(input: &[String]) -> Vec<&'static str> {
         [] => vec!["should"],
         [head] if head == "should" => {
             vec![
-                "capture",
-                "feature",
-                "commit",
-                "review",
-                "spec",
-                "plan",
-                "delegate",
+                "capture", "feature", "commit", "review", "spec", "plan", "delegate",
             ]
         }
         [head, verb] if head == "should" && verb == "review" => vec!["today", "week"],

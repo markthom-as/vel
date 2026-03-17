@@ -34,8 +34,21 @@ pub fn build_app(
 pub fn build_app_with_state(state: AppState) -> Router {
     Router::new()
         .route("/v1/health", get(routes::health::health))
+        .route("/v1/command/plan", post(routes::command_lang::plan_command))
+        .route(
+            "/v1/command/execute",
+            post(routes::command_lang::execute_command),
+        )
         .route("/v1/cluster/bootstrap", get(routes::cluster::bootstrap))
         .route("/v1/cluster/workers", get(routes::cluster::workers))
+        .route(
+            "/v1/cluster/branch-sync",
+            post(routes::cluster::branch_sync_request),
+        )
+        .route(
+            "/v1/cluster/validation",
+            post(routes::cluster::validation_request),
+        )
         .route("/v1/doctor", get(routes::doctor::doctor))
         .route(
             "/v1/captures",
@@ -153,7 +166,22 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/sync/bootstrap", get(routes::sync::sync_bootstrap))
         .route("/v1/sync/cluster", get(routes::sync::sync_cluster))
+        .route("/v1/sync/heartbeat", post(routes::sync::sync_heartbeat))
+        .route(
+            "/v1/sync/work-assignments",
+            get(routes::sync::list_work_assignments)
+                .post(routes::sync::claim_work_assignment)
+                .patch(routes::sync::update_work_assignment),
+        )
         .route("/v1/sync/actions", post(routes::sync::sync_actions))
+        .route(
+            "/v1/sync/branch-sync",
+            post(routes::sync::sync_branch_sync_request),
+        )
+        .route(
+            "/v1/sync/validation",
+            post(routes::sync::sync_validation_request),
+        )
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
         .route("/api/components", get(routes::components::list_components))
         .route(
@@ -227,6 +255,13 @@ mod tests {
 
     fn test_policy_config() -> PolicyConfig {
         PolicyConfig::default()
+    }
+
+    fn repo_root_for_tests() -> String {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .to_string_lossy()
+            .to_string()
     }
 
     #[tokio::test]
@@ -393,6 +428,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sync_heartbeat_endpoint_persists_remote_worker() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let body = serde_json::json!({
+            "node_id": "vel-remote",
+            "node_display_name": "Vel Remote",
+            "worker_id": "vel-remote",
+            "worker_classes": ["validation"],
+            "capabilities": ["build_test_profiles"],
+            "status": "ready",
+            "max_concurrency": 8,
+            "current_load": 1,
+            "queue_depth": 0,
+            "reachability": "reachable",
+            "latency_class": "low",
+            "compute_class": "high",
+            "power_class": "ac_or_unknown",
+            "tailscale_preferred": true,
+            "sync_base_url": "http://vel-remote.tailnet.ts.net:4130",
+            "sync_transport": "tailscale",
+            "tailscale_base_url": "http://vel-remote.tailnet.ts.net:4130",
+            "preferred_tailnet_endpoint": "http://vel-remote.tailnet.ts.net:4130",
+            "tailscale_reachable": true
+        })
+        .to_string();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/heartbeat")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let workers = storage.list_cluster_workers().await.unwrap();
+        assert!(workers.iter().any(|worker| worker.node_id == "vel-remote"));
+    }
+
+    #[tokio::test]
     async fn sync_actions_endpoint_applies_nudge_snooze() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -452,6 +539,286 @@ mod tests {
         assert_eq!(data.applied, 1);
         assert_eq!(data.results.len(), 1);
         assert_eq!(data.results[0].status, "applied");
+    }
+
+    #[tokio::test]
+    async fn sync_branch_sync_endpoint_queues_structured_work_request() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let body = serde_json::json!({
+            "repo_root": repo_root_for_tests(),
+            "branch": "main",
+            "remote": "origin",
+            "mode": "pull",
+            "requested_by": "cli"
+        })
+        .to_string();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/branch-sync")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::QueuedWorkRoutingData> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        assert_eq!(
+            data.request_type,
+            vel_api_types::QueuedWorkRoutingKindData::BranchSync
+        );
+        assert_eq!(data.status, "queued");
+        assert_eq!(data.queued_signal_type, "client_branch_sync_requested");
+        assert_eq!(data.target_worker_class, "repo_sync");
+        assert_eq!(data.requested_capability, "branch_sync");
+        assert_eq!(data.queued_via, "sync_route");
+
+        let signals = storage
+            .list_signals(Some("client_branch_sync_requested"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn cluster_validation_endpoint_queues_structured_work_request() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let body = serde_json::json!({
+            "repo_root": repo_root_for_tests(),
+            "profile_id": "repo-verify",
+            "environment": "repo",
+            "requested_by": "cli"
+        })
+        .to_string();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/cluster/validation")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::QueuedWorkRoutingData> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        assert_eq!(
+            data.request_type,
+            vel_api_types::QueuedWorkRoutingKindData::Validation
+        );
+        assert_eq!(data.status, "queued");
+        assert_eq!(data.queued_signal_type, "client_validation_requested");
+        assert_eq!(data.target_worker_class, "validation");
+        assert_eq!(data.requested_capability, "build_test_profiles");
+        assert_eq!(data.queued_via, "cluster_route");
+
+        let signals = storage
+            .list_signals(Some("client_validation_requested"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn validation_work_request_prefers_tailscale_remote_worker_when_available() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let heartbeat = serde_json::json!({
+            "node_id": "vel-remote",
+            "node_display_name": "Vel Remote",
+            "worker_id": "vel-remote",
+            "worker_classes": ["validation"],
+            "capabilities": ["build_test_profiles"],
+            "status": "ready",
+            "max_concurrency": 12,
+            "current_load": 0,
+            "queue_depth": 0,
+            "reachability": "reachable",
+            "latency_class": "low",
+            "compute_class": "high",
+            "power_class": "ac_or_unknown",
+            "tailscale_preferred": true,
+            "sync_base_url": "http://vel-remote.tailnet.ts.net:4130",
+            "sync_transport": "tailscale",
+            "tailscale_base_url": "http://vel-remote.tailnet.ts.net:4130",
+            "preferred_tailnet_endpoint": "http://vel-remote.tailnet.ts.net:4130",
+            "tailscale_reachable": true
+        })
+        .to_string();
+        let heartbeat_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/heartbeat")
+                    .header("content-type", "application/json")
+                    .body(Body::from(heartbeat))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(heartbeat_response.status(), StatusCode::OK);
+
+        let body = serde_json::json!({
+            "repo_root": repo_root_for_tests(),
+            "profile_id": "repo-verify",
+            "environment": "repo",
+            "requested_by": "cli"
+        })
+        .to_string();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/validation")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::QueuedWorkRoutingData> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        assert_eq!(data.target_node_id, "vel-remote");
+        assert_eq!(data.target_worker_class, "validation");
+    }
+
+    #[tokio::test]
+    async fn work_assignment_lifecycle_claims_updates_and_lists_receipts() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let claim_body = serde_json::json!({
+            "work_request_id": "wrkreq-123",
+            "worker_id": "worker-1",
+            "worker_class": "validation",
+            "capability": "build_test_profiles"
+        })
+        .to_string();
+        let claim_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/work-assignments")
+                    .header("content-type", "application/json")
+                    .body(Body::from(claim_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(claim_response.status(), StatusCode::OK);
+        let claim_bytes = axum::body::to_bytes(claim_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let claim_payload: vel_api_types::ApiResponse<vel_api_types::WorkAssignmentReceiptData> =
+            serde_json::from_slice(&claim_bytes).unwrap();
+        let claimed = claim_payload.data.unwrap();
+        assert_eq!(claimed.work_request_id, "wrkreq-123");
+        assert_eq!(
+            claimed.status,
+            vel_api_types::WorkAssignmentStatusData::Assigned
+        );
+
+        let update_body = serde_json::json!({
+            "receipt_id": claimed.receipt_id,
+            "status": "completed",
+            "completed_at": 200,
+            "result": "ok"
+        })
+        .to_string();
+        let update_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/v1/sync/work-assignments")
+                    .header("content-type", "application/json")
+                    .body(Body::from(update_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(update_response.status(), StatusCode::OK);
+
+        let list_response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/v1/sync/work-assignments?work_request_id=wrkreq-123")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list_response.status(), StatusCode::OK);
+        let list_bytes = axum::body::to_bytes(list_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let list_payload: vel_api_types::ApiResponse<
+            Vec<vel_api_types::WorkAssignmentReceiptData>,
+        > = serde_json::from_slice(&list_bytes).unwrap();
+        let receipts = list_payload.data.unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(
+            receipts[0].status,
+            vel_api_types::WorkAssignmentStatusData::Completed
+        );
+        assert_eq!(receipts[0].result.as_deref(), Some("ok"));
     }
 
     #[tokio::test]
@@ -748,6 +1115,277 @@ mod tests {
             .unwrap();
         assert_eq!(stored.status, "resolved");
         assert!(stored.resolved_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn command_plan_endpoint_returns_service_plan() {
+        let db_path = format!("/tmp/vel_command_plan_{}.db", uuid::Uuid::new_v4().simple());
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/plan")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "execute",
+                                "targets": [
+                                    {
+                                        "kind": "context",
+                                        "attributes": {}
+                                    }
+                                ],
+                                "arguments": [],
+                                "original_text": "execute context"
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["operation"].as_str(), Some("execute"));
+        assert_eq!(json["data"]["mode"].as_str(), Some("dry_run_only"));
+        assert_eq!(json["data"]["validation"]["is_valid"].as_bool(), Some(true));
+        assert_eq!(
+            json["data"]["steps"][2]["title"].as_str(),
+            Some("Dry-run summary only")
+        );
+    }
+
+    #[tokio::test]
+    async fn command_execute_endpoint_creates_capture() {
+        let db_path = format!(
+            "/tmp/vel_command_execute_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/execute")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "create",
+                                "targets": [
+                                    {
+                                        "kind": "capture",
+                                        "attributes": {
+                                            "text": "remember this",
+                                            "capture_type": "quick_note"
+                                        }
+                                    }
+                                ],
+                                "inferred": {
+                                    "capture_type": "quick_note",
+                                    "source_device": "vel-command"
+                                },
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["result_kind"].as_str(),
+            Some("capture_created")
+        );
+        let capture_id = json["data"]["payload"]["capture_id"]
+            .as_str()
+            .expect("capture_id in payload");
+        let stored_capture = storage
+            .get_capture_by_id(capture_id)
+            .await
+            .unwrap()
+            .expect("stored capture");
+        assert_eq!(stored_capture.content_text, "remember this");
+        assert_eq!(stored_capture.capture_type, "quick_note");
+        assert_eq!(stored_capture.source_device.as_deref(), Some("vel-command"));
+    }
+
+    #[tokio::test]
+    async fn command_execute_endpoint_creates_commitment() {
+        let db_path = format!(
+            "/tmp/vel_command_commitment_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/execute")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "create",
+                                "targets": [
+                                    {
+                                        "kind": "commitment",
+                                        "attributes": {
+                                            "text": "follow up with Dimitri",
+                                            "project": "vel"
+                                        }
+                                    }
+                                ],
+                                "inferred": {},
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["result_kind"].as_str(),
+            Some("commitment_created")
+        );
+        let commitment_id = json["data"]["payload"]["id"]
+            .as_str()
+            .expect("commitment id in payload");
+        let stored = storage
+            .get_commitment_by_id(commitment_id)
+            .await
+            .unwrap()
+            .expect("stored commitment");
+        assert_eq!(stored.text, "follow up with Dimitri");
+        assert_eq!(stored.project.as_deref(), Some("vel"));
+    }
+
+    #[tokio::test]
+    async fn command_execute_endpoint_creates_spec_draft_artifact() {
+        let db_path = format!("/tmp/vel_command_spec_{}.db", uuid::Uuid::new_v4().simple());
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/execute")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "create",
+                                "targets": [
+                                    {
+                                        "kind": "spec_draft",
+                                        "attributes": {
+                                            "topic": "cluster sync"
+                                        }
+                                    }
+                                ],
+                                "inferred": {
+                                    "planning_status": "planned"
+                                },
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["result_kind"].as_str(),
+            Some("artifact_created")
+        );
+        assert_eq!(
+            json["data"]["payload"]["artifact_type"].as_str(),
+            Some("spec_draft")
+        );
+        let artifact_id = json["data"]["payload"]["artifact_id"]
+            .as_str()
+            .expect("artifact id in payload");
+        let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();
+        assert!(stored.is_some());
     }
 
     #[tokio::test]
@@ -2102,6 +2740,70 @@ mod tests {
             .expect("git_activity summary must be present");
         assert_eq!(git_summary["summary"]["branch"], "main");
         assert_eq!(git_summary["summary"]["operation"], "commit");
+        assert_eq!(
+            json["data"]["adaptive_policy_overrides"]
+                .as_array()
+                .map(|items| items.len()),
+            Some(0)
+        );
+    }
+
+    #[tokio::test]
+    async fn context_explain_includes_active_adaptive_policy_overrides() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting(
+                "adaptive_policy_overrides",
+                &serde_json::json!({
+                    "commute_buffer_minutes": 30,
+                    "commute_buffer_source_suggestion_id": "sug_commute",
+                    "commute_buffer_source_title": "Increase commute buffer",
+                    "commute_buffer_source_accepted_at": 1710000100,
+                    "default_prep_minutes": 45,
+                    "default_prep_source_suggestion_id": "sug_prep",
+                    "default_prep_source_title": "Increase prep window",
+                    "default_prep_source_accepted_at": 1710000200
+                }),
+            )
+            .await
+            .unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/explain/context")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let overrides = json["data"]["adaptive_policy_overrides"]
+            .as_array()
+            .expect("adaptive policy overrides should be an array");
+        assert_eq!(overrides.len(), 2);
+        assert!(overrides.iter().any(|item| {
+            item["policy_key"].as_str() == Some("commute_buffer")
+                && item["value_minutes"].as_u64() == Some(30)
+                && item["source_suggestion_id"].as_str() == Some("sug_commute")
+        }));
+        assert!(overrides.iter().any(|item| {
+            item["policy_key"].as_str() == Some("default_prep")
+                && item["value_minutes"].as_u64() == Some(45)
+                && item["source_title"].as_str() == Some("Increase prep window")
+        }));
     }
 
     /// Read boundary: explain endpoints must not create commitment_risk or nudge_events rows (repo-feedback 001).
@@ -3634,6 +4336,23 @@ mod tests {
             accept_json["data"]["latest_feedback_outcome"].as_str(),
             Some("accepted_and_policy_changed")
         );
+        assert_eq!(
+            accept_json["data"]["adaptive_policy"]["policy_key"].as_str(),
+            Some("commute_buffer")
+        );
+        assert_eq!(
+            accept_json["data"]["adaptive_policy"]["suggested_minutes"].as_u64(),
+            Some(30)
+        );
+        assert_eq!(
+            accept_json["data"]["adaptive_policy"]["is_active_source"].as_bool(),
+            Some(true)
+        );
+        assert_eq!(
+            accept_json["data"]["adaptive_policy"]["active_override"]["source_suggestion_id"]
+                .as_str(),
+            Some(suggestion_id.as_ref())
+        );
 
         let overrides = storage
             .get_all_settings()
@@ -3656,6 +4375,30 @@ mod tests {
             .unwrap();
         assert_eq!(feedback.len(), 1);
         assert_eq!(feedback[0].outcome_type, "accepted_and_policy_changed");
+
+        let inspect_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/suggestions/{}", suggestion_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(inspect_resp.status(), StatusCode::OK);
+        let inspect_body = axum::body::to_bytes(inspect_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let inspect_json: serde_json::Value = serde_json::from_slice(&inspect_body).unwrap();
+        assert_eq!(
+            inspect_json["data"]["adaptive_policy"]["active_override"]["value_minutes"].as_u64(),
+            Some(30)
+        );
+        assert_eq!(
+            inspect_json["data"]["adaptive_policy"]["active_override"]["source_title"].as_str(),
+            Some("Increase commute buffer")
+        );
 
         let nudges_after = app
             .clone()
@@ -5944,6 +6687,107 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn evaluate_excludes_unchecked_google_calendar_events_from_current_context() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .set_setting(
+                "integration_google_calendar",
+                &serde_json::json!({
+                    "client_id": "client",
+                    "calendars": [
+                        {
+                            "id": "cal_1",
+                            "summary": "Personal",
+                            "primary": true,
+                            "selected": false
+                        }
+                    ],
+                    "all_calendars_selected": false,
+                    "last_sync_at": now,
+                    "last_sync_status": "ok",
+                    "last_error": null,
+                    "last_item_count": 1
+                }),
+            )
+            .await
+            .unwrap();
+        storage
+            .set_setting(
+                "integration_google_calendar_secrets",
+                &serde_json::json!({
+                    "client_secret": "secret",
+                    "access_token": "token",
+                    "refresh_token": "refresh",
+                    "token_expires_at": now + 3600
+                }),
+            )
+            .await
+            .unwrap();
+        let signal_id = storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: Some("google_calendar:cal_1:evt_1".to_string()),
+                timestamp: now + 15 * 60,
+                payload_json: Some(serde_json::json!({
+                    "calendar_id": "cal_1",
+                    "calendar_name": "Personal",
+                    "title": "Should be ignored",
+                    "start": now + 15 * 60,
+                    "end": now + 45 * 60,
+                    "prep_minutes": 15,
+                    "travel_minutes": 0
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let eval_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(eval_resp.status(), StatusCode::OK);
+
+        let ctx_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ctx_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(ctx_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json["data"]["context"]["next_event_start_ts"].is_null());
+        assert_eq!(json["data"]["context"]["prep_window_active"], false);
+        assert!(!json["data"]["context"]["signals_used"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value.as_str() == Some(signal_id.as_str())));
+    }
+
+    #[tokio::test]
     async fn chat_settings_get_and_patch() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -7255,6 +8099,10 @@ END:VCALENDAR
         assert_eq!(
             json["data"]["schedule"]["empty_message"],
             "No calendars are selected in Settings."
+        );
+        assert_eq!(
+            json["data"]["freshness"]["sources"][1]["status"],
+            "unchecked"
         );
     }
 

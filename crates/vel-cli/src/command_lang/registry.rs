@@ -64,10 +64,16 @@ mod tests {
     #[test]
     fn includes_uniform_domain_entries() {
         let registry = default_registry();
-        assert!(registry.iter().any(|entry| entry.kind == DomainKind::Commitment));
-        assert!(registry.iter().any(|entry| entry.kind == DomainKind::Artifact));
+        assert!(registry
+            .iter()
+            .any(|entry| entry.kind == DomainKind::Commitment));
+        assert!(registry
+            .iter()
+            .any(|entry| entry.kind == DomainKind::Artifact));
         assert!(registry.iter().any(|entry| entry.kind == DomainKind::Run));
-        assert!(registry.iter().any(|entry| entry.kind == DomainKind::Thread));
+        assert!(registry
+            .iter()
+            .any(|entry| entry.kind == DomainKind::Thread));
         assert!(registry.iter().all(|entry| !entry.operations.is_empty()));
         assert!(registry.iter().all(|entry| !entry.selectors.is_empty()));
     }

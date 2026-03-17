@@ -36,6 +36,19 @@ describe('SuggestionsView', () => {
                   decision_context_summary: 'Repeated commute danger nudges.',
                   decision_context: null,
                   evidence: null,
+                  adaptive_policy: {
+                    policy_key: 'commute_buffer',
+                    suggested_minutes: 30,
+                    current_minutes: 20,
+                    is_active_source: false,
+                    active_override: {
+                      policy_key: 'commute_buffer',
+                      value_minutes: 25,
+                      source_suggestion_id: 'sug_old',
+                      source_title: 'Existing commute override',
+                      source_accepted_at: 1709999900,
+                    },
+                  },
                   payload: {
                     type: 'increase_commute_buffer',
                     current_minutes: 20,
@@ -76,6 +89,19 @@ describe('SuggestionsView', () => {
                 created_at: 1710000000,
               },
             ],
+            adaptive_policy: {
+              policy_key: 'commute_buffer',
+              suggested_minutes: 30,
+              current_minutes: 20,
+              is_active_source: true,
+              active_override: {
+                policy_key: 'commute_buffer',
+                value_minutes: 30,
+                source_suggestion_id: 'sug_1',
+                source_title: 'Increase commute buffer',
+                source_accepted_at: 1710000300,
+              },
+            },
             payload: {
               type: 'increase_commute_buffer',
               current_minutes: 20,
@@ -104,6 +130,19 @@ describe('SuggestionsView', () => {
         decision_context_summary: 'Repeated commute danger nudges.',
         decision_context: null,
         evidence: null,
+        adaptive_policy: {
+          policy_key: 'commute_buffer',
+          suggested_minutes: 30,
+          current_minutes: 20,
+          is_active_source: true,
+          active_override: {
+            policy_key: 'commute_buffer',
+            value_minutes: 30,
+            source_suggestion_id: 'sug_1',
+            source_title: 'Increase commute buffer',
+            source_accepted_at: 1710000300,
+          },
+        },
         payload: {
           type: 'increase_commute_buffer',
           current_minutes: 20,
@@ -125,6 +164,9 @@ describe('SuggestionsView', () => {
 
     expect(screen.getByText(/Repeated commute danger nudges\./i)).toBeInTheDocument()
     expect(screen.getByText(/nudge · nud_1/i)).toBeInTheDocument()
+    expect(screen.getByText('Adaptive policy provenance')).toBeInTheDocument()
+    expect(screen.getByText('Policy: commute_buffer')).toBeInTheDocument()
+    expect(screen.getByText('This suggestion is the active policy source.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
 

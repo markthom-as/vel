@@ -1,6 +1,9 @@
 use axum::{extract::State, Json};
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, ClusterBootstrapData};
+use vel_api_types::{
+    ApiResponse, BranchSyncRequestData, ClusterBootstrapData, QueuedWorkRoutingData,
+    ValidationRequestData,
+};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -18,7 +21,41 @@ pub async fn workers(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<crate::services::client_sync::ClusterWorkersData>>, AppError> {
     state.storage.healthcheck().await?;
-    let data = crate::services::client_sync::cluster_workers_data(&state);
+    let data = crate::services::client_sync::cluster_workers_data(&state).await?;
+
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn branch_sync_request(
+    State(state): State<AppState>,
+    Json(payload): Json<BranchSyncRequestData>,
+) -> Result<Json<ApiResponse<QueuedWorkRoutingData>>, AppError> {
+    state.storage.healthcheck().await?;
+    let data = crate::services::client_sync::queue_branch_sync_request(
+        &state,
+        payload,
+        "cluster_route",
+        None,
+    )
+    .await?;
+
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn validation_request(
+    State(state): State<AppState>,
+    Json(payload): Json<ValidationRequestData>,
+) -> Result<Json<ApiResponse<QueuedWorkRoutingData>>, AppError> {
+    state.storage.healthcheck().await?;
+    let data = crate::services::client_sync::queue_validation_request(
+        &state,
+        payload,
+        "cluster_route",
+        None,
+    )
+    .await?;
 
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))

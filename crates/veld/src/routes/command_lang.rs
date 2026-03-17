@@ -1,0 +1,80 @@
+use axum::{extract::State, Json};
+use uuid::Uuid;
+use vel_api_types::{
+    ApiResponse, CommandExecuteRequest, CommandExecutionPlanData, CommandExecutionResultData,
+    CommandPlanModeData, CommandPlanRequest, CommandPlanStepData, CommandValidationData,
+    CommandValidationIssueCodeData, CommandValidationIssueData,
+};
+
+use crate::{errors::AppError, services, state::AppState};
+
+pub async fn plan_command(
+    State(_state): State<AppState>,
+    Json(body): Json<CommandPlanRequest>,
+) -> Result<Json<ApiResponse<CommandExecutionPlanData>>, AppError> {
+    let plan = services::command_lang::build_execution_plan(&body.command);
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(plan_to_data(plan), request_id)))
+}
+
+pub async fn execute_command(
+    State(state): State<AppState>,
+    Json(body): Json<CommandExecuteRequest>,
+) -> Result<Json<ApiResponse<CommandExecutionResultData>>, AppError> {
+    let result = services::command_lang::execute_command(&state, &body.command).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(
+        CommandExecutionResultData {
+            result_kind: result.result_kind,
+            payload: result.payload,
+            warnings: result.warnings,
+        },
+        request_id,
+    )))
+}
+
+fn plan_to_data(plan: services::command_lang::CommandExecutionPlan) -> CommandExecutionPlanData {
+    CommandExecutionPlanData {
+        operation: plan.operation.to_string(),
+        target_kinds: plan
+            .target_kinds
+            .into_iter()
+            .map(|kind| kind.to_string())
+            .collect(),
+        mode: match plan.mode {
+            services::command_lang::CommandPlanMode::Ready => CommandPlanModeData::Ready,
+            services::command_lang::CommandPlanMode::DryRunOnly => CommandPlanModeData::DryRunOnly,
+            services::command_lang::CommandPlanMode::Unsupported => {
+                CommandPlanModeData::Unsupported
+            }
+        },
+        summary: plan.summary,
+        steps: plan
+            .steps
+            .into_iter()
+            .map(|step| CommandPlanStepData {
+                title: step.title,
+                detail: step.detail,
+            })
+            .collect(),
+        validation: CommandValidationData {
+            is_valid: plan.validation.is_valid,
+            issues: plan
+                .validation
+                .issues
+                .into_iter()
+                .map(|issue| CommandValidationIssueData {
+                    code: match issue.code {
+                        services::command_lang::ValidationIssueCode::UnsupportedOperation => {
+                            CommandValidationIssueCodeData::UnsupportedOperation
+                        }
+                        services::command_lang::ValidationIssueCode::MissingTargets => {
+                            CommandValidationIssueCodeData::MissingTargets
+                        }
+                    },
+                    message: issue.message,
+                })
+                .collect(),
+        },
+    }
+}

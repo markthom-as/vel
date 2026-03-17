@@ -4,6 +4,7 @@ pub mod capture;
 pub mod commitments;
 pub mod config;
 pub mod context;
+pub mod docs;
 pub mod doctor;
 pub mod end_of_day;
 pub mod evaluate;

@@ -205,6 +205,37 @@ function SuggestionDetailCard({
         </section>
       ) : null}
 
+      {suggestion.adaptive_policy ? (
+        <section className="mt-6">
+          <h3 className="text-sm font-medium text-zinc-100">Adaptive policy provenance</h3>
+          <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3 text-sm text-zinc-200">
+            <p>Policy: {suggestion.adaptive_policy.policy_key}</p>
+            <p>Suggested minutes: {suggestion.adaptive_policy.suggested_minutes}</p>
+            {suggestion.adaptive_policy.current_minutes != null ? (
+              <p>Current minutes: {suggestion.adaptive_policy.current_minutes}</p>
+            ) : null}
+            {suggestion.adaptive_policy.active_override ? (
+              <>
+                <p>Active override: {suggestion.adaptive_policy.active_override.value_minutes} min</p>
+                {suggestion.adaptive_policy.active_override.source_title
+                  || suggestion.adaptive_policy.active_override.source_suggestion_id ? (
+                    <p>
+                      Source:{' '}
+                      {suggestion.adaptive_policy.active_override.source_title
+                        ?? suggestion.adaptive_policy.active_override.source_suggestion_id}
+                    </p>
+                  ) : null}
+                {suggestion.adaptive_policy.is_active_source ? (
+                  <p className="text-emerald-300">This suggestion is the active policy source.</p>
+                ) : null}
+              </>
+            ) : (
+              <p>No active override is currently applied for this policy.</p>
+            )}
+          </div>
+        </section>
+      ) : null}
+
       <section className="mt-6">
         <h3 className="text-sm font-medium text-zinc-100">Evidence</h3>
         {suggestion.evidence && suggestion.evidence.length > 0 ? (

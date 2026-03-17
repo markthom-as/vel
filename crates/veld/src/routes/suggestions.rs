@@ -3,13 +3,16 @@
 use axum::{extract::Path, extract::Query, extract::State, Json};
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, SuggestionActionRequest, SuggestionData, SuggestionEvidenceData,
-    SuggestionUpdateRequest,
+    AdaptivePolicyOverrideData, ApiResponse, SuggestionActionRequest, SuggestionAdaptivePolicyData,
+    SuggestionData, SuggestionEvidenceData, SuggestionUpdateRequest,
 };
 
 use crate::{errors::AppError, state::AppState};
 
-fn map_suggestion(record: vel_storage::SuggestionRecord) -> SuggestionData {
+fn map_suggestion(
+    record: vel_storage::SuggestionRecord,
+    adaptive_policy: Option<SuggestionAdaptivePolicyData>,
+) -> SuggestionData {
     SuggestionData {
         id: record.id,
         suggestion_type: record.suggestion_type,
@@ -29,10 +32,79 @@ fn map_suggestion(record: vel_storage::SuggestionRecord) -> SuggestionData {
         evidence: None,
         latest_feedback_outcome: None,
         latest_feedback_notes: None,
+        adaptive_policy,
         payload: record.payload_json,
         created_at: record.created_at,
         resolved_at: record.resolved_at,
     }
+}
+
+fn adaptive_policy_key_for_suggestion_type(suggestion_type: &str) -> Option<&'static str> {
+    match suggestion_type {
+        "increase_commute_buffer" => Some("commute_buffer"),
+        "increase_prep_window" => Some("default_prep"),
+        _ => None,
+    }
+}
+
+fn map_active_override(
+    policy_key: &str,
+    overrides: &crate::services::adaptive_policies::AdaptivePolicyOverrides,
+) -> Option<AdaptivePolicyOverrideData> {
+    match policy_key {
+        "commute_buffer" => {
+            overrides
+                .commute_buffer_minutes
+                .map(|value_minutes| AdaptivePolicyOverrideData {
+                    policy_key: policy_key.to_string(),
+                    value_minutes,
+                    source_suggestion_id: overrides.commute_buffer_source_suggestion_id.clone(),
+                    source_title: overrides.commute_buffer_source_title.clone(),
+                    source_accepted_at: overrides.commute_buffer_source_accepted_at,
+                })
+        }
+        "default_prep" => {
+            overrides
+                .default_prep_minutes
+                .map(|value_minutes| AdaptivePolicyOverrideData {
+                    policy_key: policy_key.to_string(),
+                    value_minutes,
+                    source_suggestion_id: overrides.default_prep_source_suggestion_id.clone(),
+                    source_title: overrides.default_prep_source_title.clone(),
+                    source_accepted_at: overrides.default_prep_source_accepted_at,
+                })
+        }
+        _ => None,
+    }
+}
+
+fn suggestion_adaptive_policy(
+    record: &vel_storage::SuggestionRecord,
+    overrides: &crate::services::adaptive_policies::AdaptivePolicyOverrides,
+) -> Option<SuggestionAdaptivePolicyData> {
+    let policy_key = adaptive_policy_key_for_suggestion_type(&record.suggestion_type)?;
+    let suggested_minutes = record
+        .payload_json
+        .get("suggested_minutes")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| u32::try_from(value).ok())?;
+    let current_minutes = record
+        .payload_json
+        .get("current_minutes")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|value| u32::try_from(value).ok());
+    let active_override = map_active_override(policy_key, overrides);
+    let is_active_source = active_override
+        .as_ref()
+        .and_then(|override_data| override_data.source_suggestion_id.as_deref())
+        == Some(record.id.as_str());
+    Some(SuggestionAdaptivePolicyData {
+        policy_key: policy_key.to_string(),
+        suggested_minutes,
+        current_minutes,
+        is_active_source,
+        active_override,
+    })
 }
 
 async fn enrich_suggestion_feedback(
@@ -97,11 +169,18 @@ pub async fn list(
     Query(q): Query<ListSuggestionsQuery>,
 ) -> Result<Json<ApiResponse<Vec<SuggestionData>>>, AppError> {
     let limit = q.limit.unwrap_or(50).min(100);
+    let overrides = crate::services::adaptive_policies::load(&state.storage).await?;
     let rows = state
         .storage
         .list_suggestions(q.state.as_deref(), limit)
         .await?;
-    let data: Vec<SuggestionData> = rows.into_iter().map(map_suggestion).collect();
+    let data: Vec<SuggestionData> = rows
+        .into_iter()
+        .map(|row| {
+            let adaptive_policy = suggestion_adaptive_policy(&row, &overrides);
+            map_suggestion(row, adaptive_policy)
+        })
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -110,6 +189,7 @@ pub async fn get(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<SuggestionData>>, AppError> {
+    let overrides = crate::services::adaptive_policies::load(&state.storage).await?;
     let row = state
         .storage
         .get_suggestion_by_id(id.trim())
@@ -122,7 +202,7 @@ pub async fn get(
         .into_iter()
         .map(map_suggestion_evidence)
         .collect();
-    let mut data = map_suggestion(row.clone());
+    let mut data = map_suggestion(row.clone(), suggestion_adaptive_policy(&row, &overrides));
     data.decision_context = row.decision_context_json;
     data.evidence = Some(evidence);
     let data = enrich_suggestion_feedback(&state, data).await?;
@@ -246,7 +326,8 @@ async fn apply_state_transition(
         .get_suggestion_by_id(&existing.id)
         .await?
         .unwrap();
-    let mut data = map_suggestion(row.clone());
+    let overrides = crate::services::adaptive_policies::load(&state.storage).await?;
+    let mut data = map_suggestion(row.clone(), suggestion_adaptive_policy(&row, &overrides));
     data.decision_context = row.decision_context_json;
     let data = enrich_suggestion_feedback(state, data).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());

@@ -2,6 +2,7 @@
 //! Read-only CLI surface: uses GET explain endpoints only and never recomputes persisted state.
 
 use crate::client::ApiClient;
+use crate::command_lang;
 use anyhow::Context;
 
 pub async fn run_context(client: &ApiClient, json: bool) -> anyhow::Result<()> {
@@ -127,5 +128,69 @@ pub async fn run_drift(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     if !d.commitments_used.is_empty() {
         println!("commitments_used: {}", d.commitments_used.join(", "));
     }
+    Ok(())
+}
+
+pub async fn run_command(client: &ApiClient, input: Vec<String>, json: bool) -> anyhow::Result<()> {
+    let resolution = command_lang::infer::parse_and_resolve(&input).context("parse command")?;
+    let local_explanation = command_lang::explain::render_explanation(&resolution);
+    let local_preview = command_lang::preview::render(&resolution);
+    let completion_hints = command_lang::completion::next_tokens(&input);
+    let daemon_plan = client
+        .plan_command(&resolution.resolved)
+        .await
+        .ok()
+        .and_then(|response| response.data);
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "input": input,
+                "parsed": resolution.parsed,
+                "resolved_command": resolution.resolved,
+                "local_preview": local_preview,
+                "local_explanation": local_explanation,
+                "completion_hints": completion_hints,
+                "daemon_plan": daemon_plan,
+            }))?
+        );
+        return Ok(());
+    }
+
+    println!("Local explanation:");
+    println!("{}", local_explanation);
+    println!();
+    println!("Local preview:");
+    println!("{}", local_preview);
+    if !completion_hints.is_empty() {
+        println!();
+        println!("Next tokens: {}", completion_hints.join(", "));
+    }
+
+    println!();
+    match daemon_plan {
+        Some(plan) => {
+            println!("Daemon plan:");
+            println!("  mode: {:?}", plan.mode);
+            println!("  summary: {}", plan.summary);
+            if !plan.steps.is_empty() {
+                println!("  steps:");
+                for step in plan.steps {
+                    println!("    - {}: {}", step.title, step.detail);
+                }
+            }
+            if !plan.validation.issues.is_empty() {
+                println!("  validation issues:");
+                for issue in plan.validation.issues {
+                    println!("    - {:?}: {}", issue.code, issue.message);
+                }
+            }
+        }
+        None => {
+            println!("Daemon plan: unavailable (using local explanation only)");
+        }
+    }
+
     Ok(())
 }

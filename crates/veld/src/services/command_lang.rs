@@ -5,7 +5,18 @@
 #![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
-use vel_core::{DomainKind, DomainOperation, ResolvedCommand};
+use serde_json::{json, Value};
+use time::OffsetDateTime;
+use tracing::warn;
+use uuid::Uuid;
+use vel_api_types::CaptureCreateResponse;
+use vel_core::{
+    ArtifactStorageKind, CommitmentStatus, DomainKind, DomainOperation, PrivacyClass,
+    ResolvedCommand, SyncClass,
+};
+use vel_storage::{ArtifactInsert, ArtifactRecord, CaptureInsert, CommitmentInsert, SignalInsert};
+
+use crate::{errors::AppError, state::AppState};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -50,6 +61,13 @@ pub struct CommandExecutionPlan {
     pub validation: CommandValidation,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommandExecutionResult {
+    pub result_kind: String,
+    pub payload: Value,
+    pub warnings: Vec<String>,
+}
+
 pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
     let validation = validate_command(command);
     let mode = if !validation.is_valid {
@@ -74,6 +92,48 @@ pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
     }
 }
 
+pub async fn execute_command(
+    state: &AppState,
+    command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
+    let validation = validate_command(command);
+    if !validation.is_valid {
+        let message = validation
+            .issues
+            .into_iter()
+            .map(|issue| issue.message)
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(AppError::bad_request(message));
+    }
+
+    match (
+        command.operation,
+        command.targets.first().map(|target| target.kind),
+    ) {
+        (DomainOperation::Create, Some(DomainKind::Capture)) => {
+            execute_create_capture(state, command).await
+        }
+        (DomainOperation::Create, Some(DomainKind::Commitment)) => {
+            execute_create_commitment(state, command).await
+        }
+        (DomainOperation::Create, Some(DomainKind::SpecDraft)) => {
+            execute_create_planning_artifact(state, command, "spec_draft").await
+        }
+        (DomainOperation::Create, Some(DomainKind::ExecutionPlan)) => {
+            execute_create_planning_artifact(state, command, "execution_plan").await
+        }
+        (DomainOperation::Execute, Some(DomainKind::Context)) => {
+            execute_review_context(state, command).await
+        }
+        _ => Err(AppError::bad_request(format!(
+            "command execution is not supported for operation `{}` and target kind `{:?}`",
+            command.operation,
+            command.targets.first().map(|target| target.kind)
+        ))),
+    }
+}
+
 pub fn validate_command(command: &ResolvedCommand) -> CommandValidation {
     let mut issues = Vec::new();
 
@@ -90,7 +150,10 @@ pub fn validate_command(command: &ResolvedCommand) -> CommandValidation {
     if requires_targets(command.operation) && command.targets.is_empty() {
         issues.push(CommandValidationIssue {
             code: ValidationIssueCode::MissingTargets,
-            message: format!("operation `{}` requires at least one target", command.operation),
+            message: format!(
+                "operation `{}` requires at least one target",
+                command.operation
+            ),
         });
     }
 
@@ -108,7 +171,10 @@ fn build_plan_steps(command: &ResolvedCommand) -> Vec<CommandPlanStep> {
 
     steps.push(CommandPlanStep {
         title: "Resolve target mapping".to_string(),
-        detail: format!("Resolve {} target(s) to service domain calls", command.targets.len()),
+        detail: format!(
+            "Resolve {} target(s) to service domain calls",
+            command.targets.len()
+        ),
     });
 
     if is_dry_run_only(command.operation) {
@@ -165,10 +231,364 @@ fn is_dry_run_only(operation: DomainOperation) -> bool {
     matches!(operation, DomainOperation::Execute)
 }
 
+async fn execute_create_capture(
+    state: &AppState,
+    command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
+    let target = command
+        .targets
+        .first()
+        .ok_or_else(|| AppError::bad_request("capture command requires a target"))?;
+    let content_text = target
+        .attributes
+        .get("text")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::bad_request("capture command requires non-empty text"))?
+        .to_string();
+    let capture_type = command
+        .inferred
+        .get("capture_type")
+        .and_then(|value| value.as_str())
+        .or_else(|| {
+            target
+                .attributes
+                .get("capture_type")
+                .and_then(|value| value.as_str())
+        })
+        .unwrap_or("quick_note")
+        .to_string();
+    let source_device = command
+        .inferred
+        .get("source_device")
+        .and_then(|value| value.as_str())
+        .unwrap_or("vel-command")
+        .to_string();
+
+    let capture_id = state
+        .storage
+        .insert_capture(CaptureInsert {
+            content_text: content_text.clone(),
+            capture_type: capture_type.clone(),
+            source_device: Some(source_device.clone()),
+            privacy_class: PrivacyClass::Private,
+        })
+        .await?;
+
+    let payload_json = json!({ "capture_id": capture_id.to_string() }).to_string();
+    if let Err(error) = state
+        .storage
+        .emit_event(
+            "CAPTURE_CREATED",
+            "capture",
+            Some(capture_id.as_ref()),
+            &payload_json,
+        )
+        .await
+    {
+        warn!(error = %error, "failed to emit CAPTURE_CREATED event");
+    }
+
+    let now_ts = OffsetDateTime::now_utc().unix_timestamp();
+    let signal_payload = json!({
+        "capture_id": capture_id.to_string(),
+        "content": content_text,
+        "tags": []
+    });
+    if let Err(error) = state
+        .storage
+        .insert_signal(SignalInsert {
+            signal_type: "capture_created".to_string(),
+            source: "vel".to_string(),
+            source_ref: Some(capture_id.to_string()),
+            timestamp: now_ts,
+            payload_json: Some(signal_payload),
+        })
+        .await
+    {
+        warn!(error = %error, "failed to insert capture_created signal");
+    }
+
+    if capture_type == "todo" {
+        if let Err(error) = state
+            .storage
+            .insert_commitment(CommitmentInsert {
+                text: target
+                    .attributes
+                    .get("text")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string(),
+                source_type: "capture".to_string(),
+                source_id: Some(capture_id.to_string()),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({ "capture_id": capture_id.to_string() })),
+            })
+            .await
+        {
+            warn!(error = %error, "failed to create commitment from todo capture");
+        }
+    }
+
+    let response = CaptureCreateResponse {
+        capture_id,
+        accepted_at: OffsetDateTime::now_utc(),
+    };
+
+    Ok(CommandExecutionResult {
+        result_kind: "capture_created".to_string(),
+        payload: serde_json::to_value(response)
+            .map_err(|error| AppError::internal(error.to_string()))?,
+        warnings: Vec::new(),
+    })
+}
+
+async fn execute_review_context(
+    state: &AppState,
+    command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
+    let scope = command
+        .targets
+        .first()
+        .and_then(|target| target.attributes.get("scope"))
+        .and_then(|value| value.as_str())
+        .unwrap_or("today");
+    let (limit, today, result_kind) = match scope {
+        "today" => (20, true, "review_today"),
+        "week" => (50, false, "review_week"),
+        other => {
+            return Err(AppError::bad_request(format!(
+                "unsupported review scope `{}`",
+                other
+            )))
+        }
+    };
+
+    let captures = state.storage.list_captures_recent(limit, today).await?;
+    let captures = captures
+        .into_iter()
+        .map(vel_api_types::ContextCapture::from)
+        .collect::<Vec<_>>();
+    let latest_context_artifact = state
+        .storage
+        .get_latest_artifact_by_type("context_brief")
+        .await?
+        .map(artifact_record_to_data)
+        .transpose()?;
+
+    Ok(CommandExecutionResult {
+        result_kind: result_kind.to_string(),
+        payload: json!({
+            "captures": captures,
+            "capture_count": captures.len(),
+            "latest_context_artifact": latest_context_artifact,
+        }),
+        warnings: Vec::new(),
+    })
+}
+
+async fn execute_create_commitment(
+    state: &AppState,
+    command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
+    let target = command
+        .targets
+        .first()
+        .ok_or_else(|| AppError::bad_request("commitment command requires a target"))?;
+
+    let text = target
+        .attributes
+        .get("text")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::bad_request("commitment text must not be empty"))?
+        .to_string();
+
+    let project = target
+        .attributes
+        .get("project")
+        .and_then(|value| value.as_str())
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            command
+                .inferred
+                .get("project")
+                .and_then(|value| value.as_str())
+                .map(ToOwned::to_owned)
+        });
+
+    let commitment_kind = target
+        .attributes
+        .get("commitment_kind")
+        .and_then(|value| value.as_str())
+        .map(ToOwned::to_owned);
+
+    let commitment_id = state
+        .storage
+        .insert_commitment(CommitmentInsert {
+            text,
+            source_type: "vel-command".to_string(),
+            source_id: None,
+            status: CommitmentStatus::Open,
+            due_at: None,
+            project,
+            commitment_kind,
+            metadata_json: Some(json!({
+                "command_operation": command.operation.to_string(),
+                "target_kind": "commitment",
+                "assumptions": command.assumptions,
+            })),
+        })
+        .await?;
+
+    let commitment = state
+        .storage
+        .get_commitment_by_id(commitment_id.as_ref())
+        .await?
+        .ok_or_else(|| AppError::internal("commitment not found after insert"))?;
+
+    Ok(CommandExecutionResult {
+        result_kind: "commitment_created".to_string(),
+        payload: serde_json::to_value(vel_api_types::CommitmentData::from(commitment))
+            .map_err(|error| AppError::internal(error.to_string()))?,
+        warnings: Vec::new(),
+    })
+}
+
+async fn execute_create_planning_artifact(
+    state: &AppState,
+    command: &ResolvedCommand,
+    artifact_type: &str,
+) -> Result<CommandExecutionResult, AppError> {
+    let target = command
+        .targets
+        .first()
+        .ok_or_else(|| AppError::bad_request("planning command requires a target"))?;
+    let title = target
+        .attributes
+        .get("topic")
+        .and_then(|value| value.as_str())
+        .or_else(|| {
+            target
+                .attributes
+                .get("goal")
+                .and_then(|value| value.as_str())
+        })
+        .or_else(|| {
+            target
+                .attributes
+                .get("text")
+                .and_then(|value| value.as_str())
+        })
+        .or_else(|| {
+            command
+                .inferred
+                .get("topic")
+                .and_then(|value| value.as_str())
+        })
+        .or_else(|| {
+            command
+                .inferred
+                .get("goal")
+                .and_then(|value| value.as_str())
+        })
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| format!("{} draft", artifact_type));
+
+    let storage_uri = format!(
+        "vel://command/{}/{}",
+        artifact_type,
+        Uuid::new_v4().simple()
+    );
+
+    let artifact_id = state
+        .storage
+        .create_artifact(ArtifactInsert {
+            artifact_type: artifact_type.to_string(),
+            title: Some(title),
+            mime_type: Some("application/json".to_string()),
+            storage_uri,
+            storage_kind: ArtifactStorageKind::External,
+            privacy_class: PrivacyClass::Private,
+            sync_class: SyncClass::Warm,
+            content_hash: None,
+            size_bytes: None,
+            metadata_json: Some(json!({
+                "command": {
+                    "operation": command.operation.to_string(),
+                    "targets": command.targets,
+                    "inferred": command.inferred,
+                    "assumptions": command.assumptions,
+                },
+            })),
+        })
+        .await?;
+
+    let artifact = state
+        .storage
+        .get_artifact_by_id(artifact_id.as_ref())
+        .await?
+        .ok_or_else(|| AppError::internal("artifact not found after insert"))?;
+
+    Ok(CommandExecutionResult {
+        result_kind: "artifact_created".to_string(),
+        payload: serde_json::to_value(artifact_record_to_data(artifact)?)
+            .map_err(|error| AppError::internal(error.to_string()))?,
+        warnings: Vec::new(),
+    })
+}
+
+fn artifact_record_to_data(
+    record: ArtifactRecord,
+) -> Result<vel_api_types::ArtifactData, AppError> {
+    Ok(vel_api_types::ArtifactData {
+        artifact_id: record.artifact_id,
+        artifact_type: record.artifact_type,
+        title: record.title,
+        mime_type: record.mime_type,
+        storage_uri: record.storage_uri,
+        storage_kind: record.storage_kind.to_string(),
+        privacy_class: record.privacy_class,
+        sync_class: record.sync_class,
+        content_hash: record.content_hash,
+        size_bytes: record.size_bytes,
+        created_at: OffsetDateTime::from_unix_timestamp(record.created_at)
+            .map_err(|error| AppError::internal(error.to_string()))?,
+        updated_at: OffsetDateTime::from_unix_timestamp(record.updated_at)
+            .map_err(|error| AppError::internal(error.to_string()))?,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vel_core::{TypedTarget, TargetSelector};
+    use crate::policy_config::PolicyConfig;
+    use tokio::sync::broadcast;
+    use vel_config::AppConfig;
+    use vel_core::{TargetSelector, TypedTarget};
+    use vel_storage::Storage;
+
+    async fn test_state() -> AppState {
+        let storage = Storage::connect(":memory:").await.expect("storage");
+        storage.migrate().await.expect("migrate");
+        let (broadcast_tx, _) = broadcast::channel(8);
+        AppState::new(
+            storage,
+            AppConfig::default(),
+            PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        )
+    }
 
     #[test]
     fn validate_create_with_target_is_valid() {
@@ -198,12 +618,10 @@ mod tests {
 
         let validation = validate_command(&command);
         assert!(!validation.is_valid);
-        assert!(
-            validation
-                .issues
-                .iter()
-                .any(|issue| issue.code == ValidationIssueCode::UnsupportedOperation)
-        );
+        assert!(validation
+            .issues
+            .iter()
+            .any(|issue| issue.code == ValidationIssueCode::UnsupportedOperation));
     }
 
     #[test]
@@ -218,5 +636,96 @@ mod tests {
         assert_eq!(plan.mode, CommandPlanMode::DryRunOnly);
         assert!(plan.validation.is_valid);
         assert!(plan.summary.contains("dry_run_only"));
+    }
+
+    #[tokio::test]
+    async fn execute_create_capture_returns_capture_created_result() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget {
+                kind: DomainKind::Capture,
+                id: None,
+                selector: Some(TargetSelector::Custom("inline_text".to_string())),
+                attributes: serde_json::json!({
+                    "text": "test capture",
+                    "capture_type": "quick_note"
+                }),
+            }],
+            inferred: serde_json::json!({
+                "capture_type": "quick_note",
+                "source_device": "vel-command"
+            }),
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        assert_eq!(result.result_kind, "capture_created");
+        assert!(result.payload.get("capture_id").is_some());
+    }
+
+    #[tokio::test]
+    async fn execute_create_commitment_returns_commitment_created_result() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget {
+                kind: DomainKind::Commitment,
+                id: None,
+                selector: Some(TargetSelector::Custom("inline_text".to_string())),
+                attributes: serde_json::json!({
+                    "text": "finish integration hardening",
+                    "project": "vel"
+                }),
+            }],
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        assert_eq!(result.result_kind, "commitment_created");
+        assert_eq!(
+            result
+                .payload
+                .get("status")
+                .and_then(|value| value.as_str()),
+            Some("open")
+        );
+        assert_eq!(
+            result
+                .payload
+                .get("project")
+                .and_then(|value| value.as_str()),
+            Some("vel")
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_create_spec_draft_returns_artifact_created_result() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget {
+                kind: DomainKind::SpecDraft,
+                id: None,
+                selector: Some(TargetSelector::Custom("topic".to_string())),
+                attributes: serde_json::json!({
+                    "topic": "cluster sync"
+                }),
+            }],
+            inferred: serde_json::json!({
+                "planning_status": "planned"
+            }),
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        assert_eq!(result.result_kind, "artifact_created");
+        assert_eq!(
+            result
+                .payload
+                .get("artifact_type")
+                .and_then(|value| value.as_str()),
+            Some("spec_draft")
+        );
     }
 }
