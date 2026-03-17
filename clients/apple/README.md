@@ -24,6 +24,28 @@ This is useful for validating the shared `VelAPI` package, but full app builds s
 
 On a physical device, set the daemon base URL (e.g. `http://<your-mac-ip>:4130`) in app settings/UserDefaults.
 
+## Quick local setup (simulator)
+
+From repo root:
+
+```bash
+make apple-setup-simulator
+make apple-build
+make apple-run
+```
+
+If you want Xcode UI:
+
+```bash
+make apple-open
+```
+
+The build script selects the first available iPhone simulator automatically. To pin one device:
+
+```bash
+APPLE_SIM_DEVICE_ID=<sim-udid> make apple-build
+```
+
 ## Endpoint resolution
 
 The Apple clients resolve endpoint candidates in this order:
@@ -96,6 +118,13 @@ If the project file is not present, create it from the package and app sources (
 - **iOS**: Select the **VeliOS** scheme, choose a simulator or device, Run.
 - **macOS**: Select the **VelMac** scheme, Run.
 - **watchOS**: Select the **VelWatch** scheme, choose a watch simulator (or pair with iPhone simulator), Run.
+
+CLI build path (iOS simulator):
+
+```bash
+make apple-build
+make apple-run
+```
 
 Ensure veld is running so the apps can reach the API (e.g. `cargo run -p veld` in the repo root).
 

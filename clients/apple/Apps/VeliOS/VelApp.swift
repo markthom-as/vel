@@ -1,4 +1,5 @@
 import SwiftUI
+import VelAPI
 
 @main
 struct VelApp: App {
@@ -13,8 +14,8 @@ struct VelApp: App {
 
 /// Shared store for API client and base URL. Configure baseURL (e.g. from Settings) before use.
 final class VelClientStore: ObservableObject {
-    let client: VelAPI.VelClient
-    let offlineStore = VelAPI.VelOfflineStore()
+    let client: VelClient
+    let offlineStore = VelOfflineStore()
     @Published var isReachable = false
     @Published var errorMessage: String?
     @Published var activeBaseURL: String?
@@ -23,14 +24,14 @@ final class VelClientStore: ObservableObject {
     @Published var pendingActionCount: Int = 0
 
     init() {
-        let initial = VelAPI.VelEndpointResolver.candidateBaseURLs().first
+        let initial = VelEndpointResolver.candidateBaseURLs().first
             ?? URL(string: "http://127.0.0.1:4130")!
-        client = VelAPI.VelClient(baseURL: initial)
+        client = VelClient(baseURL: initial)
         pendingActionCount = offlineStore.pendingActionCount()
     }
 
     func checkReachability() async {
-        for candidate in VelAPI.VelEndpointResolver.candidateBaseURLs() {
+        for candidate in VelEndpointResolver.candidateBaseURLs() {
             client.baseURL = candidate
             do {
                 _ = try await client.health()
