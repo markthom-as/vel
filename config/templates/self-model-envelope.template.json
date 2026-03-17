@@ -1,0 +1,10 @@
+{
+  "active_task": "{{active_task}}",
+  "authority_docs": [],
+  "relevant_tickets": [],
+  "read_scopes": [],
+  "write_scopes": [],
+  "required_checks": [],
+  "review_gate": "explicit_operator_or_ticket_policy",
+  "approval_classes": []
+}

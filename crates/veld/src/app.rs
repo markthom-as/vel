@@ -5367,7 +5367,7 @@ mod tests {
                 title: Some("Increase prep window".to_string()),
                 summary: Some("Prep nudges keep repeating.".to_string()),
                 priority: 60,
-                confidence: Some(0.66),
+                confidence: Some("0.66".to_string()),
                 dedupe_key: Some("increase_prep_window".to_string()),
                 payload_json: serde_json::json!({
                     "type": "increase_prep_window",
@@ -6765,7 +6765,7 @@ mod tests {
                 title: Some("Increase commute buffer".to_string()),
                 summary: Some("Leave earlier for similar meetings.".to_string()),
                 priority: 55,
-                confidence: Some(0.66),
+                confidence: Some("0.66".to_string()),
                 dedupe_key: Some("increase_commute_buffer".to_string()),
                 payload_json: serde_json::json!({
                     "type": "increase_commute_buffer",
@@ -6955,7 +6955,7 @@ mod tests {
                 title: Some("Add start routine".to_string()),
                 summary: Some("Morning drift suggests a stronger startup block.".to_string()),
                 priority: 35,
-                confidence: Some(0.66),
+                confidence: Some("0.66".to_string()),
                 dedupe_key: Some("add_start_routine".to_string()),
                 payload_json: serde_json::json!({
                     "type": "add_start_routine",
@@ -7021,7 +7021,7 @@ mod tests {
                     title: Some("Add start routine".to_string()),
                     summary: Some("Morning drift suggests a stronger startup block.".to_string()),
                     priority: 35,
-                confidence: Some(0.66),
+                confidence: Some("0.66".to_string()),
                 dedupe_key: Some("add_start_routine".to_string()),
                 payload_json: serde_json::json!({
                     "type": "add_start_routine",
@@ -7091,7 +7091,7 @@ mod tests {
                     title: Some("Increase commute buffer".to_string()),
                     summary: None,
                     priority: 70,
-                    confidence: Some(0.66),
+                    confidence: Some("0.66".to_string()),
                     dedupe_key: None,
                     payload_json: serde_json::json!({
                         "type": "increase_commute_buffer",
@@ -7121,7 +7121,7 @@ mod tests {
                     title: Some("Add follow-up block".to_string()),
                     summary: None,
                     priority: 50,
-                confidence: Some(0.66),
+                confidence: Some("0.66".to_string()),
                     dedupe_key: None,
                     payload_json: serde_json::json!({
                         "type": "add_followup_block",
@@ -7308,7 +7308,7 @@ mod tests {
                 title: Some("Increase prep window".to_string()),
                 summary: None,
                 priority: 60,
-                confidence: Some(0.66),
+                confidence: Some("0.66".to_string()),
                 dedupe_key: Some("increase_prep_window".to_string()),
                 payload_json: serde_json::json!({
                     "type": "increase_prep_window",

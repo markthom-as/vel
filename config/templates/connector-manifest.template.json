@@ -1,0 +1,19 @@
+{
+  "integration_family": "{{family}}",
+  "provider_key": "{{provider_key}}",
+  "source_mode": "{{source_mode}}",
+  "auth_mode": "{{auth_mode}}",
+  "read_capabilities": [],
+  "write_capabilities": [],
+  "secret_mode": "{{secret_mode}}",
+  "config_keys": [],
+  "freshness_sla_seconds": 3600,
+  "emits": {
+    "signals": [],
+    "entities": []
+  },
+  "allowed_hosts": [],
+  "output_entities": [],
+  "provenance_fields": [],
+  "requires_review_for_writes": true
+}

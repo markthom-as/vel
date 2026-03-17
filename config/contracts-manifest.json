@@ -68,6 +68,18 @@
       "path": "configs/models/templates/routing.template.toml",
       "kind": "model_routing_template",
       "schema": "config/schemas/model-routing.schema.json"
+    },
+    {
+      "id": "connector_manifest_template",
+      "path": "config/templates/connector-manifest.template.json",
+      "kind": "connector_manifest_template",
+      "schema": "config/schemas/connector-manifest.schema.json"
+    },
+    {
+      "id": "self_model_envelope_template",
+      "path": "config/templates/self-model-envelope.template.json",
+      "kind": "self_model_envelope_template",
+      "schema": "config/schemas/self-model-envelope.schema.json"
     }
   ],
   "contract_examples": [

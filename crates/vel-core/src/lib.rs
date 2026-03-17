@@ -128,6 +128,44 @@ impl Display for JobStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum WorkAssignmentStatus {
+    Assigned,
+    Started,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl Display for WorkAssignmentStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::Assigned => "assigned",
+            Self::Started => "started",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+        };
+        f.write_str(value)
+    }
+}
+
+impl std::str::FromStr for WorkAssignmentStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "assigned" => Ok(Self::Assigned),
+            "started" => Ok(Self::Started),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => Err(format!("unknown work assignment status: {}", s)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SuggestionFeedback {
     Dismiss,
     Correct,

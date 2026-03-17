@@ -31,8 +31,9 @@ pub(crate) async fn insert_suggestion_v2_in_tx(
     let decision_context_str = input
         .decision_context_json
         .as_ref()
-        .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string()));
-
+        .map(serde_json::to_string)
+        .transpose()
+        .map_err(|error| StorageError::Validation(error.to_string()))?;
     sqlx::query(
         r#"
         INSERT INTO suggestions (
@@ -47,7 +48,8 @@ pub(crate) async fn insert_suggestion_v2_in_tx(
             payload_json,
             decision_context_json,
             created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(&id)
@@ -55,9 +57,9 @@ pub(crate) async fn insert_suggestion_v2_in_tx(
     .bind(&input.state)
     .bind(&input.title)
     .bind(&input.summary)
-    .bind(input.priority as i64)
-    .bind(input.confidence)
-    .bind(&input.dedupe_key)
+    .bind(input.priority)
+    .bind(input.confidence.clone())
+    .bind(input.dedupe_key.clone())
     .bind(payload_str)
     .bind(decision_context_str)
     .bind(now)

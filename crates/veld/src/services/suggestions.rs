@@ -551,7 +551,7 @@ async fn persist_candidates(
                 title: Some(candidate.title),
                 summary: Some(candidate.summary),
                 priority: u32::try_from(candidate.priority.max(0)).unwrap_or_default(),
-                confidence: Some(candidate.confidence_score),
+                confidence: Some(candidate.confidence.to_string()),
                 dedupe_key: Some(candidate.dedupe_key),
                 payload_json: candidate.payload,
                 decision_context_json: Some(candidate.decision_context),
