@@ -3,11 +3,11 @@
 This guide covers the two practical ways to run Vel today:
 
 - Nix for a reproducible local or server-side runtime environment
-- Docker for a persistent NAS-style daemon deployment
+- Docker/Podman for a persistent NAS-style daemon deployment
 
 Use Nix when you want a host-managed setup with the toolchain available directly on the machine.
 
-Use Docker when you want a simple always-on daemon with one persistent volume and minimal host setup.
+Use Docker or Podman when you want a simple always-on daemon with one persistent volume and minimal host setup.
 
 ## What you are deploying
 
@@ -82,7 +82,7 @@ nix-shell --run 'cargo run -p veld'
 
 This is the preferred non-container path if you want full host visibility and direct filesystem control.
 
-## Option 2: Docker
+## Option 2: Docker Or Podman
 
 The repo ships:
 
@@ -91,19 +91,33 @@ The repo ships:
 
 This path is intended for NAS or always-on daemon use.
 
+The compose workflow is runtime-agnostic through the repo helper scripts:
+
+- `make container-build`
+- `make container-up`
+- `make container-down`
+- `make container-config`
+
+They auto-detect `docker`, then `podman`, then `podman-compose`. You can also force a runtime:
+
+```bash
+CONTAINER_RUNTIME=docker make container-up
+CONTAINER_RUNTIME=podman make container-up
+```
+
 ### Start it
 
 From the repo root:
 
 ```bash
 mkdir -p var/docker/vel
-docker compose up -d --build
+make container-up
 ```
 
 Then verify:
 
 ```bash
-docker compose ps
+make container-config
 curl http://127.0.0.1:4130/v1/health
 ```
 
@@ -165,12 +179,12 @@ If you want the deployed daemon to ingest local snapshots or exported files, con
 - `VEL_NOTES_PATH`
 - `VEL_TRANSCRIPT_SNAPSHOT_PATH`
 
-These can point to host paths in a Nix-hosted run, or mounted container paths in Docker.
+These can point to host paths in a Nix-hosted run, or mounted container paths in Docker/Podman.
 
 ## Which path to choose
 
 - Choose Nix if you want direct host execution, a reproducible shell, and easier debugging.
-- Choose Docker if you want the cleanest NAS deployment with one persistent bind mount and automatic restart behavior.
+- Choose Docker/Podman if you want the cleanest NAS deployment with one persistent bind mount and automatic restart behavior.
 
 ## Updating
 
@@ -182,14 +196,14 @@ nix-shell --run 'cargo run -p veld'
 
 after pulling the latest code.
 
-For Docker:
+For Docker/Podman:
 
 ```bash
-docker compose up -d --build
+make container-up
 ```
 
-To stop the Docker deployment:
+To stop the container deployment:
 
 ```bash
-docker compose down
+make container-down
 ```

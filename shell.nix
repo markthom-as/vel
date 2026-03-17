@@ -18,6 +18,8 @@ pkgs.mkShell {
     nodePackages.npm
     pkg-config
     openssl
+    podman
+    podman-compose
     obsidian
     obsidian-export
     swift

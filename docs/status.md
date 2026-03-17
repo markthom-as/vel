@@ -25,7 +25,7 @@ This file should answer four questions quickly:
 - **Run timing** — API and CLI expose `duration_ms` (derived from started_at/finished_at) on run list and run detail.
 - **Runtime invariants** — Documented in runtime-concepts: run_started precedes run_succeeded; artifact_written/refs_created before run_succeeded; run_failed does not produce artifact refs; run_succeeded implies artifact durability.
 - **CLI** — `vel health`, `vel capture`, `vel search`, `vel today`, `vel morning`, `vel end-of-day`, `vel doctor`, `vel inspect capture <id>`, `vel runs`, `vel run inspect <id>` (duration, artifact size e.g. 3.4KB, event timestamps in CLI).
-- **Container packaging** — Dockerfile plus `docker-compose.yml` for NAS/local daemon deployment of `veld` with persistent `/data` storage, port `4130`, and CLI-backed healthcheck.
+- **Container packaging** — Dockerfile plus `docker-compose.yml` for Docker or Podman NAS/local daemon deployment of `veld` with persistent `/data` storage, port `4130`, and CLI-backed healthcheck.
 - **Nix-hosted runtime path** — `shell.nix` now includes the Rust/Node/OpenSSL toolchain needed to build and run Vel reproducibly with `nix-shell`, plus repo-level `make nix-*` helper targets.
 - **Crate boundaries** — Domain types (ContextCapture, SearchResult, OrientationSnapshot) live in `vel-core`; storage returns them; API layer maps to DTOs. `vel-storage` does not depend on `vel-api-types`.
 - **Run events uniqueness** — `(run_id, seq)` unique on `run_events`.

@@ -38,11 +38,11 @@ If you are using the reproducible Nix path instead of a host-installed toolchain
 make nix-dev-api
 ```
 
-If you are using the Docker/NAS path, use:
+If you are using the Docker/Podman NAS path, use:
 
 ```bash
-docker compose ps
-docker compose logs veld
+./scripts/container-compose.sh ps
+./scripts/container-compose.sh logs veld
 ```
 
 If the daemon still does not start cleanly, use `vel doctor` and inspect the configured `db_path` and `artifact_root`.

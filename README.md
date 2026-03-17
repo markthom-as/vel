@@ -80,7 +80,7 @@ cargo run -p vel-cli -- config show
 Vel now ships two practical runtime paths beyond ad hoc local development:
 
 - Nix-hosted execution via [shell.nix](shell.nix)
-- Docker/NAS deployment via [docker-compose.yml](docker-compose.yml)
+- Docker/Podman/NAS deployment via [docker-compose.yml](docker-compose.yml)
 
 The full setup guide for both is in [docs/user/deployment.md](docs/user/deployment.md).
 

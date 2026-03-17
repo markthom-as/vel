@@ -1,7 +1,7 @@
 # Vel — top-level build and dev
 # veld binds 127.0.0.1:4130 by default; web client uses VITE_API_URL (default http://localhost:4130).
 
-.PHONY: build build-api build-web clean dev dev-api dev-web download-chat-model check-llm-setup check-apple-swift install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data docker-build docker-up docker-down nix-shell-info nix-dev-api nix-build
+.PHONY: build build-api build-web clean dev dev-api dev-web download-chat-model check-llm-setup check-apple-swift install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data container-build container-up container-down container-config docker-build docker-up docker-down podman-build podman-up podman-down nix-shell-info nix-dev-api nix-build
 
 build: build-api build-web
 
@@ -76,14 +76,32 @@ smoke:
 bootstrap-demo-data:
 	./scripts/bootstrap-demo-data.sh
 
-docker-build:
-	docker build -t veld:latest .
+container-build:
+	./scripts/container-build.sh veld:latest
 
-docker-up:
-	docker compose up -d --build
+container-up:
+	./scripts/container-compose.sh up -d --build
 
-docker-down:
-	docker compose down
+container-down:
+	./scripts/container-compose.sh down
+
+container-config:
+	./scripts/container-compose.sh config
+
+docker-build: container-build
+
+docker-up: container-up
+
+docker-down: container-down
+
+podman-build:
+	CONTAINER_RUNTIME=podman ./scripts/container-build.sh veld:latest
+
+podman-up:
+	CONTAINER_RUNTIME=podman ./scripts/container-compose.sh up -d --build
+
+podman-down:
+	CONTAINER_RUNTIME=podman ./scripts/container-compose.sh down
 
 nix-shell-info:
 	nix-shell --run 'rustc --version && cargo --version && node --version && npm --version'
