@@ -33,6 +33,11 @@ const COMPONENT_SPECS: &[ComponentSpec] = &[
         description: "Ingest local workstation activity snapshots into signals.",
     },
     ComponentSpec {
+        id: "health",
+        name: "Health",
+        description: "Ingest local health/activity snapshots into signals.",
+    },
+    ComponentSpec {
         id: "git",
         name: "Git",
         description: "Ingest local git activity snapshots into signals.",
@@ -270,6 +275,11 @@ async fn restart_activity(storage: &Storage, config: &AppConfig) -> Result<Strin
     Ok(format!("Activity ingest complete: {} signals", signals))
 }
 
+async fn restart_health(storage: &Storage, config: &AppConfig) -> Result<String, AppError> {
+    let signals = adapters::health::ingest(storage, config).await?;
+    Ok(format!("Health ingest complete: {} signals", signals))
+}
+
 async fn restart_git(storage: &Storage, config: &AppConfig) -> Result<String, AppError> {
     let signals = adapters::git::ingest(storage, config).await?;
     Ok(format!("Git ingest complete: {} signals", signals))
@@ -311,6 +321,7 @@ async fn restart_component_by_id(
         "google-calendar" => restart_google(storage, config).await,
         "todoist" => restart_todoist(storage, config).await,
         "activity" => restart_activity(storage, config).await,
+        "health" => restart_health(storage, config).await,
         "git" => restart_git(storage, config).await,
         "messaging" => restart_messaging(storage, config).await,
         "notes" => restart_notes(storage, config).await,

@@ -98,7 +98,7 @@ calendar_ics_path = "var/integrations/calendar/local.ics"
 todoist_snapshot_path = "var/integrations/todoist/snapshot.json"
 ```
 
-On macOS, `veld` also auto-discovers local source files for `activity`, `messaging`, `notes`, `git`, and `transcripts` under `~/Library/Application Support/Vel/...` when present, then performs a startup bootstrap sync so those sources can influence current context without manual path entry.
+On macOS, `veld` also auto-discovers local source files for `activity`, `health`, `messaging`, `notes`, `git`, and `transcripts` under `~/Library/Application Support/Vel/...` when present, then performs a startup bootstrap sync so those sources can influence current context without manual path entry.
 
 ## Operator commands
 

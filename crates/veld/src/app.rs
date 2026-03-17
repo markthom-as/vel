@@ -6312,7 +6312,7 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let data = json["data"].as_array().expect("components array");
-        assert_eq!(data.len(), 8);
+        assert_eq!(data.len(), 9);
         let ids: Vec<&str> = data
             .iter()
             .map(|entry| entry["id"].as_str().unwrap_or_default())
@@ -6320,6 +6320,7 @@ END:VCALENDAR
         assert!(ids.contains(&"google-calendar"));
         assert!(ids.contains(&"todoist"));
         assert!(ids.contains(&"activity"));
+        assert!(ids.contains(&"health"));
         assert!(ids.contains(&"git"));
         assert!(ids.contains(&"messaging"));
         assert!(ids.contains(&"notes"));
