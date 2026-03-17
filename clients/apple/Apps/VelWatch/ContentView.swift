@@ -20,6 +20,21 @@ struct ContentView: View {
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
+                if store.pendingActionCount > 0 {
+                    Text("Queued: \(store.pendingActionCount)")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+            }
+            if store.activeNudgeID != nil {
+                Section("Actions") {
+                    Button("Done") {
+                        Task { await store.markTopNudgeDone() }
+                    }
+                    Button("Snooze 10m") {
+                        Task { await store.snoozeTopNudge(minutes: 10) }
+                    }
+                }
             }
             Section("Docs") {
                 Text("Core: docs/status.md")

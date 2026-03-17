@@ -38,6 +38,7 @@ public final class VelOfflineStore {
         static let currentContext = "vel.cached.current_context"
         static let nudges = "vel.cached.nudges"
         static let commitments = "vel.cached.commitments"
+        static let signals = "vel.cached.signals"
         static let queuedActions = "vel.queued.actions"
     }
 
@@ -73,6 +74,14 @@ public final class VelOfflineStore {
 
     public func saveCachedCommitments(_ commitments: [CommitmentData]) {
         encode(commitments, forKey: Keys.commitments)
+    }
+
+    public func cachedSignals() -> [SignalData] {
+        decode([SignalData].self, forKey: Keys.signals) ?? []
+    }
+
+    public func saveCachedSignals(_ signals: [SignalData]) {
+        encode(signals, forKey: Keys.signals)
     }
 
     public func queuedActions() -> [QueuedAction] {

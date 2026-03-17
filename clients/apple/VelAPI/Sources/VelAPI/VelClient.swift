@@ -34,6 +34,23 @@ public final class VelClient {
         try await get("/v1/context/current")
     }
 
+    // MARK: - Signals / activity
+
+    public func signals(
+        signalType: String? = nil,
+        sinceTs: Int? = nil,
+        limit: Int = 50
+    ) async throws -> [SignalData] {
+        var items = ["limit=\(max(limit, 1))"]
+        if let signalType, !signalType.isEmpty {
+            items.append("signal_type=\(signalType.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? signalType)")
+        }
+        if let sinceTs {
+            items.append("since_ts=\(sinceTs)")
+        }
+        return try await get("/v1/signals?\(items.joined(separator: "&"))")
+    }
+
     // MARK: - Nudges
 
     public func nudges() async throws -> [NudgeData] {
@@ -129,7 +146,9 @@ public final class VelClient {
     }
 
     private func request(path: String, method: String, body: Data?) async throws -> Data {
-        let url = baseURL.appendingPathComponent(String(path.dropFirst()))
+        guard let url = URL(string: path, relativeTo: baseURL) else {
+            throw VelClientError.apiError("Invalid URL path: \(path)")
+        }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")

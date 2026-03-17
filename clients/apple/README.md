@@ -3,8 +3,8 @@
 Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel daemon (veld)** over HTTP; no business logic in the client.
 
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
-- **VeliOS** — iPhone: context, nudges, commitments, quick capture, offline cache + queued actions.
-- **VelWatch** — Apple Watch: brief “what matters now”, nudge count, cached fallback.
+- **VeliOS** — iPhone: Today/Nudges/Activity/Voice/Settings shell, quick capture + push-to-talk voice capture, offline cache + queued actions.
+- **VelWatch** — Apple Watch: brief “what matters now”, nudge quick actions (done/snooze), cached fallback.
 - **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages snapshot export into Vel’s Application Support tree.
 
 Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-client-spec.md), [vel-rust-swift-boundary-spec](../../docs/specs/vel-rust-swift-boundary-spec.md) (Rust = brain, Swift = body; API-first), [vel-apple-offline-mode-spec](../../docs/specs/vel-apple-offline-mode-spec.md) (cache + action queue + stale-aware offline mode). Repo guidance: [docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md](../../docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md) (Apple clients in same repo, under `clients/apple/`).
@@ -72,6 +72,13 @@ Current guardrails:
 - queued actions are replayed in insertion order
 - on first replay failure, remaining actions stay queued for next retry
 - cache is best-effort and can be overwritten by canonical server state after reconnect
+
+Voice capture notes:
+
+- iOS Voice tab uses push-to-talk only (no always-listening mode)
+- requires microphone + speech recognition permission
+- submissions preserve transcript provenance as a `voice_note` capture
+- transcript preview can be routed to commitment creation when appropriate
 
 Bootstrap metadata now also advertises node execution capabilities:
 
@@ -177,6 +184,7 @@ clients/apple/
 - `GET /v1/health` — reachability.
 - `GET /v1/cluster/bootstrap` — node/transport metadata.
 - `GET /v1/sync/bootstrap` — cache hydration for current context, nudges, and commitments.
+- `GET /v1/signals?limit=` — recent activity feed on iOS.
 - `GET /v1/sync/cluster` — cluster/node/worker inspection metadata for transport and capacity-aware clients.
 - `POST /v1/sync/actions` — queued low-risk client actions (`nudge_done`, `nudge_snooze`, `commitment_done`, `commitment_create`, `capture_create`).
 

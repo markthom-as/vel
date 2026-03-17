@@ -17,6 +17,8 @@ final class VelWatchStore: ObservableObject {
     @Published var message: String = "Vel"
     @Published var nudgeCount: Int = 0
     @Published var transport: String?
+    @Published var activeNudgeID: String?
+    @Published var pendingActionCount: Int = 0
 
     init() {
         let initial = VelAPI.VelEndpointResolver.candidateBaseURLs().first
@@ -29,10 +31,13 @@ final class VelWatchStore: ObservableObject {
         var hasCachedContent = false
         if !cached.isEmpty {
             hasCachedContent = true
+            let active = cached.filter { $0.state == "active" || $0.state == "snoozed" }
             await MainActor.run {
-                nudgeCount = cached.filter { $0.state == "active" || $0.state == "snoozed" }.count
-                message = cached.first(where: { $0.state == "active" || $0.state == "snoozed" })?.message ?? "No nudges"
+                nudgeCount = active.count
+                message = active.first?.message ?? "No nudges"
                 transport = "cached"
+                activeNudgeID = active.first?.nudge_id
+                pendingActionCount = offlineStore.pendingActionCount()
             }
         }
         for candidate in VelAPI.VelEndpointResolver.candidateBaseURLs() {
@@ -46,6 +51,8 @@ final class VelWatchStore: ObservableObject {
                     nudgeCount = active.count
                     message = active.first?.message ?? "No nudges"
                     transport = bootstrap.cluster.sync_transport
+                    activeNudgeID = active.first?.nudge_id
+                    pendingActionCount = offlineStore.pendingActionCount()
                 }
                 return
             } catch {
@@ -60,6 +67,29 @@ final class VelWatchStore: ObservableObject {
                 transport = nil
                 message = "Offline"
             }
+            pendingActionCount = offlineStore.pendingActionCount()
         }
+    }
+
+    func markTopNudgeDone() async {
+        guard let nudgeID = activeNudgeID else { return }
+        do {
+            _ = try await client.nudgeDone(id: nudgeID)
+        } catch {
+            offlineStore.enqueueNudgeDone(id: nudgeID)
+        }
+        pendingActionCount = offlineStore.pendingActionCount()
+        await refresh()
+    }
+
+    func snoozeTopNudge(minutes: Int = 10) async {
+        guard let nudgeID = activeNudgeID else { return }
+        do {
+            _ = try await client.nudgeSnooze(id: nudgeID, minutes: minutes)
+        } catch {
+            offlineStore.enqueueNudgeSnooze(id: nudgeID, minutes: minutes)
+        }
+        pendingActionCount = offlineStore.pendingActionCount()
+        await refresh()
     }
 }
