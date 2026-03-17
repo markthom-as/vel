@@ -5,28 +5,17 @@ use axum::{extract::Path, extract::State, Json};
 use uuid::Uuid;
 use vel_api_types::{ApiResponse, RiskData};
 
-use crate::services::risk::snapshot_from_row;
+use crate::services::risk::{list_latest_snapshots, snapshot_from_row};
 use crate::{errors::AppError, state::AppState};
 
 /// GET /v1/risk — list latest risk per commitment from storage (read-only).
 pub async fn list_risk(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<Vec<RiskData>>>, AppError> {
-    let rows = state.storage.list_commitment_risk_latest_all().await?;
-    let data: Vec<RiskData> = rows
+    let data: Vec<RiskData> = list_latest_snapshots(&state.storage)
+        .await?
         .into_iter()
-        .map(
-            |(_, commitment_id, risk_score, risk_level, factors_json, computed_at)| {
-                let snapshot = snapshot_from_row(
-                    commitment_id,
-                    risk_score,
-                    risk_level,
-                    &factors_json,
-                    Some(computed_at),
-                );
-                RiskData::from(snapshot)
-            },
-        )
+        .map(RiskData::from)
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))

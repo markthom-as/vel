@@ -25,6 +25,29 @@ pub struct RiskSnapshot {
 }
 
 impl RiskSnapshot {
+    pub fn new(
+        commitment_id: String,
+        risk_score: f64,
+        risk_level: String,
+        factors: RiskFactors,
+        computed_at: Option<i64>,
+    ) -> Self {
+        let normalized = match risk_level.as_str() {
+            "low" => "low",
+            "medium" => "medium",
+            "high" => "high",
+            "critical" => "critical",
+            _ => "unknown",
+        };
+        Self {
+            commitment_id,
+            risk_score,
+            risk_level: normalized.to_string(),
+            factors,
+            computed_at,
+        }
+    }
+
     pub fn normalized_level(&self) -> &str {
         match self.risk_level.as_str() {
             "low" => "low",
@@ -66,11 +89,11 @@ mod tests {
     use super::{sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
 
     fn snapshot(level: &str) -> RiskSnapshot {
-        RiskSnapshot {
-            commitment_id: "com_1".to_string(),
-            risk_score: 0.75,
-            risk_level: level.to_string(),
-            factors: RiskFactors {
+        RiskSnapshot::new(
+            "com_1".to_string(),
+            0.75,
+            level.to_string(),
+            RiskFactors {
                 consequence: 0.0,
                 proximity: 0.0,
                 dependency_pressure: 0.0,
@@ -79,8 +102,8 @@ mod tests {
                 reasons: Vec::new(),
                 dependency_ids: Vec::new(),
             },
-            computed_at: Some(123),
-        }
+            Some(123),
+        )
     }
 
     #[test]
@@ -107,34 +130,34 @@ mod tests {
     #[test]
     fn sort_snapshots_by_priority_desc_prefers_severity_then_score_then_time() {
         let mut snapshots = vec![
-            RiskSnapshot {
-                commitment_id: "com_low".to_string(),
-                risk_score: 0.95,
-                risk_level: "low".to_string(),
-                factors: snapshot("low").factors,
-                computed_at: Some(5),
-            },
-            RiskSnapshot {
-                commitment_id: "com_high_old".to_string(),
-                risk_score: 0.80,
-                risk_level: "high".to_string(),
-                factors: snapshot("high").factors,
-                computed_at: Some(10),
-            },
-            RiskSnapshot {
-                commitment_id: "com_high_new".to_string(),
-                risk_score: 0.80,
-                risk_level: "high".to_string(),
-                factors: snapshot("high").factors,
-                computed_at: Some(20),
-            },
-            RiskSnapshot {
-                commitment_id: "com_critical".to_string(),
-                risk_score: 0.76,
-                risk_level: "critical".to_string(),
-                factors: snapshot("critical").factors,
-                computed_at: Some(1),
-            },
+            RiskSnapshot::new(
+                "com_low".to_string(),
+                0.95,
+                "low".to_string(),
+                snapshot("low").factors,
+                Some(5),
+            ),
+            RiskSnapshot::new(
+                "com_high_old".to_string(),
+                0.80,
+                "high".to_string(),
+                snapshot("high").factors,
+                Some(10),
+            ),
+            RiskSnapshot::new(
+                "com_high_new".to_string(),
+                0.80,
+                "high".to_string(),
+                snapshot("high").factors,
+                Some(20),
+            ),
+            RiskSnapshot::new(
+                "com_critical".to_string(),
+                0.76,
+                "critical".to_string(),
+                snapshot("critical").factors,
+                Some(1),
+            ),
         ];
 
         sort_snapshots_by_priority_desc(&mut snapshots);
@@ -147,5 +170,19 @@ mod tests {
             ordered_ids,
             vec!["com_critical", "com_high_new", "com_high_old", "com_low"]
         );
+    }
+
+    #[test]
+    fn new_normalizes_unrecognized_levels_to_unknown() {
+        let snapshot = RiskSnapshot::new(
+            "com_x".to_string(),
+            0.4,
+            "danger".to_string(),
+            snapshot("low").factors,
+            Some(1),
+        );
+
+        assert_eq!(snapshot.risk_level, "unknown");
+        assert_eq!(snapshot.normalized_level(), "unknown");
     }
 }

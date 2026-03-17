@@ -128,13 +128,13 @@ pub fn snapshot_from_row(
     factors_json: &str,
     computed_at: Option<i64>,
 ) -> RiskSnapshot {
-    RiskSnapshot {
+    RiskSnapshot::new(
         commitment_id,
         risk_score,
         risk_level,
-        factors: decode_factors_json(factors_json),
+        decode_factors_json(factors_json),
         computed_at,
-    }
+    )
 }
 
 pub async fn list_latest_snapshots(
@@ -296,6 +296,20 @@ mod tests {
             vec!["com_parent".to_string()]
         );
         assert_eq!(snapshot.computed_at, Some(123));
+    }
+
+    #[test]
+    fn snapshot_from_row_normalizes_unknown_levels() {
+        let snapshot = snapshot_from_row(
+            "com_1".to_string(),
+            0.4,
+            "danger".to_string(),
+            r#"{"consequence":0.0,"proximity":0.0,"dependency_pressure":0.0,"external_anchor":0.0,"stale_open_age":0.0,"reasons":[],"dependency_ids":[]}"#,
+            Some(123),
+        );
+
+        assert_eq!(snapshot.risk_level, "unknown");
+        assert_eq!(snapshot.normalized_level(), "unknown");
     }
 
     #[test]

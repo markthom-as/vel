@@ -684,10 +684,11 @@ impl From<RiskFactors> for RiskFactorsData {
 
 impl From<RiskSnapshot> for RiskData {
     fn from(snapshot: RiskSnapshot) -> Self {
+        let normalized_level = snapshot.normalized_level().to_string();
         Self {
             commitment_id: snapshot.commitment_id,
             risk_score: snapshot.risk_score,
-            risk_level: snapshot.risk_level,
+            risk_level: normalized_level,
             factors: snapshot.factors.into(),
             computed_at: snapshot.computed_at,
         }
