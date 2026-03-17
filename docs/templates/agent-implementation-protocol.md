@@ -22,6 +22,7 @@ The goal is not just to produce code quickly. The goal is to produce small, revi
 ## 3. Execution (The "Act" Phase)
 - **Surgical Changes**: Make targeted edits that stay tightly aligned with the ticket objective.
 - **Red/Green by default**: For logic changes, prefer writing or extending a failing test first, then implement until it passes.
+- **Contract-first discipline**: For shared data/config surfaces, update or add schema/manifest and canonical template/fixture artifacts before widening implementation.
 - **Transactional Logic**: When modifying `veld` services, ensure that multi-repo writes are wrapped in a single database transaction using the repository pattern.
 - **Boundary protection**: Do not normalize current architectural drift by copying it into new code.
 - **Error handling discipline**: Let errors propagate to the boundary that can map them correctly; avoid swallowing failures in the middle of the stack.
@@ -29,6 +30,7 @@ The goal is not just to produce code quickly. The goal is to produce small, revi
 - **Sandbox discipline**: New code-execution or tool-execution paths should run in the narrowest isolated environment available.
 - **Secret mediation**: Prefer brokered capabilities, scoped tokens, or boundary-time injection over handing raw secrets to agents or clients.
 - **Fail closed**: Unknown routes, unsupported tool actions, and unmatched external-access requests should reject safely by default.
+- **Repo-aware supervision**: Self-modification paths must keep read scope broader than write scope, with explicit writable boundaries and review gates.
 - **Style Alignment**: Adhere to existing naming, formatting, typing, and module-boundary conventions.
 
 ## 4. Verification & Validation

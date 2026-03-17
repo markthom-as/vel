@@ -2,6 +2,8 @@
 
 - **Profile tomls** — One file per model/backend (e.g. `local-qwen3-coder.toml`, `local-qwen25-fast.toml`). Required: `id`, `provider`, `base_url`, `model`. Optional: `context_window`, `max_output_tokens`, `temperature`, `supports_tools`, `supports_json`, `enabled`.
 - **routing.toml** — `[default]` section: task class → profile id (e.g. `chat = "local-qwen3-coder"`, `summarize = "local-qwen25-fast"`).
+- **Template files** — `templates/profile.template.toml` and `templates/routing.template.toml` provide canonical starter shapes.
+- **Schema files** — `config/schemas/model-profile.schema.json` and `config/schemas/model-routing.schema.json` define machine-readable contracts.
 
 Load via `vel_config::load_model_profiles("configs/models")` and `vel_config::load_routing("configs/models/routing.toml")`. Invalid or duplicate configs fail on startup. See `crates/vel-config/src/models.rs` and docs/llm-backend-plan/.
 

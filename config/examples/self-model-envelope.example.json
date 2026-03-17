@@ -5,8 +5,8 @@
     "docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md"
   ],
   "relevant_tickets": [
-    "021-canonical-schema-and-config-contracts.md",
-    "023-self-awareness-and-supervised-self-modification.md"
+    "023-self-awareness-and-supervised-self-modification.md",
+    "017-execution-tracing-reviewability.md"
   ],
   "read_scopes": [
     "docs/**",
@@ -15,12 +15,19 @@
   ],
   "write_scopes": [
     "docs/cognitive-agent-architecture/**",
-    "config/**"
+    "config/templates/**"
   ],
   "required_checks": [
     "node scripts/verify-repo-truth.mjs",
     "cargo test -p vel-config",
     "cargo test -p veld policy_config"
   ],
-  "review_gate": "operator_or_ticket_policy"
+  "review_gate": "explicit_operator_or_ticket_policy",
+  "approval_classes": [
+    "security_boundary",
+    "auth_surface",
+    "secret_handling",
+    "sandbox_rule",
+    "repo_write_scope_expansion"
+  ]
 }

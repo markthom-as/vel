@@ -9,6 +9,8 @@ updated: 2026-03-17
 depends_on:
   - 015-http-surface-auth-hardening
   - 006-connect-launch-protocol
+  - 022-data-sources-and-connector-architecture
+  - 024-machine-readable-schema-and-manifest-publication
 labels:
   - veld
   - connect

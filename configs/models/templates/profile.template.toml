@@ -1,14 +1,9 @@
-# Model profile template for configs/models/*.toml.
-# Required keys: id, provider, base_url, model
-
-id = "local-template-profile"
+id = "local-primary-profile"
 provider = "llama_cpp"
 base_url = "http://127.0.0.1:8012/v1"
-model = "qwen-template-model"
-
-# Optional tuning fields:
-context_window = 8192
-max_output_tokens = 2048
+model = "primary-model"
+context_window = 16384
+max_output_tokens = 4096
 temperature = 0.2
 supports_tools = true
 supports_json = true

@@ -1,12 +1,9 @@
-# Task class -> profile id mapping template.
-# Keep this shape aligned with config/schemas/model-routing.schema.json.
-
 [default]
-chat = "local-template-profile"
-codegen = "local-template-profile"
-tool_use = "local-template-profile"
-summarize = "local-template-profile"
-classify = "local-template-profile"
-rename = "local-template-profile"
-commit_message = "local-template-profile"
-fallback_remote = "oauth-openai"
+chat = "local-primary-profile"
+codegen = "local-primary-profile"
+tool_use = "local-primary-profile"
+summarize = "local-fast-profile"
+classify = "local-fast-profile"
+rename = "local-fast-profile"
+commit_message = "local-fast-profile"
+fallback_remote = "remote-review-profile"

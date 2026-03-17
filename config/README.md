@@ -1,34 +1,76 @@
-# Vel Config Contract Pack
+# Vel Config Asset Map
 
-This directory contains the canonical configuration assets for Vel:
+This directory is the canonical entrypoint for checked-in configuration assets that support Vel's runtime contracts.
 
-- live config files used by runtime or operators
-- checked-in templates for authoring new config files
-- JSON schema contracts for machine-readable validation
-- example JSON artifacts for connector and self-model envelopes
-- a machine-readable contracts manifest for indexers and tooling
+Use it to answer four questions quickly:
 
-The files in `config/` are part of the architecture contract layer and should stay aligned with:
+1. which files are live configuration
+2. which files are templates or examples
+3. which files are machine-readable schemas
+4. where the canonical contract manifest lives
 
-- `crates/vel-config/src/lib.rs`
-- `crates/vel-config/src/models.rs`
-- `crates/veld/src/policy_config.rs`
-- `docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md`
+## Asset Classes
 
-## Layout
+- Live configs:
+  - `../vel.toml`
+  - `agent-specs.yaml`
+  - `policies.yaml`
+  - `../configs/models/*.toml`
+  - `../configs/models/routing.toml`
+- Templates:
+  - `templates/vel.toml.template`
+  - `templates/agent-specs.template.yaml`
+  - `templates/policies.template.yaml`
+  - `../configs/models/templates/profile.template.toml`
+  - `../configs/models/templates/routing.template.toml`
+- Machine-readable schemas:
+  - `schemas/app-config.schema.json`
+  - `schemas/agent-specs.schema.json`
+  - `schemas/policies.schema.json`
+  - `schemas/model-profile.schema.json`
+  - `schemas/model-routing.schema.json`
+  - `schemas/connector-manifest.schema.json`
+  - `schemas/self-model-envelope.schema.json`
+- Examples and manifests:
+  - `examples/connector-manifest.example.json`
+  - `examples/self-model-envelope.example.json`
+  - `contracts-manifest.json`
 
-- `agent-specs.yaml`: live agent spec config used by runtime defaults
-- `policies.yaml`: live policy config loaded by `veld`
-- `contracts-manifest.json`: canonical index of templates, schemas, and examples
-- `templates/vel.toml.template`: template for runtime config (`vel.toml`-compatible keys)
-- `templates/agent-specs.template.yaml`: template for agent specs
-- `templates/policies.template.yaml`: template for policy config
-- `schemas/`: machine-readable JSON schemas for major config and envelope contracts
-- `examples/`: example JSON payloads for connector manifest and self-model envelope contracts
+## Ownership Rules
 
-## Rules
+- `crates/vel-config` owns runtime config, agent specs, model profiles, and routing config.
+- `crates/veld/src/policy_config.rs` owns policy config loading and runtime interpretation.
+- `docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md` owns the contract map and schema-governance rules.
+- `docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md` owns connector vocabulary and manifest semantics.
+- `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md` owns self-model and writable-scope semantics.
 
-- Keep templates parseable and close to real runtime shapes.
-- Keep schemas additive when possible and avoid breaking required fields without a migration plan.
-- Do not treat templates as hidden runtime truth; runtime truth comes from loaded files and code.
-- If you update a config shape in code, update the matching template and schema in the same change.
+## Scientific Substrate vs Symbolic Layer
+
+Vel should keep its measurable substrate separate from its interpretive outputs.
+
+- Scientific substrate:
+  - configs
+  - templates
+  - schemas
+  - manifests
+  - traces
+  - persisted records
+- Symbolic layer:
+  - syntheses
+  - hypotheses
+  - suggestions
+  - narratives
+  - reflective proposals
+
+Symbolic outputs may reference the scientific substrate, but they must not silently override it.
+
+## Maintenance Rule
+
+When a durable config or contract changes, update these together in one slice when applicable:
+
+1. the loader or typed owner in code
+2. the checked-in live config or example
+3. the checked-in template
+4. the machine-readable schema or manifest
+5. the governing architecture doc or ticket
+6. the verification that parses or checks the asset

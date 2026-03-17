@@ -53,6 +53,8 @@ This ticket makes the contract layer explicit and keeps templates in-repo so doc
 2. **Template**: Add valid checked-in templates for runtime config, agent specs, and policy config.
 3. **Validation**: Add automated checks that parse the templates successfully.
 4. **Queue Sync**: Reference the schema catalog from affected tickets and docs instead of duplicating contract descriptions ad hoc.
+5. **Publication Handoff**: Route machine-readable contract publication to `024-machine-readable-schema-and-manifest-publication.md`.
+6. **Fixture Handoff**: Route template/fixture parity enforcement to `025-config-and-contract-fixture-parity.md`.
 
 # Acceptance Criteria
 

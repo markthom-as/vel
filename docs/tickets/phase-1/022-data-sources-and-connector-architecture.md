@@ -26,6 +26,8 @@ This ticket defines and operationalizes that contract so new integrations extend
 
 - **Docs**: `docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md`
   - **Symbols**: family list, source modes, connector contract
+- **Docs**: `docs/cognitive-agent-architecture/integrations/data-source-catalog.md`
+  - **Symbols**: concrete provider inventory, source mode mapping, rollout status
 - **Crate**: `crates/vel-core/src/integration.rs`
   - **Symbols**: `IntegrationFamily`, `IntegrationProvider`, `IntegrationConnection`, `IntegrationSourceRef`
 - **Services**: `crates/veld/src/services/integrations*.rs`
@@ -51,8 +53,9 @@ This ticket defines and operationalizes that contract so new integrations extend
 
 1. **Catalog**: Freeze the canonical family and source-mode list.
 2. **Manifest**: Define the connector contract and example manifest.
-3. **Mapping**: Align current shipped integrations to the canonical family/source-mode model.
-4. **Queue Sync**: Point future integration tickets and docs to the connector contract.
+3. **Inventory**: Keep the concrete data source catalog aligned with shipped and planned providers.
+4. **Mapping**: Align current shipped integrations to the canonical family/source-mode model.
+5. **Queue Sync**: Point future integration tickets and docs to the connector contract.
 
 # Acceptance Criteria
 

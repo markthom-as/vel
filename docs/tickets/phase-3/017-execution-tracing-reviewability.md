@@ -9,6 +9,8 @@ updated: 2026-03-17
 depends_on:
   - 006-connect-launch-protocol
   - 016-capability-broker-secret-mediation
+  - 023-self-awareness-and-supervised-self-modification
+  - 024-machine-readable-schema-and-manifest-publication
 labels:
   - veld
   - tracing

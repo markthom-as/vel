@@ -1,53 +1,95 @@
 {
-  "version": "1.0.0",
-  "updated_at": "2026-03-17",
-  "contracts": [
+  "version": 1,
+  "generated_by": "manual_repo_contract_manifest",
+  "live_configs": [
     {
-      "id": "app_config",
-      "kind": "config",
+      "id": "app_config_live",
+      "path": "vel.toml",
+      "kind": "runtime_config",
       "schema": "config/schemas/app-config.schema.json",
-      "template": "config/templates/vel.toml.template",
-      "runtime_reference": "vel.toml"
+      "owner": "crates/vel-config/src/lib.rs"
     },
     {
-      "id": "agent_specs",
-      "kind": "config",
+      "id": "agent_specs_live",
+      "path": "config/agent-specs.yaml",
+      "kind": "agent_specs",
       "schema": "config/schemas/agent-specs.schema.json",
-      "template": "config/templates/agent-specs.template.yaml",
-      "runtime_reference": "config/agent-specs.yaml"
+      "owner": "crates/vel-config/src/lib.rs"
     },
     {
-      "id": "policy_config",
-      "kind": "config",
+      "id": "policy_config_live",
+      "path": "config/policies.yaml",
+      "kind": "policy_config",
       "schema": "config/schemas/policies.schema.json",
-      "template": "config/templates/policies.template.yaml",
-      "runtime_reference": "config/policies.yaml"
+      "owner": "crates/veld/src/policy_config.rs"
     },
     {
-      "id": "model_profile",
-      "kind": "config",
+      "id": "model_profiles_live",
+      "path": "configs/models/*.toml",
+      "kind": "model_profile",
       "schema": "config/schemas/model-profile.schema.json",
-      "template": "configs/models/templates/profile.template.toml",
-      "runtime_reference": "configs/models/*.toml"
+      "owner": "crates/vel-config/src/models.rs"
     },
     {
-      "id": "model_routing",
-      "kind": "config",
+      "id": "model_routing_live",
+      "path": "configs/models/routing.toml",
+      "kind": "model_routing",
       "schema": "config/schemas/model-routing.schema.json",
-      "template": "configs/models/templates/routing.template.toml",
-      "runtime_reference": "configs/models/routing.toml"
-    },
-    {
-      "id": "connector_manifest",
-      "kind": "envelope",
-      "schema": "config/schemas/connector-manifest.schema.json",
-      "example": "config/examples/connector-manifest.example.json"
-    },
-    {
-      "id": "self_model_envelope",
-      "kind": "envelope",
-      "schema": "config/schemas/self-model-envelope.schema.json",
-      "example": "config/examples/self-model-envelope.example.json"
+      "owner": "crates/vel-config/src/models.rs"
     }
+  ],
+  "templates": [
+    {
+      "id": "app_config_template",
+      "path": "config/templates/vel.toml.template",
+      "kind": "runtime_config_template",
+      "schema": "config/schemas/app-config.schema.json"
+    },
+    {
+      "id": "agent_specs_template",
+      "path": "config/templates/agent-specs.template.yaml",
+      "kind": "agent_specs_template",
+      "schema": "config/schemas/agent-specs.schema.json"
+    },
+    {
+      "id": "policy_config_template",
+      "path": "config/templates/policies.template.yaml",
+      "kind": "policy_config_template",
+      "schema": "config/schemas/policies.schema.json"
+    },
+    {
+      "id": "model_profile_template",
+      "path": "configs/models/templates/profile.template.toml",
+      "kind": "model_profile_template",
+      "schema": "config/schemas/model-profile.schema.json"
+    },
+    {
+      "id": "model_routing_template",
+      "path": "configs/models/templates/routing.template.toml",
+      "kind": "model_routing_template",
+      "schema": "config/schemas/model-routing.schema.json"
+    }
+  ],
+  "contract_examples": [
+    {
+      "id": "connector_manifest_example",
+      "path": "config/examples/connector-manifest.example.json",
+      "kind": "connector_manifest",
+      "schema": "config/schemas/connector-manifest.schema.json"
+    },
+    {
+      "id": "self_model_envelope_example",
+      "path": "config/examples/self-model-envelope.example.json",
+      "kind": "self_model_envelope",
+      "schema": "config/schemas/self-model-envelope.schema.json"
+    }
+  ],
+  "authority_docs": [
+    "docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md",
+    "docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md",
+    "docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md",
+    "docs/tickets/phase-1/021-canonical-schema-and-config-contracts.md",
+    "docs/tickets/phase-1/022-data-sources-and-connector-architecture.md",
+    "docs/tickets/phase-1/023-self-awareness-and-supervised-self-modification.md"
   ]
 }

@@ -5,6 +5,11 @@ owner: staff-eng
 type: architecture
 priority: medium
 created: 2026-03-17
+updated: 2026-03-17
+depends_on:
+  - 022-data-sources-and-connector-architecture
+  - 023-self-awareness-and-supervised-self-modification
+  - 024-machine-readable-schema-and-manifest-publication
 labels:
   - veld
   - agentic

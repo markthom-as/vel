@@ -1,30 +1,33 @@
 {
   "integration_family": "calendar",
   "provider_key": "google_calendar",
-  "source_mode": "oauth_api",
+  "source_mode": "credential_api",
+  "auth_mode": "brokered_oauth",
   "read_capabilities": [
-    "read_events"
+    "read_events",
+    "read_calendars"
   ],
   "write_capabilities": [],
   "secret_mode": "brokered_injection",
   "config_keys": [
-    "google_client_id",
-    "google_client_secret"
+    "google_calendar.client_id",
+    "google_calendar.client_secret"
   ],
-  "source_refs": [
-    "IntegrationSourceRef"
+  "allowed_hosts": [
+    "accounts.google.com",
+    "www.googleapis.com"
   ],
   "freshness_sla_seconds": 900,
-  "emits": {
-    "signals": [
-      "calendar_event"
-    ],
-    "entities": [
-      "IntegrationConnection",
-      "IntegrationConnectionEvent"
-    ]
-  },
-  "allowed_hosts": [
-    "www.googleapis.com"
-  ]
+  "output_entities": [
+    "IntegrationConnection",
+    "IntegrationConnectionEvent",
+    "calendar_event"
+  ],
+  "provenance_fields": [
+    "family",
+    "provider_key",
+    "connection_id",
+    "external_id"
+  ],
+  "requires_review_for_writes": true
 }

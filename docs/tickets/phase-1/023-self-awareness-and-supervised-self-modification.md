@@ -9,6 +9,7 @@ updated: 2026-03-17
 depends_on:
   - 021-canonical-schema-and-config-contracts
   - 017-execution-tracing-reviewability
+  - 024-machine-readable-schema-and-manifest-publication
 labels:
   - introspection
   - self-awareness
@@ -54,7 +55,8 @@ This ticket defines that contract so repository visibility, writable scope, revi
 1. **Spec**: Define the self-model layers and scope model.
 2. **Tooling Rules**: Align tool-access and trust-and-safety docs with explicit repo read/write semantics.
 3. **Queue Sync**: Reference the self-awareness contract from later connect, sandbox, and eval work.
-4. **Future Runtime**: Use the contract to drive actual writable-scope enforcement and self-model data structures later.
+4. **Publication Sync**: Publish machine-readable self-model envelope contracts through ticket `024-machine-readable-schema-and-manifest-publication.md`.
+5. **Future Runtime**: Use the contract to drive actual writable-scope enforcement and self-model data structures later.
 
 # Acceptance Criteria
 
