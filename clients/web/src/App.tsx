@@ -8,13 +8,15 @@ import { SettingsPage } from './components/SettingsPage';
 import { Sidebar } from './components/Sidebar';
 import { invalidateQuery } from './data/query';
 import { queryKeys } from './data/resources';
-import './App.css';
+
+type MainView = 'now' | 'inbox' | 'threads';
 
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [showInbox, setShowInbox] = useState(false);
-  const [showNow, setShowNow] = useState(true);
+  const [mainView, setMainView] = useState<MainView>('now');
   const [showSettings, setShowSettings] = useState(false);
+  const showInbox = mainView === 'inbox';
+  const showNow = mainView === 'now';
 
   async function startNewConversation() {
     const res = await apiPost<ApiResponse<ConversationData>>('/api/conversations', {
@@ -23,8 +25,7 @@ function App() {
     }, (value) => decodeApiResponse(value, decodeConversationData));
     if (res.ok && res.data) {
       setSelectedConversationId(res.data.id);
-      setShowInbox(false);
-      setShowNow(false);
+      setMainView('threads');
       invalidateQuery(queryKeys.conversations(), { refetch: true });
     }
   }
@@ -44,21 +45,21 @@ function App() {
           <nav className="shrink-0 flex border-b border-zinc-800">
             <button
               type="button"
-              onClick={() => { setShowNow(true); setShowInbox(false); }}
+              onClick={() => setMainView('now')}
               className={`flex-1 px-3 py-2 text-sm ${showNow ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Now
             </button>
             <button
               type="button"
-              onClick={() => { setShowInbox(true); setShowNow(false); }}
+              onClick={() => setMainView('inbox')}
               className={`flex-1 px-3 py-2 text-sm ${showInbox ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Inbox
             </button>
             <button
               type="button"
-              onClick={() => { setShowInbox(false); setShowNow(false); }}
+              onClick={() => setMainView('threads')}
               className={`flex-1 px-3 py-2 text-sm ${!showInbox && !showNow ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Threads
@@ -66,9 +67,12 @@ function App() {
           </nav>
           <Sidebar
             selectedConversationId={selectedConversationId}
-            onSelectConversation={(id) => { setSelectedConversationId(id); setShowInbox(false); setShowNow(false); }}
+            onSelectConversation={(id) => {
+              setSelectedConversationId(id);
+              setMainView('threads');
+            }}
             onNewConversation={startNewConversation}
-            onOpenNow={() => { setShowNow(true); setShowInbox(false); }}
+            onOpenNow={() => setMainView('now')}
             onOpenSettings={() => setShowSettings(true)}
           />
         </>
