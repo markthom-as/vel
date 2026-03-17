@@ -364,8 +364,8 @@ private struct VoiceTab: View {
                         .clipShape(Capsule())
                 }
 
-                if voiceModel.suggestedIntent.requiresNudgeTarget {
-                    Text(voiceModel.targetHint(from: store.nudges))
+                if voiceModel.suggestedIntent.requiresNudgeTarget || voiceModel.suggestedIntent.requiresCommitmentTarget {
+                    Text(voiceModel.targetHint(from: store.nudges, commitments: store.commitments))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -628,6 +628,7 @@ private struct VoiceIntent: Codable, Equatable {
     enum Kind: String, Codable {
         case captureCreate = "capture_create"
         case commitmentCreate = "commitment_create"
+        case commitmentDone = "commitment_done"
         case nudgeDone = "nudge_done"
         case nudgeSnooze = "nudge_snooze"
         case queryContext = "query_context"
@@ -641,6 +642,7 @@ private struct VoiceIntent: Codable, Equatable {
 
     static let capture = VoiceIntent(kind: .captureCreate, minutes: nil)
     static let commitment = VoiceIntent(kind: .commitmentCreate, minutes: nil)
+    static let commitmentDone = VoiceIntent(kind: .commitmentDone, minutes: nil)
     static let nudgeDone = VoiceIntent(kind: .nudgeDone, minutes: nil)
     static let queryContext = VoiceIntent(kind: .queryContext, minutes: nil)
     static let queryNextCommitment = VoiceIntent(kind: .queryNextCommitment, minutes: nil)
@@ -656,6 +658,8 @@ private struct VoiceIntent: Codable, Equatable {
             return "Capture"
         case .commitmentCreate:
             return "Commitment"
+        case .commitmentDone:
+            return "Resolve commitment"
         case .nudgeDone:
             return "Resolve top nudge"
         case .nudgeSnooze:
@@ -677,6 +681,8 @@ private struct VoiceIntent: Codable, Equatable {
             return "capture_create"
         case .commitmentCreate:
             return "commitment_create"
+        case .commitmentDone:
+            return "commitment_done"
         case .nudgeDone:
             return "nudge_done"
         case .nudgeSnooze:
@@ -696,11 +702,15 @@ private struct VoiceIntent: Codable, Equatable {
         kind == .nudgeDone || kind == .nudgeSnooze
     }
 
+    var requiresCommitmentTarget: Bool {
+        kind == .commitmentDone
+    }
+
     var isQuery: Bool {
         switch kind {
         case .queryContext, .queryNextCommitment, .queryNudges, .explainContext:
             return true
-        case .captureCreate, .commitmentCreate, .nudgeDone, .nudgeSnooze:
+        case .captureCreate, .commitmentCreate, .commitmentDone, .nudgeDone, .nudgeSnooze:
             return false
         }
     }
@@ -790,6 +800,11 @@ private enum VoiceIntentParser {
             return VoiceIntentSuggestion(intent: .nudgeDone, cleanedText: clean)
         }
 
+        if isCommitmentDoneCommand(normalized) {
+            let stripped = stripCommitmentDonePreamble(from: clean)
+            return VoiceIntentSuggestion(intent: .commitmentDone, cleanedText: stripped.isEmpty ? clean : stripped)
+        }
+
         if commitmentPrefixes.contains(where: { normalized.contains($0) }) {
             let stripped = stripCommitmentPreamble(from: clean)
             return VoiceIntentSuggestion(intent: .commitment, cleanedText: stripped.isEmpty ? clean : stripped)
@@ -825,13 +840,56 @@ private enum VoiceIntentParser {
         return transcript
     }
 
+    private static func stripCommitmentDonePreamble(from transcript: String) -> String {
+        let prefixes = [
+            "mark ",
+            "set ",
+            "complete ",
+            "completed ",
+            "finish ",
+            "finished ",
+            "done ",
+            "i finished ",
+            "i completed "
+        ]
+
+        var value = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercased = value.lowercased()
+        for prefix in prefixes {
+            if lowercased.hasPrefix(prefix) {
+                let index = value.index(value.startIndex, offsetBy: prefix.count)
+                value = String(value[index...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                break
+            }
+        }
+
+        let suffixes = [
+            " as done",
+            " done",
+            " completed",
+            " complete",
+            " finished",
+            " finish"
+        ]
+        for suffix in suffixes {
+            if value.lowercased().hasSuffix(suffix) {
+                value = String(value.dropLast(suffix.count))
+                    .trimmingCharacters(in: CharacterSet(charactersIn: ": -").union(.whitespacesAndNewlines))
+                break
+            }
+        }
+
+        return value.trimmingCharacters(in: CharacterSet(charactersIn: ": -").union(.whitespacesAndNewlines))
+    }
+
     private static func isContextQuery(_ text: String) -> Bool {
         [
             "what matters",
             "what do i need",
             "what should i do right now",
             "current context",
-            "status right now"
+            "status right now",
+            "good morning"
         ].contains(where: { text.contains($0) })
     }
 
@@ -875,6 +933,37 @@ private enum VoiceIntentParser {
         if text.contains("done") && (text.contains("nudge") || text.contains("reminder") || text.contains("that")) {
             return true
         }
+        return false
+    }
+
+    private static func isCommitmentDoneCommand(_ text: String) -> Bool {
+        let hasDoneKeyword = text.contains("done")
+            || text.contains("complete")
+            || text.contains("completed")
+            || text.contains("finish")
+            || text.contains("finished")
+        guard hasDoneKeyword else { return false }
+
+        if text.contains("nudge") || text.contains("reminder") {
+            return false
+        }
+
+        if text.hasPrefix("mark ")
+            || text.hasPrefix("set ")
+            || text.hasPrefix("complete ")
+            || text.hasPrefix("completed ")
+            || text.hasPrefix("finish ")
+            || text.hasPrefix("finished ")
+            || text.hasPrefix("done ")
+            || text.hasPrefix("i finished ")
+            || text.hasPrefix("i completed ")
+            || text.hasSuffix(" done")
+            || text.hasSuffix(" completed")
+            || text.hasSuffix(" finished")
+        {
+            return true
+        }
+
         return false
     }
 
@@ -1017,12 +1106,37 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         await submit(using: store, intent: .commitment)
     }
 
-    func targetHint(from nudges: [NudgeData]) -> String {
-        guard suggestedIntent.requiresNudgeTarget else { return "" }
-        guard let topNudge = nudges.first(where: { $0.state == "active" || $0.state == "snoozed" }) else {
-            return "No active nudge available. Submission falls back to capture-only provenance."
+    func targetHint(from nudges: [NudgeData], commitments: [CommitmentData]) -> String {
+        if suggestedIntent.requiresNudgeTarget {
+            guard let topNudge = nudges.first(where: { $0.state == "active" || $0.state == "snoozed" }) else {
+                return "No active nudge available. Submission falls back to capture-only provenance."
+            }
+            return "Target nudge: \(topNudge.message)"
         }
-        return "Target nudge: \(topNudge.message)"
+
+        if suggestedIntent.requiresCommitmentTarget {
+            let target = suggestedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let openCommitments = commitments.filter { $0.status == "open" }
+            guard !openCommitments.isEmpty else {
+                return "No open commitments available. Submission falls back to capture-only provenance."
+            }
+            guard !target.isEmpty else {
+                return "Include commitment text, for example: “mark meds done.”"
+            }
+
+            let matches = rankedCommitmentMatches(for: target, in: openCommitments)
+            if matches.isEmpty {
+                return "No open commitment match for: \(target)"
+            }
+            if matches.count == 1 || !isAmbiguousTopMatch(matches) {
+                return "Target commitment: \(matches[0].commitment.text)"
+            }
+
+            let options = matches.prefix(3).map { $0.commitment.text }.joined(separator: " | ")
+            return "Ambiguous target. Could match: \(options)"
+        }
+
+        return ""
     }
 
     private func startRecording() async {
@@ -1149,6 +1263,49 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 summary: store.isReachable ? "Created commitment." : "Commitment queued for sync.",
                 detail: primaryText
             )
+        case .commitmentDone:
+            let target = primaryText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !target.isEmpty else {
+                historyStatus = "needs_clarification"
+                errorMessage = "Commitment target missing. Clarify and retry."
+                setResponse(
+                    summary: "Commitment target is missing.",
+                    detail: "Try phrasing like “mark meds done.”"
+                )
+                break
+            }
+            let matches = rankedCommitmentMatches(
+                for: target,
+                in: store.commitments.filter { $0.status == "open" }
+            )
+            if let best = matches.first?.commitment {
+                if isAmbiguousTopMatch(matches) {
+                    historyStatus = "needs_clarification"
+                    let options = matches.prefix(3).map { $0.commitment.text }.joined(separator: " | ")
+                    errorMessage = "Commitment target was ambiguous. Clarify and retry."
+                    setResponse(
+                        summary: "Ambiguous commitment target.",
+                        detail: "Could match: \(options)"
+                    )
+                } else {
+                    await store.markCommitmentDone(id: best.id)
+                    committedIntent = .commitmentDone
+                    setResponse(
+                        summary: store.isReachable ? "Resolved commitment." : "Commitment completion queued.",
+                        detail: best.text
+                    )
+                }
+            } else {
+                historyStatus = "capture_only"
+                errorMessage = "No open commitment matched. Saved as capture only."
+                let detail = target.isEmpty
+                    ? "Saved transcript as capture provenance only."
+                    : "Target: \(target). Saved transcript as capture provenance only."
+                setResponse(
+                    summary: "No open commitment matched.",
+                    detail: detail
+                )
+            }
         case .nudgeDone:
             if let nudgeID = firstActionableNudgeID(from: store.nudges) {
                 await store.markNudgeDone(id: nudgeID)
@@ -1238,6 +1395,78 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             summary: cleanSummary,
             detail: (cleanDetail?.isEmpty ?? true) ? nil : cleanDetail
         )
+    }
+
+    private struct CommitmentMatch {
+        let commitment: CommitmentData
+        let score: Int
+    }
+
+    private func rankedCommitmentMatches(for query: String, in commitments: [CommitmentData]) -> [CommitmentMatch] {
+        let normalizedQuery = normalizeForMatching(query)
+        guard !normalizedQuery.isEmpty else { return [] }
+        let queryTokens = Set(normalizedQuery.split(separator: " ").map(String.init))
+
+        let matches = commitments.compactMap { commitment -> CommitmentMatch? in
+            let normalizedText = normalizeForMatching(commitment.text)
+            if normalizedText.isEmpty {
+                return nil
+            }
+
+            var score = 0
+            if !normalizedQuery.isEmpty {
+                if normalizedText == normalizedQuery {
+                    score += 120
+                }
+                if normalizedText.hasPrefix(normalizedQuery) {
+                    score += 30
+                }
+                if normalizedText.contains(normalizedQuery) {
+                    score += 80
+                }
+                if normalizedQuery.contains(normalizedText) {
+                    score += 30
+                }
+            }
+
+            let textTokens = Set(normalizedText.split(separator: " ").map(String.init))
+            let overlap = queryTokens.intersection(textTokens).count
+            score += overlap * 15
+
+            guard score > 0 else { return nil }
+            return CommitmentMatch(commitment: commitment, score: score)
+        }
+
+        return matches.sorted { lhs, rhs in
+            if lhs.score != rhs.score {
+                return lhs.score > rhs.score
+            }
+            switch (lhs.commitment.due_at, rhs.commitment.due_at) {
+            case let (l?, r?):
+                return l < r
+            case (.some, .none):
+                return true
+            case (.none, .some):
+                return false
+            case (.none, .none):
+                return lhs.commitment.text < rhs.commitment.text
+            }
+        }
+    }
+
+    private func isAmbiguousTopMatch(_ matches: [CommitmentMatch]) -> Bool {
+        guard matches.count > 1 else { return false }
+        let first = matches[0]
+        let second = matches[1]
+        return second.score >= max(first.score - 8, 35)
+    }
+
+    private func normalizeForMatching(_ text: String) -> String {
+        text
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     private func nextOpenCommitment(from store: VelClientStore, preferredID: String?) -> CommitmentData? {

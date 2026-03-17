@@ -125,7 +125,10 @@ Voice capture notes:
 - iOS Voice tab uses push-to-talk only (no always-listening mode)
 - requires microphone + speech recognition permission
 - submissions preserve transcript provenance as a `voice_note` capture
-- transcript preview can be routed to commitment creation when appropriate
+- transcript is editable before submit and intent suggestions update live
+- supported voice query intents: current context, next commitment, active nudges, and explain-why
+- supported voice action intents include commitment creation and targeted commitment done (for example, `mark meds done`)
+- voice responses can be spoken back with built-in TTS playback
 
 Bootstrap metadata now also advertises node execution capabilities:
 
