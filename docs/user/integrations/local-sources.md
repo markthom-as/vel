@@ -3,6 +3,7 @@
 Vel currently ingests many sources from local files or snapshot exports.
 
 This is the most important integration model to understand today because it is stable, inspectable, and local-first.
+It is a subset of the full connector model described in `docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md`.
 
 ## Current shipped local source types
 
@@ -100,3 +101,8 @@ Practical setup:
 `messaging` and `health` are currently snapshot-backed. If the export file is not updated, Vel has nothing new to ingest.
 
 That is especially relevant on macOS where the exporter or host permissions determine whether those snapshots exist.
+
+## Scope Clarification
+
+This document covers local source modes (`local_file`, `local_directory`, `local_snapshot`).
+Other integrations may use credential-backed API paths (for example `google_calendar` and `todoist`) and should be interpreted through the canonical connector contract and data source catalog.

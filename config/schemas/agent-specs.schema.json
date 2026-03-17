@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/agent-specs.schema.json",
+  "title": "Vel Agent Specs",
+  "description": "Schema for agent spec documents accepted by vel-config.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/AgentSpec"
+    },
+    {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/AgentSpec"
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "specs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/AgentSpec"
+          }
+        }
+      },
+      "required": [
+        "specs"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "AgentSpec": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "subagent",
+            "supervisor",
+            "specialist"
+          ]
+        },
+        "mission": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "allowed_tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "memory_scope": {
+          "$ref": "#/$defs/AgentMemoryScope"
+        },
+        "return_contract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "budgets": {
+          "$ref": "#/$defs/AgentBudgets"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "mission",
+        "ttl_seconds",
+        "allowed_tools",
+        "memory_scope",
+        "return_contract"
+      ],
+      "additionalProperties": false
+    },
+    "AgentMemoryScope": {
+      "type": "object",
+      "properties": {
+        "constitution": {
+          "type": "boolean"
+        },
+        "topic_pads": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "event_query": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "constitution"
+      ],
+      "additionalProperties": false
+    },
+    "AgentBudgets": {
+      "type": "object",
+      "properties": {
+        "max_tool_calls": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_memory_queries": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_side_effects": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/policies.schema.json",
+  "title": "Vel Policy Config",
+  "description": "Policy configuration loaded by veld runtime.",
+  "type": "object",
+  "properties": {
+    "loops": {
+      "$ref": "#/$defs/LoopPolicies"
+    },
+    "queued_work": {
+      "$ref": "#/$defs/QueuedWorkPolicies"
+    },
+    "suggestions": {
+      "$ref": "#/$defs/SuggestionPolicies"
+    },
+    "policies": {
+      "$ref": "#/$defs/PoliciesMap"
+    }
+  },
+  "required": [
+    "policies"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "LoopPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "interval_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "enabled",
+        "interval_seconds"
+      ],
+      "additionalProperties": false
+    },
+    "LoopPolicies": {
+      "type": "object",
+      "properties": {
+        "queue_work_scheduler": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "evaluate_current_state": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "sync_calendar": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "sync_todoist": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "sync_activity": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "sync_health": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "sync_git": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "sync_messaging": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "sync_notes": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "sync_transcripts": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "weekly_synthesis": {
+          "$ref": "#/$defs/LoopPolicy"
+        },
+        "stale_nudge_reconciliation": {
+          "$ref": "#/$defs/LoopPolicy"
+        }
+      },
+      "additionalProperties": false
+    },
+    "QueuedWorkRetryPolicy": {
+      "type": "object",
+      "properties": {
+        "max_failure_attempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retry_base_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retry_max_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "max_failure_attempts",
+        "retry_base_seconds",
+        "retry_max_seconds"
+      ],
+      "additionalProperties": false
+    },
+    "QueuedWorkPolicies": {
+      "type": "object",
+      "properties": {
+        "validation": {
+          "$ref": "#/$defs/QueuedWorkRetryPolicy"
+        },
+        "branch_sync": {
+          "$ref": "#/$defs/QueuedWorkRetryPolicy"
+        }
+      },
+      "required": [
+        "validation",
+        "branch_sync"
+      ],
+      "additionalProperties": false
+    },
+    "ThresholdSuggestionPolicy": {
+      "type": "object",
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "increment_minutes": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "threshold",
+        "increment_minutes"
+      ],
+      "additionalProperties": false
+    },
+    "ResponseDebtSuggestionPolicy": {
+      "type": "object",
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "followup_block_minutes": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "threshold",
+        "followup_block_minutes"
+      ],
+      "additionalProperties": false
+    },
+    "SimpleThresholdSuggestionPolicy": {
+      "type": "object",
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "threshold"
+      ],
+      "additionalProperties": false
+    },
+    "SuggestionPolicies": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "window_days": {
+          "type": "integer"
+        },
+        "suppression_days": {
+          "type": "integer"
+        },
+        "max_new_per_evaluate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "commute": {
+          "$ref": "#/$defs/ThresholdSuggestionPolicy"
+        },
+        "prep": {
+          "$ref": "#/$defs/ThresholdSuggestionPolicy"
+        },
+        "response_debt": {
+          "$ref": "#/$defs/ResponseDebtSuggestionPolicy"
+        },
+        "morning_drift": {
+          "$ref": "#/$defs/SimpleThresholdSuggestionPolicy"
+        }
+      },
+      "required": [
+        "enabled",
+        "window_days",
+        "suppression_days",
+        "max_new_per_evaluate",
+        "commute",
+        "prep",
+        "response_debt",
+        "morning_drift"
+      ],
+      "additionalProperties": false
+    },
+    "PolicyMedsNotLogged": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "gentle_after_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warning_after_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "danger_after_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "default_snooze_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "enabled",
+        "gentle_after_minutes",
+        "warning_after_minutes",
+        "danger_after_minutes",
+        "default_snooze_minutes"
+      ],
+      "additionalProperties": false
+    },
+    "PolicyMeetingPrepWindow": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "default_prep_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gentle_before_minutes": {
+          "type": "integer"
+        },
+        "warning_before_minutes": {
+          "type": "integer"
+        },
+        "danger_before_minutes": {
+          "type": "integer"
+        },
+        "default_snooze_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "enabled",
+        "default_prep_minutes",
+        "gentle_before_minutes",
+        "warning_before_minutes",
+        "danger_before_minutes",
+        "default_snooze_minutes"
+      ],
+      "additionalProperties": false
+    },
+    "PolicyCommuteLeaveTime": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "require_travel_minutes": {
+          "type": "boolean"
+        },
+        "gentle_before_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warning_before_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "danger_before_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "default_snooze_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "enabled",
+        "require_travel_minutes",
+        "gentle_before_minutes",
+        "warning_before_minutes",
+        "danger_before_minutes",
+        "default_snooze_minutes"
+      ],
+      "additionalProperties": false
+    },
+    "PolicyMorningDrift": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "gentle_after_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warning_after_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "danger_after_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "default_snooze_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "enabled",
+        "gentle_after_minutes",
+        "warning_after_minutes",
+        "danger_after_minutes",
+        "default_snooze_minutes"
+      ],
+      "additionalProperties": false
+    },
+    "PoliciesMap": {
+      "type": "object",
+      "properties": {
+        "meds_not_logged": {
+          "$ref": "#/$defs/PolicyMedsNotLogged"
+        },
+        "meeting_prep_window": {
+          "$ref": "#/$defs/PolicyMeetingPrepWindow"
+        },
+        "commute_leave_time": {
+          "$ref": "#/$defs/PolicyCommuteLeaveTime"
+        },
+        "morning_drift": {
+          "$ref": "#/$defs/PolicyMorningDrift"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

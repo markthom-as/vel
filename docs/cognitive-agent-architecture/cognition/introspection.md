@@ -26,6 +26,12 @@ Use bounded reflection cycles:
 - policy review: weekly
 - architecture review: manual / developer initiated
 
+Trigger repo-aware introspection when:
+
+- architecture docs and queue artifacts drift
+- schema or manifest contracts are missing for a new boundary
+- verification repeatedly fails for contract or policy mismatches
+
 ## Output Types
 
 - threshold adjustment proposals
@@ -41,6 +47,7 @@ Use bounded reflection cycles:
 - reflection may propose changes, not self-authorize broad UX mutation
 - every policy change must be reversible
 - repo-aware introspection may inspect code, config, tickets, and docs, but write capability must remain explicitly scoped and supervised
+- repository read visibility does not imply write authority; self-applied edits must follow scoped task boundaries and review gates
 
 ## Example
 

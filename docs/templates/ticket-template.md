@@ -27,6 +27,7 @@ labels:
 - **Constraint 1**: No public API breaking changes.
 - **Constraint 2**: Use `tokio::sync::mpsc` for inter-service communication.
 - **Constraint 3**: All new logic must be unit-tested in isolation.
+- **Constraint 4**: If contracts change, update schema/manifest docs and canonical templates or fixtures in the same change.
 
 # Cross-Cutting Trait Impact
 - **Modularity**: required | affected | n/a — explain the seam or boundary impact.
@@ -37,9 +38,9 @@ labels:
 - **Composability**: required | affected | n/a — explain contract, manifest, reusable component, or service-composition impact.
 
 # Implementation Steps (The "How")
-1. **Research**: Locate symbols and verify current behavior using `grep_search`.
+1. **Research**: Locate symbols and verify current behavior with fast repo search and focused tests.
 2. **Strategy**: Outline the code motion or new logic in a plan.
-3. **Act**: Apply surgical changes using `replace` or `write_file`.
+3. **Act**: Apply surgical changes with scoped patches.
 4. **Clean**: Run `cargo fmt` and `cargo clippy`.
 
 # Acceptance Criteria

@@ -474,6 +474,12 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
+    fn repo_path(relative: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(relative)
+    }
+
     #[test]
     fn defaults_load_without_file() {
         let config = AppConfig::default();
@@ -607,6 +613,42 @@ budgets:
         let config = AppConfig::default();
         let specs = config.load_agent_specs().unwrap();
         assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].id, "research_agent");
+    }
+
+    #[test]
+    fn repo_runtime_config_template_parses() {
+        let template = fs::read_to_string(repo_path("config/templates/vel.toml.template")).unwrap();
+        let parsed = toml::from_str::<FileConfig>(&template).unwrap();
+        assert_eq!(parsed.bind_addr.as_deref(), Some("127.0.0.1:4130"));
+        assert_eq!(parsed.agent_spec_path.as_deref(), Some("config/agent-specs.yaml"));
+    }
+
+    #[test]
+    fn repo_agent_specs_template_parses() {
+        let specs = AppConfig::load_agent_specs_from_path(repo_path(
+            "config/templates/agent-specs.template.yaml",
+        ))
+        .unwrap();
+        assert!(!specs.is_empty());
+        assert!(specs.iter().all(|spec| !spec.allowed_tools.is_empty()));
+    }
+
+    #[test]
+    fn repo_live_runtime_config_parses() {
+        let config = AppConfig::load_from_path(repo_path("vel.toml")).unwrap();
+        assert_eq!(config.bind_addr, "127.0.0.1:4130");
+        assert_eq!(
+            config.agent_spec_path.as_deref(),
+            Some("config/agent-specs.yaml")
+        );
+    }
+
+    #[test]
+    fn repo_live_agent_specs_parse() {
+        let specs = AppConfig::load_agent_specs_from_path(repo_path("config/agent-specs.yaml"))
+            .unwrap();
+        assert!(!specs.is_empty());
         assert_eq!(specs[0].id, "research_agent");
     }
 

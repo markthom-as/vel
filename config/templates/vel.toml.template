@@ -1,0 +1,32 @@
+# Vel runtime config template.
+# Copy to `vel.toml` and adjust values for your host.
+
+bind_addr = "127.0.0.1:4130"
+base_url = "http://127.0.0.1:4130"
+db_path = "var/data/vel.sqlite"
+artifact_root = "var/artifacts"
+log_level = "info"
+
+# Optional node identity values for multi-node deployments.
+# node_id = "vel-desktop"
+# node_display_name = "Vel Desktop"
+# tailscale_base_url = "http://vel-desktop.tailnet.ts.net:4130"
+# lan_base_url = "http://192.168.1.10:4130"
+
+# Agent specs and model paths.
+agent_spec_path = "config/agent-specs.yaml"
+llm_model_path = "configs/models/weights/qwen3-coder-30b-a3b-instruct-q4_k_m.gguf"
+llm_fast_model_path = "configs/models/weights/qwen2.5-coder-14b-instruct-q4_k_m.gguf"
+
+# Local-first integration sources.
+calendar_ics_path = "var/integrations/calendar/local.ics"
+todoist_snapshot_path = "var/integrations/todoist/snapshot.json"
+activity_snapshot_path = "var/integrations/activity/snapshot.json"
+health_snapshot_path = "var/integrations/health/snapshot.json"
+git_snapshot_path = "var/integrations/git/snapshot.json"
+messaging_snapshot_path = "var/integrations/messaging/snapshot.json"
+notes_path = "var/integrations/notes"
+transcript_snapshot_path = "var/integrations/transcripts/snapshot.json"
+
+# Optional direct calendar URL mode.
+# calendar_ics_url = "https://example.com/cal.ics"

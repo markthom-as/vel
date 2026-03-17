@@ -17,6 +17,7 @@ index_terms:
   - local source model
 related_files:
   - docs/MASTER_PLAN.md
+  - docs/cognitive-agent-architecture/integrations/data-source-catalog.md
   - docs/cognitive-agent-architecture/integrations/plugin-system.md
   - crates/vel-core/src/integration.rs
   - docs/user/integrations/README.md
@@ -59,6 +60,8 @@ Today, the strongest shipped integration model is still local-first source inges
 
 # Proposed Design
 
+For concrete provider inventory, use [data-source-catalog.md](data-source-catalog.md). This document defines the contract model and source-mode semantics.
+
 ## Canonical Integration Families
 
 These families should remain the stable product-facing source categories:
@@ -86,6 +89,8 @@ Every integration should declare one source mode:
 - `oauth_api`: a provider-backed API connection
 - `brokered_tool`: an action performed through a capability broker instead of direct raw credentials
 - `delegated_runtime`: a future worker or plugin runtime that still obeys connector contracts
+
+`docs/user/integrations/local-sources.md` documents the local-source subset of these modes, not the full integration model.
 
 ## Connector Contract
 
@@ -165,7 +170,7 @@ Every connector should eventually declare:
 # Acceptance Criteria
 
 1. The repo has one canonical list of integration families and source modes.
-2. New integration work can point to one connector contract doc instead of inventing its own shape.
+2. The repo has one canonical concrete provider catalog for shipped/planned entries.
 3. Ticket coverage exists for implementing the connector contract and family catalog in code.
 
 # Open Questions

@@ -5,6 +5,8 @@
 - canonical schemas, manifests, and config templates
 - canonical data sources and connector contracts
 - self-awareness and supervised self-modification spec
+- machine-readable schema and manifest publication
+- config and contract template/fixture parity
 - cross-cutting trait baseline across all subsystems
 - typed context and schema-on-write transition
 - storage and service decomposition

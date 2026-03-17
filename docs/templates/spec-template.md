@@ -63,6 +63,15 @@ Describe the expected system behavior.
 
 Include fields, API shapes, event shapes, or storage rules as needed.
 
+## Schema And Manifest Artifacts
+
+If this proposal introduces or changes shared contracts, list:
+
+- machine-readable schema or manifest artifacts
+- canonical template or fixture artifacts
+- versioning and migration policy
+- owning ticket(s) for publication and fixture parity
+
 ## Boundaries
 
 State what layer owns what.

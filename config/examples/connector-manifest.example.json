@@ -1,0 +1,30 @@
+{
+  "integration_family": "calendar",
+  "provider_key": "google_calendar",
+  "source_mode": "oauth_api",
+  "read_capabilities": [
+    "read_events"
+  ],
+  "write_capabilities": [],
+  "secret_mode": "brokered_injection",
+  "config_keys": [
+    "google_client_id",
+    "google_client_secret"
+  ],
+  "source_refs": [
+    "IntegrationSourceRef"
+  ],
+  "freshness_sla_seconds": 900,
+  "emits": {
+    "signals": [
+      "calendar_event"
+    ],
+    "entities": [
+      "IntegrationConnection",
+      "IntegrationConnectionEvent"
+    ]
+  },
+  "allowed_hosts": [
+    "www.googleapis.com"
+  ]
+}

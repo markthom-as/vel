@@ -164,6 +164,12 @@ pub fn load_routing(path: impl AsRef<Path>) -> Result<RoutingConfig, ConfigError
 mod tests {
     use super::*;
 
+    fn repo_models_path(relative: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../configs/models")
+            .join(relative)
+    }
+
     #[test]
     fn parse_model_profile_toml() {
         let t = r#"
@@ -228,6 +234,29 @@ model = "m"
         assert!(
             routing.profile_for_task("chat").is_some() || routing.task_to_profile.is_empty(),
             "routing should map chat or be empty"
+        );
+    }
+
+    #[test]
+    fn model_profile_template_parses() {
+        let template =
+            std::fs::read_to_string(repo_models_path("templates/profile.template.toml")).unwrap();
+        let profile = ModelProfile::parse_toml(&template).unwrap();
+        assert!(!profile.id.is_empty());
+        assert!(!profile.provider.is_empty());
+    }
+
+    #[test]
+    fn model_routing_template_parses() {
+        let routing =
+            load_routing(repo_models_path("templates/routing.template.toml")).unwrap();
+        assert_eq!(
+            routing.profile_for_task("chat"),
+            Some("local-primary-profile")
+        );
+        assert_eq!(
+            routing.fallback_remote_profile(),
+            Some("remote-review-profile")
         );
     }
 }

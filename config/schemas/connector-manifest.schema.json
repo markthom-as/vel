@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/connector-manifest.schema.json",
+  "title": "Vel Connector Manifest",
+  "description": "Canonical manifest shape for integration connectors and delegated runtimes.",
+  "type": "object",
+  "properties": {
+    "integration_family": {
+      "type": "string",
+      "enum": [
+        "calendar",
+        "tasks",
+        "activity",
+        "git",
+        "messaging",
+        "notes",
+        "transcripts",
+        "documents",
+        "health",
+        "gaming"
+      ]
+    },
+    "provider_key": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "source_mode": {
+      "type": "string",
+      "enum": [
+        "local_file",
+        "local_directory",
+        "local_snapshot",
+        "oauth_api",
+        "brokered_tool",
+        "delegated_runtime"
+      ]
+    },
+    "read_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "write_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "secret_mode": {
+      "type": "string",
+      "enum": [
+        "none",
+        "brokered_injection",
+        "scoped_token",
+        "direct_local_secret"
+      ]
+    },
+    "config_keys": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "freshness_sla_seconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "emits": {
+      "type": "object",
+      "properties": {
+        "signals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "signals",
+        "entities"
+      ],
+      "additionalProperties": false
+    },
+    "allowed_hosts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "integration_family",
+    "provider_key",
+    "source_mode",
+    "read_capabilities",
+    "write_capabilities",
+    "secret_mode",
+    "freshness_sla_seconds",
+    "emits"
+  ],
+  "additionalProperties": false
+}

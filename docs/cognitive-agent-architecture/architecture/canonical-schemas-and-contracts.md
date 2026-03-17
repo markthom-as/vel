@@ -19,7 +19,10 @@ index_terms:
   - manifest catalog
 related_files:
   - docs/MASTER_PLAN.md
+  - docs/tickets/phase-1/024-machine-readable-schema-and-manifest-publication.md
+  - docs/tickets/phase-1/025-config-and-contract-fixture-parity.md
   - docs/templates/spec-template.md
+  - docs/cognitive-agent-architecture/integrations/data-source-catalog.md
   - vel.toml
   - config/agent-specs.yaml
   - config/policies.yaml
@@ -73,7 +76,7 @@ Today the contract surface is partially explicit but not yet unified.
 | Model profile config | `vel-config` | `crates/vel-config/src/models.rs`, `configs/models/*.toml` | model backend config | per-file profile contracts | no canonical schema catalog entry in docs |
 | Routing config | `vel-config` | `crates/vel-config/src/models.rs`, `configs/models/routing.toml` | task-to-profile routing | additive task classes | no template guidance beyond inline comments |
 | Current context | target `vel-core` | `docs/tickets/phase-1/002-typed-context-transition.md`, `docs/cognitive-agent-architecture/cognition/context-model.md` | cognition state | explicit `CurrentContextVn` structs | still partially JSON-backed in runtime code |
-| Integration connection model | `vel-core` | `crates/vel-core/src/integration.rs` | domain + API/storage mapping | additive typed records | no canonical integration/connector contract doc |
+| Integration connection model | `vel-core` | `crates/vel-core/src/integration.rs` | domain + API/storage mapping | additive typed records | canonical contract exists; concrete provider inventory still needs ongoing maintenance |
 | Connect capability manifest | `vel-core` + `vel-api-types` | `crates/vel-core/src/connect.rs`, `crates/vel-api-types/src/lib.rs` | worker/connect capability boundary | explicit manifest shape | route coverage and docs are partial |
 | Handoff envelope | architecture pack | `docs/cognitive-agent-architecture/agents/handoffs.md` | agent-to-agent boundary | version by envelope schema, not vibes | not yet tied to repo/code write scopes explicitly everywhere |
 | Self-model | architecture pack | `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md` | repo/runtime introspection boundary | versioned self-model contract | newly specified, not implemented |
@@ -98,15 +101,22 @@ Today the contract surface is partially explicit but not yet unified.
 - Add fields compatibly whenever possible.
 - If a schema cannot evolve compatibly, add a new versioned object or migration path instead of mutating semantics in place.
 
-### Templates
+### Templates And Fixtures
 
 The repo should keep checked-in templates for human-authored config surfaces:
 
-- [vel.template.toml](../../vel.template.toml)
-- [config/agent-specs.template.yaml](../../config/agent-specs.template.yaml)
-- [config/policies.template.yaml](../../config/policies.template.yaml)
+- runtime config template
+- agent spec template
+- policy config template
+- model profile and routing templates
 
-These templates are examples and scaffolds, not hidden sources of truth.
+Templates and fixtures are examples and scaffolds, not hidden sources of truth.
+They should be tracked by ticket `025-config-and-contract-fixture-parity.md`.
+
+### Machine-Readable Publication
+
+Contract surfaces should be publishable in machine-readable form for clients and tooling.
+This lane is tracked by ticket `024-machine-readable-schema-and-manifest-publication.md`.
 
 ## Minimal Object Definitions
 
@@ -175,6 +185,7 @@ Every connector or integration-facing capability should eventually declare:
 - add parser/loader tests for checked-in templates
 - keep templates valid and parseable
 - do not let templates become shadow configs with behavior not represented in code
+- publish machine-readable schema resources and a contract manifest for discoverability
 
 # Acceptance Criteria
 

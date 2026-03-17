@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/model-profile.schema.json",
+  "title": "Vel Model Profile",
+  "description": "Schema for one model profile TOML document in configs/models/*.toml.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "llama_cpp",
+        "openai_oauth"
+      ]
+    },
+    "base_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context_window": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_output_tokens": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "temperature": {
+      "type": "number"
+    },
+    "supports_tools": {
+      "type": "boolean"
+    },
+    "supports_json": {
+      "type": "boolean"
+    },
+    "enabled": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "provider",
+    "base_url",
+    "model"
+  ],
+  "additionalProperties": false
+}

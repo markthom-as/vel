@@ -1,0 +1,25 @@
+# Agent spec template.
+# This file supports:
+# 1) a single object
+# 2) a top-level list
+# 3) an object with `specs: [...]`
+
+specs:
+  - id: research_agent
+    kind: subagent
+    mission: gather and summarize bounded research findings for a named objective
+    ttl_seconds: 180
+    allowed_tools:
+      - web.search
+      - web.fetch
+    memory_scope:
+      constitution: true
+      topic_pads:
+        - project_vel
+      event_query: limited
+    return_contract: research_summary_v1
+    budgets:
+      max_tool_calls: 12
+      max_tokens: 24000
+      max_memory_queries: 8
+      max_side_effects: 0

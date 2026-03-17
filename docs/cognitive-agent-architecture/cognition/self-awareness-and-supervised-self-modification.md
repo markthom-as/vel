@@ -124,6 +124,12 @@ A supervised self-modification path should require:
 5. traceable summary of what changed and why
 6. human review or explicit operator authorization when required
 
+Write classes that should always require explicit operator authorization:
+
+- auth, policy, and secret-boundary changes
+- sandbox or capability-boundary changes
+- wide-scope repo writes outside ticket-bounded modules
+
 ## Self-Model Envelope
 
 Minimal conceptual shape:
@@ -156,6 +162,7 @@ Minimal conceptual shape:
 - introspection and self-model logic belong to the authority runtime and its architecture contracts
 - writable-scope enforcement belongs to tool and sandbox boundaries
 - tickets and authority docs constrain what self-modification may attempt
+- runtime type ownership should move to `vel-core` once self-model contracts become active code-level envelopes
 
 # Cross-Cutting Traits
 
@@ -181,7 +188,7 @@ Minimal conceptual shape:
 # Open Questions
 
 - Which self-model fields should eventually become runtime types rather than architecture-doc concepts?
-- Which write-scope classes should always require explicit human approval?
+- Which run/event schema should carry self-modification review decisions in the runtime?
 
 # Related Terms
 

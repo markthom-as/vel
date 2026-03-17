@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/model-routing.schema.json",
+  "title": "Vel Model Routing",
+  "description": "Schema for configs/models/routing.toml.",
+  "type": "object",
+  "properties": {
+    "default": {
+      "type": "object",
+      "description": "Task class to model profile mapping.",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "default"
+  ],
+  "additionalProperties": false
+}

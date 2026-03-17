@@ -30,6 +30,7 @@ That combination makes the files easier to find through:
 
 - [doc-template.md](doc-template.md) for general documentation pages
 - [spec-template.md](spec-template.md) for design and architecture specs
+- [schema-template.md](schema-template.md) for machine-readable schema and manifest specs
 - [ticket-template.md](ticket-template.md) for execution tickets
 - [prompt-template.md](prompt-template.md) for reusable prompts, runbooks, and operator prompt assets
 

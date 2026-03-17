@@ -377,6 +377,12 @@ pub enum PolicyConfigError {
 mod tests {
     use super::*;
 
+    fn repo_path(relative: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(relative)
+    }
+
     #[test]
     fn default_has_all_policies() {
         let config = PolicyConfig::default();
@@ -439,5 +445,19 @@ mod tests {
     fn load_from_missing_path_fails() {
         let err = PolicyConfig::load("/nonexistent/policies.yaml").unwrap_err();
         assert!(matches!(err, PolicyConfigError::Read(_, _)));
+    }
+
+    #[test]
+    fn repo_policy_template_loads() {
+        let config = PolicyConfig::load(repo_path("config/templates/policies.template.yaml")).unwrap();
+        assert!(config.queue_work_scheduler_loop().is_some());
+        assert!(config.suggestions().enabled);
+    }
+
+    #[test]
+    fn repo_live_policy_config_loads() {
+        let config = PolicyConfig::load(repo_path("config/policies.yaml")).unwrap();
+        assert!(config.queue_work_scheduler_loop().is_some());
+        assert!(config.commute_leave_time().is_some());
     }
 }

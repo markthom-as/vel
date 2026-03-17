@@ -41,11 +41,12 @@ Start here:
 3. [`architecture/README.md`](architecture/README.md)
 4. [`architecture/canonical-schemas-and-contracts.md`](architecture/canonical-schemas-and-contracts.md)
 5. [`integrations/canonical-data-sources-and-connectors.md`](integrations/canonical-data-sources-and-connectors.md)
-6. [`cognition/self-awareness-and-supervised-self-modification.md`](cognition/self-awareness-and-supervised-self-modification.md)
-7. [`agents/orchestrator.md`](agents/orchestrator.md)
-8. [`agents/tool-access.md`](agents/tool-access.md)
-9. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
-10. [`implementation/roadmap.md`](implementation/roadmap.md)
+6. [`integrations/data-source-catalog.md`](integrations/data-source-catalog.md)
+7. [`cognition/self-awareness-and-supervised-self-modification.md`](cognition/self-awareness-and-supervised-self-modification.md)
+8. [`agents/orchestrator.md`](agents/orchestrator.md)
+9. [`agents/tool-access.md`](agents/tool-access.md)
+10. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
+11. [`implementation/roadmap.md`](implementation/roadmap.md)
 
 ## Sub-Pack Entry Points
 
@@ -55,6 +56,7 @@ Start here:
 - [`cognition/context-model.md`](cognition/context-model.md) for cognition-state shape and interpretation
 - [`cognition/self-awareness-and-supervised-self-modification.md`](cognition/self-awareness-and-supervised-self-modification.md) for bounded repo visibility, self-modeling, and supervised code changes
 - [`integrations/canonical-data-sources-and-connectors.md`](integrations/canonical-data-sources-and-connectors.md) for integration families, source modes, and connector contracts
+- [`integrations/data-source-catalog.md`](integrations/data-source-catalog.md) for concrete provider inventory and rollout status
 - [`devices/cross-device-architecture.md`](devices/cross-device-architecture.md) for multi-device sync and client topology
 
 ## Durable Principles

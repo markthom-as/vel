@@ -1,0 +1,26 @@
+{
+  "active_task": "023-self-awareness-and-supervised-self-modification",
+  "authority_docs": [
+    "docs/MASTER_PLAN.md",
+    "docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md"
+  ],
+  "relevant_tickets": [
+    "021-canonical-schema-and-config-contracts.md",
+    "023-self-awareness-and-supervised-self-modification.md"
+  ],
+  "read_scopes": [
+    "docs/**",
+    "crates/**",
+    "config/**"
+  ],
+  "write_scopes": [
+    "docs/cognitive-agent-architecture/**",
+    "config/**"
+  ],
+  "required_checks": [
+    "node scripts/verify-repo-truth.mjs",
+    "cargo test -p vel-config",
+    "cargo test -p veld policy_config"
+  ],
+  "review_gate": "operator_or_ticket_policy"
+}
