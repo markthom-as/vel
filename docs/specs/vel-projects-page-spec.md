@@ -1,706 +1,497 @@
 ---
-title: Vel projects page and multi-agent active chat workspace spec
-status: proposed
+title: Vel Projects page spec
+status: ready
 owner: product+engineering
 priority: P0
-created: 2026-03-16
-related:
-  - docs/specs/vel-chat-interface-implementation-brief.md
-  - docs/specs/vel-addendum-calendar-todoist-workflows.md
-  - docs/specs/vel-task-hud-spec.md
-  - docs/status.md
 ---
 
-# Vel Projects Page — Spec
+# Vel Projects page
 
 ## Summary
+Vel needs a first-class Projects surface that lets the user operate on a project as a live working field rather than a loose pile of commitments, chats, and sync artifacts.
 
-Vel needs a first-class **Projects** surface that sits between the current `Now` dashboard and the existing thread/chat shell.
+The page should:
+- show all projects in one place
+- provide a Todoist-backed project/task view
+- allow creating, tagging, and updating tasks from Vel
+- show active agent/chat sessions for the project across Vel, Codex, Claude, OpenCode, and future sources
+- allow queueing messages, steering work, recording feedback, and changing per-session or per-project settings
+- render in both a rich web surface and a CLI workspace mode using the same underlying contracts
 
-Today, the repo already has:
+This is not a generic PM suite. It is an operator cockpit for project continuity.
 
-- Todoist sync into **commitments** and `external_task` signals.
-- A web app with `Now`, `Inbox`, `Threads`, and `Settings`.
-- A native Vel chat runtime with conversations/messages/interventions.
-- Transcript ingestion for external assistants via `assistant_transcripts`.
+## Why this exists
+Right now Vel has pieces of the substrate but not the project-shaped operator surface:
+- commitments already carry a `project` field
+- Todoist sync already materializes tasks into commitments
+- transcript sync already ingests external assistant/chat artifacts into `assistant_transcripts`
+- chat UI exists, but is centered on Vel-native conversations rather than project operations across agents
+- settings and sync control planes exist, but not a unified project view
 
-What it does **not** yet have is a coherent project workspace where the user can:
+So the problem is not total absence. It is fragmentation.
 
-- see all projects in one place,
-- browse project-scoped tasks backed by Todoist,
-- create and tag tasks without leaving Vel,
-- see active agent/chat work across Vel, Codex, Claude, OpenCode, ChatGPT, etc,
-- queue messages to those agents,
-- steer, annotate, or critique those agent sessions,
-- manage per-agent settings from a project lens.
-
-This spec defines that surface.
-
-## Current repo truth
-
-Grounding against the attached codebase matters, otherwise this turns into decorative vaporware.
-
-### Already present
-
-- **Todoist integration**
-  - `/api/integrations/todoist` credential plumbing exists.
-  - `/v1/sync/todoist` exists.
-  - direct Todoist API sync exists in `crates/veld/src/services/integrations.rs`.
-  - snapshot ingestion also exists in `crates/veld/src/adapters/todoist.rs`.
-  - tasks currently normalize into `commitments` plus `external_task` signals.
-- **Project-ish data already exists, but weakly**
-  - commitments have a nullable `project` field.
-  - project synthesis route exists: `POST /v1/synthesis/project/:slug`.
-- **Web shell exists**
-  - current top-level web navigation in `clients/web/src/App.tsx` only exposes `Now`, `Inbox`, `Threads`, and `Settings`.
-- **External assistant material exists, but is passive**
-  - transcript ingestion lands in `assistant_transcripts` via `migrations/0021_assistant_transcripts.sql` and `crates/veld/src/adapters/transcripts.rs`.
-  - external assistant messages become signals, but there is no first-class operator surface for them.
-
-### Missing today
-
-- No Projects page.
-- No project registry or stable project identity model.
-- No Todoist write path for task creation, tagging, rescheduling, completion, or project moves.
-- No first-class external chat session model.
-- No queue/outbox model for agent-bound messages.
-- No steering / feedback / control plane for non-Vel chats.
-- No shared "rich view vs CLI view" contract for project workspaces.
-
-That is the gap this pack closes.
-
-## Product thesis
-
-The Projects page should be a **workbench**, not a museum.
-
-It should answer, per project:
-
-1. what work exists,
-2. what is active,
-3. what is blocked or drifting,
-4. what conversations are currently moving the work,
-5. what message or steering action should be sent next.
-
-In psychoanalytic terms: this page should not just archive the signifiers of work; it should reveal where desire, avoidance, delegation, and symbolic commitment are currently attaching. If a project page cannot expose drift, displacement, and pseudo-work, it is just a prettier inbox with better shoes.
-
-## Goals
-
-- Add a top-level **Projects** surface to Vel web.
-- Make **Todoist-backed project tasks** visible and editable from Vel.
-- Incorporate **Codex-workspace project semantics** into project grouping and tagging.
-- Show **active chats/sessions** per project across Vel and external agent systems.
-- Support **queued outbound messages** to those agents.
-- Support **steering, feedback, and per-session controls**.
-- Provide one canonical backend/view-model that can power:
-  - a rich web page,
-  - a CLI/TUI view,
-  - future ambient/mobile surfaces.
+## Product goals
+- Make project state legible at a glance.
+- Preserve a single actionable truth for tasks.
+- Let the user steer multi-agent work without digging through disconnected tools.
+- Keep the same mental model across web and CLI.
+- Stay local-first and auditable.
 
 ## Non-goals
-
-Do not turn this into a bloated Notion cosplay.
-
-Specifically out of scope for v1:
-
-- full collaborative multi-user PM system,
-- arbitrary kanban/roadmap/Gantt madness,
-- bidirectional real-time control of every external agent product,
-- speculative autonomous agent execution without explicit audit trail,
-- replacing Todoist as the authority for user-authored tasks.
-
-## Design principles
-
-### 1. External systems remain authoritative where they already are
-
-- **Todoist** remains the primary authority for user task data.
-- **Vel** remains authority for internal chats, interventions, provenance, and policy decisions.
-- External systems like Codex/Claude/OpenCode remain authorities for their native sessions unless and until a specific adapter supports mutation.
-
-Vel should orchestrate, contextualize, and cache — not fork reality into seven mutually hostile truths.
-
-### 2. Projects are a lens, not necessarily a new source of truth
-
-Do **not** introduce a heavyweight `projects` ontology unless the repo can justify it.
-
-Initial project identity should be resolved from:
-
-- Todoist project names / IDs,
-- commitment `project` values,
-- codex-workspace tags and project markers,
-- transcript metadata such as `project_hint`,
-- future thread/project synthesis artifacts.
-
-A registry may be needed, but it should start narrow and boring.
-
-### 3. Shared view model, multiple renderers
-
-The web page and CLI page should render the same canonical `ProjectWorkspaceData` contract.
-
-That avoids the classic split-brain bug where the CLI becomes the grimy truth and the rich UI becomes the lying brochure.
-
-### 4. Queueing is first-class
-
-If Vel cannot yet send a message directly to an external system, the user should still be able to:
-
-- draft it,
-- queue it,
-- mark intended target,
-- review it,
-- copy/export/dispatch manually,
-- record completion or failure.
-
-Graceful degradation beats fake integration bravado.
-
-## Functional requirements
-
-## A. Projects index
-
-The Projects page must provide:
-
-- all active projects,
-- project health summary,
-- task counts,
-- top risks / drift indicators,
-- last activity timestamp,
-- active chat/session count,
-- one-line next suggested action.
-
-### Minimum project sources
-
-- Todoist project mapping
-- commitment `project`
-- transcript metadata `project_hint`
-- optional codex-workspace project extraction
-
-### Minimum project states
-
-- active
-- paused
-- dormant
-- archived
-
-These are Vel projection states, not necessarily Todoist states.
-
-## B. Project detail workspace
-
-Each project detail page/view must show four primary panels.
-
-### 1. Work panel
-
-Shows task-like work items derived from Todoist-backed commitments.
-
-Required capabilities:
-
-- list tasks by state: now, soon, waiting, done recently
-- show labels/tags
-- add a task
-- edit title
-- complete/reopen
-- apply/remove labels
-- reschedule due date
-- move between projects where supported
-- show source + sync state
-
-### 2. Active chats panel
-
-Shows project-relevant sessions across:
-
-- Vel chats
-- Codex chats
-- Claude chats
-- OpenCode chats
-- ChatGPT or other future transcript sources
-
-Each session card should show:
-
-- source
-- title or inferred summary
-- project association confidence
-- last speaker / last message age
-- queue depth
-- unread/review-needed indicator
-- steering/feedback affordances
-
-### 3. Queue / outbox panel
-
-Shows outbound messages not yet dispatched or awaiting adapter execution.
-
-Required states:
-
-- draft
-- queued
-- sending
-- sent
-- failed
-- cancelled
-- needs_manual_dispatch
-
-### 4. Controls / settings panel
-
-Per project and per session controls:
-
-- preferred agent / routing target
-- tone/style presets
-- autonomy level
-- approval requirement
-- project tags and aliases
-- transcript ingestion enable/disable
-- external adapter capabilities and health
-
-## C. Add-and-tag task flow
-
-The user explicitly asked that Vel allow adding and tagging tasks from this page.
-
-That requires a real write path.
-
-### Required behavior
-
-- create Todoist task from Vel UI/CLI
-- set title/content
-- set Todoist project
-- set labels
-- set due date/time
-- optionally attach Vel metadata in task description or comment if needed
-- reconcile created task back into local commitment projection
-
-### Boundary rule
-
-Vel should not create a separate local-only task unless:
-
-- Todoist is unavailable, or
-- the user intentionally chooses local draft mode.
-
-If Todoist is unavailable, create a local outbox/draft task with clear unsynced status. No sneaky shadow systems.
-
-## D. Active chat and steering flow
-
-### Required user actions
-
-For any active session, the user must be able to:
-
-- queue a message,
-- mark a message as steering,
-- attach project-scoped feedback,
-- set or update session tags,
-- change agent/session settings,
-- mark a session as active, paused, done, or noisy,
-- link/unlink the session from a project.
-
-### Steering examples
-
-- “stay within repo truth; do not invent endpoints”
-- “optimize for implementation tickets, not architecture poetry”
-- “prioritize docs reconciliation before adding new surfaces”
-
-The system should treat steering as a structured control object, not just raw chat text lost in the soup.
-
-## E. CLI view parity
-
-The user said this could be CLI or rich chat view. The correct move is: **both, with one backend contract**.
-
-### CLI minimum
-
-Add a CLI/TUI-friendly projects command family:
-
-- `vel projects list`
-- `vel projects show <slug>`
-- `vel projects task add`
-- `vel projects task tag`
-- `vel projects chat queue`
-- `vel projects chat steer`
-- `vel projects chat feedback`
-
-The CLI may start as plain terminal output plus action commands before any full TUI work. No need to summon ncurses from the abyss on day one.
-
-## Domain model
-
-## 1. Project registry
-
-A narrow registry is recommended.
-
+- Replacing Todoist as a full task system.
+- Building a full Jira/Linear clone.
+- Treating raw transcript rows as a sufficient agent/session model.
+- Adding speculative autonomous execution without explicit control surfaces.
+
+## Boundary decisions
+
+### 1. Tasks remain commitment-backed
+Vel already has a durable actionable object: `commitments`.
+
+The Projects page should therefore treat **commitments as the canonical Vel task object**.
+
+Todoist-backed tasks should remain write-through synchronized where possible:
+- if a task originates in Todoist, Vel writes changes back to Todoist and mirrors the result into commitments
+- if a task is created in Vel for a Todoist-backed project, Vel should create it in Todoist first when the integration is connected, then persist/update the mirrored commitment
+- if Todoist is unavailable, the UI may support a local-only commitment path, but it must be explicit and visually marked
+
+Do not introduce a parallel durable `Task` truth unless the repo later proves commitments are structurally insufficient.
+
+### 2. Projects are a read/write registry, not just a free-text field
+Today `commitments.project` is effectively a string bucket.
+That is good enough for synthesis filters, but not good enough for a coherent operator surface.
+
+Vel should add a first-class **project registry** that can:
+- normalize slug vs display name
+- map external source identifiers (Todoist project ids, transcript conversation hints, thread links)
+- hold project-scoped settings and display preferences
+- define project status and ordering
+
+The registry becomes the canonical project directory, while `commitments.project` remains the lightweight foreign-key-like slug.
+
+### 3. External assistant activity needs a first-class session model
+`assistant_transcripts` is useful evidence, but it is not a workable operator abstraction.
+
+The Projects page needs a first-class **agent session registry** for things like:
+- active Codex workspace thread
+- recent Claude conversation for this repo
+- OpenCode run or queue
+- Vel-native conversation
+
+A session should capture source, title, state, recency, last message summary, queue depth, project association, and operator controls.
+
+### 4. Web and CLI share one workspace contract
+The same backend projection should feed:
+- `/projects` rich web surface
+- `vel project ...` workspace/TTY views
+
+No split-brain UX contracts.
+
+## User stories
+- As a user, I can open Projects and immediately see my active projects and their task pressure.
+- As a user, I can filter to one project and see all open tasks regardless of whether they originated locally or from Todoist.
+- As a user, I can create a task and attach tags/metadata without leaving Vel.
+- As a user, I can see which chats/agents are actively working on a project.
+- As a user, I can queue a message to a project-linked session instead of hunting through external tabs.
+- As a user, I can leave steering/feedback for a specific agent session and audit what happened.
+- As a user, I can use a CLI workspace instead of the web page and keep the same project model.
+
+## Information architecture
+
+### Projects index
+Shows all projects with compact operational summaries.
+
+Per project card/row:
+- display name
+- slug
+- status (`active`, `paused`, `archived`, `proposed`)
+- source badges (`todoist`, `manual`, `thread`, `transcript`)
+- open task count
+- overdue count
+- due soon count
+- waiting/blocked count when derivable
+- active session count
+- last activity at
+- quick actions: open, add task, queue message, sync
+
+### Project detail workspace
+Tabs or panes:
+1. **Overview**
+2. **Tasks**
+3. **Chats / Agents**
+4. **Activity**
+5. **Settings**
+
+#### Overview
+- project summary block
+- top risks / nudges / suggestions when available
+- top open commitments
+- active sessions snapshot
+- recent events / transcript evidence
+
+#### Tasks
+- list grouped by status or semantic buckets (`now`, `soon`, `waiting`, `done` optional)
+- task creation composer
+- tag editor
+- project-specific filters (kind, tag, due state, source)
+- quick actions: done, cancel, snooze later if semantics exist, retag, move project
+
+#### Chats / Agents
+- active session list
+- per-session controls
+- outbox / queued messages
+- steering notes
+- operator feedback history
+- session settings
+
+#### Activity
+- merged timeline of task changes, transcript imports, run updates, and queued/sent operator messages
+
+#### Settings
+Project-scoped knobs such as:
+- default task tags
+- default source preference for new tasks (`todoist_first`, `local_only`, `ask`)
+- default chat target for queued messages
+- auto-link transcript project hints
+- preferred layout (`rich`, `dense`, `cli_like`)
+
+## Data model
+
+### A. Project registry
+Add a project registry table and typed DTOs.
+
+Candidate fields:
 ```rust
 pub struct ProjectRecord {
-    pub id: String,
     pub slug: String,
-    pub title: String,
-    pub status: ProjectStatus,
-    pub aliases: Vec<String>,
-    pub source_refs: Vec<ProjectSourceRef>,
-    pub primary_source: ProjectPrimarySource,
-    pub tags: Vec<String>,
-    pub metadata: serde_json::Value,
-    pub created_at: i64,
-    pub updated_at: i64,
-}
-```
-
-This registry is for identity resolution and UI stability, not for replacing Todoist projects.
-
-## 2. Project workspace view model
-
-```rust
-pub struct ProjectWorkspaceData {
-    pub project: ProjectSummary,
-    pub work_items: Vec<ProjectWorkItem>,
-    pub active_chats: Vec<AgentSessionSummary>,
-    pub queued_messages: Vec<QueuedAgentMessage>,
-    pub controls: ProjectControlState,
-    pub health: ProjectHealth,
-    pub warnings: Vec<String>,
-}
-```
-
-This should live in `vel-api-types` and be renderer-neutral.
-
-## 3. Work items
-
-Initial recommendation: **derive from commitments**, not a new task table.
-
-```rust
-pub struct ProjectWorkItem {
-    pub commitment_id: String,
-    pub source_type: String,
-    pub source_id: Option<String>,
-    pub title: String,
+    pub display_name: String,
+    pub description: Option<String>,
     pub status: String,
-    pub due_at: Option<String>,
-    pub project: Option<String>,
-    pub labels: Vec<String>,
-    pub priority: Option<u8>,
-    pub sync_state: SyncState,
-    pub metadata: serde_json::Value,
+    pub color: Option<String>,
+    pub icon: Option<String>,
+    pub source_type: String,
+    pub source_ref: Option<String>,
+    pub todoist_project_id: Option<String>,
+    pub default_task_tags: serde_json::Value,
+    pub settings_json: serde_json::Value,
+    pub metadata_json: serde_json::Value,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+    pub archived_at: Option<OffsetDateTime>,
 }
 ```
 
-Todoist-specific mutable fields can still round-trip through a dedicated adapter.
+Notes:
+- `slug` is the canonical project key used by commitments and APIs.
+- `todoist_project_id` is nullable because not all projects come from Todoist.
+- `settings_json` is acceptable initially; do not prematurely explode into dozens of columns.
 
-## 4. Agent sessions
+### B. Commitment tagging
+Current commitments have `metadata` but no first-class tags field.
 
-Add a first-class session registry for both Vel-native and external agent sessions.
+Near-term approach:
+- store tags under `metadata.tags: string[]`
+- normalize in API/service layer
+- provide explicit DTO fields so the UI does not spelunk raw JSON
 
+Candidate transport additions:
 ```rust
-pub enum AgentSessionSource {
-    Vel,
-    Codex,
-    Claude,
-    OpenCode,
-    ChatGpt,
-    Other(String),
+pub struct CommitmentTaskData {
+    pub commitment: CommitmentData,
+    pub tags: Vec<String>,
+    pub blocked_by: Vec<String>,
+    pub waiting_on: Vec<String>,
+    pub external_write_state: Option<String>,
 }
+```
 
+Do not force a `commitment_tags` join table in the first slice unless query pressure actually demands it.
+
+### C. Agent session registry
+Add a durable session registry for project-linked work across assistant systems.
+
+Candidate fields:
+```rust
 pub struct AgentSessionRecord {
     pub id: String,
-    pub source: AgentSessionSource,
-    pub external_conversation_id: String,
-    pub title: Option<String>,
-    pub project_id: Option<String>,
-    pub project_confidence: Option<f32>,
-    pub status: AgentSessionStatus,
-    pub capabilities: AgentSessionCapabilities,
+    pub project_slug: String,
+    pub source: String,          // vel | codex | claude | opencode | chatgpt | other
+    pub source_ref: Option<String>,
+    pub title: String,
+    pub status: String,          // active | idle | blocked | done | archived
+    pub mode: Option<String>,    // chat | code | research | review
+    pub queue_depth: u32,
+    pub last_message_at: Option<OffsetDateTime>,
+    pub last_operator_action_at: Option<OffsetDateTime>,
+    pub latest_summary: Option<String>,
     pub settings_json: serde_json::Value,
-    pub last_message_at: Option<i64>,
-    pub created_at: i64,
-    pub updated_at: i64,
+    pub metadata_json: serde_json::Value,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
 }
 ```
 
-This sits above raw `assistant_transcripts`.
+This is separate from `assistant_transcripts`.
+Transcripts remain evidence/history; sessions are the operator abstraction.
 
-## 5. Queued messages
+### D. Session outbox and feedback
+Need explicit write surfaces for operator control.
 
+Candidate tables:
+- `agent_session_outbox`
+- `agent_session_feedback`
+
+Outbox row fields:
+- id
+- session_id
+- project_slug
+- payload_text
+- payload_json
+- state (`queued`, `sent`, `acked`, `failed`, `cancelled`)
+- delivery_target
+- created_at / sent_at / failed_at
+- operator_note
+
+Feedback row fields:
+- id
+- session_id
+- project_slug
+- feedback_type (`thumbs_up`, `thumbs_down`, `steer`, `constraint`, `settings_change`)
+- content
+- payload_json
+- created_at
+
+## Projection model
+The frontend should not assemble this page from 14 independent ad hoc fetches like a raccoon building a radio.
+
+Add a backend **project workspace projection**.
+
+Candidate response:
 ```rust
-pub struct QueuedAgentMessage {
-    pub id: String,
-    pub session_id: String,
-    pub project_id: Option<String>,
-    pub author_kind: String,
-    pub body: String,
-    pub message_kind: QueuedMessageKind,
-    pub dispatch_state: DispatchState,
-    pub requires_manual_dispatch: bool,
-    pub metadata: serde_json::Value,
-    pub created_at: i64,
-    pub updated_at: i64,
+pub struct ProjectWorkspaceData {
+    pub project: ProjectData,
+    pub summary: ProjectSummaryData,
+    pub tasks: Vec<ProjectTaskData>,
+    pub sessions: Vec<AgentSessionData>,
+    pub queued_messages: Vec<AgentSessionOutboxData>,
+    pub recent_activity: Vec<ProjectActivityEventData>,
+    pub settings: ProjectSettingsData,
 }
 ```
 
-## 6. Steering and feedback
-
-These should be structured, auditable records.
-
+And index response:
 ```rust
-pub struct AgentSteeringRecord {
-    pub id: String,
-    pub session_id: String,
-    pub project_id: Option<String>,
-    pub steering_kind: String,
-    pub content: String,
-    pub applies_until: Option<i64>,
-    pub created_at: i64,
-}
-
-pub struct AgentFeedbackRecord {
-    pub id: String,
-    pub session_id: String,
-    pub project_id: Option<String>,
-    pub feedback_kind: String,
-    pub rating: Option<i32>,
-    pub notes: Option<String>,
-    pub created_at: i64,
+pub struct ProjectIndexItemData {
+    pub project: ProjectData,
+    pub summary: ProjectSummaryData,
 }
 ```
 
-## Data sources and mapping
+## APIs
+Recommended routes:
 
-## Todoist
+### Projects
+- `GET /v1/projects`
+- `POST /v1/projects`
+- `GET /v1/projects/:slug`
+- `PATCH /v1/projects/:slug`
+- `GET /v1/projects/:slug/workspace`
 
-Use the existing Todoist integration service as the write/read backbone.
+### Tasks within projects
+- `POST /v1/projects/:slug/tasks`
+- `PATCH /v1/projects/:slug/tasks/:id`
+- `POST /v1/projects/:slug/tasks/:id/done`
+- `POST /v1/projects/:slug/tasks/:id/cancel`
+- `POST /v1/projects/:slug/tasks/:id/tags`
 
-Needed expansions beyond current code:
+These should map back to commitments.
+The `/tasks` naming is a surface affordance; backend ownership remains commitments.
 
-- fetch labels if Todoist API supports them in the chosen endpoint set,
-- create task,
-- update task,
-- close/reopen task,
-- list projects/labels for UI selectors,
-- write-through reconciliation into commitments.
+### Agent sessions
+- `GET /v1/projects/:slug/sessions`
+- `POST /v1/projects/:slug/sessions`
+- `PATCH /v1/projects/:slug/sessions/:id`
+- `POST /v1/projects/:slug/sessions/:id/queue-message`
+- `POST /v1/projects/:slug/sessions/:id/feedback`
+- `POST /v1/projects/:slug/sessions/:id/settings`
 
-## Codex workspace semantics
+### Web transport equivalents if needed
+If chat surfaces remain under `/api`, mirror the necessary routes there or keep the web client using `/v1` for this feature. Pick one convention and document it.
 
-The existing addendum already notes project/tag conventions. This page should explicitly incorporate those conventions.
+## Todoist behavior
 
-At minimum, normalize:
+### Read path
+When Todoist is connected:
+- existing sync continues to ingest Todoist tasks into commitments
+- project registry should hydrate/refresh Todoist project mappings
+- project summaries should expose Todoist connectivity and last sync state
 
-- `project:` tags
-- workspace project names/aliases
-- tags embedded in task text or metadata
-- transcript `metadata.project_hint`
+### Write path
+For Todoist-backed projects:
+1. create/update task in Todoist
+2. persist or reconcile commitment mirror locally
+3. emit event + websocket update
 
-This mapping should produce a stable project slug resolution flow.
+If Todoist write fails:
+- do not silently pretend success
+- show failed write state in UI
+- allow retry from activity/outbox-like affordance
 
-## Vel-native chats
+### Tags
+If Todoist labels exist, map them into Vel task tags.
+Vel tags should preserve round-trip fidelity where possible.
+If exact round-trip is not possible, keep both:
+- normalized `tags: []`
+- `metadata.todoist_labels_raw`
 
-Use existing conversations/messages/interventions as one session source.
+## Active chats / sessions UX
+Each session card should show:
+- source badge
+- title
+- active/idle/blocked status
+- mode
+- queue depth
+- last activity timestamp
+- latest summary or last message preview
+- controls: open, queue message, steer, feedback, settings
 
-## External chats
+### Queue message
+Queueing is explicit. It does not imply immediate delivery unless the source adapter supports it.
 
-Leverage ingested `assistant_transcripts` as the raw event source, but add a session registry above them so the UI can reason about:
+States:
+- queued
+- sent
+- acked
+- failed
+- cancelled
 
-- one active session vs many transcripts,
-- capabilities,
-- queueability,
-- control state,
-- project linkage.
+If an external source is not directly writable yet, the outbox still has value as a local operator queue.
+That is not a bug; it is honest state.
 
-## API design
+### Steer
+Steering is structured operator input attached to a session and optionally a project.
+Examples:
+- “stay within repo boundaries; no new crates unless justified”
+- “prefer Todoist as task authority for this project”
+- “summaries should include unresolved risks”
 
-## New endpoints
+This should be stored durably, not vanish into vibes.
 
-### Project read APIs
+### Feedback
+Feedback should support:
+- quick binary reactions
+- structured notes
+- “apply as sticky preference” option where appropriate
 
-- `GET /api/projects`
-- `GET /api/projects/:slug`
-- `GET /api/projects/:slug/workspace`
-- `GET /api/projects/:slug/chats`
+### Settings
+Per-session settings examples:
+- verbosity
+- risk tolerance
+- autonomy level
+- preferred artifact format
+- model/backend profile
 
-### Project task mutation APIs
+## Web UI design
 
-- `POST /api/projects/:slug/tasks`
-- `PATCH /api/projects/:slug/tasks/:id`
-- `POST /api/projects/:slug/tasks/:id/complete`
-- `POST /api/projects/:slug/tasks/:id/reopen`
-- `POST /api/projects/:slug/tasks/:id/tags`
-- `DELETE /api/projects/:slug/tasks/:id/tags/:tag`
+### Navigation
+Add `Projects` to the main shell navigation alongside Now / Inbox / Threads.
 
-### Chat/session control APIs
+### Layout
+Desktop split recommended:
+- left rail: project list and filters
+- center: current project workspace
+- right rail: project context / activity / settings drawer depending on mode
 
-- `POST /api/projects/:slug/chats/:session_id/queue`
-- `POST /api/projects/:slug/chats/:session_id/steering`
-- `POST /api/projects/:slug/chats/:session_id/feedback`
-- `PATCH /api/projects/:slug/chats/:session_id/settings`
-- `PATCH /api/projects/:slug/chats/:session_id/link`
+### Key states
+- no projects
+- Todoist disconnected
+- empty project with no tasks but active sessions
+- active project with tasks but no sessions
+- external sessions present but adapter read-only
+- sync/write failure states
 
-### Capability/status APIs
+### Realtime
+Use websocket invalidation for:
+- project summary changes
+- task mutations
+- session state changes
+- outbox state changes
 
-- `GET /api/agent-sources`
-- `GET /api/agent-sessions`
-- `GET /api/agent-sessions/:id`
+Add specific event types rather than forcing the client to treat every change as generic chat noise.
 
-## Websocket events
+## CLI workspace
+Add a project-centric command surface.
 
-Recommended new events:
-
-- `projects:updated`
-- `project:workspace_updated`
-- `agent_sessions:updated`
-- `agent_outbox:updated`
-
-These should follow the existing typed websocket event pattern already used by chat.
-
-## Storage design
-
-## New tables
-
-Recommended minimum additions:
-
-### `project_registry`
-
-Stable project identity, aliases, and mapping metadata.
-
-### `agent_sessions`
-
-Registry for Vel-native and external sessions.
-
-### `agent_outbox`
-
-Queued outbound messages.
-
-### `agent_steering`
-
-Structured steering instructions.
-
-### `agent_feedback`
-
-Structured feedback records.
-
-### `project_links`
-
-Optional mapping table to associate commitments, sessions, or transcripts with a stable project ID when source names drift.
-
-## Avoid
-
-Do **not** add a duplicate durable `tasks` table unless the implementation can prove commitments are insufficient.
-
-That kind of duplication is how software develops neurosis: the ego says one thing, the symptom says another, and the operator gets to play analyst to a malfunctioning database.
-
-## Web UX
-
-## Top-level nav
-
-Add `Projects` alongside `Now`, `Inbox`, and `Threads`.
-
-## Projects index layout
-
-Left/center split or stacked responsive layout:
-
-- project list / filters
-- selected project summary
-- active health indicators
-
-## Project detail layout
-
-Recommended four-column mental model rendered responsively:
-
-- work
-- chats
-- queue
-- controls
-
-On narrower screens, collapse to sections/tabs.
-
-## Interaction rules
-
-- optimistic UI only where rollback is well-defined,
-- explicit unsynced badges for queued/manual states,
-- visible source badges (`todoist`, `vel`, `claude`, etc.),
-- per-action provenance where mutation affects external systems.
-
-## CLI UX
-
-Plain output first:
-
+Examples:
 ```bash
-vel projects list
-vel projects show vel
-vel projects task add vel --title "write projects spec" --tag planning --tag vel
-vel projects chat queue vel codex-session-1 --message "update the migration and API types"
-vel projects chat steer vel codex-session-1 --message "respect repo truth and existing conventions"
+vel project list
+vel project open vel
+vel project tasks vel
+vel project add-task vel "write project page spec" --tag docs --tag ui
+vel project queue vel codex "refactor workspace projection service"
+vel project steer vel codex "keep transport DTOs in vel-api-types only"
+vel project feedback vel claude --type thumbs_down --note "too hand-wavy"
 ```
 
-Later, a TUI can consume the same APIs.
+### CLI modes
+1. **Command mode** for quick one-shot actions
+2. **Workspace mode** for a richer TUI-like overview
 
-## Capability model
+Workspace mode should render:
+- project summary
+- top tasks
+- active sessions
+- queued items
+- recent activity
 
-Not all external agents support all actions.
+Do not create a separate data model for CLI output.
 
-Each `AgentSessionRecord` should expose capability flags such as:
+## Events and auditability
+Emit durable events for:
+- project created/updated/archived
+- project task created/updated/done/cancelled/tagged
+- agent session created/updated
+- outbox item queued/sent/acked/failed/cancelled
+- feedback recorded
+- steering/settings updated
 
-```rust
-pub struct AgentSessionCapabilities {
-    pub can_queue_message: bool,
-    pub can_send_immediately: bool,
-    pub can_apply_feedback: bool,
-    pub can_change_settings: bool,
-    pub can_read_transcripts: bool,
-    pub requires_manual_dispatch: bool,
-}
-```
+This feature should be unusually inspectable because otherwise multi-agent orchestration turns into occult bookkeeping.
 
-This avoids the pathetic UX of presenting buttons that are pure fiction.
-
-## Rollout plan
-
-### Phase 1
-
-- project registry
-- project workspace read APIs
-- Todoist task creation/tagging/update write path
-- web Projects page with work panel
-
-### Phase 2
-
-- agent sessions registry
-- transcript-to-session mapping
-- active chats panel
-- queued message outbox
-
-### Phase 3
-
-- steering and feedback actions
-- per-session settings controls
-- websocket live updates
-- CLI command family
-
-### Phase 4
-
-- richer adapters for dispatch into external systems
-- smarter project association and confidence scoring
-- synthesis-aware project health scoring
-
-## Acceptance criteria
-
-- A top-level `Projects` page exists in web.
-- Project identity resolves deterministically from Todoist/commitments/transcripts/codex tags.
-- User can create and tag Todoist-backed tasks from Vel.
-- Project detail view shows active agent sessions from both Vel-native and external sources.
-- User can queue messages and record steering/feedback for sessions.
-- A shared API/view-model powers both web and CLI commands.
-- Unsynced/manual-dispatch states are explicit, not hidden.
-- Integration and UI tests cover the main read/write flows.
-
-## Recommended file touch points
+## Suggested implementation shape
 
 ### Backend
+- `vel-storage`: new tables + queries
+- `vel-api-types`: DTOs for project workspace/session/outbox
+- `veld/services/projects.rs`: projection, mutation orchestration, Todoist write-through logic
+- `veld/routes/projects.rs`: project/session/task APIs
 
-- `crates/vel-api-types/src/lib.rs`
-- `crates/vel-storage/src/db.rs`
-- `crates/veld/src/app.rs`
-- `crates/veld/src/routes/` (new `projects.rs`, `agent_sessions.rs`)
-- `crates/veld/src/services/integrations.rs`
-- `migrations/` (new project/session/outbox migrations)
-
-### Frontend
-
-- `clients/web/src/App.tsx`
-- `clients/web/src/types.ts`
-- `clients/web/src/data/resources.ts`
-- `clients/web/src/components/` (new Projects page components)
+### Web
+- `clients/web/src/components/ProjectsPage.tsx`
+- `clients/web/src/components/projects/*`
+- shared query resources and websocket invalidation wiring
 
 ### CLI
+- extend `vel-cli` with `project` subcommands and workspace rendering
 
-- `crates/vel-cli/src/main.rs`
-- `crates/vel-cli/src/` project command module(s)
+## Rollout plan
+1. Project registry + read-only project index/workspace projection
+2. Task creation/tagging using commitment-backed semantics
+3. Todoist write-through for project-backed task mutations
+4. Agent session registry + read-only sessions view
+5. Outbox / steering / feedback control plane
+6. Web projects page
+7. CLI project workspace
+8. Realtime hardening and docs
 
-## Ticket pack
+## Acceptance criteria
+- There is a first-class Projects navigation surface.
+- Project identity is registry-backed, not only free-text.
+- Tasks shown in Projects are commitment-backed and test-covered.
+- Todoist-backed projects support task create/update with explicit failure semantics.
+- Active assistant work is represented as sessions, not raw transcript rows alone.
+- The operator can queue messages, record feedback, and steer sessions.
+- Web and CLI consume the same project workspace contract.
+- Events/docs/tests are updated.
 
-See `docs/tickets/projects/`.
+## Implementation tickets
+See [docs/tickets/projects/](../tickets/projects/README.md).

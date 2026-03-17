@@ -7,42 +7,52 @@ created: 2026-03-16
 
 # Vel Projects page ticket pack
 
-This pack contains codex-ready markdown tickets for implementing a **Projects** surface in Vel.
+This pack contains codex-ready markdown tickets for implementing a first-class Projects page and shared project workspace contract in Vel.
 
-## Scope
+**Primary spec:** [docs/specs/vel-projects-page-spec.md](../../specs/vel-projects-page-spec.md)
 
-This pack covers:
+## Repo-aware boundary notes
 
-- project registry and canonical view-models,
-- Todoist-backed project work view and task mutation,
-- active chat/session registry across Vel and external assistants,
-- queued messages, steering, feedback, and settings controls,
-- web Projects page,
-- CLI command parity.
+This pack assumes the current repo state already includes:
+- `commitments` with `project` support
+- Todoist sync that mirrors tasks into commitments
+- transcript sync into `assistant_transcripts`
+- web shell with Now / Inbox / Threads
+- existing `/v1` and `/api` operator routes
 
-## Grounding
+Accordingly:
+- do **not** introduce a second durable task authority unless explicitly justified
+- do **not** treat `assistant_transcripts` as the final session/operator model
+- do **not** make web and CLI invent separate workspace payloads
 
-This pack assumes the attached repo state where:
+## Included
+- 01 — boundary + project registry foundation
+- 02 — storage, migrations, DTO contracts
+- 03 — workspace projection service + APIs
+- 04 — Todoist write-through project/task mutations
+- 05 — task tagging and operator ergonomics
+- 06 — agent session registry
+- 07 — outbox, steering, feedback, session settings
+- 08 — websocket/event contract
+- 09 — web Projects page shell
+- 10 — web Tasks workspace
+- 11 — web Chats/Agents workspace
+- 12 — CLI project workspace
+- 13 — tests, fixtures, docs, rollout
 
-- Todoist already syncs into commitments and signals,
-- web already has `Now`, `Inbox`, `Threads`, `Settings`,
-- transcript ingestion already lands in `assistant_transcripts`,
-- there is no first-class Projects page yet.
+## Recommended implementation order
+1. Establish project registry and typed contracts.
+2. Build read-only project index/workspace projection.
+3. Add commitment-backed task mutations and Todoist write-through.
+4. Add session registry and control plane.
+5. Ship the web page.
+6. Add CLI parity.
+7. Harden tests/docs/realtime.
 
-## Boundary rules
-
-- Do not introduce a duplicate durable task authority unless commitments prove insufficient.
-- Todoist remains the system of record for user tasks whenever connected.
-- External chat systems may be read-only or queue-only depending on adapter capability.
-- Shared backend contracts must power both web and CLI flows.
-
-## Recommended execution order
-
-1. project registry and view-model contracts
-2. migrations and storage methods
-3. Todoist write-through task mutation support
-4. project projection/workspace APIs
-5. agent sessions + outbox + steering/feedback APIs
-6. web Projects UI
-7. CLI command family
-8. tests, docs, rollout hardening
+## Definition of done
+A ticket is only done when:
+- code compiles
+- storage and route boundaries stay clean
+- tests exist for meaningful behavior
+- docs/status are updated where relevant
+- feature flags are added when rollout risk is non-trivial

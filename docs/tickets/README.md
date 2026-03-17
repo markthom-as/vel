@@ -47,11 +47,11 @@ These packs may contain good ideas, but they should not outrank current converge
 
 ### Active convergence work
 
-#### 1. Chat Interface (`001–036` in this directory)
+#### 1. Chat Interface (`001–037` in this directory)
 
 Sequenced tickets for the Vel chat interface: conversations, messages, interventions, inbox, provenance, settings, tests, and richer chat interactions.
 
-- **Files:** `001-initialize-monorepo.md` … `036-rich-chat-interactions-and-markdown-rendering.md`
+- **Files:** `001-initialize-monorepo.md` … `037-chat-remote-fallback-for-assistant-generation.md`
 - **Use when:** working on the current web/chat surface or reconciling the shipped chat stack with remaining polish.
 - **Caution:** implementation truth for chat lives in [docs/status.md](../status.md) and chat-specific detail docs, not in ticket completion vibes.
 
@@ -124,7 +124,14 @@ Metadata hygiene across integrated sources: schema and domain, gap detection, en
 - **Spec:** [docs/specs/vel-metadata-enrichment-spec.md](../specs/vel-metadata-enrichment-spec.md)
 - **Tickets:** `001-schema-and-domain-model.md` … `012-tests-fixtures-and-rollout.md`
 
-#### 11. Self-knowledge system (`self-knowledge/`)
+#### 11. Projects page (`projects/`)
+
+Project workspace and multi-surface contract for project registry, commitments, agent sessions, task steering, and operator/workspace parity.
+
+- **Spec:** [docs/specs/vel-projects-page-spec.md](../specs/vel-projects-page-spec.md)
+- **Tickets:** `01-project-boundary-and-registry.md` … `13-tests-docs-rollout.md`
+
+#### 12. Self-knowledge system (`self-knowledge/`)
 
 Documentation and source-code awareness: repo indexer, self-knowledge graph, evidence-backed claims, doc/code drift detection, navigation APIs, system map, change hotspots, maintenance loop.
 
@@ -133,7 +140,7 @@ Documentation and source-code awareness: repo indexer, self-knowledge graph, evi
 
 ### Speculative / future architecture
 
-#### 12. Context reasoning (`context-reasoning/`)
+#### 13. Context reasoning (`context-reasoning/`)
 
 Context/decision tickets: belief store, inference engine, inspector UI, decision trace logging, explanation UI, feedback learning loop, belief expiration, confidence calibration, introspection report.
 
@@ -141,7 +148,7 @@ Context/decision tickets: belief store, inference engine, inspector UI, decision
 - **Tickets:** `TICKET-001-context-belief-store.md` … `TICKET-010-introspection-report.md`
 - **Use with caution:** this pack is conceptually rich, but may overlap with already-implemented current-context and explainability systems. Validate boundaries against [docs/status.md](../status.md) before execution.
 
-#### 13. Task HUD (`task-hud/`)
+#### 14. Task HUD (`task-hud/`)
 
 Task HUD subsystem: task core crate, DB schema/migrations, actions engine, ranking engine, HUD policy, view model, desktop HUD UI, inference engine, ritual tasks, risk integration, voice bridge, glance API, ambient mode, AR protocol spec.
 
@@ -149,20 +156,20 @@ Task HUD subsystem: task core crate, DB schema/migrations, actions engine, ranki
 - **Tickets:** `01-task-core-crate.md` … `14-ar-hud-protocol-spec.md`
 - **Use with caution:** this pack introduces a new task-centric subsystem and should be reconciled carefully with existing commitments, nudges, threads, and risk semantics first.
 
-#### 14. Orchestration Navs (`orchestration/`)
+#### 15. Orchestration Navs (`orchestration/`)
 
 Core orchestration stack for Nav-based execution: task model, Nav trait, capability model, Nav registry, delegation engine, context scoping, result integration, persistent task store, trust profiles, reflection, observability, initial Nav implementations.
 
 - **Tickets:** `001_task_model.md` … `012_initial_navs.md`
 
-#### 15. Self-modification system (`vel-self-modification/`)
+#### 16. Self-modification system (`vel-self-modification/`)
 
 Governed self-modification pipeline: protected surface registry, patch proposal schema, self-improvement service skeleton, change ledger, validation orchestrator, sandbox execution, rollback control, autonomy budgets, rollout support, metrics, constitutional workflow.
 
 - **Index:** [vel-self-modification/_ticket-index.md](vel-self-modification/_ticket-index.md)
 - **Tickets:** `VSM-001-protected-surface-registry.md` … `VSM-020-constitutional-change-workflow.md`
 
-#### 16. iOS/watch standalone (`ios-watch/`)
+#### 17. iOS/watch standalone (`ios-watch/`)
 
 Tickets for iOS + watchOS as a separate repo/workspace (`vel-apple`): bootstrap, shared models/API, app shell, timeline/check-in/reminder flows, background refresh, widgets, voice, offline-first sync, privacy/observability, integration roadmap.
 
@@ -170,7 +177,7 @@ Tickets for iOS + watchOS as a separate repo/workspace (`vel-apple`): bootstrap,
 - **Tickets:** `TKT-001-apple-platform-bootstrap.md` … `TKT-013-apple-integration-roadmap.md`
 - **Use with caution:** this pack assumes a separate-repo stance that may diverge from current same-repo Apple bootstrap guidance.
 
-#### 17. Predicate system (`predicate-system/`)
+#### 18. Predicate system (`predicate-system/`)
 
 Predicate/rule-oriented architecture tickets for store, rule engine, and observation ingest.
 
