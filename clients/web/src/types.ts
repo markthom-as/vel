@@ -359,11 +359,23 @@ export interface SignalExplainSummary {
   summary: JsonValue;
 }
 
+export interface ContextSourceSummaryData {
+  timestamp: UnixSeconds;
+  summary: JsonValue;
+}
+
+export interface ContextSourceSummariesData {
+  git_activity: ContextSourceSummaryData | null;
+  note_document: ContextSourceSummaryData | null;
+  assistant_message: ContextSourceSummaryData | null;
+}
+
 export interface ContextExplainData {
   computed_at: UnixSeconds;
   mode: string | null;
   morning_state: string | null;
   context: JsonValue;
+  source_summaries: ContextSourceSummariesData;
   signals_used: string[];
   signal_summaries: SignalExplainSummary[];
   commitments_used: string[];
@@ -723,11 +735,35 @@ export function decodeSignalExplainSummary(value: unknown): SignalExplainSummary
 
 export function decodeContextExplainData(value: unknown): ContextExplainData {
   const record = expectRecord(value, 'context explain');
+  const sourceSummaries = expectRecord(record.source_summaries, 'context explain.source_summaries');
   return {
     computed_at: expectUnixSeconds(record.computed_at, 'context explain.computed_at'),
     mode: expectNullableString(record.mode, 'context explain.mode'),
     morning_state: expectNullableString(record.morning_state, 'context explain.morning_state'),
     context: decodeJsonValue(record.context),
+    source_summaries: {
+      git_activity: decodeNullable(sourceSummaries.git_activity, (item) => {
+        const summary = expectRecord(item, 'context explain.source_summaries.git_activity');
+        return {
+          timestamp: expectUnixSeconds(summary.timestamp, 'context explain.source_summaries.git_activity.timestamp'),
+          summary: decodeJsonValue(summary.summary),
+        };
+      }),
+      note_document: decodeNullable(sourceSummaries.note_document, (item) => {
+        const summary = expectRecord(item, 'context explain.source_summaries.note_document');
+        return {
+          timestamp: expectUnixSeconds(summary.timestamp, 'context explain.source_summaries.note_document.timestamp'),
+          summary: decodeJsonValue(summary.summary),
+        };
+      }),
+      assistant_message: decodeNullable(sourceSummaries.assistant_message, (item) => {
+        const summary = expectRecord(item, 'context explain.source_summaries.assistant_message');
+        return {
+          timestamp: expectUnixSeconds(summary.timestamp, 'context explain.source_summaries.assistant_message.timestamp'),
+          summary: decodeJsonValue(summary.summary),
+        };
+      }),
+    },
     signals_used: decodeArray(record.signals_used ?? [], (item) => expectString(item, 'context explain.signals_used')),
     signal_summaries: decodeArray(record.signal_summaries ?? [], decodeSignalExplainSummary),
     commitments_used: decodeArray(record.commitments_used ?? [], (item) => expectString(item, 'context explain.commitments_used')),

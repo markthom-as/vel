@@ -3,6 +3,7 @@ import {
   decodeApiResponse,
   decodeCommitmentData,
   decodeCreateMessageResponse,
+  decodeContextExplainData,
   decodeCurrentContextData,
   decodeComponentData,
   decodeComponentLogEventData,
@@ -169,6 +170,60 @@ describe('transport decoders', () => {
     expect(response.data?.activity.source_path).toBe('/tmp/activity.json')
     expect(response.data?.activity.last_item_count).toBe(4)
     expect(response.data?.google_calendar.guidance?.action).toBe('Save credentials')
+  })
+
+  it('decodes context explain source summaries', () => {
+    expect(
+      decodeContextExplainData({
+        computed_at: 1710000000,
+        mode: 'focus',
+        morning_state: 'engaged',
+        context: { meds_status: 'pending' },
+        source_summaries: {
+          git_activity: {
+            timestamp: 1710000000,
+            summary: { repo: 'vel', branch: 'main' },
+          },
+          note_document: {
+            timestamp: 1710000060,
+            summary: { path: 'daily/today.md' },
+          },
+          assistant_message: {
+            timestamp: 1710000120,
+            summary: { conversation_id: 'conv_context' },
+          },
+        },
+        signals_used: ['sig_1'],
+        signal_summaries: [],
+        commitments_used: ['commit_1'],
+        risk_used: ['risk_1'],
+        reasons: ['mode: focus'],
+      }),
+    ).toEqual({
+      computed_at: 1710000000,
+      mode: 'focus',
+      morning_state: 'engaged',
+      context: { meds_status: 'pending' },
+      source_summaries: {
+        git_activity: {
+          timestamp: 1710000000,
+          summary: { repo: 'vel', branch: 'main' },
+        },
+        note_document: {
+          timestamp: 1710000060,
+          summary: { path: 'daily/today.md' },
+        },
+        assistant_message: {
+          timestamp: 1710000120,
+          summary: { conversation_id: 'conv_context' },
+        },
+      },
+      signals_used: ['sig_1'],
+      signal_summaries: [],
+      commitments_used: ['commit_1'],
+      risk_used: ['risk_1'],
+      reasons: ['mode: focus'],
+    })
   })
 
   it('decodes consolidated now responses', () => {

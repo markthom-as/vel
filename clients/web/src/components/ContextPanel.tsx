@@ -37,6 +37,7 @@ export function ContextPanel() {
     context?.signal_summaries ?? [],
     drift?.signal_summaries ?? [],
   );
+  const sourceSummaries = context ? summarizeSourceSummaries(context.source_summaries) : [];
 
   if (loading) return <SurfaceState message="Loading context…" title="Context" />;
   if (error) return <SurfaceState message={error} title="Context" tone="warning" />;
@@ -107,6 +108,27 @@ export function ContextPanel() {
         </section>
       )}
 
+      {sourceSummaries.length > 0 && (
+        <section>
+          <SectionHeading title="Source summaries" />
+          <div className="mt-2 space-y-2">
+            {sourceSummaries.map((source) => (
+              <div key={source.label} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-zinc-100">{source.label}</p>
+                  <p className="text-xs text-zinc-500">
+                    {new Date(source.timestamp * 1000).toLocaleString()}
+                  </p>
+                </div>
+                <p className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap break-words">
+                  {formatSummary(source.summary)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {signalSummaries.length > 0 && (
         <section>
           <SectionHeading title="Signals used" />
@@ -169,6 +191,8 @@ function summarizeContext(context: JsonValue): Array<[string, string]> {
     'global_risk_level',
     'global_risk_score',
     'git_activity_summary',
+    'note_document_summary',
+    'assistant_message_summary',
     'message_waiting_on_me_count',
     'message_waiting_on_others_count',
     'message_scheduling_thread_count',
@@ -190,6 +214,25 @@ function mergeSignalSummaries(
     byId.set(signal.signal_id, signal);
   }
   return [...byId.values()];
+}
+
+function summarizeSourceSummaries(sourceSummaries: ContextExplainData['source_summaries']) {
+  const entries = [
+    sourceSummaries.git_activity
+      ? { label: 'Git activity', ...sourceSummaries.git_activity }
+      : null,
+    sourceSummaries.note_document
+      ? { label: 'Recent note', ...sourceSummaries.note_document }
+      : null,
+    sourceSummaries.assistant_message
+      ? { label: 'Recent transcript', ...sourceSummaries.assistant_message }
+      : null,
+  ];
+  return entries.filter(
+    (
+      value,
+    ): value is { label: string; timestamp: number; summary: JsonValue } => value !== null,
+  );
 }
 
 function formatSummary(value: JsonValue): string {

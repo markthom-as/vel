@@ -25,6 +25,31 @@ describe('ContextPanel', () => {
               prep_window_active: true,
               global_risk_level: 'medium',
             },
+            source_summaries: {
+              git_activity: {
+                timestamp: 1710000000,
+                summary: {
+                  repo: 'vel',
+                  branch: 'main',
+                  operation: 'commit',
+                },
+              },
+              note_document: {
+                timestamp: 1710000030,
+                summary: {
+                  title: 'Today',
+                  path: 'daily/today.md',
+                },
+              },
+              assistant_message: {
+                timestamp: 1710000060,
+                summary: {
+                  conversation_id: 'conv_context',
+                  role: 'assistant',
+                  source: 'chatgpt',
+                },
+              },
+            },
             signals_used: ['sig_1'],
             signal_summaries: [
               {
@@ -79,7 +104,12 @@ describe('ContextPanel', () => {
     expect(screen.getByText('mode: focus')).toBeInTheDocument()
     expect(screen.getByText('Recent git activity indicates active work')).toBeInTheDocument()
     expect(screen.getByText('git_activity')).toBeInTheDocument()
-    expect(screen.getByText(/repo: vel/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/repo: vel/i).length).toBeGreaterThan(0)
+    expect(screen.getByText('Source summaries')).toBeInTheDocument()
+    expect(screen.getByText('Recent note')).toBeInTheDocument()
+    expect(screen.getByText(/path: daily\/today.md/i)).toBeInTheDocument()
+    expect(screen.getByText('Recent transcript')).toBeInTheDocument()
+    expect(screen.getByText(/conversation id: conv_context/i)).toBeInTheDocument()
     expect(screen.getByText('commit_1')).toBeInTheDocument()
     expect(screen.getByText('pending')).toBeInTheDocument()
   })
