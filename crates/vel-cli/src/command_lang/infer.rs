@@ -96,16 +96,20 @@ fn resolve(parsed: &ParsedCommand, intent: &mut IntentResolution) -> ResolvedCom
                 vec![TypedTarget {
                     kind: DomainKind::Artifact,
                     id: None,
-                    selector: Some(TargetSelector::Custom("week".to_string())),
+                    selector: Some(TargetSelector::Custom(
+                        parsed.primary_target().unwrap_or("week").to_string(),
+                    )),
                     attributes: json!({
-                        "scope": "week"
+                        "scope": parsed.primary_target().unwrap_or("week"),
+                        "project": parsed.target_tokens.get(1).cloned()
                     }),
                 }],
                 json!({
-                    "synthesis_scope": "week"
+                    "synthesis_scope": parsed.primary_target().unwrap_or("week"),
+                    "project": parsed.target_tokens.get(1).cloned()
                 }),
                 vec![
-                    "synthesize commands currently resolve to the weekly synthesis flow"
+                    "synthesize commands currently resolve to weekly or project synthesis"
                         .to_string(),
                 ],
                 vec![ResolutionConfidence {
@@ -492,5 +496,20 @@ mod tests {
         assert_eq!(resolution.resolved.operation, DomainOperation::Execute);
         assert_eq!(resolution.resolved.targets[0].kind, DomainKind::Artifact);
         assert_eq!(resolution.resolved.inferred["synthesis_scope"], "week");
+    }
+
+    #[test]
+    fn resolves_synthesize_project_to_project_synthesis_intent() {
+        let input = vec![
+            "should".to_string(),
+            "synthesize".to_string(),
+            "project".to_string(),
+            "vel".to_string(),
+        ];
+        let resolution = parse_and_resolve(&input).expect("resolve");
+        assert_eq!(resolution.resolved.operation, DomainOperation::Execute);
+        assert_eq!(resolution.resolved.targets[0].kind, DomainKind::Artifact);
+        assert_eq!(resolution.resolved.inferred["synthesis_scope"], "project");
+        assert_eq!(resolution.resolved.inferred["project"], "vel");
     }
 }

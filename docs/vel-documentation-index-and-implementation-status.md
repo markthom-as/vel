@@ -41,10 +41,11 @@ Start with [docs/README.md](README.md) if you need the shortest authoritative re
 
 ## Operator Tooling
 - CLI cockpit spec — [spec](specs/vel-operator-cockpit-spec.md)
-- command language / structured DSL — [spec](specs/vel-command-language-spec.md)
-- command language implementation note — [spec](specs/vel-command-language-implementation-note.md)
-- command language Rust layout — [spec](specs/vel-command-language-rust-layout.md)
+- command language / structured DSL — [spec](specs/vel-command-language-spec.md), [status](status.md)
+- command language implementation note — [spec](specs/vel-command-language-implementation-note.md), [status](status.md)
+- command language Rust layout — [spec](specs/vel-command-language-rust-layout.md), [status](status.md)
 - terminology, glossary, and DSL/domain vocabulary — [docs](vocabulary.md)
+- thread graph / planning metadata — [spec](specs/vel-thread-graph-spec.md), [status](status.md)
 - explain commands — [status](status.md)
 
 ## User Documentation

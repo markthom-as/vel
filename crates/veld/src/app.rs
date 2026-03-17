@@ -1594,6 +1594,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn claim_next_work_skips_workers_with_no_available_concurrency() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_app_state(storage.clone());
+
+        let routed = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-no-capacity".to_string()),
+        )
+        .await
+        .unwrap();
+
+        let runtime = state.worker_runtime.clone();
+        let mut guards = Vec::new();
+        for _ in 0..runtime.snapshot().max_concurrency {
+            guards.push(runtime.begin_work());
+        }
+
+        let next = crate::services::client_sync::claim_next_work_for_worker(
+            &state,
+            vel_api_types::WorkAssignmentClaimNextRequestData {
+                node_id: "vel-node".to_string(),
+                worker_id: "worker-1".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        assert!(next.claim.is_none());
+
+        drop(guards);
+
+        let next = crate::services::client_sync::claim_next_work_for_worker(
+            &state,
+            vel_api_types::WorkAssignmentClaimNextRequestData {
+                node_id: "vel-node".to_string(),
+                worker_id: "worker-1".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        let claimed = next.claim.expect("work should be claimable once capacity frees");
+        assert_eq!(claimed.queue_item.work_request_id, routed.work_request_id);
+    }
+
+    #[tokio::test]
     async fn duplicate_queue_request_after_failed_receipt_returns_retry_backoff_status() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -2544,6 +2601,81 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn command_execute_endpoint_runs_project_synthesis() {
+        let db_path = format!(
+            "/tmp/vel_command_synthesize_project_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/execute")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "execute",
+                                "targets": [
+                                    {
+                                        "kind": "artifact",
+                                        "selector": {
+                                            "type": "custom",
+                                            "value": "project"
+                                        },
+                                        "attributes": {
+                                            "scope": "project",
+                                            "project": "vel"
+                                        }
+                                    }
+                                ],
+                                "inferred": {
+                                    "synthesis_scope": "project",
+                                    "project": "vel"
+                                },
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["result"]["result_kind"].as_str(),
+            Some("synthesis_created")
+        );
+        assert!(json["data"]["result"]["data"]["run_id"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("run_")));
+        assert!(json["data"]["result"]["data"]["artifact_id"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("art_")));
+    }
+
+    #[tokio::test]
     async fn command_execute_endpoint_creates_spec_draft_artifact() {
         let db_path = format!("/tmp/vel_command_spec_{}.db", uuid::Uuid::new_v4().simple());
         let storage = Storage::connect(&db_path).await.unwrap();
@@ -2802,6 +2934,224 @@ mod tests {
         assert!(stored.is_some());
         let stored_thread = storage.get_thread_by_id(thread_id).await.unwrap();
         assert!(stored_thread.is_some());
+    }
+
+    #[tokio::test]
+    async fn thread_create_planning_thread_defaults_to_planned_lifecycle() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let create_body = serde_json::json!({
+            "thread_type": "planning_execution",
+            "title": "message backlog plan"
+        })
+        .to_string();
+        let create_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/threads")
+                    .header("content-type", "application/json")
+                    .body(Body::from(create_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create_resp.status(), StatusCode::OK);
+
+        let create_body = axum::body::to_bytes(create_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let create_json: serde_json::Value = serde_json::from_slice(&create_body).unwrap();
+        assert_eq!(
+            create_json["data"]["thread_type"].as_str(),
+            Some("planning_execution")
+        );
+        assert_eq!(create_json["data"]["status"].as_str(), Some("planned"));
+        assert_eq!(
+            create_json["data"]["planning_kind"].as_str(),
+            Some("execution_plan")
+        );
+        assert_eq!(
+            create_json["data"]["lifecycle_stage"].as_str(),
+            Some("planned")
+        );
+
+        let thread_id = create_json["data"]["id"].as_str().expect("thread id");
+        let inspect_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/threads/{thread_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(inspect_resp.status(), StatusCode::OK);
+
+        let inspect_body = axum::body::to_bytes(inspect_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let inspect_json: serde_json::Value = serde_json::from_slice(&inspect_body).unwrap();
+        assert_eq!(
+            inspect_json["data"]["thread_type"].as_str(),
+            Some("planning_execution")
+        );
+        assert_eq!(
+            inspect_json["data"]["planning_kind"].as_str(),
+            Some("execution_plan")
+        );
+        assert_eq!(
+            inspect_json["data"]["lifecycle_stage"].as_str(),
+            Some("planned")
+        );
+
+        let list_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/threads?status=planned")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list_resp.status(), StatusCode::OK);
+        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
+        let items = list_json["data"].as_array().expect("thread list data");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["id"].as_str(), Some(thread_id));
+        assert_eq!(items[0]["thread_type"].as_str(), Some("planning_execution"));
+        assert_eq!(items[0]["planning_kind"].as_str(), Some("execution_plan"));
+        assert_eq!(items[0]["lifecycle_stage"].as_str(), Some("planned"));
+    }
+
+    #[tokio::test]
+    async fn update_thread_rejects_planning_status_violations() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let create_body = serde_json::json!({
+            "thread_type": "planning_delegation",
+            "title": "agent coordination"
+        })
+        .to_string();
+        let create_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/threads")
+                    .header("content-type", "application/json")
+                    .body(Body::from(create_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create_resp.status(), StatusCode::OK);
+
+        let create_body = axum::body::to_bytes(create_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let create_json: serde_json::Value = serde_json::from_slice(&create_body).unwrap();
+        let thread_id = create_json["data"]["id"].as_str().expect("thread id");
+
+        let invalid_status_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/threads/{thread_id}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "open"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid_status_resp.status(), StatusCode::BAD_REQUEST);
+
+        let invalid_transition_body =
+            axum::body::to_bytes(invalid_status_resp.into_body(), usize::MAX)
+                .await
+                .unwrap();
+        let invalid_transition_json: serde_json::Value =
+            serde_json::from_slice(&invalid_transition_body).unwrap();
+        assert_eq!(
+            invalid_transition_json["error"]["code"].as_str(),
+            Some("validation_error")
+        );
+
+        let transition_ok_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/threads/{thread_id}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "in_progress"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(transition_ok_resp.status(), StatusCode::OK);
+
+        let transition_ok_body = axum::body::to_bytes(transition_ok_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let transition_ok_json: serde_json::Value =
+            serde_json::from_slice(&transition_ok_body).unwrap();
+        assert_eq!(
+            transition_ok_json["data"]["status"].as_str(),
+            Some("in_progress")
+        );
+
+        let invalid_transition_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/v1/threads/{thread_id}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "status": "dormant"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(invalid_transition_resp.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]

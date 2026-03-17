@@ -14,8 +14,11 @@ clap.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 time.workspace = true
 tokio.workspace = true
+hex.workspace = true
 vel-api-types = { path = "../vel-api-types" }
 vel-config = { path = "../vel-config" }
 vel-core = { path = "../vel-core" }
+vel-storage = { path = "../vel-storage" }

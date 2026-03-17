@@ -19,6 +19,89 @@ pub struct ListThreadsQuery {
     pub limit: Option<u32>,
 }
 
+fn is_planning_thread_type(thread_type: &str) -> bool {
+    matches!(
+        thread_type,
+        "planning_spec" | "planning_execution" | "planning_delegation"
+    )
+}
+
+fn default_thread_status(thread_type: &str) -> &'static str {
+    if is_planning_thread_type(thread_type) {
+        "planned"
+    } else {
+        "open"
+    }
+}
+
+fn allowed_statuses(thread_type: &str) -> &'static [&'static str] {
+    if is_planning_thread_type(thread_type) {
+        &[
+            "planned",
+            "in_progress",
+            "needs_review",
+            "completed",
+            "archived",
+        ]
+    } else {
+        &["open", "dormant", "closed"]
+    }
+}
+
+fn is_allowed_transition(thread_type: &str, current_status: &str, next_status: &str) -> bool {
+    if current_status == next_status {
+        return true;
+    }
+
+    if is_planning_thread_type(thread_type) {
+        return matches!(
+            (current_status, next_status),
+            ("planned", "in_progress" | "archived")
+                | (
+                    "in_progress",
+                    "needs_review" | "completed" | "archived" | "planned"
+                )
+                | ("needs_review", "in_progress" | "completed" | "archived")
+                | ("completed", "archived" | "in_progress")
+                | ("archived", "planned" | "in_progress")
+        );
+    }
+
+    matches!(
+        (current_status, next_status),
+        ("open", "dormant" | "closed") | ("dormant", "open" | "closed") | ("closed", "open")
+    )
+}
+
+fn validate_thread_status(thread_type: &str, status: &str) -> Result<(), AppError> {
+    if allowed_statuses(thread_type).contains(&status) {
+        Ok(())
+    } else {
+        Err(AppError::bad_request(format!(
+            "status `{}` is not valid for thread type `{}`; allowed: {}",
+            status,
+            thread_type,
+            allowed_statuses(thread_type).join(", ")
+        )))
+    }
+}
+
+fn validate_thread_transition(
+    thread_type: &str,
+    current_status: &str,
+    next_status: &str,
+) -> Result<(), AppError> {
+    validate_thread_status(thread_type, next_status)?;
+    if is_allowed_transition(thread_type, current_status, next_status) {
+        Ok(())
+    } else {
+        Err(AppError::bad_request(format!(
+            "thread type `{}` cannot transition from `{}` to `{}`",
+            thread_type, current_status, next_status
+        )))
+    }
+}
+
 fn planning_thread_fields(thread_type: &str, status: &str) -> (Option<String>, Option<String>) {
     let planning_kind = match thread_type {
         "planning_spec" => Some("spec".to_string()),
@@ -129,6 +212,8 @@ pub async fn create_thread(
     State(state): State<AppState>,
     Json(payload): Json<ThreadCreateRequest>,
 ) -> Result<Json<ApiResponse<ThreadData>>, AppError> {
+    let status = default_thread_status(&payload.thread_type);
+    validate_thread_status(&payload.thread_type, status)?;
     let id = format!("thr_{}", Uuid::new_v4().simple());
     let metadata = payload
         .metadata_json
@@ -137,14 +222,14 @@ pub async fn create_thread(
         .unwrap_or_else(|| "{}".to_string());
     state
         .storage
-        .insert_thread(&id, &payload.thread_type, &payload.title, "open", &metadata)
+        .insert_thread(&id, &payload.thread_type, &payload.title, status, &metadata)
         .await?;
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
     let data = thread_data_from_summary(
         id.clone(),
         payload.thread_type,
         payload.title,
-        "open".to_string(),
+        status.to_string(),
         now,
         now,
     );
@@ -159,6 +244,12 @@ pub async fn update_thread(
 ) -> Result<Json<ApiResponse<ThreadData>>, AppError> {
     let id = id.trim();
     if let Some(status) = &payload.status {
+        let current = state
+            .storage
+            .get_thread_by_id(id)
+            .await?
+            .ok_or_else(|| AppError::not_found("thread not found"))?;
+        validate_thread_transition(&current.1, &current.3, status)?;
         state.storage.update_thread_status(id, status).await?;
     }
     let row = state

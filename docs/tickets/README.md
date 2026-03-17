@@ -190,10 +190,11 @@ Metadata hygiene across integrated sources: schema and domain, gap detection, en
 
 #### 12. Projects page (`projects/`)
 
-Project workspace and multi-surface contract for project registry, commitments, agent sessions, task steering, and operator/workspace parity.
+Project workspace and multi-surface contract for project registry, commitments, tags, dependencies, recurring anchors, agent sessions, task steering, and operator/workspace parity.
 
 - **Spec:** [docs/specs/vel-projects-page-spec.md](../specs/vel-projects-page-spec.md)
-- **Tickets:** `01-project-boundary-and-registry.md` … `13-tests-docs-rollout.md`
+- **Companion spec:** [docs/specs/vel-project-operations-substrate-spec.md](../specs/vel-project-operations-substrate-spec.md)
+- **Tickets:** `01-project-boundary-and-registry.md` … `18-routine-aware-schedule-blocks-and-planning-policy.md`
 
 #### 13. Self-knowledge system (`self-knowledge/`)
 
@@ -209,7 +210,7 @@ Parallel multi-client orchestration and cluster-aware sync: explicit swarm task/
 
 - **Index:** [multi-client-swarm/README.md](multi-client-swarm/README.md)
 - **Specs:** [docs/specs/vel-multi-client-swarm-spec.md](../specs/vel-multi-client-swarm-spec.md), [docs/specs/vel-cluster-sync-spec.md](../specs/vel-cluster-sync-spec.md)
-- **Tickets:** `SWARM-001-task-and-work-unit-model.md` … `SWARM-008-observability-replay-and-failover-tests.md`
+- **Tickets:** `SWARM-001-task-and-work-unit-model.md` … `SWARM-009-swarm-client-view.md`
 - **Use when:** implementing supervised parallel execution across clients/workers, or adding the cluster sync substrate needed for swarm scheduling and load balancing.
 - **Caution:** this pack is orchestration-heavy and should not outrank current core convergence work unless there is an explicit decision to prioritize runtime/swarm infrastructure.
 

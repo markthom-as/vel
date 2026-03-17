@@ -56,6 +56,10 @@ type LoopFuture<'a> = std::pin::Pin<
 fn registered_loops_with_policy(
     policy_config: &crate::policy_config::PolicyConfig,
 ) -> Vec<LoopDefinition> {
+    let worker_presence_heartbeat_loop = policy_config
+        .worker_presence_heartbeat_loop()
+        .cloned()
+        .unwrap_or_default();
     let queue_work_scheduler_loop = policy_config
         .queue_work_scheduler_loop()
         .cloned()
@@ -111,6 +115,12 @@ fn registered_loops_with_policy(
             interval: LOOP_INTERVAL,
             enabled: true,
             runner: run_retry_due_runs_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::WorkerPresenceHeartbeat,
+            interval: Duration::from_secs(worker_presence_heartbeat_loop.interval_seconds),
+            enabled: worker_presence_heartbeat_loop.enabled,
+            runner: run_worker_presence_heartbeat_loop_once,
         },
         LoopDefinition {
             kind: LoopKind::QueueWorkScheduler,
@@ -305,6 +315,13 @@ fn run_queue_work_scheduler_loop_once(state: &AppState) -> LoopFuture<'_> {
             process_claimed_work(state, claim).await?;
         }
 
+        Ok(())
+    })
+}
+
+fn run_worker_presence_heartbeat_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        crate::services::client_sync::refresh_local_worker_presence(state).await?;
         Ok(())
     })
 }
@@ -972,35 +989,37 @@ mod tests {
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
         let loops = registered_loops_with_policy(&crate::policy_config::PolicyConfig::default());
-        assert_eq!(loops.len(), 14);
+        assert_eq!(loops.len(), 15);
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
-        assert_eq!(loops[2].kind, LoopKind::QueueWorkScheduler);
-        assert_eq!(loops[3].kind, LoopKind::EvaluateCurrentState);
-        assert_eq!(loops[4].kind, LoopKind::SyncCalendar);
-        assert_eq!(loops[5].kind, LoopKind::SyncTodoist);
-        assert_eq!(loops[6].kind, LoopKind::SyncActivity);
-        assert_eq!(loops[7].kind, LoopKind::SyncHealth);
-        assert_eq!(loops[8].kind, LoopKind::SyncGit);
-        assert_eq!(loops[9].kind, LoopKind::SyncMessaging);
-        assert_eq!(loops[10].kind, LoopKind::SyncNotes);
-        assert_eq!(loops[11].kind, LoopKind::SyncTranscripts);
-        assert_eq!(loops[12].kind, LoopKind::WeeklySynthesis);
-        assert_eq!(loops[13].kind, LoopKind::StaleNudgeReconciliation);
+        assert_eq!(loops[2].kind, LoopKind::WorkerPresenceHeartbeat);
+        assert_eq!(loops[3].kind, LoopKind::QueueWorkScheduler);
+        assert_eq!(loops[4].kind, LoopKind::EvaluateCurrentState);
+        assert_eq!(loops[5].kind, LoopKind::SyncCalendar);
+        assert_eq!(loops[6].kind, LoopKind::SyncTodoist);
+        assert_eq!(loops[7].kind, LoopKind::SyncActivity);
+        assert_eq!(loops[8].kind, LoopKind::SyncHealth);
+        assert_eq!(loops[9].kind, LoopKind::SyncGit);
+        assert_eq!(loops[10].kind, LoopKind::SyncMessaging);
+        assert_eq!(loops[11].kind, LoopKind::SyncNotes);
+        assert_eq!(loops[12].kind, LoopKind::SyncTranscripts);
+        assert_eq!(loops[13].kind, LoopKind::WeeklySynthesis);
+        assert_eq!(loops[14].kind, LoopKind::StaleNudgeReconciliation);
         assert!(loops[0].enabled);
         assert!(loops[1].enabled);
         assert!(loops[2].enabled);
         assert!(loops[3].enabled);
         assert!(loops[4].enabled);
         assert!(loops[5].enabled);
-        assert!(!loops[6].enabled);
+        assert!(loops[6].enabled);
         assert!(!loops[7].enabled);
         assert!(!loops[8].enabled);
-        assert!(loops[9].enabled);
-        assert!(!loops[10].enabled);
+        assert!(!loops[9].enabled);
+        assert!(loops[10].enabled);
         assert!(!loops[11].enabled);
         assert!(loops[12].enabled);
         assert!(loops[13].enabled);
+        assert!(loops[14].enabled);
     }
 
     #[tokio::test]
@@ -1021,7 +1040,7 @@ mod tests {
         poll_once(&state).await.unwrap();
 
         let loops = storage.list_runtime_loops().await.unwrap();
-        assert_eq!(loops.len(), 9);
+        assert_eq!(loops.len(), 10);
         assert!(loops
             .iter()
             .all(|loop_record| loop_record.last_started_at.is_some()));
@@ -1034,6 +1053,9 @@ mod tests {
         assert!(loops
             .iter()
             .all(|loop_record| loop_record.next_due_at.is_some()));
+        assert!(loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "worker_presence_heartbeat"));
         assert!(loops
             .iter()
             .any(|loop_record| loop_record.loop_kind == "queue_work_scheduler"));
@@ -1112,6 +1134,40 @@ mod tests {
             .as_deref()
             .unwrap_or_default()
             .contains("simulated validation success"));
+    }
+
+    #[tokio::test]
+    async fn poll_once_refreshes_local_worker_presence_heartbeat() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        poll_once(&state).await.unwrap();
+
+        let workers = storage.list_cluster_workers().await.unwrap();
+        assert_eq!(workers.len(), 1);
+        let worker = &workers[0];
+        assert_eq!(worker.worker_id, "vel-node");
+        assert_eq!(worker.status.as_deref(), Some("ready"));
+        assert!(worker.last_heartbeat_at > 0);
+        assert!(worker.current_load.is_some());
+        assert!(worker.queue_depth.is_some());
+
+        let loop_record = storage
+            .get_runtime_loop("worker_presence_heartbeat")
+            .await
+            .unwrap()
+            .expect("heartbeat loop row should be created");
+        assert_eq!(loop_record.last_status.as_deref(), Some("succeeded"));
     }
 
     #[tokio::test]

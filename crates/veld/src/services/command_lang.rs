@@ -712,6 +712,26 @@ async fn execute_synthesis(
                 artifact_id: artifact_id.to_string(),
             })
         }
+        "project" => {
+            let project_slug = command
+                .targets
+                .first()
+                .and_then(|target| target.attributes.get("project"))
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    AppError::bad_request(
+                        "project synthesis commands require a project slug in the second position",
+                    )
+                })?;
+            let (run_id, artifact_id) =
+                crate::services::synthesis::run_project_synthesis(state, project_slug).await?;
+            CommandExecutionPayload::SynthesisCreated(SynthesisWeekData {
+                run_id: run_id.to_string(),
+                artifact_id: artifact_id.to_string(),
+            })
+        }
         other => {
             return Err(AppError::bad_request(format!(
                 "unsupported synthesis scope `{}`",
@@ -1361,6 +1381,37 @@ mod tests {
             }],
             inferred: json!({
                 "synthesis_scope": "week"
+            }),
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        match result.result {
+            CommandExecutionPayload::SynthesisCreated(payload) => {
+                assert!(payload.run_id.starts_with("run_"));
+                assert!(payload.artifact_id.starts_with("art_"));
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_synthesize_project_returns_synthesis_payload() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Execute,
+            targets: vec![TypedTarget {
+                kind: DomainKind::Artifact,
+                id: None,
+                selector: Some(TargetSelector::Custom("project".to_string())),
+                attributes: json!({
+                    "scope": "project",
+                    "project": "vel"
+                }),
+            }],
+            inferred: json!({
+                "synthesis_scope": "project",
+                "project": "vel"
             }),
             ..ResolvedCommand::default()
         };

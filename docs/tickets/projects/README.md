@@ -9,7 +9,10 @@ created: 2026-03-16
 
 This pack contains codex-ready markdown tickets for implementing a first-class Projects page and shared project workspace contract in Vel.
 
-**Primary spec:** [docs/specs/vel-projects-page-spec.md](../../specs/vel-projects-page-spec.md)
+**Primary specs:**
+
+- [docs/specs/vel-projects-page-spec.md](../../specs/vel-projects-page-spec.md)
+- [docs/specs/vel-project-operations-substrate-spec.md](../../specs/vel-project-operations-substrate-spec.md)
 
 ## Repo-aware boundary notes
 
@@ -31,6 +34,7 @@ Depends on:
 
 - current commitments/task substrate already present in the repo
 - `integration-expansion/` when project workspace changes need provider/connection-aware integration metadata
+- `task-hud/` when recurring ritual rendering or glance policies are being implemented on top of the shared routine substrate
 
 Extended by:
 
@@ -39,7 +43,9 @@ Extended by:
 Overlap rule:
 
 - this pack owns the shared project workspace contract and the base session/control-plane model
+- this pack also owns the backend planning for project registry source mappings, project-facing tag normalization, dependency projection, and project-affine routine substrate
 - Connect-backed launch work should extend that substrate rather than invent a parallel session or message-control model
+- `task-hud/` should consume routine/dependency outputs for ranking and glance behavior rather than inventing a competing project/task backend
 
 ## Included
 - 01 — boundary + project registry foundation
@@ -55,15 +61,22 @@ Overlap rule:
 - 11 — web Chats/Agents workspace
 - 12 — CLI project workspace
 - 13 — tests, fixtures, docs, rollout
+- 14 — registry source mappings and sync policies
+- 15 — normalized tags and project match rules
+- 16 — dependency and blocker projection
+- 17 — routine definitions and project-affine anchors
+- 18 — routine-aware schedule blocks and planning policy
 
 ## Recommended implementation order
 1. Establish project registry and typed contracts.
 2. Build read-only project index/workspace projection.
 3. Add commitment-backed task mutations and Todoist write-through.
-4. Add session registry and control plane.
-5. Ship the web page.
-6. Add CLI parity.
-7. Harden tests/docs/realtime.
+4. Normalize tags and expose dependency projection.
+5. Add session registry and control plane.
+6. Ship the web page.
+7. Add CLI parity.
+8. Add routine definitions and only then consider routine-aware planning policy.
+9. Harden tests/docs/realtime.
 
 ## Definition of done
 A ticket is only done when:

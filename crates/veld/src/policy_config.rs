@@ -69,6 +69,7 @@ pub struct PolicyMorningDrift {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct LoopPolicies {
+    pub worker_presence_heartbeat: Option<LoopPolicy>,
     pub queue_work_scheduler: Option<LoopPolicy>,
     pub evaluate_current_state: Option<LoopPolicy>,
     pub sync_calendar: Option<LoopPolicy>,
@@ -195,6 +196,10 @@ impl Default for PolicyMorningDrift {
 impl Default for LoopPolicies {
     fn default() -> Self {
         Self {
+            worker_presence_heartbeat: Some(LoopPolicy {
+                enabled: true,
+                interval_seconds: 30,
+            }),
             queue_work_scheduler: Some(LoopPolicy {
                 enabled: true,
                 interval_seconds: 30,
@@ -321,6 +326,9 @@ impl PolicyConfig {
     pub fn queue_work_scheduler_loop(&self) -> Option<&LoopPolicy> {
         self.loops.queue_work_scheduler.as_ref()
     }
+    pub fn worker_presence_heartbeat_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.worker_presence_heartbeat.as_ref()
+    }
     pub fn evaluate_current_state_loop(&self) -> Option<&LoopPolicy> {
         self.loops.evaluate_current_state.as_ref()
     }
@@ -384,6 +392,7 @@ mod tests {
         assert!(config.meeting_prep_window().is_some());
         assert!(config.commute_leave_time().is_some());
         assert!(config.morning_drift().is_some());
+        assert!(config.worker_presence_heartbeat_loop().is_some());
         assert!(config.queue_work_scheduler_loop().is_some());
         assert!(config.evaluate_current_state_loop().is_some());
         assert!(config.sync_calendar_loop().is_some());
@@ -398,6 +407,13 @@ mod tests {
         assert_eq!(config.suggestions().response_debt.threshold, 3);
         assert!(config.meeting_prep_window().unwrap().default_prep_minutes == 30);
         assert!(config.commute_leave_time().unwrap().require_travel_minutes);
+        assert_eq!(
+            config
+                .worker_presence_heartbeat_loop()
+                .unwrap()
+                .interval_seconds,
+            30
+        );
         assert_eq!(
             config.queue_work_scheduler_loop().unwrap().interval_seconds,
             30

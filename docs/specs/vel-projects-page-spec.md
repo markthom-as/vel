@@ -10,6 +10,8 @@ priority: P0
 ## Summary
 Vel needs a first-class Projects surface that lets the user operate on a project as a live working field rather than a loose pile of commitments, chats, and sync artifacts.
 
+Companion backend planning for project registry metadata, normalized tags, routines, and dependency projection lives in [vel-project-operations-substrate-spec.md](vel-project-operations-substrate-spec.md).
+
 The page should:
 - show all projects in one place
 - provide a Todoist-backed project/task view

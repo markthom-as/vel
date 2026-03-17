@@ -3,7 +3,7 @@ mod command_lang;
 mod commands;
 
 use anyhow::Context;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use vel_config::AppConfig;
 
 #[derive(Debug, Parser)]
@@ -133,7 +133,10 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    Backup {},
+    Backup {
+        #[command(subcommand)]
+        command: Option<BackupCommand>,
+    },
     Synthesize {
         #[command(subcommand)]
         command: SynthesizeCommand,
@@ -221,6 +224,36 @@ enum SuggestionCommand {
 }
 
 #[derive(Debug, Subcommand)]
+enum BackupCommand {
+    Manifest {
+        #[command(subcommand)]
+        command: BackupManifestCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum BackupManifestCommand {
+    Create(BackupManifestCreateArgs),
+    Verify(BackupManifestVerifyArgs),
+}
+
+#[derive(Debug, Args)]
+struct BackupManifestCreateArgs {
+    #[arg(long)]
+    output: Option<String>,
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct BackupManifestVerifyArgs {
+    #[arg(long)]
+    manifest: Option<String>,
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Debug, Subcommand)]
 enum JournalCommand {
     Mood {
         score: u8,
@@ -270,6 +303,10 @@ enum ThreadCommand {
     },
     Inspect {
         id: String,
+    },
+    Status {
+        id: String,
+        status: String,
     },
     Close {
         id: String,
@@ -715,7 +752,27 @@ async fn main() -> anyhow::Result<()> {
         } => {
             commands::export_::run(&client, captures, runs, artifacts, format.as_str(), json).await
         }
-        Command::Backup {} => commands::backup::run(&config).await,
+        Command::Backup { command } => match command {
+            None => commands::backup::run_guide(&config).await,
+            Some(BackupCommand::Manifest { command }) => match command {
+                BackupManifestCommand::Create(args) => {
+                    commands::backup::run_manifest_create(
+                        &config,
+                        args.output.as_deref(),
+                        args.json,
+                    )
+                    .await
+                }
+                BackupManifestCommand::Verify(args) => {
+                    commands::backup::run_manifest_verify(
+                        &config,
+                        args.manifest.as_deref(),
+                        args.json,
+                    )
+                    .await
+                }
+            },
+        },
         Command::Synthesize { command } => match command {
             SynthesizeCommand::Week { json } => commands::synthesize::run_week(&client, json).await,
             SynthesizeCommand::Project { name, json } => {
@@ -863,6 +920,9 @@ async fn main() -> anyhow::Result<()> {
                 json,
             } => commands::threads::run_list(&client, status.as_deref(), limit, json).await,
             ThreadCommand::Inspect { id } => commands::threads::run_inspect(&client, &id).await,
+            ThreadCommand::Status { id, status } => {
+                commands::threads::run_status(&client, &id, &status).await
+            }
             ThreadCommand::Close { id } => commands::threads::run_close(&client, &id).await,
             ThreadCommand::Reopen { id } => commands::threads::run_reopen(&client, &id).await,
         },

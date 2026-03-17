@@ -10,6 +10,7 @@ use std::fmt::{Display, Formatter};
 pub enum LoopKind {
     CaptureIngest,
     RetryDueRuns,
+    WorkerPresenceHeartbeat,
     QueueWorkScheduler,
     EvaluateCurrentState,
     SyncCalendar,
@@ -29,6 +30,7 @@ impl Display for LoopKind {
         let value = match self {
             Self::CaptureIngest => "capture_ingest",
             Self::RetryDueRuns => "retry_due_runs",
+            Self::WorkerPresenceHeartbeat => "worker_presence_heartbeat",
             Self::QueueWorkScheduler => "queue_work_scheduler",
             Self::EvaluateCurrentState => "evaluate_current_state",
             Self::SyncCalendar => "sync_calendar",
@@ -53,6 +55,7 @@ impl std::str::FromStr for LoopKind {
         match value {
             "capture_ingest" => Ok(Self::CaptureIngest),
             "retry_due_runs" => Ok(Self::RetryDueRuns),
+            "worker_presence_heartbeat" => Ok(Self::WorkerPresenceHeartbeat),
             "queue_work_scheduler" => Ok(Self::QueueWorkScheduler),
             "evaluate_current_state" => Ok(Self::EvaluateCurrentState),
             "sync_calendar" => Ok(Self::SyncCalendar),

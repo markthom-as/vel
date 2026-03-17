@@ -1,7 +1,11 @@
 use reqwest::Url;
-use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
+use serde::{Deserialize, Serialize};
+use time::{Duration, OffsetDateTime, format_description::well_known::Rfc3339};
 use uuid::Uuid;
-use vel_api_types::GoogleCalendarAuthStartData;
+use vel_api_types::{
+    GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
+    IntegrationGuidanceData,
+};
 use vel_config::AppConfig;
 use vel_storage::{SignalInsert, Storage};
 
@@ -10,11 +14,164 @@ use crate::{
     services::integrations::{GoogleCalendarSettings, StoredCalendar},
 };
 
+pub(crate) const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
+pub(crate) const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
 pub(crate) const GOOGLE_AUTH_BASE: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 pub(crate) const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 pub(crate) const GOOGLE_CALENDAR_BASE: &str = "https://www.googleapis.com/calendar/v3";
 pub(crate) const GOOGLE_LOOKBACK_DAYS: i64 = 60;
 pub(crate) const GOOGLE_LOOKAHEAD_DAYS: i64 = 180;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct GoogleCalendarPublicSettings {
+    pub client_id: Option<String>,
+    #[serde(default)]
+    pub calendars: Vec<StoredCalendar>,
+    #[serde(default = "default_true")]
+    pub all_calendars_selected: bool,
+    pub pending_oauth_state: Option<String>,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+}
+
+impl Default for GoogleCalendarPublicSettings {
+    fn default() -> Self {
+        Self {
+            client_id: None,
+            calendars: Vec::new(),
+            all_calendars_selected: true,
+            pending_oauth_state: None,
+            last_sync_at: None,
+            last_sync_status: None,
+            last_error: None,
+            last_item_count: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub(crate) struct GoogleCalendarSecrets {
+    pub client_secret: Option<String>,
+    pub access_token: Option<String>,
+    pub refresh_token: Option<String>,
+    pub token_expires_at: Option<i64>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+pub(crate) fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegrationData {
+    GoogleCalendarIntegrationData {
+        configured: settings.client_id.is_some() && settings.client_secret.is_some(),
+        connected: settings.refresh_token.is_some(),
+        has_client_id: settings.client_id.is_some(),
+        has_client_secret: settings.client_secret.is_some(),
+        calendars: settings
+            .calendars
+            .iter()
+            .map(|calendar| IntegrationCalendarData {
+                id: calendar.id.clone(),
+                summary: calendar.summary.clone(),
+                primary: calendar.primary,
+                selected: settings.all_calendars_selected || calendar.selected,
+            })
+            .collect(),
+        all_calendars_selected: settings.all_calendars_selected,
+        last_sync_at: settings.last_sync_at,
+        last_sync_status: settings.last_sync_status.clone(),
+        last_error: settings.last_error.clone(),
+        last_item_count: settings.last_item_count,
+        guidance: google_guidance(settings),
+    }
+}
+
+pub(crate) fn apply_google_settings_update(
+    settings: &mut GoogleCalendarSettings,
+    client_id: Option<String>,
+    client_secret: Option<String>,
+    selected_calendar_ids: Option<Vec<String>>,
+    all_calendars_selected: Option<bool>,
+) {
+    if let Some(value) = client_id {
+        settings.client_id = normalize_optional(value);
+    }
+    if let Some(value) = client_secret {
+        settings.client_secret = normalize_optional(value);
+    }
+    if let Some(all_selected) = all_calendars_selected {
+        settings.all_calendars_selected = all_selected;
+        if all_selected {
+            for calendar in &mut settings.calendars {
+                calendar.selected = true;
+            }
+        }
+    }
+    if let Some(ids) = selected_calendar_ids {
+        let selected = ids.into_iter().collect::<std::collections::HashSet<_>>();
+        for calendar in &mut settings.calendars {
+            calendar.selected = selected.contains(&calendar.id);
+        }
+        settings.all_calendars_selected = false;
+    }
+}
+
+pub(crate) fn disconnect_google_calendar(settings: &mut GoogleCalendarSettings) {
+    settings.access_token = None;
+    settings.refresh_token = None;
+    settings.token_expires_at = None;
+    settings.pending_oauth_state = None;
+    settings.last_sync_status = Some("disconnected".to_string());
+    settings.last_error = None;
+}
+
+pub(crate) async fn load_google_settings(
+    storage: &Storage,
+) -> Result<GoogleCalendarSettings, AppError> {
+    let public_settings: GoogleCalendarPublicSettings =
+        load_settings(storage, GOOGLE_SETTINGS_KEY).await?;
+    let secrets: GoogleCalendarSecrets = load_settings(storage, GOOGLE_SECRETS_KEY).await?;
+    Ok(GoogleCalendarSettings {
+        client_id: public_settings.client_id,
+        client_secret: secrets.client_secret,
+        access_token: secrets.access_token,
+        refresh_token: secrets.refresh_token,
+        token_expires_at: secrets.token_expires_at,
+        calendars: public_settings.calendars,
+        all_calendars_selected: public_settings.all_calendars_selected,
+        pending_oauth_state: public_settings.pending_oauth_state,
+        last_sync_at: public_settings.last_sync_at,
+        last_sync_status: public_settings.last_sync_status,
+        last_error: public_settings.last_error,
+        last_item_count: public_settings.last_item_count,
+    })
+}
+
+pub(crate) async fn save_google_settings(
+    storage: &Storage,
+    settings: &GoogleCalendarSettings,
+) -> Result<(), AppError> {
+    let public_settings = GoogleCalendarPublicSettings {
+        client_id: settings.client_id.clone(),
+        calendars: settings.calendars.clone(),
+        all_calendars_selected: settings.all_calendars_selected,
+        pending_oauth_state: settings.pending_oauth_state.clone(),
+        last_sync_at: settings.last_sync_at,
+        last_sync_status: settings.last_sync_status.clone(),
+        last_error: settings.last_error.clone(),
+        last_item_count: settings.last_item_count,
+    };
+    let secrets = GoogleCalendarSecrets {
+        client_secret: settings.client_secret.clone(),
+        access_token: settings.access_token.clone(),
+        refresh_token: settings.refresh_token.clone(),
+        token_expires_at: settings.token_expires_at,
+    };
+    save_settings(storage, GOOGLE_SETTINGS_KEY, &public_settings).await?;
+    save_settings(storage, GOOGLE_SECRETS_KEY, &secrets).await
+}
 
 pub(crate) async fn start_google_auth(
     settings: &mut GoogleCalendarSettings,
@@ -360,6 +517,50 @@ fn selected_calendars(settings: &GoogleCalendarSettings) -> Vec<StoredCalendar> 
         .collect()
 }
 
+fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceData {
+    IntegrationGuidanceData {
+        title: title.to_string(),
+        detail,
+        action: action.to_string(),
+    }
+}
+
+fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuidanceData> {
+    if settings.client_id.is_none() || settings.client_secret.is_none() {
+        return Some(guidance(
+            "Calendar credentials missing",
+            "Add a Google client ID and client secret in Settings before attempting sync."
+                .to_string(),
+            "Save credentials",
+        ));
+    }
+    if settings.refresh_token.is_none() {
+        return Some(guidance(
+            "Calendar not connected",
+            "Start the Google OAuth flow from Settings, then run sync.".to_string(),
+            "Connect Google",
+        ));
+    }
+    if settings.last_sync_status.as_deref() == Some("error") {
+        return Some(guidance(
+            "Calendar sync failed",
+            settings
+                .last_error
+                .clone()
+                .unwrap_or_else(|| "Google Calendar sync last failed.".to_string()),
+            "Inspect history and retry sync",
+        ));
+    }
+    if settings.last_sync_at.is_none() {
+        return Some(guidance(
+            "Calendar has not synced yet",
+            "Run a calendar sync to populate upcoming events and prep/commute context.".to_string(),
+            "Sync now",
+        ));
+    }
+    None
+}
+
 fn google_redirect_uri(config: &AppConfig) -> Result<String, AppError> {
     let base = config.base_url.trim_end_matches('/');
     if base.is_empty() {
@@ -373,6 +574,38 @@ fn google_redirect_uri(config: &AppConfig) -> Result<String, AppError> {
 
 fn now_ts() -> i64 {
     OffsetDateTime::now_utc().unix_timestamp()
+}
+
+fn normalize_optional(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+async fn load_settings<T>(storage: &Storage, key: &str) -> Result<T, AppError>
+where
+    T: for<'de> Deserialize<'de> + Default,
+{
+    let all = storage.get_all_settings().await?;
+    Ok(all
+        .get(key)
+        .cloned()
+        .map(|value| serde_json::from_value::<T>(value).unwrap_or_default())
+        .unwrap_or_default())
+}
+
+async fn save_settings<T>(storage: &Storage, key: &str, value: &T) -> Result<(), AppError>
+where
+    T: Serialize,
+{
+    let value = serde_json::to_value(value).map_err(|error| {
+        AppError::internal(format!("serialize integration settings: {}", error))
+    })?;
+    storage.set_setting(key, &value).await?;
+    Ok(())
 }
 
 fn format_rfc3339(value: OffsetDateTime) -> Result<String, AppError> {

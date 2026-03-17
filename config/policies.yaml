@@ -1,6 +1,9 @@
 # Policy configuration for Vel. Required at startup. See docs/specs/vel-agent-next-steps-policy-config-commute.md
 
 loops:
+  worker_presence_heartbeat:
+    enabled: true
+    interval_seconds: 30
   queue_work_scheduler:
     enabled: true
     interval_seconds: 30

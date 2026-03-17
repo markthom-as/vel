@@ -51,6 +51,19 @@ Current state this ticket evolves:
 5. Define operator output for both human-readable and `--json` modes.
 6. Define reusable verification result structures so later `doctor` or status surfaces can summarize them without duplicating logic.
 
+## Completed first slice
+
+- `vel backup` remains the manual guidance entrypoint for operators who just need the current storage roots
+- `vel backup manifest create` now emits a local-first manifest from the artifact inventory
+- `vel backup manifest verify` now checks local files for missing blobs, unreadable files, hash mismatch, size mismatch, metadata-without-blob cases, and extra files under `artifact_root`
+- both manifest create and verify support machine-readable JSON output
+
+## Remaining work
+
+- decide whether the local manifest JSON shape should become the persisted canonical manifest contract or a CLI-only precursor
+- add fixture coverage around manifest generation and verification edge cases
+- decide how verification summaries should later surface through `doctor` or adjacent operator status endpoints
+
 ## Acceptance criteria
 
 - operators can generate a manifest from current local artifact state

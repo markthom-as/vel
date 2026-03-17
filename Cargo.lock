@@ -2569,14 +2569,17 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "hex",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "time",
  "tokio",
  "vel-api-types",
  "vel-config",
  "vel-core",
+ "vel-storage",
 ]
 
 [[package]]

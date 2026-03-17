@@ -10,22 +10,19 @@ use crate::{adapters, errors::AppError};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use vel_api_types::{
-    GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
-    IntegrationConnectionData, IntegrationConnectionEventData, IntegrationConnectionSettingRefData,
-    IntegrationGuidanceData, IntegrationLogEventData, IntegrationsData, LocalIntegrationData,
+    GoogleCalendarAuthStartData, IntegrationConnectionData, IntegrationConnectionEventData,
+    IntegrationConnectionSettingRefData, IntegrationGuidanceData, IntegrationLogEventData,
+    IntegrationsData, LocalIntegrationData,
 };
 use vel_config::AppConfig;
 use vel_core::IntegrationFamily;
 use vel_storage::{IntegrationConnectionFilters, SignalRecord, Storage};
 
-const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
-const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
-const ACTIVITY_SETTINGS_KEY: &str = "integration_activity";
-const HEALTH_SETTINGS_KEY: &str = "integration_health";
-const GIT_SETTINGS_KEY: &str = "integration_git";
-const MESSAGING_SETTINGS_KEY: &str = "integration_messaging";
-const NOTES_SETTINGS_KEY: &str = "integration_notes";
-const TRANSCRIPTS_SETTINGS_KEY: &str = "integration_transcripts";
+use crate::services::integrations_host::LocalIntegrationSettings;
+use crate::services::integrations_host::{
+    ACTIVITY_SETTINGS_KEY, GIT_SETTINGS_KEY, HEALTH_SETTINGS_KEY, MESSAGING_SETTINGS_KEY,
+    NOTES_SETTINGS_KEY, TRANSCRIPTS_SETTINGS_KEY,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarSettings {
@@ -53,35 +50,6 @@ impl Default for GoogleCalendarSettings {
             access_token: None,
             refresh_token: None,
             token_expires_at: None,
-            calendars: Vec::new(),
-            all_calendars_selected: true,
-            pending_oauth_state: None,
-            last_sync_at: None,
-            last_sync_status: None,
-            last_error: None,
-            last_item_count: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GoogleCalendarPublicSettings {
-    pub client_id: Option<String>,
-    #[serde(default)]
-    pub calendars: Vec<StoredCalendar>,
-    #[serde(default = "default_true")]
-    pub all_calendars_selected: bool,
-    pub pending_oauth_state: Option<String>,
-    pub last_sync_at: Option<i64>,
-    pub last_sync_status: Option<String>,
-    pub last_error: Option<String>,
-    pub last_item_count: Option<u32>,
-}
-
-impl Default for GoogleCalendarPublicSettings {
-    fn default() -> Self {
-        Self {
-            client_id: None,
             calendars: Vec::new(),
             all_calendars_selected: true,
             pending_oauth_state: None,
@@ -130,23 +98,6 @@ impl GoogleCalendarSelectionFilter {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct GoogleCalendarSecrets {
-    pub client_secret: Option<String>,
-    pub access_token: Option<String>,
-    pub refresh_token: Option<String>,
-    pub token_expires_at: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct LocalIntegrationSettings {
-    pub source_path: Option<String>,
-    pub last_sync_at: Option<i64>,
-    pub last_sync_status: Option<String>,
-    pub last_error: Option<String>,
-    pub last_item_count: Option<u32>,
-}
-
 fn default_true() -> bool {
     true
 }
@@ -174,7 +125,7 @@ pub async fn run_todoist_sync(storage: &Storage, config: &AppConfig) -> Result<u
 }
 
 pub async fn run_activity_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    let runtime_config = runtime_local_config(storage, config).await?;
+    let runtime_config = integrations_host::runtime_local_config(storage, config).await?;
     match adapters::activity::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "activity", count).await;
@@ -188,7 +139,7 @@ pub async fn run_activity_sync(storage: &Storage, config: &AppConfig) -> Result<
 }
 
 pub async fn run_health_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    let runtime_config = runtime_local_config(storage, config).await?;
+    let runtime_config = integrations_host::runtime_local_config(storage, config).await?;
     match adapters::health::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "health", count).await;
@@ -202,7 +153,7 @@ pub async fn run_health_sync(storage: &Storage, config: &AppConfig) -> Result<u3
 }
 
 pub async fn run_git_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    let runtime_config = runtime_local_config(storage, config).await?;
+    let runtime_config = integrations_host::runtime_local_config(storage, config).await?;
     match adapters::git::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "git", count).await;
@@ -216,7 +167,7 @@ pub async fn run_git_sync(storage: &Storage, config: &AppConfig) -> Result<u32, 
 }
 
 pub async fn run_messaging_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    let runtime_config = runtime_local_config(storage, config).await?;
+    let runtime_config = integrations_host::runtime_local_config(storage, config).await?;
     match adapters::messaging::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "messaging", count).await;
@@ -230,7 +181,7 @@ pub async fn run_messaging_sync(storage: &Storage, config: &AppConfig) -> Result
 }
 
 pub async fn run_notes_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    let runtime_config = runtime_local_config(storage, config).await?;
+    let runtime_config = integrations_host::runtime_local_config(storage, config).await?;
     match adapters::notes::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "notes", count).await;
@@ -244,7 +195,7 @@ pub async fn run_notes_sync(storage: &Storage, config: &AppConfig) -> Result<u32
 }
 
 pub async fn run_transcripts_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    let runtime_config = runtime_local_config(storage, config).await?;
+    let runtime_config = integrations_host::runtime_local_config(storage, config).await?;
     match adapters::transcripts::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "transcripts", count).await;
@@ -261,7 +212,7 @@ pub async fn bootstrap_local_context_sources(
     storage: &Storage,
     config: &AppConfig,
 ) -> Result<u32, AppError> {
-    let runtime_config = runtime_local_config(storage, config).await?;
+    let runtime_config = integrations_host::runtime_local_config(storage, config).await?;
     let mut ingested = 0u32;
 
     if runtime_config.activity_snapshot_path.is_some() {
@@ -287,61 +238,36 @@ pub async fn bootstrap_local_context_sources(
 }
 
 pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, AppError> {
-    let google = load_google_settings(storage).await?;
+    let google = integrations_google::load_google_settings(storage).await?;
     let todoist = integrations_todoist::load_todoist_settings(storage).await?;
-    let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
-    let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
-    let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
-    let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
-    let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
-    let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
+    let activity =
+        integrations_host::load_local_settings(storage, integrations_host::ACTIVITY_SETTINGS_KEY)
+            .await?;
+    let health =
+        integrations_host::load_local_settings(storage, integrations_host::HEALTH_SETTINGS_KEY)
+            .await?;
+    let git = integrations_host::load_local_settings(storage, integrations_host::GIT_SETTINGS_KEY)
+        .await?;
+    let messaging =
+        integrations_host::load_local_settings(storage, integrations_host::MESSAGING_SETTINGS_KEY)
+            .await?;
+    let notes =
+        integrations_host::load_local_settings(storage, integrations_host::NOTES_SETTINGS_KEY)
+            .await?;
+    let transcripts = integrations_host::load_local_settings(
+        storage,
+        integrations_host::TRANSCRIPTS_SETTINGS_KEY,
+    )
+    .await?;
     Ok(IntegrationsData {
-        google_calendar: google_status(&google),
+        google_calendar: integrations_google::google_status(&google),
         todoist: integrations_todoist::todoist_status(&todoist),
-        activity: local_status(
-            integrations_host::effective_local_source_path(
-                "activity",
-                activity.source_path.as_deref(),
-                None,
-            ),
-            &activity,
-        ),
-        health: local_status(
-            integrations_host::effective_local_source_path(
-                "health",
-                health.source_path.as_deref(),
-                None,
-            ),
-            &health,
-        ),
-        git: local_status(
-            integrations_host::effective_local_source_path("git", git.source_path.as_deref(), None),
-            &git,
-        ),
-        messaging: local_status(
-            integrations_host::effective_local_source_path(
-                "messaging",
-                messaging.source_path.as_deref(),
-                None,
-            ),
-            &messaging,
-        ),
-        notes: local_status(
-            integrations_host::effective_local_source_path(
-                "notes",
-                notes.source_path.as_deref(),
-                None,
-            ),
-            &notes,
-        ),
-        transcripts: local_status(
-            integrations_host::effective_local_source_path(
-                "transcripts",
-                transcripts.source_path.as_deref(),
-                None,
-            ),
-            &transcripts,
-        ),
+        activity: integrations_host::local_status_data("activity", &activity, None),
+        health: integrations_host::local_status_data("health", &health, None),
+        git: integrations_host::local_status_data("git", &git, None),
+        messaging: integrations_host::local_status_data("messaging", &messaging, None),
+        notes: integrations_host::local_status_data("notes", &notes, None),
+        transcripts: integrations_host::local_status_data("transcripts", &transcripts, None),
     })
 }
 
@@ -349,64 +275,51 @@ pub async fn get_integrations_with_config(
     storage: &Storage,
     config: &AppConfig,
 ) -> Result<IntegrationsData, AppError> {
-    let google = load_google_settings(storage).await?;
+    let google = integrations_google::load_google_settings(storage).await?;
     let todoist = integrations_todoist::load_todoist_settings(storage).await?;
-    let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
-    let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
-    let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
-    let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
-    let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
-    let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
+    let activity =
+        integrations_host::load_local_settings(storage, integrations_host::ACTIVITY_SETTINGS_KEY)
+            .await?;
+    let health =
+        integrations_host::load_local_settings(storage, integrations_host::HEALTH_SETTINGS_KEY)
+            .await?;
+    let git = integrations_host::load_local_settings(storage, integrations_host::GIT_SETTINGS_KEY)
+        .await?;
+    let messaging =
+        integrations_host::load_local_settings(storage, integrations_host::MESSAGING_SETTINGS_KEY)
+            .await?;
+    let notes =
+        integrations_host::load_local_settings(storage, integrations_host::NOTES_SETTINGS_KEY)
+            .await?;
+    let transcripts = integrations_host::load_local_settings(
+        storage,
+        integrations_host::TRANSCRIPTS_SETTINGS_KEY,
+    )
+    .await?;
     Ok(IntegrationsData {
-        google_calendar: google_status(&google),
+        google_calendar: integrations_google::google_status(&google),
         todoist: integrations_todoist::todoist_status(&todoist),
-        activity: local_status(
-            integrations_host::effective_local_source_path(
-                "activity",
-                activity.source_path.as_deref(),
-                config.activity_snapshot_path.as_deref(),
-            ),
+        activity: integrations_host::local_status_data(
+            "activity",
             &activity,
+            config.activity_snapshot_path.as_deref(),
         ),
-        health: local_status(
-            integrations_host::effective_local_source_path(
-                "health",
-                health.source_path.as_deref(),
-                config.health_snapshot_path.as_deref(),
-            ),
+        health: integrations_host::local_status_data(
+            "health",
             &health,
+            config.health_snapshot_path.as_deref(),
         ),
-        git: local_status(
-            integrations_host::effective_local_source_path(
-                "git",
-                git.source_path.as_deref(),
-                config.git_snapshot_path.as_deref(),
-            ),
-            &git,
-        ),
-        messaging: local_status(
-            integrations_host::effective_local_source_path(
-                "messaging",
-                messaging.source_path.as_deref(),
-                config.messaging_snapshot_path.as_deref(),
-            ),
+        git: integrations_host::local_status_data("git", &git, config.git_snapshot_path.as_deref()),
+        messaging: integrations_host::local_status_data(
+            "messaging",
             &messaging,
+            config.messaging_snapshot_path.as_deref(),
         ),
-        notes: local_status(
-            integrations_host::effective_local_source_path(
-                "notes",
-                notes.source_path.as_deref(),
-                config.notes_path.as_deref(),
-            ),
-            &notes,
-        ),
-        transcripts: local_status(
-            integrations_host::effective_local_source_path(
-                "transcripts",
-                transcripts.source_path.as_deref(),
-                config.transcript_snapshot_path.as_deref(),
-            ),
+        notes: integrations_host::local_status_data("notes", &notes, config.notes_path.as_deref()),
+        transcripts: integrations_host::local_status_data(
+            "transcripts",
             &transcripts,
+            config.transcript_snapshot_path.as_deref(),
         ),
     })
 }
@@ -414,7 +327,7 @@ pub async fn get_integrations_with_config(
 pub async fn google_calendar_selection_filter(
     storage: &Storage,
 ) -> Result<GoogleCalendarSelectionFilter, AppError> {
-    let settings = load_google_settings(storage).await?;
+    let settings = integrations_google::load_google_settings(storage).await?;
     Ok(GoogleCalendarSelectionFilter {
         all_calendars_selected: settings.all_calendars_selected,
         selected_calendar_ids: settings
@@ -564,31 +477,15 @@ pub async fn update_google_settings(
     selected_calendar_ids: Option<Vec<String>>,
     all_calendars_selected: Option<bool>,
 ) -> Result<IntegrationsData, AppError> {
-    let mut settings = load_google_settings(storage).await?;
-
-    if let Some(value) = client_id {
-        settings.client_id = normalize_optional(value);
-    }
-    if let Some(value) = client_secret {
-        settings.client_secret = normalize_optional(value);
-    }
-    if let Some(all_selected) = all_calendars_selected {
-        settings.all_calendars_selected = all_selected;
-        if all_selected {
-            for calendar in &mut settings.calendars {
-                calendar.selected = true;
-            }
-        }
-    }
-    if let Some(ids) = selected_calendar_ids {
-        let selected = ids.into_iter().collect::<std::collections::HashSet<_>>();
-        for calendar in &mut settings.calendars {
-            calendar.selected = selected.contains(&calendar.id);
-        }
-        settings.all_calendars_selected = false;
-    }
-
-    save_google_settings(storage, &settings).await?;
+    let mut settings = integrations_google::load_google_settings(storage).await?;
+    integrations_google::apply_google_settings_update(
+        &mut settings,
+        client_id,
+        client_secret,
+        selected_calendar_ids,
+        all_calendars_selected,
+    );
+    integrations_google::save_google_settings(storage, &settings).await?;
     get_integrations(storage).await
 }
 
@@ -605,26 +502,14 @@ pub async fn update_local_source_path(
     source: &str,
     source_path: Option<String>,
 ) -> Result<IntegrationsData, AppError> {
-    let key = local_settings_key(source);
-    if key.is_empty() {
-        return Err(AppError::not_found("integration not found"));
-    }
-
-    let mut settings = load_local_settings(storage, key).await?;
-    settings.source_path = normalize_optional(source_path.unwrap_or_default());
-    save_settings(storage, key, &settings).await?;
+    integrations_host::update_local_source_path(storage, source, source_path).await?;
     get_integrations(storage).await
 }
 
 pub async fn disconnect_google_calendar(storage: &Storage) -> Result<IntegrationsData, AppError> {
-    let mut settings = load_google_settings(storage).await?;
-    settings.access_token = None;
-    settings.refresh_token = None;
-    settings.token_expires_at = None;
-    settings.pending_oauth_state = None;
-    settings.last_sync_status = Some("disconnected".to_string());
-    settings.last_error = None;
-    save_google_settings(storage, &settings).await?;
+    let mut settings = integrations_google::load_google_settings(storage).await?;
+    integrations_google::disconnect_google_calendar(&mut settings);
+    integrations_google::save_google_settings(storage, &settings).await?;
     get_integrations(storage).await
 }
 
@@ -637,9 +522,9 @@ pub async fn start_google_auth(
     storage: &Storage,
     config: &AppConfig,
 ) -> Result<GoogleCalendarAuthStartData, AppError> {
-    let mut settings = load_google_settings(storage).await?;
+    let mut settings = integrations_google::load_google_settings(storage).await?;
     let auth_start = integrations_google::start_google_auth(&mut settings, config).await?;
-    save_google_settings(storage, &settings).await?;
+    integrations_google::save_google_settings(storage, &settings).await?;
     Ok(auth_start)
 }
 
@@ -649,9 +534,9 @@ pub async fn complete_google_auth(
     state_param: &str,
     code: &str,
 ) -> Result<(), AppError> {
-    let mut settings = load_google_settings(storage).await?;
+    let mut settings = integrations_google::load_google_settings(storage).await?;
     integrations_google::complete_google_auth(&mut settings, config, state_param, code).await?;
-    save_google_settings(storage, &settings).await?;
+    integrations_google::save_google_settings(storage, &settings).await?;
     Ok(())
 }
 
@@ -659,10 +544,10 @@ pub async fn sync_google_calendar(
     storage: &Storage,
     _config: &AppConfig,
 ) -> Result<Option<u32>, AppError> {
-    let mut settings = load_google_settings(storage).await?;
+    let mut settings = integrations_google::load_google_settings(storage).await?;
     let result = integrations_google::sync_google_calendar(storage, &mut settings).await?;
     if result.is_some() {
-        save_google_settings(storage, &settings).await?;
+        integrations_google::save_google_settings(storage, &settings).await?;
     }
     if let Some(inserted) = result {
         append_sync_event(storage, "google-calendar", "ok", inserted, None).await?;
@@ -685,11 +570,11 @@ pub async fn record_sync_error(
 ) -> Result<(), AppError> {
     match source {
         "google_calendar" => {
-            let mut settings = load_google_settings(storage).await?;
+            let mut settings = integrations_google::load_google_settings(storage).await?;
             settings.last_sync_at = Some(now_ts());
             settings.last_sync_status = Some("error".to_string());
             settings.last_error = Some(error.to_string());
-            save_google_settings(storage, &settings).await?;
+            integrations_google::save_google_settings(storage, &settings).await?;
             append_sync_event(storage, "google-calendar", "error", 0, Some(error)).await?;
         }
         "todoist" => {
@@ -697,9 +582,9 @@ pub async fn record_sync_error(
             append_sync_event(storage, "todoist", "error", 0, Some(error)).await?;
         }
         "activity" | "health" | "git" | "messaging" | "notes" | "transcripts" => {
-            update_local_sync_settings(
+            integrations_host::update_local_sync_settings(
                 storage,
-                local_settings_key(source),
+                source,
                 "error",
                 Some(error.to_string()),
                 None,
@@ -707,7 +592,7 @@ pub async fn record_sync_error(
             .await?;
             append_sync_event(
                 storage,
-                local_integration_id(source),
+                integrations_host::local_integration_id(source),
                 "error",
                 0,
                 Some(error),
@@ -726,9 +611,9 @@ pub async fn record_sync_success(
 ) -> Result<(), AppError> {
     match source {
         "activity" | "health" | "git" | "messaging" | "notes" | "transcripts" => {
-            update_local_sync_settings(
+            integrations_host::update_local_sync_settings(
                 storage,
-                local_settings_key(source),
+                source,
                 "ok",
                 None,
                 Some(item_count),
@@ -736,7 +621,7 @@ pub async fn record_sync_success(
             .await?;
             append_sync_event(
                 storage,
-                local_integration_id(source),
+                integrations_host::local_integration_id(source),
                 "ok",
                 item_count,
                 None,
@@ -746,31 +631,6 @@ pub async fn record_sync_success(
         _ => {}
     }
     Ok(())
-}
-
-fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegrationData {
-    GoogleCalendarIntegrationData {
-        configured: settings.client_id.is_some() && settings.client_secret.is_some(),
-        connected: settings.refresh_token.is_some(),
-        has_client_id: settings.client_id.is_some(),
-        has_client_secret: settings.client_secret.is_some(),
-        calendars: settings
-            .calendars
-            .iter()
-            .map(|calendar| IntegrationCalendarData {
-                id: calendar.id.clone(),
-                summary: calendar.summary.clone(),
-                primary: calendar.primary,
-                selected: settings.all_calendars_selected || calendar.selected,
-            })
-            .collect(),
-        all_calendars_selected: settings.all_calendars_selected,
-        last_sync_at: settings.last_sync_at,
-        last_sync_status: settings.last_sync_status.clone(),
-        last_error: settings.last_error.clone(),
-        last_item_count: settings.last_item_count,
-        guidance: google_guidance(settings),
-    }
 }
 
 fn local_status(
@@ -794,42 +654,6 @@ fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceDat
         detail,
         action: action.to_string(),
     }
-}
-
-fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuidanceData> {
-    if settings.client_id.is_none() || settings.client_secret.is_none() {
-        return Some(guidance(
-            "Calendar credentials missing",
-            "Add a Google client ID and client secret in Settings before attempting sync."
-                .to_string(),
-            "Save credentials",
-        ));
-    }
-    if settings.refresh_token.is_none() {
-        return Some(guidance(
-            "Calendar not connected",
-            "Start the Google OAuth flow from Settings, then run sync.".to_string(),
-            "Connect Google",
-        ));
-    }
-    if settings.last_sync_status.as_deref() == Some("error") {
-        return Some(guidance(
-            "Calendar sync failed",
-            settings
-                .last_error
-                .clone()
-                .unwrap_or_else(|| "Google Calendar sync last failed.".to_string()),
-            "Inspect history and retry sync",
-        ));
-    }
-    if settings.last_sync_at.is_none() {
-        return Some(guidance(
-            "Calendar has not synced yet",
-            "Run a calendar sync to populate upcoming events and prep/commute context.".to_string(),
-            "Sync now",
-        ));
-    }
-    None
 }
 
 fn local_guidance(
@@ -861,50 +685,6 @@ fn local_guidance(
         ));
     }
     None
-}
-
-async fn load_google_settings(storage: &Storage) -> Result<GoogleCalendarSettings, AppError> {
-    let public_settings: GoogleCalendarPublicSettings =
-        load_settings(storage, GOOGLE_SETTINGS_KEY).await?;
-    let secrets: GoogleCalendarSecrets = load_settings(storage, GOOGLE_SECRETS_KEY).await?;
-    Ok(GoogleCalendarSettings {
-        client_id: public_settings.client_id,
-        client_secret: secrets.client_secret,
-        access_token: secrets.access_token,
-        refresh_token: secrets.refresh_token,
-        token_expires_at: secrets.token_expires_at,
-        calendars: public_settings.calendars,
-        all_calendars_selected: public_settings.all_calendars_selected,
-        pending_oauth_state: public_settings.pending_oauth_state,
-        last_sync_at: public_settings.last_sync_at,
-        last_sync_status: public_settings.last_sync_status,
-        last_error: public_settings.last_error,
-        last_item_count: public_settings.last_item_count,
-    })
-}
-
-async fn save_google_settings(
-    storage: &Storage,
-    settings: &GoogleCalendarSettings,
-) -> Result<(), AppError> {
-    let public_settings = GoogleCalendarPublicSettings {
-        client_id: settings.client_id.clone(),
-        calendars: settings.calendars.clone(),
-        all_calendars_selected: settings.all_calendars_selected,
-        pending_oauth_state: settings.pending_oauth_state.clone(),
-        last_sync_at: settings.last_sync_at,
-        last_sync_status: settings.last_sync_status.clone(),
-        last_error: settings.last_error.clone(),
-        last_item_count: settings.last_item_count,
-    };
-    let secrets = GoogleCalendarSecrets {
-        client_secret: settings.client_secret.clone(),
-        access_token: settings.access_token.clone(),
-        refresh_token: settings.refresh_token.clone(),
-        token_expires_at: settings.token_expires_at,
-    };
-    save_settings(storage, GOOGLE_SETTINGS_KEY, &public_settings).await?;
-    save_settings(storage, GOOGLE_SECRETS_KEY, &secrets).await
 }
 
 async fn load_local_settings(
@@ -1119,11 +899,11 @@ mod tests {
 
             let all_settings = storage.get_all_settings().await.unwrap();
             let public_settings = all_settings
-                .get(GOOGLE_SETTINGS_KEY)
+                .get(integrations_google::GOOGLE_SETTINGS_KEY)
                 .expect("google public settings should exist")
                 .clone();
             let secret_settings = all_settings
-                .get(GOOGLE_SECRETS_KEY)
+                .get(integrations_google::GOOGLE_SECRETS_KEY)
                 .expect("google secret settings should exist")
                 .clone();
 
@@ -1152,7 +932,9 @@ mod tests {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
 
-        let settings = load_google_settings(&storage).await.unwrap();
+        let settings = integrations_google::load_google_settings(&storage)
+            .await
+            .unwrap();
         assert!(
             settings.all_calendars_selected,
             "unconfigured google calendar settings should default to all calendars selected"

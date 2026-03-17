@@ -632,6 +632,10 @@ pub async fn claim_next_work_for_worker(
     state: &AppState,
     request: WorkAssignmentClaimNextRequestData,
 ) -> Result<WorkAssignmentClaimNextResponseData, AppError> {
+    if !worker_is_claim_ready(state, &request).await? {
+        return Ok(WorkAssignmentClaimNextResponseData { claim: None });
+    }
+
     let mut items = list_worker_queue(
         state,
         &request.node_id,
@@ -673,6 +677,49 @@ pub async fn claim_next_work_for_worker(
             receipt,
         }),
     })
+}
+
+async fn worker_is_claim_ready(
+    state: &AppState,
+    request: &WorkAssignmentClaimNextRequestData,
+) -> Result<bool, AppError> {
+    let workers = cluster_workers_data(state).await?;
+    let Some(worker) = workers
+        .workers
+        .iter()
+        .find(|worker| worker.worker_id == request.worker_id && worker.node_id == request.node_id)
+        .or_else(|| {
+            workers
+                .workers
+                .iter()
+                .find(|worker| worker.node_id == request.node_id)
+        })
+    else {
+        return Ok(false);
+    };
+
+    if worker.status != "ready" || worker.reachability != "reachable" {
+        return Ok(false);
+    }
+    if worker.capacity.available_concurrency == 0 {
+        return Ok(false);
+    }
+    if let Some(worker_class) = request.worker_class.as_deref() {
+        if !worker
+            .worker_classes
+            .iter()
+            .any(|class| class == worker_class)
+        {
+            return Ok(false);
+        }
+    }
+    if let Some(capability) = request.capability.as_deref() {
+        if !worker.capabilities.iter().any(|item| item == capability) {
+            return Ok(false);
+        }
+    }
+
+    Ok(true)
 }
 
 pub async fn apply_client_actions(
