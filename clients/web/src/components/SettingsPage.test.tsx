@@ -660,6 +660,300 @@ describe('SettingsPage', () => {
     expect(within(notesCard as HTMLElement).getByText('Notes synced (4 signals).')).toBeInTheDocument()
   })
 
+  it('saves a local integration source path from the settings card', async () => {
+    vi.mocked(client.apiPatch).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        google_calendar: {
+          configured: true,
+          connected: true,
+          has_client_id: true,
+          has_client_secret: true,
+          calendars: [],
+          all_calendars_selected: true,
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        todoist: {
+          configured: true,
+          connected: true,
+          has_api_token: true,
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        activity: {
+          configured: true,
+          source_path: '/tmp/fresh-activity.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        git: {
+          configured: true,
+          source_path: '/tmp/git.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        messaging: {
+          configured: true,
+          source_path: '/tmp/messaging.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        notes: {
+          configured: true,
+          source_path: '/tmp/notes',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        transcripts: {
+          configured: true,
+          source_path: '/tmp/transcripts.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+      },
+      meta: { request_id: 'req_local_source_save' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+    const activityCard = within(root).getByRole('heading', { name: /computer activity/i }).closest('.rounded-lg')
+    expect(activityCard).not.toBeNull()
+
+    fireEvent.change(
+      within(activityCard as HTMLElement).getByPlaceholderText(/path to local snapshot file or directory/i),
+      { target: { value: '/tmp/fresh-activity.json' } },
+    )
+    fireEvent.click(within(activityCard as HTMLElement).getByRole('button', { name: /^save path$/i }))
+
+    await waitFor(() => {
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/integrations/activity/source',
+        { source_path: '/tmp/fresh-activity.json' },
+        expect.any(Function),
+      )
+    })
+    expect(within(activityCard as HTMLElement).getByText('Source path saved.')).toBeInTheDocument()
+    expect(within(activityCard as HTMLElement).getByDisplayValue('/tmp/fresh-activity.json')).toBeInTheDocument()
+  })
+
+  it('uses guidance actions to focus and save a missing local source path', async () => {
+    vi.mocked(client.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/settings') {
+        return {
+          ok: true,
+          data: {
+            disable_proactive: false,
+            toggle_risks: true,
+            toggle_reminders: true,
+            timezone: 'America/Denver',
+          },
+          meta: { request_id: 'req_1' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: {
+            google_calendar: {
+              configured: true,
+              connected: true,
+              has_client_id: true,
+              has_client_secret: true,
+              calendars: [],
+              all_calendars_selected: true,
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+            todoist: {
+              configured: true,
+              connected: true,
+              has_api_token: true,
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+            activity: {
+              configured: false,
+              source_path: null,
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: {
+                title: 'Local source missing',
+                detail: 'Configure a source path for this local adapter before syncing it.',
+                action: 'Set source path',
+              },
+            },
+            git: {
+              configured: true,
+              source_path: '/tmp/git.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+            messaging: {
+              configured: true,
+              source_path: '/tmp/messaging.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+            notes: {
+              configured: true,
+              source_path: '/tmp/notes',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+            transcripts: {
+              configured: true,
+              source_path: '/tmp/transcripts.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+          },
+          meta: { request_id: 'req_integrations_local_missing' },
+        } as never
+      }
+      if (path === '/v1/runs?limit=6') {
+        return { ok: true, data: [], meta: { request_id: 'req_runs' } } as never
+      }
+      return { ok: true, data: [], meta: { request_id: 'req_default' } } as never
+    })
+    vi.mocked(client.apiPatch).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        google_calendar: {
+          configured: true,
+          connected: true,
+          has_client_id: true,
+          has_client_secret: true,
+          calendars: [],
+          all_calendars_selected: true,
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        todoist: {
+          configured: true,
+          connected: true,
+          has_api_token: true,
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        activity: {
+          configured: true,
+          source_path: '/tmp/activity.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        git: {
+          configured: true,
+          source_path: '/tmp/git.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        messaging: {
+          configured: true,
+          source_path: '/tmp/messaging.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        notes: {
+          configured: true,
+          source_path: '/tmp/notes',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        transcripts: {
+          configured: true,
+          source_path: '/tmp/transcripts.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+      },
+      meta: { request_id: 'req_local_source_guidance_save' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+    const activityCard = within(root).getByRole('heading', { name: /computer activity/i }).closest('.rounded-lg')
+    expect(activityCard).not.toBeNull()
+
+    fireEvent.click(within(activityCard as HTMLElement).getByRole('button', { name: /edit source path/i }))
+    const input = within(activityCard as HTMLElement).getByPlaceholderText(/path to local snapshot file or directory/i)
+    expect(input).toHaveFocus()
+
+    fireEvent.change(input, { target: { value: '/tmp/activity.json' } })
+    fireEvent.click(within(activityCard as HTMLElement).getByRole('button', { name: /^save path$/i }))
+
+    await waitFor(() => {
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/integrations/activity/source',
+        { source_path: '/tmp/activity.json' },
+        expect.any(Function),
+      )
+    })
+    expect(within(activityCard as HTMLElement).getByText('Source path saved.')).toBeInTheDocument()
+  })
+
   it('renders component cards in the components tab', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openComponentsTab(container)

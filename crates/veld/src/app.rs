@@ -155,6 +155,10 @@ pub fn build_app_with_state(state: AppState) -> Router {
             get(routes::integrations::list_integration_logs),
         )
         .route(
+            "/api/integrations/:id/source",
+            axum::routing::patch(routes::integrations::patch_local_integration_source),
+        )
+        .route(
             "/api/integrations/google-calendar",
             axum::routing::patch(routes::integrations::patch_google_calendar),
         )
@@ -5806,6 +5810,83 @@ END:VCALENDAR
             "Save credentials"
         );
         assert_eq!(json["data"]["activity"]["guidance"]["action"], "Sync now");
+    }
+
+    #[tokio::test]
+    async fn integrations_local_source_path_patch_is_used_for_sync() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let dir =
+            std::env::temp_dir().join(format!("vel_notes_override_{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("plan.md"), "# Plan\nShip the smooth path.\n").unwrap();
+        let notes_path = dir.to_string_lossy().to_string();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let patch_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/integrations/notes/source")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({ "source_path": notes_path.clone() }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::OK);
+        let patch_body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let patch_json: serde_json::Value = serde_json::from_slice(&patch_body).unwrap();
+        assert_eq!(patch_json["data"]["notes"]["configured"], true);
+        assert_eq!(patch_json["data"]["notes"]["source_path"], notes_path);
+
+        let sync_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/notes")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(sync_resp.status(), StatusCode::OK);
+        let sync_body = axum::body::to_bytes(sync_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let sync_json: serde_json::Value = serde_json::from_slice(&sync_body).unwrap();
+        assert_eq!(sync_json["data"]["signals_ingested"], 1);
+
+        let integrations_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/integrations")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(integrations_resp.status(), StatusCode::OK);
+        let integrations_body = axum::body::to_bytes(integrations_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let integrations_json: serde_json::Value =
+            serde_json::from_slice(&integrations_body).unwrap();
+        assert_eq!(integrations_json["data"]["notes"]["source_path"], notes_path);
+        assert_eq!(integrations_json["data"]["notes"]["last_sync_status"], "ok");
+        assert_eq!(integrations_json["data"]["notes"]["last_item_count"], 1);
     }
 
     #[tokio::test]

@@ -282,6 +282,17 @@ export function disconnectTodoist(): Promise<ApiResponse<IntegrationsData>> {
   );
 }
 
+export function updateLocalIntegrationSource(
+  integrationId: string,
+  patch: Record<string, unknown>,
+): Promise<ApiResponse<IntegrationsData>> {
+  return apiPatch<ApiResponse<IntegrationsData>>(
+    `/api/integrations/${encodeURIComponent(integrationId.trim())}/source`,
+    patch,
+    (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
 export function syncSource(
   source: string,
 ): Promise<ApiResponse<SyncResultData>> {

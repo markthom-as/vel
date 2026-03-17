@@ -105,6 +105,7 @@ pub struct TodoistSecrets {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LocalIntegrationSettings {
+    pub source_path: Option<String>,
     pub last_sync_at: Option<i64>,
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
@@ -183,7 +184,8 @@ pub async fn run_todoist_sync(storage: &Storage, config: &AppConfig) -> Result<u
 }
 
 pub async fn run_activity_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    match adapters::activity::ingest(storage, config).await {
+    let runtime_config = runtime_local_config(storage, config).await?;
+    match adapters::activity::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "activity", count).await;
             Ok(count)
@@ -196,7 +198,8 @@ pub async fn run_activity_sync(storage: &Storage, config: &AppConfig) -> Result<
 }
 
 pub async fn run_git_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    match adapters::git::ingest(storage, config).await {
+    let runtime_config = runtime_local_config(storage, config).await?;
+    match adapters::git::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "git", count).await;
             Ok(count)
@@ -209,7 +212,8 @@ pub async fn run_git_sync(storage: &Storage, config: &AppConfig) -> Result<u32, 
 }
 
 pub async fn run_messaging_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    match adapters::messaging::ingest(storage, config).await {
+    let runtime_config = runtime_local_config(storage, config).await?;
+    match adapters::messaging::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "messaging", count).await;
             Ok(count)
@@ -222,7 +226,8 @@ pub async fn run_messaging_sync(storage: &Storage, config: &AppConfig) -> Result
 }
 
 pub async fn run_notes_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    match adapters::notes::ingest(storage, config).await {
+    let runtime_config = runtime_local_config(storage, config).await?;
+    match adapters::notes::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "notes", count).await;
             Ok(count)
@@ -235,7 +240,8 @@ pub async fn run_notes_sync(storage: &Storage, config: &AppConfig) -> Result<u32
 }
 
 pub async fn run_transcripts_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
-    match adapters::transcripts::ingest(storage, config).await {
+    let runtime_config = runtime_local_config(storage, config).await?;
+    match adapters::transcripts::ingest(storage, &runtime_config).await {
         Ok(count) => {
             let _ = record_sync_success(storage, "transcripts", count).await;
             Ok(count)
@@ -258,11 +264,11 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
     Ok(IntegrationsData {
         google_calendar: google_status(&google),
         todoist: todoist_status(&todoist),
-        activity: local_status(config_source_path(None, None), &activity),
-        git: local_status(config_source_path(None, None), &git),
-        messaging: local_status(config_source_path(None, None), &messaging),
-        notes: local_status(config_source_path(None, None), &notes),
-        transcripts: local_status(config_source_path(None, None), &transcripts),
+        activity: local_status(effective_local_source_path(&activity, None), &activity),
+        git: local_status(effective_local_source_path(&git, None), &git),
+        messaging: local_status(effective_local_source_path(&messaging, None), &messaging),
+        notes: local_status(effective_local_source_path(&notes, None), &notes),
+        transcripts: local_status(effective_local_source_path(&transcripts, None), &transcripts),
     })
 }
 
@@ -281,23 +287,23 @@ pub async fn get_integrations_with_config(
         google_calendar: google_status(&google),
         todoist: todoist_status(&todoist),
         activity: local_status(
-            config_source_path(config.activity_snapshot_path.as_deref(), None),
+            effective_local_source_path(&activity, config.activity_snapshot_path.as_deref()),
             &activity,
         ),
         git: local_status(
-            config_source_path(config.git_snapshot_path.as_deref(), None),
+            effective_local_source_path(&git, config.git_snapshot_path.as_deref()),
             &git,
         ),
         messaging: local_status(
-            config_source_path(config.messaging_snapshot_path.as_deref(), None),
+            effective_local_source_path(&messaging, config.messaging_snapshot_path.as_deref()),
             &messaging,
         ),
         notes: local_status(
-            config_source_path(config.notes_path.as_deref(), None),
+            effective_local_source_path(&notes, config.notes_path.as_deref()),
             &notes,
         ),
         transcripts: local_status(
-            config_source_path(config.transcript_snapshot_path.as_deref(), None),
+            effective_local_source_path(&transcripts, config.transcript_snapshot_path.as_deref()),
             &transcripts,
         ),
     })
@@ -388,6 +394,22 @@ pub async fn update_todoist_settings(
         settings.api_token = normalize_optional(value);
     }
     save_todoist_settings(storage, &settings).await?;
+    get_integrations(storage).await
+}
+
+pub async fn update_local_source_path(
+    storage: &Storage,
+    source: &str,
+    source_path: Option<String>,
+) -> Result<IntegrationsData, AppError> {
+    let key = local_settings_key(source);
+    if key.is_empty() {
+        return Err(AppError::not_found("integration not found"));
+    }
+
+    let mut settings = load_local_settings(storage, key).await?;
+    settings.source_path = normalize_optional(source_path.unwrap_or_default());
+    save_settings(storage, key, &settings).await?;
     get_integrations(storage).await
 }
 
@@ -976,6 +998,13 @@ fn local_status(
     }
 }
 
+fn effective_local_source_path(
+    settings: &LocalIntegrationSettings,
+    config_source: Option<&str>,
+) -> Option<String> {
+    config_source_path(settings.source_path.as_deref(), config_source)
+}
+
 fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceData {
     IntegrationGuidanceData {
         title: title.to_string(),
@@ -1247,6 +1276,27 @@ fn local_integration_id(source: &str) -> &'static str {
         "transcripts" => "transcripts",
         _ => "",
     }
+}
+
+async fn runtime_local_config(storage: &Storage, config: &AppConfig) -> Result<AppConfig, AppError> {
+    let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
+    let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
+    let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
+    let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
+    let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
+
+    let mut runtime = config.clone();
+    runtime.activity_snapshot_path =
+        effective_local_source_path(&activity, config.activity_snapshot_path.as_deref());
+    runtime.git_snapshot_path = effective_local_source_path(&git, config.git_snapshot_path.as_deref());
+    runtime.messaging_snapshot_path =
+        effective_local_source_path(&messaging, config.messaging_snapshot_path.as_deref());
+    runtime.notes_path = effective_local_source_path(&notes, config.notes_path.as_deref());
+    runtime.transcript_snapshot_path = effective_local_source_path(
+        &transcripts,
+        config.transcript_snapshot_path.as_deref(),
+    );
+    Ok(runtime)
 }
 
 fn config_source_path(primary: Option<&str>, secondary: Option<&str>) -> Option<String> {

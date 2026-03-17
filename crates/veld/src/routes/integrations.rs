@@ -108,6 +108,11 @@ pub struct TodoistUpdateRequest {
     pub api_token: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct LocalIntegrationSourceUpdateRequest {
+    pub source_path: Option<String>,
+}
+
 pub async fn patch_todoist(
     State(state): State<AppState>,
     Json(payload): Json<TodoistUpdateRequest>,
@@ -122,6 +127,22 @@ pub async fn disconnect_todoist(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
     integrations::disconnect_todoist(&state.storage).await?;
+    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn patch_local_integration_source(
+    Path(integration_id): Path<String>,
+    State(state): State<AppState>,
+    Json(payload): Json<LocalIntegrationSourceUpdateRequest>,
+) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
+    integrations::update_local_source_path(
+        &state.storage,
+        integration_id.trim(),
+        payload.source_path,
+    )
+    .await?;
     let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))

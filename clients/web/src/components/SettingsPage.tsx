@@ -28,6 +28,7 @@ import {
   restartComponent,
   syncSource as syncSourceRequest,
   updateGoogleCalendarIntegration,
+  updateLocalIntegrationSource,
   updateLoop,
   updateRun,
   updateSettings,
@@ -52,10 +53,15 @@ type IntegrationActionKey =
   | 'google-disconnect'
   | 'google-calendars'
   | 'activity-sync'
+  | 'activity-save'
   | 'git-sync'
+  | 'git-save'
   | 'messaging-sync'
+  | 'messaging-save'
   | 'notes-sync'
+  | 'notes-save'
   | 'transcripts-sync'
+  | 'transcripts-save'
   | 'todoist-save'
   | 'todoist-sync'
   | 'todoist-disconnect';
@@ -235,7 +241,7 @@ function integrationSectionForAction(key: IntegrationActionKey): IntegrationSect
   if (key.startsWith('todoist-')) {
     return 'todoist';
   }
-  return key.replace(/-sync$/, '') as IntegrationSectionKey;
+  return key.replace(/-(sync|save)$/, '') as IntegrationSectionKey;
 }
 
 function integrationFeedbackForSection(
@@ -254,6 +260,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [googleClientSecret, setGoogleClientSecret] = useState('');
   const [todoistToken, setTodoistToken] = useState('');
   const [timezoneDraft, setTimezoneDraft] = useState('');
+  const [localSourceDrafts, setLocalSourceDrafts] = useState<Record<LocalIntegrationSource, string>>({
+    activity: '',
+    git: '',
+    messaging: '',
+    notes: '',
+    transcripts: '',
+  });
   const [integrationFeedback, setIntegrationFeedback] = useState<Record<string, IntegrationFeedbackState>>({});
   const [componentActions, setComponentActions] = useState<Record<string, ComponentActionState>>({});
   const [expandedComponentLogs, setExpandedComponentLogs] = useState<Record<string, true>>({});
@@ -273,6 +286,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const nextComponentActionIdRef = useRef(0);
   const latestComponentActionIdRef = useRef(0);
   const latestRunActionIdByRunRef = useRef<Record<string, number>>({});
+  const localSourceInputRefs = useRef<Record<LocalIntegrationSource, HTMLInputElement | null>>({
+    activity: null,
+    git: null,
+    messaging: null,
+    notes: null,
+    transcripts: null,
+  });
   const runLimit = 6;
   const settingsKey = useMemo(() => queryKeys.settings(), []);
   const integrationsKey = useMemo(() => queryKeys.integrations(), []);
@@ -339,6 +359,23 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   useEffect(() => {
     setTimezoneDraft(settings.timezone ?? '');
   }, [settings.timezone]);
+
+  useEffect(() => {
+    setLocalSourceDrafts((current) => {
+      const next = { ...current };
+      let changed = false;
+      for (const spec of LOCAL_INTEGRATION_SPECS) {
+        const configuredPath = integrations[spec.key].source_path ?? '';
+        if (current[spec.key] === '' || current[spec.key] === configuredPath) {
+          if (current[spec.key] !== configuredPath) {
+            next[spec.key] = configuredPath;
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [integrations]);
 
   useEffect(() => {
     if (!pendingOverrideRunId) {
@@ -674,6 +711,51 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       finishIntegrationAction(actionKey, actionId, {
         status: 'success',
         message: `${label} synced (${response.data?.signals_ingested ?? 0} signals).`,
+      });
+    } catch (error) {
+      finishIntegrationAction(actionKey, actionId, {
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const focusLocalSourceInput = (source: LocalIntegrationSource) => {
+    const input = localSourceInputRefs.current[source];
+    if (!input) {
+      return;
+    }
+    input.focus();
+    input.select();
+  };
+
+  const saveLocalSourcePath = async (
+    source: LocalIntegrationSource,
+    sourcePathOverride?: string,
+  ) => {
+    const actionKey = `${source}-save` as IntegrationActionKey;
+    const actionId = beginIntegrationAction(actionKey);
+    const sourcePath = (sourcePathOverride ?? localSourceDrafts[source]).trim();
+    try {
+      const response = await updateLocalIntegrationSource(source, {
+        source_path: sourcePath.length > 0 ? sourcePath : null,
+      });
+      const nextIntegrations = response.ok ? response.data ?? null : null;
+      if (!nextIntegrations) {
+        throw new Error(response.error?.message ?? 'Failed to save source path');
+      }
+      setQueryData<IntegrationsData>(integrationsKey, () => nextIntegrations);
+      setLocalSourceDrafts((current) => ({
+        ...current,
+        [source]: nextIntegrations[source].source_path ?? '',
+      }));
+      refreshIntegrationViews();
+      finishIntegrationAction(actionKey, actionId, {
+        status: 'success',
+        message:
+          sourcePath.length > 0
+            ? 'Source path saved.'
+            : 'Source path cleared.',
       });
     } catch (error) {
       finishIntegrationAction(actionKey, actionId, {
@@ -1255,7 +1337,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               notes: notesFeedback,
               transcripts: transcriptsFeedback,
             } as const)[spec.key];
-            const actionKey = `${spec.key}-sync` as IntegrationActionKey;
+            const syncActionKey = `${spec.key}-sync` as IntegrationActionKey;
+            const saveActionKey = `${spec.key}-save` as IntegrationActionKey;
+            const sourceDraft = localSourceDrafts[spec.key];
             return (
               <div key={spec.key} className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5">
                 <div className="flex items-start justify-between gap-4">
@@ -1269,13 +1353,56 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   />
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3">
+                  <label className="min-w-[18rem] flex-1 space-y-1">
+                    <span className="text-xs uppercase tracking-wide text-zinc-500">Source path</span>
+                    <input
+                      ref={(node) => {
+                        localSourceInputRefs.current[spec.key] = node;
+                      }}
+                      type="text"
+                      value={sourceDraft}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setLocalSourceDrafts((current) => ({
+                          ...current,
+                          [spec.key]: nextValue,
+                        }));
+                      }}
+                      placeholder="Path to local snapshot file or directory"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
+                    />
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void saveLocalSourcePath(spec.key)}
+                    disabled={Boolean(pendingIntegrationActions[saveActionKey])}
+                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+                  >
+                    {pendingIntegrationActions[saveActionKey] ? 'Saving…' : 'Save path'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocalSourceDrafts((current) => ({
+                        ...current,
+                        [spec.key]: '',
+                      }));
+                      void saveLocalSourcePath(spec.key, '');
+                    }}
+                    disabled={Boolean(pendingIntegrationActions[saveActionKey]) || !integration.source_path}
+                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+                  >
+                    Clear path
+                  </button>
                   <button
                     type="button"
                     onClick={() => void syncSource(spec.key)}
-                    disabled={Boolean(pendingIntegrationActions[actionKey])}
+                    disabled={Boolean(pendingIntegrationActions[syncActionKey])}
                     className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
-                    {pendingIntegrationActions[actionKey] ? 'Syncing…' : 'Sync now'}
+                    {pendingIntegrationActions[syncActionKey] ? 'Syncing…' : 'Sync now'}
                   </button>
                   <button
                     type="button"
@@ -1295,8 +1422,11 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   guidanceActions={localGuidanceActions(
                     spec.key,
                     integration,
+                    localSourceDrafts,
                     expandedIntegrationLogs,
                     pendingIntegrationActions,
+                    saveLocalSourcePath,
+                    focusLocalSourceInput,
                     syncSource,
                     openIntegrationHistory,
                   )}
@@ -2024,8 +2154,11 @@ function todoistGuidanceActions(
 function localGuidanceActions(
   source: LocalIntegrationSource,
   integration: LocalIntegrationData,
+  localSourceDrafts: Record<LocalIntegrationSource, string>,
   expandedIntegrationLogs: Record<string, true>,
   pendingIntegrationActions: Record<string, true>,
+  saveLocalSourcePath: (source: LocalIntegrationSource) => Promise<void>,
+  focusLocalSourceInput: (source: LocalIntegrationSource) => void,
   syncSource: (source: 'calendar' | 'todoist' | LocalIntegrationSource) => Promise<void>,
   openIntegrationHistory: (integrationId: IntegrationLogSource) => void,
 ): GuidanceActionButton[] {
@@ -2035,6 +2168,20 @@ function localGuidanceActions(
   }
 
   switch (guidance.action) {
+    case 'Set source path': {
+      const hasDraft = localSourceDrafts[source].trim().length > 0;
+      return [
+        {
+          label: 'Edit source path',
+          onClick: () => focusLocalSourceInput(source),
+        },
+        {
+          label: 'Run: Save path',
+          onClick: () => void saveLocalSourcePath(source),
+          disabled: Boolean(pendingIntegrationActions[`${source}-save`]) || !hasDraft,
+        },
+      ];
+    }
     case 'Sync now':
       return [{
         label: 'Run: Sync now',
