@@ -1,5 +1,6 @@
 //! Todoist adapter: read snapshot JSON from config path, reconcile commitments, and emit signals.
 
+use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{Commitment, CommitmentStatus};
@@ -87,6 +88,17 @@ async fn reconcile_commitment(
     let metadata = serde_json::json!({
         "todoist_id": item.id,
         "labels": item.labels,
+        "priority": item.priority.unwrap_or(1),
+        "updated_at": item
+            .updated_at
+            .as_deref()
+            .and_then(parse_rfc3339_timestamp),
+        "has_due_time": item
+            .due
+            .as_ref()
+            .and_then(|due| due.date.as_deref())
+            .map(has_explicit_due_time)
+            .unwrap_or(false),
     });
     let project = item.project_id.as_deref();
     let status = if completed {
@@ -171,6 +183,16 @@ fn parse_iso_datetime(s: &str) -> Option<i64> {
     Some(dt.unix_timestamp())
 }
 
+fn parse_rfc3339_timestamp(value: &str) -> Option<i64> {
+    OffsetDateTime::parse(value, &Rfc3339)
+        .ok()
+        .map(|timestamp| timestamp.unix_timestamp())
+}
+
+fn has_explicit_due_time(value: &str) -> bool {
+    value.contains('T')
+}
+
 fn todoist_signal_source_ref(item: &TodoistItem) -> String {
     let state = if item.checked.unwrap_or(false) {
         "done"
@@ -203,6 +225,10 @@ struct TodoistItem {
     content: String,
     #[serde(default)]
     checked: Option<bool>,
+    #[serde(default)]
+    priority: Option<u8>,
+    #[serde(default)]
+    updated_at: Option<String>,
     due: Option<TodoistDue>,
     #[serde(default)]
     labels: Vec<String>,
@@ -225,6 +251,8 @@ mod tests {
             id: "123".to_string(),
             content: "Ship feature".to_string(),
             checked: Some(false),
+            priority: Some(1),
+            updated_at: None,
             due: None,
             labels: Vec::new(),
             project_id: None,
@@ -237,5 +265,17 @@ mod tests {
             todoist_signal_source_ref(&open),
             todoist_signal_source_ref(&done)
         );
+    }
+
+    #[test]
+    fn parses_rfc3339_updated_at_timestamp() {
+        let timestamp = parse_rfc3339_timestamp("2026-03-16T15:04:05Z");
+        assert_eq!(timestamp, Some(1_773_673_445));
+    }
+
+    #[test]
+    fn detects_due_time_presence_from_snapshot_value() {
+        assert!(has_explicit_due_time("2026-03-17T09:30:00"));
+        assert!(!has_explicit_due_time("2026-03-17"));
     }
 }
