@@ -6,7 +6,7 @@ use vel_api_types::{
     NowSummaryData, NowTaskData, NowTasksData,
 };
 use vel_config::AppConfig;
-use vel_core::{Commitment, CommitmentStatus};
+use vel_core::{normalize_risk_level, Commitment, CommitmentStatus};
 use vel_storage::{SignalRecord, Storage};
 
 use crate::{errors::AppError, services::integrations};
@@ -132,11 +132,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
             reasons: attention_reasons,
         },
         sources: NowSourcesData {
-            git_activity: context_source_activity(
-                &context,
-                "git_activity_summary",
-                "Git activity",
-            ),
+            git_activity: context_source_activity(&context, "git_activity_summary", "Git activity"),
             note_document: context_source_activity(
                 &context,
                 "note_document_summary",
@@ -585,6 +581,14 @@ mod tests {
         );
     }
 
+    #[test]
+    fn risk_summary_normalizes_unrecognized_levels_to_unknown() {
+        let summary = risk_summary("danger", Some(0.4));
+
+        assert_eq!(summary.level, "unknown");
+        assert_eq!(summary.label, "unknown · 40%");
+    }
+
     fn fixed_now() -> OffsetDateTime {
         time::Date::from_calendar_date(2026, Month::March, 16)
             .unwrap()
@@ -674,12 +678,13 @@ fn label_for_severity(value: &str) -> NowLabelData {
 }
 
 fn risk_summary(level: &str, score: Option<f64>) -> NowRiskSummaryData {
+    let normalized_level = normalize_risk_level(level);
     let label = match score {
-        Some(score) => format!("{level} · {}%", (score * 100.0).round() as i64),
-        None => level.to_string(),
+        Some(score) => format!("{normalized_level} · {}%", (score * 100.0).round() as i64),
+        None => normalized_level.to_string(),
     };
     NowRiskSummaryData {
-        level: level.to_string(),
+        level: normalized_level.to_string(),
         score,
         label,
     }

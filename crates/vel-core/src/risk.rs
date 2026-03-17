@@ -1,5 +1,15 @@
 use serde::{Deserialize, Serialize};
 
+pub fn normalize_risk_level(level: &str) -> &str {
+    match level {
+        "low" => "low",
+        "medium" => "medium",
+        "high" => "high",
+        "critical" => "critical",
+        _ => "unknown",
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RiskFactors {
     pub consequence: f64,
@@ -32,30 +42,17 @@ impl RiskSnapshot {
         factors: RiskFactors,
         computed_at: Option<i64>,
     ) -> Self {
-        let normalized = match risk_level.as_str() {
-            "low" => "low",
-            "medium" => "medium",
-            "high" => "high",
-            "critical" => "critical",
-            _ => "unknown",
-        };
         Self {
             commitment_id,
             risk_score,
-            risk_level: normalized.to_string(),
+            risk_level: normalize_risk_level(&risk_level).to_string(),
             factors,
             computed_at,
         }
     }
 
     pub fn normalized_level(&self) -> &str {
-        match self.risk_level.as_str() {
-            "low" => "low",
-            "medium" => "medium",
-            "high" => "high",
-            "critical" => "critical",
-            _ => "unknown",
-        }
+        normalize_risk_level(&self.risk_level)
     }
 
     pub fn is_high_or_worse(&self) -> bool {
@@ -86,7 +83,7 @@ pub fn sort_snapshots_by_priority_desc(snapshots: &mut [RiskSnapshot]) {
 
 #[cfg(test)]
 mod tests {
-    use super::{sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
+    use super::{normalize_risk_level, sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
 
     fn snapshot(level: &str) -> RiskSnapshot {
         RiskSnapshot::new(
@@ -109,6 +106,11 @@ mod tests {
     #[test]
     fn normalized_level_falls_back_to_unknown_for_unrecognized_values() {
         assert_eq!(snapshot("danger").normalized_level(), "unknown");
+    }
+
+    #[test]
+    fn normalize_risk_level_falls_back_to_unknown_for_unrecognized_values() {
+        assert_eq!(normalize_risk_level("danger"), "unknown");
     }
 
     #[test]
