@@ -136,6 +136,7 @@ pub async fn run_command(client: &ApiClient, input: Vec<String>, json: bool) -> 
     let local_explanation = command_lang::explain::render_explanation(&resolution);
     let local_preview = command_lang::preview::render(&resolution);
     let completion_hints = command_lang::completion::next_tokens(&input);
+    let intent_hints = command_lang::completion::intent_hints(&resolution);
     let daemon_plan = client
         .plan_command(&resolution.resolved)
         .await
@@ -152,6 +153,7 @@ pub async fn run_command(client: &ApiClient, input: Vec<String>, json: bool) -> 
                 "local_preview": local_preview,
                 "local_explanation": local_explanation,
                 "completion_hints": completion_hints,
+                "intent_hints": intent_hints,
                 "daemon_plan": daemon_plan,
             }))?
         );
@@ -166,6 +168,12 @@ pub async fn run_command(client: &ApiClient, input: Vec<String>, json: bool) -> 
     if !completion_hints.is_empty() {
         println!();
         println!("Next tokens: {}", completion_hints.join(", "));
+    }
+    if let Some(hints) = intent_hints {
+        println!("Intent hints:");
+        println!("  target_kind: {}", hints.target_kind);
+        println!("  mode: {}", hints.mode);
+        println!("  suggestions: {}", hints.suggestions.join(", "));
     }
 
     println!();

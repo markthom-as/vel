@@ -1,3 +1,4 @@
+use crate::command_lang::completion;
 use crate::command_lang::infer::CommandResolution;
 use vel_core::glossary_entry_for_kind;
 
@@ -16,6 +17,15 @@ pub fn render_explanation(resolution: &CommandResolution) -> String {
         if let Some(entry) = glossary_entry_for_kind(kind) {
             out.push(format!("Vocabulary: {} — {}", entry.term, entry.summary));
         }
+        out.push(format!("Target kind: {}", kind));
+        out.push(format!(
+            "Resolved operation: {}",
+            resolution.resolved.operation
+        ));
+    }
+    if let Some(hints) = completion::intent_hints(resolution) {
+        out.push(format!("Resolved mode: {}", hints.mode));
+        out.push(format!("Intent hints: {}", hints.suggestions.join(", ")));
     }
     for assumption in &resolution.intent.assumptions {
         out.push(format!("Assumption: {}", assumption));
@@ -42,6 +52,7 @@ mod tests {
         .expect("resolve");
         let output = render_explanation(&resolution);
         assert!(output.contains("delegation plan"));
+        assert!(output.contains("Resolved mode: planning_artifact"));
         assert!(output.contains("\"artifact_kind\":\"delegation_plan\""));
     }
 }
