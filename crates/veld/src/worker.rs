@@ -115,6 +115,17 @@ async fn process_retry_ready_run(
             });
             state
                 .storage
+                .append_run_event_auto(
+                    run_id.as_ref(),
+                    RunEventType::RunRetryBlocked,
+                    &serde_json::json!({
+                        "reason": blocked_reason,
+                        "kind": unsupported_kind.to_string(),
+                    }),
+                )
+                .await?;
+            state
+                .storage
                 .update_run_status(
                     run_id.as_ref(),
                     RunStatus::Blocked,
@@ -406,5 +417,8 @@ mod tests {
         assert!(events
             .iter()
             .any(|event| event.event_type == RunEventType::RunRequeued));
+        assert!(events
+            .iter()
+            .any(|event| event.event_type == RunEventType::RunRetryBlocked));
     }
 }
