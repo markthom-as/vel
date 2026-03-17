@@ -26,7 +26,8 @@ This file defines durable rules for work under `clients/apple`.
 
 ## Contract and Mapping Workflow
 
-- Treat backend contracts (`docs/status.md`, API DTOs in Rust crates) as canonical.
+- **Canonical Truth**: Backend contracts and architectural status live in **`docs/MASTER_PLAN.md`**.
+- Treat API DTOs in Rust crates as the wire format authority.
 - When backend wire shapes change, update `VelAPI` models and mapping in the same change.
 - Add or refresh fixture-backed decode checks when adding fields with non-trivial mapping.
 - Keep wire models, persisted local models, and view models conceptually separate.

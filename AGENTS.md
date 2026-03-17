@@ -1,109 +1,58 @@
 # AGENTS.md
 
-This document defines durable repository rules for AI coding agents working in Vel.
+This document defines durable repository rules and the **Agentic Implementation Protocol** for AI coding agents working in Vel.
 
 ## Authority
 
-- Repo-wide implementation truth lives in `docs/status.md`.
-- `AGENTS.md` defines durable boundaries and workflow rules, not a mutable feature ledger.
-- If `AGENTS.md` and a status claim appear to conflict, treat `docs/status.md` as canonical for shipped behavior and `AGENTS.md` as canonical for repository boundaries.
-
-## Mission
-
-Vel is a local-first cognition runtime for capture, recall, and daily orientation.
-
-Product principle:
-- optimize for repeated personal use before broad generality
-- prefer daily loops over speculative automation
-- prefer capture/review ergonomics over agent complexity
-- prefer trust/export over speculative integrations
+- **Canonical Truth**: Repo-wide implementation status and architectural roadmap live in **`docs/MASTER_PLAN.md`**.
+- **Workflow Protocol**: Standardized implementation steps for agents live in **`docs/templates/agent-implementation-protocol.md`**.
+- If `AGENTS.md` and the Master Plan appear to conflict, treat **`docs/MASTER_PLAN.md`** as canonical.
 
 ## Durable Repository Rules
 
-- `vel-core` owns domain semantics and domain types.
-- `vel-storage` must not depend on `vel-api-types`.
-- `vel-api-types` contains transport DTOs only; map from core types at the boundary.
-- Route handlers should remain thin: parse request, call service, map response/error.
-- Services should hold application logic.
-- Run-backed operations must emit run events and persist terminal state.
-- Prefer structured payloads such as `serde_json::Value` over raw JSON strings in domain and API layers.
-- Docs must distinguish implemented behavior from planned behavior; use `docs/status.md` for current truth.
+### 1. Domain & Layering
+- **`vel-core`**: Owns domain semantics, domain types, and system invariants. It must remain a "pure" library (no IO/Network).
+- **`vel-storage`**: Must not depend on `vel-api-types`. Use the **Repository Pattern** and **Unit of Work** for transactional safety.
+- **`vel-api-types`**: Contains transport DTOs only.
+- **Boundary Rule**: Services return domain entities; Routes map to DTOs. No DTOs in the service layer.
+
+### 2. State & Consistency
+- **Context Integrity**: The `current_context` must be handled as a versioned, strictly typed Rust struct, not a raw JSON blob.
+- **Distributed Identity**: Use prefixed UUIDs (e.g., `wrkreq_`, `run_`) and Hybrid Logical Clocks (HLC) for LWW conflict resolution.
+- **Event Sourcing**: Prefer append-only logs (`RunEvent`, `WorkAssignmentReceipt`) for distributed state changes.
+
+### 3. Verification & Safety
+- **Surgical Edits**: Use targeted `replace` calls. Minimize full-file `write_file` unless creating new modules.
+- **Test-First**: Every logic change must be accompanied by a unit test in the affected module or an integration test in `crates/veld/tests/`.
+- **Simulation**: Use the **Day-Simulation Harness** (`Phase 3`) to verify long-term reasoning stability.
+
+## Agent Workflow (ADX)
+
+Before starting work, an agent MUST:
+
+1.  Read **`docs/MASTER_PLAN.md`** to understand current status and phase goals.
+2.  Locate the relevant ticket in **`docs/tickets/`**.
+3.  Follow the **`docs/templates/agent-implementation-protocol.md`** strictly:
+    -   **Research**: Use `grep_search` and `glob` to map symbols.
+    -   **Strategy**: Formulate a concise plan.
+    -   **Act**: Apply surgical changes.
+    -   **Validate**: Run `cargo test` and `vel doctor`.
 
 ## Development Principles
 
-### Local-First
+- **Local-First**: All core functionality must work without internet access.
+- **Explainability**: Every nudge and synthesis must link back to its source signals (Provenance).
+- **Zero-Trust (Phase 4)**: Agent skills must operate within WASM sandboxes.
 
-- Prefer local files, local databases, and user-controlled infrastructure.
-- Remote services should be optional.
+## Priority Order (The Master Plan)
 
-### Modular Architecture
-
-- Keep subsystem boundaries clear.
-- Prefer explicit interfaces between capture, memory, context, execution, and interface layers.
-
-### Data Ownership
-
-- User data should remain under user control.
-- Default storage choices should be inspectable and local-first.
-
-### Explainability
-
-- Vel decisions should be traceable.
-- Suggestions and nudges should make it possible to determine what context and rules were used.
-
-## Coding Expectations
-
-- Prefer readable code over clever code.
-- Avoid unnecessary dependencies.
-- Keep builds reproducible.
-- Write tests where appropriate.
-- Document new modules or contracts when adding them.
-
-## Agent Workflow
-
-Before substantial implementation work, read:
-
-1. `docs/README.md`
-2. `docs/status.md`
-3. `docs/product-spec.md`
-4. `docs/architecture.md`
-5. `docs/data-model.md`
-6. `docs/mvp.md`
-
-Then:
-
-1. implement the minimum viable slice first
-2. keep architecture boundaries intact
-3. write or update tests where appropriate
-4. update documentation for any changed module, API contract, or workflow
-
-### Platform Ticket Preference
-
-When choosing specs or ticket packs, prefer work that matches the platform you are currently operating on or modifying:
-
-- prefer Apple/macOS/iOS/watch tickets when working in Apple clients or Apple bridge code
-- prefer Linux/daemon/runtime tickets when working in server, CLI, storage, or local runtime code on Linux-oriented surfaces
-- prefer web tickets when working in browser/operator UI code
-- cross-platform or shared-core work may use whichever ticket pack most directly governs the shared boundary
-
-If multiple ticket packs are relevant, bias toward the one closest to the active platform and only widen scope when the architecture clearly requires it.
-
-## Priority Order
-
-1. capture system
-2. memory graph
-3. context recall
-4. daily alignment engine
-5. execution automation
+1.  **Phase 1**: Foundations (Monolith decomposition, Repository pattern, Typed context).
+2.  **Phase 2**: Swarm & Sync (HLCs, Signal Reducers, Connect Launch).
+3.  **Phase 3**: Verification (Simulation harness, LLM-as-a-Judge).
+4.  **Phase 4**: Autonomy (Semantic Graph RAG, WASM Sandboxing, P2P Sync).
 
 ## Early Non-Goals
 
-Avoid early overreach into:
-
-- complex distributed systems before needed
-- unnecessary cloud dependencies
-- premature optimization
-- excessive UI complexity
-- speculative productization features
-
-The priority is core cognition features.
+- Premature UI polish (prefer functionality and state correctness).
+- Cloud-only features or proprietary vendor lock-in.
+- Speculative integrations not defined in the Master Plan.
