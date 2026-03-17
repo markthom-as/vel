@@ -28,7 +28,7 @@ Vel is currently transitioning from a prototype to a bulletproof distributed swa
 The **Vel v0 (MVP)** is 75% complete.
 
 - **Implemented**: Capture storage (CLI/Web), Lexical search (FTS5), Commitment CRUD, SQLite migration engine, Context runs (Today/Morning/End-of-Day), and Cluster worker heartbeats.
-- **Active Development**: Modularizing the 4k-line `db.rs` storage layer, standardizing the Service/DTO boundary, and formalizing the Connect agent launch protocol.
+- **Active Development**: Closing the remaining typed-context migration seams, contract publication work, and the Connect agent launch protocol.
 
 ---
 

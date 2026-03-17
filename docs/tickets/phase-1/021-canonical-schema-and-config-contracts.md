@@ -1,6 +1,6 @@
 ---
 title: Canonical Schema And Config Contracts
-status: in-progress
+status: complete
 owner: staff-eng
 type: architecture
 priority: high

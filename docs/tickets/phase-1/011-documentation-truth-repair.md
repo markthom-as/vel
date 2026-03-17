@@ -1,6 +1,6 @@
 ---
 title: Documentation Truth Repair & Architecture Mapping
-status: in-progress
+status: complete
 owner: staff-eng
 type: documentation
 priority: medium

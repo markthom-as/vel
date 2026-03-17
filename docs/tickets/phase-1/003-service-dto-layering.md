@@ -1,6 +1,6 @@
 ---
 title: Service/DTO Boundary & Domain Mapping Enforcement
-status: in-progress
+status: complete
 owner: staff-eng
 type: maintainability
 priority: high

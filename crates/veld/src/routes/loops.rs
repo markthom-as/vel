@@ -7,6 +7,24 @@ use vel_api_types::{ApiResponse, LoopData, LoopUpdateRequest};
 
 use crate::{errors::AppError, state::AppState};
 
+const KNOWN_LOOP_KINDS: [vel_core::LoopKind; 15] = [
+    vel_core::LoopKind::CaptureIngest,
+    vel_core::LoopKind::RetryDueRuns,
+    vel_core::LoopKind::QueueWorkScheduler,
+    vel_core::LoopKind::EvaluateCurrentState,
+    vel_core::LoopKind::SyncCalendar,
+    vel_core::LoopKind::SyncTodoist,
+    vel_core::LoopKind::SyncActivity,
+    vel_core::LoopKind::SyncHealth,
+    vel_core::LoopKind::SyncGit,
+    vel_core::LoopKind::SyncMessaging,
+    vel_core::LoopKind::SyncReminders,
+    vel_core::LoopKind::SyncNotes,
+    vel_core::LoopKind::SyncTranscripts,
+    vel_core::LoopKind::WeeklySynthesis,
+    vel_core::LoopKind::StaleNudgeReconciliation,
+];
+
 fn map_loop_data(record: vel_storage::RuntimeLoopRecord) -> LoopData {
     LoopData {
         kind: record.loop_kind,
@@ -93,25 +111,7 @@ fn configured_loop_defaults(state: &AppState, loop_kind: vel_core::LoopKind) -> 
 }
 
 async fn ensure_known_loop_rows(state: &AppState) -> Result<(), AppError> {
-    let all_loop_kinds = [
-        vel_core::LoopKind::CaptureIngest,
-        vel_core::LoopKind::RetryDueRuns,
-        vel_core::LoopKind::QueueWorkScheduler,
-        vel_core::LoopKind::EvaluateCurrentState,
-        vel_core::LoopKind::SyncCalendar,
-        vel_core::LoopKind::SyncTodoist,
-        vel_core::LoopKind::SyncActivity,
-        vel_core::LoopKind::SyncHealth,
-        vel_core::LoopKind::SyncGit,
-        vel_core::LoopKind::SyncMessaging,
-        vel_core::LoopKind::SyncReminders,
-        vel_core::LoopKind::SyncNotes,
-        vel_core::LoopKind::SyncTranscripts,
-        vel_core::LoopKind::WeeklySynthesis,
-        vel_core::LoopKind::StaleNudgeReconciliation,
-    ];
-
-    for loop_kind in all_loop_kinds {
+    for loop_kind in KNOWN_LOOP_KINDS {
         let (enabled, interval_seconds) = configured_loop_defaults(state, loop_kind);
         state
             .storage

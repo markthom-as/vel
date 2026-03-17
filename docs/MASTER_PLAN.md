@@ -60,10 +60,10 @@ Primary outcome:
 ### 1.2 The "Pure Core" & Typed Context Mandate **[IN_PROGRESS]**
 *   *Ticket*: `002-typed-context-transition.md`
 
-### 1.3 Service/DTO Boundary & Standardized Error Handling **[IN_PROGRESS]**
+### 1.3 Service/DTO Boundary & Standardized Error Handling **[COMPLETE]**
 *   *Ticket*: `003-service-dto-layering.md`
 
-### 1.4 Documentation Truth Repair & Architecture Mapping **[IN_PROGRESS]**
+### 1.4 Documentation Truth Repair & Architecture Mapping **[COMPLETE]**
 *   *Ticket*: `011-documentation-truth-repair.md`
 
 ### 1.5 Auth-By-Default HTTP Surfaces & Deny-By-Default Routing **[COMPLETE]**
@@ -75,7 +75,7 @@ Primary outcome:
 ### 1.7 Documentation Catalog Single Source & Surface Parity **[COMPLETE]**
 *   *Ticket*: `020-documentation-catalog-single-source.md`
 
-### 1.8 Canonical Schemas, Config Contracts & Templates **[IN_PROGRESS]**
+### 1.8 Canonical Schemas, Config Contracts & Templates **[COMPLETE]**
 *   *Ticket*: `021-canonical-schema-and-config-contracts.md`
 
 ### 1.9 Canonical Data Sources, Integrations & Connector Contracts **[PLANNED]**
@@ -87,7 +87,7 @@ Primary outcome:
 ### 1.11 Machine-Readable Contract Manifest Publication **[PLANNED]**
 *   *Ticket*: `024-machine-readable-schema-and-manifest-publication.md`
 
-### 1.12 Config Template And Fixture Parity **[IN_PROGRESS]**
+### 1.12 Config Template And Fixture Parity **[COMPLETE]**
 *   *Ticket*: `025-config-and-contract-fixture-parity.md`
 
 ### Evidence Dashboard
