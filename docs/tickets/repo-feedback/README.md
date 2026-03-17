@@ -18,6 +18,20 @@ The highest-priority work is tightening architectural boundaries among:
 
 The web client is promising, but it needs a stronger data layer and less template residue.
 
+## Current convergence state
+
+Use [docs/status.md](../../status.md) as the canonical implementation ledger.
+
+Current practical state in this packet:
+
+- `001` read/evaluate boundary: materially implemented and covered by a non-mutation integration test
+- `002` inference reducers: in progress; deterministic selectors and staged collect/derive/persist flow are underway
+- `003` risk authority: in progress; typed risk contracts are in place and consumers are moving onto them
+- `004` nudge lifecycle: in progress; reactivation and in-place escalation are implemented, broader policy cleanup remains
+- `005` API/time contract cleanup: in progress; websocket timestamps are now RFC3339 and typed risk factors are explicit
+- `006` web realtime/state management: intentionally deferred for now
+- `007` `008` `009`: next repo-feedback priority after current convergence work
+
 ## Ticket order
 
 1. `001-enforce-evaluate-read-boundary.md`

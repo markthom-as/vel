@@ -2,6 +2,8 @@
 
 Purpose: act as a **navigation and coverage index**. Canonical implementation truth lives in `docs/status.md`.
 
+Start with [docs/README.md](README.md) if you need the shortest authoritative reading path.
+
 - For repo-wide implementation status, see **`docs/status.md`**.
 - This document tracks which subsystems are documented and where to find their specs and tickets.
 
