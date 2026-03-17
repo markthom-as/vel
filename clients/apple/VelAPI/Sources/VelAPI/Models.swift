@@ -27,6 +27,21 @@ public struct HealthData: Decodable, Sendable {
     public let version: String?
 }
 
+// MARK: - Cluster bootstrap
+
+public typealias ClusterBootstrapResponse = APIEnvelope<ClusterBootstrapData>
+public struct ClusterBootstrapData: Decodable, Sendable {
+    public let node_id: String
+    public let node_display_name: String
+    public let active_authority_node_id: String
+    public let active_authority_epoch: Int
+    public let sync_base_url: String
+    public let sync_transport: String
+    public let tailscale_base_url: String?
+    public let lan_base_url: String?
+    public let localhost_base_url: String?
+}
+
 // MARK: - Context
 
 public typealias CurrentContextResponse = APIEnvelope<CurrentContextData>

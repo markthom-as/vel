@@ -10,6 +10,17 @@ struct ContentView: View {
             List {
                 Section("Status") {
                     Label(store.isReachable ? "Connected" : "Disconnected", systemImage: store.isReachable ? "checkmark.circle" : "xmark.circle")
+                    if let authority = store.authorityLabel {
+                        Text("Authority: \(authority)")
+                    }
+                    if let transport = store.activeTransport {
+                        Text("Transport: \(transport)")
+                    }
+                    if let baseURL = store.activeBaseURL {
+                        Text(baseURL)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Section("Context") {
                     if let ctx = context?.context {
@@ -63,7 +74,10 @@ struct ContentView: View {
                 context = ctx
             }
         } catch {
-            await MainActor.run { store.errorMessage = error.localizedDescription }
+            await MainActor.run {
+                store.errorMessage = error.localizedDescription
+                store.isReachable = false
+            }
         }
     }
 }

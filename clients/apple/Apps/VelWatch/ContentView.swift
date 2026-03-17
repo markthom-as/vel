@@ -14,6 +14,11 @@ struct ContentView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+            if let transport = store.transport {
+                Text(transport)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding()
         .task { await store.refresh() }

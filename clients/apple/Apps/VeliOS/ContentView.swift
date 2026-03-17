@@ -19,13 +19,26 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
-                        Text("Run veld and set base URL in Settings if on device.")
+                        Text("Run veld locally or set vel_tailscale_url / vel_base_url in Settings.")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                     .padding()
                 } else {
                     List {
+                        Section("Connection") {
+                            if let authority = store.authorityLabel {
+                                Label(authority, systemImage: "network")
+                            }
+                            if let transport = store.activeTransport {
+                                Text("Transport: \(transport)")
+                            }
+                            if let baseURL = store.activeBaseURL {
+                                Text(baseURL)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         if let ctx = context?.context {
                             Section("Context") {
                                 if let mode = ctx.mode { Label(mode, systemImage: "brain") }
@@ -62,7 +75,10 @@ struct ContentView: View {
                 context = ctx
             }
         } catch {
-            await MainActor.run { store.errorMessage = error.localizedDescription }
+            await MainActor.run {
+                store.errorMessage = error.localizedDescription
+                store.isReachable = false
+            }
         }
     }
 }

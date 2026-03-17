@@ -17,6 +17,10 @@ public final class VelClient: Sendable {
         try await get("/v1/health")
     }
 
+    public func clusterBootstrap() async throws -> ClusterBootstrapData {
+        try await get("/v1/cluster/bootstrap")
+    }
+
     // MARK: - Context
 
     public func currentContext() async throws -> CurrentContextData {
@@ -88,6 +92,34 @@ public final class VelClient: Sendable {
             throw VelClientError.http(statusCode: http.statusCode, message: message)
         }
         return data
+    }
+}
+
+public enum VelEndpointResolver {
+    public static func candidateBaseURLs(
+        explicitBaseURL: URL? = nil,
+        userDefaults: UserDefaults = .standard
+    ) -> [URL] {
+        var candidates: [URL] = []
+
+        func append(_ value: String?) {
+            guard let value, let url = URL(string: value) else { return }
+            if !candidates.contains(url) {
+                candidates.append(url)
+            }
+        }
+
+        if let explicitBaseURL {
+            candidates.append(explicitBaseURL)
+        }
+
+        append(userDefaults.string(forKey: "vel_base_url"))
+        append(userDefaults.string(forKey: "vel_tailscale_url"))
+        append(userDefaults.string(forKey: "vel_lan_base_url"))
+        append("http://127.0.0.1:4130")
+        append("http://localhost:4130")
+
+        return candidates
     }
 }
 

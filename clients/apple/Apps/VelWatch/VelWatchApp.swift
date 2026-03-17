@@ -12,20 +12,38 @@ struct VelWatchApp: App {
 }
 
 final class VelWatchStore: ObservableObject {
-    let client = VelAPI.VelClient(baseURL: URL(string: "http://localhost:4130")!)
+    let client: VelAPI.VelClient
     @Published var message: String = "Vel"
     @Published var nudgeCount: Int = 0
+    @Published var transport: String?
+
+    init() {
+        let initial = VelAPI.VelEndpointResolver.candidateBaseURLs().first
+            ?? URL(string: "http://127.0.0.1:4130")!
+        client = VelAPI.VelClient(baseURL: initial)
+    }
 
     func refresh() async {
-        do {
-            let nudges = try await client.nudges()
-            let active = nudges.filter { $0.state == "active" || $0.state == "snoozed" }
-            await MainActor.run {
-                nudgeCount = active.count
-                message = active.first?.message ?? "No nudges"
+        for candidate in VelAPI.VelEndpointResolver.candidateBaseURLs() {
+            client.baseURL = candidate
+            do {
+                let bootstrap = try await client.clusterBootstrap()
+                let nudges = try await client.nudges()
+                let active = nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+                await MainActor.run {
+                    nudgeCount = active.count
+                    message = active.first?.message ?? "No nudges"
+                    transport = bootstrap.sync_transport
+                }
+                return
+            } catch {
+                continue
             }
-        } catch {
-            await MainActor.run { message = "Offline" }
+        }
+
+        await MainActor.run {
+            transport = nil
+            message = "Offline"
         }
     }
 }
