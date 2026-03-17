@@ -1,4 +1,5 @@
 import SwiftUI
+import VelAPI
 
 @main
 struct VelWatchApp: App {
@@ -12,8 +13,8 @@ struct VelWatchApp: App {
 }
 
 final class VelWatchStore: ObservableObject {
-    let client: VelAPI.VelClient
-    let offlineStore = VelAPI.VelOfflineStore()
+    let client: VelClient
+    let offlineStore = VelOfflineStore()
     @Published var message: String = "Vel"
     @Published var nudgeCount: Int = 0
     @Published var transport: String?
@@ -23,9 +24,9 @@ final class VelWatchStore: ObservableObject {
     @Published var nextCommitmentText: String?
 
     init() {
-        let initial = VelAPI.VelEndpointResolver.candidateBaseURLs().first
+        let initial = VelEndpointResolver.candidateBaseURLs().first
             ?? URL(string: "http://127.0.0.1:4130")!
-        client = VelAPI.VelClient(baseURL: initial)
+        client = VelClient(baseURL: initial)
     }
 
     func refresh() async {
@@ -49,7 +50,7 @@ final class VelWatchStore: ObservableObject {
                 )?.text
             }
         }
-        for candidate in VelAPI.VelEndpointResolver.candidateBaseURLs() {
+        for candidate in VelEndpointResolver.candidateBaseURLs() {
             client.baseURL = candidate
             do {
                 _ = await offlineStore.drainQueuedActions(using: client)
@@ -111,8 +112,8 @@ final class VelWatchStore: ObservableObject {
 
     private func resolveNextCommitment(
         preferredID: String?,
-        commitments: [VelAPI.CommitmentData]
-    ) -> VelAPI.CommitmentData? {
+        commitments: [CommitmentData]
+    ) -> CommitmentData? {
         let open = commitments.filter { $0.status == "open" }
         if let preferredID, let matched = open.first(where: { $0.id == preferredID }) {
             return matched
