@@ -6,6 +6,7 @@ import { NowView } from './NowView'
 
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
+  apiPost: vi.fn(),
 }))
 
 describe('NowView', () => {
@@ -14,6 +15,7 @@ describe('NowView', () => {
     clearQueryCache()
     vi.useRealTimers()
     vi.mocked(api.apiGet).mockReset()
+    vi.mocked(api.apiPost).mockReset()
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
       if (path === '/v1/now') {
         return {
@@ -140,6 +142,59 @@ describe('NowView', () => {
         } as never
       }
       throw new Error(`unexpected apiGet path: ${path}`)
+    })
+    vi.mocked(api.apiPost).mockImplementation(async (path: string) => {
+      if (path === '/v1/evaluate') {
+        return {
+          ok: true,
+          data: {
+            inferred_states: 4,
+            nudges_created_or_updated: 1,
+          },
+          meta: { request_id: 'req_eval' },
+        } as never
+      }
+      if (path === '/v1/sync/calendar') {
+        return {
+          ok: true,
+          data: {
+            source: 'calendar',
+            signals_ingested: 3,
+          },
+          meta: { request_id: 'req_sync_calendar' },
+        } as never
+      }
+      if (path === '/v1/sync/todoist') {
+        return {
+          ok: true,
+          data: {
+            source: 'todoist',
+            signals_ingested: 5,
+          },
+          meta: { request_id: 'req_sync_todoist' },
+        } as never
+      }
+      if (path === '/v1/sync/activity') {
+        return {
+          ok: true,
+          data: {
+            source: 'activity',
+            signals_ingested: 2,
+          },
+          meta: { request_id: 'req_sync_activity' },
+        } as never
+      }
+      if (path === '/v1/sync/messaging') {
+        return {
+          ok: true,
+          data: {
+            source: 'messaging',
+            signals_ingested: 4,
+          },
+          meta: { request_id: 'req_sync_messaging' },
+        } as never
+      }
+      throw new Error(`unexpected apiPost path: ${path}`)
     })
   })
 
@@ -291,6 +346,269 @@ describe('NowView', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Design review')).toBeInTheDocument()
     expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()
+  })
+
+  it('runs evaluate directly from degraded context warnings', async () => {
+    vi.mocked(api.apiGet)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          computed_at: 1710000000,
+          timezone: 'America/Denver',
+          summary: {
+            mode: { key: 'day_mode', label: 'Day' },
+            phase: { key: 'engaged', label: 'Engaged' },
+            meds: { key: 'pending', label: 'Pending' },
+            risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+          },
+          schedule: {
+            empty_message: null,
+            next_event: null,
+            upcoming_events: [],
+          },
+          tasks: {
+            todoist: [],
+            other_open: [],
+            next_commitment: null,
+          },
+          attention: {
+            state: { key: 'on_task', label: 'On task' },
+            drift: { key: 'none', label: 'None' },
+            severity: { key: 'none', label: 'None' },
+            confidence: 0.8,
+            reasons: [],
+          },
+          sources: {
+            git_activity: null,
+            note_document: null,
+            assistant_message: null,
+          },
+          freshness: {
+            overall_status: 'aging',
+            sources: [
+              {
+                key: 'context',
+                label: 'Context',
+                status: 'aging',
+                last_sync_at: 1709999400,
+                age_seconds: 600,
+                guidance: 'Re-run evaluate soon.',
+              },
+            ],
+          },
+          reasons: [],
+          debug: {
+            raw_context: {},
+            signals_used: [],
+            commitments_used: [],
+            risk_used: [],
+          },
+        },
+        meta: { request_id: 'req_now_degraded_context' },
+      } as never)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          computed_at: 1710000300,
+          timezone: 'America/Denver',
+          summary: {
+            mode: { key: 'day_mode', label: 'Day' },
+            phase: { key: 'engaged', label: 'Engaged' },
+            meds: { key: 'pending', label: 'Pending' },
+            risk: { level: 'low', score: 0.32, label: 'low · 32%' },
+          },
+          schedule: {
+            empty_message: null,
+            next_event: null,
+            upcoming_events: [],
+          },
+          tasks: {
+            todoist: [],
+            other_open: [],
+            next_commitment: null,
+          },
+          attention: {
+            state: { key: 'on_task', label: 'On task' },
+            drift: { key: 'none', label: 'None' },
+            severity: { key: 'none', label: 'None' },
+            confidence: 0.8,
+            reasons: [],
+          },
+          sources: {
+            git_activity: null,
+            note_document: null,
+            assistant_message: null,
+          },
+          freshness: {
+            overall_status: 'fresh',
+            sources: [
+              {
+                key: 'context',
+                label: 'Context',
+                status: 'fresh',
+                last_sync_at: 1710000300,
+                age_seconds: 0,
+                guidance: null,
+              },
+            ],
+          },
+          reasons: [],
+          debug: {
+            raw_context: {},
+            signals_used: [],
+            commitments_used: [],
+            risk_used: [],
+          },
+        },
+        meta: { request_id: 'req_now_refreshed_context' },
+      } as never)
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /re-run evaluate/i }).length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getAllByRole('button', { name: /re-run evaluate/i })[0] as HTMLElement)
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith('/v1/evaluate', {}, expect.any(Function))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Context refreshed.')).toBeInTheDocument()
+    })
+    expect(screen.getAllByText('Fresh').length).toBeGreaterThan(0)
+  })
+
+  it('retries calendar sync directly from degraded freshness warnings', async () => {
+    vi.mocked(api.apiGet)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          computed_at: 1710000000,
+          timezone: 'America/Denver',
+          summary: {
+            mode: { key: 'day_mode', label: 'Day' },
+            phase: { key: 'engaged', label: 'Engaged' },
+            meds: { key: 'pending', label: 'Pending' },
+            risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+          },
+          schedule: {
+            empty_message: null,
+            next_event: null,
+            upcoming_events: [],
+          },
+          tasks: {
+            todoist: [],
+            other_open: [],
+            next_commitment: null,
+          },
+          attention: {
+            state: { key: 'on_task', label: 'On task' },
+            drift: { key: 'none', label: 'None' },
+            severity: { key: 'none', label: 'None' },
+            confidence: 0.8,
+            reasons: [],
+          },
+          sources: {
+            git_activity: null,
+            note_document: null,
+            assistant_message: null,
+          },
+          freshness: {
+            overall_status: 'stale',
+            sources: [
+              {
+                key: 'calendar',
+                label: 'Calendar',
+                status: 'stale',
+                last_sync_at: 1709990000,
+                age_seconds: 10000,
+                guidance: 'Calendar sync failed earlier. Inspect history and retry sync.',
+              },
+            ],
+          },
+          reasons: [],
+          debug: {
+            raw_context: {},
+            signals_used: [],
+            commitments_used: [],
+            risk_used: [],
+          },
+        },
+        meta: { request_id: 'req_now_calendar_stale' },
+      } as never)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          computed_at: 1710000300,
+          timezone: 'America/Denver',
+          summary: {
+            mode: { key: 'day_mode', label: 'Day' },
+            phase: { key: 'engaged', label: 'Engaged' },
+            meds: { key: 'pending', label: 'Pending' },
+            risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+          },
+          schedule: {
+            empty_message: null,
+            next_event: null,
+            upcoming_events: [],
+          },
+          tasks: {
+            todoist: [],
+            other_open: [],
+            next_commitment: null,
+          },
+          attention: {
+            state: { key: 'on_task', label: 'On task' },
+            drift: { key: 'none', label: 'None' },
+            severity: { key: 'none', label: 'None' },
+            confidence: 0.8,
+            reasons: [],
+          },
+          sources: {
+            git_activity: null,
+            note_document: null,
+            assistant_message: null,
+          },
+          freshness: {
+            overall_status: 'fresh',
+            sources: [
+              {
+                key: 'calendar',
+                label: 'Calendar',
+                status: 'fresh',
+                last_sync_at: 1710000300,
+                age_seconds: 0,
+                guidance: null,
+              },
+            ],
+          },
+          reasons: [],
+          debug: {
+            raw_context: {},
+            signals_used: [],
+            commitments_used: [],
+            risk_used: [],
+          },
+        },
+        meta: { request_id: 'req_now_calendar_fresh' },
+      } as never)
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /sync calendar/i }).length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getAllByRole('button', { name: /sync calendar/i })[0] as HTMLElement)
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith('/v1/sync/calendar', {}, expect.any(Function))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('Calendar synced (3 signals).')).toBeInTheDocument()
+    })
   })
 
   it('refetches on focus and reveals debug payload on demand', async () => {

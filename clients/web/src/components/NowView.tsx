@@ -1,11 +1,13 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
-import { useQuery } from '../data/query';
-import { loadNow, queryKeys } from '../data/resources';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { invalidateQuery, useQuery } from '../data/query';
+import { loadNow, queryKeys, runEvaluate, syncSource } from '../data/resources';
 import type { NowData, NowTaskData } from '../types';
 import { SurfaceState } from './SurfaceState';
 
 export function NowView() {
   const nowKey = useMemo(() => queryKeys.now(), []);
+  const currentContextKey = useMemo(() => queryKeys.currentContext(), []);
+  const integrationsKey = useMemo(() => queryKeys.integrations(), []);
   const { data, loading, error, refetch } = useQuery<NowData | null>(
     nowKey,
     async () => {
@@ -13,6 +15,73 @@ export function NowView() {
       return response.ok ? response.data ?? null : null;
     },
   );
+  const [pendingActions, setPendingActions] = useState<Record<string, true>>({});
+  const [actionMessages, setActionMessages] = useState<Record<string, { status: 'success' | 'error'; message: string }>>({});
+
+  const runFreshnessAction = async (source: NowData['freshness']['sources'][number]) => {
+    const action = actionForFreshnessSource(source);
+    if (!action) {
+      return;
+    }
+
+    setPendingActions((current) => ({
+      ...current,
+      [source.key]: true,
+    }));
+    setActionMessages((current) => {
+      const next = { ...current };
+      delete next[source.key];
+      return next;
+    });
+
+    try {
+      if (action.type === 'evaluate') {
+        const response = await runEvaluate();
+        if (!response.ok) {
+          throw new Error(response.error?.message ?? 'Failed to re-run evaluate');
+        }
+        invalidateQuery(currentContextKey, { refetch: true });
+        invalidateQuery(integrationsKey, { refetch: true });
+        await refetch();
+        setActionMessages((current) => ({
+          ...current,
+          [source.key]: {
+            status: 'success',
+            message: 'Context refreshed.',
+          },
+        }));
+      } else {
+        const response = await syncSource(action.source);
+        if (!response.ok) {
+          throw new Error(response.error?.message ?? `Failed to sync ${action.source}`);
+        }
+        invalidateQuery(integrationsKey, { refetch: true });
+        invalidateQuery(currentContextKey, { refetch: true });
+        await refetch();
+        setActionMessages((current) => ({
+          ...current,
+          [source.key]: {
+            status: 'success',
+            message: `${action.successLabel} synced (${response.data?.signals_ingested ?? 0} signals).`,
+          },
+        }));
+      }
+    } catch (actionError) {
+      setActionMessages((current) => ({
+        ...current,
+        [source.key]: {
+          status: 'error',
+          message: actionError instanceof Error ? actionError.message : String(actionError),
+        },
+      }));
+    } finally {
+      setPendingActions((current) => {
+        const next = { ...current };
+        delete next[source.key];
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     const handleFocus = () => {
@@ -71,7 +140,12 @@ export function NowView() {
           </p>
         </header>
 
-        <FreshnessBanner freshness={data.freshness} />
+        <FreshnessBanner
+          freshness={data.freshness}
+          pendingActions={pendingActions}
+          actionMessages={actionMessages}
+          onRunAction={runFreshnessAction}
+        />
 
         <section className="grid gap-4 md:grid-cols-4">
           <FocusCard label="Mode" value={data.summary.mode.label} />
@@ -92,6 +166,9 @@ export function NowView() {
                   disconnected: 'Calendar is disconnected. Events shown here may be incomplete.',
                   missing: 'Calendar has not synced yet. This schedule may be empty.',
                 }}
+                pendingActions={pendingActions}
+                actionMessages={actionMessages}
+                onRunAction={runFreshnessAction}
               />
               {data.schedule.upcoming_events.length === 0 ? (
                 <SurfaceState
@@ -138,6 +215,9 @@ export function NowView() {
                   disconnected: 'Todoist is disconnected. This backlog may be missing tasks.',
                   missing: 'Todoist has not synced yet. No backlog can be trusted yet.',
                 }}
+                pendingActions={pendingActions}
+                actionMessages={actionMessages}
+                onRunAction={runFreshnessAction}
               />
               {data.tasks.todoist.length === 0 ? (
                 <SurfaceState message="No open Todoist-backed commitments found." />
@@ -195,6 +275,9 @@ export function NowView() {
                   disconnected: 'Current context is disconnected from a required source.',
                   missing: 'Current context has not been computed yet.',
                 }}
+                pendingActions={pendingActions}
+                actionMessages={actionMessages}
+                onRunAction={runFreshnessAction}
               />
               <dl className="space-y-3 text-sm">
                 <Row
@@ -254,6 +337,13 @@ export function NowView() {
                     {source.guidance ? (
                       <p className="mt-1 text-xs text-amber-300">{source.guidance}</p>
                     ) : null}
+                    <FreshnessActionControls
+                      source={source}
+                      pendingActions={pendingActions}
+                      actionMessages={actionMessages}
+                      onRunAction={runFreshnessAction}
+                      compact
+                    />
                   </div>
                 ))}
               </div>
@@ -289,7 +379,17 @@ export function NowView() {
   );
 }
 
-function FreshnessBanner({ freshness }: { freshness: NowData['freshness'] }) {
+function FreshnessBanner({
+  freshness,
+  pendingActions,
+  actionMessages,
+  onRunAction,
+}: {
+  freshness: NowData['freshness'];
+  pendingActions: Record<string, true>;
+  actionMessages: Record<string, { status: 'success' | 'error'; message: string }>;
+  onRunAction: (source: NowData['freshness']['sources'][number]) => void;
+}) {
   const degraded = freshness.sources.filter((source) => isDegraded(source.status));
   if (degraded.length === 0) {
     return null;
@@ -308,6 +408,17 @@ function FreshnessBanner({ freshness }: { freshness: NowData['freshness'] }) {
         Some inputs are degraded. Keep the current snapshot visible, but verify before acting.
       </p>
       <p className="mt-1 text-xs text-amber-200/80">{summary}</p>
+      <div className="mt-3 space-y-2">
+        {degraded.map((source) => (
+          <FreshnessActionControls
+            key={source.key}
+            source={source}
+            pendingActions={pendingActions}
+            actionMessages={actionMessages}
+            onRunAction={onRunAction}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -315,9 +426,15 @@ function FreshnessBanner({ freshness }: { freshness: NowData['freshness'] }) {
 function FreshnessNotice({
   source,
   message,
+  pendingActions,
+  actionMessages,
+  onRunAction,
 }: {
   source: NowData['freshness']['sources'][number] | undefined;
   message: Partial<Record<string, string>>;
+  pendingActions: Record<string, true>;
+  actionMessages: Record<string, { status: 'success' | 'error'; message: string }>;
+  onRunAction: (source: NowData['freshness']['sources'][number]) => void;
 }) {
   if (!source || !isDegraded(source.status)) {
     return null;
@@ -327,6 +444,52 @@ function FreshnessNotice({
   return (
     <div className="mb-4 rounded-xl border border-amber-700/40 bg-amber-950/30 px-3 py-2">
       <p className="text-sm text-amber-100">{copy}</p>
+      <FreshnessActionControls
+        source={source}
+        pendingActions={pendingActions}
+        actionMessages={actionMessages}
+        onRunAction={onRunAction}
+      />
+    </div>
+  );
+}
+
+function FreshnessActionControls({
+  source,
+  pendingActions,
+  actionMessages,
+  onRunAction,
+  compact = false,
+}: {
+  source: NowData['freshness']['sources'][number];
+  pendingActions: Record<string, true>;
+  actionMessages: Record<string, { status: 'success' | 'error'; message: string }>;
+  onRunAction: (source: NowData['freshness']['sources'][number]) => void;
+  compact?: boolean;
+}) {
+  const action = actionForFreshnessSource(source);
+  const feedback = actionMessages[source.key];
+  if (!action && !feedback) {
+    return null;
+  }
+
+  return (
+    <div className={compact ? 'mt-2' : 'mt-3'}>
+      {action ? (
+        <button
+          type="button"
+          onClick={() => onRunAction(source)}
+          disabled={Boolean(pendingActions[source.key])}
+          className="rounded-md border border-amber-700/70 px-3 py-1.5 text-xs font-medium text-amber-100 transition hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:border-amber-900/40 disabled:text-amber-300/50"
+        >
+          {pendingActions[source.key] ? action.pendingLabel : action.label}
+        </button>
+      ) : null}
+      {feedback ? (
+        <p className={`mt-2 text-xs ${feedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+          {feedback.message}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -444,6 +607,77 @@ function sourceSummaryLines(summary: unknown, keys: string[]): string[] {
 
 function isDegraded(status: string): boolean {
   return ['aging', 'stale', 'error', 'disconnected', 'missing'].includes(status);
+}
+
+function actionForFreshnessSource(source: NowData['freshness']['sources'][number]):
+  | { type: 'evaluate'; label: string; pendingLabel: string }
+  | {
+      type: 'sync';
+      source: 'calendar' | 'todoist' | 'activity' | 'messaging';
+      label: string;
+      pendingLabel: string;
+      successLabel: string;
+    }
+  | null {
+  const guidance = source.guidance?.toLowerCase() ?? '';
+  if (source.key === 'context') {
+    return { type: 'evaluate', label: 'Re-run evaluate', pendingLabel: 'Re-running…' };
+  }
+
+  if (
+    guidance.includes('configure a source path')
+    || guidance.includes('save a todoist api token')
+    || guidance.includes('save a todoist token')
+    || guidance.includes('save a todoist')
+    || guidance.includes('save a google')
+    || guidance.includes('save credentials')
+    || guidance.includes('connect google')
+  ) {
+    return null;
+  }
+
+  switch (source.key) {
+    case 'calendar':
+      if (source.status === 'disconnected') {
+        return null;
+      }
+      return {
+        type: 'sync',
+        source: 'calendar',
+        label: 'Sync calendar',
+        pendingLabel: 'Syncing calendar…',
+        successLabel: 'Calendar',
+      };
+    case 'todoist':
+      if (source.status === 'disconnected') {
+        return null;
+      }
+      return {
+        type: 'sync',
+        source: 'todoist',
+        label: 'Sync Todoist',
+        pendingLabel: 'Syncing Todoist…',
+        successLabel: 'Todoist',
+      };
+    case 'activity':
+      return {
+        type: 'sync',
+        source: 'activity',
+        label: 'Sync activity',
+        pendingLabel: 'Syncing activity…',
+        successLabel: 'Activity',
+      };
+    case 'messaging':
+      return {
+        type: 'sync',
+        source: 'messaging',
+        label: 'Sync messaging',
+        pendingLabel: 'Syncing messaging…',
+        successLabel: 'Messaging',
+      };
+    default:
+      return null;
+  }
 }
 
 function freshnessClass(status: string): string {

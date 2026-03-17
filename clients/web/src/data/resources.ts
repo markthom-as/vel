@@ -49,6 +49,11 @@ interface SyncResultData {
   signals_ingested: number;
 }
 
+interface EvaluateResultData {
+  inferred_states: number;
+  nudges_created_or_updated: number;
+}
+
 function decodeSyncResultData(value: unknown): SyncResultData {
   return decodeApiResponse(value, (data) => {
     const record = data as { source?: unknown; signals_ingested?: unknown };
@@ -60,6 +65,22 @@ function decodeSyncResultData(value: unknown): SyncResultData {
       signals_ingested: record.signals_ingested,
     };
   }).data ?? { source: '', signals_ingested: 0 };
+}
+
+function decodeEvaluateResultData(value: unknown): EvaluateResultData {
+  return decodeApiResponse(value, (data) => {
+    const record = data as { inferred_states?: unknown; nudges_created_or_updated?: unknown };
+    if (
+      typeof record?.inferred_states !== 'number'
+      || typeof record?.nudges_created_or_updated !== 'number'
+    ) {
+      throw new Error('Expected evaluate result payload with inferred_states and nudges_created_or_updated');
+    }
+    return {
+      inferred_states: record.inferred_states,
+      nudges_created_or_updated: record.nudges_created_or_updated,
+    };
+  }).data ?? { inferred_states: 0, nudges_created_or_updated: 0 };
 }
 
 export const queryKeys = {
@@ -300,6 +321,14 @@ export function syncSource(
     `/v1/sync/${source}`,
     {},
     (value) => decodeApiResponse(value, decodeSyncResultData),
+  );
+}
+
+export function runEvaluate(): Promise<ApiResponse<EvaluateResultData>> {
+  return apiPost<ApiResponse<EvaluateResultData>>(
+    '/v1/evaluate',
+    {},
+    (value) => decodeApiResponse(value, decodeEvaluateResultData),
   );
 }
 
