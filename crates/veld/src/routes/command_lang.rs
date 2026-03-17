@@ -57,6 +57,15 @@ fn payload_to_data(
         services::command_lang::CommandExecutionPayload::DelegationPlanCreated(payload) => {
             CommandExecutionPayloadData::DelegationPlanCreated(payload)
         }
+        services::command_lang::CommandExecutionPayload::ContextExplained(payload) => {
+            CommandExecutionPayloadData::ContextExplained(payload)
+        }
+        services::command_lang::CommandExecutionPayload::CommitmentExplained(payload) => {
+            CommandExecutionPayloadData::CommitmentExplained(payload)
+        }
+        services::command_lang::CommandExecutionPayload::DriftExplained(payload) => {
+            CommandExecutionPayloadData::DriftExplained(payload)
+        }
         services::command_lang::CommandExecutionPayload::ReviewToday(payload) => {
             CommandExecutionPayloadData::ReviewToday(payload)
         }

@@ -8,6 +8,9 @@ pub fn next_tokens(input: &[String]) -> Vec<&'static str> {
         [] => vec!["should"],
         [head] if head == "should" => SHOULD_COMMAND_VERBS.to_vec(),
         [head, verb] if head == "should" && verb == "review" => vec!["today", "week"],
+        [head, verb] if head == "should" && verb == "explain" => {
+            vec!["context", "drift", "commitment <id>"]
+        }
         [head, verb] if head == "should" && verb == "spec" => {
             vec!["<topic>", "for", "with"]
         }

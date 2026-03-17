@@ -268,6 +268,7 @@ mod tests {
         body::Body,
         http::{Method, Request, StatusCode},
     };
+    use time::OffsetDateTime;
     use tower::util::ServiceExt;
 
     fn test_policy_config() -> PolicyConfig {
@@ -2163,6 +2164,90 @@ mod tests {
         assert_eq!(
             json["data"]["result"]["data"]["artifact"]["title"].as_str(),
             Some("spec draft")
+        );
+    }
+
+    #[tokio::test]
+    async fn command_execute_endpoint_explains_drift() {
+        let db_path = format!(
+            "/tmp/vel_command_explain_drift_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let context_json = serde_json::json!({
+            "attention_state": "scattered",
+            "drift_type": "context_switching",
+            "drift_severity": "medium",
+            "attention_reasons": ["many competing threads"],
+            "signals_used": [],
+            "commitments_used": [],
+        })
+        .to_string();
+        storage
+            .set_current_context(OffsetDateTime::now_utc().unix_timestamp(), &context_json)
+            .await
+            .unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/execute")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "explain",
+                                "targets": [
+                                    {
+                                        "kind": "context",
+                                        "selector": {
+                                            "type": "custom",
+                                            "value": "drift"
+                                        },
+                                        "attributes": {
+                                            "scope": "drift"
+                                        }
+                                    }
+                                ],
+                                "inferred": {
+                                    "explain_target": "drift"
+                                },
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["result"]["result_kind"].as_str(),
+            Some("drift_explained")
+        );
+        assert_eq!(
+            json["data"]["result"]["data"]["drift_type"].as_str(),
+            Some("context_switching")
         );
     }
 

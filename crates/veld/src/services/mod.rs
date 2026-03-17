@@ -12,6 +12,7 @@ pub mod context_generation;
 pub mod context_runs;
 pub mod doctor;
 pub mod evaluate;
+pub mod explain;
 pub mod inference;
 pub(crate) mod integration_runtime;
 pub mod integrations;

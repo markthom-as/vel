@@ -208,6 +208,7 @@ fn resolve(parsed: &ParsedCommand, intent: &mut IntentResolution) -> ResolvedCom
                     band: CommandConfidenceBand::High,
                 }],
             ),
+            (PhraseFamily::Should, Verb::Explain) => resolve_explain(parsed),
             _ => (
                 DomainOperation::Explain,
                 vec![TypedTarget::new(DomainKind::Context)],
@@ -245,6 +246,80 @@ fn resolve(parsed: &ParsedCommand, intent: &mut IntentResolution) -> ResolvedCom
             model_assisted: false,
             confirmation_required: false,
         },
+    }
+}
+
+fn resolve_explain(
+    parsed: &ParsedCommand,
+) -> (
+    DomainOperation,
+    Vec<TypedTarget>,
+    serde_json::Value,
+    Vec<String>,
+    Vec<ResolutionConfidence>,
+) {
+    match parsed.primary_target() {
+        Some("drift") => (
+            DomainOperation::Explain,
+            vec![TypedTarget {
+                kind: DomainKind::Context,
+                id: None,
+                selector: Some(TargetSelector::Custom("drift".to_string())),
+                attributes: json!({
+                    "scope": "drift"
+                }),
+            }],
+            json!({
+                "explain_target": "drift"
+            }),
+            vec!["explain drift commands resolve to the current drift explain surface".to_string()],
+            vec![ResolutionConfidence {
+                field: "explain_target".to_string(),
+                band: CommandConfidenceBand::High,
+            }],
+        ),
+        Some("commitment") => (
+            DomainOperation::Explain,
+            vec![TypedTarget {
+                kind: DomainKind::Commitment,
+                id: parsed.target_tokens.get(1).cloned(),
+                selector: Some(TargetSelector::Custom("id".to_string())),
+                attributes: json!({
+                    "scope": "commitment"
+                }),
+            }],
+            json!({
+                "explain_target": "commitment",
+                "commitment_id": parsed.target_tokens.get(1).cloned()
+            }),
+            vec![
+                "explain commitment commands require a commitment id in the second position"
+                    .to_string(),
+            ],
+            vec![ResolutionConfidence {
+                field: "explain_target".to_string(),
+                band: CommandConfidenceBand::High,
+            }],
+        ),
+        _ => (
+            DomainOperation::Explain,
+            vec![TypedTarget {
+                kind: DomainKind::Context,
+                id: None,
+                selector: Some(TargetSelector::Custom("context".to_string())),
+                attributes: json!({
+                    "scope": "context"
+                }),
+            }],
+            json!({
+                "explain_target": "context"
+            }),
+            vec!["explain commands default to the current context explain surface".to_string()],
+            vec![ResolutionConfidence {
+                field: "explain_target".to_string(),
+                band: CommandConfidenceBand::High,
+            }],
+        ),
     }
 }
 
@@ -351,5 +426,36 @@ mod tests {
             resolution.resolved.inferred["artifact_kind"],
             "delegation_plan"
         );
+    }
+
+    #[test]
+    fn resolves_explain_drift_to_context_explain_intent() {
+        let input = vec![
+            "should".to_string(),
+            "explain".to_string(),
+            "drift".to_string(),
+        ];
+        let resolution = parse_and_resolve(&input).expect("resolve");
+        assert_eq!(resolution.resolved.operation, DomainOperation::Explain);
+        assert_eq!(resolution.resolved.targets[0].kind, DomainKind::Context);
+        assert_eq!(resolution.resolved.inferred["explain_target"], "drift");
+    }
+
+    #[test]
+    fn resolves_explain_commitment_to_commitment_explain_intent() {
+        let input = vec![
+            "should".to_string(),
+            "explain".to_string(),
+            "commitment".to_string(),
+            "cmt_123".to_string(),
+        ];
+        let resolution = parse_and_resolve(&input).expect("resolve");
+        assert_eq!(resolution.resolved.operation, DomainOperation::Explain);
+        assert_eq!(resolution.resolved.targets[0].kind, DomainKind::Commitment);
+        assert_eq!(
+            resolution.resolved.targets[0].id.as_deref(),
+            Some("cmt_123")
+        );
+        assert_eq!(resolution.resolved.inferred["explain_target"], "commitment");
     }
 }

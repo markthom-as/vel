@@ -137,6 +137,8 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
         sources: NowSourcesData {
             git_activity: context_source_activity(&context, "git_activity_summary", "Git activity"),
             health: context_source_activity(&context, "health_summary", "Health"),
+            mood: None,
+            pain: None,
             note_document: context_source_activity(
                 &context,
                 "note_document_summary",
@@ -191,6 +193,8 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowData {
         sources: NowSourcesData {
             git_activity: None,
             health: None,
+            mood: None,
+            pain: None,
             note_document: None,
             assistant_message: None,
         },

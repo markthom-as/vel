@@ -156,6 +156,9 @@ pub enum CommandExecutionPayloadData {
     SpecDraftCreated(PlanningArtifactCreatedData),
     ExecutionPlanCreated(PlanningArtifactCreatedData),
     DelegationPlanCreated(PlanningArtifactCreatedData),
+    ContextExplained(ContextExplainData),
+    CommitmentExplained(CommitmentExplainData),
+    DriftExplained(DriftExplainData),
     ReviewToday(CommandReviewSummaryData),
     ReviewWeek(CommandReviewSummaryData),
 }
@@ -634,6 +637,28 @@ pub struct CaptureCreateRequest {
 
 fn default_capture_type() -> String {
     "quick_note".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MoodJournalCreateRequest {
+    pub score: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_device: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PainJournalCreateRequest {
+    pub severity: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_device: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1655,6 +1680,8 @@ pub struct NowSourceActivityData {
 pub struct NowSourcesData {
     pub git_activity: Option<NowSourceActivityData>,
     pub health: Option<NowSourceActivityData>,
+    pub mood: Option<NowSourceActivityData>,
+    pub pain: Option<NowSourceActivityData>,
     pub note_document: Option<NowSourceActivityData>,
     pub assistant_message: Option<NowSourceActivityData>,
 }
@@ -1771,6 +1798,8 @@ pub struct ContextSourceSummaryData {
 pub struct ContextSourceSummariesData {
     pub git_activity: Option<ContextSourceSummaryData>,
     pub health: Option<ContextSourceSummaryData>,
+    pub mood: Option<ContextSourceSummaryData>,
+    pub pain: Option<ContextSourceSummaryData>,
     pub note_document: Option<ContextSourceSummaryData>,
     pub assistant_message: Option<ContextSourceSummaryData>,
 }

@@ -11,11 +11,12 @@ use tracing::warn;
 use uuid::Uuid;
 use vel_api_types::{
     ArtifactData, CaptureCreateResponse, CommandReviewSummaryData, CommitmentData,
-    PlanningArtifactCreatedData, ThreadData,
+    CommitmentExplainData, ContextExplainData, DriftExplainData, PlanningArtifactCreatedData,
+    ThreadData,
 };
 use vel_core::{
     ArtifactStorageKind, CommitmentStatus, DomainKind, DomainOperation, PrivacyClass,
-    ResolvedCommand, SyncClass,
+    ResolvedCommand, SyncClass, TargetSelector,
 };
 use vel_storage::{ArtifactInsert, ArtifactRecord, CaptureInsert, CommitmentInsert, SignalInsert};
 
@@ -110,6 +111,9 @@ pub enum CommandExecutionPayload {
     SpecDraftCreated(PlanningArtifactCreatedData),
     ExecutionPlanCreated(PlanningArtifactCreatedData),
     DelegationPlanCreated(PlanningArtifactCreatedData),
+    ContextExplained(ContextExplainData),
+    CommitmentExplained(CommitmentExplainData),
+    DriftExplained(DriftExplainData),
     ReviewToday(CommandReviewSummaryData),
     ReviewWeek(CommandReviewSummaryData),
 }
@@ -198,6 +202,12 @@ pub async fn execute_command(
         }
         (DomainOperation::Execute, Some(DomainKind::Context)) => {
             execute_review_context(state, command).await
+        }
+        (DomainOperation::Explain, Some(DomainKind::Context)) => {
+            execute_explain_context(state, command).await
+        }
+        (DomainOperation::Explain, Some(DomainKind::Commitment)) => {
+            execute_explain_commitment(state, command).await
         }
         _ => Err(AppError::bad_request(format!(
             "command execution is not supported for operation `{}` and target kind `{:?}`",
@@ -622,6 +632,55 @@ async fn execute_review_context(
             "week" => CommandExecutionPayload::ReviewWeek(review),
             _ => unreachable!("unsupported review scope already returned"),
         },
+        warnings: Vec::new(),
+    })
+}
+
+async fn execute_explain_context(
+    state: &AppState,
+    command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
+    let explain_target = command
+        .targets
+        .first()
+        .and_then(|target| target.selector.as_ref())
+        .and_then(|selector| match selector {
+            TargetSelector::Custom(value) => Some(value.as_str()),
+            _ => None,
+        })
+        .unwrap_or("context");
+
+    let result = match explain_target {
+        "drift" => CommandExecutionPayload::DriftExplained(
+            crate::services::explain::explain_drift_data(state).await?,
+        ),
+        _ => CommandExecutionPayload::ContextExplained(
+            crate::services::explain::explain_context_data(state).await?,
+        ),
+    };
+
+    Ok(CommandExecutionResult {
+        result,
+        warnings: Vec::new(),
+    })
+}
+
+async fn execute_explain_commitment(
+    state: &AppState,
+    command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
+    let commitment_id = command
+        .targets
+        .first()
+        .and_then(|target| target.id.as_deref())
+        .ok_or_else(|| {
+            AppError::bad_request("commitment explain command requires a commitment id")
+        })?;
+
+    Ok(CommandExecutionResult {
+        result: CommandExecutionPayload::CommitmentExplained(
+            crate::services::explain::explain_commitment_data(state, commitment_id).await?,
+        ),
         warnings: Vec::new(),
     })
 }
@@ -1169,6 +1228,80 @@ mod tests {
         match result.result {
             CommandExecutionPayload::SpecDraftCreated(payload) => {
                 assert_eq!(payload.artifact.title.as_deref(), Some("spec draft"));
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_explain_drift_returns_drift_payload() {
+        let state = test_state().await;
+        let context_json = json!({
+            "attention_state": "scattered",
+            "drift_type": "context_switching",
+            "drift_severity": "medium",
+            "attention_reasons": ["many competing threads"],
+            "signals_used": [],
+            "commitments_used": [],
+        })
+        .to_string();
+        state
+            .storage
+            .set_current_context(OffsetDateTime::now_utc().unix_timestamp(), &context_json)
+            .await
+            .expect("set current context");
+        let command = ResolvedCommand {
+            operation: DomainOperation::Explain,
+            targets: vec![TypedTarget {
+                kind: DomainKind::Context,
+                id: None,
+                selector: Some(TargetSelector::Custom("drift".to_string())),
+                attributes: json!({ "scope": "drift" }),
+            }],
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        match result.result {
+            CommandExecutionPayload::DriftExplained(payload) => {
+                assert_eq!(payload.drift_type.as_deref(), Some("context_switching"));
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_explain_commitment_returns_commitment_payload() {
+        let state = test_state().await;
+        let commitment_id = state
+            .storage
+            .insert_commitment(CommitmentInsert {
+                text: "follow up".to_string(),
+                source_type: "vel-command".to_string(),
+                source_id: None,
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("vel".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: None,
+            })
+            .await
+            .expect("insert commitment");
+        let command = ResolvedCommand {
+            operation: DomainOperation::Explain,
+            targets: vec![TypedTarget {
+                kind: DomainKind::Commitment,
+                id: Some(commitment_id.to_string()),
+                selector: Some(TargetSelector::Custom("id".to_string())),
+                attributes: json!({ "scope": "commitment" }),
+            }],
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        match result.result {
+            CommandExecutionPayload::CommitmentExplained(payload) => {
+                assert_eq!(payload.commitment_id, commitment_id.to_string());
             }
             other => panic!("unexpected result payload: {other:?}"),
         }

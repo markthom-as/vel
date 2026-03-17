@@ -72,6 +72,7 @@ pub async fn run(
         (PhraseFamily::Should, Verb::Capture)
         | (PhraseFamily::Should, Verb::Commit)
         | (PhraseFamily::Should, Verb::Delegate)
+        | (PhraseFamily::Should, Verb::Explain)
         | (PhraseFamily::Should, Verb::Feature)
         | (PhraseFamily::Should, Verb::Plan)
         | (PhraseFamily::Should, Verb::Review) => {
@@ -144,6 +145,48 @@ async fn execute_via_service(
                 if let Some(title) = &result.artifact.title {
                     println!("title: {}", title);
                 }
+            }
+            CommandExecutionPayloadData::ContextExplained(result) => {
+                println!("result_kind: context_explained");
+                println!("computed_at: {}", result.computed_at);
+                println!("mode: {}", result.mode.as_deref().unwrap_or("-"));
+                println!(
+                    "morning_state: {}",
+                    result.morning_state.as_deref().unwrap_or("-")
+                );
+                println!("reasons: {}", result.reasons.join(" | "));
+            }
+            CommandExecutionPayloadData::CommitmentExplained(result) => {
+                println!("result_kind: commitment_explained");
+                println!("commitment_id: {}", result.commitment_id);
+                println!(
+                    "reasons: {}",
+                    if result.in_context_reasons.is_empty() {
+                        "-".to_string()
+                    } else {
+                        result.in_context_reasons.join(" | ")
+                    }
+                );
+                println!(
+                    "commitment: {}",
+                    serde_json::to_string_pretty(&result.commitment)?
+                );
+            }
+            CommandExecutionPayloadData::DriftExplained(result) => {
+                println!("result_kind: drift_explained");
+                println!(
+                    "attention_state: {}",
+                    result.attention_state.as_deref().unwrap_or("-")
+                );
+                println!(
+                    "drift_type: {}",
+                    result.drift_type.as_deref().unwrap_or("-")
+                );
+                println!(
+                    "drift_severity: {}",
+                    result.drift_severity.as_deref().unwrap_or("-")
+                );
+                println!("reasons: {}", result.reasons.join(" | "));
             }
             CommandExecutionPayloadData::ReviewToday(result) => {
                 println!("result_kind: review_today");
