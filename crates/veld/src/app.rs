@@ -6206,6 +6206,23 @@ END:VCALENDAR
                     "drift_severity": "none",
                     "attention_confidence": 0.8,
                     "attention_reasons": ["recent git activity indicates active work"],
+                    "git_activity_summary": {
+                        "timestamp": now - 300,
+                        "repo": "vel",
+                        "branch": "main",
+                        "operation": "commit"
+                    },
+                    "note_document_summary": {
+                        "timestamp": now - 180,
+                        "title": "Today",
+                        "path": "daily/today.md"
+                    },
+                    "assistant_message_summary": {
+                        "timestamp": now - 60,
+                        "conversation_id": "conv_external",
+                        "role": "assistant",
+                        "source": "chatgpt"
+                    },
                     "signals_used": ["sig_manual"],
                     "next_commitment_id": commitment_id.as_ref()
                 })
@@ -6246,6 +6263,16 @@ END:VCALENDAR
         assert_eq!(
             json["data"]["schedule"]["upcoming_events"][0]["title"],
             "Design review"
+        );
+        assert_eq!(json["data"]["sources"]["git_activity"]["label"], "Git activity");
+        assert_eq!(json["data"]["sources"]["git_activity"]["summary"]["repo"], "vel");
+        assert_eq!(
+            json["data"]["sources"]["note_document"]["summary"]["path"],
+            "daily/today.md"
+        );
+        assert_eq!(
+            json["data"]["sources"]["assistant_message"]["summary"]["conversation_id"],
+            "conv_external"
         );
         assert_eq!(json["data"]["freshness"]["sources"][0]["key"], "context");
     }

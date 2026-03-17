@@ -2,7 +2,8 @@ use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_api_types::{
     NowAttentionData, NowData, NowDebugData, NowEventData, NowFreshnessData, NowFreshnessEntryData,
-    NowLabelData, NowRiskSummaryData, NowScheduleData, NowSummaryData, NowTaskData, NowTasksData,
+    NowLabelData, NowRiskSummaryData, NowScheduleData, NowSourceActivityData, NowSourcesData,
+    NowSummaryData, NowTaskData, NowTasksData,
 };
 use vel_config::AppConfig;
 use vel_core::{Commitment, CommitmentStatus};
@@ -130,6 +131,23 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
             confidence: number_field(&context, "attention_confidence"),
             reasons: attention_reasons,
         },
+        sources: NowSourcesData {
+            git_activity: context_source_activity(
+                &context,
+                "git_activity_summary",
+                "Git activity",
+            ),
+            note_document: context_source_activity(
+                &context,
+                "note_document_summary",
+                "Recent note",
+            ),
+            assistant_message: context_source_activity(
+                &context,
+                "assistant_message_summary",
+                "Recent transcript",
+            ),
+        },
         freshness,
         reasons,
         debug: NowDebugData {
@@ -152,7 +170,9 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowData {
             risk: risk_summary("unknown", None),
         },
         schedule: NowScheduleData {
-            empty_message: Some("No current context yet. Sync calendar sources or run evaluate.".to_string()),
+            empty_message: Some(
+                "No current context yet. Sync calendar sources or run evaluate.".to_string(),
+            ),
             next_event: None,
             upcoming_events: Vec::new(),
         },
@@ -167,6 +187,11 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowData {
             severity: label("none", "None"),
             confidence: None,
             reasons: Vec::new(),
+        },
+        sources: NowSourcesData {
+            git_activity: None,
+            note_document: None,
+            assistant_message: None,
         },
         freshness: NowFreshnessData {
             overall_status: "stale".to_string(),
@@ -189,6 +214,20 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowData {
     }
 }
 
+fn context_source_activity(
+    context: &JsonValue,
+    key: &str,
+    label: &str,
+) -> Option<NowSourceActivityData> {
+    let summary = context.get(key)?.clone();
+    let timestamp = summary.get("timestamp").and_then(JsonValue::as_i64)?;
+    Some(NowSourceActivityData {
+        label: label.to_string(),
+        timestamp,
+        summary,
+    })
+}
+
 fn schedule_empty_message(
     integrations: &vel_api_types::IntegrationsData,
     no_upcoming_events: bool,
@@ -201,7 +240,9 @@ fn schedule_empty_message(
     if !calendar.connected {
         return Some("Google Calendar is disconnected. Reconnect it in Settings.".to_string());
     }
-    if !calendar.all_calendars_selected && calendar.calendars.iter().all(|calendar| !calendar.selected) {
+    if !calendar.all_calendars_selected
+        && calendar.calendars.iter().all(|calendar| !calendar.selected)
+    {
         return Some("No calendars are selected in Settings.".to_string());
     }
 

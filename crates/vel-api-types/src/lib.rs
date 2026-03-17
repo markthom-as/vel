@@ -924,6 +924,20 @@ pub struct NowAttentionData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowSourceActivityData {
+    pub label: String,
+    pub timestamp: UnixSeconds,
+    pub summary: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowSourcesData {
+    pub git_activity: Option<NowSourceActivityData>,
+    pub note_document: Option<NowSourceActivityData>,
+    pub assistant_message: Option<NowSourceActivityData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowFreshnessEntryData {
     pub key: String,
     pub label: String,
@@ -955,6 +969,7 @@ pub struct NowData {
     pub schedule: NowScheduleData,
     pub tasks: NowTasksData,
     pub attention: NowAttentionData,
+    pub sources: NowSourcesData,
     pub freshness: NowFreshnessData,
     pub reasons: Vec<String>,
     pub debug: NowDebugData,
