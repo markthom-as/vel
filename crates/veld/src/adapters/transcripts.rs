@@ -9,6 +9,22 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         Some(path) => path,
         None => return Ok(0),
     };
+    match tokio::fs::try_exists(path).await {
+        Ok(true) => {}
+        Ok(false) if vel_config::is_default_local_source_path("transcripts", path) => return Ok(0),
+        Ok(false) => {
+            return Err(crate::errors::AppError::internal(format!(
+                "read transcript snapshot {}: No such file or directory",
+                path
+            )));
+        }
+        Err(error) => {
+            return Err(crate::errors::AppError::internal(format!(
+                "stat transcript snapshot {}: {}",
+                path, error
+            )));
+        }
+    }
 
     let content = tokio::fs::read_to_string(path).await.map_err(|e| {
         crate::errors::AppError::internal(format!("read transcript snapshot {}: {}", path, e))

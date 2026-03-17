@@ -10,9 +10,32 @@ const DEFAULT_TRAVEL_MINUTES: i64 = 0;
 /// Ingest calendar events from config (ics_path or ics_url). Returns count of signals ingested.
 pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate::errors::AppError> {
     let ics_content = if let Some(path) = &config.calendar_ics_path {
-        tokio::fs::read_to_string(path).await.map_err(|e| {
-            crate::errors::AppError::internal(format!("read ics path {}: {}", path, e))
-        })?
+        match tokio::fs::try_exists(path).await {
+            Ok(true) => tokio::fs::read_to_string(path).await.map_err(|e| {
+                crate::errors::AppError::internal(format!("read ics path {}: {}", path, e))
+            })?,
+            Ok(false) => {
+                if config.calendar_ics_url.is_none()
+                    && vel_config::is_default_local_source_path("calendar", path)
+                {
+                    return Ok(0);
+                }
+                if config.calendar_ics_url.is_some() {
+                    String::new()
+                } else {
+                    return Err(crate::errors::AppError::internal(format!(
+                        "read ics path {}: No such file or directory",
+                        path
+                    )));
+                }
+            }
+            Err(error) => {
+                return Err(crate::errors::AppError::internal(format!(
+                    "stat ics path {}: {}",
+                    path, error
+                )));
+            }
+        }
     } else if let Some(url) = &config.calendar_ics_url {
         let client = reqwest::Client::new();
         let resp = client
@@ -25,6 +48,21 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .map_err(|e| crate::errors::AppError::internal(format!("ics response body: {}", e)))?
     } else {
         return Ok(0);
+    };
+
+    let ics_content = if ics_content.is_empty() {
+        let url = config.calendar_ics_url.as_ref().expect("checked above");
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| crate::errors::AppError::internal(format!("fetch ics url: {}", e)))?;
+        resp.text()
+            .await
+            .map_err(|e| crate::errors::AppError::internal(format!("ics response body: {}", e)))?
+    } else {
+        ics_content
     };
 
     let events = parse_ics_events(&ics_content);

@@ -8,13 +8,28 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         Some(path) => path,
         None => return Ok(0),
     };
+    match tokio::fs::try_exists(path).await {
+        Ok(true) => {}
+        Ok(false) if vel_config::is_default_local_source_path("health", path) => return Ok(0),
+        Ok(false) => {
+            return Err(crate::errors::AppError::internal(format!(
+                "read health snapshot {}: No such file or directory",
+                path
+            )));
+        }
+        Err(error) => {
+            return Err(crate::errors::AppError::internal(format!(
+                "stat health snapshot {}: {}",
+                path, error
+            )));
+        }
+    }
 
     let content = tokio::fs::read_to_string(path).await.map_err(|e| {
         crate::errors::AppError::internal(format!("read health snapshot {}: {}", path, e))
     })?;
-    let snapshot: HealthSnapshot = serde_json::from_str(&content).map_err(|e| {
-        crate::errors::AppError::internal(format!("parse health snapshot: {}", e))
-    })?;
+    let snapshot: HealthSnapshot = serde_json::from_str(&content)
+        .map_err(|e| crate::errors::AppError::internal(format!("parse health snapshot: {}", e)))?;
 
     let default_source = snapshot
         .source
@@ -61,7 +76,11 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
 }
 
 fn sample_source_ref(sample: &HealthSample) -> String {
-    if let Some(source_ref) = sample.source_ref.as_deref().filter(|value| !value.is_empty()) {
+    if let Some(source_ref) = sample
+        .source_ref
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
         return source_ref.to_string();
     }
 

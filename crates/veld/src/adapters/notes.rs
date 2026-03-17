@@ -11,6 +11,22 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
     let Some(notes_path) = &config.notes_path else {
         return Ok(0);
     };
+    match tokio::fs::try_exists(notes_path).await {
+        Ok(true) => {}
+        Ok(false) if vel_config::is_default_local_source_path("notes", notes_path) => return Ok(0),
+        Ok(false) => {
+            return Err(crate::errors::AppError::internal(format!(
+                "stat notes path {}: No such file or directory",
+                notes_path
+            )));
+        }
+        Err(error) => {
+            return Err(crate::errors::AppError::internal(format!(
+                "stat notes path {}: {}",
+                notes_path, error
+            )));
+        }
+    }
 
     let root = PathBuf::from(notes_path);
     let base_dir = if root.is_dir() {

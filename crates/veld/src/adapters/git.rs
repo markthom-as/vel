@@ -10,6 +10,22 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
     let Some(path) = &config.git_snapshot_path else {
         return Ok(0);
     };
+    match tokio::fs::try_exists(path).await {
+        Ok(true) => {}
+        Ok(false) if vel_config::is_default_local_source_path("git", path) => return Ok(0),
+        Ok(false) => {
+            return Err(crate::errors::AppError::internal(format!(
+                "read git snapshot {}: No such file or directory",
+                path
+            )));
+        }
+        Err(error) => {
+            return Err(crate::errors::AppError::internal(format!(
+                "stat git snapshot {}: {}",
+                path, error
+            )));
+        }
+    }
 
     let content = tokio::fs::read_to_string(path).await.map_err(|e| {
         crate::errors::AppError::internal(format!("read git snapshot {}: {}", path, e))
