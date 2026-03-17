@@ -7,7 +7,7 @@ use axum::{
 use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, CommitmentExplainData, ContextExplainData, ContextSourceSummariesData,
-    ContextSourceSummaryData, DriftExplainData, NudgeEventData, NudgeExplainData,
+    ContextSourceSummaryData, DriftExplainData, NudgeEventData, NudgeExplainData, RiskData,
     SignalExplainSummary,
 };
 use vel_storage::SignalRecord;
@@ -107,14 +107,14 @@ pub async fn explain_commitment(
     let risk_rows = state.storage.list_commitment_risk_recent(id, 1).await?;
     let risk_value = match risk_rows.first() {
         Some((_, risk_score, risk_level, factors_json, _)) => {
-            serde_json::to_value(snapshot_from_row(
+            let snapshot = snapshot_from_row(
                 id.to_string(),
                 *risk_score,
                 risk_level.clone(),
                 factors_json,
                 None,
-            ))
-            .unwrap_or_else(|_| serde_json::json!({}))
+            );
+            serde_json::to_value(RiskData::from(snapshot)).unwrap_or_else(|_| serde_json::json!({}))
         }
         None => serde_json::json!({}),
     };
