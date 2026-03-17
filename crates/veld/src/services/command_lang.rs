@@ -11,6 +11,7 @@ use tracing::warn;
 use uuid::Uuid;
 use vel_api_types::{
     ArtifactData, CaptureCreateResponse, CommandReviewSummaryData, CommitmentData,
+    PlanningArtifactCreatedData, ThreadData,
 };
 use vel_core::{
     ArtifactStorageKind, CommitmentStatus, DomainKind, DomainOperation, PrivacyClass,
@@ -61,6 +62,14 @@ pub struct CommandIntentHints {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandDelegationHints {
+    pub worker_roles: Vec<String>,
+    pub coordination: String,
+    pub approval_required: bool,
+    pub linked_record_strategy: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommandExecutionPlan {
     pub operation: DomainOperation,
     pub target_kinds: Vec<DomainKind>,
@@ -68,6 +77,7 @@ pub struct CommandExecutionPlan {
     pub summary: String,
     pub steps: Vec<CommandPlanStep>,
     pub intent_hints: Option<CommandIntentHints>,
+    pub delegation_hints: Option<CommandDelegationHints>,
     pub validation: CommandValidation,
 }
 
@@ -83,9 +93,9 @@ pub enum CommandExecutionPayload {
     CaptureCreated(CaptureCreateResponse),
     CommitmentCreated(CommitmentData),
     ArtifactCreated(ArtifactData),
-    SpecDraftCreated(ArtifactData),
-    ExecutionPlanCreated(ArtifactData),
-    DelegationPlanCreated(ArtifactData),
+    SpecDraftCreated(PlanningArtifactCreatedData),
+    ExecutionPlanCreated(PlanningArtifactCreatedData),
+    DelegationPlanCreated(PlanningArtifactCreatedData),
     ReviewToday(CommandReviewSummaryData),
     ReviewWeek(CommandReviewSummaryData),
 }
@@ -104,6 +114,7 @@ pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
     let steps = build_plan_steps(command);
     let summary = build_summary(command, mode, target_kinds.len());
     let intent_hints = build_intent_hints(command);
+    let delegation_hints = build_delegation_hints(command);
 
     CommandExecutionPlan {
         operation: command.operation,
@@ -112,6 +123,7 @@ pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
         summary,
         steps,
         intent_hints,
+        delegation_hints,
         validation,
     }
 }
@@ -222,6 +234,13 @@ fn build_plan_steps(command: &ResolvedCommand) -> Vec<CommandPlanStep> {
         ),
     });
 
+    if command.targets.first().map(|target| target.kind) == Some(DomainKind::DelegationPlan) {
+        steps.push(CommandPlanStep {
+            title: "Derive delegation structure".to_string(),
+            detail: "Infer worker roles, ownership boundaries, and review gates".to_string(),
+        });
+    }
+
     if is_dry_run_only(command.operation) {
         steps.push(CommandPlanStep {
             title: "Dry-run summary only".to_string(),
@@ -273,6 +292,23 @@ fn build_intent_hints(command: &ResolvedCommand) -> Option<CommandIntentHints> {
         target_kind,
         mode: mode.to_string(),
         suggestions: suggestions.into_iter().map(ToString::to_string).collect(),
+    })
+}
+
+fn build_delegation_hints(command: &ResolvedCommand) -> Option<CommandDelegationHints> {
+    if command.targets.first()?.kind != DomainKind::DelegationPlan {
+        return None;
+    }
+
+    Some(CommandDelegationHints {
+        worker_roles: vec![
+            "planner".to_string(),
+            "implementer".to_string(),
+            "reviewer".to_string(),
+        ],
+        coordination: "review_gated".to_string(),
+        approval_required: true,
+        linked_record_strategy: "artifact_plus_thread".to_string(),
     })
 }
 
@@ -610,20 +646,22 @@ async fn execute_create_planning_artifact(
         .await?
         .ok_or_else(|| AppError::internal("artifact not found after insert"))?;
     let artifact = artifact_record_to_data(artifact)?;
+    let thread = create_planning_thread(state, artifact_type, &artifact, command).await?;
+    let planning = PlanningArtifactCreatedData { artifact, thread };
 
     Ok(CommandExecutionResult {
         result: match result_kind {
             CommandExecutionPayloadKind::ArtifactCreated => {
-                CommandExecutionPayload::ArtifactCreated(artifact)
+                CommandExecutionPayload::ArtifactCreated(planning.artifact)
             }
             CommandExecutionPayloadKind::SpecDraftCreated => {
-                CommandExecutionPayload::SpecDraftCreated(artifact)
+                CommandExecutionPayload::SpecDraftCreated(planning)
             }
             CommandExecutionPayloadKind::ExecutionPlanCreated => {
-                CommandExecutionPayload::ExecutionPlanCreated(artifact)
+                CommandExecutionPayload::ExecutionPlanCreated(planning)
             }
             CommandExecutionPayloadKind::DelegationPlanCreated => {
-                CommandExecutionPayload::DelegationPlanCreated(artifact)
+                CommandExecutionPayload::DelegationPlanCreated(planning)
             }
         },
         warnings: Vec::new(),
@@ -657,6 +695,65 @@ fn artifact_record_to_data(
         updated_at: OffsetDateTime::from_unix_timestamp(record.updated_at)
             .map_err(|error| AppError::internal(error.to_string()))?,
     })
+}
+
+async fn create_planning_thread(
+    state: &AppState,
+    artifact_type: &str,
+    artifact: &ArtifactData,
+    command: &ResolvedCommand,
+) -> Result<ThreadData, AppError> {
+    let thread_id = format!("thr_{}", Uuid::new_v4().simple());
+    let thread_type = match artifact_type {
+        "spec_draft" => "spec",
+        "execution_plan" => "plan",
+        "delegation_plan" => "delegation",
+        _ => "planning",
+    };
+    let title = artifact
+        .title
+        .clone()
+        .unwrap_or_else(|| format!("{artifact_type} thread"));
+    let metadata = json!({
+        "source": "vel-command",
+        "artifact_id": artifact.artifact_id,
+        "operation": command.operation.to_string(),
+        "target_kind": artifact_type,
+    })
+    .to_string();
+
+    state
+        .storage
+        .insert_thread(&thread_id, thread_type, &title, "open", &metadata)
+        .await?;
+    state
+        .storage
+        .insert_thread_link(
+            &thread_id,
+            "artifact",
+            artifact.artifact_id.as_ref(),
+            "primary",
+        )
+        .await?;
+    let row = state
+        .storage
+        .get_thread_by_id(&thread_id)
+        .await?
+        .ok_or_else(|| AppError::internal("thread not found after insert"))?;
+    Ok(thread_row_to_data(row))
+}
+
+fn thread_row_to_data(row: (String, String, String, String, String, i64, i64)) -> ThreadData {
+    let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row;
+    ThreadData {
+        id,
+        thread_type,
+        title,
+        status,
+        created_at,
+        updated_at,
+        links: None,
+    }
 }
 
 #[cfg(test)]
@@ -752,6 +849,12 @@ mod tests {
             plan.intent_hints.as_ref().map(|hints| hints.mode.as_str()),
             Some("planning_artifact")
         );
+        assert_eq!(
+            plan.delegation_hints
+                .as_ref()
+                .map(|hints| hints.linked_record_strategy.as_str()),
+            Some("artifact_plus_thread")
+        );
     }
 
     #[tokio::test]
@@ -833,7 +936,8 @@ mod tests {
         let result = execute_command(&state, &command).await.expect("execute");
         match result.result {
             CommandExecutionPayload::SpecDraftCreated(payload) => {
-                assert_eq!(payload.artifact_type, "spec_draft");
+                assert_eq!(payload.artifact.artifact_type, "spec_draft");
+                assert_eq!(payload.thread.thread_type, "spec");
             }
             other => panic!("unexpected result payload: {other:?}"),
         }
@@ -861,7 +965,8 @@ mod tests {
         let result = execute_command(&state, &command).await.expect("execute");
         match result.result {
             CommandExecutionPayload::ExecutionPlanCreated(payload) => {
-                assert_eq!(payload.artifact_type, "execution_plan");
+                assert_eq!(payload.artifact.artifact_type, "execution_plan");
+                assert_eq!(payload.thread.thread_type, "plan");
             }
             other => panic!("unexpected result payload: {other:?}"),
         }
@@ -889,7 +994,8 @@ mod tests {
         let result = execute_command(&state, &command).await.expect("execute");
         match result.result {
             CommandExecutionPayload::DelegationPlanCreated(payload) => {
-                assert_eq!(payload.artifact_type, "delegation_plan");
+                assert_eq!(payload.artifact.artifact_type, "delegation_plan");
+                assert_eq!(payload.thread.thread_type, "delegation");
             }
             other => panic!("unexpected result payload: {other:?}"),
         }

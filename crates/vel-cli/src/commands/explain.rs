@@ -188,6 +188,16 @@ pub async fn run_command(client: &ApiClient, input: Vec<String>, json: bool) -> 
                 println!("    mode: {}", hints.mode);
                 println!("    suggestions: {}", hints.suggestions.join(", "));
             }
+            if let Some(hints) = plan.delegation_hints {
+                println!("  delegation hints:");
+                println!("    worker_roles: {}", hints.worker_roles.join(", "));
+                println!("    coordination: {}", hints.coordination);
+                println!("    approval_required: {}", hints.approval_required);
+                println!(
+                    "    linked_record_strategy: {}",
+                    hints.linked_record_strategy
+                );
+            }
             if !plan.steps.is_empty() {
                 println!("  steps:");
                 for step in plan.steps {

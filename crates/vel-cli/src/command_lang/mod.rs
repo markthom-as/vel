@@ -117,25 +117,31 @@ async fn execute_via_service(
             }
             CommandExecutionPayloadData::SpecDraftCreated(result) => {
                 println!("result_kind: spec_draft_created");
-                println!("artifact_id: {}", result.artifact_id);
-                println!("artifact_type: {}", result.artifact_type);
-                if let Some(title) = &result.title {
+                println!("artifact_id: {}", result.artifact.artifact_id);
+                println!("artifact_type: {}", result.artifact.artifact_type);
+                println!("thread_id: {}", result.thread.id);
+                println!("thread_type: {}", result.thread.thread_type);
+                if let Some(title) = &result.artifact.title {
                     println!("title: {}", title);
                 }
             }
             CommandExecutionPayloadData::ExecutionPlanCreated(result) => {
                 println!("result_kind: execution_plan_created");
-                println!("artifact_id: {}", result.artifact_id);
-                println!("artifact_type: {}", result.artifact_type);
-                if let Some(title) = &result.title {
+                println!("artifact_id: {}", result.artifact.artifact_id);
+                println!("artifact_type: {}", result.artifact.artifact_type);
+                println!("thread_id: {}", result.thread.id);
+                println!("thread_type: {}", result.thread.thread_type);
+                if let Some(title) = &result.artifact.title {
                     println!("title: {}", title);
                 }
             }
             CommandExecutionPayloadData::DelegationPlanCreated(result) => {
                 println!("result_kind: delegation_plan_created");
-                println!("artifact_id: {}", result.artifact_id);
-                println!("artifact_type: {}", result.artifact_type);
-                if let Some(title) = &result.title {
+                println!("artifact_id: {}", result.artifact.artifact_id);
+                println!("artifact_type: {}", result.artifact.artifact_type);
+                println!("thread_id: {}", result.thread.id);
+                println!("thread_type: {}", result.thread.thread_type);
+                if let Some(title) = &result.artifact.title {
                     println!("title: {}", title);
                 }
             }
