@@ -127,6 +127,29 @@ impl Display for SuggestionConfidence {
     }
 }
 
+pub type ConfidenceBand = SuggestionConfidence;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SuggestionType {
+    IncreaseCommuteBuffer,
+    IncreasePrepWindow,
+    AddStartRoutine,
+    AddFollowupBlock,
+}
+
+impl Display for SuggestionType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::IncreaseCommuteBuffer => "increase_commute_buffer",
+            Self::IncreasePrepWindow => "increase_prep_window",
+            Self::AddStartRoutine => "add_start_routine",
+            Self::AddFollowupBlock => "add_followup_block",
+        };
+        f.write_str(value)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CaptureId(String);
 

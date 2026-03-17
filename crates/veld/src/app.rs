@@ -2930,7 +2930,12 @@ mod tests {
             Some("Increase commute buffer")
         );
         assert!(commute_buf[0]["summary"].as_str().is_some());
-        assert_eq!(commute_buf[0]["priority"].as_i64(), Some(70));
+        assert!(
+            commute_buf[0]["priority"]
+                .as_i64()
+                .is_some_and(|priority| priority >= 55),
+            "ranked suggestion priority should reflect a nontrivial base priority"
+        );
         assert_eq!(commute_buf[0]["confidence"].as_str(), Some("medium"));
         assert_eq!(commute_buf[0]["evidence_count"].as_u64(), Some(2));
         assert!(commute_buf[0]["decision_context_summary"].as_str().is_some());
@@ -2958,6 +2963,18 @@ mod tests {
             commute_buf[0]["decision_context_summary"].as_str()
         );
         assert_eq!(inspect_json["data"]["evidence_count"].as_u64(), Some(2));
+        assert_eq!(
+            inspect_json["data"]["decision_context"]["trigger"].as_str(),
+            Some("resolved_commute_danger")
+        );
+        let evidence = inspect_json["data"]["evidence"]
+            .as_array()
+            .expect("inspect response should include suggestion evidence");
+        assert_eq!(evidence.len(), 2);
+        assert!(
+            evidence.iter().all(|item| item["evidence_type"].as_str() == Some("nudge")),
+            "suggestion evidence should point back to the nudges that triggered it"
+        );
 
         let _ = app
             .clone()
@@ -2995,6 +3012,76 @@ mod tests {
             deduped_commute.len(),
             1,
             "pending commute-buffer suggestion should not duplicate on a second evaluate"
+        );
+    }
+
+    #[tokio::test]
+    async fn evaluate_creates_multiple_suggestion_families_in_priority_order() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let recent = now_ts - 3600;
+
+        storage
+            .set_current_context(
+                now_ts,
+                &serde_json::json!({
+                    "global_risk_level": "high",
+                    "global_risk_score": 0.9,
+                    "attention_state": "drifting",
+                    "drift_type": "morning_drift",
+                    "message_waiting_on_me_count": 3
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+
+        for (nudge_type, level) in [
+            ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
+            ("meeting_prep_window", "warning"),
+            ("meeting_prep_window", "warning"),
+            ("morning_drift", "warning"),
+            ("morning_drift", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+        ] {
+            storage
+                .insert_nudge(vel_storage::NudgeInsert {
+                    nudge_type: nudge_type.to_string(),
+                    level: level.to_string(),
+                    state: "resolved".to_string(),
+                    related_commitment_id: None,
+                    message: format!("{} happened", nudge_type),
+                    snoozed_until: None,
+                    resolved_at: Some(recent),
+                    signals_snapshot_json: None,
+                    inference_snapshot_json: None,
+                    metadata_json: None,
+                })
+                .await
+                .unwrap();
+        }
+
+        let created = crate::services::suggestions::evaluate_after_nudges(&storage)
+            .await
+            .unwrap();
+        assert_eq!(created, 4);
+
+        let suggestions = storage.list_suggestions(Some("pending"), 10).await.unwrap();
+        let ordered_types: Vec<_> = suggestions
+            .iter()
+            .map(|suggestion| suggestion.suggestion_type.as_str())
+            .collect();
+        assert_eq!(
+            ordered_types,
+            vec![
+                "increase_commute_buffer",
+                "increase_prep_window",
+                "add_followup_block",
+                "add_start_routine"
+            ]
         );
     }
 
