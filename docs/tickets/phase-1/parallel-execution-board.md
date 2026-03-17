@@ -19,6 +19,19 @@ Shipped behavior remains anchored in `docs/MASTER_PLAN.md`.
 2. Lane B: start route exposure inventory for `015` in `crates/veld/src/app.rs` and `docs/api/runtime.md`.
 3. Lane C: continue repository extraction under `crates/vel-storage/src/repositories/` with focused tests.
 
+## Next Priority Order
+
+Current ranked execution order for remaining high-value phase-1 slices:
+
+1. `003-service-dto-layering.md`
+   focus: remove `vel-api-types` imports from `crates/veld/src/services/*` by moving DTO mapping to route boundaries.
+2. `001-storage-modularization.md`
+   focus: continue extracting `db.rs` seams into `crates/vel-storage/src/repositories/` with transaction-friendly APIs.
+3. `002-typed-context-transition.md`
+   focus: adopt `vel-core` typed context (`CurrentContextV1`) at inference/read boundaries while preserving migration from stored JSON.
+4. `021-canonical-schema-and-config-contracts.md` + `025-config-and-contract-fixture-parity.md`
+   focus: keep schema/template/fixture/test parity strict as service and storage contracts evolve.
+
 ## Coordination Rules
 
 - Do not overlap primary write scopes in the same patch unless the change is a planned cross-lane integration slice.
