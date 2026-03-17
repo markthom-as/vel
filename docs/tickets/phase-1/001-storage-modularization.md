@@ -1,6 +1,6 @@
 ---
 title: Modular Repository Pattern & Unit of Work (Storage Layer)
-status: in-progress
+status: complete
 owner: staff-eng
 type: architecture
 priority: high

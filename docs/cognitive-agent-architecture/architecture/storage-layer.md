@@ -37,12 +37,12 @@ To prevent the `db.rs` file from becoming an unmaintainable monolith, all domain
 | `inferred_state_repo` | Result of cognitive inference loops. |
 | `integration_connections_repo` | External service credentials and sync state. |
 | `nudges_repo` | Proactive system alerts and snoozing. |
-| `orientation_repo` | Bootstrapping data for context generation. |
 | `processing_jobs_repo` | Async task queue for ingestion and LLM work. |
 | `runs_repo` | Executable run lifecycles and event logs. |
 | `runtime_loops_repo` | Scheduled maintenance and inference loops. |
 | `settings_repo` | Key-value store for system configuration. |
 | `signals_repo` | Raw telemetry events (the "input substrate"). |
+| `suggestion_feedback_repo` | Operator feedback summaries for recommendation quality. |
 | `suggestions_repo` | Steering recommendations and evidence. |
 | `threads_repo` | Semantic grouping of related entities. |
 | `uncertainty_records_repo` | Tracking and resolving low-confidence decisions. |

@@ -28,12 +28,12 @@ For active lane ownership and non-overlapping write scopes, use [phase-1/paralle
 
 Execution evidence: [phase-1/phase-1-evidence-matrix.md](phase-1/phase-1-evidence-matrix.md)
 
-- [001-storage-modularization.md](phase-1/001-storage-modularization.md) `[in-progress]` Storage repository pattern and transaction lifecycles
-- [002-typed-context-transition.md](phase-1/002-typed-context-transition.md) `[in-progress]` Pure-core and typed-context transition
+- [001-storage-modularization.md](phase-1/001-storage-modularization.md) `[complete]` Storage repository pattern and transaction lifecycles
+- [002-typed-context-transition.md](phase-1/002-typed-context-transition.md) `[complete]` Pure-core and typed-context transition
 - [003-service-dto-layering.md](phase-1/003-service-dto-layering.md) `[complete]` Service/DTO boundary and standardized error handling
 - [011-documentation-truth-repair.md](phase-1/011-documentation-truth-repair.md) `[complete]` Documentation truth repair and architecture mapping
 - [015-http-surface-auth-hardening.md](phase-1/015-http-surface-auth-hardening.md) `[complete]` Auth-by-default HTTP surfaces and deny-by-default routing
-- [018-cross-cutting-system-traits-baseline.md](phase-1/018-cross-cutting-system-traits-baseline.md) `[in-progress]` Cross-cutting trait baseline and subsystem audit
+- [018-cross-cutting-system-traits-baseline.md](phase-1/018-cross-cutting-system-traits-baseline.md) `[complete]` Cross-cutting trait baseline and subsystem audit
 - [020-documentation-catalog-single-source.md](phase-1/020-documentation-catalog-single-source.md) `[complete]` Single-source documentation catalog and surfaced-doc parity
 - [021-canonical-schema-and-config-contracts.md](phase-1/021-canonical-schema-and-config-contracts.md) `[complete]` Canonical schema catalog, object definitions, and config templates
 - [022-data-sources-and-connector-architecture.md](phase-1/022-data-sources-and-connector-architecture.md) `[planned]` Canonical data sources, integration families, and connector contracts

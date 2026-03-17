@@ -54,10 +54,10 @@ Primary outcome:
 ## Phase 1: Structural Foundations & Monolith Decomposition
 **Current Status: [PARTIAL]**
 
-### 1.1 Storage Repository Pattern & Transaction Lifecycles **[IN_PROGRESS]**
+### 1.1 Storage Repository Pattern & Transaction Lifecycles **[COMPLETE]**
 *   *Ticket*: `001-storage-modularization.md`
 
-### 1.2 The "Pure Core" & Typed Context Mandate **[IN_PROGRESS]**
+### 1.2 The "Pure Core" & Typed Context Mandate **[COMPLETE]**
 *   *Ticket*: `002-typed-context-transition.md`
 
 ### 1.3 Service/DTO Boundary & Standardized Error Handling **[COMPLETE]**
@@ -69,7 +69,7 @@ Primary outcome:
 ### 1.5 Auth-By-Default HTTP Surfaces & Deny-By-Default Routing **[COMPLETE]**
 *   *Ticket*: `015-http-surface-auth-hardening.md`
 
-### 1.6 Cross-Cutting Trait Baseline & Subsystem Audit **[IN_PROGRESS]**
+### 1.6 Cross-Cutting Trait Baseline & Subsystem Audit **[COMPLETE]**
 *   *Ticket*: `018-cross-cutting-system-traits-baseline.md`
 
 ### 1.7 Documentation Catalog Single Source & Surface Parity **[COMPLETE]**

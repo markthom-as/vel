@@ -1,7 +1,7 @@
 ---
 title: Cross-Cutting Trait Audit Baseline
 doc_type: audit
-status: in-progress
+status: complete
 owner: staff-eng
 created: 2026-03-17
 updated: 2026-03-17
@@ -31,9 +31,9 @@ Coverage labels:
 
 | Subsystem | Modularity | Accessibility | Configurability | Data Logging | Rewind/Replay | Composability | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `crates/vel-core` | baseline | n/a | partial | partial | partial | baseline | Domain seams are clear; typed-context migration remains in ticket `002`. |
-| `crates/vel-storage` | partial | n/a | partial | partial | partial | partial | Repository modularization is in progress in ticket `001`. |
-| `crates/veld` runtime + routes | partial | partial | baseline | partial | partial | partial | Service/DTO boundary and auth hardening still open in tickets `003` and `015`. |
+| `crates/vel-core` | baseline | n/a | baseline | partial | baseline | baseline | Typed current-context and migration seams are explicit in code and stay versioned at the boundary. |
+| `crates/vel-storage` | baseline | n/a | baseline | partial | baseline | baseline | Repositories compose under shared transactions and `Storage` now sits behind an explicit backend seam. |
+| `crates/veld` runtime + routes | baseline | partial | baseline | partial | partial | baseline | Route/service layering and auth classification are explicit; remaining gaps are mostly operator-surface and observability depth. |
 | `crates/vel-config` | baseline | partial | baseline | partial | partial | baseline | Templates parse in tests; effective-config inspection is still planned. |
 | `crates/vel-cli` | partial | baseline | partial | partial | n/a | partial | Docs catalog is machine-readable; broader command output consistency is pending. |
 | `clients/web` | partial | partial | partial | partial | n/a | partial | Operator accessibility and effective-config clarity are tracked by ticket `019`. |
@@ -51,23 +51,17 @@ Coverage labels:
 
 ## Architecture/implementation gaps
 
-- typed context and schema-on-write enforcement (`002-typed-context-transition.md`).
-- service/DTO boundary hardening (`003-service-dto-layering.md`).
-- auth-by-default and deny-by-default route classification (`015-http-surface-auth-hardening.md`).
-- storage decomposition and transaction seam completion (`001-storage-modularization.md`).
 - operator-surface accessibility and effective-config clarity (`019-operator-accessibility-config-clarity.md`).
+- machine-readable contract publication and consumer rollout (`024-machine-readable-schema-and-manifest-publication.md`).
+- integration/runtime alignment for canonical connector vocabulary (`022-data-sources-and-connector-architecture.md`).
 
 # Queue Coverage Check
 
 Current ticket coverage for material gaps:
 
-- `001-storage-modularization.md`
-- `002-typed-context-transition.md`
-- `003-service-dto-layering.md`
-- `015-http-surface-auth-hardening.md`
 - `019-operator-accessibility-config-clarity.md`
 - `022-data-sources-and-connector-architecture.md`
-- `025-config-and-contract-fixture-parity.md`
+- `024-machine-readable-schema-and-manifest-publication.md`
 
 If a future gap is found without ticket coverage, add coverage in `docs/tickets/README.md` and `docs/MASTER_PLAN.md` in the same change.
 

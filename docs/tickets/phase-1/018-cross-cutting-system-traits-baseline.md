@@ -1,6 +1,6 @@
 ---
 title: Cross-Cutting Trait Baseline & Subsystem Audit
-status: in-progress
+status: complete
 owner: staff-eng
 type: architecture
 priority: high
