@@ -21,9 +21,17 @@ pub async fn run_list(client: &ApiClient, state: Option<&str>, json: bool) -> an
         return Ok(());
     }
     for s in data {
+        let title = s.title.as_deref().unwrap_or("-");
+        let confidence = s.confidence.as_deref().unwrap_or("-");
         println!(
-            "{}  {}  {}  {}",
-            s.id, s.suggestion_type, s.state, s.created_at
+            "{}  {}  {}  p{}  conf={}  evidence={}  {}",
+            s.id,
+            s.suggestion_type,
+            s.state,
+            s.priority,
+            confidence,
+            s.evidence_count,
+            title
         );
     }
     Ok(())
@@ -38,6 +46,15 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
     println!("id:              {}", s.id);
     println!("suggestion_type: {}", s.suggestion_type);
     println!("state:           {}", s.state);
+    println!("title:           {}", s.title.as_deref().unwrap_or("-"));
+    println!("summary:         {}", s.summary.as_deref().unwrap_or("-"));
+    println!("priority:        {}", s.priority);
+    println!("confidence:      {}", s.confidence.as_deref().unwrap_or("-"));
+    println!("evidence_count:  {}", s.evidence_count);
+    println!(
+        "decision:        {}",
+        s.decision_context_summary.as_deref().unwrap_or("-")
+    );
     println!("created_at:      {}", s.created_at);
     println!("resolved_at:     {:?}", s.resolved_at);
     println!(

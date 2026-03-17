@@ -2902,6 +2902,7 @@ mod tests {
             .await
             .unwrap();
         let resp = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .uri("/v1/suggestions")
@@ -2933,6 +2934,68 @@ mod tests {
         assert_eq!(commute_buf[0]["confidence"].as_str(), Some("medium"));
         assert_eq!(commute_buf[0]["evidence_count"].as_u64(), Some(2));
         assert!(commute_buf[0]["decision_context_summary"].as_str().is_some());
+
+        let suggestion_id = commute_buf[0]["id"]
+            .as_str()
+            .expect("suggestion id should be present");
+        let inspect_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/suggestions/{}", suggestion_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(inspect_resp.status(), StatusCode::OK);
+        let inspect_body = axum::body::to_bytes(inspect_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let inspect_json: serde_json::Value = serde_json::from_slice(&inspect_body).unwrap();
+        assert_eq!(
+            inspect_json["data"]["decision_context_summary"].as_str(),
+            commute_buf[0]["decision_context_summary"].as_str()
+        );
+        assert_eq!(inspect_json["data"]["evidence_count"].as_u64(), Some(2));
+
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let dedupe_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/suggestions")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(dedupe_resp.status(), StatusCode::OK);
+        let dedupe_body = axum::body::to_bytes(dedupe_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let dedupe_json: serde_json::Value = serde_json::from_slice(&dedupe_body).unwrap();
+        let deduped_commute: Vec<_> = dedupe_json["data"]
+            .as_array()
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
+            .iter()
+            .filter(|s| s["suggestion_type"].as_str() == Some("increase_commute_buffer"))
+            .collect();
+        assert_eq!(
+            deduped_commute.len(),
+            1,
+            "pending commute-buffer suggestion should not duplicate on a second evaluate"
+        );
     }
 
     // --- Chat API (ticket 034) ---
