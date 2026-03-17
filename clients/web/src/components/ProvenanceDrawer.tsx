@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { JsonValue, ProvenanceData } from '../types';
 import { useQuery } from '../data/query';
 import { loadProvenance, queryKeys } from '../data/resources';
+import { SurfaceState } from './SurfaceState';
 
 interface ProvenanceDrawerProps {
   messageId: string | null;
@@ -41,8 +42,8 @@ export function ProvenanceDrawer({ messageId, onClose }: ProvenanceDrawerProps) 
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 text-sm">
-        {loading && <p className="text-zinc-500">Loading…</p>}
-        {error && <p className="text-red-400">{error}</p>}
+        {loading && <SurfaceState message="Loading provenance…" layout="drawer" />}
+        {error && <SurfaceState message={error} layout="drawer" tone="danger" />}
         {data && (
           <>
             <div className="mb-4">
@@ -62,7 +63,7 @@ export function ProvenanceDrawer({ messageId, onClose }: ProvenanceDrawerProps) 
                 ))}
               </div>
             ) : (
-              <p className="text-zinc-500">No events recorded for this message.</p>
+              <SurfaceState message="No events recorded for this message." layout="drawer" />
             )}
             {data.signals.length > 0 && (
               <StructuredSection title="Signals" items={data.signals} />

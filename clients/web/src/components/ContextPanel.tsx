@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { ContextExplainData, DriftExplainData, JsonObject, JsonValue, SignalExplainSummary } from '../types';
 import { useQuery } from '../data/query';
 import { loadContextExplain, loadDriftExplain, queryKeys } from '../data/resources';
+import { SurfaceState } from './SurfaceState';
 
 export function ContextPanel() {
   const contextExplainKey = useMemo(() => queryKeys.contextExplain(), []);
@@ -37,15 +38,10 @@ export function ContextPanel() {
     drift?.signal_summaries ?? [],
   );
 
-  if (loading) return <div className="p-4 text-zinc-500 text-sm">Loading context…</div>;
-  if (error) return <div className="p-4 text-amber-500 text-sm">{error}</div>;
+  if (loading) return <SurfaceState message="Loading context…" title="Context" />;
+  if (error) return <SurfaceState message={error} title="Context" tone="warning" />;
   if (!context) {
-    return (
-      <div className="p-4 text-zinc-500 text-sm">
-        <h3 className="font-medium text-zinc-400 mb-2">Context</h3>
-        <p>No context data. Run evaluate or start the engine.</p>
-      </div>
-    );
+    return <SurfaceState message="No context data. Run evaluate or start the engine." title="Context" />;
   }
 
   return (

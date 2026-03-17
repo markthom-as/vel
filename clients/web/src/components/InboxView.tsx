@@ -9,6 +9,7 @@ import {
 } from '../data/chat-state';
 import { loadInbox, queryKeys } from '../data/resources';
 import { subscribeWs } from '../realtime/ws';
+import { SurfaceState } from './SurfaceState';
 
 export function InboxView() {
   const inboxKey = useMemo(() => queryKeys.inbox(), []);
@@ -57,14 +58,14 @@ export function InboxView() {
     );
   }, [items, pendingInterventionActionsKey]);
 
-  if (loading) return <div className="p-4 text-zinc-500 text-sm">Loading…</div>;
-  if (error) return <div className="p-4 text-red-400 text-sm">{error}</div>;
+  if (loading) return <SurfaceState message="Loading inbox…" />;
+  if (error) return <SurfaceState message={error} tone="danger" />;
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
       <h2 className="text-lg font-medium text-zinc-200 mb-3">Inbox</h2>
       {visibleItems.length === 0 ? (
-        <p className="text-zinc-500 text-sm">No active interventions.</p>
+        <SurfaceState message="No active interventions." />
       ) : (
         <ul className="space-y-2">
           {visibleItems.map((item) => (

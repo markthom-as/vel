@@ -15,6 +15,7 @@ import type {
   JsonObject,
   JsonValue,
 } from '../types';
+import { SurfaceState } from './SurfaceState';
 
 const COMMITMENT_LIMIT = 12;
 
@@ -54,19 +55,20 @@ export function NowView() {
   );
 
   if (contextLoading) {
-    return <div className="flex-1 p-6 text-sm text-zinc-500">Loading your current state…</div>;
+    return <SurfaceState message="Loading your current state…" layout="centered" />;
   }
 
   const error = contextError ?? explainError ?? driftError ?? commitmentsError;
   if (error) {
-    return <div className="flex-1 p-6 text-sm text-amber-400">{error}</div>;
+    return <SurfaceState message={error} layout="centered" tone="warning" />;
   }
 
   if (!currentContext) {
     return (
-      <div className="flex-1 p-6 text-sm text-zinc-500">
-        No current context yet. Sync integrations or run an evaluation.
-      </div>
+      <SurfaceState
+        message="No current context yet. Sync integrations or run an evaluation."
+        layout="centered"
+      />
     );
   }
 
@@ -105,7 +107,7 @@ export function NowView() {
           <div className="space-y-6">
             <Panel title="Upcoming events" subtitle="Live from selected Google calendars">
               {calendarSignals.length === 0 ? (
-                <EmptyState text="No upcoming calendar events in the current stream." />
+                <SurfaceState message="No upcoming calendar events in the current stream." />
               ) : (
                 <div className="space-y-3">
                   {calendarSignals.map((signal) => {
@@ -130,7 +132,7 @@ export function NowView() {
 
             <Panel title="Todoist backlog" subtitle="Open commitments synced from Todoist">
               {todoistTasks.length === 0 ? (
-                <EmptyState text="No open Todoist-backed commitments found." />
+                <SurfaceState message="No open Todoist-backed commitments found." />
               ) : (
                 <div className="space-y-3">
                   {todoistTasks.map((commitment) => (
@@ -174,14 +176,14 @@ export function NowView() {
                   </li>
                 ))}
                 {(!explainedContext || explainedContext.reasons.length === 0) && (!drift || drift.reasons.length === 0) ? (
-                  <EmptyState text="No explanation reasons available." />
+                  <SurfaceState message="No explanation reasons available." />
                 ) : null}
               </ul>
             </Panel>
 
             <Panel title="Other open commitments" subtitle="Non-Todoist open items still in play">
               {topCommitments.length === 0 ? (
-                <EmptyState text="No additional open commitments surfaced." />
+                <SurfaceState message="No additional open commitments surfaced." />
               ) : (
                 <div className="space-y-2">
                   {topCommitments.map((commitment) => (
@@ -236,10 +238,6 @@ function Row({ label, value }: { label: string; value: string }) {
       <dd className="text-right text-zinc-100">{value}</dd>
     </div>
   );
-}
-
-function EmptyState({ text }: { text: string }) {
-  return <p className="text-sm text-zinc-500">{text}</p>;
 }
 
 function asRecord(value: JsonValue): JsonObject {

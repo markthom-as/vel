@@ -4,6 +4,7 @@ import { setQueryData, useQuery } from '../data/query';
 import { loadConversationList, queryKeys } from '../data/resources';
 import { reconcileConversationFromMessage } from '../data/chat-state';
 import { subscribeWs } from '../realtime/ws';
+import { SurfaceState } from './SurfaceState';
 
 interface ConversationListProps {
   selectedId: string | null;
@@ -30,8 +31,8 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
     });
   }, [conversationsKey]);
 
-  if (loading) return <div className="p-3 text-zinc-500 text-sm">Loading…</div>;
-  if (error) return <div className="p-3 text-red-400 text-sm">{error}</div>;
+  if (loading) return <SurfaceState message="Loading conversations…" />;
+  if (error) return <SurfaceState message={error} tone="danger" />;
 
   return (
     <ul className="flex-1 overflow-y-auto">
@@ -53,7 +54,7 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
         </li>
       ))}
       {conversations.length === 0 && (
-        <li className="p-3 text-zinc-500 text-sm">No conversations yet.</li>
+        <li><SurfaceState message="No conversations yet." /></li>
       )}
     </ul>
   );

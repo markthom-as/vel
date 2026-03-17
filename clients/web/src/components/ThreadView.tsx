@@ -19,6 +19,7 @@ import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
 import { subscribeWs } from '../realtime/ws';
+import { SurfaceState } from './SurfaceState';
 
 interface ThreadViewProps {
   conversationId: string | null;
@@ -236,19 +237,15 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
 
   if (!conversationId) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-zinc-500">
-        Select a conversation
-      </div>
-    );
+    return <SurfaceState message="Select a conversation" layout="centered" />;
   }
 
   const error = messagesError ?? interventionsError;
   if (messagesLoading) {
-    return <div className="flex-1 flex items-center justify-center text-zinc-500">Loading…</div>;
+    return <SurfaceState message="Loading conversation…" layout="centered" />;
   }
   if (error) {
-    return <div className="flex-1 flex items-center justify-center text-red-400">{error}</div>;
+    return <SurfaceState message={error} layout="centered" tone="danger" />;
   }
 
   return (
@@ -256,7 +253,7 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 relative">
         <div className="max-w-2xl mx-auto">
           {messages.length === 0 && (
-            <p className="text-zinc-500 text-sm">No messages yet.</p>
+            <SurfaceState message="No messages yet." />
           )}
           {messages.map((message) => (
             <MessageRenderer
