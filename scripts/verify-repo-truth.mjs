@@ -57,6 +57,10 @@ const repoFeedbackReadme = readFile('docs/tickets/repo-feedback/README.md');
 const ticketsReadme = readFile('docs/tickets/README.md');
 const apiChat = readFile('docs/api/chat.md');
 const repoFeedbackDir = path.join(repoRoot, 'docs', 'tickets', 'repo-feedback');
+const packSchema = readFile('docs/tickets/pack-schema.md');
+const archAuditPlan = readFile(
+  'docs/tickets/repo-audit-hardening/004-architecture-map-and-module-boundary-audit.md',
+);
 
 const requiredReadmeCommands = [
   'make build',
@@ -157,6 +161,22 @@ ensure(
 ensure(
   ticketsReadme.includes('[docs/status.md](../status.md)'),
   'docs/tickets/README.md does not defer implementation truth to docs/status.md',
+);
+ensure(
+  packSchema.includes('## Required pack metadata'),
+  'docs/tickets/pack-schema.md is missing the required metadata section',
+);
+ensure(
+  packSchema.includes('## Pack classification guidance'),
+  'docs/tickets/pack-schema.md is missing the classification guidance',
+);
+ensure(
+  packSchema.includes('## Enforcement rule'),
+  'docs/tickets/pack-schema.md is missing the enforcement rule',
+);
+ensure(
+  archAuditPlan.includes('vel-architecture-audit-method.md'),
+  'Architecture map ticket does not highlight the required audit method document',
 );
 ensure(
   /### 1\. Active convergence work|## Active convergence work/.test(ticketsReadme),
