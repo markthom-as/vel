@@ -67,6 +67,8 @@ struct SignalInputs<'a> {
     calendar_events: Vec<&'a vel_storage::SignalRecord>,
     message_threads: Vec<&'a vel_storage::SignalRecord>,
     latest_git_activity: Option<&'a vel_storage::SignalRecord>,
+    latest_note_document: Option<&'a vel_storage::SignalRecord>,
+    latest_assistant_message: Option<&'a vel_storage::SignalRecord>,
 }
 
 struct DerivedContextState {
@@ -81,6 +83,8 @@ struct DerivedContextState {
     risk_used: Vec<String>,
     attention: AttentionState,
     git_activity_summary: Option<GitActivitySummary>,
+    note_document_summary: Option<NoteDocumentSummary>,
+    assistant_message_summary: Option<AssistantMessageSummary>,
 }
 
 /// **Recompute-and-persist.** Run inference once: compute morning state, meds status, prep window;
@@ -140,6 +144,8 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         &derived.risk_used,
         &derived.attention,
         derived.git_activity_summary.as_ref(),
+        derived.note_document_summary.as_ref(),
+        derived.assistant_message_summary.as_ref(),
         &derived.message_summary,
         &temporal_windows,
     );
@@ -175,6 +181,14 @@ fn collect_signal_inputs(signals_today: &[vel_storage::SignalRecord]) -> SignalI
             .iter()
             .filter(|signal| signal.signal_type == "git_activity")
             .max_by_key(|signal| signal.timestamp),
+        latest_note_document: signals_today
+            .iter()
+            .filter(|signal| signal.signal_type == "note_document")
+            .max_by_key(|signal| signal.timestamp),
+        latest_assistant_message: signals_today
+            .iter()
+            .filter(|signal| signal.signal_type == "assistant_message")
+            .max_by_key(|signal| signal.timestamp),
     }
 }
 
@@ -196,6 +210,12 @@ fn derive_context_state(
         .latest_git_activity
         .and_then(build_git_activity_summary)
         .filter(|summary| now_ts - summary.timestamp <= RECENT_GIT_ACTIVITY_WINDOW_SECS);
+    let recent_note_summary = signal_inputs
+        .latest_note_document
+        .and_then(build_note_document_summary);
+    let recent_assistant_summary = signal_inputs
+        .latest_assistant_message
+        .and_then(build_assistant_message_summary);
     let inference_state = derive_inference_state(
         signal_inputs.has_workstation_activity,
         meds_done_today,
@@ -203,6 +223,8 @@ fn derive_context_state(
         temporal_windows.prep_window_active,
         temporal_windows.commute_window_active,
         recent_git_summary.is_some(),
+        recent_note_summary.is_some(),
+        recent_assistant_summary.is_some(),
     );
 
     let message_summary = derive_message_summary(&signal_inputs.message_threads);
@@ -232,6 +254,12 @@ fn derive_context_state(
         git_activity_summary: signal_inputs
             .latest_git_activity
             .and_then(build_git_activity_summary),
+        note_document_summary: signal_inputs
+            .latest_note_document
+            .and_then(build_note_document_summary),
+        assistant_message_summary: signal_inputs
+            .latest_assistant_message
+            .and_then(build_assistant_message_summary),
     }
 }
 
@@ -306,8 +334,13 @@ fn derive_inference_state(
     prep_window_active: bool,
     commute_window_active: bool,
     recent_git_activity: bool,
+    recent_note_activity: bool,
+    recent_assistant_activity: bool,
 ) -> InferenceState {
-    let morning_started = has_workstation_activity || meds_done_today;
+    let morning_started = has_workstation_activity
+        || recent_note_activity
+        || recent_assistant_activity
+        || meds_done_today;
     let morning_state = if prep_window_active && !morning_started {
         "at_risk"
     } else if morning_started {
@@ -320,6 +353,10 @@ fn derive_inference_state(
 
     let inferred_activity = if recent_git_activity {
         "coding"
+    } else if recent_note_activity {
+        "note_review"
+    } else if recent_assistant_activity {
+        "assistant_reflection"
     } else if has_workstation_activity {
         "computer_active"
     } else {
@@ -373,6 +410,21 @@ struct GitActivitySummary {
     files_changed: Option<u32>,
     insertions: Option<u32>,
     deletions: Option<u32>,
+}
+
+#[derive(Clone)]
+struct NoteDocumentSummary {
+    timestamp: i64,
+    title: Option<String>,
+    path: Option<String>,
+}
+
+#[derive(Clone)]
+struct AssistantMessageSummary {
+    timestamp: i64,
+    conversation_id: Option<String>,
+    role: Option<String>,
+    source: Option<String>,
 }
 
 fn derive_meds_status(
@@ -638,6 +690,8 @@ fn build_current_context(
     risk_used: &[String],
     attention: &AttentionState,
     git_activity_summary: Option<&GitActivitySummary>,
+    note_document_summary: Option<&NoteDocumentSummary>,
+    assistant_message_summary: Option<&AssistantMessageSummary>,
     message_summary: &MessageSummary,
     temporal_windows: &TemporalWindows,
 ) -> serde_json::Value {
@@ -678,6 +732,17 @@ fn build_current_context(
             "files_changed": summary.files_changed,
             "insertions": summary.insertions,
             "deletions": summary.deletions,
+        })),
+        "note_document_summary": note_document_summary.map(|summary| serde_json::json!({
+            "timestamp": summary.timestamp,
+            "title": summary.title,
+            "path": summary.path,
+        })),
+        "assistant_message_summary": assistant_message_summary.map(|summary| serde_json::json!({
+            "timestamp": summary.timestamp,
+            "conversation_id": summary.conversation_id,
+            "role": summary.role,
+            "source": summary.source,
         })),
         "message_waiting_on_me_count": message_summary.waiting_on_me_count,
         "message_waiting_on_others_count": message_summary.waiting_on_others_count,
@@ -887,6 +952,54 @@ fn build_git_activity_summary(signal: &vel_storage::SignalRecord) -> Option<GitA
     })
 }
 
+fn build_note_document_summary(signal: &vel_storage::SignalRecord) -> Option<NoteDocumentSummary> {
+    if signal.signal_type != "note_document" {
+        return None;
+    }
+
+    Some(NoteDocumentSummary {
+        timestamp: signal.timestamp,
+        title: signal
+            .payload_json
+            .get("title")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        path: signal
+            .payload_json
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+    })
+}
+
+fn build_assistant_message_summary(
+    signal: &vel_storage::SignalRecord,
+) -> Option<AssistantMessageSummary> {
+    if signal.signal_type != "assistant_message" {
+        return None;
+    }
+
+    Some(AssistantMessageSummary {
+        timestamp: signal.timestamp,
+        conversation_id: signal
+            .payload_json
+            .get("conversation_id")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        role: signal
+            .payload_json
+            .get("role")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        source: signal
+            .payload_json
+            .get("source")
+            .and_then(serde_json::Value::as_str)
+            .or_else(|| Some(signal.source.as_str()))
+            .map(ToString::to_string),
+    })
+}
+
 fn repo_basename(path: &str) -> Option<String> {
     path.rsplit('/')
         .find(|segment| !segment.trim().is_empty())
@@ -1031,7 +1144,7 @@ mod tests {
     }
 
     #[test]
-    fn collect_signal_inputs_partitions_calendar_messages_and_git_activity() {
+    fn collect_signal_inputs_partitions_calendar_messages_git_notes_and_transcripts() {
         let now_ts = 1_700_000_000;
         let signals = vec![
             test_signal("sig_work", "computer_activity", now_ts - 300),
@@ -1039,6 +1152,8 @@ mod tests {
             test_signal("sig_thread", "message_thread", now_ts - 120),
             test_signal("sig_git_old", "git_activity", now_ts - 600),
             test_signal("sig_git_new", "git_activity", now_ts - 60),
+            test_signal("sig_note", "note_document", now_ts - 30),
+            test_signal("sig_transcript", "assistant_message", now_ts - 10),
         ];
 
         let inputs = collect_signal_inputs(&signals);
@@ -1052,6 +1167,20 @@ mod tests {
                 .expect("latest git signal")
                 .signal_id,
             "sig_git_new"
+        );
+        assert_eq!(
+            inputs
+                .latest_note_document
+                .expect("latest note signal")
+                .signal_id,
+            "sig_note"
+        );
+        assert_eq!(
+            inputs
+                .latest_assistant_message
+                .expect("latest assistant signal")
+                .signal_id,
+            "sig_transcript"
         );
     }
 
@@ -1264,7 +1393,7 @@ mod tests {
 
     #[test]
     fn derive_inference_state_prefers_at_risk_when_prep_window_is_active_and_morning_not_started() {
-        let state = derive_inference_state(false, false, true, true, false, false);
+        let state = derive_inference_state(false, false, true, true, false, false, false, false);
 
         assert_eq!(state.morning_state, "at_risk");
         assert_eq!(state.mode, "meeting_mode");
@@ -1272,20 +1401,63 @@ mod tests {
     }
 
     #[test]
+    fn derive_inference_state_uses_note_activity_as_engagement() {
+        let state = derive_inference_state(false, false, false, false, false, false, true, false);
+
+        assert_eq!(state.morning_state, "engaged");
+        assert_eq!(state.inferred_activity, "note_review");
+    }
+
+    #[test]
+    fn derive_inference_state_uses_assistant_activity_as_engagement() {
+        let state = derive_inference_state(false, false, false, false, false, false, false, true);
+
+        assert_eq!(state.morning_state, "engaged");
+        assert_eq!(state.inferred_activity, "assistant_reflection");
+    }
+
+    #[test]
     fn derive_context_state_keeps_recent_git_activity_and_next_commitment() {
         let now_ts = OffsetDateTime::now_utc().unix_timestamp();
-        let signals = vec![SignalRecord {
-            signal_id: "sig_git".to_string(),
-            signal_type: "git_activity".to_string(),
-            source: "test".to_string(),
-            source_ref: None,
-            timestamp: now_ts - 60,
-            payload_json: json!({
-                "repo_name": "vel",
-                "branch": "main",
-            }),
-            created_at: now_ts - 60,
-        }];
+        let signals = vec![
+            SignalRecord {
+                signal_id: "sig_git".to_string(),
+                signal_type: "git_activity".to_string(),
+                source: "test".to_string(),
+                source_ref: None,
+                timestamp: now_ts - 60,
+                payload_json: json!({
+                    "repo_name": "vel",
+                    "branch": "main",
+                }),
+                created_at: now_ts - 60,
+            },
+            SignalRecord {
+                signal_id: "sig_note".to_string(),
+                signal_type: "note_document".to_string(),
+                source: "notes".to_string(),
+                source_ref: None,
+                timestamp: now_ts - 45,
+                payload_json: json!({
+                    "title": "Today",
+                    "path": "daily/today.md",
+                }),
+                created_at: now_ts - 45,
+            },
+            SignalRecord {
+                signal_id: "sig_assistant".to_string(),
+                signal_type: "assistant_message".to_string(),
+                source: "chatgpt".to_string(),
+                source_ref: None,
+                timestamp: now_ts - 30,
+                payload_json: json!({
+                    "conversation_id": "conv_1",
+                    "role": "assistant",
+                    "source": "chatgpt",
+                }),
+                created_at: now_ts - 30,
+            },
+        ];
         let signal_inputs = collect_signal_inputs(&signals);
         let commitments = vec![test_commitment(
             "com_soon",
@@ -1322,6 +1494,24 @@ mod tests {
                 .expect("git activity summary")
                 .repo,
             "vel"
+        );
+        assert_eq!(
+            derived
+                .note_document_summary
+                .as_ref()
+                .expect("note document summary")
+                .path
+                .as_deref(),
+            Some("daily/today.md")
+        );
+        assert_eq!(
+            derived
+                .assistant_message_summary
+                .as_ref()
+                .expect("assistant message summary")
+                .conversation_id
+                .as_deref(),
+            Some("conv_1")
         );
     }
 }
