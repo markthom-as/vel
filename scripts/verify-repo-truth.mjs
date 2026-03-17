@@ -26,6 +26,7 @@ const requiredFiles = [
   'README.md',
   'AGENTS.md',
   'docs/README.md',
+  'docs/reviews/README.md',
   'docs/status.md',
   'docs/tickets/repo-feedback/README.md',
   'scripts/ci-smoke.sh',
@@ -41,9 +42,11 @@ for (const file of requiredFiles) {
 const readme = readFile('README.md');
 const agents = readFile('AGENTS.md');
 const docsReadme = readFile('docs/README.md');
+const reviewsReadme = readFile('docs/reviews/README.md');
 const makefile = readFile('Makefile');
 const status = readFile('docs/status.md');
 const repoFeedbackReadme = readFile('docs/tickets/repo-feedback/README.md');
+const ticketsReadme = readFile('docs/tickets/README.md');
 
 const requiredReadmeCommands = [
   'make build',
@@ -114,12 +117,32 @@ ensure(
   'docs/README.md does not point to docs/status.md as current truth',
 );
 ensure(
-  docsReadme.includes('[tickets/repo-feedback/README.md](tickets/repo-feedback/README.md)'),
-  'docs/README.md does not point to repo-feedback as the active plan',
+  docsReadme.includes('[tickets/README.md](tickets/README.md)'),
+  'docs/README.md does not point to the ticket index as the active-plan entry point',
 );
 ensure(
-  docsReadme.includes('[reviews/](reviews/)'),
-  'docs/README.md does not classify reviews as historical context',
+  docsReadme.includes('[tickets/repo-feedback/README.md](tickets/repo-feedback/README.md)'),
+  'docs/README.md does not mention the repo-feedback packet',
+);
+ensure(
+  ticketsReadme.includes('ticket inventory and triage index'),
+  'docs/tickets/README.md does not describe itself as the ticket inventory and triage index',
+);
+ensure(
+  ticketsReadme.includes('[docs/status.md](../status.md)'),
+  'docs/tickets/README.md does not defer implementation truth to docs/status.md',
+);
+ensure(
+  /### 1\. Active convergence work|## Active convergence work/.test(ticketsReadme),
+  'docs/tickets/README.md does not expose maturity classes for active work',
+);
+ensure(
+  /### 2\. Near-term design \/ expansion|## Near-term design \/ expansion/.test(ticketsReadme),
+  'docs/tickets/README.md does not expose maturity classes for near-term expansion',
+);
+ensure(
+  /### 3\. Speculative \/ future architecture|## Speculative \/ future architecture/.test(ticketsReadme),
+  'docs/tickets/README.md does not expose maturity classes for speculative architecture',
 );
 ensure(
   /## Current truth|### Current truth/.test(docsReadme),
@@ -140,6 +163,22 @@ ensure(
 ensure(
   status.includes('Repo-feedback follow-through'),
   'docs/status.md does not record repo-feedback follow-through',
+);
+ensure(
+  reviewsReadme.includes('historical review'),
+  'docs/reviews/README.md does not mark the reviews directory as historical review',
+);
+ensure(
+  reviewsReadme.includes('../status.md'),
+  'docs/reviews/README.md does not point back to docs/status.md',
+);
+ensure(
+  reviewsReadme.includes('../tickets/README.md'),
+  'docs/reviews/README.md does not point to the ticket index for active planning context',
+);
+ensure(
+  reviewsReadme.includes('../README.md'),
+  'docs/reviews/README.md does not point back to the docs taxonomy guide',
 );
 
 if (missing.length > 0) {

@@ -22,15 +22,15 @@ These files describe the current implementation and operational reality.
 
 These files describe the current implementation sequence and near-term convergence work.
 
-- [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md): highest-priority convergence packet
-- [tickets/README.md](tickets/README.md): ticket-pack maturity index
+- [tickets/README.md](tickets/README.md): ticket-pack inventory, maturity index, and triage entry point
+- [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md): one active convergence packet for architecture and cleanup work
 - [roadmap.md](roadmap.md): broader product direction, subordinate to `status.md` for shipped behavior
 
 ### Historical review
 
 These files are useful design or review history, but they are not authoritative for shipped behavior.
 
-- [reviews/](reviews/): repo reviews, feedback rounds, and historical architecture notes
+- [reviews/README.md](reviews/README.md): historical review index for repo reviews and feedback rounds
 - [specs/](specs/): design specs and planned architecture; validate against `status.md` before treating as implemented
 
 ## Minimum Reading Order
@@ -38,7 +38,7 @@ These files are useful design or review history, but they are not authoritative 
 For a coding agent or new contributor, start here:
 
 1. [status.md](status.md)
-2. [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md)
+2. [tickets/README.md](tickets/README.md)
 3. [README.md](../README.md)
 4. [product-spec.md](product-spec.md)
 5. [architecture.md](architecture.md)
@@ -47,5 +47,6 @@ For a coding agent or new contributor, start here:
 ## Authority Rules
 
 - If a ticket or spec conflicts with [status.md](status.md), trust `status.md` for current behavior.
-- Treat [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md) as the active convergence queue unless an explicit decision supersedes it.
+- Use [tickets/README.md](tickets/README.md) to choose the right active plan or ticket pack for the task at hand.
+- Treat [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md) as one convergence-oriented packet, not as the only possible active plan.
 - Treat files under [reviews/](reviews/) as historical input, not current requirements.
