@@ -17,21 +17,20 @@ vi.mock('./ThreadView', () => ({
 }))
 
 describe('MainPanel', () => {
-  it('shows the Now view when showNow is enabled', () => {
-    render(<MainPanel conversationId={null} showInbox={false} showNow />)
+  it('shows the Now view when mainView is now', () => {
+    render(<MainPanel conversationId={null} mainView="now" />)
     expect(screen.getByText('Now view')).toBeInTheDocument()
     expect(screen.queryByText('Inbox view')).toBeNull()
   })
 
-  it('shows the Inbox view when inbox is active', () => {
-    render(<MainPanel conversationId={null} showInbox showNow={false} />)
+  it('shows the Inbox view when mainView is inbox', () => {
+    render(<MainPanel conversationId={null} mainView="inbox" />)
     expect(screen.getByText('Inbox view')).toBeInTheDocument()
     expect(screen.queryByText('Thread empty')).toBeNull()
   })
 
-  it('shows the thread view and thread header for a selected conversation', () => {
-    render(<MainPanel conversationId="conv_1" showInbox={false} showNow={false} />)
-    expect(screen.getByText('Thread')).toBeInTheDocument()
+  it('shows the thread view when mainView is threads', () => {
+    render(<MainPanel conversationId="conv_1" mainView="threads" />)
     expect(screen.getByText('Thread conv_1')).toBeInTheDocument()
   })
 })

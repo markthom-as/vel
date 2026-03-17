@@ -15,8 +15,6 @@ function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('now');
   const [showSettings, setShowSettings] = useState(false);
-  const showInbox = mainView === 'inbox';
-  const showNow = mainView === 'now';
 
   async function startNewConversation() {
     const res = await apiPost<ApiResponse<ConversationData>>('/api/conversations', {
@@ -46,21 +44,21 @@ function App() {
             <button
               type="button"
               onClick={() => setMainView('now')}
-              className={`flex-1 px-3 py-2 text-sm ${showNow ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex-1 px-3 py-2 text-sm ${mainView === 'now' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Now
             </button>
             <button
               type="button"
               onClick={() => setMainView('inbox')}
-              className={`flex-1 px-3 py-2 text-sm ${showInbox ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex-1 px-3 py-2 text-sm ${mainView === 'inbox' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Inbox
             </button>
             <button
               type="button"
               onClick={() => setMainView('threads')}
-              className={`flex-1 px-3 py-2 text-sm ${!showInbox && !showNow ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex-1 px-3 py-2 text-sm ${mainView === 'threads' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Threads
             </button>
@@ -72,12 +70,11 @@ function App() {
               setMainView('threads');
             }}
             onNewConversation={startNewConversation}
-            onOpenNow={() => setMainView('now')}
             onOpenSettings={() => setShowSettings(true)}
           />
         </>
       }
-      main={<MainPanel conversationId={selectedConversationId} showInbox={showInbox} showNow={showNow} />}
+      main={<MainPanel conversationId={selectedConversationId} mainView={mainView} />}
       contextPanel={<ContextPanel />}
     />
   );

@@ -5,7 +5,6 @@ interface SidebarProps {
   onSelectConversation: (id: string) => void;
   onNewConversation?: () => void | Promise<void>;
   onOpenSettings?: () => void;
-  onOpenNow?: () => void;
 }
 
 export function Sidebar({
@@ -13,26 +12,13 @@ export function Sidebar({
   onSelectConversation,
   onNewConversation,
   onOpenSettings,
-  onOpenNow,
 }: SidebarProps) {
   return (
     <>
-      <div className="p-3 border-b border-zinc-800">
+      <div className="p-4 border-b border-zinc-800">
         <h1 className="font-semibold text-zinc-100">Vel</h1>
-        <p className="text-xs text-zinc-500">Conversations</p>
+        <p className="text-xs text-zinc-500">Operator threads</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {onOpenNow && (
-            <>
-              <button
-                type="button"
-                onClick={onOpenNow}
-                className="text-xs text-zinc-500 hover:text-zinc-300"
-              >
-                Now
-              </button>
-              <span className="text-zinc-600">·</span>
-            </>
-          )}
           {onNewConversation && (
             <>
               <button
@@ -42,16 +28,18 @@ export function Sidebar({
               >
                 New conversation
               </button>
-              <span className="text-zinc-600">·</span>
+              {onOpenSettings ? <span className="text-zinc-600">·</span> : null}
             </>
           )}
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="text-xs text-zinc-500 hover:text-zinc-300"
-          >
-            Settings
-          </button>
+          {onOpenSettings ? (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="text-xs text-zinc-500 hover:text-zinc-300"
+            >
+              Settings
+            </button>
+          ) : null}
         </div>
       </div>
       <ConversationList
