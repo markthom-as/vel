@@ -49,7 +49,7 @@ const MACOS_SUPPORT_RELATIVE_DIRS: &[&str] = &[
     "Library/Application Support/vel/integrations",
 ];
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarSettings {
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
@@ -67,7 +67,26 @@ pub struct GoogleCalendarSettings {
     pub last_item_count: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+impl Default for GoogleCalendarSettings {
+    fn default() -> Self {
+        Self {
+            client_id: None,
+            client_secret: None,
+            access_token: None,
+            refresh_token: None,
+            token_expires_at: None,
+            calendars: Vec::new(),
+            all_calendars_selected: true,
+            pending_oauth_state: None,
+            last_sync_at: None,
+            last_sync_status: None,
+            last_error: None,
+            last_item_count: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarPublicSettings {
     pub client_id: Option<String>,
     #[serde(default)]
@@ -79,6 +98,21 @@ pub struct GoogleCalendarPublicSettings {
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
+}
+
+impl Default for GoogleCalendarPublicSettings {
+    fn default() -> Self {
+        Self {
+            client_id: None,
+            calendars: Vec::new(),
+            all_calendars_selected: true,
+            pending_oauth_state: None,
+            last_sync_at: None,
+            last_sync_status: None,
+            last_error: None,
+            last_item_count: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1881,6 +1915,7 @@ struct TodoistPage<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1958,6 +1993,36 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&db_path);
+    }
+
+    #[tokio::test]
+    async fn google_calendar_selection_defaults_to_all_selected_when_unconfigured() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let settings = load_google_settings(&storage).await.unwrap();
+        assert!(
+            settings.all_calendars_selected,
+            "unconfigured google calendar settings should default to all calendars selected"
+        );
+
+        let filter = google_calendar_selection_filter(&storage).await.unwrap();
+        let signal = SignalRecord {
+            signal_id: "sig_test".to_string(),
+            signal_type: "calendar_event".to_string(),
+            source: "google_calendar".to_string(),
+            source_ref: None,
+            timestamp: 1_700_000_000,
+            payload_json: json!({
+                "title": "Design review",
+                "start": 1_700_003_600
+            }),
+            created_at: 1_700_000_000,
+        };
+        assert!(
+            filter.includes_signal(&signal),
+            "google calendar signals should not be hidden before selection state exists"
+        );
     }
 
     #[tokio::test]

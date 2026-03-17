@@ -1,6 +1,6 @@
 ---
 title: Docs truth repair and entrypoint alignment
-status: in_progress
+status: done
 owner: agent
 type: documentation
 priority: high

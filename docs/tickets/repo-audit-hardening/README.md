@@ -49,7 +49,7 @@ Do not use this pack alone to answer "what is shipped now".
 
 ## Current status
 
-- `001` docs truth repair and entrypoint alignment: in_progress
+- `001` docs truth repair and entrypoint alignment: done
 - `002` hermetic local-integration tests and loop behavior: in_progress
 - `003` pack schema and maturity normalization: todo
 - `004` architecture map and module-boundary audit: todo
