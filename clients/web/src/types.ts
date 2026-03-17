@@ -9,6 +9,8 @@ export interface ApiResponse<T> {
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };
+export type UnixSeconds = number;
+export type Rfc3339Timestamp = string;
 
 export interface ConversationData {
   id: string;
@@ -258,19 +260,19 @@ export interface SummaryCardContent {
 
 export interface WsMessageNewEvent {
   type: 'messages:new';
-  timestamp: string;
+  timestamp: Rfc3339Timestamp;
   payload: MessageData;
 }
 
 export interface WsInterventionsNewEvent {
   type: 'interventions:new';
-  timestamp: string;
+  timestamp: Rfc3339Timestamp;
   payload: InboxItemData;
 }
 
 export interface WsInterventionsUpdatedEvent {
   type: 'interventions:updated';
-  timestamp: string;
+  timestamp: Rfc3339Timestamp;
   payload: InterventionActionData;
 }
 
@@ -278,13 +280,13 @@ export type RunUpdateEventData = RunSummaryData;
 
 export interface WsRunsUpdatedEvent {
   type: 'runs:updated';
-  timestamp: string;
+  timestamp: Rfc3339Timestamp;
   payload: RunUpdateEventData;
 }
 
 export interface WsComponentsUpdatedEvent {
   type: 'components:updated';
-  timestamp: string;
+  timestamp: Rfc3339Timestamp;
   payload: ComponentData;
 }
 
@@ -716,7 +718,7 @@ export function decodeProvenanceData(value: unknown): ProvenanceData {
 export function decodeWsEvent(value: unknown): WsEvent {
   const record = expectRecord(value, 'websocket event');
   const type = expectString(record.type, 'websocket event.type');
-  const timestamp = expectString(record.timestamp, 'websocket event.timestamp');
+  const timestamp = expectRfc3339Timestamp(record.timestamp, 'websocket event.timestamp');
 
   switch (type) {
     case 'messages:new':
@@ -857,6 +859,17 @@ function expectString(value: unknown, label: string): string {
     throw new Error(`Expected ${label} to be a string`);
   }
   return value;
+}
+
+function expectRfc3339Timestamp(value: unknown, label: string): Rfc3339Timestamp {
+  const timestamp = expectString(value, label);
+  const isRfc3339 =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(timestamp) &&
+    !Number.isNaN(Date.parse(timestamp));
+  if (!isRfc3339) {
+    throw new Error(`Expected ${label} to be an RFC3339 timestamp`);
+  }
+  return timestamp;
 }
 
 function expectNullableString(value: unknown, label: string): string | null {

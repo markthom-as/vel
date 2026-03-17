@@ -29,5 +29,11 @@ mod tests {
         assert_eq!(value["payload"]["message_id"], "msg_1");
         assert_eq!(value["payload"]["kind"], "reminder");
         assert_eq!(value["payload"]["state"], "active");
+        let timestamp = value["timestamp"].as_str().expect("timestamp should serialize as string");
+        assert!(time::OffsetDateTime::parse(
+            timestamp,
+            &time::format_description::well_known::Rfc3339
+        )
+        .is_ok());
     }
 }

@@ -70,11 +70,11 @@ describe('ThreadView realtime sync', () => {
       updated_at: null,
     }
 
-    requireWsListener(wsListener)({ type: 'messages:new', timestamp: '1', payload: message })
-    requireWsListener(wsListener)({ type: 'messages:new', timestamp: '2', payload: message })
+    requireWsListener(wsListener)({ type: 'messages:new', timestamp: '2026-03-16T12:00:00Z', payload: message })
+    requireWsListener(wsListener)({ type: 'messages:new', timestamp: '2026-03-16T12:00:01Z', payload: message })
     requireWsListener(wsListener)({
       type: 'messages:new',
-      timestamp: '3',
+      timestamp: '2026-03-16T12:00:02Z',
       payload: { ...message, id: 'msg_2', conversation_id: 'conv_other', content: { text: 'ignore me' } },
     })
 
@@ -111,7 +111,7 @@ describe('ThreadView realtime sync', () => {
 
     requireWsListener(wsListener)({
       type: 'messages:new',
-      timestamp: '1',
+      timestamp: '2026-03-16T12:01:00Z',
       payload: {
         id: 'msg_1',
         conversation_id: 'conv_1',
@@ -131,7 +131,7 @@ describe('ThreadView realtime sync', () => {
 
     requireWsListener(wsListener)({
       type: 'interventions:new',
-      timestamp: '2',
+      timestamp: '2026-03-16T12:02:00Z',
       payload: {
         id: 'intv_1',
         message_id: 'msg_1',
@@ -168,7 +168,7 @@ describe('ThreadView realtime sync', () => {
       if (path === '/api/conversations/conv_1/messages') {
         requireWsListener(wsListener)({
           type: 'messages:new',
-          timestamp: '1',
+          timestamp: '2026-03-16T12:03:00Z',
           payload: {
             id: 'msg_real',
             conversation_id: 'conv_1',
@@ -348,7 +348,7 @@ describe('ThreadView realtime sync', () => {
 
     requireWsListener(wsListener)({
       type: 'interventions:updated',
-      timestamp: '1',
+      timestamp: '2026-03-16T12:04:00Z',
       payload: { id: 'intv_1', state: 'resolved' },
     })
 

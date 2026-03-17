@@ -64,7 +64,7 @@ describe('InboxView realtime sync', () => {
 
     requireWsListener(wsListener)({
       type: 'interventions:updated',
-      timestamp: '1',
+      timestamp: '2026-03-16T12:00:00Z',
       payload: { id: 'intv_1', state: 'resolved' },
     })
 
@@ -94,7 +94,7 @@ describe('InboxView realtime sync', () => {
 
     requireWsListener(wsListener)({
       type: 'interventions:new',
-      timestamp: '1',
+      timestamp: '2026-03-16T12:01:00Z',
       payload: {
         id: 'intv_2',
         message_id: 'msg_2',

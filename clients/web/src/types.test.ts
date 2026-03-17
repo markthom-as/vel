@@ -294,4 +294,24 @@ describe('transport decoders', () => {
       }),
     ).toThrow(/message_id/)
   })
+
+  it('rejects malformed websocket timestamps', () => {
+    expect(() =>
+      decodeWsEvent({
+        type: 'messages:new',
+        timestamp: '1700000000',
+        payload: {
+          id: 'msg_1',
+          conversation_id: 'conv_1',
+          role: 'assistant',
+          kind: 'text',
+          content: { text: 'reply' },
+          status: null,
+          importance: null,
+          created_at: 1,
+          updated_at: null,
+        },
+      }),
+    ).toThrow(/RFC3339/)
+  })
 })

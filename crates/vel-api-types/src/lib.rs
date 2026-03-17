@@ -6,6 +6,12 @@ use vel_core::{
     RiskSnapshot, RunId, SyncClass,
 };
 
+/// Wire-level timestamp for resource DTO fields that use Unix seconds.
+pub type UnixSeconds = i64;
+
+/// Wire-level timestamp for envelope-style events that use RFC3339 strings.
+pub type Rfc3339Timestamp = String;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiMeta {
     pub request_id: String,
@@ -405,7 +411,7 @@ impl From<&str> for WsEventType {
 pub struct WsEnvelope {
     #[serde(rename = "type")]
     pub event_type: WsEventType,
-    pub timestamp: String,
+    pub timestamp: Rfc3339Timestamp,
     pub payload: JsonValue,
 }
 
@@ -413,7 +419,9 @@ impl WsEnvelope {
     pub fn new(event_type: impl Into<WsEventType>, payload: JsonValue) -> Self {
         Self {
             event_type: event_type.into(),
-            timestamp: OffsetDateTime::now_utc().unix_timestamp().to_string(),
+            timestamp: OffsetDateTime::now_utc()
+                .format(&time::format_description::well_known::Rfc3339)
+                .expect("current timestamp should format as RFC3339"),
             payload,
         }
     }
