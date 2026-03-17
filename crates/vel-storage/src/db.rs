@@ -11,8 +11,8 @@ use uuid::Uuid;
 use vel_core::{
     ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus,
     ContextCapture, ConversationId, EventId, InterventionId, JobId, JobStatus, MessageId,
-    OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType, RunId, RunKind,
-    RunStatus, SearchResult, SyncClass,
+    OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus,
+    SearchResult, SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -204,6 +204,7 @@ pub struct SuggestionFeedbackRecord {
 #[derive(Debug, Clone, Default)]
 pub struct SuggestionFeedbackSummary {
     pub accepted_and_policy_changed: u32,
+    pub rejected_not_useful: u32,
     pub rejected_incorrect: u32,
 }
 
@@ -1413,7 +1414,9 @@ impl Storage {
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(|row| map_suggestion_row(&row)).collect()
+        rows.into_iter()
+            .map(|row| map_suggestion_row(&row))
+            .collect()
     }
 
     pub async fn get_suggestion_by_id(
@@ -1513,7 +1516,9 @@ impl Storage {
         .bind(suggestion_id)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(|row| map_suggestion_evidence_row(&row)).collect()
+        rows.into_iter()
+            .map(|row| map_suggestion_evidence_row(&row))
+            .collect()
     }
 
     pub async fn insert_suggestion_feedback(
@@ -1583,6 +1588,8 @@ impl Storage {
             SELECT
                 COALESCE(SUM(CASE WHEN sf.outcome_type = 'accepted_and_policy_changed' THEN 1 ELSE 0 END), 0)
                     AS accepted_and_policy_changed,
+                COALESCE(SUM(CASE WHEN sf.outcome_type = 'rejected_not_useful' THEN 1 ELSE 0 END), 0)
+                    AS rejected_not_useful,
                 COALESCE(SUM(CASE WHEN sf.outcome_type = 'rejected_incorrect' THEN 1 ELSE 0 END), 0)
                     AS rejected_incorrect
             FROM suggestion_feedback sf
@@ -1597,6 +1604,7 @@ impl Storage {
             accepted_and_policy_changed: row
                 .try_get::<i64, _>("accepted_and_policy_changed")?
                 .max(0) as u32,
+            rejected_not_useful: row.try_get::<i64, _>("rejected_not_useful")?.max(0) as u32,
             rejected_incorrect: row.try_get::<i64, _>("rejected_incorrect")?.max(0) as u32,
         })
     }
@@ -1749,6 +1757,50 @@ impl Storage {
         .bind(decision_kind)
         .bind(subject_id)
         .bind(subject_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|row| map_uncertainty_row(&row)).transpose()
+    }
+
+    pub async fn find_recent_uncertainty_record(
+        &self,
+        subject_type: &str,
+        subject_id: Option<&str>,
+        decision_kind: &str,
+        status: &str,
+        since_ts: i64,
+    ) -> Result<Option<UncertaintyRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                subject_type,
+                subject_id,
+                decision_kind,
+                confidence_band,
+                confidence_score,
+                reasons_json,
+                missing_evidence_json,
+                resolution_mode,
+                status,
+                created_at,
+                resolved_at
+            FROM uncertainty_records
+            WHERE subject_type = ?
+              AND decision_kind = ?
+              AND status = ?
+              AND ((? IS NULL AND subject_id IS NULL) OR subject_id = ?)
+              AND COALESCE(resolved_at, created_at) >= ?
+            ORDER BY COALESCE(resolved_at, created_at) DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(subject_type)
+        .bind(decision_kind)
+        .bind(status)
+        .bind(subject_id)
+        .bind(subject_id)
+        .bind(since_ts)
         .fetch_optional(&self.pool)
         .await?;
         row.map(|row| map_uncertainty_row(&row)).transpose()
@@ -3449,10 +3501,7 @@ fn map_suggestion_evidence_row(
         suggestion_id: row.try_get("suggestion_id")?,
         evidence_type: row.try_get("evidence_type")?,
         ref_id: row.try_get("ref_id")?,
-        evidence_json: evidence_json
-            .as_deref()
-            .map(parse_json_value)
-            .transpose()?,
+        evidence_json: evidence_json.as_deref().map(parse_json_value).transpose()?,
         weight: row.try_get("weight")?,
         created_at: row.try_get("created_at")?,
     })
@@ -3473,9 +3522,7 @@ fn map_suggestion_feedback_row(
     })
 }
 
-fn map_uncertainty_row(
-    row: &sqlx::sqlite::SqliteRow,
-) -> Result<UncertaintyRecord, StorageError> {
+fn map_uncertainty_row(row: &sqlx::sqlite::SqliteRow) -> Result<UncertaintyRecord, StorageError> {
     let reasons_json = row.try_get::<String, _>("reasons_json")?;
     let missing_evidence_json = row.try_get::<Option<String>, _>("missing_evidence_json")?;
     Ok(UncertaintyRecord {
@@ -3978,7 +4025,10 @@ mod tests {
             Some("Resolved 2 commute danger nudges in the last 7 days.")
         );
 
-        let evidence = storage.list_suggestion_evidence(&suggestion_id).await.unwrap();
+        let evidence = storage
+            .list_suggestion_evidence(&suggestion_id)
+            .await
+            .unwrap();
         assert_eq!(evidence.len(), 1);
         assert_eq!(evidence[0].evidence_type, "nudge");
         assert_eq!(evidence[0].ref_id, "nud_123");
@@ -4061,6 +4111,16 @@ mod tests {
         storage
             .insert_suggestion_feedback(SuggestionFeedbackInsert {
                 suggestion_id: suggestion_id.clone(),
+                outcome_type: "rejected_not_useful".to_string(),
+                notes: Some("not useful".to_string()),
+                observed_at: 150,
+                payload_json: None,
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_suggestion_feedback(SuggestionFeedbackInsert {
+                suggestion_id: suggestion_id.clone(),
                 outcome_type: "rejected_incorrect".to_string(),
                 notes: Some("later found incorrect".to_string()),
                 observed_at: 200,
@@ -4073,15 +4133,17 @@ mod tests {
             .list_suggestion_feedback(&suggestion_id)
             .await
             .unwrap();
-        assert_eq!(feedback.len(), 2);
+        assert_eq!(feedback.len(), 3);
         assert_eq!(feedback[0].outcome_type, "rejected_incorrect");
-        assert_eq!(feedback[1].outcome_type, "accepted_and_policy_changed");
+        assert_eq!(feedback[1].outcome_type, "rejected_not_useful");
+        assert_eq!(feedback[2].outcome_type, "accepted_and_policy_changed");
 
         let summary = storage
             .summarize_suggestion_feedback("increase_commute_buffer")
             .await
             .unwrap();
         assert_eq!(summary.accepted_and_policy_changed, 1);
+        assert_eq!(summary.rejected_not_useful, 1);
         assert_eq!(summary.rejected_incorrect, 1);
     }
 
@@ -4110,7 +4172,10 @@ mod tests {
             .await
             .unwrap();
 
-        let open = storage.list_uncertainty_records(Some("open"), 10).await.unwrap();
+        let open = storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap();
         assert_eq!(open.len(), 1);
         assert_eq!(open[0].id, id);
         assert_eq!(open[0].resolution_mode, "defer");
@@ -4133,12 +4198,22 @@ mod tests {
             .unwrap();
         assert_eq!(resolved.status, "resolved");
         assert!(resolved.resolved_at.is_some());
-        assert!(
-            storage
-                .list_uncertainty_records(Some("open"), 10)
-                .await
-                .unwrap()
-                .is_empty()
-        );
+        assert!(storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap()
+            .is_empty());
+        let recent_resolved = storage
+            .find_recent_uncertainty_record(
+                "suggestion_candidate",
+                Some("increase_commute_buffer"),
+                "suggestion_generation",
+                "resolved",
+                resolved.resolved_at.unwrap() - 1,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(recent_resolved.id, id);
     }
 }

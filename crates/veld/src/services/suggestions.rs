@@ -45,7 +45,8 @@ pub async fn evaluate_after_nudges(
     let candidates = collect_candidates(storage, policy_config, now_ts).await?;
     let candidates = suppress_candidates(storage, suggestion_policy, candidates, now_ts).await?;
     let candidates = apply_feedback_history(storage, candidates).await?;
-    let candidates = defer_low_confidence_candidates(storage, candidates).await?;
+    let candidates =
+        defer_low_confidence_candidates(storage, suggestion_policy, candidates, now_ts).await?;
     let candidates = rank_candidates(
         candidates,
         current_global_risk_score(storage).await?,
@@ -69,8 +70,10 @@ async fn collect_candidates(
             nudge.state == "resolved" && nudge.level == "danger"
         });
     if resolved_commute_danger.len() >= suggestion_policy.commute.threshold {
-        let (confidence, confidence_score) =
-            candidate_confidence(resolved_commute_danger.len(), suggestion_policy.commute.threshold);
+        let (confidence, confidence_score) = candidate_confidence(
+            resolved_commute_danger.len(),
+            suggestion_policy.commute.threshold,
+        );
         let current_minutes = current_commute_minutes(policy_config);
         let suggested_minutes = current_minutes + suggestion_policy.commute.increment_minutes;
         candidates.push(build_candidate(
@@ -139,8 +142,10 @@ async fn collect_candidates(
         matches!(nudge.state.as_str(), "active" | "resolved")
     });
     if morning_drift.len() >= suggestion_policy.morning_drift.threshold {
-        let (confidence, confidence_score) =
-            candidate_confidence(morning_drift.len(), suggestion_policy.morning_drift.threshold);
+        let (confidence, confidence_score) = candidate_confidence(
+            morning_drift.len(),
+            suggestion_policy.morning_drift.threshold,
+        );
         candidates.push(build_candidate(
             SuggestionType::AddStartRoutine,
             35,
@@ -291,23 +296,26 @@ async fn apply_feedback_history(
             let boost = i64::from(summary.accepted_and_policy_changed.min(3)) * 5;
             candidate.priority += boost;
             candidate.confidence_score = (candidate.confidence_score + 0.18).clamp(0.0, 1.0);
-            candidate.confidence = crate::services::uncertainty::band_from_score(
-                candidate.confidence_score,
-            );
+            candidate.confidence =
+                crate::services::uncertainty::band_from_score(candidate.confidence_score);
+        }
+        if summary.rejected_not_useful > 0 {
+            let penalty = i64::from(summary.rejected_not_useful.min(3)) * 4;
+            candidate.priority -= penalty;
         }
         if summary.rejected_incorrect > 0 {
             let penalty = i64::from(summary.rejected_incorrect.min(3)) * 8;
             candidate.priority -= penalty;
             candidate.confidence_score = (candidate.confidence_score - 0.22).clamp(0.0, 1.0);
-            candidate.confidence = crate::services::uncertainty::band_from_score(
-                candidate.confidence_score,
-            );
+            candidate.confidence =
+                crate::services::uncertainty::band_from_score(candidate.confidence_score);
         }
         if let Some(context) = candidate.decision_context.as_object_mut() {
             context.insert(
                 "feedback_history".to_string(),
                 serde_json::json!({
                     "accepted_and_policy_changed": summary.accepted_and_policy_changed,
+                    "rejected_not_useful": summary.rejected_not_useful,
                     "rejected_incorrect": summary.rejected_incorrect,
                 }),
             );
@@ -318,7 +326,9 @@ async fn apply_feedback_history(
 
 async fn defer_low_confidence_candidates(
     storage: &Storage,
+    suggestion_policy: &SuggestionPolicies,
     candidates: Vec<SuggestionCandidate>,
+    now_ts: i64,
 ) -> Result<Vec<SuggestionCandidate>, crate::errors::AppError> {
     let mut accepted = Vec::new();
     for candidate in candidates {
@@ -339,6 +349,13 @@ async fn defer_low_confidence_candidates(
             )
             .await?
             .is_none()
+            && !recently_resolved_candidate_uncertainty(
+                storage,
+                suggestion_policy,
+                &candidate,
+                now_ts,
+            )
+            .await?
         {
             storage
                 .insert_uncertainty_record(vel_storage::UncertaintyRecordInsert {
@@ -362,12 +379,40 @@ async fn defer_low_confidence_candidates(
     Ok(accepted)
 }
 
+async fn recently_resolved_candidate_uncertainty(
+    storage: &Storage,
+    suggestion_policy: &SuggestionPolicies,
+    candidate: &SuggestionCandidate,
+    now_ts: i64,
+) -> Result<bool, crate::errors::AppError> {
+    let suppression_cutoff = now_ts - suggestion_policy.suppression_days * 86_400;
+    Ok(storage
+        .find_recent_uncertainty_record(
+            "suggestion_candidate",
+            Some(&candidate.dedupe_key),
+            "suggestion_generation",
+            "resolved",
+            suppression_cutoff,
+        )
+        .await?
+        .is_some())
+}
+
 async fn should_suppress_candidate(
     storage: &Storage,
     suggestion_policy: &SuggestionPolicies,
     candidate: &SuggestionCandidate,
     now_ts: i64,
 ) -> Result<bool, crate::errors::AppError> {
+    let feedback_summary = storage
+        .summarize_suggestion_feedback(&candidate.suggestion_type.to_string())
+        .await?;
+    if feedback_summary.rejected_not_useful >= 2
+        && feedback_summary.rejected_not_useful > feedback_summary.accepted_and_policy_changed
+    {
+        return Ok(true);
+    }
+
     let Some(existing) = storage
         .find_recent_suggestion_by_dedupe_key(&candidate.dedupe_key)
         .await?
@@ -438,10 +483,7 @@ fn candidate_confidence(count: usize, threshold: usize) -> (ConfidenceBand, f64)
         1 => 0.58,
         _ => 0.76,
     };
-    (
-        crate::services::uncertainty::band_from_score(score),
-        score,
-    )
+    (crate::services::uncertainty::band_from_score(score), score)
 }
 
 fn missing_evidence_for_candidate(candidate: &SuggestionCandidate) -> JsonValue {
