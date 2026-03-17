@@ -62,6 +62,27 @@ struct NextCommitmentSummary {
     due_at: Option<i64>,
 }
 
+struct SignalInputs<'a> {
+    has_workstation_activity: bool,
+    calendar_events: Vec<&'a vel_storage::SignalRecord>,
+    message_threads: Vec<&'a vel_storage::SignalRecord>,
+    latest_git_activity: Option<&'a vel_storage::SignalRecord>,
+}
+
+struct DerivedContextState {
+    message_summary: MessageSummary,
+    inference_state: InferenceState,
+    next_commitment: NextCommitmentSummary,
+    active_nudge_ids: Vec<String>,
+    top_risk_commitment_ids: Vec<String>,
+    global_risk: GlobalRiskSummary,
+    signals_used: Vec<String>,
+    commitments_used: Vec<String>,
+    risk_used: Vec<String>,
+    attention: AttentionState,
+    git_activity_summary: Option<GitActivitySummary>,
+}
+
 /// **Recompute-and-persist.** Run inference once: compute morning state, meds status, prep window;
 /// build canonical current context; persist inferred_state and current_context; append to context_timeline on material change.
 /// Returns count of state records written. Only call from evaluate orchestration.
@@ -82,83 +103,136 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         risk_snapshots,
     } = inputs;
 
-    let has_workstation_activity = signals_today.iter().any(|s| {
-        matches!(
-            s.signal_type.as_str(),
-            "vel_invocation" | "shell_login" | "computer_activity" | "git_activity"
-        )
-    });
+    let signal_inputs = collect_signal_inputs(&signals_today);
     let meds_status =
         derive_meds_status(&open_commitments, &medication_commitments, now, &timezone);
     let meds_done_today = meds_status == "done";
     let meds_pending = meds_status == "pending";
-
-    let calendar_events: Vec<_> = signals_today
-        .iter()
-        .filter(|s| s.signal_type == "calendar_event")
-        .collect();
-    let message_threads: Vec<_> = signals_today
-        .iter()
-        .filter(|s| s.signal_type == "message_thread")
-        .collect();
-    let latest_git_activity = signals_today
-        .iter()
-        .filter(|s| s.signal_type == "git_activity")
-        .max_by_key(|s| s.timestamp);
-    let first_event = select_next_event(&calendar_events, now_ts);
+    let first_event = select_next_event(&signal_inputs.calendar_events, now_ts);
     let temporal_windows = derive_temporal_windows(first_event, now_ts, &adaptive_overrides);
+    let derived = derive_context_state(
+        &signal_inputs,
+        &signals_today,
+        &open_commitments,
+        &active_nudges,
+        &snoozed_nudges,
+        &risk_snapshots,
+        meds_done_today,
+        meds_pending,
+        first_event.is_some(),
+        &temporal_windows,
+        now_ts,
+    );
 
-    let recent_git_summary = latest_git_activity
+    let context = build_current_context(
+        now_ts,
+        derived.inference_state.mode,
+        derived.inference_state.morning_state,
+        derived.inference_state.inferred_activity,
+        derived.next_commitment.id,
+        derived.next_commitment.due_at,
+        meds_status,
+        &derived.active_nudge_ids,
+        &derived.top_risk_commitment_ids,
+        &derived.global_risk,
+        &derived.signals_used,
+        &derived.commitments_used,
+        &derived.risk_used,
+        &derived.attention,
+        derived.git_activity_summary.as_ref(),
+        &derived.message_summary,
+        &temporal_windows,
+    );
+
+    persist_inference_outputs(
+        storage,
+        now_ts,
+        derived.inference_state.morning_state,
+        &context,
+    )
+    .await?;
+
+    Ok(1)
+}
+
+fn collect_signal_inputs(signals_today: &[vel_storage::SignalRecord]) -> SignalInputs<'_> {
+    SignalInputs {
+        has_workstation_activity: signals_today.iter().any(|signal| {
+            matches!(
+                signal.signal_type.as_str(),
+                "vel_invocation" | "shell_login" | "computer_activity" | "git_activity"
+            )
+        }),
+        calendar_events: signals_today
+            .iter()
+            .filter(|signal| signal.signal_type == "calendar_event")
+            .collect(),
+        message_threads: signals_today
+            .iter()
+            .filter(|signal| signal.signal_type == "message_thread")
+            .collect(),
+        latest_git_activity: signals_today
+            .iter()
+            .filter(|signal| signal.signal_type == "git_activity")
+            .max_by_key(|signal| signal.timestamp),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn derive_context_state(
+    signal_inputs: &SignalInputs<'_>,
+    signals_today: &[vel_storage::SignalRecord],
+    open_commitments: &[vel_core::Commitment],
+    active_nudges: &[vel_storage::NudgeRecord],
+    snoozed_nudges: &[vel_storage::NudgeRecord],
+    risk_snapshots: &[RiskSnapshot],
+    meds_done_today: bool,
+    meds_pending: bool,
+    has_next_event: bool,
+    temporal_windows: &TemporalWindows,
+    now_ts: i64,
+) -> DerivedContextState {
+    let recent_git_summary = signal_inputs
+        .latest_git_activity
         .and_then(build_git_activity_summary)
         .filter(|summary| now_ts - summary.timestamp <= RECENT_GIT_ACTIVITY_WINDOW_SECS);
-    let git_activity_summary = latest_git_activity.and_then(build_git_activity_summary);
-    let message_summary = derive_message_summary(&message_threads);
     let inference_state = derive_inference_state(
-        has_workstation_activity,
+        signal_inputs.has_workstation_activity,
         meds_done_today,
-        first_event.is_some(),
+        has_next_event,
         temporal_windows.prep_window_active,
         temporal_windows.commute_window_active,
         recent_git_summary.is_some(),
     );
 
-    let next_commitment = summarize_next_commitment(&open_commitments, &risk_snapshots);
-    let active_nudge_ids = collect_active_nudge_ids(&active_nudges, &snoozed_nudges);
-    let (top_risk_commitment_ids, risk_used) = summarize_risk_usage(&risk_snapshots);
-    let global_risk = derive_global_risk_summary(&risk_snapshots);
-
-    let signals_used = collect_signals_used(&signals_today);
-    let commitments_used = collect_commitments_used(&open_commitments);
-
+    let message_summary = derive_message_summary(&signal_inputs.message_threads);
+    let next_commitment = summarize_next_commitment(open_commitments, risk_snapshots);
+    let active_nudge_ids = collect_active_nudge_ids(active_nudges, snoozed_nudges);
+    let (top_risk_commitment_ids, risk_used) = summarize_risk_usage(risk_snapshots);
+    let global_risk = derive_global_risk_summary(risk_snapshots);
+    let signals_used = collect_signals_used(signals_today);
+    let commitments_used = collect_commitments_used(open_commitments);
     let attention = derive_attention_state(
         inference_state.morning_state,
         temporal_windows.prep_window_active,
         meds_pending,
     );
 
-    let context = build_current_context(
-        now_ts,
-        inference_state.mode,
-        inference_state.morning_state,
-        inference_state.inferred_activity,
-        next_commitment.id,
-        next_commitment.due_at,
-        meds_status,
-        &active_nudge_ids,
-        &top_risk_commitment_ids,
-        &global_risk,
-        &signals_used,
-        &commitments_used,
-        &risk_used,
-        &attention,
-        git_activity_summary.as_ref(),
-        &message_summary,
-        &temporal_windows,
-    );
-
-    persist_inference_outputs(storage, now_ts, inference_state.morning_state, &context).await?;
-
-    Ok(1)
+    DerivedContextState {
+        message_summary,
+        inference_state,
+        next_commitment,
+        active_nudge_ids,
+        top_risk_commitment_ids,
+        global_risk,
+        signals_used,
+        commitments_used,
+        risk_used,
+        attention,
+        git_activity_summary: signal_inputs
+            .latest_git_activity
+            .and_then(build_git_activity_summary),
+    }
 }
 
 fn summarize_next_commitment(
@@ -957,6 +1031,31 @@ mod tests {
     }
 
     #[test]
+    fn collect_signal_inputs_partitions_calendar_messages_and_git_activity() {
+        let now_ts = 1_700_000_000;
+        let signals = vec![
+            test_signal("sig_work", "computer_activity", now_ts - 300),
+            test_signal("sig_calendar", "calendar_event", now_ts + 600),
+            test_signal("sig_thread", "message_thread", now_ts - 120),
+            test_signal("sig_git_old", "git_activity", now_ts - 600),
+            test_signal("sig_git_new", "git_activity", now_ts - 60),
+        ];
+
+        let inputs = collect_signal_inputs(&signals);
+
+        assert!(inputs.has_workstation_activity);
+        assert_eq!(inputs.calendar_events.len(), 1);
+        assert_eq!(inputs.message_threads.len(), 1);
+        assert_eq!(
+            inputs
+                .latest_git_activity
+                .expect("latest git signal")
+                .signal_id,
+            "sig_git_new"
+        );
+    }
+
+    #[test]
     fn select_next_commitment_is_not_insertion_order_based() {
         let now_ts = 1_700_000_000;
         let commitments = vec![
@@ -1170,5 +1269,59 @@ mod tests {
         assert_eq!(state.morning_state, "at_risk");
         assert_eq!(state.mode, "meeting_mode");
         assert_eq!(state.inferred_activity, "unknown");
+    }
+
+    #[test]
+    fn derive_context_state_keeps_recent_git_activity_and_next_commitment() {
+        let now_ts = OffsetDateTime::now_utc().unix_timestamp();
+        let signals = vec![SignalRecord {
+            signal_id: "sig_git".to_string(),
+            signal_type: "git_activity".to_string(),
+            source: "test".to_string(),
+            source_ref: None,
+            timestamp: now_ts - 60,
+            payload_json: json!({
+                "repo_name": "vel",
+                "branch": "main",
+            }),
+            created_at: now_ts - 60,
+        }];
+        let signal_inputs = collect_signal_inputs(&signals);
+        let commitments = vec![test_commitment(
+            "com_soon",
+            Some(now_ts + 900),
+            Some("todo"),
+        )];
+        let temporal_windows = TemporalWindows {
+            prep_window_active: false,
+            commute_window_active: false,
+            leave_by_ts: None,
+            next_event_start_ts: None,
+        };
+
+        let derived = derive_context_state(
+            &signal_inputs,
+            &signals,
+            &commitments,
+            &[],
+            &[],
+            &[],
+            false,
+            false,
+            false,
+            &temporal_windows,
+            now_ts,
+        );
+
+        assert_eq!(derived.inference_state.inferred_activity, "coding");
+        assert_eq!(derived.next_commitment.id.as_deref(), Some("com_soon"));
+        assert_eq!(
+            derived
+                .git_activity_summary
+                .as_ref()
+                .expect("git activity summary")
+                .repo,
+            "vel"
+        );
     }
 }
