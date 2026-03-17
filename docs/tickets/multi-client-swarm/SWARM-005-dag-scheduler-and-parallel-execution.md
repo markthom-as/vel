@@ -1,0 +1,32 @@
+---
+id: SWARM-005
+title: Implement DAG scheduler and bounded parallel execution
+status: open
+owner: agent
+priority: p1
+area: swarm/scheduler
+depends_on: [SWARM-001, SWARM-004]
+---
+
+# Goal
+
+Implement the swarm scheduler that can fan out independent work units in parallel while respecting dependencies, budgets, and side-effect policy.
+
+# Tasks
+
+1. Build a DAG-aware scheduler that releases work units only when dependencies are satisfied.
+2. Enforce per-task and per-work-unit budgets for time, concurrency, tools, and side effects.
+3. Support safe parallel fan-out for retrieval and independent analysis branches.
+4. Add cancellation, waiting, timeout, and expiry handling across work-unit trees.
+
+# Acceptance Criteria
+
+- Independent work units run in parallel.
+- Dependency-unsafe or conflicting writes remain serialized.
+- Budget violations are rejected before runaway execution.
+- Scheduler state is durable enough to survive restart or replay.
+
+# Spec reference
+
+- [docs/specs/vel-multi-client-swarm-spec.md](../../specs/vel-multi-client-swarm-spec.md) — Dependency Graph, Parallel Execution Rules, Budget Model
+- [docs/specs/vel-agent-runtime-spec.md](../../specs/vel-agent-runtime-spec.md) — Agent Lifecycle, Runtime Budgets

@@ -7,7 +7,7 @@ Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel da
 - **VelWatch** — Apple Watch: brief “what matters now” and nudge count.
 - **VelMac** — macOS: context, nudges, done/snooze (sidebar layout).
 
-Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-client-spec.md), [vel-rust-swift-boundary-spec](../../docs/specs/vel-rust-swift-boundary-spec.md) (Rust = brain, Swift = body; API-first). Repo guidance: [docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md](../../docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md) (Apple clients in same repo, under `clients/apple/`).
+Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-client-spec.md), [vel-rust-swift-boundary-spec](../../docs/specs/vel-rust-swift-boundary-spec.md) (Rust = brain, Swift = body; API-first), [vel-apple-offline-mode-spec](../../docs/specs/vel-apple-offline-mode-spec.md) (cache + action queue + stale-aware offline mode). Repo guidance: [docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md](../../docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md) (Apple clients in same repo, under `clients/apple/`).
 
 ## Prerequisites
 
@@ -91,5 +91,6 @@ VelAPI can be extended with more endpoints (commitments, captures, explain, risk
 ## Design notes
 
 - **One brain**: All logic (inference, risk, nudges) lives in veld; clients only display and send actions.
+- **Offline mode**: Apple clients should degrade to local cache + queued actions, not local policy or inference forks.
 - **Calm, analytical**: Spec calls for non-chirpy, non-preachy tone; Watch stays ultra-brief.
 - **Same repo**: Apple clients live here (not a separate repo) until the core API and release cadence are stable.

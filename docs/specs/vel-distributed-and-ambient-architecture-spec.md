@@ -4,6 +4,11 @@ Status: Canonical distributed / ambient architecture specification
 Audience: coding agent implementing Vel  
 Purpose: define how VELD, CLI, mobile/watch clients, desktop voice, and future edge/browser clients relate to one another across online, offline, and handoff scenarios
 
+Related detailed sync/runtime specs:
+
+- `docs/specs/vel-cluster-sync-spec.md` — concrete cluster-aware sync contract, authority epochs, Tailscale-first routing, swarm worker sync
+- `docs/specs/vel-multi-client-swarm-spec.md` — supervised parallel work across clients/workers, load balancing, integration rules
+
 ---
 
 # 1. Purpose
@@ -438,6 +443,10 @@ Use it for:
 - secure connectivity
 - stable hostnames via MagicDNS where available
 - private service access across desktop/NAS/VPS/devices
+
+For the concrete sync contract that treats Tailscale as a first-class cluster transport, see:
+
+- `docs/specs/vel-cluster-sync-spec.md`
 
 ## 15.2 But not a hard dependency
 Vel should still work locally without Tailscale.
