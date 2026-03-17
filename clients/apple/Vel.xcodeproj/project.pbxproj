@@ -8,8 +8,11 @@
 
 /* Begin PBXFileReference section */
 		A1B2C3D40000000100000001 /* VeliOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VeliOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D40000000100000002 /* VelWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VelWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D40000000200000001 /* VelApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelApp.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000200000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A1B2C3D40000000200000003 /* VelWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelWatchApp.swift; sourceTree = "<group>"; };
+		A1B2C3D40000000200000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -18,6 +21,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D40000000400000001 /* VelAPI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D40000000300000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D40000000400000002 /* VelAPI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -36,6 +47,7 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D40000000500000004 /* VeliOS */,
+				A1B2C3D40000000500000005 /* VelWatch */,
 			);
 			path = Apps;
 			sourceTree = "<group>";
@@ -44,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D40000000100000001 /* VeliOS.app */,
+				A1B2C3D40000000100000002 /* VelWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,6 +68,15 @@
 				A1B2C3D40000000200000002 /* ContentView.swift */,
 			);
 			path = VeliOS;
+			sourceTree = "<group>";
+		};
+		A1B2C3D40000000500000005 /* VelWatch */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D40000000200000003 /* VelWatchApp.swift */,
+				A1B2C3D40000000200000004 /* ContentView.swift */,
+			);
+			path = VelWatch;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -79,6 +101,26 @@
 			productName = VeliOS;
 			productReference = A1B2C3D40000000100000001 /* VeliOS.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A1B2C3D40000000600000002 /* VelWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B2C3D40000000700000002 /* Build configuration list for PBXNativeTarget "VelWatch" */;
+			buildPhases = (
+				A1B2C3D40000000800000002 /* Sources */,
+				A1B2C3D40000000300000002 /* Frameworks */,
+				A1B2C3D40000000900000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VelWatch;
+			packageProductDependencies = (
+				A1B2C3D40000000A00000002 /* VelAPI */,
+			);
+			productName = VelWatch;
+			productReference = A1B2C3D40000000100000002 /* VelWatch.app */;
+			productType = "com.apple.product-type.application.watchapp2";
 		};
 /* End PBXNativeTarget section */
 
@@ -107,12 +149,20 @@
 			projectRoot = "";
 			targets = (
 				A1B2C3D40000000600000001 /* VeliOS */,
+				A1B2C3D40000000600000002 /* VelWatch */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		A1B2C3D40000000900000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D40000000900000002 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -128,6 +178,15 @@
 			files = (
 				A1B2C3D40000000E00000001 /* VelApp.swift in Sources */,
 				A1B2C3D40000000E00000002 /* ContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D40000000800000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D40000000E00000003 /* VelWatchApp.swift in Sources */,
+				A1B2C3D40000000E00000004 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -232,6 +291,46 @@
 			};
 			name = Release;
 		};
+		A1B2C3D40000000F00000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_WKApplication = YES;
+				LD_RUNPATH = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VelWatch;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Debug;
+		};
+		A1B2C3D40000000F00000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_WKApplication = YES;
+				LD_RUNPATH = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VelWatch;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -240,6 +339,15 @@
 			buildConfigurations = (
 				A1B2C3D40000000F00000003 /* Debug */,
 				A1B2C3D40000000F00000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B2C3D40000000700000002 /* Build configuration list for PBXNativeTarget "VelWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D40000000F00000005 /* Debug */,
+				A1B2C3D40000000F00000006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -268,12 +376,21 @@
 			package = A1B2C3D40000000D00000001 /* XCLocalSwiftPackageReference "VelAPI" */;
 			productName = VelAPI;
 		};
+		A1B2C3D40000000A00000002 /* VelAPI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D40000000D00000001 /* XCLocalSwiftPackageReference "VelAPI" */;
+			productName = VelAPI;
+		};
 /* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXBuildFile section */
 		A1B2C3D40000000400000001 /* VelAPI in Frameworks */ = {
 			isa = PBXBuildFile;
 			productRef = A1B2C3D40000000A00000001 /* VelAPI */;
+		};
+		A1B2C3D40000000400000002 /* VelAPI in Frameworks */ = {
+			isa = PBXBuildFile;
+			productRef = A1B2C3D40000000A00000002 /* VelAPI */;
 		};
 		A1B2C3D40000000E00000001 /* VelApp.swift in Sources */ = {
 			isa = PBXBuildFile;
@@ -283,6 +400,16 @@
 		A1B2C3D40000000E00000002 /* ContentView.swift in Sources */ = {
 			isa = PBXBuildFile;
 			fileRef = A1B2C3D40000000200000002 /* ContentView.swift */;
+			settings = {ATTRIBUTES = (); };
+		};
+		A1B2C3D40000000E00000003 /* VelWatchApp.swift in Sources */ = {
+			isa = PBXBuildFile;
+			fileRef = A1B2C3D40000000200000003 /* VelWatchApp.swift */;
+			settings = {ATTRIBUTES = (); };
+		};
+		A1B2C3D40000000E00000004 /* ContentView.swift in Sources */ = {
+			isa = PBXBuildFile;
+			fileRef = A1B2C3D40000000200000004 /* ContentView.swift */;
 			settings = {ATTRIBUTES = (); };
 		};
 /* End PBXBuildFile section */

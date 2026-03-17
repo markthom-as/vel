@@ -1,7 +1,7 @@
 # Vel — top-level build and dev
 # veld binds 127.0.0.1:4130 by default; web client uses VITE_API_URL (default http://localhost:4130).
 
-.PHONY: build build-api build-web clean dev dev-api dev-web download-chat-model check-llm-setup check-apple-swift apple-open apple-setup-simulator apple-build-ios-sim apple-run-ios-sim apple-build apple-run apple-test install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data container-build container-up container-down container-config docker-build docker-up docker-down podman-build podman-up podman-down nix-shell-info nix-dev-api nix-build
+.PHONY: build build-api build-web clean dev dev-api dev-web download-chat-model check-llm-setup check-apple-swift apple-open apple-setup-simulator apple-build-ios-sim apple-run-ios-sim apple-build apple-run apple-build-ios-device apple-install-ios-device apple-build-watch-device apple-install-watch-device apple-list-devices apple-test install-web lint-web seed smoke test test-api test-web verify verify-repo-truth ci fmt-check clippy-check bootstrap-demo-data container-build container-up container-down container-config docker-build docker-up docker-down podman-build podman-up podman-down nix-shell-info nix-dev-api nix-build
 
 build: build-api build-web
 
@@ -69,6 +69,21 @@ apple-run-ios-sim:
 apple-build: apple-build-ios-sim
 
 apple-run: apple-run-ios-sim
+
+apple-build-ios-device:
+	@bash scripts/apple-build-ios-device.sh
+
+apple-install-ios-device:
+	@bash scripts/apple-install-ios-device.sh
+
+apple-build-watch-device:
+	@bash scripts/apple-build-watch-device.sh
+
+apple-install-watch-device:
+	@bash scripts/apple-install-watch-device.sh
+
+apple-list-devices:
+	@xcrun devicectl list devices
 
 apple-test: check-apple-swift
 

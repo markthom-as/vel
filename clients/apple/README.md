@@ -13,6 +13,7 @@ Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-cl
 
 - Xcode 15+ (Swift 5.9)
 - **veld** running (e.g. `veld` in the repo root, or `cargo run -p veld`). Default bind address: `127.0.0.1:4130` (base URL `http://127.0.0.1:4130`).
+- For Apple Watch builds, ensure watchOS platform/runtime is installed in Xcode (Settings -> Components).
 
 On Linux or any host without Xcode, the repo Nix shell now includes the Swift toolchain for package-level checks:
 
@@ -45,6 +46,52 @@ The build script selects the first available iPhone simulator automatically. To 
 ```bash
 APPLE_SIM_DEVICE_ID=<sim-udid> make apple-build
 ```
+
+## Personal device distribution path (iPhone, iPad, Apple Watch)
+
+For installing on your own hardware, use signed device builds plus `devicectl` install.
+
+1. Set your signing team (paid or free Apple ID team both work for personal installs):
+
+```bash
+export APPLE_DEVELOPMENT_TEAM=<your-team-id>
+```
+
+2. List connected devices and copy UDIDs:
+
+```bash
+make apple-list-devices
+```
+
+3. Build/install on iPhone or iPad (same `VeliOS` target supports both):
+
+```bash
+export APPLE_DEVICE_ID=<iphone-or-ipad-udid>
+make apple-build-ios-device
+make apple-install-ios-device
+```
+
+Optional iOS bundle identifier override (useful for personal-team signing uniqueness):
+
+```bash
+export APPLE_IOS_BUNDLE_ID=vel.VeliOS.personal
+```
+
+4. Build/install on Apple Watch:
+
+```bash
+export APPLE_WATCH_DEVICE_ID=<watch-udid>
+make apple-build-watch-device
+make apple-install-watch-device
+```
+
+Optional watch bundle identifier override:
+
+```bash
+export APPLE_WATCH_BUNDLE_ID=vel.VelWatch.personal
+```
+
+If device install fails on first attempt, open `clients/apple/Vel.xcodeproj` in Xcode once, select each target (`VeliOS`, `VelWatch`), and confirm Signing uses your team.
 
 ## Endpoint resolution
 
@@ -131,6 +178,15 @@ CLI build path (iOS simulator):
 ```bash
 make apple-build
 make apple-run
+```
+
+CLI build/install path (physical devices):
+
+```bash
+make apple-build-ios-device
+make apple-install-ios-device
+make apple-build-watch-device
+make apple-install-watch-device
 ```
 
 Ensure veld is running so the apps can reach the API (e.g. `cargo run -p veld` in the repo root).

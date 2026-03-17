@@ -37,6 +37,11 @@ This file defines durable rules for work under `clients/apple`.
 - `make apple-setup-simulator`: run first-launch setup and ensure iOS simulator runtime exists.
 - `make apple-build`: build `VeliOS` for the first available iPhone simulator.
 - `make apple-run`: build, install, and launch `VeliOS` in Simulator.
+- `make apple-list-devices`: list connected physical Apple devices known to `devicectl`.
+- `make apple-build-ios-device`: signed build for physical iPhone/iPad (`APPLE_DEVELOPMENT_TEAM` and optional `APPLE_IOS_BUNDLE_ID`).
+- `make apple-install-ios-device`: install/launch iOS build on a physical iPhone/iPad (`APPLE_DEVICE_ID`).
+- `make apple-build-watch-device`: signed build for physical Apple Watch (`APPLE_DEVELOPMENT_TEAM` and optional `APPLE_WATCH_BUNDLE_ID`).
+- `make apple-install-watch-device`: install/launch watch build on a physical Apple Watch (`APPLE_WATCH_DEVICE_ID`).
 - `make apple-open`: open `clients/apple/Vel.xcodeproj` in Xcode.
 
 Override defaults when needed:

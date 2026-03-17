@@ -312,10 +312,33 @@ private struct VoiceTab: View {
                 }
                 .buttonStyle(.plain)
 
-                if !voiceModel.transcript.isEmpty {
-                    Text(voiceModel.transcript)
-                        .font(.body)
-                        .padding(.vertical, 4)
+                if voiceModel.hasTranscript {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Transcript")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                        TextEditor(
+                            text: Binding(
+                                get: { voiceModel.transcript },
+                                set: { voiceModel.updateTranscript($0) }
+                            )
+                        )
+                        .frame(minHeight: 110)
+
+                        HStack {
+                            Button("Clear transcript") {
+                                voiceModel.clearTranscript()
+                            }
+                            .buttonStyle(.bordered)
+
+                            Spacer()
+
+                            Text("\(voiceModel.transcript.count) chars")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
                 } else {
                     Text("Tap to record a quick thought or command fragment.")
                         .font(.caption)
@@ -347,29 +370,49 @@ private struct VoiceTab: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Button("Submit suggested action") {
+                Button(voiceModel.suggestedIntent.submitButtonLabel) {
                     Task { await voiceModel.submitSuggested(using: store) }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(voiceModel.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(!voiceModel.hasTranscript)
 
                 HStack {
                     Button("Save as capture") {
                         Task { await voiceModel.submitAsCapture(using: store) }
                     }
                     .buttonStyle(.bordered)
-                    .disabled(voiceModel.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!voiceModel.hasTranscript)
 
                     Button("Create commitment") {
                         Task { await voiceModel.submitAsCommitment(using: store) }
                     }
                     .buttonStyle(.bordered)
-                    .disabled(voiceModel.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!voiceModel.hasTranscript)
                 }
 
                 Text("Voice submissions always preserve transcript provenance as a voice capture in Vel.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+            }
+
+            Section("Response") {
+                if let response = voiceModel.latestResponse {
+                    Text(response.summary)
+                        .font(.body)
+                    if let detail = response.detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Button("Speak response") {
+                        voiceModel.speakLatestResponse()
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    Text("Run a voice query like “what matters now?” or “why now?” to get an immediate response.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("Recent voice entries") {
@@ -587,6 +630,10 @@ private struct VoiceIntent: Codable, Equatable {
         case commitmentCreate = "commitment_create"
         case nudgeDone = "nudge_done"
         case nudgeSnooze = "nudge_snooze"
+        case queryContext = "query_context"
+        case queryNextCommitment = "query_next_commitment"
+        case queryNudges = "query_nudges"
+        case explainContext = "explain_context"
     }
 
     let kind: Kind
@@ -595,6 +642,10 @@ private struct VoiceIntent: Codable, Equatable {
     static let capture = VoiceIntent(kind: .captureCreate, minutes: nil)
     static let commitment = VoiceIntent(kind: .commitmentCreate, minutes: nil)
     static let nudgeDone = VoiceIntent(kind: .nudgeDone, minutes: nil)
+    static let queryContext = VoiceIntent(kind: .queryContext, minutes: nil)
+    static let queryNextCommitment = VoiceIntent(kind: .queryNextCommitment, minutes: nil)
+    static let queryNudges = VoiceIntent(kind: .queryNudges, minutes: nil)
+    static let explainContext = VoiceIntent(kind: .explainContext, minutes: nil)
     static func nudgeSnooze(_ minutes: Int) -> VoiceIntent {
         VoiceIntent(kind: .nudgeSnooze, minutes: minutes)
     }
@@ -609,6 +660,14 @@ private struct VoiceIntent: Codable, Equatable {
             return "Resolve top nudge"
         case .nudgeSnooze:
             return "Snooze top nudge (\(minutes ?? 10)m)"
+        case .queryContext:
+            return "Query current context"
+        case .queryNextCommitment:
+            return "Query next commitment"
+        case .queryNudges:
+            return "Query active nudges"
+        case .explainContext:
+            return "Explain why now"
         }
     }
 
@@ -622,11 +681,32 @@ private struct VoiceIntent: Codable, Equatable {
             return "nudge_done"
         case .nudgeSnooze:
             return "nudge_snooze_\(minutes ?? 10)m"
+        case .queryContext:
+            return "query_context"
+        case .queryNextCommitment:
+            return "query_next_commitment"
+        case .queryNudges:
+            return "query_nudges"
+        case .explainContext:
+            return "explain_context"
         }
     }
 
     var requiresNudgeTarget: Bool {
         kind == .nudgeDone || kind == .nudgeSnooze
+    }
+
+    var isQuery: Bool {
+        switch kind {
+        case .queryContext, .queryNextCommitment, .queryNudges, .explainContext:
+            return true
+        case .captureCreate, .commitmentCreate, .nudgeDone, .nudgeSnooze:
+            return false
+        }
+    }
+
+    var submitButtonLabel: String {
+        isQuery ? "Run query" : "Submit suggested action"
     }
 }
 
@@ -636,35 +716,87 @@ private struct VoiceIntentSuggestion {
 }
 
 private enum VoiceIntentParser {
+    private static let commitmentPrefixes = [
+        "todo",
+        "to do",
+        "task",
+        "remind me to",
+        "remember to",
+        "i need to",
+        "follow up",
+        "follow-up",
+        "next action",
+        "add commitment"
+    ]
+
+    private static let capturePrefixes = [
+        "capture",
+        "note",
+        "idea",
+        "memo",
+        "log this"
+    ]
+
+    private static let minuteWords: [String: Int] = [
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "ten": 10,
+        "fifteen": 15,
+        "twenty": 20,
+        "thirty": 30,
+        "forty": 40,
+        "fortyfive": 45,
+        "forty-five": 45,
+        "fifty": 50,
+        "sixty": 60
+    ]
+
     static func suggest(for transcript: String) -> VoiceIntentSuggestion {
         let clean = cleanedTranscript(transcript)
+        guard !clean.isEmpty else {
+            return VoiceIntentSuggestion(intent: .capture, cleanedText: clean)
+        }
+
         let normalized = clean.lowercased()
 
-        if normalized.contains("snooze") && (normalized.contains("nudge") || normalized.contains("reminder")) {
+        if isContextQuery(normalized) {
+            return VoiceIntentSuggestion(intent: .queryContext, cleanedText: clean)
+        }
+
+        if isNextCommitmentQuery(normalized) {
+            return VoiceIntentSuggestion(intent: .queryNextCommitment, cleanedText: clean)
+        }
+
+        if isNudgesQuery(normalized) {
+            return VoiceIntentSuggestion(intent: .queryNudges, cleanedText: clean)
+        }
+
+        if isExplainQuery(normalized) {
+            return VoiceIntentSuggestion(intent: .explainContext, cleanedText: clean)
+        }
+
+        if normalized.contains("snooze") {
             return VoiceIntentSuggestion(intent: .nudgeSnooze(extractMinutes(from: normalized) ?? 10), cleanedText: clean)
         }
 
-        if normalized.contains("mark done") || normalized.contains("resolve nudge") || normalized.contains("done reminder") {
+        if isNudgeDoneCommand(normalized) {
             return VoiceIntentSuggestion(intent: .nudgeDone, cleanedText: clean)
         }
 
-        let commitmentPrefixes = [
-            "todo",
-            "to do",
-            "task",
-            "remind me to",
-            "remember to",
-            "i need to",
-            "follow up",
-            "follow-up",
-            "next action"
-        ]
         if commitmentPrefixes.contains(where: { normalized.contains($0) }) {
             let stripped = stripCommitmentPreamble(from: clean)
             return VoiceIntentSuggestion(intent: .commitment, cleanedText: stripped.isEmpty ? clean : stripped)
         }
 
-        return VoiceIntentSuggestion(intent: .capture, cleanedText: clean)
+        let strippedCapture = stripCapturePreamble(from: clean)
+        return VoiceIntentSuggestion(intent: .capture, cleanedText: strippedCapture.isEmpty ? clean : strippedCapture)
     }
 
     private static func cleanedTranscript(_ transcript: String) -> String {
@@ -672,19 +804,8 @@ private enum VoiceIntentParser {
     }
 
     private static func stripCommitmentPreamble(from transcript: String) -> String {
-        let prefixes = [
-            "todo",
-            "to do",
-            "task",
-            "remind me to",
-            "remember to",
-            "i need to",
-            "follow up to",
-            "follow-up to",
-            "next action"
-        ]
         let lowercased = transcript.lowercased()
-        for prefix in prefixes {
+        for prefix in commitmentPrefixes {
             if lowercased.hasPrefix(prefix) {
                 let index = transcript.index(transcript.startIndex, offsetBy: prefix.count)
                 return transcript[index...].trimmingCharacters(in: CharacterSet(charactersIn: ": -").union(.whitespacesAndNewlines))
@@ -693,12 +814,92 @@ private enum VoiceIntentParser {
         return transcript
     }
 
+    private static func stripCapturePreamble(from transcript: String) -> String {
+        let lowercased = transcript.lowercased()
+        for prefix in capturePrefixes {
+            if lowercased.hasPrefix(prefix) {
+                let index = transcript.index(transcript.startIndex, offsetBy: prefix.count)
+                return transcript[index...].trimmingCharacters(in: CharacterSet(charactersIn: ": -").union(.whitespacesAndNewlines))
+            }
+        }
+        return transcript
+    }
+
+    private static func isContextQuery(_ text: String) -> Bool {
+        [
+            "what matters",
+            "what do i need",
+            "what should i do right now",
+            "current context",
+            "status right now"
+        ].contains(where: { text.contains($0) })
+    }
+
+    private static func isNextCommitmentQuery(_ text: String) -> Bool {
+        [
+            "what's next",
+            "what is next",
+            "next commitment",
+            "next task",
+            "what do i have next"
+        ].contains(where: { text.contains($0) })
+    }
+
+    private static func isNudgesQuery(_ text: String) -> Bool {
+        [
+            "active nudges",
+            "active reminders",
+            "my nudges",
+            "my reminders",
+            "what are my nudges"
+        ].contains(where: { text.contains($0) })
+    }
+
+    private static func isExplainQuery(_ text: String) -> Bool {
+        if text.contains("what changed") {
+            return true
+        }
+        if text.contains("why") && (text.contains("risk") || text.contains("warning") || text.contains("nudge") || text.contains("now")) {
+            return true
+        }
+        return false
+    }
+
+    private static func isNudgeDoneCommand(_ text: String) -> Bool {
+        if text == "done" {
+            return true
+        }
+        if text.contains("mark done") || text.contains("resolve nudge") || text.contains("done reminder") {
+            return true
+        }
+        if text.contains("done") && (text.contains("nudge") || text.contains("reminder") || text.contains("that")) {
+            return true
+        }
+        return false
+    }
+
     private static func extractMinutes(from text: String) -> Int? {
         let parts = text.split(whereSeparator: { !$0.isNumber })
         for part in parts {
             if let value = Int(part), (1...180).contains(value) {
                 return value
             }
+        }
+
+        let tokens = text
+            .split(whereSeparator: { !$0.isLetter && $0 != "-" })
+            .map { String($0) }
+        for token in tokens {
+            if let value = minuteWords[token], (1...180).contains(value) {
+                return value
+            }
+        }
+
+        if text.contains("half hour") || text.contains("half an hour") {
+            return 30
+        }
+        if text.contains("quarter hour") {
+            return 15
         }
         return nil
     }
@@ -713,6 +914,11 @@ private struct VoiceCaptureEntry: Codable, Identifiable {
     let status: String
 }
 
+private struct VoiceResponse {
+    let summary: String
+    let detail: String?
+}
+
 @MainActor
 private final class VoiceCaptureModel: NSObject, ObservableObject {
     @Published var speechPermission: VoicePermissionState = .unknown
@@ -723,13 +929,19 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
     @Published var suggestedIntent: VoiceIntent = .capture
     @Published var suggestedText = ""
     @Published var history: [VoiceCaptureEntry] = []
+    @Published var latestResponse: VoiceResponse?
 
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en_US"))
+    private let speechSynthesizer = AVSpeechSynthesizer()
     private let audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let historyKey = "vel.voice.capture.history.v1"
     private var didSaveCurrentSession = false
+
+    var hasTranscript: Bool {
+        !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     override init() {
         super.init()
@@ -756,6 +968,32 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
 
         speechPermission = Self.mapSpeechPermission(speechStatus)
         microphonePermission = micGranted ? .granted : .denied
+    }
+
+    func updateTranscript(_ value: String) {
+        transcript = value
+        let suggestion = VoiceIntentParser.suggest(for: value)
+        suggestedIntent = suggestion.intent
+        suggestedText = suggestion.cleanedText
+    }
+
+    func clearTranscript() {
+        transcript = ""
+        suggestedText = ""
+        suggestedIntent = .capture
+        errorMessage = nil
+    }
+
+    func speakLatestResponse() {
+        guard let latestResponse else { return }
+        let parts = [latestResponse.summary, latestResponse.detail].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let text = parts.joined(separator: " ")
+        guard !text.isEmpty else { return }
+        speechSynthesizer.stopSpeaking(at: .immediate)
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
+        speechSynthesizer.speak(utterance)
     }
 
     func toggleRecording() async {
@@ -792,7 +1030,9 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         transcript = ""
         suggestedIntent = .capture
         suggestedText = ""
+        latestResponse = nil
         didSaveCurrentSession = false
+        speechSynthesizer.stopSpeaking(at: .immediate)
 
         if speechPermission == .unknown || microphonePermission == .unknown {
             await requestPermissions()
@@ -838,10 +1078,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 Task { @MainActor in
                     if let result {
                         let text = result.bestTranscription.formattedString
-                        self.transcript = text
-                        let suggestion = VoiceIntentParser.suggest(for: text)
-                        self.suggestedIntent = suggestion.intent
-                        self.suggestedText = suggestion.cleanedText
+                        self.updateTranscript(text)
                         if result.isFinal {
                             self.stopRecording(saveEntry: true)
                         }
@@ -897,39 +1134,254 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         )
 
         var committedIntent: VoiceIntent?
+        var historyStatus = historyStatus(for: intent, isReachable: store.isReachable)
         switch intent.kind {
         case .captureCreate:
             committedIntent = .capture
+            setResponse(
+                summary: store.isReachable ? "Saved voice capture." : "Voice capture queued for sync.",
+                detail: primaryText
+            )
         case .commitmentCreate:
             await store.createCommitment(text: primaryText)
             committedIntent = .commitment
+            setResponse(
+                summary: store.isReachable ? "Created commitment." : "Commitment queued for sync.",
+                detail: primaryText
+            )
         case .nudgeDone:
             if let nudgeID = firstActionableNudgeID(from: store.nudges) {
                 await store.markNudgeDone(id: nudgeID)
                 committedIntent = .nudgeDone
+                setResponse(
+                    summary: store.isReachable ? "Resolved top nudge." : "Top nudge resolution queued.",
+                    detail: nil
+                )
             } else {
                 errorMessage = "No active nudge found. Saved as capture only."
+                historyStatus = "capture_only"
+                setResponse(
+                    summary: "No active nudge found.",
+                    detail: "Saved transcript as capture provenance only."
+                )
             }
         case .nudgeSnooze:
             let minutes = intent.minutes ?? 10
             if let nudgeID = firstActionableNudgeID(from: store.nudges) {
                 await store.snoozeNudge(id: nudgeID, minutes: minutes)
                 committedIntent = .nudgeSnooze(minutes)
+                setResponse(
+                    summary: store.isReachable ? "Snoozed top nudge \(minutes) minutes." : "Top nudge snooze queued for \(minutes) minutes.",
+                    detail: nil
+                )
             } else {
                 errorMessage = "No active nudge found. Saved as capture only."
+                historyStatus = "capture_only"
+                setResponse(
+                    summary: "No active nudge found.",
+                    detail: "Saved transcript as capture provenance only."
+                )
             }
+        case .queryContext:
+            committedIntent = .queryContext
+            setResponse(buildContextResponse(from: store))
+        case .queryNextCommitment:
+            committedIntent = .queryNextCommitment
+            setResponse(buildNextCommitmentResponse(from: store))
+        case .queryNudges:
+            committedIntent = .queryNudges
+            setResponse(buildNudgesResponse(from: store))
+        case .explainContext:
+            committedIntent = .explainContext
+            setResponse(buildExplanationResponse(from: store))
         }
 
         appendHistoryEntry(
             transcript: text,
             suggestedIntent: suggestedIntent,
             committedIntent: committedIntent,
-            status: store.isReachable ? "submitted" : "queued"
+            status: historyStatus
         )
 
         if !store.isReachable {
-            errorMessage = "Voice action queued for sync while offline."
+            if errorMessage == nil {
+                if intent.isQuery {
+                    errorMessage = "Answered from offline cache. Transcript capture queued for sync."
+                } else {
+                    errorMessage = "Voice action queued for sync while offline."
+                }
+            }
+        } else if committedIntent != nil {
+            errorMessage = nil
         }
+    }
+
+    private func historyStatus(for intent: VoiceIntent, isReachable: Bool) -> String {
+        if intent.isQuery {
+            return isReachable ? "answered" : "answered_cached"
+        }
+        return isReachable ? "submitted" : "queued"
+    }
+
+    private func setResponse(_ response: VoiceResponse) {
+        setResponse(summary: response.summary, detail: response.detail)
+    }
+
+    private func setResponse(summary: String, detail: String?) {
+        let cleanSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanSummary.isEmpty else {
+            latestResponse = nil
+            return
+        }
+        let cleanDetail = detail?.trimmingCharacters(in: .whitespacesAndNewlines)
+        latestResponse = VoiceResponse(
+            summary: cleanSummary,
+            detail: (cleanDetail?.isEmpty ?? true) ? nil : cleanDetail
+        )
+    }
+
+    private func nextOpenCommitment(from store: VelClientStore, preferredID: String?) -> CommitmentData? {
+        let open = store.commitments.filter { $0.status == "open" }
+        if let preferredID, let matching = open.first(where: { $0.id == preferredID }) {
+            return matching
+        }
+        return open.sorted { lhs, rhs in
+            switch (lhs.due_at, rhs.due_at) {
+            case let (l?, r?):
+                return l < r
+            case (.some, .none):
+                return true
+            case (.none, .some):
+                return false
+            case (.none, .none):
+                return lhs.text < rhs.text
+            }
+        }.first
+    }
+
+    private func buildContextResponse(from store: VelClientStore) -> VoiceResponse {
+        guard let context = store.context?.context else {
+            return VoiceResponse(
+                summary: "No current context is cached yet.",
+                detail: "Refresh when Vel is reachable to load context."
+            )
+        }
+
+        var summaryParts: [String] = []
+        if let mode = context.mode, !mode.isEmpty {
+            summaryParts.append("Mode: \(mode).")
+        }
+
+        if let next = nextOpenCommitment(from: store, preferredID: context.next_commitment_id) {
+            if let due = next.due_at {
+                summaryParts.append("Next commitment: \(next.text) due \(formatUnix(due)).")
+            } else {
+                summaryParts.append("Next commitment: \(next.text).")
+            }
+        }
+
+        if context.prep_window_active == true {
+            summaryParts.append("Prep window is active.")
+        }
+        if context.commute_window_active == true {
+            summaryParts.append("Commute window is active.")
+        }
+
+        let activeNudges = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+        var detailParts: [String] = []
+        if let meds = context.meds_status, !meds.isEmpty {
+            detailParts.append("Meds: \(meds).")
+        }
+        if let attention = context.attention_state, !attention.isEmpty {
+            detailParts.append("Attention: \(attention).")
+        }
+        if let drift = context.drift_type, !drift.isEmpty {
+            detailParts.append("Drift: \(drift).")
+        }
+        if !activeNudges.isEmpty {
+            detailParts.append("Active nudges: \(activeNudges.count). Top: \(activeNudges[0].message)")
+        }
+
+        let summary = summaryParts.isEmpty ? "Context is available." : summaryParts.joined(separator: " ")
+        let detail = detailParts.isEmpty ? nil : detailParts.joined(separator: " ")
+        return VoiceResponse(summary: summary, detail: detail)
+    }
+
+    private func buildNextCommitmentResponse(from store: VelClientStore) -> VoiceResponse {
+        let preferred = store.context?.context?.next_commitment_id
+        guard let next = nextOpenCommitment(from: store, preferredID: preferred) else {
+            return VoiceResponse(
+                summary: "No open commitments are cached.",
+                detail: "Sync or create a commitment to set a next action."
+            )
+        }
+        if let due = next.due_at {
+            return VoiceResponse(
+                summary: "Next commitment: \(next.text).",
+                detail: "Due \(formatUnix(due))."
+            )
+        }
+        return VoiceResponse(
+            summary: "Next commitment: \(next.text).",
+            detail: nil
+        )
+    }
+
+    private func buildNudgesResponse(from store: VelClientStore) -> VoiceResponse {
+        let active = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+        guard !active.isEmpty else {
+            return VoiceResponse(
+                summary: "No active nudges right now.",
+                detail: "You're clear on current nudge backlog."
+            )
+        }
+
+        let top = active[0]
+        let summary = "You have \(active.count) active nudges. Top nudge: \(top.message)"
+        var detail = "Top nudge type: \(top.nudge_type), level: \(top.level), state: \(top.state)."
+        if let snoozedUntil = top.snoozed_until, top.state == "snoozed" {
+            detail += " Snoozed until \(formatUnix(snoozedUntil))."
+        }
+        return VoiceResponse(summary: summary, detail: detail)
+    }
+
+    private func buildExplanationResponse(from store: VelClientStore) -> VoiceResponse {
+        let active = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+        let context = store.context?.context
+
+        var reasons: [String] = []
+        if context?.prep_window_active == true {
+            reasons.append("Prep window is currently active.")
+        }
+        if context?.commute_window_active == true {
+            reasons.append("Commute window is active.")
+        }
+        if let meds = context?.meds_status, !meds.isEmpty, meds.lowercased() != "taken" {
+            reasons.append("Meds status is \(meds).")
+        }
+        if let attention = context?.attention_state, !attention.isEmpty {
+            reasons.append("Attention state is \(attention).")
+        }
+        if let drift = context?.drift_type, !drift.isEmpty {
+            reasons.append("Drift signal is \(drift).")
+        }
+        if let top = active.first {
+            reasons.append("Top nudge is \(top.message) (\(top.level)).")
+        }
+
+        guard !reasons.isEmpty else {
+            return VoiceResponse(
+                summary: "No strong risk signals are visible in the cached context.",
+                detail: "Try refreshing for newer context and nudges."
+            )
+        }
+
+        let summary = reasons[0]
+        let detail = reasons.dropFirst().joined(separator: " ")
+        return VoiceResponse(
+            summary: summary,
+            detail: detail.isEmpty ? nil : detail
+        )
     }
 
     private func voiceCapturePayload(transcript: String, intent: VoiceIntent) -> String {
