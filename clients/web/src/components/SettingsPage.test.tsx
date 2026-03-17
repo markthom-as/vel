@@ -458,6 +458,7 @@ describe('SettingsPage', () => {
     })
     expect(within(notesCard as HTMLElement).getByText('notes sync completed with 4 items.')).toBeInTheDocument()
     expect(within(notesCard as HTMLElement).getByText('integration.sync.succeeded')).toBeInTheDocument()
+    expect(within(notesCard as HTMLElement).getByText('Items: 4')).toBeInTheDocument()
 
     const todoistCard = within(root).getByRole('heading', { name: /todoist/i }).closest('.rounded-lg')
     expect(todoistCard).not.toBeNull()
@@ -466,6 +467,7 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(within(todoistCard as HTMLElement).getByText('todoist sync failed: upstream 500')).toBeInTheDocument()
     })
+    expect(within(todoistCard as HTMLElement).getByText('Error: upstream 500')).toBeInTheDocument()
   })
 
   it('renders component cards in the components tab', async () => {

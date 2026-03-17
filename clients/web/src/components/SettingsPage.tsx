@@ -1525,6 +1525,24 @@ function IntegrationLogPanel({
                     {entry.message}
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">{entry.event_name}</p>
+                  {typeof entry.payload === 'object' && entry.payload && !Array.isArray(entry.payload) ? (
+                    <div className="mt-2 space-y-1 text-xs text-zinc-400">
+                      {typeof entry.payload.item_count === 'number' ? (
+                        <p>Items: {entry.payload.item_count}</p>
+                      ) : null}
+                      {typeof entry.payload.error === 'string' && entry.payload.error.trim().length > 0 ? (
+                        <p className="text-rose-300">Error: {entry.payload.error}</p>
+                      ) : null}
+                      <details className="pt-1">
+                        <summary className="cursor-pointer text-zinc-500 hover:text-zinc-300">
+                          Payload
+                        </summary>
+                        <pre className="mt-2 overflow-x-auto rounded bg-zinc-950/80 p-2 text-[11px] text-zinc-400">
+                          {JSON.stringify(entry.payload, null, 2)}
+                        </pre>
+                      </details>
+                    </div>
+                  ) : null}
                 </div>
                 <p className="font-mono text-xs text-zinc-500">{formatTimestampMs(entry.created_at)}</p>
               </div>
