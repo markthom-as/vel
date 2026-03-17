@@ -1,5 +1,5 @@
 use serde::Serialize;
-use vel_core::DomainKind;
+use vel_core::{dsl_registry_entries, DomainKind};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RegistryEntry {
@@ -10,50 +10,16 @@ pub struct RegistryEntry {
 }
 
 pub fn default_registry() -> Vec<RegistryEntry> {
-    vec![
-        RegistryEntry {
-            kind: DomainKind::Capture,
-            aliases: &["capture", "note"],
-            selectors: &["id", "latest", "recent"],
-            operations: &["create", "inspect", "list", "link", "explain"],
-        },
-        RegistryEntry {
-            kind: DomainKind::Commitment,
-            aliases: &["commitment", "todo", "task"],
-            selectors: &["id", "open", "due_today", "latest"],
-            operations: &["create", "inspect", "list", "update", "link", "explain"],
-        },
-        RegistryEntry {
-            kind: DomainKind::Run,
-            aliases: &["run", "job"],
-            selectors: &["id", "latest", "today"],
-            operations: &["inspect", "list", "update", "explain"],
-        },
-        RegistryEntry {
-            kind: DomainKind::Artifact,
-            aliases: &["artifact", "output"],
-            selectors: &["id", "latest", "type"],
-            operations: &["create", "inspect", "list", "link", "explain"],
-        },
-        RegistryEntry {
-            kind: DomainKind::SpecDraft,
-            aliases: &["spec", "spec_draft"],
-            selectors: &["topic", "latest"],
-            operations: &["create", "inspect", "list", "explain"],
-        },
-        RegistryEntry {
-            kind: DomainKind::ExecutionPlan,
-            aliases: &["plan", "execution_plan"],
-            selectors: &["topic", "latest"],
-            operations: &["create", "inspect", "list", "explain"],
-        },
-        RegistryEntry {
-            kind: DomainKind::Thread,
-            aliases: &["thread"],
-            selectors: &["id", "open", "latest"],
-            operations: &["create", "inspect", "list", "update", "link", "explain"],
-        },
-    ]
+    dsl_registry_entries()
+        .filter_map(|entry| {
+            entry.domain_kind.map(|kind| RegistryEntry {
+                kind,
+                aliases: entry.aliases,
+                selectors: entry.dsl_selectors,
+                operations: entry.dsl_operations,
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]

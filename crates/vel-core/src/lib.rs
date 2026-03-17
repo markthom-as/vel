@@ -10,6 +10,7 @@ pub mod risk;
 pub mod run;
 pub mod types;
 pub mod uncertainty;
+pub mod vocabulary;
 
 pub use command::{
     CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,
@@ -34,6 +35,10 @@ pub use risk::{normalize_risk_level, sort_snapshots_by_priority_desc, RiskFactor
 pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
 pub use types::{ConversationId, EventId, IntegrationConnectionId, InterventionId, MessageId};
 pub use uncertainty::{ResolutionMode, UncertaintyStatus};
+pub use vocabulary::{
+    dsl_registry_entries, glossary_entries, glossary_entry, glossary_entry_for_kind,
+    GlossaryCategory, GlossaryEntry, SHOULD_COMMAND_VERBS,
+};
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};

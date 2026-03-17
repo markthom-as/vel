@@ -1,11 +1,9 @@
+use vel_core::SHOULD_COMMAND_VERBS;
+
 pub fn next_tokens(input: &[String]) -> Vec<&'static str> {
     match input {
         [] => vec!["should"],
-        [head] if head == "should" => {
-            vec![
-                "capture", "feature", "commit", "review", "spec", "plan", "delegate",
-            ]
-        }
+        [head] if head == "should" => SHOULD_COMMAND_VERBS.to_vec(),
         [head, verb] if head == "should" && verb == "review" => vec!["today", "week"],
         [head, verb] if head == "should" && verb == "spec" => {
             vec!["<topic>", "for", "with"]
