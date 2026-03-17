@@ -19,6 +19,60 @@ pub struct ListThreadsQuery {
     pub limit: Option<u32>,
 }
 
+fn planning_thread_fields(thread_type: &str, status: &str) -> (Option<String>, Option<String>) {
+    let planning_kind = match thread_type {
+        "planning_spec" => Some("spec".to_string()),
+        "planning_execution" => Some("execution_plan".to_string()),
+        "planning_delegation" => Some("delegation_plan".to_string()),
+        _ => None,
+    };
+    let lifecycle_stage = planning_kind
+        .as_ref()
+        .map(|_| status.to_string());
+    (planning_kind, lifecycle_stage)
+}
+
+fn thread_data_from_summary(
+    id: String,
+    thread_type: String,
+    title: String,
+    status: String,
+    created_at: i64,
+    updated_at: i64,
+) -> ThreadData {
+    let (planning_kind, lifecycle_stage) = planning_thread_fields(&thread_type, &status);
+    ThreadData {
+        id,
+        thread_type,
+        title,
+        status,
+        planning_kind,
+        lifecycle_stage,
+        created_at,
+        updated_at,
+        links: None,
+    }
+}
+
+fn thread_data_from_row(
+    row: (String, String, String, String, String, i64, i64),
+    links: Option<Vec<ThreadLinkData>>,
+) -> ThreadData {
+    let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row;
+    let (planning_kind, lifecycle_stage) = planning_thread_fields(&thread_type, &status);
+    ThreadData {
+        id,
+        thread_type,
+        title,
+        status,
+        planning_kind,
+        lifecycle_stage,
+        created_at,
+        updated_at,
+        links,
+    }
+}
+
 pub async fn list_threads(
     State(state): State<AppState>,
     Query(q): Query<ListThreadsQuery>,
@@ -30,17 +84,9 @@ pub async fn list_threads(
         .await?;
     let data: Vec<ThreadData> = rows
         .into_iter()
-        .map(
-            |(id, thread_type, title, status, created_at, updated_at)| ThreadData {
-                id,
-                thread_type,
-                title,
-                status,
-                created_at,
-                updated_at,
-                links: None,
-            },
-        )
+        .map(|(id, thread_type, title, status, created_at, updated_at)| {
+            thread_data_from_summary(id, thread_type, title, status, created_at, updated_at)
+        })
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -65,15 +111,18 @@ pub async fn get_thread(
             },
         )
         .collect();
-    let data = ThreadData {
-        id: id.clone(),
-        thread_type,
-        title,
-        status,
-        created_at,
-        updated_at,
-        links: Some(links),
-    };
+    let data = thread_data_from_row(
+        (
+            id.clone(),
+            thread_type,
+            title,
+            status,
+            String::new(),
+            created_at,
+            updated_at,
+        ),
+        Some(links),
+    );
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -93,15 +142,14 @@ pub async fn create_thread(
         .insert_thread(&id, &payload.thread_type, &payload.title, "open", &metadata)
         .await?;
     let now = time::OffsetDateTime::now_utc().unix_timestamp();
-    let data = ThreadData {
-        id: id.clone(),
-        thread_type: payload.thread_type,
-        title: payload.title,
-        status: "open".to_string(),
-        created_at: now,
-        updated_at: now,
-        links: Some(vec![]),
-    };
+    let data = thread_data_from_summary(
+        id.clone(),
+        payload.thread_type,
+        payload.title,
+        "open".to_string(),
+        now,
+        now,
+    );
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -133,15 +181,18 @@ pub async fn update_thread(
             },
         )
         .collect();
-    let data = ThreadData {
-        id: id.clone(),
-        thread_type,
-        title,
-        status,
-        created_at,
-        updated_at,
-        links: Some(links),
-    };
+    let data = thread_data_from_row(
+        (
+            id.clone(),
+            thread_type,
+            title,
+            status,
+            String::new(),
+            created_at,
+            updated_at,
+        ),
+        Some(links),
+    );
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
