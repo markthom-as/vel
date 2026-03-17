@@ -67,13 +67,9 @@ struct NextCommitmentSummary {
 /// Returns count of state records written. Only call from evaluate orchestration.
 pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     let now = OffsetDateTime::now_utc();
+    let timezone = crate::services::timezone::resolve_timezone(storage).await?;
     let now_ts = now.unix_timestamp();
-    let start_of_today = now
-        .date()
-        .with_hms(0, 0, 0)
-        .map_err(|e| crate::errors::AppError::internal(e.to_string()))?
-        .assume_utc()
-        .unix_timestamp();
+    let start_of_today = crate::services::timezone::start_of_local_day_timestamp(&timezone, now)?;
 
     let inputs = collect_inputs(storage, start_of_today).await?;
     let InferenceInputs {
@@ -91,7 +87,8 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
             "vel_invocation" | "shell_login" | "computer_activity" | "git_activity"
         )
     });
-    let meds_status = derive_meds_status(&open_commitments, &medication_commitments, now);
+    let meds_status =
+        derive_meds_status(&open_commitments, &medication_commitments, now, &timezone);
     let meds_done_today = meds_status == "done";
     let meds_pending = meds_status == "pending";
 
@@ -307,6 +304,7 @@ fn derive_meds_status(
     open_commitments: &[vel_core::Commitment],
     medication_commitments: &[vel_core::Commitment],
     now: OffsetDateTime,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
 ) -> &'static str {
     let meds_open = open_commitments
         .iter()
@@ -315,7 +313,9 @@ fn derive_meds_status(
         commitment.status == vel_core::CommitmentStatus::Done
             && commitment
                 .resolved_at
-                .map(|resolved_at| resolved_at.date() == now.date())
+                .map(|resolved_at| {
+                    crate::services::timezone::same_local_day(timezone, resolved_at, now)
+                })
                 .unwrap_or(false)
     });
 
@@ -1030,9 +1030,32 @@ mod tests {
             ),
         ];
 
-        let meds_status = derive_meds_status(&open_commitments, &medication_commitments, now);
+        let timezone = crate::services::timezone::ResolvedTimeZone::utc();
+        let meds_status =
+            derive_meds_status(&open_commitments, &medication_commitments, now, &timezone);
 
         assert_eq!(meds_status, "done");
+    }
+
+    #[test]
+    fn derive_meds_status_respects_local_day_boundaries() {
+        let timezone = crate::services::timezone::ResolvedTimeZone::parse("America/Denver")
+            .expect("timezone should parse");
+        let now = OffsetDateTime::from_unix_timestamp(1_710_741_600).unwrap();
+        let open_commitments = vec![test_medication_commitment(
+            "com_open",
+            CommitmentStatus::Open,
+            None,
+        )];
+        let medication_commitments = vec![
+            test_medication_commitment("com_open", CommitmentStatus::Open, None),
+            test_medication_commitment("com_done", CommitmentStatus::Done, Some(1_710_720_600)),
+        ];
+
+        let meds_status =
+            derive_meds_status(&open_commitments, &medication_commitments, now, &timezone);
+
+        assert_eq!(meds_status, "pending");
     }
 
     #[test]

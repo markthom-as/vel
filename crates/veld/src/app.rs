@@ -112,6 +112,11 @@ pub fn build_app_with_state(state: AppState) -> Router {
             "/v1/nudges/:id/dismiss",
             post(routes::nudges::nudge_dismiss),
         )
+        .route("/v1/loops", get(routes::loops::list_loops))
+        .route(
+            "/v1/loops/:kind",
+            get(routes::loops::get_loop).patch(routes::loops::update_loop),
+        )
         .route("/v1/sync/calendar", post(routes::sync::sync_calendar))
         .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
         .route("/v1/sync/activity", post(routes::sync::sync_activity))
@@ -238,6 +243,78 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn loops_endpoint_lists_known_runtime_loops() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/loops")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<Vec<vel_api_types::LoopData>> =
+            serde_json::from_slice(&body).unwrap();
+        let loops = payload.data.unwrap();
+        assert!(loops
+            .iter()
+            .any(|loop_data| loop_data.kind == "evaluate_current_state"));
+        assert!(loops
+            .iter()
+            .any(|loop_data| loop_data.kind == "sync_calendar"));
+    }
+
+    #[tokio::test]
+    async fn loop_patch_updates_enabled_state() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/v1/loops/evaluate_current_state")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"enabled":false}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::LoopData> =
+            serde_json::from_slice(&body).unwrap();
+        let loop_data = payload.data.unwrap();
+        assert_eq!(loop_data.kind, "evaluate_current_state");
+        assert!(!loop_data.enabled);
     }
 
     #[tokio::test]
@@ -4488,7 +4565,9 @@ END:VCALENDAR
                     .method(Method::PATCH)
                     .uri("/api/settings")
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"disable_proactive":true}"#.to_string()))
+                    .body(Body::from(
+                        r#"{"disable_proactive":true,"timezone":"America/Denver"}"#.to_string(),
+                    ))
                     .unwrap(),
             )
             .await
@@ -4499,6 +4578,33 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["data"]["disable_proactive"].as_bool().unwrap());
+        assert_eq!(json["data"]["timezone"], "America/Denver");
+    }
+
+    #[tokio::test]
+    async fn chat_settings_rejects_invalid_timezone() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let patch_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/settings")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"timezone":"Mars/Olympus"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]
@@ -5239,6 +5345,10 @@ END:VCALENDAR
             })
             .await
             .unwrap();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
         let commitment_id = storage
             .insert_commitment(vel_storage::CommitmentInsert {
                 text: "Reply to Dimitri".to_string(),
@@ -5297,6 +5407,7 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["data"]["summary"]["mode"]["label"], "Day");
+        assert_eq!(json["data"]["timezone"], "America/Denver");
         assert_eq!(json["data"]["summary"]["risk"]["label"], "medium · 72%");
         assert_eq!(
             json["data"]["tasks"]["todoist"][0]["text"],
@@ -5316,6 +5427,10 @@ END:VCALENDAR
         let now = time::OffsetDateTime::now_utc();
         let due_today = now + time::Duration::hours(2);
         let overdue = now - time::Duration::hours(1);
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
         storage
             .insert_commitment(vel_storage::CommitmentInsert {
                 text: "Backlog cleanup".to_string(),
@@ -5444,6 +5559,7 @@ END:VCALENDAR
             json["data"]["tasks"]["next_commitment"]["text"],
             "Follow up with finance"
         );
+        assert_eq!(json["data"]["timezone"], "America/Denver");
     }
 
     #[tokio::test]

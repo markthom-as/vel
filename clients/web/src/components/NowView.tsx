@@ -82,7 +82,9 @@ export function NowView() {
                           <p className="text-base font-medium text-zinc-100">{event.title}</p>
                           {event.location ? <p className="mt-1 text-sm text-zinc-400">{event.location}</p> : null}
                         </div>
-                        <p className="text-sm text-zinc-400">{formatTimestamp(event.start_ts)}</p>
+                        <p className="text-sm text-zinc-400">
+                          {formatTimestamp(event.start_ts, data.timezone)}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -106,7 +108,7 @@ export function NowView() {
               ) : (
                 <div className="space-y-3">
                   {data.tasks.todoist.map((task) => (
-                    <TaskCard key={task.id} task={task} />
+                    <TaskCard key={task.id} task={task} timezone={data.timezone} />
                   ))}
                 </div>
               )}
@@ -126,8 +128,22 @@ export function NowView() {
                 }}
               />
               <dl className="space-y-3 text-sm">
-                <Row label="Next event" value={data.schedule.next_event ? formatTimestamp(data.schedule.next_event.start_ts) : 'None'} />
-                <Row label="Leave by" value={data.schedule.next_event?.leave_by_ts ? formatTimestamp(data.schedule.next_event.leave_by_ts) : 'None'} />
+                <Row
+                  label="Next event"
+                  value={
+                    data.schedule.next_event
+                      ? formatTimestamp(data.schedule.next_event.start_ts, data.timezone)
+                      : 'None'
+                  }
+                />
+                <Row
+                  label="Leave by"
+                  value={
+                    data.schedule.next_event?.leave_by_ts
+                      ? formatTimestamp(data.schedule.next_event.leave_by_ts, data.timezone)
+                      : 'None'
+                  }
+                />
                 <Row label="Attention" value={data.attention.state.label} />
                 <Row label="Drift" value={data.attention.drift.label} />
                 <Row
@@ -163,7 +179,7 @@ export function NowView() {
                     </div>
                     {source.last_sync_at ? (
                       <p className="mt-1 text-xs text-zinc-500">
-                        Last sync {new Date(source.last_sync_at * 1000).toLocaleString()}
+                        Last sync {formatTimestamp(source.last_sync_at, data.timezone)}
                       </p>
                     ) : null}
                   </div>
@@ -231,13 +247,13 @@ function FreshnessNotice({
   );
 }
 
-function TaskCard({ task }: { task: NowTaskData }) {
+function TaskCard({ task, timezone }: { task: NowTaskData; timezone: string }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
       <p className="text-sm font-medium text-zinc-100">{task.text}</p>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
         <span>{task.project ?? 'No project'}</span>
-        {task.due_at ? <span>due {formatDateTime(task.due_at)}</span> : null}
+        {task.due_at ? <span>due {formatDateTime(task.due_at, timezone)}</span> : null}
         {task.commitment_kind ? <span>{task.commitment_kind}</span> : null}
       </div>
     </div>
@@ -282,12 +298,12 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatTimestamp(timestamp: number): string {
-  return new Date(timestamp * 1000).toLocaleString();
+function formatTimestamp(timestamp: number, timezone: string): string {
+  return new Date(timestamp * 1000).toLocaleString(undefined, { timeZone: timezone });
 }
 
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString();
+function formatDateTime(value: string, timezone: string): string {
+  return new Date(value).toLocaleString(undefined, { timeZone: timezone });
 }
 
 function findFreshnessSource(data: NowData, key: string) {

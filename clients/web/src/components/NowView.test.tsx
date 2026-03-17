@@ -19,6 +19,7 @@ describe('NowView', () => {
           ok: true,
           data: {
             computed_at: 1710000000,
+            timezone: 'America/Denver',
             summary: {
               mode: { key: 'day_mode', label: 'Day' },
               phase: { key: 'engaged', label: 'Engaged' },
@@ -136,6 +137,7 @@ describe('NowView', () => {
       ok: true,
       data: {
         computed_at: 1710000000,
+        timezone: 'America/Denver',
         summary: {
           mode: { key: 'day_mode', label: 'Day' },
           phase: { key: 'engaged', label: 'Engaged' },

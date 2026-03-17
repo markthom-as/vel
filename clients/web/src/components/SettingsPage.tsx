@@ -228,6 +228,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [googleClientId, setGoogleClientId] = useState('');
   const [googleClientSecret, setGoogleClientSecret] = useState('');
   const [todoistToken, setTodoistToken] = useState('');
+  const [timezoneDraft, setTimezoneDraft] = useState('');
   const [integrationFeedback, setIntegrationFeedback] = useState<Record<string, IntegrationFeedbackState>>({});
   const [componentActions, setComponentActions] = useState<Record<string, ComponentActionState>>({});
   const [expandedComponentLogs, setExpandedComponentLogs] = useState<Record<string, true>>({});
@@ -297,6 +298,10 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   useEffect(() => {
     return subscribeWsQuerySync();
   }, []);
+
+  useEffect(() => {
+    setTimezoneDraft(settings.timezone ?? '');
+  }, [settings.timezone]);
 
   useEffect(() => {
     if (!pendingOverrideRunId) {
@@ -849,6 +854,32 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
             />
           </label>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <label className="flex-1 space-y-1">
+                <span className="text-zinc-300">Timezone</span>
+                <p className="text-sm text-zinc-500">
+                  IANA timezone used for local day boundaries and Now timestamps.
+                </p>
+                <input
+                  type="text"
+                  value={timezoneDraft}
+                  onChange={(event) => setTimezoneDraft(event.target.value)}
+                  placeholder="America/Denver"
+                  disabled={saving}
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => update('timezone', timezoneDraft.trim())}
+                disabled={saving || timezoneDraft.trim() === (settings.timezone ?? '')}
+                className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
+              >
+                Save timezone
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 

@@ -1,6 +1,6 @@
 ---
 id: NOW-004
-status: proposed
+status: implemented
 title: Add timezone setting and make inference use user-local day boundaries
 owner: backend
 priority: P0

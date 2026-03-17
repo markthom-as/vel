@@ -755,6 +755,24 @@ pub struct SyncResultData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoopData {
+    pub kind: String,
+    pub enabled: bool,
+    pub interval_seconds: i64,
+    pub last_started_at: Option<UnixSeconds>,
+    pub last_finished_at: Option<UnixSeconds>,
+    pub last_status: Option<String>,
+    pub last_error: Option<String>,
+    pub next_due_at: Option<UnixSeconds>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoopUpdateRequest {
+    pub enabled: Option<bool>,
+    pub interval_seconds: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComponentData {
     pub id: String,
     pub name: String,
@@ -897,6 +915,7 @@ pub struct NowDebugData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowData {
     pub computed_at: UnixSeconds,
+    pub timezone: String,
     pub summary: NowSummaryData,
     pub schedule: NowScheduleData,
     pub tasks: NowTasksData,

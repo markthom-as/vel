@@ -81,7 +81,12 @@ describe('SettingsPage', () => {
       if (path === '/api/settings') {
         return {
           ok: true,
-          data: { disable_proactive: false, toggle_risks: true, toggle_reminders: true },
+          data: {
+            disable_proactive: false,
+            toggle_risks: true,
+            toggle_reminders: true,
+            timezone: 'America/Denver',
+          },
           meta: { request_id: 'req_1' },
         } as never
       }
@@ -315,6 +320,7 @@ describe('SettingsPage', () => {
     const root = getSettingsRoot(container)
     expect(within(root).getByText(/show risks/i)).toBeInTheDocument()
     expect(within(root).getByText(/show reminders/i)).toBeInTheDocument()
+    expect(within(root).getByDisplayValue('America/Denver')).toBeInTheDocument()
   })
 
   it('calls onBack when Back is clicked', async () => {
@@ -342,6 +348,27 @@ describe('SettingsPage', () => {
       expect(client.apiPatch).toHaveBeenCalledWith(
         '/api/settings',
         { toggle_risks: false },
+        expect.any(Function),
+      )
+    })
+  })
+
+  it('saves timezone changes through settings api', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    await waitFor(() => {
+      const root = getSettingsRoot(container)
+      expect(within(root).getByDisplayValue('America/Denver')).toBeInTheDocument()
+    })
+
+    const root = getSettingsRoot(container)
+    const input = within(root).getByPlaceholderText('America/Denver')
+    fireEvent.change(input, { target: { value: 'America/Los_Angeles' } })
+    fireEvent.click(within(root).getByRole('button', { name: /save timezone/i }))
+
+    await waitFor(() => {
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/settings',
+        { timezone: 'America/Los_Angeles' },
         expect.any(Function),
       )
     })

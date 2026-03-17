@@ -80,6 +80,7 @@ export interface SettingsData {
   disable_proactive?: boolean;
   toggle_risks?: boolean;
   toggle_reminders?: boolean;
+  timezone?: string | null;
 }
 
 export interface IntegrationCalendarData {
@@ -265,6 +266,7 @@ export interface NowDebugData {
 
 export interface NowData {
   computed_at: UnixSeconds;
+  timezone: string;
   summary: NowSummaryData;
   schedule: NowScheduleData;
   tasks: NowTasksData;
@@ -581,6 +583,7 @@ export function decodeNowData(value: unknown): NowData {
   const debug = expectRecord(record.debug, 'now data.debug');
   return {
     computed_at: expectUnixSeconds(record.computed_at, 'now data.computed_at'),
+    timezone: expectString(record.timezone, 'now data.timezone'),
     summary: {
       mode: decodeNowLabelData(summary.mode),
       phase: decodeNowLabelData(summary.phase),
@@ -683,6 +686,10 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.toggle_reminders === undefined
         ? undefined
         : expectBoolean(record.toggle_reminders, 'settings.toggle_reminders'),
+    timezone:
+      record.timezone === undefined
+        ? undefined
+        : expectNullableString(record.timezone, 'settings.timezone'),
   };
 }
 

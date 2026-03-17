@@ -157,6 +157,7 @@ describe('transport decoders', () => {
     expect(
       decodeNowData({
         computed_at: 1710000000,
+        timezone: 'America/Denver',
         summary: {
           mode: { key: 'day_mode', label: 'Day' },
           phase: { key: 'engaged', label: 'Engaged' },
@@ -201,6 +202,7 @@ describe('transport decoders', () => {
       }),
     ).toEqual({
       computed_at: 1710000000,
+      timezone: 'America/Denver',
       summary: {
         mode: { key: 'day_mode', label: 'Day' },
         phase: { key: 'engaged', label: 'Engaged' },

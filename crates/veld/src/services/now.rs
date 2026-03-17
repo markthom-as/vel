@@ -12,8 +12,9 @@ use crate::{errors::AppError, services::integrations};
 
 pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, AppError> {
     let now_ts = OffsetDateTime::now_utc().unix_timestamp();
+    let timezone = crate::services::timezone::resolve_timezone(storage).await?;
     let Some((computed_at, context_json)) = storage.get_current_context().await? else {
-        return Ok(empty_now(now_ts));
+        return Ok(empty_now(now_ts, &timezone.name));
     };
     let context: JsonValue = serde_json::from_str(&context_json).unwrap_or_else(|_| json!({}));
 
@@ -75,6 +76,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
 
     Ok(NowData {
         computed_at,
+        timezone: timezone.name,
         summary: NowSummaryData {
             mode: label_for_mode(
                 string_field(&context, "mode")
@@ -137,9 +139,10 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
     })
 }
 
-fn empty_now(now_ts: i64) -> NowData {
+fn empty_now(now_ts: i64, timezone: &str) -> NowData {
     NowData {
         computed_at: now_ts,
+        timezone: timezone.to_string(),
         summary: NowSummaryData {
             mode: label("unknown", "Unknown"),
             phase: label("unknown", "Unknown"),

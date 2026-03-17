@@ -782,6 +782,7 @@ pub struct SettingsUpdateRequest {
     pub disable_proactive: Option<bool>,
     pub toggle_risks: Option<bool>,
     pub toggle_reminders: Option<bool>,
+    pub timezone: Option<String>,
 }
 
 pub async fn patch_settings(
@@ -808,6 +809,21 @@ pub async fn patch_settings(
             .storage
             .set_setting("toggle_reminders", &serde_json::json!(v))
             .await?;
+    }
+    if let Some(value) = payload.timezone {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            state
+                .storage
+                .set_setting("timezone", &serde_json::Value::Null)
+                .await?;
+        } else {
+            let timezone = crate::services::timezone::ResolvedTimeZone::parse(trimmed)?;
+            state
+                .storage
+                .set_setting("timezone", &serde_json::json!(timezone.name))
+                .await?;
+        }
     }
     let map = state.storage.get_all_settings().await?;
     let data: serde_json::Value =
