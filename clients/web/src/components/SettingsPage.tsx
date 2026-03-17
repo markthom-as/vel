@@ -85,6 +85,12 @@ interface IntegrationFeedbackState {
   actionId: number;
 }
 
+interface GuidanceActionButton {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
 type SettingsTab = 'general' | 'integrations' | 'components' | 'runs' | 'loops';
 
 interface LoopDraft {
@@ -677,6 +683,10 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     }
   };
 
+  const openIntegrationHistory = (integrationId: IntegrationLogSource) => {
+    updateIntegrationLogsVisibility(integrationId, true);
+  };
+
   const toggleCalendarSelection = async (calendarId: string, selected: boolean) => {
     if (!integrations) {
       return;
@@ -1088,6 +1098,15 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               lastItemCount={integrations.google_calendar.last_item_count}
               lastError={integrations.google_calendar.last_error}
               guidance={integrations.google_calendar.guidance}
+              guidanceActions={googleGuidanceActions(
+                integrations,
+                expandedIntegrationLogs,
+                pendingIntegrationActions,
+                saveGoogleCredentials,
+                startGoogleAuth,
+                syncSource,
+                openIntegrationHistory,
+              )}
             />
             {expandedIntegrationLogs['google-calendar'] ? (
               <IntegrationLogPanel integrationId="google-calendar" />
@@ -1203,6 +1222,14 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               lastItemCount={integrations.todoist.last_item_count}
               lastError={integrations.todoist.last_error}
               guidance={integrations.todoist.guidance}
+              guidanceActions={todoistGuidanceActions(
+                integrations,
+                expandedIntegrationLogs,
+                pendingIntegrationActions,
+                saveTodoistToken,
+                syncSource,
+                openIntegrationHistory,
+              )}
             />
             {expandedIntegrationLogs.todoist ? <IntegrationLogPanel integrationId="todoist" /> : null}
             {todoistFeedback.length > 0 ? (
@@ -1265,6 +1292,14 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   lastItemCount={integration.last_item_count}
                   lastError={integration.last_error}
                   guidance={integration.guidance}
+                  guidanceActions={localGuidanceActions(
+                    spec.key,
+                    integration,
+                    expandedIntegrationLogs,
+                    pendingIntegrationActions,
+                    syncSource,
+                    openIntegrationHistory,
+                  )}
                 />
                 {expandedIntegrationLogs[spec.key] ? <IntegrationLogPanel integrationId={spec.key} /> : null}
                 {feedback.length > 0 ? (
@@ -1848,6 +1883,7 @@ function IntegrationMeta({
   lastItemCount,
   lastError,
   guidance,
+  guidanceActions = [],
 }: {
   sourcePath?: string | null;
   lastSyncAt: number | null;
@@ -1855,6 +1891,7 @@ function IntegrationMeta({
   lastItemCount: number | null;
   lastError: string | null;
   guidance?: { title: string; detail: string; action: string } | null;
+  guidanceActions?: GuidanceActionButton[];
 }) {
   return (
     <div className="mt-4 space-y-2 text-sm text-zinc-400">
@@ -1870,8 +1907,153 @@ function IntegrationMeta({
           <p className="mt-2 text-xs uppercase tracking-wide text-amber-300">
             Recommended action: {guidance.action}
           </p>
+          {guidanceActions.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {guidanceActions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={action.onClick}
+                  disabled={action.disabled}
+                  className="rounded-md border border-amber-700/70 px-3 py-1.5 text-xs font-medium text-amber-100 transition hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:border-amber-900/40 disabled:text-amber-300/50"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
   );
+}
+
+function googleGuidanceActions(
+  integrations: IntegrationsData,
+  expandedIntegrationLogs: Record<string, true>,
+  pendingIntegrationActions: Record<string, true>,
+  saveGoogleCredentials: () => Promise<void>,
+  startGoogleAuth: () => Promise<void>,
+  syncSource: (source: 'calendar' | 'todoist' | LocalIntegrationSource) => Promise<void>,
+  openIntegrationHistory: (integrationId: IntegrationLogSource) => void,
+): GuidanceActionButton[] {
+  const guidance = integrations.google_calendar.guidance;
+  if (!guidance) {
+    return [];
+  }
+
+  switch (guidance.action) {
+    case 'Save credentials':
+      return [{
+        label: 'Run: Save credentials',
+        onClick: () => void saveGoogleCredentials(),
+        disabled: Boolean(pendingIntegrationActions['google-save']),
+      }];
+    case 'Connect Google':
+      return [{
+        label: 'Run: Connect Google',
+        onClick: () => void startGoogleAuth(),
+        disabled: Boolean(pendingIntegrationActions['google-auth']) || !integrations.google_calendar.configured,
+      }];
+    case 'Sync now':
+      return [{
+        label: 'Run: Sync now',
+        onClick: () => void syncSource('calendar'),
+        disabled: Boolean(pendingIntegrationActions['google-sync']) || !integrations.google_calendar.connected,
+      }];
+    case 'Inspect history and retry sync':
+      return [
+        {
+          label: expandedIntegrationLogs['google-calendar'] ? 'History open' : 'Open history',
+          onClick: () => openIntegrationHistory('google-calendar'),
+        },
+        {
+          label: 'Retry sync',
+          onClick: () => void syncSource('calendar'),
+          disabled: Boolean(pendingIntegrationActions['google-sync']) || !integrations.google_calendar.connected,
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
+function todoistGuidanceActions(
+  integrations: IntegrationsData,
+  expandedIntegrationLogs: Record<string, true>,
+  pendingIntegrationActions: Record<string, true>,
+  saveTodoistToken: () => Promise<void>,
+  syncSource: (source: 'calendar' | 'todoist' | LocalIntegrationSource) => Promise<void>,
+  openIntegrationHistory: (integrationId: IntegrationLogSource) => void,
+): GuidanceActionButton[] {
+  const guidance = integrations.todoist.guidance;
+  if (!guidance) {
+    return [];
+  }
+
+  switch (guidance.action) {
+    case 'Save token':
+      return [{
+        label: 'Run: Save token',
+        onClick: () => void saveTodoistToken(),
+        disabled: Boolean(pendingIntegrationActions['todoist-save']),
+      }];
+    case 'Sync now':
+      return [{
+        label: 'Run: Sync now',
+        onClick: () => void syncSource('todoist'),
+        disabled: Boolean(pendingIntegrationActions['todoist-sync']) || !integrations.todoist.connected,
+      }];
+    case 'Inspect history and retry sync':
+      return [
+        {
+          label: expandedIntegrationLogs.todoist ? 'History open' : 'Open history',
+          onClick: () => openIntegrationHistory('todoist'),
+        },
+        {
+          label: 'Retry sync',
+          onClick: () => void syncSource('todoist'),
+          disabled: Boolean(pendingIntegrationActions['todoist-sync']) || !integrations.todoist.connected,
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
+function localGuidanceActions(
+  source: LocalIntegrationSource,
+  integration: LocalIntegrationData,
+  expandedIntegrationLogs: Record<string, true>,
+  pendingIntegrationActions: Record<string, true>,
+  syncSource: (source: 'calendar' | 'todoist' | LocalIntegrationSource) => Promise<void>,
+  openIntegrationHistory: (integrationId: IntegrationLogSource) => void,
+): GuidanceActionButton[] {
+  const guidance = integration.guidance;
+  if (!guidance) {
+    return [];
+  }
+
+  switch (guidance.action) {
+    case 'Sync now':
+      return [{
+        label: 'Run: Sync now',
+        onClick: () => void syncSource(source),
+        disabled: Boolean(pendingIntegrationActions[`${source}-sync`]),
+      }];
+    case 'Fix the source and retry sync':
+      return [
+        {
+          label: expandedIntegrationLogs[source] ? 'History open' : 'Open history',
+          onClick: () => openIntegrationHistory(source),
+        },
+        {
+          label: 'Retry sync',
+          onClick: () => void syncSource(source),
+          disabled: Boolean(pendingIntegrationActions[`${source}-sync`]),
+        },
+      ];
+    default:
+      return [];
+  }
 }

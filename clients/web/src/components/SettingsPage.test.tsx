@@ -575,7 +575,7 @@ describe('SettingsPage', () => {
 
     const notesCard = within(root).getByRole('heading', { name: /^notes$/i }).closest('.rounded-lg')
     expect(notesCard).not.toBeNull()
-    fireEvent.click(within(notesCard as HTMLElement).getByRole('button', { name: /show history/i }))
+    fireEvent.click(within(notesCard as HTMLElement).getByRole('button', { name: /^show history$/i }))
 
     await waitFor(() => {
       expect(within(notesCard as HTMLElement).getByText('Recent sync history')).toBeInTheDocument()
@@ -610,7 +610,54 @@ describe('SettingsPage', () => {
     expect(within(root).getByText('Calendar has not synced yet')).toBeInTheDocument()
     expect(within(root).getByText(/Run a calendar sync to populate upcoming events/i)).toBeInTheDocument()
     expect(within(root).getByText(/Recommended action: Sync now/i)).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: /run: sync now/i })).toBeInTheDocument()
     expect(within(root).getByText('Local sync failed')).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: /retry sync/i })).toBeInTheDocument()
+  })
+
+  it('runs the recommended google guidance action from the guidance card', async () => {
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: { source: 'calendar', signals_ingested: 3 },
+      meta: { request_id: 'req_sync_calendar' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+    const googleCard = within(root).getByRole('heading', { name: /google calendar/i }).closest('.rounded-lg')
+    expect(googleCard).not.toBeNull()
+
+    fireEvent.click(within(googleCard as HTMLElement).getByRole('button', { name: /run: sync now/i }))
+
+    await waitFor(() => {
+      expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/calendar', {}, expect.any(Function))
+    })
+    expect(within(googleCard as HTMLElement).getByText('Calendar synced (3 signals).')).toBeInTheDocument()
+  })
+
+  it('opens history and retries local sync from guidance actions', async () => {
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: { source: 'notes', signals_ingested: 4 },
+      meta: { request_id: 'req_sync_notes' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+    const notesCard = within(root).getByRole('heading', { name: /^notes$/i }).closest('.rounded-lg')
+    expect(notesCard).not.toBeNull()
+
+    fireEvent.click(within(notesCard as HTMLElement).getByRole('button', { name: /open history/i }))
+    await waitFor(() => {
+      expect(within(notesCard as HTMLElement).getByText('Recent sync history')).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(notesCard as HTMLElement).getByRole('button', { name: /retry sync/i }))
+
+    await waitFor(() => {
+      expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/notes', {}, expect.any(Function))
+    })
+    expect(within(notesCard as HTMLElement).getByText('Notes synced (4 signals).')).toBeInTheDocument()
   })
 
   it('renders component cards in the components tab', async () => {
