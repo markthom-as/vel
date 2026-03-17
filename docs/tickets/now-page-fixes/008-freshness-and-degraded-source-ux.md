@@ -1,6 +1,6 @@
 ---
 id: NOW-008
-status: proposed
+status: implemented
 title: Surface freshness and degraded-source warnings in Now UI
 owner: web+backend
 priority: P1

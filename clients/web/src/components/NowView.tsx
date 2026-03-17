@@ -49,6 +49,8 @@ export function NowView() {
           </p>
         </header>
 
+        <FreshnessBanner freshness={data.freshness} />
+
         <section className="grid gap-4 md:grid-cols-4">
           <FocusCard label="Mode" value={data.summary.mode.label} />
           <FocusCard label="Phase" value={data.summary.phase.label} />
@@ -59,6 +61,16 @@ export function NowView() {
         <section className="mt-8 grid gap-6 xl:grid-cols-[1.3fr_1fr]">
           <div className="space-y-6">
             <Panel title="Upcoming events" subtitle="Current schedule pulled from persisted calendar signals">
+              <FreshnessNotice
+                source={findFreshnessSource(data, 'calendar')}
+                message={{
+                  aging: 'Calendar is aging. Confirm event timing before acting on it.',
+                  stale: 'Calendar is stale. Upcoming events may be out of date.',
+                  error: 'Calendar sync last failed. Treat this schedule as degraded.',
+                  disconnected: 'Calendar is disconnected. Events shown here may be incomplete.',
+                  missing: 'Calendar has not synced yet. This schedule may be empty.',
+                }}
+              />
               {data.schedule.upcoming_events.length === 0 ? (
                 <SurfaceState message="No upcoming calendar events in the current stream." />
               ) : (
@@ -79,6 +91,16 @@ export function NowView() {
             </Panel>
 
             <Panel title="Todoist backlog" subtitle="Open commitments synced from Todoist">
+              <FreshnessNotice
+                source={findFreshnessSource(data, 'todoist')}
+                message={{
+                  aging: 'Todoist is aging. Task ordering may lag behind recent changes.',
+                  stale: 'Todoist is stale. Open tasks may not reflect current urgency.',
+                  error: 'Todoist sync last failed. Backlog state may be incomplete.',
+                  disconnected: 'Todoist is disconnected. This backlog may be missing tasks.',
+                  missing: 'Todoist has not synced yet. No backlog can be trusted yet.',
+                }}
+              />
               {data.tasks.todoist.length === 0 ? (
                 <SurfaceState message="No open Todoist-backed commitments found." />
               ) : (
@@ -93,6 +115,16 @@ export function NowView() {
 
           <div className="space-y-6">
             <Panel title="Operational state" subtitle="What Vel currently believes">
+              <FreshnessNotice
+                source={findFreshnessSource(data, 'context')}
+                message={{
+                  aging: 'Current context is aging. Evaluate soon if you need fresher state.',
+                  stale: 'Current context is stale. Re-run evaluate before trusting this view.',
+                  error: 'Current context is degraded. Re-run evaluate and inspect logs.',
+                  disconnected: 'Current context is disconnected from a required source.',
+                  missing: 'Current context has not been computed yet.',
+                }}
+              />
               <dl className="space-y-3 text-sm">
                 <Row label="Next event" value={data.schedule.next_event ? formatTimestamp(data.schedule.next_event.start_ts) : 'None'} />
                 <Row label="Leave by" value={data.schedule.next_event?.leave_by_ts ? formatTimestamp(data.schedule.next_event.leave_by_ts) : 'None'} />
@@ -160,6 +192,45 @@ export function NowView() {
   );
 }
 
+function FreshnessBanner({ freshness }: { freshness: NowData['freshness'] }) {
+  const degraded = freshness.sources.filter((source) => isDegraded(source.status));
+  if (degraded.length === 0) {
+    return null;
+  }
+
+  const summary = degraded
+    .map((source) => `${source.label}: ${labelFreshness(source.status)}`)
+    .join(' • ');
+
+  return (
+    <div className="mb-6 rounded-2xl border border-amber-700/50 bg-amber-950/40 px-4 py-3">
+      <p className="text-sm font-medium text-amber-100">
+        Some inputs are degraded. Keep the current snapshot visible, but verify before acting.
+      </p>
+      <p className="mt-1 text-xs text-amber-200/80">{summary}</p>
+    </div>
+  );
+}
+
+function FreshnessNotice({
+  source,
+  message,
+}: {
+  source: NowData['freshness']['sources'][number] | undefined;
+  message: Partial<Record<string, string>>;
+}) {
+  if (!source || !isDegraded(source.status)) {
+    return null;
+  }
+
+  const copy = message[source.status] ?? `${source.label} is ${labelFreshness(source.status).toLowerCase()}.`;
+  return (
+    <div className="mb-4 rounded-xl border border-amber-700/40 bg-amber-950/30 px-3 py-2">
+      <p className="text-sm text-amber-100">{copy}</p>
+    </div>
+  );
+}
+
 function TaskCard({ task }: { task: NowTaskData }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
@@ -217,6 +288,14 @@ function formatTimestamp(timestamp: number): string {
 
 function formatDateTime(value: string): string {
   return new Date(value).toLocaleString();
+}
+
+function findFreshnessSource(data: NowData, key: string) {
+  return data.freshness.sources.find((source) => source.key === key);
+}
+
+function isDegraded(status: string): boolean {
+  return ['aging', 'stale', 'error', 'disconnected', 'missing'].includes(status);
 }
 
 function freshnessClass(status: string): string {
