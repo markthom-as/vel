@@ -28,6 +28,7 @@ enum RouteExposureClass {
 struct HttpExposurePolicy {
     operator_api_token: Option<String>,
     worker_api_token: Option<String>,
+    strict_auth: bool,
 }
 
 impl HttpExposurePolicy {
@@ -35,8 +36,16 @@ impl HttpExposurePolicy {
         Self {
             operator_api_token: std::env::var("VEL_OPERATOR_API_TOKEN").ok(),
             worker_api_token: std::env::var("VEL_WORKER_API_TOKEN").ok(),
+            strict_auth: env_flag_enabled("VEL_STRICT_HTTP_AUTH"),
         }
     }
+}
+
+fn env_flag_enabled(name: &str) -> bool {
+    matches!(
+        std::env::var(name).ok().as_deref(),
+        Some("1" | "true" | "TRUE" | "yes" | "YES" | "on" | "ON")
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -367,9 +376,12 @@ async fn enforce_exposure_gate(
         return unauthorized_response(gate.class);
     }
 
-    let Some((header_name, expected_token)) = expected_token_for_class(gate.class, &gate.policy)
-    else {
-        return next.run(request).await;
+    let Some((header_name, expected_token)) = expected_token_for_class(gate.class, &gate.policy) else {
+        return if gate.policy.strict_auth {
+            unauthorized_response(gate.class)
+        } else {
+            next.run(request).await
+        };
     };
 
     let provided =
@@ -514,6 +526,7 @@ mod tests {
             HttpExposurePolicy {
                 operator_api_token: Some("operator-secret".to_string()),
                 worker_api_token: None,
+                strict_auth: false,
             },
         );
 
@@ -551,6 +564,7 @@ mod tests {
             HttpExposurePolicy {
                 operator_api_token: None,
                 worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: false,
             },
         );
 
@@ -591,6 +605,7 @@ mod tests {
             HttpExposurePolicy {
                 operator_api_token: Some("operator-secret".to_string()),
                 worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: false,
             },
         );
 
@@ -623,6 +638,58 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn strict_auth_denies_operator_route_when_token_is_unset() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: None,
+                strict_auth: true,
+            },
+        );
+
+        let denied = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/doctor")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn strict_auth_denies_worker_route_when_token_is_unset() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: None,
+                strict_auth: true,
+            },
+        );
+
+        let denied = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/heartbeat")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]

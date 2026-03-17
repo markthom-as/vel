@@ -3164,6 +3164,138 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn chat_conversation_message_and_intervention_round_trip() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let conversation_id = storage
+            .create_conversation(ConversationInsert {
+                id: "conv_test_1".to_string(),
+                title: Some("Test Conversation".to_string()),
+                kind: "thread".to_string(),
+                pinned: false,
+                archived: false,
+            })
+            .await
+            .unwrap();
+        storage
+            .rename_conversation(conversation_id.as_ref(), "Renamed Conversation")
+            .await
+            .unwrap();
+        storage
+            .pin_conversation(conversation_id.as_ref(), true)
+            .await
+            .unwrap();
+
+        let fetched_conversation = storage
+            .get_conversation(conversation_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            fetched_conversation.title.as_deref(),
+            Some("Renamed Conversation")
+        );
+        assert!(fetched_conversation.pinned);
+
+        let message_id = storage
+            .create_message(MessageInsert {
+                id: "msg_test_1".to_string(),
+                conversation_id: conversation_id.as_ref().to_string(),
+                role: "assistant".to_string(),
+                kind: "text".to_string(),
+                content_json: r#"{"text":"hello"}"#.to_string(),
+                status: Some("pending".to_string()),
+                importance: Some("normal".to_string()),
+            })
+            .await
+            .unwrap();
+        storage
+            .update_message_status(message_id.as_ref(), "done")
+            .await
+            .unwrap();
+
+        let listed_messages = storage
+            .list_messages_by_conversation(conversation_id.as_ref(), 10)
+            .await
+            .unwrap();
+        assert_eq!(listed_messages.len(), 1);
+        assert_eq!(listed_messages[0].id, message_id);
+        assert_eq!(listed_messages[0].status.as_deref(), Some("done"));
+
+        let intervention_id = storage
+            .create_intervention(InterventionInsert {
+                id: "intv_test_1".to_string(),
+                message_id: message_id.as_ref().to_string(),
+                kind: "needs_clarification".to_string(),
+                state: "active".to_string(),
+                surfaced_at: 1_700_000_001,
+                resolved_at: None,
+                snoozed_until: None,
+                confidence: Some(0.6),
+                source_json: None,
+                provenance_json: None,
+            })
+            .await
+            .unwrap();
+        storage
+            .snooze_intervention(intervention_id.as_ref(), 1_900_000_000)
+            .await
+            .unwrap();
+        storage
+            .resolve_intervention(intervention_id.as_ref())
+            .await
+            .unwrap();
+
+        let fetched_intervention = storage
+            .get_intervention(intervention_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(fetched_intervention.state, "resolved");
+        assert!(fetched_intervention.resolved_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn chat_event_log_append_and_aggregate_filtering() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let first_id = storage
+            .append_event(EventLogInsert {
+                id: Some("evt_test_1".to_string()),
+                event_name: "conversation.created".to_string(),
+                aggregate_type: Some("conversation".to_string()),
+                aggregate_id: Some("conv_test_agg".to_string()),
+                payload_json: r#"{"kind":"thread"}"#.to_string(),
+            })
+            .await
+            .unwrap();
+        let second_id = storage
+            .append_event(EventLogInsert {
+                id: Some("evt_test_2".to_string()),
+                event_name: "conversation.updated".to_string(),
+                aggregate_type: Some("conversation".to_string()),
+                aggregate_id: Some("conv_test_agg".to_string()),
+                payload_json: r#"{"field":"title"}"#.to_string(),
+            })
+            .await
+            .unwrap();
+
+        let aggregate_events = storage
+            .list_events_by_aggregate("conversation", "conv_test_agg", 10)
+            .await
+            .unwrap();
+        assert_eq!(aggregate_events.len(), 2);
+        assert!(aggregate_events.iter().any(|event| event.id == first_id));
+        assert!(aggregate_events.iter().any(|event| event.id == second_id));
+
+        let recent_events = storage.list_events_recent(1).await.unwrap();
+        assert_eq!(recent_events.len(), 1);
+        assert!(recent_events[0].id == first_id || recent_events[0].id == second_id);
+    }
+
+    #[tokio::test]
     async fn search_returns_matching_captures_in_relevance_then_recency_order() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

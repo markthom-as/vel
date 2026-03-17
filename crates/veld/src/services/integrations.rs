@@ -10,9 +10,9 @@ use crate::{adapters, errors::AppError};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use vel_api_types::{
-    GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
-    IntegrationConnectionData, IntegrationConnectionEventData, IntegrationConnectionSettingRefData,
-    IntegrationGuidanceData, IntegrationLogEventData, IntegrationsData, LocalIntegrationData,
+    GoogleCalendarIntegrationData, IntegrationCalendarData, IntegrationConnectionData,
+    IntegrationConnectionEventData, IntegrationConnectionSettingRefData, IntegrationGuidanceData,
+    IntegrationLogEventData, IntegrationsData, LocalIntegrationData,
 };
 use vel_config::AppConfig;
 use vel_core::{IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider};
@@ -29,6 +29,11 @@ const MESSAGING_SETTINGS_KEY: &str = "integration_messaging";
 const REMINDERS_SETTINGS_KEY: &str = "integration_reminders";
 const NOTES_SETTINGS_KEY: &str = "integration_notes";
 const TRANSCRIPTS_SETTINGS_KEY: &str = "integration_transcripts";
+
+#[derive(Debug, Clone)]
+pub struct GoogleCalendarAuthStart {
+    pub auth_url: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarSettings {
@@ -789,11 +794,13 @@ pub async fn disconnect_todoist(storage: &Storage) -> Result<IntegrationsData, A
 pub async fn start_google_auth(
     storage: &Storage,
     config: &AppConfig,
-) -> Result<GoogleCalendarAuthStartData, AppError> {
+) -> Result<GoogleCalendarAuthStart, AppError> {
     let mut settings = load_google_settings(storage).await?;
-    let auth_start = integrations_google::start_google_auth(&mut settings, config).await?;
+    let auth_start = integrations_google::start_google_auth_local(&mut settings, config).await?;
     save_google_settings(storage, &settings).await?;
-    Ok(auth_start)
+    Ok(GoogleCalendarAuthStart {
+        auth_url: auth_start.auth_url,
+    })
 }
 
 pub async fn complete_google_auth(

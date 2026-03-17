@@ -9,8 +9,8 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 `build_app_with_state` now mounts routes through explicit exposure classes:
 
 - `local_public`: no auth gate (intentionally public local runtime surfaces only).
-- `operator_authenticated`: operator routes gated by centralized auth policy when `VEL_OPERATOR_API_TOKEN` is configured.
-- `worker_authenticated`: worker/sync coordination routes gated by centralized auth policy when `VEL_WORKER_API_TOKEN` is configured.
+- `operator_authenticated`: operator routes gated by centralized auth policy.
+- `worker_authenticated`: worker/sync coordination routes gated by centralized auth policy.
 - `future_external`: reserved class; deny-by-default.
 
 Auth extraction is centralized at the route-class boundary in `crates/veld/src/app.rs`.
@@ -19,7 +19,12 @@ Supported credentials for authenticated classes:
 - class header: `x-vel-operator-token` or `x-vel-worker-token`
 - bearer fallback: `Authorization: Bearer <token>`
 
-When the corresponding environment token is unset, the class still remains explicit in code but token enforcement is disabled for local compatibility.
+Token configuration knobs:
+
+- `VEL_OPERATOR_API_TOKEN` and `VEL_WORKER_API_TOKEN`: expected secrets for class-gated routes.
+- `VEL_STRICT_HTTP_AUTH`: when set to `1/true/yes/on`, class-gated routes deny requests if the class token is unset.
+
+Default local behavior keeps unset-token compatibility unless strict mode is enabled.
 
 Undefined routes are fail-closed with an explicit `404` fallback handler.
 
