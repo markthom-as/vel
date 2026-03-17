@@ -3,7 +3,7 @@ use axum::{
     http::{header, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{any, get, post},
     Router,
 };
 use tower_http::cors::CorsLayer;
@@ -303,6 +303,14 @@ fn worker_authenticated_routes() -> Router<AppState> {
         )
 }
 
+fn future_external_routes() -> Router<AppState> {
+    Router::new()
+        .route("/v1/connect", any(deny_undefined_route))
+        .route("/v1/connect/*path", any(deny_undefined_route))
+        .route("/v1/cluster/clients", any(deny_undefined_route))
+        .route("/v1/cluster/clients/*path", any(deny_undefined_route))
+}
+
 fn extract_bearer_token(request: &Request<Body>) -> Option<&str> {
     request
         .headers()
@@ -376,7 +384,8 @@ async fn enforce_exposure_gate(
         return unauthorized_response(gate.class);
     }
 
-    let Some((header_name, expected_token)) = expected_token_for_class(gate.class, &gate.policy) else {
+    let Some((header_name, expected_token)) = expected_token_for_class(gate.class, &gate.policy)
+    else {
         return if gate.policy.strict_auth {
             unauthorized_response(gate.class)
         } else {
@@ -431,8 +440,12 @@ fn build_app_with_policy(state: AppState, exposure_policy: HttpExposurePolicy) -
         RouteExposureClass::OperatorAuthenticated,
         exposure_policy.clone(),
     );
-    let worker_auth_gate =
-        ExposureGate::new(RouteExposureClass::WorkerAuthenticated, exposure_policy);
+    let worker_auth_gate = ExposureGate::new(
+        RouteExposureClass::WorkerAuthenticated,
+        exposure_policy.clone(),
+    );
+    let future_external_gate =
+        ExposureGate::new(RouteExposureClass::FutureExternal, exposure_policy);
 
     Router::new()
         .merge(public_routes())
@@ -445,6 +458,12 @@ fn build_app_with_policy(state: AppState, exposure_policy: HttpExposurePolicy) -
         .merge(
             worker_authenticated_routes().layer(middleware::from_fn_with_state(
                 worker_auth_gate,
+                enforce_exposure_gate,
+            )),
+        )
+        .merge(
+            future_external_routes().layer(middleware::from_fn_with_state(
+                future_external_gate,
                 enforce_exposure_gate,
             )),
         )
@@ -597,6 +616,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn worker_claim_next_route_requires_worker_token_when_worker_policy_is_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: false,
+            },
+        );
+
+        let denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/work-queue/claim-next")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+
+        let allowed = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/work-queue/claim-next")
+                    .header(WORKER_AUTH_HEADER, "worker-secret")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(allowed.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
     async fn public_route_stays_accessible_when_auth_policies_are_set() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -690,6 +751,269 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn future_external_routes_are_forbidden_by_default() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(storage, HttpExposurePolicy::default());
+
+        let connect_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/connect")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(connect_response.status(), StatusCode::FORBIDDEN);
+
+        let clients_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/cluster/clients")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(clients_response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn future_external_routes_remain_forbidden_with_auth_tokens() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: true,
+            },
+        );
+
+        let connect_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/connect/worker")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(connect_response.status(), StatusCode::FORBIDDEN);
+
+        let clients_response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/cluster/clients/node-1")
+                    .header(header::AUTHORIZATION, "Bearer worker-secret")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(clients_response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn mounted_api_routes_require_operator_token_when_operator_policy_is_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        for (method, uri) in [
+            ("GET", "/api/components"),
+            ("GET", "/api/integrations"),
+            ("GET", "/api/conversations"),
+            ("GET", "/api/settings"),
+        ] {
+            let denied = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(uri)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                denied.status(),
+                StatusCode::UNAUTHORIZED,
+                "{method} {uri} should require operator auth",
+            );
+
+            let allowed = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(uri)
+                        .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_ne!(
+                allowed.status(),
+                StatusCode::UNAUTHORIZED,
+                "{method} {uri} should not be denied after valid operator auth",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn ws_route_requires_operator_token_when_operator_policy_is_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        let denied = app
+            .clone()
+            .oneshot(Request::builder().uri("/ws").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+
+        let allowed = app
+            .oneshot(
+                Request::builder()
+                    .uri("/ws")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(allowed.status(), StatusCode::UNAUTHORIZED);
+        assert_ne!(allowed.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn oauth_callback_route_remains_local_public_with_strict_auth() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: true,
+            },
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/integrations/google-calendar/oauth/callback")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn undefined_api_and_ws_paths_remain_not_found_with_or_without_auth() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: true,
+            },
+        );
+
+        for (uri, with_auth) in [
+            ("/api/not-a-real-route", false),
+            ("/api/not-a-real-route", true),
+            ("/ws/not-a-real-route", false),
+            ("/ws/not-a-real-route", true),
+        ] {
+            let mut request = Request::builder().uri(uri);
+            if with_auth {
+                request = request.header(OPERATOR_AUTH_HEADER, "operator-secret");
+            }
+            let response = app
+                .clone()
+                .oneshot(request.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(
+                response.status(),
+                StatusCode::NOT_FOUND,
+                "{uri} should fail closed with 404",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn unsupported_methods_on_mounted_operator_routes_are_rejected() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+                strict_auth: true,
+            },
+        );
+
+        let api_method_denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::DELETE)
+                    .uri("/api/components")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(api_method_denied.status(), StatusCode::METHOD_NOT_ALLOWED);
+
+        let ws_method_denied = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/ws")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ws_method_denied.status(), StatusCode::METHOD_NOT_ALLOWED);
     }
 
     #[tokio::test]
@@ -1443,7 +1767,7 @@ mod tests {
 
         let first = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1457,7 +1781,7 @@ mod tests {
         .unwrap();
         let _claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
+            crate::services::client_sync::WorkAssignmentClaimRequestData {
                 work_request_id: "wrkreq-dup".to_string(),
                 worker_id: "vel-node".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1469,7 +1793,7 @@ mod tests {
 
         let second = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1494,7 +1818,7 @@ mod tests {
 
         let first = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1508,7 +1832,7 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
+            crate::services::client_sync::WorkAssignmentClaimRequestData {
                 work_request_id: "wrkreq-stale-dup".to_string(),
                 worker_id: "vel-node".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1527,7 +1851,7 @@ mod tests {
 
         let second = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1683,7 +2007,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1697,7 +2021,7 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
+            crate::services::client_sync::WorkAssignmentClaimRequestData {
                 work_request_id: routed.work_request_id.clone(),
                 worker_id: "worker-1".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1728,7 +2052,7 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
+            crate::services::client_sync::WorkAssignmentClaimNextRequestData {
                 node_id: "vel-node".to_string(),
                 worker_id: "worker-2".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1755,7 +2079,7 @@ mod tests {
 
         let first = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1769,7 +2093,7 @@ mod tests {
         .unwrap();
         let _second = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1784,7 +2108,7 @@ mod tests {
 
         let claimed = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
+            crate::services::client_sync::WorkAssignmentClaimNextRequestData {
                 node_id: "vel-node".to_string(),
                 worker_id: "worker-1".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1811,7 +2135,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1825,7 +2149,7 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
+            crate::services::client_sync::WorkAssignmentClaimRequestData {
                 work_request_id: routed.work_request_id.clone(),
                 worker_id: "worker-1".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1837,9 +2161,9 @@ mod tests {
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
         crate::services::client_sync::update_work_assignment_receipt(
             &state,
-            vel_api_types::WorkAssignmentUpdateRequest {
+            crate::services::client_sync::WorkAssignmentUpdateRequest {
                 receipt_id: claimed.receipt_id.clone(),
-                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                status: crate::services::client_sync::WorkAssignmentStatusData::Failed,
                 started_at: None,
                 completed_at: Some(now),
                 result: None,
@@ -1864,7 +2188,7 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
+            crate::services::client_sync::WorkAssignmentClaimNextRequestData {
                 node_id: "vel-node".to_string(),
                 worker_id: "worker-2".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1884,7 +2208,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1898,7 +2222,7 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
+            crate::services::client_sync::WorkAssignmentClaimRequestData {
                 work_request_id: routed.work_request_id.clone(),
                 worker_id: "worker-1".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1910,9 +2234,9 @@ mod tests {
         let past = time::OffsetDateTime::now_utc().unix_timestamp() - 120;
         crate::services::client_sync::update_work_assignment_receipt(
             &state,
-            vel_api_types::WorkAssignmentUpdateRequest {
+            crate::services::client_sync::WorkAssignmentUpdateRequest {
                 receipt_id: claimed.receipt_id.clone(),
-                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                status: crate::services::client_sync::WorkAssignmentStatusData::Failed,
                 started_at: None,
                 completed_at: Some(past),
                 result: None,
@@ -1937,7 +2261,7 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
+            crate::services::client_sync::WorkAssignmentClaimNextRequestData {
                 node_id: "vel-node".to_string(),
                 worker_id: "worker-2".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1966,7 +2290,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -1980,7 +2304,7 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
+            crate::services::client_sync::WorkAssignmentClaimRequestData {
                 work_request_id: routed.work_request_id.clone(),
                 worker_id: "worker-1".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -1992,9 +2316,9 @@ mod tests {
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
         crate::services::client_sync::update_work_assignment_receipt(
             &state,
-            vel_api_types::WorkAssignmentUpdateRequest {
+            crate::services::client_sync::WorkAssignmentUpdateRequest {
                 receipt_id: claimed.receipt_id,
-                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                status: crate::services::client_sync::WorkAssignmentStatusData::Failed,
                 started_at: None,
                 completed_at: Some(now),
                 result: None,
@@ -2006,7 +2330,7 @@ mod tests {
 
         let duplicate = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2041,7 +2365,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequestData {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2055,7 +2379,7 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
+            crate::services::client_sync::WorkAssignmentClaimRequestData {
                 work_request_id: routed.work_request_id.clone(),
                 worker_id: "worker-1".to_string(),
                 worker_class: Some("validation".to_string()),
@@ -2066,9 +2390,9 @@ mod tests {
         .unwrap();
         crate::services::client_sync::update_work_assignment_receipt(
             &state,
-            vel_api_types::WorkAssignmentUpdateRequest {
+            crate::services::client_sync::WorkAssignmentUpdateRequest {
                 receipt_id: claimed.receipt_id,
-                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                status: crate::services::client_sync::WorkAssignmentStatusData::Failed,
                 started_at: None,
                 completed_at: Some(time::OffsetDateTime::now_utc().unix_timestamp() - 120),
                 result: None,
@@ -2092,7 +2416,7 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
+            crate::services::client_sync::WorkAssignmentClaimNextRequestData {
                 node_id: "vel-node".to_string(),
                 worker_id: "worker-2".to_string(),
                 worker_class: Some("validation".to_string()),

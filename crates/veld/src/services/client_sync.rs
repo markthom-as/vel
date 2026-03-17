@@ -3,21 +3,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
-use vel_api_types::{
-    BranchSyncCapabilityData, BranchSyncRequestData, ClientActionBatchRequest,
-    ClientActionBatchResultData, ClientActionData, ClientActionKind, ClientActionResultData,
-    ClusterBootstrapData, ClusterNodeStateData, ClusterWorkerStateData, CommitmentCreateRequest,
-    CommitmentData, CurrentContextData, NudgeData, QueuedWorkItemData, QueuedWorkRoutingData,
-    QueuedWorkRoutingKindData, SwarmClientActiveWorkData, SwarmClientData, SwarmClientsData,
-    SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData, SyncHeartbeatResponseData,
-    ValidationProfileData, ValidationRequestData, WorkAssignmentClaimNextRequestData,
-    WorkAssignmentClaimNextResponseData, WorkAssignmentClaimRequestData,
-    WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData, WorkAssignmentStatusData,
-    WorkAssignmentUpdateRequest,
-};
 use vel_core::{CommitmentStatus, PrivacyClass};
 use vel_storage::{
     CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert, SignalInsert,
@@ -29,6 +17,591 @@ use crate::{errors::AppError, state::AppState};
 
 const WORKER_HEARTBEAT_TTL_SECONDS: i64 = 90;
 const WORK_ASSIGNMENT_STALE_SECONDS: i64 = 300;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterBootstrapData {
+    pub node_id: String,
+    pub node_display_name: String,
+    pub active_authority_node_id: String,
+    pub active_authority_epoch: i64,
+    pub sync_base_url: String,
+    pub sync_transport: String,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_sync: Option<BranchSyncCapabilityData>,
+    #[serde(default)]
+    pub validation_profiles: Vec<ValidationProfileData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchSyncCapabilityData {
+    pub repo_root: String,
+    pub default_remote: String,
+    pub supports_fetch: bool,
+    pub supports_pull: bool,
+    pub supports_push: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationProfileData {
+    pub profile_id: String,
+    pub label: String,
+    pub command_hint: String,
+    pub environment: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchSyncRequestData {
+    pub repo_root: String,
+    pub branch: String,
+    #[serde(default)]
+    pub remote: Option<String>,
+    #[serde(default)]
+    pub base_branch: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub requested_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationRequestData {
+    pub repo_root: String,
+    pub profile_id: String,
+    #[serde(default)]
+    pub branch: Option<String>,
+    #[serde(default)]
+    pub environment: Option<String>,
+    #[serde(default)]
+    pub requested_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueuedWorkRoutingKindData {
+    BranchSync,
+    Validation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueuedWorkRoutingData {
+    pub work_request_id: String,
+    pub request_type: QueuedWorkRoutingKindData,
+    pub status: String,
+    pub queued_signal_id: String,
+    pub queued_signal_type: String,
+    pub queued_at: i64,
+    pub queued_via: String,
+    pub authority_node_id: String,
+    pub authority_epoch: i64,
+    pub target_node_id: String,
+    pub target_worker_class: String,
+    pub requested_capability: String,
+    #[serde(default)]
+    pub request_payload: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkAssignmentStatusData {
+    Assigned,
+    Started,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentReceiptData {
+    pub receipt_id: String,
+    pub work_request_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+    pub status: WorkAssignmentStatusData,
+    pub assigned_at: i64,
+    #[serde(default)]
+    pub started_at: Option<i64>,
+    #[serde(default)]
+    pub completed_at: Option<i64>,
+    #[serde(default)]
+    pub result: Option<String>,
+    #[serde(default)]
+    pub error_message: Option<String>,
+    pub last_updated: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimRequestData {
+    pub work_request_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentUpdateRequest {
+    pub receipt_id: String,
+    pub status: WorkAssignmentStatusData,
+    #[serde(default)]
+    pub started_at: Option<i64>,
+    #[serde(default)]
+    pub completed_at: Option<i64>,
+    #[serde(default)]
+    pub result: Option<String>,
+    #[serde(default)]
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueuedWorkItemData {
+    pub work_request_id: String,
+    pub request_type: QueuedWorkRoutingKindData,
+    pub queued_signal_id: String,
+    pub queued_signal_type: String,
+    pub queued_at: i64,
+    pub target_node_id: String,
+    pub target_worker_class: String,
+    pub requested_capability: String,
+    pub request_payload: serde_json::Value,
+    #[serde(default)]
+    pub latest_receipt: Option<WorkAssignmentReceiptData>,
+    pub is_stale: bool,
+    pub attempt_count: u32,
+    pub claimable_now: bool,
+    #[serde(default)]
+    pub claim_reason: Option<String>,
+    #[serde(default)]
+    pub next_retry_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimNextRequestData {
+    pub node_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimedWorkData {
+    pub queue_item: QueuedWorkItemData,
+    pub receipt: WorkAssignmentReceiptData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimNextResponseData {
+    #[serde(default)]
+    pub claim: Option<WorkAssignmentClaimedWorkData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlacementRecommendationData {
+    pub worker_id: String,
+    pub node_id: String,
+    pub capability: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncHeartbeatRequestData {
+    pub node_id: String,
+    #[serde(default)]
+    pub node_display_name: Option<String>,
+    #[serde(default)]
+    pub client_kind: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub protocol_version: Option<String>,
+    #[serde(default)]
+    pub build_id: Option<String>,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub max_concurrency: Option<u32>,
+    #[serde(default)]
+    pub current_load: Option<u32>,
+    #[serde(default)]
+    pub queue_depth: Option<u32>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub latency_class: Option<String>,
+    #[serde(default)]
+    pub compute_class: Option<String>,
+    #[serde(default)]
+    pub power_class: Option<String>,
+    #[serde(default)]
+    pub recent_failure_rate: Option<f64>,
+    #[serde(default)]
+    pub tailscale_preferred: Option<bool>,
+    #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub tailscale_base_url: Option<String>,
+    #[serde(default)]
+    pub preferred_tailnet_endpoint: Option<String>,
+    #[serde(default)]
+    pub tailscale_reachable: Option<bool>,
+    #[serde(default)]
+    pub lan_base_url: Option<String>,
+    #[serde(default)]
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub ping_ms: Option<u32>,
+    #[serde(default)]
+    pub sync_status: Option<String>,
+    #[serde(default)]
+    pub last_upstream_sync_at: Option<i64>,
+    #[serde(default)]
+    pub last_downstream_sync_at: Option<i64>,
+    #[serde(default)]
+    pub last_sync_error: Option<String>,
+    #[serde(default)]
+    pub last_heartbeat_at: Option<i64>,
+    #[serde(default)]
+    pub started_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncHeartbeatResponseData {
+    pub accepted: bool,
+    pub worker_id: String,
+    pub expires_at: i64,
+    pub cluster_view_version: i64,
+    #[serde(default)]
+    pub placement_hints: Vec<PlacementRecommendationData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientActionKind {
+    NudgeDone,
+    NudgeSnooze,
+    CommitmentDone,
+    CommitmentCreate,
+    CaptureCreate,
+    BranchSyncRequest,
+    ValidationRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientActionData {
+    pub action_id: Option<String>,
+    pub action_type: ClientActionKind,
+    pub target_id: Option<String>,
+    pub text: Option<String>,
+    pub minutes: Option<u32>,
+    #[serde(default)]
+    pub payload: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientActionBatchRequest {
+    pub actions: Vec<ClientActionData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientActionResultData {
+    pub action_id: Option<String>,
+    pub action_type: ClientActionKind,
+    pub target_id: Option<String>,
+    pub status: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientActionBatchResultData {
+    pub applied: u32,
+    pub results: Vec<ClientActionResultData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterNodeStateData {
+    pub node_id: String,
+    #[serde(default, alias = "display_name")]
+    pub node_display_name: Option<String>,
+    #[serde(default)]
+    pub node_class: Option<String>,
+    #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub tailscale_base_url: Option<String>,
+    #[serde(default)]
+    pub lan_base_url: Option<String>,
+    #[serde(default)]
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub last_seen_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterWorkerStateData {
+    #[serde(alias = "id")]
+    pub worker_id: String,
+    #[serde(default)]
+    pub node_id: Option<String>,
+    #[serde(default)]
+    pub node_display_name: Option<String>,
+    #[serde(default)]
+    pub client_kind: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub protocol_version: Option<String>,
+    #[serde(default)]
+    pub build_id: Option<String>,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub max_concurrency: Option<u32>,
+    #[serde(default)]
+    pub current_load: Option<u32>,
+    #[serde(default)]
+    pub queue_depth: Option<u32>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub latency_class: Option<String>,
+    #[serde(default)]
+    pub compute_class: Option<String>,
+    #[serde(default)]
+    pub power_class: Option<String>,
+    #[serde(default)]
+    pub recent_failure_rate: Option<f64>,
+    #[serde(default)]
+    pub tailscale_preferred: Option<bool>,
+    #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub tailscale_base_url: Option<String>,
+    #[serde(default)]
+    pub preferred_tailnet_endpoint: Option<String>,
+    #[serde(default)]
+    pub tailscale_reachable: Option<bool>,
+    #[serde(default)]
+    pub lan_base_url: Option<String>,
+    #[serde(default)]
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub ping_ms: Option<u32>,
+    #[serde(default)]
+    pub heartbeat_age_seconds: Option<i64>,
+    #[serde(default)]
+    pub sync_status: Option<String>,
+    #[serde(default)]
+    pub last_upstream_sync_at: Option<i64>,
+    #[serde(default)]
+    pub last_downstream_sync_at: Option<i64>,
+    #[serde(default)]
+    pub last_sync_error: Option<String>,
+    #[serde(default)]
+    pub last_heartbeat_at: Option<i64>,
+    #[serde(default)]
+    pub started_at: Option<i64>,
+    #[serde(default)]
+    pub available_concurrency: Option<u32>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub active_work: Vec<SwarmClientActiveWorkData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncClusterStateData {
+    #[serde(default)]
+    pub cluster_view_version: Option<i64>,
+    #[serde(default)]
+    pub authority_node_id: Option<String>,
+    #[serde(default)]
+    pub authority_epoch: Option<i64>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub cluster: Option<ClusterBootstrapData>,
+    #[serde(default)]
+    pub nodes: Vec<ClusterNodeStateData>,
+    #[serde(default)]
+    pub workers: Vec<ClusterWorkerStateData>,
+    #[serde(default)]
+    pub clients: Vec<SwarmClientData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientActiveWorkData {
+    pub receipt_id: String,
+    pub work_request_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+    pub status: String,
+    pub assigned_at: i64,
+    #[serde(default)]
+    pub started_at: Option<i64>,
+    pub last_updated: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientData {
+    pub client_id: String,
+    pub node_id: String,
+    #[serde(default)]
+    pub node_display_name: Option<String>,
+    #[serde(default)]
+    pub client_kind: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub protocol_version: Option<String>,
+    #[serde(default)]
+    pub build_id: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub ping_ms: Option<u32>,
+    #[serde(default)]
+    pub heartbeat_age_seconds: Option<i64>,
+    #[serde(default)]
+    pub last_heartbeat_at: Option<i64>,
+    #[serde(default)]
+    pub last_upstream_sync_at: Option<i64>,
+    #[serde(default)]
+    pub last_downstream_sync_at: Option<i64>,
+    #[serde(default)]
+    pub sync_status: Option<String>,
+    #[serde(default)]
+    pub last_sync_error: Option<String>,
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub max_concurrency: Option<u32>,
+    #[serde(default)]
+    pub current_load: Option<u32>,
+    #[serde(default)]
+    pub queue_depth: Option<u32>,
+    #[serde(default)]
+    pub active_work: Vec<SwarmClientActiveWorkData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientsData {
+    pub generated_at: i64,
+    pub active_authority_node_id: String,
+    pub active_authority_epoch: i64,
+    #[serde(default)]
+    pub clients: Vec<SwarmClientData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentContextData {
+    pub computed_at: i64,
+    pub context: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NudgeData {
+    pub nudge_id: String,
+    pub nudge_type: String,
+    pub level: String,
+    pub state: String,
+    pub related_commitment_id: Option<String>,
+    pub message: String,
+    pub created_at: i64,
+    pub snoozed_until: Option<i64>,
+    pub resolved_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommitmentCreateRequest {
+    pub text: String,
+    pub source_type: String,
+    pub source_id: Option<String>,
+    pub due_at: Option<time::OffsetDateTime>,
+    pub project: Option<String>,
+    pub commitment_kind: Option<String>,
+    #[serde(default)]
+    pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommitmentData {
+    pub id: vel_core::CommitmentId,
+    pub text: String,
+    pub source_type: String,
+    pub source_id: Option<String>,
+    pub status: String,
+    pub due_at: Option<time::OffsetDateTime>,
+    pub project: Option<String>,
+    pub commitment_kind: Option<String>,
+    pub created_at: time::OffsetDateTime,
+    pub resolved_at: Option<time::OffsetDateTime>,
+    pub metadata: serde_json::Value,
+}
+
+impl From<vel_core::Commitment> for CommitmentData {
+    fn from(c: vel_core::Commitment) -> Self {
+        Self {
+            id: c.id,
+            text: c.text,
+            source_type: c.source_type,
+            source_id: c.source_id,
+            status: c.status.to_string(),
+            due_at: c.due_at,
+            project: c.project,
+            commitment_kind: c.commitment_kind,
+            created_at: c.created_at,
+            resolved_at: c.resolved_at,
+            metadata: c.metadata_json,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncBootstrapData {
+    pub cluster: ClusterBootstrapData,
+    pub current_context: Option<CurrentContextData>,
+    pub nudges: Vec<NudgeData>,
+    pub commitments: Vec<CommitmentData>,
+}
 
 pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData, AppError> {
     let current_context =

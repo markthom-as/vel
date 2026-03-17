@@ -649,6 +649,17 @@ budgets:
             parsed.agent_spec_path.as_deref(),
             Some("config/agent-specs.yaml")
         );
+        assert_eq!(
+            parsed.reminders_snapshot_path.as_deref(),
+            Some("var/integrations/reminders/snapshot.json")
+        );
+    }
+
+    #[test]
+    fn repo_runtime_config_schema_declares_reminders_snapshot_path() {
+        let schema =
+            fs::read_to_string(repo_path("config/schemas/app-config.schema.json")).unwrap();
+        assert!(schema.contains("\"reminders_snapshot_path\""));
     }
 
     #[test]

@@ -16,6 +16,7 @@ pub mod journal;
 pub mod loops;
 pub mod now;
 pub mod nudges;
+pub mod response;
 pub mod risk;
 pub mod runs;
 pub mod search;

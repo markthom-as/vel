@@ -5,18 +5,13 @@
 #![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use tracing::warn;
 use uuid::Uuid;
-use vel_api_types::{
-    ArtifactData, CaptureCreateResponse, CommandReviewSummaryData, CommitmentData,
-    CommitmentExplainData, ContextExplainData, DriftExplainData, PlanningArtifactCreatedData,
-    SynthesisWeekData, ThreadData,
-};
 use vel_core::{
-    ArtifactStorageKind, CommitmentStatus, DomainKind, DomainOperation, PrivacyClass,
-    ResolvedCommand, SyncClass, TargetSelector,
+    ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, CommitmentStatus, DomainKind,
+    DomainOperation, PrivacyClass, ResolvedCommand, SyncClass, TargetSelector,
 };
 use vel_storage::{ArtifactInsert, ArtifactRecord, CaptureInsert, CommitmentInsert, SignalInsert};
 
@@ -102,21 +97,318 @@ pub struct CommandExecutionResult {
     pub warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CaptureCreatedPayload {
+    pub capture_id: CaptureId,
+    pub accepted_at: OffsetDateTime,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommitmentPayload {
+    pub id: CommitmentId,
+    pub text: String,
+    pub source_type: String,
+    pub source_id: Option<String>,
+    pub status: String,
+    pub due_at: Option<OffsetDateTime>,
+    pub project: Option<String>,
+    pub commitment_kind: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub resolved_at: Option<OffsetDateTime>,
+    pub metadata: JsonValue,
+}
+
+impl From<vel_core::Commitment> for CommitmentPayload {
+    fn from(value: vel_core::Commitment) -> Self {
+        Self {
+            id: value.id,
+            text: value.text,
+            source_type: value.source_type,
+            source_id: value.source_id,
+            status: value.status.to_string(),
+            due_at: value.due_at,
+            project: value.project,
+            commitment_kind: value.commitment_kind,
+            created_at: value.created_at,
+            resolved_at: value.resolved_at,
+            metadata: value.metadata_json,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ArtifactPayload {
+    pub artifact_id: ArtifactId,
+    pub artifact_type: String,
+    pub title: Option<String>,
+    pub mime_type: Option<String>,
+    pub storage_uri: String,
+    pub storage_kind: String,
+    pub privacy_class: String,
+    pub sync_class: String,
+    pub content_hash: Option<String>,
+    pub size_bytes: Option<i64>,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadPayload {
+    pub id: String,
+    pub thread_type: String,
+    pub title: String,
+    pub status: String,
+    pub planning_kind: Option<String>,
+    pub lifecycle_stage: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub links: Option<Vec<ThreadLinkPayload>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadLinkPayload {
+    pub id: String,
+    pub entity_type: String,
+    pub entity_id: String,
+    pub relation_type: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanningArtifactCreatedPayload {
+    pub artifact: ArtifactPayload,
+    pub thread: ThreadPayload,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SynthesisWeekPayload {
+    pub run_id: String,
+    pub artifact_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextCapturePayload {
+    pub capture_id: CaptureId,
+    pub capture_type: String,
+    pub content_text: String,
+    pub occurred_at: OffsetDateTime,
+    pub source_device: Option<String>,
+}
+
+impl From<vel_core::ContextCapture> for ContextCapturePayload {
+    fn from(value: vel_core::ContextCapture) -> Self {
+        Self {
+            capture_id: value.capture_id,
+            capture_type: value.capture_type,
+            content_text: value.content_text,
+            occurred_at: value.occurred_at,
+            source_device: value.source_device,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommandReviewSummaryPayload {
+    pub captures: Vec<ContextCapturePayload>,
+    pub capture_count: usize,
+    pub latest_context_artifact: Option<ArtifactPayload>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SignalExplainSummaryPayload {
+    pub signal_id: String,
+    pub signal_type: String,
+    pub source: String,
+    pub timestamp: i64,
+    pub summary: JsonValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextSourceSummaryPayload {
+    pub timestamp: i64,
+    pub summary: JsonValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextSourceSummariesPayload {
+    pub git_activity: Option<ContextSourceSummaryPayload>,
+    pub health: Option<ContextSourceSummaryPayload>,
+    pub mood: Option<ContextSourceSummaryPayload>,
+    pub pain: Option<ContextSourceSummaryPayload>,
+    pub note_document: Option<ContextSourceSummaryPayload>,
+    pub assistant_message: Option<ContextSourceSummaryPayload>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AdaptivePolicyOverridePayload {
+    pub policy_key: String,
+    pub value_minutes: u32,
+    pub source_suggestion_id: Option<String>,
+    pub source_title: Option<String>,
+    pub source_accepted_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContextExplainPayload {
+    pub computed_at: i64,
+    pub mode: Option<String>,
+    pub morning_state: Option<String>,
+    pub context: JsonValue,
+    pub source_summaries: ContextSourceSummariesPayload,
+    pub adaptive_policy_overrides: Vec<AdaptivePolicyOverridePayload>,
+    pub signals_used: Vec<String>,
+    pub signal_summaries: Vec<SignalExplainSummaryPayload>,
+    pub commitments_used: Vec<String>,
+    pub risk_used: Vec<String>,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommitmentExplainPayload {
+    pub commitment_id: String,
+    pub commitment: JsonValue,
+    pub risk: Option<JsonValue>,
+    pub in_context_reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DriftExplainPayload {
+    pub attention_state: Option<String>,
+    pub drift_type: Option<String>,
+    pub drift_severity: Option<String>,
+    pub confidence: Option<f64>,
+    pub reasons: Vec<String>,
+    pub signals_used: Vec<String>,
+    pub signal_summaries: Vec<SignalExplainSummaryPayload>,
+    pub commitments_used: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "result_kind", content = "data", rename_all = "snake_case")]
 pub enum CommandExecutionPayload {
-    CaptureCreated(CaptureCreateResponse),
-    CommitmentCreated(CommitmentData),
-    ArtifactCreated(ArtifactData),
-    SpecDraftCreated(PlanningArtifactCreatedData),
-    ExecutionPlanCreated(PlanningArtifactCreatedData),
-    DelegationPlanCreated(PlanningArtifactCreatedData),
-    SynthesisCreated(SynthesisWeekData),
-    ContextExplained(ContextExplainData),
-    CommitmentExplained(CommitmentExplainData),
-    DriftExplained(DriftExplainData),
-    ReviewToday(CommandReviewSummaryData),
-    ReviewWeek(CommandReviewSummaryData),
+    CaptureCreated(CaptureCreatedPayload),
+    CommitmentCreated(CommitmentPayload),
+    ArtifactCreated(ArtifactPayload),
+    SpecDraftCreated(PlanningArtifactCreatedPayload),
+    ExecutionPlanCreated(PlanningArtifactCreatedPayload),
+    DelegationPlanCreated(PlanningArtifactCreatedPayload),
+    SynthesisCreated(SynthesisWeekPayload),
+    ContextExplained(ContextExplainPayload),
+    CommitmentExplained(CommitmentExplainPayload),
+    DriftExplained(DriftExplainPayload),
+    ReviewToday(CommandReviewSummaryPayload),
+    ReviewWeek(CommandReviewSummaryPayload),
+}
+
+fn map_signal_summary(
+    value: crate::services::explain::SignalSummary,
+) -> SignalExplainSummaryPayload {
+    SignalExplainSummaryPayload {
+        signal_id: value.signal_id,
+        signal_type: value.signal_type,
+        source: value.source,
+        timestamp: value.timestamp,
+        summary: value.summary,
+    }
+}
+
+fn map_context_explain_data(
+    value: crate::services::explain::ContextExplain,
+) -> ContextExplainPayload {
+    ContextExplainPayload {
+        computed_at: value.computed_at,
+        mode: value.mode,
+        morning_state: value.morning_state,
+        context: value.context,
+        source_summaries: ContextSourceSummariesPayload {
+            git_activity: value.source_summaries.git_activity.map(|summary| {
+                ContextSourceSummaryPayload {
+                    timestamp: summary.timestamp,
+                    summary: summary.summary,
+                }
+            }),
+            health: value
+                .source_summaries
+                .health
+                .map(|summary| ContextSourceSummaryPayload {
+                    timestamp: summary.timestamp,
+                    summary: summary.summary,
+                }),
+            mood: value
+                .source_summaries
+                .mood
+                .map(|summary| ContextSourceSummaryPayload {
+                    timestamp: summary.timestamp,
+                    summary: summary.summary,
+                }),
+            pain: value
+                .source_summaries
+                .pain
+                .map(|summary| ContextSourceSummaryPayload {
+                    timestamp: summary.timestamp,
+                    summary: summary.summary,
+                }),
+            note_document: value.source_summaries.note_document.map(|summary| {
+                ContextSourceSummaryPayload {
+                    timestamp: summary.timestamp,
+                    summary: summary.summary,
+                }
+            }),
+            assistant_message: value.source_summaries.assistant_message.map(|summary| {
+                ContextSourceSummaryPayload {
+                    timestamp: summary.timestamp,
+                    summary: summary.summary,
+                }
+            }),
+        },
+        adaptive_policy_overrides: value
+            .adaptive_policy_overrides
+            .into_iter()
+            .map(|item| AdaptivePolicyOverridePayload {
+                policy_key: item.policy_key,
+                value_minutes: item.value_minutes,
+                source_suggestion_id: item.source_suggestion_id,
+                source_title: item.source_title,
+                source_accepted_at: item.source_accepted_at,
+            })
+            .collect(),
+        signals_used: value.signals_used,
+        signal_summaries: value
+            .signal_summaries
+            .into_iter()
+            .map(map_signal_summary)
+            .collect(),
+        commitments_used: value.commitments_used,
+        risk_used: value.risk_used,
+        reasons: value.reasons,
+    }
+}
+
+fn map_commitment_explain_data(
+    value: crate::services::explain::CommitmentExplain,
+) -> CommitmentExplainPayload {
+    CommitmentExplainPayload {
+        commitment_id: value.commitment_id,
+        commitment: value.commitment,
+        risk: value.risk,
+        in_context_reasons: value.in_context_reasons,
+    }
+}
+
+fn map_drift_explain_data(value: crate::services::explain::DriftExplain) -> DriftExplainPayload {
+    DriftExplainPayload {
+        attention_state: value.attention_state,
+        drift_type: value.drift_type,
+        drift_severity: value.drift_severity,
+        confidence: value.confidence,
+        reasons: value.reasons,
+        signals_used: value.signals_used,
+        signal_summaries: value
+            .signal_summaries
+            .into_iter()
+            .map(map_signal_summary)
+            .collect(),
+        commitments_used: value.commitments_used,
+    }
 }
 
 pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
@@ -581,7 +873,7 @@ async fn execute_create_capture(
         }
     }
 
-    let response = CaptureCreateResponse {
+    let response = CaptureCreatedPayload {
         capture_id,
         accepted_at: OffsetDateTime::now_utc(),
     };
@@ -616,7 +908,7 @@ async fn execute_review_context(
     let captures = state.storage.list_captures_recent(limit, today).await?;
     let captures = captures
         .into_iter()
-        .map(vel_api_types::ContextCapture::from)
+        .map(ContextCapturePayload::from)
         .collect::<Vec<_>>();
     let latest_context_artifact = state
         .storage
@@ -624,7 +916,7 @@ async fn execute_review_context(
         .await?
         .map(artifact_record_to_data)
         .transpose()?;
-    let review = CommandReviewSummaryData {
+    let review = CommandReviewSummaryPayload {
         capture_count: captures.len(),
         captures,
         latest_context_artifact,
@@ -655,12 +947,12 @@ async fn execute_explain_context(
         .unwrap_or("context");
 
     let result = match explain_target {
-        "drift" => CommandExecutionPayload::DriftExplained(
+        "drift" => CommandExecutionPayload::DriftExplained(map_drift_explain_data(
             crate::services::explain::explain_drift_data(state).await?,
-        ),
-        _ => CommandExecutionPayload::ContextExplained(
+        )),
+        _ => CommandExecutionPayload::ContextExplained(map_context_explain_data(
             crate::services::explain::explain_context_data(state).await?,
-        ),
+        )),
     };
 
     Ok(CommandExecutionResult {
@@ -682,9 +974,9 @@ async fn execute_explain_commitment(
         })?;
 
     Ok(CommandExecutionResult {
-        result: CommandExecutionPayload::CommitmentExplained(
+        result: CommandExecutionPayload::CommitmentExplained(map_commitment_explain_data(
             crate::services::explain::explain_commitment_data(state, commitment_id).await?,
-        ),
+        )),
         warnings: Vec::new(),
     })
 }
@@ -707,7 +999,7 @@ async fn execute_synthesis(
         "week" => {
             let (run_id, artifact_id) =
                 crate::services::synthesis::run_week_synthesis(state).await?;
-            CommandExecutionPayload::SynthesisCreated(SynthesisWeekData {
+            CommandExecutionPayload::SynthesisCreated(SynthesisWeekPayload {
                 run_id: run_id.to_string(),
                 artifact_id: artifact_id.to_string(),
             })
@@ -788,7 +1080,7 @@ async fn execute_create_commitment(
         .ok_or_else(|| AppError::internal("commitment not found after insert"))?;
 
     Ok(CommandExecutionResult {
-        result: CommandExecutionPayload::CommitmentCreated(CommitmentData::from(commitment)),
+        result: CommandExecutionPayload::CommitmentCreated(CommitmentPayload::from(commitment)),
         warnings: Vec::new(),
     })
 }
@@ -841,7 +1133,7 @@ async fn execute_create_planning_artifact(
         .ok_or_else(|| AppError::internal("artifact not found after insert"))?;
     let artifact = artifact_record_to_data(artifact)?;
     let thread = create_planning_thread(state, artifact_type, &artifact, command).await?;
-    let planning = PlanningArtifactCreatedData { artifact, thread };
+    let planning = PlanningArtifactCreatedPayload { artifact, thread };
 
     Ok(CommandExecutionResult {
         result: match result_kind {
@@ -877,10 +1169,8 @@ enum CommandExecutionPayloadKind {
     DelegationPlanCreated,
 }
 
-fn artifact_record_to_data(
-    record: ArtifactRecord,
-) -> Result<vel_api_types::ArtifactData, AppError> {
-    Ok(vel_api_types::ArtifactData {
+fn artifact_record_to_data(record: ArtifactRecord) -> Result<ArtifactPayload, AppError> {
+    Ok(ArtifactPayload {
         artifact_id: record.artifact_id,
         artifact_type: record.artifact_type,
         title: record.title,
@@ -901,9 +1191,9 @@ fn artifact_record_to_data(
 async fn create_planning_thread(
     state: &AppState,
     artifact_type: &str,
-    artifact: &ArtifactData,
+    artifact: &ArtifactPayload,
     command: &ResolvedCommand,
-) -> Result<ThreadData, AppError> {
+) -> Result<ThreadPayload, AppError> {
     let thread_id = format!("thr_{}", Uuid::new_v4().simple());
     let thread_type = match artifact_type {
         "spec_draft" => "planning_spec",
@@ -944,7 +1234,7 @@ async fn create_planning_thread(
     Ok(thread_row_to_data(row))
 }
 
-fn thread_row_to_data(row: (String, String, String, String, String, i64, i64)) -> ThreadData {
+fn thread_row_to_data(row: (String, String, String, String, String, i64, i64)) -> ThreadPayload {
     let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row;
     let planning_kind = match thread_type.as_str() {
         "planning_spec" => Some("spec".to_string()),
@@ -953,7 +1243,7 @@ fn thread_row_to_data(row: (String, String, String, String, String, i64, i64)) -
         _ => None,
     };
     let lifecycle_stage = planning_kind.as_ref().map(|_| status.clone());
-    ThreadData {
+    ThreadPayload {
         id,
         thread_type,
         title,

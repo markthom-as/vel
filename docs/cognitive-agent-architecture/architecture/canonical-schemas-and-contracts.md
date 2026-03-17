@@ -110,6 +110,8 @@ The repo keeps checked-in templates and examples for human-authored and shared c
 - `config/templates/policies.template.yaml`
 - `configs/models/templates/profile.template.toml`
 - `configs/models/templates/routing.template.toml`
+- `config/examples/model-profile.example.toml`
+- `config/examples/model-routing.example.toml`
 - `config/examples/connector-manifest.example.json`
 - `config/examples/self-model-envelope.example.json`
 

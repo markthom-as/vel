@@ -13,6 +13,41 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 - `worker_authenticated`: worker/sync coordination routes gated by centralized auth policy.
 - `future_external`: reserved class; deny-by-default.
 
+Current mounted inventory by class:
+
+- `local_public`
+  - `GET /v1/health`
+  - `GET /api/integrations/google-calendar/oauth/callback`
+- `operator_authenticated`
+  - all mounted `/v1/*` routes except the explicitly worker-authenticated and future-external reservations below
+  - `/api/components*`, `/api/integrations*` (except the OAuth callback above), chat/operator `/api/*` routes, and `/ws`
+- `worker_authenticated`
+  - `POST /v1/cluster/branch-sync`
+  - `POST /v1/cluster/validation`
+  - `POST /v1/sync/heartbeat`
+  - `GET|POST|PATCH /v1/sync/work-assignments`
+  - `GET /v1/sync/work-queue`
+  - `POST /v1/sync/work-queue/claim-next`
+  - `POST /v1/sync/actions`
+  - `POST /v1/sync/branch-sync`
+  - `POST /v1/sync/validation`
+  - auth expectation for mounted write surfaces: requests such as `POST /v1/sync/work-queue/claim-next` return `401` when worker token policy is configured and credentials are missing/invalid
+- `future_external` (fail-closed reservation)
+  - `/v1/connect`
+  - `/v1/connect/*`
+  - `/v1/cluster/clients`
+  - `/v1/cluster/clients/*`
+
+Mounted `/api/*` and `/ws` exposure/auth matrix:
+
+| Surface | Exposure class | Auth expectation | Fail-closed expectation |
+| --- | --- | --- | --- |
+| `GET /api/integrations/google-calendar/oauth/callback` | `local_public` | no operator token challenge | handler-level validation errors (for example missing `code`/`state`) return `400`, not `401` |
+| `/api/components*` | `operator_authenticated` | deny `401` without valid operator token when operator token is configured | unknown paths return `404`; unsupported methods return `405` |
+| `/api/integrations*` (except OAuth callback) | `operator_authenticated` | deny `401` without valid operator token when operator token is configured | unknown paths return `404`; unsupported methods return `405` |
+| `/api/conversations*`, `/api/inbox`, `/api/messages/*`, `/api/settings`, `/api/interventions/*` | `operator_authenticated` | deny `401` without valid operator token when operator token is configured | unknown paths return `404`; unsupported methods return `405` |
+| `/ws` | `operator_authenticated` | deny `401` without valid operator token when operator token is configured | `/ws/*` unknown paths return `404`; unsupported methods on `/ws` return `405` |
+
 Auth extraction is centralized at the route-class boundary in `crates/veld/src/app.rs`.
 Supported credentials for authenticated classes:
 
@@ -65,12 +100,12 @@ Exposure:
 - `POST /v1/cluster/branch-sync`: `worker_authenticated`
 - `POST /v1/cluster/validation`: `worker_authenticated`
 
-Not currently shipped:
+Reserved for future external/connect architecture:
 
-- `/v1/connect/*`
-- `/v1/cluster/clients`
+- `/v1/connect` and `/v1/connect/*`
+- `/v1/cluster/clients` and `/v1/cluster/clients/*`
 
-Those remain planned architecture surfaces under the Phase 2 connect workstream.
+These are mounted as `future_external` and currently return `403` (deny-by-default) instead of falling through as generic undefined routes.
 
 ## Capture and journal
 

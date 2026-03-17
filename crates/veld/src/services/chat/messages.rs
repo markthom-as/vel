@@ -2,12 +2,12 @@ use uuid::Uuid;
 use vel_storage::MessageInsert;
 
 use crate::{
-    broadcast::WsEnvelope,
     errors::AppError,
     services::chat::{
-        assistant::generate_assistant_reply, events::emit_chat_event,
+        assistant::generate_assistant_reply,
+        events::{broadcast_chat_ws_event, emit_chat_event, WS_EVENT_MESSAGES_NEW},
         interventions::{create_intervention_for_message_if_needed, InterventionMessageInput},
-        mapping::message_record_to_data,
+        mapping::{message_record_to_data, MessageServiceData},
     },
     state::AppState,
 };
@@ -19,7 +19,7 @@ pub(crate) struct ChatMessageCreateInput {
     pub content: serde_json::Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct ChatMessage {
     pub id: String,
     pub conversation_id: String,
@@ -39,8 +39,8 @@ pub(crate) struct ChatMessageCreateResult {
     pub assistant_error: Option<String>,
 }
 
-impl From<vel_api_types::MessageData> for ChatMessage {
-    fn from(value: vel_api_types::MessageData) -> Self {
+impl From<MessageServiceData> for ChatMessage {
+    fn from(value: MessageServiceData) -> Self {
         Self {
             id: value.id,
             conversation_id: value.conversation_id,
@@ -116,9 +116,7 @@ pub(crate) async fn create_user_message(
 
     let ws_payload =
         serde_json::to_value(&created_message).unwrap_or_else(|_| serde_json::json!({ "id": id }));
-    let _ = state
-        .broadcast_tx
-        .send(WsEnvelope::new(vel_api_types::WsEventType::MessagesNew, ws_payload));
+    broadcast_chat_ws_event(state, WS_EVENT_MESSAGES_NEW, ws_payload);
 
     Ok(created_message)
 }
@@ -146,9 +144,7 @@ pub(crate) async fn create_message_response(
         {
             Ok(Some(assistant_message)) => {
                 let ws_payload = serde_json::to_value(&assistant_message).unwrap_or_default();
-                let _ = state
-                    .broadcast_tx
-                    .send(WsEnvelope::new(WsEventType::MessagesNew, ws_payload));
+                broadcast_chat_ws_event(state, WS_EVENT_MESSAGES_NEW, ws_payload);
                 (Some(ChatMessage::from(assistant_message)), None)
             }
             Ok(None) => (None, None),

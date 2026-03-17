@@ -5,7 +5,7 @@ artifact_root = "var/artifacts"
 log_level = "info"
 agent_spec_path = "config/agent-specs.yaml"
 llm_model_path = "configs/models/weights/qwen3-coder-30b-a3b-instruct-q4_k_m.gguf"
-llm_fast_model_path = "configs/models/weights/qwen2.5-coder-14b-instruct-q4_k_m.gguf"
+llm_fast_model_path = "configs/models/weights/qwen2.5-1.5b-instruct-q4_k_m.gguf"
 
 calendar_ics_path = "var/integrations/calendar/local.ics"
 todoist_snapshot_path = "var/integrations/todoist/snapshot.json"

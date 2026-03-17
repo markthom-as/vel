@@ -170,6 +170,12 @@ mod tests {
             .join(relative)
     }
 
+    fn repo_path(relative: &str) -> std::path::PathBuf {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(relative)
+    }
+
     #[test]
     fn parse_model_profile_toml() {
         let t = r#"
@@ -247,8 +253,32 @@ model = "m"
     }
 
     #[test]
+    fn model_profile_example_parses() {
+        let example =
+            std::fs::read_to_string(repo_path("config/examples/model-profile.example.toml"))
+                .unwrap();
+        let profile = ModelProfile::parse_toml(&example).unwrap();
+        assert_eq!(profile.id, "local-primary-profile");
+        assert_eq!(profile.provider, "llama_cpp");
+    }
+
+    #[test]
     fn model_routing_template_parses() {
         let routing = load_routing(repo_models_path("templates/routing.template.toml")).unwrap();
+        assert_eq!(
+            routing.profile_for_task("chat"),
+            Some("local-primary-profile")
+        );
+        assert_eq!(
+            routing.fallback_remote_profile(),
+            Some("remote-review-profile")
+        );
+    }
+
+    #[test]
+    fn model_routing_example_parses() {
+        let routing =
+            load_routing(repo_path("config/examples/model-routing.example.toml")).unwrap();
         assert_eq!(
             routing.profile_for_task("chat"),
             Some("local-primary-profile")

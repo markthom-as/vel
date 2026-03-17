@@ -2,7 +2,11 @@ use uuid::Uuid;
 use vel_storage::InterventionInsert;
 
 use crate::{
-    broadcast::WsEnvelope, errors::AppError, services::chat::events::emit_chat_event,
+    errors::AppError,
+    services::chat::events::{
+        broadcast_chat_ws_event, emit_chat_event, WS_EVENT_INTERVENTIONS_NEW,
+        WS_EVENT_INTERVENTIONS_UPDATED,
+    },
     state::AppState,
 };
 
@@ -15,7 +19,7 @@ pub(crate) struct InterventionMessageInput {
     pub content: serde_json::Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct InterventionInboxItem {
     pub id: String,
     pub message_id: String,
@@ -26,7 +30,7 @@ pub(crate) struct InterventionInboxItem {
     pub confidence: Option<f64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct InterventionAction {
     pub id: String,
     pub state: String,
@@ -105,12 +109,7 @@ pub(crate) async fn create_intervention_for_message_if_needed(
 
     let ws_payload =
         serde_json::to_value(&data).unwrap_or_else(|_| serde_json::json!({ "id": data.id }));
-    let _ = state
-        .broadcast_tx
-        .send(WsEnvelope::new(
-            vel_api_types::WsEventType::InterventionsNew,
-            ws_payload,
-        ));
+    broadcast_chat_ws_event(state, WS_EVENT_INTERVENTIONS_NEW, ws_payload);
 
     Ok(Some(data))
 }
@@ -139,10 +138,11 @@ pub(crate) async fn snooze_intervention(
         id: id.to_string(),
         state: "snoozed".to_string(),
     };
-    let _ = state.broadcast_tx.send(WsEnvelope::new(
-        vel_api_types::WsEventType::InterventionsUpdated,
+    broadcast_chat_ws_event(
+        state,
+        WS_EVENT_INTERVENTIONS_UPDATED,
         serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-    ));
+    );
     Ok(payload)
 }
 
@@ -169,10 +169,11 @@ pub(crate) async fn resolve_intervention(
         id: id.to_string(),
         state: "resolved".to_string(),
     };
-    let _ = state.broadcast_tx.send(WsEnvelope::new(
-        vel_api_types::WsEventType::InterventionsUpdated,
+    broadcast_chat_ws_event(
+        state,
+        WS_EVENT_INTERVENTIONS_UPDATED,
         serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-    ));
+    );
     Ok(payload)
 }
 
@@ -199,9 +200,10 @@ pub(crate) async fn dismiss_intervention(
         id: id.to_string(),
         state: "dismissed".to_string(),
     };
-    let _ = state.broadcast_tx.send(WsEnvelope::new(
-        vel_api_types::WsEventType::InterventionsUpdated,
+    broadcast_chat_ws_event(
+        state,
+        WS_EVENT_INTERVENTIONS_UPDATED,
         serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-    ));
+    );
     Ok(payload)
 }

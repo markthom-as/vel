@@ -16,12 +16,20 @@ use vel_api_types::{
 
 use crate::services::chat::{
     conversations::{
-        create_conversation as create_conversation_data, ConversationCreateInput,
-        ConversationUpdateInput, update_conversation as update_conversation_data,
+        create_conversation as create_conversation_data,
+        update_conversation as update_conversation_data, ConversationCreateInput,
+        ConversationUpdateInput,
     },
-    interventions::{dismiss_intervention, resolve_intervention, snooze_intervention, InterventionAction},
-    mapping::{conversation_record_to_data, message_record_to_data},
-    messages::{create_message_response, ChatMessage, ChatMessageCreateInput, ChatMessageCreateResult},
+    interventions::{
+        dismiss_intervention, resolve_intervention, snooze_intervention, InterventionAction,
+    },
+    mapping::{
+        conversation_record_to_data, message_record_to_data, ConversationServiceData,
+        MessageServiceData,
+    },
+    messages::{
+        create_message_response, ChatMessage, ChatMessageCreateInput, ChatMessageCreateResult,
+    },
     reads::{
         build_message_provenance_data, list_conversation_intervention_items, list_inbox_items,
         list_message_intervention_items, InboxItem, MessageProvenance, ProvenanceMessageEvent,
@@ -29,6 +37,18 @@ use crate::services::chat::{
     settings::settings_payload,
 };
 use crate::{errors::AppError, state::AppState};
+
+fn map_conversation(conversation: ConversationServiceData) -> ConversationData {
+    ConversationData {
+        id: conversation.id,
+        title: conversation.title,
+        kind: conversation.kind,
+        pinned: conversation.pinned,
+        archived: conversation.archived,
+        created_at: conversation.created_at,
+        updated_at: conversation.updated_at,
+    }
+}
 
 fn map_inbox_item(item: InboxItem) -> InboxItemData {
     InboxItemData {
@@ -39,6 +59,20 @@ fn map_inbox_item(item: InboxItem) -> InboxItemData {
         surfaced_at: item.surfaced_at,
         snoozed_until: item.snoozed_until,
         confidence: item.confidence,
+    }
+}
+
+fn map_service_message(message: MessageServiceData) -> MessageData {
+    MessageData {
+        id: message.id,
+        conversation_id: message.conversation_id,
+        role: message.role,
+        kind: message.kind,
+        content: message.content,
+        status: message.status,
+        importance: message.importance,
+        created_at: message.created_at,
+        updated_at: message.updated_at,
     }
 }
 
@@ -98,7 +132,11 @@ pub async fn list_conversations(
 ) -> Result<Json<ApiResponse<Vec<ConversationData>>>, AppError> {
     let limit = q.limit.unwrap_or(100).min(500);
     let list = state.storage.list_conversations(q.archived, limit).await?;
-    let data: Vec<ConversationData> = list.into_iter().map(conversation_record_to_data).collect();
+    let data: Vec<ConversationData> = list
+        .into_iter()
+        .map(conversation_record_to_data)
+        .map(map_conversation)
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -123,7 +161,7 @@ pub async fn create_conversation(
     .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        conversation_record_to_data(conv),
+        map_conversation(conversation_record_to_data(conv)),
         request_id,
     )))
 }
@@ -139,7 +177,7 @@ pub async fn get_conversation(
         .ok_or_else(|| AppError::not_found("conversation not found"))?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        conversation_record_to_data(conv),
+        map_conversation(conversation_record_to_data(conv)),
         request_id,
     )))
 }
@@ -161,7 +199,7 @@ pub async fn update_conversation(
     .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        conversation_record_to_data(conv),
+        map_conversation(conversation_record_to_data(conv)),
         request_id,
     )))
 }
@@ -180,7 +218,7 @@ pub async fn list_messages(
         .await?;
     let mut data = Vec::with_capacity(list.len());
     for r in list {
-        data.push(message_record_to_data(r)?);
+        data.push(map_service_message(message_record_to_data(r)?));
     }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -474,8 +512,8 @@ pub fn chat_routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use crate::services::chat::messages::ChatMessage;
     use serde_json::json;
-    use vel_api_types::MessageData;
     use vel_llm::{LlmError, ProviderError};
 
     #[test]
@@ -528,7 +566,7 @@ mod tests {
 
     #[test]
     fn risk_card_summaries_normalize_risk_level() {
-        let message = MessageData {
+        let message = ChatMessage {
             id: "msg_1".to_string(),
             conversation_id: "con_1".to_string(),
             role: "assistant".to_string(),

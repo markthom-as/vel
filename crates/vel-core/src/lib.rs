@@ -23,7 +23,9 @@ pub use connect::{
     ConnectInstance, ConnectInstanceCapabilityManifest, ConnectInstanceStatus,
     ConnectRuntimeCapability,
 };
-pub use context::{ContextCapture, ContextMigrator, CurrentContextV1, OrientationSnapshot, SearchResult};
+pub use context::{
+    ContextCapture, ContextMigrator, CurrentContextV1, OrientationSnapshot, SearchResult,
+};
 pub use integration::{
     IntegrationConnection, IntegrationConnectionEvent, IntegrationConnectionEventType,
     IntegrationConnectionSettingRef, IntegrationConnectionStatus, IntegrationFamily,

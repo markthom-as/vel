@@ -81,6 +81,10 @@
       "type": "string",
       "minLength": 1
     },
+    "reminders_snapshot_path": {
+      "type": "string",
+      "minLength": 1
+    },
     "notes_path": {
       "type": "string",
       "minLength": 1

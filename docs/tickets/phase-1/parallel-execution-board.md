@@ -35,15 +35,20 @@ Current ranked execution order for remaining high-value phase-1 slices:
 ## Execution Snapshot (2026-03-17)
 
 - `003-service-dto-layering.md`: in progress
-  - completed slices: journal, doctor, components, google auth-start, todoist status boundary mapping
-  - next slices: chat service seams and remaining `vel_api_types` imports in `crates/veld/src/services/*`
+  - completed slices: journal, doctor, components, google auth-start, todoist status boundary mapping, chat reads, chat conversations, chat messages/interventions, chat assistant/provenance, chat mapping, chat websocket event reference cleanup, context_generation/context_runs, now, evaluate, explain, integrations, command_lang, client_sync, sync/cluster route response helper extraction, client_sync heartbeat boundary tightened to service-local typed input, remaining client_sync request signatures migrated from generic `impl Serialize` to concrete service-local typed inputs
+  - next slices: audit remaining service-call boundaries for DTO-free signatures as routes and worker/service seams evolve
 - `001-storage-modularization.md`: in progress
-  - completed slices: signals, current context, context timeline
-  - active slice: inferred state repository extraction
+  - completed slices: signals, current context, context timeline, inferred state, processing_jobs repository extraction (including tx-safe helper variants), assistant_transcripts repository extraction (including tx-safe insert helper), artifacts repository extraction (including tx-safe create helper), suggestion_feedback repository extraction (including tx-safe insert helper), uncertainty_records repository extraction (including tx-safe insert/resolve helpers), commitment_risk repository extraction (including tx-safe insert helper), suggestions dedupe/state repository extraction (including tx-safe state update helper)
+  - next slices: continue extracting remaining `db.rs` seams with focused repository tests
 - `002-typed-context-transition.md`: in progress
-  - completed slices: `CurrentContextV1` + `ContextMigrator` foundation and inference compatibility coverage
+  - completed slices: `CurrentContextV1` + `ContextMigrator` foundation and inference compatibility coverage, typed read adoption in `nudge_engine`, typed read adoption in `explain`, typed risk-score read adoption in `suggestions`, typed load/fallback handling in `evaluate` context-updated broadcast path, typed-first context reads in `now` (with raw fallback preserved), typed context assertions in integrations bootstrap/evaluate coverage
   - next slices: adopt typed reads at additional boundaries without changing stored payload fidelity
-- `021` + `025`: planned, queued after current `003`/`001`/`002` high-value slices stabilize
+- `021` + `025`: in progress
+  - completed slices: canonical `model_routing` example fixture added and registered in `contracts-manifest`, verifier parity assertion added, docs/config references updated, parsing test added in `vel-config`; `reminders_snapshot_path` parity added across schema/template/runtime verifier and config tests; canonical `model_profile` example fixture added and wired through manifest/docs/tests/verifier
+  - next slices: continue filling schema/template/example/test parity gaps for remaining manifest-bearing config contracts
+- `015-http-surface-auth-hardening.md`: in progress
+  - completed slices: explicit `future_external` fail-closed route reservations for `/v1/connect*` and `/v1/cluster/clients*` in `app.rs`, plus coverage tests and runtime API docs alignment; expanded `/api/*` + `/ws` exposure/auth and fail-closed matrix tests with runtime API docs matrix; explicit worker-auth test coverage for `POST /v1/sync/work-queue/claim-next` when worker token policy is configured
+  - next slices: continue route exposure inventory/test matrix tightening for mounted `/api/*` and websocket surfaces
 
 ## Coordination Rules
 

@@ -1,7 +1,17 @@
-use vel_api_types::IntegrationLogEventData;
 use vel_storage::EventLogRecord;
 
 const INTEGRATION_LOG_LIMIT_DEFAULT: u32 = 10;
+
+#[derive(Debug, Clone)]
+pub struct IntegrationLogEvent {
+    pub id: String,
+    pub integration_id: String,
+    pub event_name: String,
+    pub status: String,
+    pub message: String,
+    pub payload: serde_json::Value,
+    pub created_at: i64,
+}
 
 pub(crate) fn integration_log_limit(limit: Option<u32>) -> u32 {
     limit.unwrap_or(INTEGRATION_LOG_LIMIT_DEFAULT)
@@ -24,7 +34,7 @@ pub(crate) fn canonical_integration_id(integration_id: &str) -> Option<&'static 
 pub(crate) fn map_integration_log_event(
     event: EventLogRecord,
     fallback_integration_id: &str,
-) -> IntegrationLogEventData {
+) -> IntegrationLogEvent {
     let payload =
         serde_json::from_str(&event.payload_json).unwrap_or_else(|_| serde_json::json!({}));
     let event_name = event.event_name;
@@ -34,7 +44,7 @@ pub(crate) fn map_integration_log_event(
         .unwrap_or_else(|| integration_log_status(&event_name))
         .to_string();
 
-    IntegrationLogEventData {
+    IntegrationLogEvent {
         id: event.id.to_string(),
         integration_id: event
             .aggregate_id

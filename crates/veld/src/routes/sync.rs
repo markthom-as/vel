@@ -1,6 +1,5 @@
 use axum::extract::{Query, State};
 use axum::Json;
-use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, BranchSyncRequestData, ClientActionBatchRequest, ClientActionBatchResultData,
     QueuedWorkItemData, QueuedWorkRoutingData, SyncBootstrapData, SyncClusterStateData,
@@ -9,7 +8,7 @@ use vel_api_types::{
     WorkAssignmentClaimRequestData, WorkAssignmentReceiptData, WorkAssignmentUpdateRequest,
 };
 
-use crate::{errors::AppError, services, state::AppState};
+use crate::{errors::AppError, routes::response, services, state::AppState};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct WorkAssignmentListQuery {
@@ -37,117 +36,144 @@ pub async fn sync_calendar(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "calendar".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "calendar".to_string(),
+        signals_ingested: count,
+    }))
 }
 
 pub async fn sync_bootstrap(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncBootstrapData>>, AppError> {
-    let data = services::client_sync::build_sync_bootstrap(&state).await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let data = response::map_response(
+        services::client_sync::build_sync_bootstrap(&state).await?,
+        "sync bootstrap response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn sync_cluster(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncClusterStateData>>, AppError> {
     state.storage.healthcheck().await?;
-    let data = services::client_sync::build_sync_cluster_state(&state).await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let data = response::map_response(
+        services::client_sync::build_sync_cluster_state(&state).await?,
+        "sync cluster response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn sync_heartbeat(
     State(state): State<AppState>,
     Json(payload): Json<SyncHeartbeatRequestData>,
 ) -> Result<Json<ApiResponse<SyncHeartbeatResponseData>>, AppError> {
-    let data = services::client_sync::ingest_worker_heartbeat(&state, payload).await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let request: services::client_sync::SyncHeartbeatRequestData =
+        response::map_request(payload, "sync heartbeat request")?;
+    let data = response::map_response(
+        services::client_sync::ingest_worker_heartbeat(&state, request).await?,
+        "sync heartbeat response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn sync_branch_sync_request(
     State(state): State<AppState>,
     Json(payload): Json<BranchSyncRequestData>,
 ) -> Result<Json<ApiResponse<QueuedWorkRoutingData>>, AppError> {
-    let data =
-        services::client_sync::queue_branch_sync_request(&state, payload, "sync_route", None)
-            .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let request: services::client_sync::BranchSyncRequestData =
+        response::map_request(payload, "branch sync request")?;
+    let data = response::map_response(
+        services::client_sync::queue_branch_sync_request(&state, request, "sync_route", None)
+            .await?,
+        "branch sync routing response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn sync_validation_request(
     State(state): State<AppState>,
     Json(payload): Json<ValidationRequestData>,
 ) -> Result<Json<ApiResponse<QueuedWorkRoutingData>>, AppError> {
-    let data = services::client_sync::queue_validation_request(&state, payload, "sync_route", None)
-        .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let request: services::client_sync::ValidationRequestData =
+        response::map_request(payload, "validation request")?;
+    let data = response::map_response(
+        services::client_sync::queue_validation_request(&state, request, "sync_route", None)
+            .await?,
+        "validation routing response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn claim_work_assignment(
     State(state): State<AppState>,
     Json(payload): Json<WorkAssignmentClaimRequestData>,
 ) -> Result<Json<ApiResponse<WorkAssignmentReceiptData>>, AppError> {
-    let data = services::client_sync::claim_work_assignment(&state, payload).await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let request: services::client_sync::WorkAssignmentClaimRequestData =
+        response::map_request(payload, "work assignment claim request")?;
+    let data = response::map_response(
+        services::client_sync::claim_work_assignment(&state, request).await?,
+        "work assignment claim response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn update_work_assignment(
     State(state): State<AppState>,
     Json(payload): Json<WorkAssignmentUpdateRequest>,
 ) -> Result<Json<ApiResponse<WorkAssignmentReceiptData>>, AppError> {
-    let data = services::client_sync::update_work_assignment_receipt(&state, payload).await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let request: services::client_sync::WorkAssignmentUpdateRequest =
+        response::map_request(payload, "work assignment update request")?;
+    let data = response::map_response(
+        services::client_sync::update_work_assignment_receipt(&state, request).await?,
+        "work assignment update response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn list_work_assignments(
     State(state): State<AppState>,
     Query(query): Query<WorkAssignmentListQuery>,
 ) -> Result<Json<ApiResponse<Vec<WorkAssignmentReceiptData>>>, AppError> {
-    let data = services::client_sync::list_work_assignment_receipts(
-        &state,
-        query.work_request_id.as_deref(),
-        query.worker_id.as_deref(),
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let data = response::map_response(
+        services::client_sync::list_work_assignment_receipts(
+            &state,
+            query.work_request_id.as_deref(),
+            query.worker_id.as_deref(),
+        )
+        .await?,
+        "work assignment list response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn list_worker_queue(
     State(state): State<AppState>,
     Query(query): Query<WorkerQueueQuery>,
 ) -> Result<Json<ApiResponse<Vec<QueuedWorkItemData>>>, AppError> {
-    let data = services::client_sync::list_worker_queue(
-        &state,
-        &query.node_id,
-        query.worker_class.as_deref(),
-        query.capability.as_deref(),
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let data = response::map_response(
+        services::client_sync::list_worker_queue(
+            &state,
+            &query.node_id,
+            query.worker_class.as_deref(),
+            query.capability.as_deref(),
+        )
+        .await?,
+        "worker queue list response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn claim_next_worker_queue_item(
     State(state): State<AppState>,
     Json(payload): Json<WorkAssignmentClaimNextRequestData>,
 ) -> Result<Json<ApiResponse<WorkAssignmentClaimNextResponseData>>, AppError> {
-    let data = services::client_sync::claim_next_work_for_worker(&state, payload).await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    let request: services::client_sync::WorkAssignmentClaimNextRequestData =
+        response::map_request(payload, "work assignment claim-next request")?;
+    let data = response::map_response(
+        services::client_sync::claim_next_work_for_worker(&state, request).await?,
+        "work assignment claim-next response",
+    )?;
+    Ok(response::success(data))
 }
 
 pub async fn sync_actions(
@@ -161,12 +187,16 @@ pub async fn sync_actions(
         return Err(AppError::bad_request("actions batch exceeds 200"));
     }
 
-    let data = services::client_sync::apply_client_actions(&state, payload).await?;
+    let request: services::client_sync::ClientActionBatchRequest =
+        response::map_request(payload, "client action batch request")?;
+    let data: ClientActionBatchResultData = response::map_response(
+        services::client_sync::apply_client_actions(&state, request).await?,
+        "client action batch response",
+    )?;
     if data.applied > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    Ok(response::success(data))
 }
 
 pub async fn sync_todoist(
@@ -176,14 +206,10 @@ pub async fn sync_todoist(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "todoist".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "todoist".to_string(),
+        signals_ingested: count,
+    }))
 }
 
 pub async fn sync_activity(
@@ -193,14 +219,10 @@ pub async fn sync_activity(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "activity".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "activity".to_string(),
+        signals_ingested: count,
+    }))
 }
 
 pub async fn sync_health(
@@ -210,14 +232,10 @@ pub async fn sync_health(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "health".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "health".to_string(),
+        signals_ingested: count,
+    }))
 }
 
 pub async fn sync_git(
@@ -227,14 +245,10 @@ pub async fn sync_git(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "git".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "git".to_string(),
+        signals_ingested: count,
+    }))
 }
 
 pub async fn sync_messaging(
@@ -244,14 +258,10 @@ pub async fn sync_messaging(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "messaging".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "messaging".to_string(),
+        signals_ingested: count,
+    }))
 }
 
 pub async fn sync_reminders(
@@ -261,14 +271,10 @@ pub async fn sync_reminders(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "reminders".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "reminders".to_string(),
+        signals_ingested: count,
+    }))
 }
 
 pub async fn sync_notes(
@@ -278,14 +284,10 @@ pub async fn sync_notes(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "notes".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "notes".to_string(),
+        signals_ingested: count,
+    }))
 }
 
 pub async fn sync_transcripts(
@@ -295,12 +297,8 @@ pub async fn sync_transcripts(
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        SyncResultData {
-            source: "transcripts".to_string(),
-            signals_ingested: count,
-        },
-        request_id,
-    )))
+    Ok(response::success(SyncResultData {
+        source: "transcripts".to_string(),
+        signals_ingested: count,
+    }))
 }

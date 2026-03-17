@@ -6,20 +6,161 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, GoogleCalendarAuthStartData, IntegrationConnectionData,
-    IntegrationConnectionEventData, IntegrationLogEventData, IntegrationsData,
+    ApiResponse, GoogleCalendarAuthStartData, GoogleCalendarIntegrationData,
+    IntegrationCalendarData, IntegrationConnectionData, IntegrationConnectionEventData,
+    IntegrationConnectionSettingRefData, IntegrationGuidanceData, IntegrationLogEventData,
+    IntegrationsData, LocalIntegrationData, TodoistIntegrationData,
 };
 
-use crate::{
-    errors::AppError,
-    services::integrations,
-    state::AppState,
-};
+use crate::{errors::AppError, services::integrations, state::AppState};
+
+fn map_integration_log_event_dto(
+    event: integrations::IntegrationLogEvent,
+) -> IntegrationLogEventData {
+    IntegrationLogEventData {
+        id: event.id,
+        integration_id: event.integration_id,
+        event_name: event.event_name,
+        status: event.status,
+        message: event.message,
+        payload: event.payload,
+        created_at: event.created_at,
+    }
+}
+
+impl From<integrations::IntegrationGuidanceOutput> for IntegrationGuidanceData {
+    fn from(value: integrations::IntegrationGuidanceOutput) -> Self {
+        Self {
+            title: value.title,
+            detail: value.detail,
+            action: value.action,
+        }
+    }
+}
+
+impl From<integrations::IntegrationCalendarOutput> for IntegrationCalendarData {
+    fn from(value: integrations::IntegrationCalendarOutput) -> Self {
+        Self {
+            id: value.id,
+            summary: value.summary,
+            primary: value.primary,
+            selected: value.selected,
+        }
+    }
+}
+
+impl From<integrations::GoogleCalendarIntegrationOutput> for GoogleCalendarIntegrationData {
+    fn from(value: integrations::GoogleCalendarIntegrationOutput) -> Self {
+        Self {
+            configured: value.configured,
+            connected: value.connected,
+            has_client_id: value.has_client_id,
+            has_client_secret: value.has_client_secret,
+            calendars: value.calendars.into_iter().map(Into::into).collect(),
+            all_calendars_selected: value.all_calendars_selected,
+            last_sync_at: value.last_sync_at,
+            last_sync_status: value.last_sync_status,
+            last_error: value.last_error,
+            last_item_count: value.last_item_count,
+            guidance: value.guidance.map(Into::into),
+        }
+    }
+}
+
+impl From<integrations::TodoistIntegrationOutput> for TodoistIntegrationData {
+    fn from(value: integrations::TodoistIntegrationOutput) -> Self {
+        Self {
+            configured: value.configured,
+            connected: value.connected,
+            has_api_token: value.has_api_token,
+            last_sync_at: value.last_sync_at,
+            last_sync_status: value.last_sync_status,
+            last_error: value.last_error,
+            last_item_count: value.last_item_count,
+            guidance: value.guidance.map(Into::into),
+        }
+    }
+}
+
+impl From<integrations::LocalIntegrationOutput> for LocalIntegrationData {
+    fn from(value: integrations::LocalIntegrationOutput) -> Self {
+        Self {
+            configured: value.configured,
+            guidance: value.guidance.map(Into::into),
+            source_path: value.source_path,
+            last_sync_at: value.last_sync_at,
+            last_sync_status: value.last_sync_status,
+            last_error: value.last_error,
+            last_item_count: value.last_item_count,
+        }
+    }
+}
+
+impl From<integrations::IntegrationsOutput> for IntegrationsData {
+    fn from(value: integrations::IntegrationsOutput) -> Self {
+        Self {
+            google_calendar: value.google_calendar.into(),
+            todoist: value.todoist.into(),
+            activity: value.activity.into(),
+            health: value.health.into(),
+            git: value.git.into(),
+            messaging: value.messaging.into(),
+            reminders: value.reminders.into(),
+            notes: value.notes.into(),
+            transcripts: value.transcripts.into(),
+        }
+    }
+}
+
+impl From<integrations::IntegrationConnectionSettingRefOutput>
+    for IntegrationConnectionSettingRefData
+{
+    fn from(value: integrations::IntegrationConnectionSettingRefOutput) -> Self {
+        Self {
+            setting_key: value.setting_key,
+            setting_value: value.setting_value,
+            created_at: value.created_at,
+        }
+    }
+}
+
+impl From<integrations::IntegrationConnectionOutput> for IntegrationConnectionData {
+    fn from(value: integrations::IntegrationConnectionOutput) -> Self {
+        Self {
+            id: value.id,
+            family: value.family,
+            provider_key: value.provider_key,
+            status: value.status,
+            display_name: value.display_name,
+            account_ref: value.account_ref,
+            metadata: value.metadata,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+            setting_refs: value.setting_refs.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<integrations::IntegrationConnectionEventOutput> for IntegrationConnectionEventData {
+    fn from(value: integrations::IntegrationConnectionEventOutput) -> Self {
+        Self {
+            id: value.id,
+            connection_id: value.connection_id,
+            event_type: value.event_type,
+            payload: value.payload,
+            timestamp: value.timestamp,
+            created_at: value.created_at,
+        }
+    }
+}
 
 pub async fn get_integrations(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
-    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
+    let data: IntegrationsData =
+        integrations::get_integrations_with_config(&state.storage, &state.config)
+            .await?
+            .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -43,7 +184,10 @@ pub async fn list_integration_logs(
 ) -> Result<Json<ApiResponse<Vec<IntegrationLogEventData>>>, AppError> {
     let data =
         integrations::list_integration_logs(&state.storage, integration_id.trim(), query.limit)
-            .await?;
+            .await?
+            .into_iter()
+            .map(map_integration_log_event_dto)
+            .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -58,7 +202,10 @@ pub async fn list_integration_connections(
         query.provider_key.as_deref(),
         query.include_disabled.unwrap_or(false),
     )
-    .await?;
+    .await?
+    .into_iter()
+    .map(Into::into)
+    .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -67,8 +214,10 @@ pub async fn get_integration_connection(
     Path(connection_id): Path<String>,
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationConnectionData>>, AppError> {
-    let data =
-        integrations::get_integration_connection(&state.storage, connection_id.trim()).await?;
+    let data: IntegrationConnectionData =
+        integrations::get_integration_connection(&state.storage, connection_id.trim())
+            .await?
+            .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -83,7 +232,10 @@ pub async fn list_integration_connection_events(
         connection_id.trim(),
         query.limit,
     )
-    .await?;
+    .await?
+    .into_iter()
+    .map(Into::into)
+    .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -108,7 +260,10 @@ pub async fn patch_google_calendar(
         payload.all_calendars_selected,
     )
     .await?;
-    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
+    let data: IntegrationsData =
+        integrations::get_integrations_with_config(&state.storage, &state.config)
+            .await?
+            .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -117,7 +272,10 @@ pub async fn disconnect_google_calendar(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
     integrations::disconnect_google_calendar(&state.storage).await?;
-    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
+    let data: IntegrationsData =
+        integrations::get_integrations_with_config(&state.storage, &state.config)
+            .await?
+            .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -173,7 +331,10 @@ pub async fn patch_todoist(
     Json(payload): Json<TodoistUpdateRequest>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
     integrations::update_todoist_settings(&state.storage, payload.api_token).await?;
-    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
+    let data: IntegrationsData =
+        integrations::get_integrations_with_config(&state.storage, &state.config)
+            .await?
+            .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -182,7 +343,10 @@ pub async fn disconnect_todoist(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
     integrations::disconnect_todoist(&state.storage).await?;
-    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
+    let data: IntegrationsData =
+        integrations::get_integrations_with_config(&state.storage, &state.config)
+            .await?
+            .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -198,7 +362,10 @@ pub async fn patch_local_integration_source(
         payload.source_path,
     )
     .await?;
-    let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
+    let data: IntegrationsData =
+        integrations::get_integrations_with_config(&state.storage, &state.config)
+            .await?
+            .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

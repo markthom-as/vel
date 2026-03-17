@@ -1,5 +1,4 @@
 use uuid::Uuid;
-use vel_api_types::MessageData;
 use vel_llm::{LlmError, LlmRequest, Message as LlmMessage, ProviderError, Router};
 use vel_storage::MessageInsert;
 
@@ -8,6 +7,7 @@ use crate::{
     services::chat::{
         events::emit_chat_event,
         mapping::{message_record_to_data, message_record_to_llm_content},
+        messages::ChatMessage,
     },
     state::AppState,
 };
@@ -29,7 +29,7 @@ pub(crate) async fn generate_assistant_reply(
     profile_id: &str,
     fallback_profile_id: Option<&str>,
     router: &Router,
-) -> Result<Option<MessageData>, AppError> {
+) -> Result<Option<ChatMessage>, AppError> {
     let list = state
         .storage
         .list_messages_by_conversation(conversation_id, 50)
@@ -110,7 +110,9 @@ pub(crate) async fn generate_assistant_reply(
                         .ok_or_else(|| {
                             AppError::internal("assistant message not found after create")
                         })?;
-                return message_record_to_data(assistant_msg).map(Some);
+                return message_record_to_data(assistant_msg)
+                    .map(ChatMessage::from)
+                    .map(Some);
             }
             Err(err) => {
                 let should_try_fallback =

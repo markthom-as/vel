@@ -1,9 +1,44 @@
-use vel_api_types::{ConversationData, InboxItemData, MessageData};
-
 use crate::errors::AppError;
 
-pub(crate) fn conversation_record_to_data(r: vel_storage::ConversationRecord) -> ConversationData {
-    ConversationData {
+#[derive(Debug, Clone)]
+pub(crate) struct ConversationServiceData {
+    pub id: String,
+    pub title: Option<String>,
+    pub kind: String,
+    pub pinned: bool,
+    pub archived: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct MessageServiceData {
+    pub id: String,
+    pub conversation_id: String,
+    pub role: String,
+    pub kind: String,
+    pub content: serde_json::Value,
+    pub status: Option<String>,
+    pub importance: Option<String>,
+    pub created_at: i64,
+    pub updated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct InboxItemServiceData {
+    pub id: String,
+    pub message_id: String,
+    pub kind: String,
+    pub state: String,
+    pub surfaced_at: i64,
+    pub snoozed_until: Option<i64>,
+    pub confidence: Option<f64>,
+}
+
+pub(crate) fn conversation_record_to_data(
+    r: vel_storage::ConversationRecord,
+) -> ConversationServiceData {
+    ConversationServiceData {
         id: r.id.as_ref().to_string(),
         title: r.title,
         kind: r.kind,
@@ -16,10 +51,10 @@ pub(crate) fn conversation_record_to_data(r: vel_storage::ConversationRecord) ->
 
 pub(crate) fn message_record_to_data(
     r: vel_storage::MessageRecord,
-) -> Result<MessageData, AppError> {
+) -> Result<MessageServiceData, AppError> {
     let content: serde_json::Value = serde_json::from_str(&r.content_json)
         .unwrap_or_else(|_| serde_json::json!({ "raw": r.content_json }));
-    Ok(MessageData {
+    Ok(MessageServiceData {
         id: r.id.as_ref().to_string(),
         conversation_id: r.conversation_id.as_ref().to_string(),
         role: r.role,
@@ -49,8 +84,8 @@ pub(crate) fn message_record_to_llm_content(r: &vel_storage::MessageRecord) -> S
 
 pub(crate) fn intervention_record_to_inbox_item(
     r: vel_storage::InterventionRecord,
-) -> InboxItemData {
-    InboxItemData {
+) -> InboxItemServiceData {
+    InboxItemServiceData {
         id: r.id.as_ref().to_string(),
         message_id: r.message_id.as_ref().to_string(),
         kind: r.kind,

@@ -4,7 +4,7 @@
 //! **Boundary: recompute-and-persist.** [evaluate] creates/updates nudges and nudge_events. Only call from evaluate orchestration.
 
 use time::OffsetDateTime;
-use vel_core::CommitmentStatus;
+use vel_core::{CommitmentStatus, ContextMigrator};
 use vel_storage::{NudgeInsert, Storage};
 
 use crate::policy_config::{PolicyCommuteLeaveTime, PolicyConfig};
@@ -239,43 +239,29 @@ pub async fn evaluate(
         .get_current_context()
         .await?
         .unwrap_or((0, "{}".to_string()));
-    let context: serde_json::Value =
-        serde_json::from_str(&context_json).unwrap_or(serde_json::json!({}));
+    let context = ContextMigrator::from_json_str(&context_json).unwrap_or_default();
 
-    let meds_status = context
-        .get("meds_status")
-        .and_then(|v| v.as_str())
-        .unwrap_or("none");
+    let meds_status = if context.meds_status.is_empty() {
+        "none"
+    } else {
+        context.meds_status.as_str()
+    };
     let meds_pending = meds_status == "pending";
-    let prep_window_active = context
-        .get("prep_window_active")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let commute_window_active = context
-        .get("commute_window_active")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let morning_state = context
-        .get("morning_state")
-        .and_then(|v| v.as_str())
-        .unwrap_or("inactive");
+    let prep_window_active = context.prep_window_active;
+    let commute_window_active = context.commute_window_active;
+    let morning_state = if context.morning_state.is_empty() {
+        "inactive"
+    } else {
+        context.morning_state.as_str()
+    };
     let morning_started = morning_state != "inactive" && morning_state != "awake_unstarted";
-    let leave_by_ts: Option<i64> = context.get("leave_by_ts").and_then(|v| v.as_i64());
-    let next_event_start_ts: Option<i64> =
-        context.get("next_event_start_ts").and_then(|v| v.as_i64());
+    let leave_by_ts = context.leave_by_ts;
+    let next_event_start_ts = context.next_event_start_ts;
     let event_started = next_event_start_ts.map(|t| now_ts >= t).unwrap_or(true);
-    let message_waiting_on_me_count = context
-        .get("message_waiting_on_me_count")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as usize;
-    let message_scheduling_thread_count = context
-        .get("message_scheduling_thread_count")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as usize;
-    let message_urgent_thread_count = context
-        .get("message_urgent_thread_count")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as usize;
+    let message_waiting_on_me_count = context.message_waiting_on_me_count.unwrap_or(0) as usize;
+    let message_scheduling_thread_count =
+        context.message_scheduling_thread_count.unwrap_or(0) as usize;
+    let message_urgent_thread_count = context.message_urgent_thread_count.unwrap_or(0) as usize;
 
     let open_commitments = storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, 200)
@@ -574,16 +560,8 @@ pub async fn evaluate(
     }
 
     let morning_drift = !morning_started
-        && context
-            .get("attention_state")
-            .and_then(|v| v.as_str())
-            .map(|s| s == "drifting")
-            .unwrap_or(false)
-        && context
-            .get("drift_type")
-            .and_then(|v| v.as_str())
-            .map(|s| s == "morning_drift")
-            .unwrap_or(false);
+        && context.attention_state == "drifting"
+        && context.drift_type.as_deref() == Some("morning_drift");
     let has_drift_nudge = existing_nudges
         .iter()
         .any(|n| suppresses_new_nudge(n, "morning_drift", now_ts));

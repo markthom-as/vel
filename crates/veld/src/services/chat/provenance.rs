@@ -1,8 +1,9 @@
-use vel_api_types::MessageData;
 use vel_core::normalize_risk_level;
 
+use crate::services::chat::messages::ChatMessage;
+
 pub(crate) fn build_linked_objects(
-    message: &MessageData,
+    message: &ChatMessage,
     interventions: &[vel_storage::InterventionRecord],
 ) -> Vec<serde_json::Value> {
     let mut linked_objects = vec![serde_json::json!({
@@ -37,7 +38,7 @@ pub(crate) fn build_linked_objects(
 }
 
 pub(crate) fn build_provenance_signals(
-    message: &MessageData,
+    message: &ChatMessage,
     interventions: &[vel_storage::InterventionRecord],
 ) -> Vec<serde_json::Value> {
     let mut signals = Vec::new();
@@ -68,7 +69,7 @@ pub(crate) fn build_provenance_signals(
 }
 
 pub(crate) fn build_policy_decisions(
-    message: &MessageData,
+    message: &ChatMessage,
     interventions: &[vel_storage::InterventionRecord],
 ) -> Vec<serde_json::Value> {
     let mut policy_decisions = Vec::new();
@@ -90,7 +91,7 @@ pub(crate) fn build_policy_decisions(
     policy_decisions
 }
 
-pub(crate) fn message_signal_summary(message: &MessageData) -> Option<serde_json::Value> {
+pub(crate) fn message_signal_summary(message: &ChatMessage) -> Option<serde_json::Value> {
     match message.kind.as_str() {
         "reminder_card" => Some(serde_json::json!({
             "kind": "message_content",
@@ -122,7 +123,7 @@ pub(crate) fn message_signal_summary(message: &MessageData) -> Option<serde_json
     }
 }
 
-pub(crate) fn message_policy_summary(message: &MessageData) -> Option<serde_json::Value> {
+pub(crate) fn message_policy_summary(message: &ChatMessage) -> Option<serde_json::Value> {
     match message.kind.as_str() {
         "reminder_card" => Some(serde_json::json!({
             "kind": "message_policy",

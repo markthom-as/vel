@@ -57,7 +57,9 @@ pub(crate) async fn list_inferred_state_recent(
     .bind(limit)
     .fetch_all(pool)
     .await?;
-    rows.into_iter().map(|row| map_inferred_state_row(&row)).collect()
+    rows.into_iter()
+        .map(|row| map_inferred_state_row(&row))
+        .collect()
 }
 
 fn map_inferred_state_row(

@@ -32,6 +32,8 @@ Use it to answer four questions quickly:
   - `schemas/connector-manifest.schema.json`
   - `schemas/self-model-envelope.schema.json`
 - Examples and manifests:
+  - `examples/model-profile.example.toml`
+  - `examples/model-routing.example.toml`
   - `examples/connector-manifest.example.json`
   - `examples/self-model-envelope.example.json`
   - `contracts-manifest.json`

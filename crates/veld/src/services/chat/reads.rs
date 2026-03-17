@@ -2,6 +2,7 @@ use crate::{
     errors::AppError,
     services::chat::{
         mapping::{intervention_record_to_inbox_item, message_record_to_data},
+        messages::ChatMessage,
         provenance::{build_linked_objects, build_policy_decisions, build_provenance_signals},
     },
     state::AppState,
@@ -103,7 +104,7 @@ pub(crate) async fn build_message_provenance_data(
         .get_message(message_id)
         .await?
         .ok_or_else(|| AppError::not_found("message not found"))?;
-    let message = message_record_to_data(message)?;
+    let message = ChatMessage::from(message_record_to_data(message)?);
     let interventions = state
         .storage
         .get_interventions_by_message(message_id)

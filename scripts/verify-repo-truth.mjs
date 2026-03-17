@@ -310,6 +310,8 @@ const requiredFiles = [
   'docs/documentation-catalog.json',
   'config/README.md',
   'config/contracts-manifest.json',
+  'config/examples/model-profile.example.toml',
+  'config/examples/model-routing.example.toml',
   'config/examples/connector-manifest.example.json',
   'config/examples/self-model-envelope.example.json',
   'config/templates/vel.toml.template',
@@ -370,8 +372,11 @@ for (const file of requiredFiles) {
 
 const readme = readFile('README.md');
 const agents = readFile('AGENTS.md');
+const liveRuntimeConfig = readFile('vel.toml');
 const docsCatalog = readJson('docs/documentation-catalog.json');
 const configReadme = readFile('config/README.md');
+const appConfigSchema = readFile('config/schemas/app-config.schema.json');
+const runtimeConfigTemplate = readFile('config/templates/vel.toml.template');
 const contractManifest = readJson('config/contracts-manifest.json');
 const cliDocsCatalog = readJson('crates/vel-cli/src/commands/docs_catalog.generated.json');
 const webDocsCatalog = readFile('clients/web/src/data/documentationCatalog.generated.ts');
@@ -747,6 +752,18 @@ ensure(
   'config/README.md is missing contract manifest or scientific/symbolic guidance',
 );
 ensure(
+  appConfigSchema.includes('"reminders_snapshot_path"'),
+  'config/schemas/app-config.schema.json is missing reminders_snapshot_path',
+);
+ensure(
+  runtimeConfigTemplate.includes('reminders_snapshot_path = "var/integrations/reminders/snapshot.json"'),
+  'config/templates/vel.toml.template is missing reminders_snapshot_path',
+);
+ensure(
+  liveRuntimeConfig.includes('reminders_snapshot_path = "var/integrations/reminders/snapshot.json"'),
+  'vel.toml is missing reminders_snapshot_path',
+);
+ensure(
   contractManifest
     && Array.isArray(contractManifest.live_configs)
     && Array.isArray(contractManifest.templates)
@@ -761,6 +778,24 @@ ensure(
     'docs/tickets/phase-1/025-config-and-contract-fixture-parity.md',
   ),
   'config/contracts-manifest.json is missing downstream publication/parity ticket references',
+);
+ensure(
+  (contractManifest?.contract_examples ?? []).some(
+    (entry) =>
+      entry?.kind === 'model_profile'
+      && entry?.path === 'config/examples/model-profile.example.toml'
+      && entry?.schema === 'config/schemas/model-profile.schema.json',
+  ),
+  'config/contracts-manifest.json is missing canonical model_profile fixture parity entry',
+);
+ensure(
+  (contractManifest?.contract_examples ?? []).some(
+    (entry) =>
+      entry?.kind === 'model_routing'
+      && entry?.path === 'config/examples/model-routing.example.toml'
+      && entry?.schema === 'config/schemas/model-routing.schema.json',
+  ),
+  'config/contracts-manifest.json is missing canonical model_routing fixture parity entry',
 );
 validateManifestJsonFixtures(contractManifest);
 ensure(

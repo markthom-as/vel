@@ -1,11 +1,7 @@
 use uuid::Uuid;
 use vel_storage::{ConversationInsert, ConversationRecord};
 
-use crate::{
-    errors::AppError,
-    services::chat::events::emit_chat_event,
-    state::AppState,
-};
+use crate::{errors::AppError, services::chat::events::emit_chat_event, state::AppState};
 
 #[derive(Debug, Clone)]
 pub(crate) struct ConversationCreateInput {

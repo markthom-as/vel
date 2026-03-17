@@ -29,9 +29,7 @@ struct ConnectInstanceAccumulator {
     last_seen_at: Option<i64>,
 }
 
-pub async fn list_connect_instances(
-    state: &AppState,
-) -> Result<Vec<ConnectInstance>, AppError> {
+pub async fn list_connect_instances(state: &AppState) -> Result<Vec<ConnectInstance>, AppError> {
     let workers = crate::services::client_sync::cluster_workers_data(state).await?;
     let mut nodes: BTreeMap<String, ConnectInstanceAccumulator> = BTreeMap::new();
 
@@ -97,7 +95,10 @@ pub async fn list_connect_instances(
         }
     }
 
-    Ok(nodes.into_values().map(connect_instance_from_accumulator).collect())
+    Ok(nodes
+        .into_values()
+        .map(connect_instance_from_accumulator)
+        .collect())
 }
 
 pub async fn get_connect_instance(

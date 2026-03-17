@@ -1,11 +1,11 @@
 //! POST /v1/evaluate — single orchestrated recompute-and-persist. Read-only routes must not call this.
 
 use crate::services::evaluate;
-use crate::{errors::AppError, state::AppState};
+use crate::{broadcast::WsEnvelope, errors::AppError, state::AppState};
 use axum::extract::State;
 use axum::Json;
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, EvaluateResultData};
+use vel_api_types::{ApiResponse, CurrentContextData, EvaluateResultData, WsEventType};
 
 pub async fn run_evaluate(
     State(state): State<AppState>,
@@ -22,5 +22,20 @@ pub async fn run_evaluate(
 }
 
 pub async fn broadcast_context_updated(state: &AppState) -> Result<(), AppError> {
-    evaluate::broadcast_context_updated(state).await
+    let Some(payload_data) = evaluate::get_context_updated_payload(state).await? else {
+        return Ok(());
+    };
+    let payload = serde_json::to_value(CurrentContextData {
+        computed_at: payload_data.computed_at,
+        context: payload_data.context,
+    })
+    .map_err(|error| {
+        AppError::internal(format!(
+            "serialize context updated payload for websocket broadcast: {error}"
+        ))
+    })?;
+    let _ = state
+        .broadcast_tx
+        .send(WsEnvelope::new(WsEventType::ContextUpdated, payload));
+    Ok(())
 }

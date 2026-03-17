@@ -5,7 +5,7 @@ use std::cmp::Reverse;
 
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
-use vel_core::{ConfidenceBand, SuggestionType};
+use vel_core::{ConfidenceBand, ContextMigrator, CurrentContextV1, SuggestionType};
 use vel_storage::{NudgeRecord, Storage, SuggestionRecord};
 
 use crate::policy_config::{PolicyConfig, SuggestionPolicies};
@@ -577,11 +577,19 @@ async fn current_global_risk_score(storage: &Storage) -> Result<f64, crate::erro
     let Some((_, context_json)) = storage.get_current_context().await? else {
         return Ok(0.0);
     };
-    let context: JsonValue =
+    let context: CurrentContextV1 = ContextMigrator::from_json_str(&context_json)
+        .unwrap_or_else(|_| CurrentContextV1::default());
+    if let Some(score) = context.global_risk_score {
+        return Ok(score);
+    }
+
+    // Preserve legacy behavior for malformed rows that cannot be migrated yet:
+    // attempt direct field extraction from raw JSON before defaulting.
+    let legacy_context: JsonValue =
         serde_json::from_str(&context_json).unwrap_or_else(|_| serde_json::json!({}));
-    Ok(context
+    Ok(legacy_context
         .get("global_risk_score")
-        .and_then(serde_json::Value::as_f64)
+        .and_then(JsonValue::as_f64)
         .unwrap_or(0.0))
 }
 

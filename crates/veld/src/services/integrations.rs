@@ -8,17 +8,15 @@ use super::{
 };
 use crate::{adapters, errors::AppError};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
-use vel_api_types::{
-    GoogleCalendarIntegrationData, IntegrationCalendarData, IntegrationConnectionData,
-    IntegrationConnectionEventData, IntegrationConnectionSettingRefData, IntegrationGuidanceData,
-    IntegrationLogEventData, IntegrationsData, LocalIntegrationData, TodoistIntegrationData,
-};
 use vel_config::AppConfig;
 use vel_core::{IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider};
 use vel_storage::{
     IntegrationConnectionFilters, IntegrationConnectionInsert, SignalRecord, Storage,
 };
+
+pub use super::integration_runtime::IntegrationLogEvent;
 
 const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
 const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
@@ -33,6 +31,103 @@ const TRANSCRIPTS_SETTINGS_KEY: &str = "integration_transcripts";
 #[derive(Debug, Clone)]
 pub struct GoogleCalendarAuthStart {
     pub auth_url: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct IntegrationGuidanceOutput {
+    pub title: String,
+    pub detail: String,
+    pub action: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct IntegrationCalendarOutput {
+    pub id: String,
+    pub summary: String,
+    pub primary: bool,
+    pub selected: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct GoogleCalendarIntegrationOutput {
+    pub configured: bool,
+    pub connected: bool,
+    pub has_client_id: bool,
+    pub has_client_secret: bool,
+    pub calendars: Vec<IntegrationCalendarOutput>,
+    pub all_calendars_selected: bool,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidanceOutput>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TodoistIntegrationOutput {
+    pub configured: bool,
+    pub connected: bool,
+    pub has_api_token: bool,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidanceOutput>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LocalIntegrationOutput {
+    pub configured: bool,
+    pub guidance: Option<IntegrationGuidanceOutput>,
+    pub source_path: Option<String>,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct IntegrationsOutput {
+    pub google_calendar: GoogleCalendarIntegrationOutput,
+    pub todoist: TodoistIntegrationOutput,
+    pub activity: LocalIntegrationOutput,
+    pub health: LocalIntegrationOutput,
+    pub git: LocalIntegrationOutput,
+    pub messaging: LocalIntegrationOutput,
+    pub reminders: LocalIntegrationOutput,
+    pub notes: LocalIntegrationOutput,
+    pub transcripts: LocalIntegrationOutput,
+}
+
+#[derive(Debug, Clone)]
+pub struct IntegrationConnectionSettingRefOutput {
+    pub setting_key: String,
+    pub setting_value: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct IntegrationConnectionOutput {
+    pub id: String,
+    pub family: String,
+    pub provider_key: String,
+    pub status: String,
+    pub display_name: String,
+    pub account_ref: Option<String>,
+    pub metadata: JsonValue,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub setting_refs: Vec<IntegrationConnectionSettingRefOutput>,
+}
+
+#[derive(Debug, Clone)]
+pub struct IntegrationConnectionEventOutput {
+    pub id: String,
+    pub connection_id: String,
+    pub event_type: String,
+    pub payload: JsonValue,
+    pub timestamp: i64,
+    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -311,7 +406,7 @@ pub async fn bootstrap_local_context_sources(
     Ok(ingested)
 }
 
-pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, AppError> {
+pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsOutput, AppError> {
     let google = load_google_settings(storage).await?;
     let todoist = integrations_todoist::load_todoist_settings(storage).await?;
     let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
@@ -321,7 +416,7 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
     let reminders = load_local_settings(storage, REMINDERS_SETTINGS_KEY).await?;
     let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
-    Ok(IntegrationsData {
+    Ok(IntegrationsOutput {
         google_calendar: google_status(&google),
         todoist: map_todoist_status(integrations_todoist::todoist_status(&todoist)),
         activity: local_status(
@@ -382,7 +477,7 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
 pub async fn get_integrations_with_config(
     storage: &Storage,
     config: &AppConfig,
-) -> Result<IntegrationsData, AppError> {
+) -> Result<IntegrationsOutput, AppError> {
     let google = load_google_settings(storage).await?;
     let todoist = integrations_todoist::load_todoist_settings(storage).await?;
     let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
@@ -392,7 +487,7 @@ pub async fn get_integrations_with_config(
     let reminders = load_local_settings(storage, REMINDERS_SETTINGS_KEY).await?;
     let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
-    Ok(IntegrationsData {
+    Ok(IntegrationsOutput {
         google_calendar: google_status(&google),
         todoist: map_todoist_status(integrations_todoist::todoist_status(&todoist)),
         activity: local_status(
@@ -473,7 +568,7 @@ pub async fn list_integration_logs(
     storage: &Storage,
     integration_id: &str,
     limit: Option<u32>,
-) -> Result<Vec<IntegrationLogEventData>, AppError> {
+) -> Result<Vec<IntegrationLogEvent>, AppError> {
     let integration_id = canonical_integration_id(integration_id)
         .ok_or_else(|| AppError::not_found("integration not found"))?;
     let events = storage
@@ -603,7 +698,7 @@ pub async fn list_integration_connections(
     family: Option<&str>,
     provider_key: Option<&str>,
     include_disabled: bool,
-) -> Result<Vec<IntegrationConnectionData>, AppError> {
+) -> Result<Vec<IntegrationConnectionOutput>, AppError> {
     seed_foundation_integration_connections_if_empty(storage).await?;
     let family = family
         .map(str::trim)
@@ -629,7 +724,7 @@ pub async fn list_integration_connections(
         let setting_refs = storage
             .list_integration_connection_setting_refs(connection.id.as_ref())
             .await?;
-        data.push(IntegrationConnectionData {
+        data.push(IntegrationConnectionOutput {
             id: connection.id.to_string(),
             family: connection.provider.family.to_string(),
             provider_key: connection.provider.key,
@@ -641,7 +736,7 @@ pub async fn list_integration_connections(
             updated_at: connection.updated_at.unix_timestamp(),
             setting_refs: setting_refs
                 .into_iter()
-                .map(|setting_ref| IntegrationConnectionSettingRefData {
+                .map(|setting_ref| IntegrationConnectionSettingRefOutput {
                     setting_key: setting_ref.setting_key,
                     setting_value: setting_ref.setting_value,
                     created_at: setting_ref.created_at.unix_timestamp(),
@@ -656,7 +751,7 @@ pub async fn list_integration_connections(
 pub async fn get_integration_connection(
     storage: &Storage,
     connection_id: &str,
-) -> Result<IntegrationConnectionData, AppError> {
+) -> Result<IntegrationConnectionOutput, AppError> {
     seed_foundation_integration_connections_if_empty(storage).await?;
     let connection = storage
         .get_integration_connection(connection_id.trim())
@@ -666,7 +761,7 @@ pub async fn get_integration_connection(
         .list_integration_connection_setting_refs(connection.id.as_ref())
         .await?;
 
-    Ok(IntegrationConnectionData {
+    Ok(IntegrationConnectionOutput {
         id: connection.id.to_string(),
         family: connection.provider.family.to_string(),
         provider_key: connection.provider.key,
@@ -678,7 +773,7 @@ pub async fn get_integration_connection(
         updated_at: connection.updated_at.unix_timestamp(),
         setting_refs: setting_refs
             .into_iter()
-            .map(|setting_ref| IntegrationConnectionSettingRefData {
+            .map(|setting_ref| IntegrationConnectionSettingRefOutput {
                 setting_key: setting_ref.setting_key,
                 setting_value: setting_ref.setting_value,
                 created_at: setting_ref.created_at.unix_timestamp(),
@@ -691,7 +786,7 @@ pub async fn list_integration_connection_events(
     storage: &Storage,
     connection_id: &str,
     limit: Option<u32>,
-) -> Result<Vec<IntegrationConnectionEventData>, AppError> {
+) -> Result<Vec<IntegrationConnectionEventOutput>, AppError> {
     seed_foundation_integration_connections_if_empty(storage).await?;
     let connection_id = connection_id.trim();
     let _ = storage
@@ -704,7 +799,7 @@ pub async fn list_integration_connection_events(
 
     Ok(events
         .into_iter()
-        .map(|event| IntegrationConnectionEventData {
+        .map(|event| IntegrationConnectionEventOutput {
             id: event.id,
             connection_id: event.connection_id.to_string(),
             event_type: event.event_type.to_string(),
@@ -721,7 +816,7 @@ pub async fn update_google_settings(
     client_secret: Option<String>,
     selected_calendar_ids: Option<Vec<String>>,
     all_calendars_selected: Option<bool>,
-) -> Result<IntegrationsData, AppError> {
+) -> Result<IntegrationsOutput, AppError> {
     let mut settings = load_google_settings(storage).await?;
 
     if let Some(value) = client_id {
@@ -753,7 +848,7 @@ pub async fn update_google_settings(
 pub async fn update_todoist_settings(
     storage: &Storage,
     api_token: Option<String>,
-) -> Result<IntegrationsData, AppError> {
+) -> Result<IntegrationsOutput, AppError> {
     integrations_todoist::update_todoist_settings(storage, api_token).await?;
     get_integrations(storage).await
 }
@@ -762,7 +857,7 @@ pub async fn update_local_source_path(
     storage: &Storage,
     source: &str,
     source_path: Option<String>,
-) -> Result<IntegrationsData, AppError> {
+) -> Result<IntegrationsOutput, AppError> {
     let key = local_settings_key(source);
     if key.is_empty() {
         return Err(AppError::not_found("integration not found"));
@@ -774,7 +869,7 @@ pub async fn update_local_source_path(
     get_integrations(storage).await
 }
 
-pub async fn disconnect_google_calendar(storage: &Storage) -> Result<IntegrationsData, AppError> {
+pub async fn disconnect_google_calendar(storage: &Storage) -> Result<IntegrationsOutput, AppError> {
     let mut settings = load_google_settings(storage).await?;
     settings.access_token = None;
     settings.refresh_token = None;
@@ -786,7 +881,7 @@ pub async fn disconnect_google_calendar(storage: &Storage) -> Result<Integration
     get_integrations(storage).await
 }
 
-pub async fn disconnect_todoist(storage: &Storage) -> Result<IntegrationsData, AppError> {
+pub async fn disconnect_todoist(storage: &Storage) -> Result<IntegrationsOutput, AppError> {
     integrations_todoist::disconnect_todoist(storage).await?;
     get_integrations(storage).await
 }
@@ -908,8 +1003,8 @@ pub async fn record_sync_success(
     Ok(())
 }
 
-fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegrationData {
-    GoogleCalendarIntegrationData {
+fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegrationOutput {
+    GoogleCalendarIntegrationOutput {
         configured: settings.client_id.is_some() && settings.client_secret.is_some(),
         connected: settings.refresh_token.is_some(),
         has_client_id: settings.client_id.is_some(),
@@ -917,7 +1012,7 @@ fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegration
         calendars: settings
             .calendars
             .iter()
-            .map(|calendar| IntegrationCalendarData {
+            .map(|calendar| IntegrationCalendarOutput {
                 id: calendar.id.clone(),
                 summary: calendar.summary.clone(),
                 primary: calendar.primary,
@@ -936,8 +1031,8 @@ fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegration
 fn local_status(
     source_path: Option<String>,
     settings: &LocalIntegrationSettings,
-) -> LocalIntegrationData {
-    LocalIntegrationData {
+) -> LocalIntegrationOutput {
+    LocalIntegrationOutput {
         configured: source_path.is_some(),
         guidance: local_guidance(source_path.as_deref(), settings),
         source_path,
@@ -948,8 +1043,8 @@ fn local_status(
     }
 }
 
-fn map_todoist_status(status: integrations_todoist::TodoistStatus) -> TodoistIntegrationData {
-    TodoistIntegrationData {
+fn map_todoist_status(status: integrations_todoist::TodoistStatus) -> TodoistIntegrationOutput {
+    TodoistIntegrationOutput {
         configured: status.configured,
         connected: status.connected,
         has_api_token: status.has_api_token,
@@ -957,7 +1052,7 @@ fn map_todoist_status(status: integrations_todoist::TodoistStatus) -> TodoistInt
         last_sync_status: status.last_sync_status,
         last_error: status.last_error,
         last_item_count: status.last_item_count,
-        guidance: status.guidance.map(|guidance| IntegrationGuidanceData {
+        guidance: status.guidance.map(|guidance| IntegrationGuidanceOutput {
             title: guidance.title,
             detail: guidance.detail,
             action: guidance.action,
@@ -965,15 +1060,15 @@ fn map_todoist_status(status: integrations_todoist::TodoistStatus) -> TodoistInt
     }
 }
 
-fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceData {
-    IntegrationGuidanceData {
+fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceOutput {
+    IntegrationGuidanceOutput {
         title: title.to_string(),
         detail,
         action: action.to_string(),
     }
 }
 
-fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuidanceData> {
+fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuidanceOutput> {
     if settings.client_id.is_none() || settings.client_secret.is_none() {
         return Some(guidance(
             "Calendar credentials missing",
@@ -1012,7 +1107,7 @@ fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuida
 fn local_guidance(
     source_path: Option<&str>,
     settings: &LocalIntegrationSettings,
-) -> Option<IntegrationGuidanceData> {
+) -> Option<IntegrationGuidanceOutput> {
     if source_path.is_none() {
         return Some(guidance(
             "Local source missing",
@@ -1255,6 +1350,7 @@ mod tests {
     use serde_json::json;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
+    use vel_core::ContextMigrator;
 
     fn unique_sqlite_path(prefix: &str) -> PathBuf {
         let nanos = SystemTime::now()
@@ -1480,8 +1576,9 @@ mod tests {
             .await
             .unwrap()
             .expect("bootstrap + evaluate should persist current context");
-        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
-        assert_eq!(context["message_waiting_on_me_count"], 1);
+        let context = ContextMigrator::from_json_str(&context_json)
+            .expect("bootstrap + evaluate context should parse with typed migrator");
+        assert_eq!(context.message_waiting_on_me_count, Some(1));
     }
 
     #[tokio::test]

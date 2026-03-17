@@ -1,4 +1,11 @@
+pub(crate) mod artifacts_repo;
+pub(crate) mod assistant_transcripts_repo;
+pub(crate) mod commitment_risk_repo;
 pub(crate) mod context_timeline_repo;
 pub(crate) mod current_context_repo;
 pub(crate) mod inferred_state_repo;
+pub(crate) mod processing_jobs_repo;
 pub(crate) mod signals_repo;
+pub(crate) mod suggestion_feedback_repo;
+pub(crate) mod suggestions_repo;
+pub(crate) mod uncertainty_records_repo;

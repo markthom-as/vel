@@ -10,7 +10,9 @@ use vel_core::{
 use vel_storage::ArtifactInsert;
 
 use crate::errors::AppError;
-use crate::services::context_generation;
+use crate::services::context_generation::{
+    self, EndOfDayContextData, MorningContextData, TodayContextData,
+};
 use crate::state::AppState;
 
 /// Service-level result of a context run: run identity, artifact, and the computed payload.
@@ -95,7 +97,7 @@ impl RunEventSequencer {
 /// Run-backed today context: creates run, computes result, writes artifact, links refs, appends events.
 pub async fn generate_today(
     state: &AppState,
-) -> Result<ContextRunOutput<vel_api_types::TodayData>, AppError> {
+) -> Result<ContextRunOutput<TodayContextData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::Today;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
@@ -166,7 +168,7 @@ pub async fn retry_existing_run(
 /// Run-backed morning context.
 pub async fn generate_morning(
     state: &AppState,
-) -> Result<ContextRunOutput<vel_api_types::MorningData>, AppError> {
+) -> Result<ContextRunOutput<MorningContextData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::Morning;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
@@ -198,7 +200,7 @@ pub async fn generate_morning(
 /// Run-backed end-of-day context.
 pub async fn generate_end_of_day(
     state: &AppState,
-) -> Result<ContextRunOutput<vel_api_types::EndOfDayData>, AppError> {
+) -> Result<ContextRunOutput<EndOfDayContextData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::EndOfDay;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
