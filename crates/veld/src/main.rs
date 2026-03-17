@@ -57,16 +57,17 @@ async fn main() -> anyhow::Result<()> {
         tracing::warn!(error = %e, "failed to emit CONFIG_LOADED event");
     }
 
-    let (llm_router, chat_profile_id) = llm::build_chat_router();
+    let (llm_router, chat_profile_id, chat_fallback_profile_id) = llm::build_chat_router();
     let llm_router = llm_router.map(std::sync::Arc::new);
     let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
-    let state = AppState::new(
+    let state = AppState::new_with_fallback(
         storage,
         config.clone(),
         policy_config.clone(),
         broadcast_tx,
         llm_router,
         chat_profile_id,
+        chat_fallback_profile_id,
     );
     tokio::spawn(worker::run_background_workers(state.clone()));
 

@@ -5,6 +5,10 @@
 
 Load via `vel_config::load_model_profiles("configs/models")` and `vel_config::load_routing("configs/models/routing.toml")`. Invalid or duplicate configs fail on startup. See `crates/vel-config/src/models.rs` and docs/llm-backend-plan/.
 
+## Optional remote provider profile (`openai_oauth`)
+
+You can add an `openai_oauth` profile (example: `oauth-openai`) for optional overflow via a local OpenAI-compatible proxy. It is only registered when `VEL_ENABLE_OPENAI_OAUTH` is truthy (`1`, `true`, `yes`, `on`) and the profile `base_url` points to `localhost`/`127.0.0.1`.
+
 ## Local dev (make dev)
 
 Chat assistant replies use the profile in `routing.toml` under `chat` (e.g. `local-qwen3-coder`, port 8012). To run the LLM backend as part of `make dev`:

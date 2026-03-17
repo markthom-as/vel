@@ -107,6 +107,13 @@ impl RoutingConfig {
     pub fn profile_for_task(&self, task_class: &str) -> Option<&str> {
         self.task_to_profile.get(task_class).map(String::as_str)
     }
+
+    /// Optional remote fallback profile id for task routing.
+    pub fn fallback_remote_profile(&self) -> Option<&str> {
+        self.task_to_profile
+            .get("fallback_remote")
+            .map(String::as_str)
+    }
 }
 
 /// Load all model profiles from a directory. Reads every .toml except routing.toml.
@@ -196,8 +203,11 @@ model = "m"
             .insert("chat".into(), "local-qwen3-coder".into());
         r.task_to_profile
             .insert("summarize".into(), "local-qwen25-fast".into());
+        r.task_to_profile
+            .insert("fallback_remote".into(), "oauth-openai".into());
         assert_eq!(r.profile_for_task("chat"), Some("local-qwen3-coder"));
         assert_eq!(r.profile_for_task("summarize"), Some("local-qwen25-fast"));
+        assert_eq!(r.fallback_remote_profile(), Some("oauth-openai"));
         assert_eq!(r.profile_for_task("other"), None);
     }
 

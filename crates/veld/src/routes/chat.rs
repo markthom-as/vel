@@ -13,7 +13,7 @@ use vel_api_types::{
     CreateMessageResponse, InboxItemData, InterventionActionData, MessageCreateRequest,
     MessageData, ProvenanceData, ProvenanceEvent, WsEventType,
 };
-use vel_llm::{LlmRequest, Message as LlmMessage};
+use vel_llm::{LlmError, LlmRequest, Message as LlmMessage, ProviderError};
 use vel_storage::{ConversationInsert, EventLogInsert, InterventionInsert, MessageInsert};
 
 use crate::broadcast::WsEnvelope;
@@ -358,7 +358,15 @@ pub async fn create_message(
         (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
     {
         tracing::info!(conversation_id = %conversation_id, "calling LLM for assistant reply");
-        match generate_assistant_reply(&state, conversation_id, profile_id, router).await {
+        match generate_assistant_reply(
+            &state,
+            conversation_id,
+            profile_id,
+            state.chat_fallback_profile_id.as_deref(),
+            router,
+        )
+        .await
+        {
             Ok(Some(assistant_data)) => {
                 let payload = serde_json::to_value(&assistant_data).unwrap_or_default();
                 let _ = state
@@ -394,6 +402,7 @@ async fn generate_assistant_reply(
     state: &AppState,
     conversation_id: &str,
     profile_id: &str,
+    fallback_profile_id: Option<&str>,
     router: &vel_llm::Router,
 ) -> Result<Option<MessageData>, AppError> {
     let list = state
@@ -412,53 +421,94 @@ async fn generate_assistant_reply(
         return Ok(None);
     }
     let system = "You are Vel, a helpful assistant for capture, recall, and daily orientation. Be concise and direct.".to_string();
-    let req = LlmRequest {
-        system,
-        messages,
-        tools: vec![],
-        response_format: vel_llm::ResponseFormat::Text,
-        temperature: 0.2,
-        max_output_tokens: 2048,
-        model_profile: profile_id.to_string(),
-        metadata: serde_json::json!({}),
+    let profile_ids = {
+        let mut ids = vec![profile_id];
+        if let Some(fallback_profile_id) = fallback_profile_id {
+            if fallback_profile_id != profile_id {
+                ids.push(fallback_profile_id);
+            }
+        }
+        ids
     };
-    let res = router
-        .generate(&req)
-        .await
-        .map_err(|e| AppError::internal(e.to_string()))?;
-    let text = res.text.unwrap_or_default().trim().to_string();
-    if text.is_empty() {
-        return Ok(None);
+    for (idx, attempt_profile_id) in profile_ids.iter().enumerate() {
+        let req = LlmRequest {
+            system: system.clone(),
+            messages: messages.clone(),
+            tools: vec![],
+            response_format: vel_llm::ResponseFormat::Text,
+            temperature: 0.2,
+            max_output_tokens: 2048,
+            model_profile: attempt_profile_id.to_string(),
+            metadata: serde_json::json!({}),
+        };
+        let res = router.generate(&req).await;
+        match res {
+            Ok(res) => {
+                let text = res.text.unwrap_or_default().trim().to_string();
+                if text.is_empty() {
+                    return Ok(None);
+                }
+                let assistant_id = format!("msg_{}", Uuid::new_v4().simple());
+                let content_json =
+                    serde_json::to_string(&serde_json::json!({ "text": text })).unwrap_or_default();
+                state
+                    .storage
+                    .create_message(MessageInsert {
+                        id: assistant_id.clone(),
+                        conversation_id: conversation_id.to_string(),
+                        role: "assistant".to_string(),
+                        kind: "text".to_string(),
+                        content_json,
+                        status: None,
+                        importance: None,
+                    })
+                    .await?;
+                emit_chat_event(
+                    state,
+                    "message.created",
+                    "message",
+                    &assistant_id,
+                    serde_json::json!({ "id": assistant_id, "conversation_id": conversation_id, "kind": "text" }),
+                )
+                .await;
+                let assistant_msg =
+                    state
+                        .storage
+                        .get_message(&assistant_id)
+                        .await?
+                        .ok_or_else(|| {
+                            AppError::internal("assistant message not found after create")
+                        })?;
+                return message_record_to_data(assistant_msg).map(Some);
+            }
+            Err(err) => {
+                let should_try_fallback =
+                    idx + 1 < profile_ids.len() && should_fallback_for_assistant_error(&err);
+                if should_try_fallback {
+                    tracing::warn!(
+                        from_profile = attempt_profile_id,
+                        to_profile = fallback_profile_id,
+                        error = %err,
+                        "primary chat profile failed, falling back"
+                    );
+                    continue;
+                }
+                return Err(AppError::internal(err.to_string()));
+            }
+        }
     }
-    let assistant_id = format!("msg_{}", Uuid::new_v4().simple());
-    let content_json =
-        serde_json::to_string(&serde_json::json!({ "text": text })).unwrap_or_default();
-    state
-        .storage
-        .create_message(MessageInsert {
-            id: assistant_id.clone(),
-            conversation_id: conversation_id.to_string(),
-            role: "assistant".to_string(),
-            kind: "text".to_string(),
-            content_json,
-            status: None,
-            importance: None,
-        })
-        .await?;
-    emit_chat_event(
-        state,
-        "message.created",
-        "message",
-        &assistant_id,
-        serde_json::json!({ "id": assistant_id, "conversation_id": conversation_id, "kind": "text" }),
-    )
-    .await;
-    let assistant_msg = state
-        .storage
-        .get_message(&assistant_id)
-        .await?
-        .ok_or_else(|| AppError::internal("assistant message not found after create"))?;
-    message_record_to_data(assistant_msg).map(Some)
+    Ok(None)
+}
+
+fn should_fallback_for_assistant_error(error: &LlmError) -> bool {
+    match error {
+        LlmError::NoProviderForProfile(_) => true,
+        LlmError::Config(_) => false,
+        LlmError::Provider(provider_error) => matches!(
+            provider_error,
+            ProviderError::Transport(_) | ProviderError::Protocol(_) | ProviderError::Backend(_)
+        ),
+    }
 }
 
 // --- Inbox handler ---
@@ -902,4 +952,42 @@ pub fn chat_routes() -> Router<AppState> {
         .route("/api/interventions/:id/snooze", post(intervention_snooze))
         .route("/api/interventions/:id/resolve", post(intervention_resolve))
         .route("/api/interventions/:id/dismiss", post(intervention_dismiss))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_fallback_for_assistant_error;
+    use vel_llm::{LlmError, ProviderError};
+
+    #[test]
+    fn should_fallback_for_assistant_error_true_when_retryable() {
+        assert!(should_fallback_for_assistant_error(
+            &LlmError::NoProviderForProfile("primary".to_string(),)
+        ));
+        assert!(should_fallback_for_assistant_error(&LlmError::Provider(
+            ProviderError::Transport("conn reset".to_string()),
+        )));
+        assert!(should_fallback_for_assistant_error(&LlmError::Provider(
+            ProviderError::Protocol("json decode".to_string()),
+        )));
+        assert!(should_fallback_for_assistant_error(&LlmError::Provider(
+            ProviderError::Backend("rate limit".to_string()),
+        )));
+    }
+
+    #[test]
+    fn should_fallback_for_assistant_error_false_when_not_retryable() {
+        assert!(!should_fallback_for_assistant_error(&LlmError::Config(
+            "invalid routing".to_string(),
+        )));
+        assert!(!should_fallback_for_assistant_error(&LlmError::Provider(
+            ProviderError::Capability("unsupported tools".to_string()),
+        )));
+        assert!(!should_fallback_for_assistant_error(&LlmError::Provider(
+            ProviderError::Auth("invalid token".to_string()),
+        )));
+        assert!(!should_fallback_for_assistant_error(&LlmError::Provider(
+            ProviderError::RateLimit("maxed".to_string()),
+        )));
+    }
 }
