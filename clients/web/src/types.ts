@@ -835,11 +835,11 @@ export function decodeRunSummaryData(value: unknown): RunSummaryData {
       record.unsupported_retry_override_reason,
       'run summary.unsupported_retry_override_reason',
     ),
-    created_at: expectString(record.created_at, 'run summary.created_at'),
-    started_at: expectNullableString(record.started_at, 'run summary.started_at'),
-    finished_at: expectNullableString(record.finished_at, 'run summary.finished_at'),
+    created_at: expectRfc3339Timestamp(record.created_at, 'run summary.created_at'),
+    started_at: expectNullableRfc3339Timestamp(record.started_at, 'run summary.started_at'),
+    finished_at: expectNullableRfc3339Timestamp(record.finished_at, 'run summary.finished_at'),
     duration_ms: expectNullableNumber(record.duration_ms, 'run summary.duration_ms'),
-    retry_scheduled_at: expectNullableString(
+    retry_scheduled_at: expectNullableRfc3339Timestamp(
       record.retry_scheduled_at,
       'run summary.retry_scheduled_at',
     ),
@@ -866,10 +866,7 @@ export function decodeCommitmentData(value: unknown): CommitmentData {
 }
 
 function decodeDateTimeString(value: unknown, label: string): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  throw new Error(`Expected ${label} to be a string`);
+  return expectRfc3339Timestamp(value, label);
 }
 
 function decodeNullableDateTimeString(value: unknown, label: string): string | null {

@@ -9,6 +9,7 @@ use vel_core::{CommitmentStatus, RiskSnapshot};
 use vel_storage::{InferredStateInsert, Storage};
 
 const RECENT_GIT_ACTIVITY_WINDOW_SECS: i64 = 90 * 60;
+const RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS: i64 = 24 * 60 * 60;
 const DEFAULT_PREP_MINUTES: i64 = 15;
 const DEFAULT_TRAVEL_MINUTES: i64 = 0;
 const COMMUTE_WINDOW_LEAD_SECS: i64 = 15 * 60;
@@ -684,21 +685,45 @@ fn select_next_commitment<'a>(
 fn commitment_sort_key(
     commitment: &vel_core::Commitment,
     risk_snapshots: &[RiskSnapshot],
-) -> (u8, i64, u8, u32, String) {
+) -> (u8, i64, u8, u8, u32, u8, i64, String) {
     let due_at = commitment.due_at.map(|value| value.unix_timestamp());
     let due_bucket = if due_at.is_some() { 0 } else { 1 };
     let due_sort = due_at.unwrap_or(i64::MAX);
-    let anchor_bucket = if is_externally_anchored(commitment) {
+    let snapshot = commitment_risk_snapshot(commitment, risk_snapshots);
+    let anchor_bucket = if snapshot
+        .map(|snapshot| snapshot.factors.external_anchor > 0.0)
+        .unwrap_or_else(|| is_externally_anchored(commitment))
+    {
         0
     } else {
         1
     };
-    let risk_bucket = u32::MAX - commitment_risk_rank(commitment, risk_snapshots);
+    let dependency_bucket = if snapshot
+        .map(|snapshot| snapshot.factors.dependency_pressure > 0.0)
+        .unwrap_or(false)
+    {
+        0
+    } else {
+        1
+    };
+    let risk_bucket = u32::MAX - snapshot_risk_rank(snapshot);
+    let updated_at = commitment_updated_at(commitment);
+    let recent_activity_bucket = if updated_at
+        >= OffsetDateTime::now_utc().unix_timestamp() - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS
+    {
+        0
+    } else {
+        1
+    };
+    let recent_activity_sort = updated_at.saturating_neg();
     (
         due_bucket,
         due_sort,
         anchor_bucket,
+        dependency_bucket,
         risk_bucket,
+        recent_activity_bucket,
+        recent_activity_sort,
         commitment.id.as_ref().to_string(),
     )
 }
@@ -708,12 +733,27 @@ fn is_externally_anchored(commitment: &vel_core::Commitment) -> bool {
     commitment.source_type == "calendar" || matches!(kind, "meeting" | "prep" | "commute")
 }
 
-fn commitment_risk_rank(commitment: &vel_core::Commitment, risk_snapshots: &[RiskSnapshot]) -> u32 {
+fn commitment_risk_snapshot<'a>(
+    commitment: &vel_core::Commitment,
+    risk_snapshots: &'a [RiskSnapshot],
+) -> Option<&'a RiskSnapshot> {
     risk_snapshots
         .iter()
         .find(|snapshot| snapshot.commitment_id == commitment.id.as_ref())
+}
+
+fn snapshot_risk_rank(snapshot: Option<&RiskSnapshot>) -> u32 {
+    snapshot
         .map(|snapshot| (snapshot.risk_score * 1000.0).round() as u32)
         .unwrap_or(0)
+}
+
+fn commitment_updated_at(commitment: &vel_core::Commitment) -> i64 {
+    commitment
+        .metadata_json
+        .get("updated_at")
+        .and_then(|value| value.as_i64())
+        .unwrap_or(i64::MIN)
 }
 
 fn build_git_activity_summary(signal: &vel_storage::SignalRecord) -> Option<GitActivitySummary> {
@@ -945,6 +985,35 @@ mod tests {
     }
 
     #[test]
+    fn select_next_commitment_prefers_dependency_pressured_commitment_when_due_times_match() {
+        let now_ts = 1_700_000_000;
+        let commitments = vec![
+            test_commitment("com_plain", Some(now_ts + 900), Some("todo")),
+            test_commitment("com_blocked", Some(now_ts + 900), Some("todo")),
+        ];
+        let risk_snapshots = vec![RiskSnapshot {
+            commitment_id: "com_blocked".to_string(),
+            risk_score: 0.55,
+            risk_level: "high".to_string(),
+            factors: vel_core::RiskFactors {
+                consequence: 0.5,
+                proximity: 0.5,
+                dependency_pressure: 0.8,
+                external_anchor: 0.0,
+                stale_open_age: 0.0,
+                reasons: vec!["parent commitment at risk".to_string()],
+                dependency_ids: vec!["com_parent".to_string()],
+            },
+            computed_at: Some(now_ts),
+        }];
+
+        let selected =
+            select_next_commitment(&commitments, &risk_snapshots).expect("expected a commitment");
+
+        assert_eq!(selected.id.as_ref(), "com_blocked");
+    }
+
+    #[test]
     fn derive_meds_status_prefers_done_today_over_open_medication_commitment() {
         let now = OffsetDateTime::from_unix_timestamp(1_700_000_000).unwrap();
         let open_commitments = vec![test_medication_commitment(
@@ -1019,6 +1088,24 @@ mod tests {
         let selected = select_next_commitment(&commitments, &[]).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_anchored");
+    }
+
+    #[test]
+    fn select_next_commitment_prefers_recently_updated_todoist_work_when_other_factors_tie() {
+        let now_ts = OffsetDateTime::now_utc().unix_timestamp();
+        let mut stale = test_commitment("com_stale", None, Some("todo"));
+        stale.metadata_json = json!({
+            "updated_at": now_ts - (3 * 24 * 60 * 60)
+        });
+        let mut recent = test_commitment("com_recent", None, Some("todo"));
+        recent.metadata_json = json!({
+            "updated_at": now_ts - (60 * 60)
+        });
+        let commitments = [stale, recent];
+
+        let selected = select_next_commitment(&commitments, &[]).expect("expected a commitment");
+
+        assert_eq!(selected.id.as_ref(), "com_recent");
     }
 
     #[test]
