@@ -1262,7 +1262,7 @@ mod tests {
     use crate::policy_config::PolicyConfig;
     use tokio::sync::broadcast;
     use vel_config::AppConfig;
-    use vel_core::{TargetSelector, TypedTarget};
+    use vel_core::{CurrentContextV1, TargetSelector, TypedTarget};
     use vel_storage::Storage;
 
     async fn test_state() -> AppState {
@@ -1277,6 +1277,10 @@ mod tests {
             None,
             None,
         )
+    }
+
+    fn current_context_json(context: CurrentContextV1) -> String {
+        serde_json::to_string(&context).unwrap()
     }
 
     #[test]
@@ -1567,15 +1571,15 @@ mod tests {
     #[tokio::test]
     async fn execute_explain_drift_returns_drift_payload() {
         let state = test_state().await;
-        let context_json = json!({
-            "attention_state": "scattered",
-            "drift_type": "context_switching",
-            "drift_severity": "medium",
-            "attention_reasons": ["many competing threads"],
-            "signals_used": [],
-            "commitments_used": [],
-        })
-        .to_string();
+        let context_json = current_context_json(CurrentContextV1 {
+            attention_state: "scattered".to_string(),
+            drift_type: Some("context_switching".to_string()),
+            drift_severity: Some("medium".to_string()),
+            attention_reasons: vec!["many competing threads".to_string()],
+            signals_used: vec![],
+            commitments_used: vec![],
+            ..CurrentContextV1::default()
+        });
         state
             .storage
             .set_current_context(OffsetDateTime::now_utc().unix_timestamp(), &context_json)

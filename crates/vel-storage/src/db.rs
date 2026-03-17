@@ -26,9 +26,34 @@ use vel_core::{
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
 
+pub(crate) trait StorageBackend: Send + Sync {
+    fn pool(&self) -> &SqlitePool;
+}
+
+fn backend_pool(backend: &dyn StorageBackend) -> &SqlitePool {
+    backend.pool()
+}
+
+#[derive(Debug, Clone)]
+struct SqliteBackend {
+    pool: SqlitePool,
+}
+
+impl SqliteBackend {
+    fn new(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+}
+
+impl StorageBackend for SqliteBackend {
+    fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Storage {
-    pub(crate) pool: SqlitePool,
+    backend: SqliteBackend,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -559,11 +584,17 @@ pub struct WorkAssignmentUpdate {
 impl Storage {
     pub async fn connect(db_path: &str) -> Result<Self, StorageError> {
         let pool = infra::connect_pool(db_path).await?;
-        Ok(Self { pool })
+        Ok(Self {
+            backend: SqliteBackend::new(pool),
+        })
+    }
+
+    fn pool(&self) -> &SqlitePool {
+        backend_pool(&self.backend)
     }
 
     pub async fn migrate(&self) -> Result<(), StorageError> {
-        infra::run_migrations(&self.pool, &MIGRATOR).await?;
+        infra::run_migrations(self.pool(), &MIGRATOR).await?;
         let version = self.schema_version().await?;
         let payload = serde_json::json!({ "schema_version": version }).to_string();
         if let Err(e) = self
@@ -576,12 +607,12 @@ impl Storage {
     }
 
     pub async fn healthcheck(&self) -> Result<(), StorageError> {
-        infra::healthcheck(&self.pool).await
+        infra::healthcheck(self.pool()).await
     }
 
     /// Returns the number of applied migrations (schema version). Used by doctor/diagnostics.
     pub async fn schema_version(&self) -> Result<u32, StorageError> {
-        infra::schema_version(&self.pool).await
+        infra::schema_version(self.pool()).await
     }
 
     /// Appends a runtime event to the events table. Idempotent callers should generate event_id themselves if needed.
@@ -593,7 +624,7 @@ impl Storage {
         payload_json: &str,
     ) -> Result<(), StorageError> {
         infra::emit_event(
-            &self.pool,
+            self.pool(),
             event_type,
             subject_type,
             subject_id,
@@ -603,7 +634,7 @@ impl Storage {
     }
 
     pub async fn insert_capture(&self, input: CaptureInsert) -> Result<CaptureId, StorageError> {
-        captures_repo::insert_capture(&self.pool, input).await
+        captures_repo::insert_capture(self.pool(), input).await
     }
 
     pub async fn insert_capture_with_id(
@@ -611,18 +642,18 @@ impl Storage {
         capture_id: CaptureId,
         input: CaptureInsert,
     ) -> Result<bool, StorageError> {
-        captures_repo::insert_capture_with_id(&self.pool, capture_id, input).await
+        captures_repo::insert_capture_with_id(self.pool(), capture_id, input).await
     }
 
     pub async fn capture_count(&self) -> Result<i64, StorageError> {
-        captures_repo::capture_count(&self.pool).await
+        captures_repo::capture_count(self.pool()).await
     }
 
     pub async fn get_capture_by_id(
         &self,
         capture_id: &str,
     ) -> Result<Option<ContextCapture>, StorageError> {
-        captures_repo::get_capture_by_id(&self.pool, capture_id).await
+        captures_repo::get_capture_by_id(self.pool(), capture_id).await
     }
 
     /// List captures most recent first. If today_only, restrict to since start of current day (UTC).
@@ -631,18 +662,18 @@ impl Storage {
         limit: u32,
         today_only: bool,
     ) -> Result<Vec<ContextCapture>, StorageError> {
-        captures_repo::list_captures_recent(&self.pool, limit, today_only).await
+        captures_repo::list_captures_recent(self.pool(), limit, today_only).await
     }
 
     pub async fn insert_commitment(
         &self,
         input: CommitmentInsert,
     ) -> Result<CommitmentId, StorageError> {
-        commitments_repo::insert_commitment(&self.pool, input).await
+        commitments_repo::insert_commitment(self.pool(), input).await
     }
 
     pub async fn get_commitment_by_id(&self, id: &str) -> Result<Option<Commitment>, StorageError> {
-        commitments_repo::get_commitment_by_id(&self.pool, id).await
+        commitments_repo::get_commitment_by_id(self.pool(), id).await
     }
 
     pub async fn list_commitments(
@@ -652,7 +683,7 @@ impl Storage {
         kind: Option<&str>,
         limit: u32,
     ) -> Result<Vec<Commitment>, StorageError> {
-        commitments_repo::list_commitments(&self.pool, status_filter, project, kind, limit).await
+        commitments_repo::list_commitments(self.pool(), status_filter, project, kind, limit).await
     }
 
     pub async fn update_commitment(
@@ -666,7 +697,7 @@ impl Storage {
         metadata_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
         commitments_repo::update_commitment(
-            &self.pool,
+            self.pool(),
             id,
             text,
             status,
@@ -687,7 +718,7 @@ impl Storage {
         dependency_type: &str,
     ) -> Result<String, StorageError> {
         commitments_repo::insert_commitment_dependency(
-            &self.pool,
+            self.pool(),
             parent_commitment_id,
             child_commitment_id,
             dependency_type,
@@ -699,7 +730,7 @@ impl Storage {
         &self,
         parent_commitment_id: &str,
     ) -> Result<Vec<(String, String, String, i64)>, StorageError> {
-        commitments_repo::list_commitment_dependencies_by_parent(&self.pool, parent_commitment_id)
+        commitments_repo::list_commitment_dependencies_by_parent(self.pool(), parent_commitment_id)
             .await
     }
 
@@ -707,14 +738,14 @@ impl Storage {
         &self,
         child_commitment_id: &str,
     ) -> Result<Vec<(String, String, String, i64)>, StorageError> {
-        commitments_repo::list_commitment_dependencies_by_child(&self.pool, child_commitment_id)
+        commitments_repo::list_commitment_dependencies_by_child(self.pool(), child_commitment_id)
             .await
     }
 
     // --- Signals (Phase B) ---
 
     pub async fn insert_signal(&self, input: SignalInsert) -> Result<String, StorageError> {
-        signals_repo::insert_signal(&self.pool, input).await
+        signals_repo::insert_signal(self.pool(), input).await
     }
 
     pub async fn list_signals(
@@ -723,14 +754,14 @@ impl Storage {
         since_ts: Option<i64>,
         limit: u32,
     ) -> Result<Vec<SignalRecord>, StorageError> {
-        signals_repo::list_signals(&self.pool, signal_type, since_ts, limit).await
+        signals_repo::list_signals(self.pool(), signal_type, since_ts, limit).await
     }
 
     pub async fn list_signals_by_ids(
         &self,
         signal_ids: &[String],
     ) -> Result<Vec<SignalRecord>, StorageError> {
-        signals_repo::list_signals_by_ids(&self.pool, signal_ids).await
+        signals_repo::list_signals_by_ids(self.pool(), signal_ids).await
     }
 
     // --- Assistant transcripts ---
@@ -739,7 +770,7 @@ impl Storage {
         &self,
         input: AssistantTranscriptInsert,
     ) -> Result<bool, StorageError> {
-        assistant_transcripts_repo::insert_assistant_transcript(&self.pool, input).await
+        assistant_transcripts_repo::insert_assistant_transcript(self.pool(), input).await
     }
 
     pub async fn list_assistant_transcripts_by_conversation(
@@ -747,7 +778,7 @@ impl Storage {
         conversation_id: &str,
     ) -> Result<Vec<AssistantTranscriptRecord>, StorageError> {
         assistant_transcripts_repo::list_assistant_transcripts_by_conversation(
-            &self.pool,
+            self.pool(),
             conversation_id,
         )
         .await
@@ -759,7 +790,7 @@ impl Storage {
         &self,
         input: InferredStateInsert,
     ) -> Result<String, StorageError> {
-        inferred_state_repo::insert_inferred_state(&self.pool, input).await
+        inferred_state_repo::insert_inferred_state(self.pool(), input).await
     }
 
     pub async fn list_inferred_state_recent(
@@ -767,17 +798,17 @@ impl Storage {
         state_name: Option<&str>,
         limit: u32,
     ) -> Result<Vec<InferredStateRecord>, StorageError> {
-        inferred_state_repo::list_inferred_state_recent(&self.pool, state_name, limit).await
+        inferred_state_repo::list_inferred_state_recent(self.pool(), state_name, limit).await
     }
 
     // --- Nudges (Phase D) ---
 
     pub async fn insert_nudge(&self, input: NudgeInsert) -> Result<String, StorageError> {
-        nudges_repo::insert_nudge(&self.pool, input).await
+        nudges_repo::insert_nudge(self.pool(), input).await
     }
 
     pub async fn get_nudge(&self, id: &str) -> Result<Option<NudgeRecord>, StorageError> {
-        nudges_repo::get_nudge(&self.pool, id).await
+        nudges_repo::get_nudge(self.pool(), id).await
     }
 
     pub async fn list_nudges(
@@ -785,7 +816,7 @@ impl Storage {
         state_filter: Option<&str>,
         limit: u32,
     ) -> Result<Vec<NudgeRecord>, StorageError> {
-        nudges_repo::list_nudges(&self.pool, state_filter, limit).await
+        nudges_repo::list_nudges(self.pool(), state_filter, limit).await
     }
 
     pub async fn update_nudge_state(
@@ -795,7 +826,7 @@ impl Storage {
         snoozed_until: Option<i64>,
         resolved_at: Option<i64>,
     ) -> Result<(), StorageError> {
-        nudges_repo::update_nudge_state(&self.pool, nudge_id, state, snoozed_until, resolved_at)
+        nudges_repo::update_nudge_state(self.pool(), nudge_id, state, snoozed_until, resolved_at)
             .await
     }
 
@@ -811,7 +842,7 @@ impl Storage {
         metadata_json: &JsonValue,
     ) -> Result<(), StorageError> {
         nudges_repo::update_nudge_lifecycle(
-            &self.pool,
+            self.pool(),
             nudge_id,
             level,
             state,
@@ -829,7 +860,7 @@ impl Storage {
     pub async fn get_current_context(
         &self,
     ) -> Result<Option<(i64, CurrentContextV1)>, StorageError> {
-        current_context_repo::get_current_context(&self.pool).await
+        current_context_repo::get_current_context(self.pool()).await
     }
 
     pub async fn set_current_context(
@@ -837,7 +868,7 @@ impl Storage {
         computed_at: i64,
         context_json: &str,
     ) -> Result<(), StorageError> {
-        current_context_repo::set_current_context(&self.pool, computed_at, context_json).await
+        current_context_repo::set_current_context(self.pool(), computed_at, context_json).await
     }
 
     pub async fn insert_context_timeline(
@@ -847,7 +878,7 @@ impl Storage {
         trigger_signal_id: Option<&str>,
     ) -> Result<(), StorageError> {
         context_timeline_repo::insert_context_timeline(
-            &self.pool,
+            self.pool(),
             timestamp,
             context_json,
             trigger_signal_id,
@@ -859,7 +890,7 @@ impl Storage {
         &self,
         limit: u32,
     ) -> Result<Vec<(String, i64, String)>, StorageError> {
-        context_timeline_repo::list_context_timeline(&self.pool, limit).await
+        context_timeline_repo::list_context_timeline(self.pool(), limit).await
     }
 
     // --- Integration foundation (INTG-001) ---
@@ -868,21 +899,21 @@ impl Storage {
         &self,
         input: IntegrationConnectionInsert,
     ) -> Result<IntegrationConnectionId, StorageError> {
-        integration_connections_repo::insert_integration_connection(&self.pool, input).await
+        integration_connections_repo::insert_integration_connection(self.pool(), input).await
     }
 
     pub async fn get_integration_connection(
         &self,
         id: &str,
     ) -> Result<Option<IntegrationConnection>, StorageError> {
-        integration_connections_repo::get_integration_connection(&self.pool, id).await
+        integration_connections_repo::get_integration_connection(self.pool(), id).await
     }
 
     pub async fn list_integration_connections(
         &self,
         filters: IntegrationConnectionFilters,
     ) -> Result<Vec<IntegrationConnection>, StorageError> {
-        integration_connections_repo::list_integration_connections(&self.pool, filters).await
+        integration_connections_repo::list_integration_connections(self.pool(), filters).await
     }
 
     pub async fn update_integration_connection(
@@ -894,7 +925,7 @@ impl Storage {
         metadata_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
         integration_connections_repo::update_integration_connection(
-            &self.pool,
+            self.pool(),
             id,
             status,
             display_name,
@@ -911,7 +942,7 @@ impl Storage {
         setting_value: &str,
     ) -> Result<(), StorageError> {
         integration_connections_repo::upsert_integration_connection_setting_ref(
-            &self.pool,
+            self.pool(),
             connection_id,
             setting_key,
             setting_value,
@@ -924,7 +955,7 @@ impl Storage {
         connection_id: &str,
     ) -> Result<Vec<IntegrationConnectionSettingRef>, StorageError> {
         integration_connections_repo::list_integration_connection_setting_refs(
-            &self.pool,
+            self.pool(),
             connection_id,
         )
         .await
@@ -938,7 +969,7 @@ impl Storage {
         timestamp: i64,
     ) -> Result<String, StorageError> {
         integration_connections_repo::insert_integration_connection_event(
-            &self.pool,
+            self.pool(),
             connection_id,
             event_type,
             payload_json,
@@ -953,7 +984,7 @@ impl Storage {
         limit: u32,
     ) -> Result<Vec<IntegrationConnectionEvent>, StorageError> {
         integration_connections_repo::list_integration_connection_events(
-            &self.pool,
+            self.pool(),
             connection_id,
             limit,
         )
@@ -970,14 +1001,15 @@ impl Storage {
         status: &str,
         metadata_json: &str,
     ) -> Result<(), StorageError> {
-        threads_repo::insert_thread(&self.pool, id, thread_type, title, status, metadata_json).await
+        threads_repo::insert_thread(self.pool(), id, thread_type, title, status, metadata_json)
+            .await
     }
 
     pub async fn get_thread_by_id(
         &self,
         id: &str,
     ) -> Result<Option<(String, String, String, String, String, i64, i64)>, StorageError> {
-        threads_repo::get_thread_by_id(&self.pool, id).await
+        threads_repo::get_thread_by_id(self.pool(), id).await
     }
 
     pub async fn list_threads(
@@ -985,11 +1017,11 @@ impl Storage {
         status_filter: Option<&str>,
         limit: u32,
     ) -> Result<Vec<(String, String, String, String, i64, i64)>, StorageError> {
-        threads_repo::list_threads(&self.pool, status_filter, limit).await
+        threads_repo::list_threads(self.pool(), status_filter, limit).await
     }
 
     pub async fn update_thread_status(&self, id: &str, status: &str) -> Result<(), StorageError> {
-        threads_repo::update_thread_status(&self.pool, id, status).await
+        threads_repo::update_thread_status(self.pool(), id, status).await
     }
 
     pub async fn insert_thread_link(
@@ -1000,7 +1032,7 @@ impl Storage {
         relation_type: &str,
     ) -> Result<String, StorageError> {
         threads_repo::insert_thread_link(
-            &self.pool,
+            self.pool(),
             thread_id,
             entity_type,
             entity_id,
@@ -1013,7 +1045,7 @@ impl Storage {
         &self,
         thread_id: &str,
     ) -> Result<Vec<(String, String, String, String)>, StorageError> {
-        threads_repo::list_thread_links(&self.pool, thread_id).await
+        threads_repo::list_thread_links(self.pool(), thread_id).await
     }
 
     // --- Suggestions (steering loop) ---
@@ -1044,7 +1076,7 @@ impl Storage {
         &self,
         input: SuggestionInsertV2,
     ) -> Result<String, StorageError> {
-        suggestions_repo::insert_suggestion_v2(&self.pool, input).await
+        suggestions_repo::insert_suggestion_v2(self.pool(), input).await
     }
 
     pub async fn list_suggestions(
@@ -1052,56 +1084,56 @@ impl Storage {
         state_filter: Option<&str>,
         limit: u32,
     ) -> Result<Vec<SuggestionRecord>, StorageError> {
-        suggestions_repo::list_suggestions(&self.pool, state_filter, limit).await
+        suggestions_repo::list_suggestions(self.pool(), state_filter, limit).await
     }
 
     pub async fn get_suggestion_by_id(
         &self,
         id: &str,
     ) -> Result<Option<SuggestionRecord>, StorageError> {
-        suggestions_repo::get_suggestion_by_id(&self.pool, id).await
+        suggestions_repo::get_suggestion_by_id(self.pool(), id).await
     }
 
     pub async fn insert_suggestion_evidence(
         &self,
         input: SuggestionEvidenceInsert,
     ) -> Result<String, StorageError> {
-        suggestions_repo::insert_suggestion_evidence(&self.pool, input).await
+        suggestions_repo::insert_suggestion_evidence(self.pool(), input).await
     }
 
     pub async fn list_suggestion_evidence(
         &self,
         suggestion_id: &str,
     ) -> Result<Vec<SuggestionEvidenceRecord>, StorageError> {
-        suggestions_repo::list_suggestion_evidence(&self.pool, suggestion_id).await
+        suggestions_repo::list_suggestion_evidence(self.pool(), suggestion_id).await
     }
 
     pub async fn insert_suggestion_feedback(
         &self,
         input: SuggestionFeedbackInsert,
     ) -> Result<String, StorageError> {
-        suggestion_feedback_repo::insert_suggestion_feedback(&self.pool, input).await
+        suggestion_feedback_repo::insert_suggestion_feedback(self.pool(), input).await
     }
 
     pub async fn list_suggestion_feedback(
         &self,
         suggestion_id: &str,
     ) -> Result<Vec<SuggestionFeedbackRecord>, StorageError> {
-        suggestion_feedback_repo::list_suggestion_feedback(&self.pool, suggestion_id).await
+        suggestion_feedback_repo::list_suggestion_feedback(self.pool(), suggestion_id).await
     }
 
     pub async fn summarize_suggestion_feedback(
         &self,
         suggestion_type: &str,
     ) -> Result<SuggestionFeedbackSummary, StorageError> {
-        suggestion_feedback_repo::summarize_suggestion_feedback(&self.pool, suggestion_type).await
+        suggestion_feedback_repo::summarize_suggestion_feedback(self.pool(), suggestion_type).await
     }
 
     pub async fn insert_uncertainty_record(
         &self,
         input: UncertaintyRecordInsert,
     ) -> Result<String, StorageError> {
-        uncertainty_records_repo::insert_uncertainty_record(&self.pool, input).await
+        uncertainty_records_repo::insert_uncertainty_record(self.pool(), input).await
     }
 
     pub async fn list_uncertainty_records(
@@ -1109,14 +1141,14 @@ impl Storage {
         status: Option<&str>,
         limit: u32,
     ) -> Result<Vec<UncertaintyRecord>, StorageError> {
-        uncertainty_records_repo::list_uncertainty_records(&self.pool, status, limit).await
+        uncertainty_records_repo::list_uncertainty_records(self.pool(), status, limit).await
     }
 
     pub async fn get_uncertainty_record(
         &self,
         id: &str,
     ) -> Result<Option<UncertaintyRecord>, StorageError> {
-        uncertainty_records_repo::get_uncertainty_record(&self.pool, id).await
+        uncertainty_records_repo::get_uncertainty_record(self.pool(), id).await
     }
 
     pub async fn find_open_uncertainty_record(
@@ -1126,7 +1158,7 @@ impl Storage {
         decision_kind: &str,
     ) -> Result<Option<UncertaintyRecord>, StorageError> {
         uncertainty_records_repo::find_open_uncertainty_record(
-            &self.pool,
+            self.pool(),
             subject_type,
             subject_id,
             decision_kind,
@@ -1143,7 +1175,7 @@ impl Storage {
         since_ts: i64,
     ) -> Result<Option<UncertaintyRecord>, StorageError> {
         uncertainty_records_repo::find_recent_uncertainty_record(
-            &self.pool,
+            self.pool(),
             subject_type,
             subject_id,
             decision_kind,
@@ -1157,14 +1189,14 @@ impl Storage {
         &self,
         id: &str,
     ) -> Result<Option<UncertaintyRecord>, StorageError> {
-        uncertainty_records_repo::resolve_uncertainty_record(&self.pool, id).await
+        uncertainty_records_repo::resolve_uncertainty_record(self.pool(), id).await
     }
 
     pub async fn find_recent_suggestion_by_dedupe_key(
         &self,
         dedupe_key: &str,
     ) -> Result<Option<SuggestionRecord>, StorageError> {
-        suggestions_repo::find_recent_suggestion_by_dedupe_key(&self.pool, dedupe_key).await
+        suggestions_repo::find_recent_suggestion_by_dedupe_key(self.pool(), dedupe_key).await
     }
 
     pub async fn update_suggestion_state(
@@ -1174,7 +1206,7 @@ impl Storage {
         resolved_at: Option<i64>,
         payload_json: Option<&str>,
     ) -> Result<(), StorageError> {
-        suggestions_repo::update_suggestion_state(&self.pool, id, state, resolved_at, payload_json)
+        suggestions_repo::update_suggestion_state(self.pool(), id, state, resolved_at, payload_json)
             .await
     }
 
@@ -1187,7 +1219,7 @@ impl Storage {
         computed_at: i64,
     ) -> Result<String, StorageError> {
         commitment_risk_repo::insert_commitment_risk(
-            &self.pool,
+            self.pool(),
             commitment_id,
             risk_score,
             risk_level,
@@ -1202,29 +1234,29 @@ impl Storage {
         commitment_id: &str,
         limit: u32,
     ) -> Result<Vec<(String, f64, String, String, i64)>, StorageError> {
-        commitment_risk_repo::list_commitment_risk_recent(&self.pool, commitment_id, limit).await
+        commitment_risk_repo::list_commitment_risk_recent(self.pool(), commitment_id, limit).await
     }
 
     pub async fn list_commitment_risk_latest_all(
         &self,
     ) -> Result<Vec<(String, String, f64, String, String, i64)>, StorageError> {
-        commitment_risk_repo::list_commitment_risk_latest_all(&self.pool).await
+        commitment_risk_repo::list_commitment_risk_latest_all(self.pool()).await
     }
 
     pub async fn count_commitment_risk(&self) -> Result<i64, StorageError> {
-        commitment_risk_repo::count_commitment_risk(&self.pool).await
+        commitment_risk_repo::count_commitment_risk(self.pool()).await
     }
 
     pub async fn count_inferred_state(&self) -> Result<i64, StorageError> {
-        inferred_state_repo::count_inferred_state(&self.pool).await
+        inferred_state_repo::count_inferred_state(self.pool()).await
     }
 
     pub async fn count_context_timeline(&self) -> Result<i64, StorageError> {
-        context_timeline_repo::count_context_timeline(&self.pool).await
+        context_timeline_repo::count_context_timeline(self.pool()).await
     }
 
     pub async fn count_nudge_events(&self) -> Result<i64, StorageError> {
-        nudges_repo::count_nudge_events(&self.pool).await
+        nudges_repo::count_nudge_events(self.pool()).await
     }
 
     pub async fn insert_nudge_event(
@@ -1234,7 +1266,7 @@ impl Storage {
         payload_json: &str,
         timestamp: i64,
     ) -> Result<String, StorageError> {
-        nudges_repo::insert_nudge_event(&self.pool, nudge_id, event_type, payload_json, timestamp)
+        nudges_repo::insert_nudge_event(self.pool(), nudge_id, event_type, payload_json, timestamp)
             .await
     }
 
@@ -1243,7 +1275,7 @@ impl Storage {
         nudge_id: &str,
         limit: u32,
     ) -> Result<Vec<NudgeEventRecord>, StorageError> {
-        nudges_repo::list_nudge_events(&self.pool, nudge_id, limit).await
+        nudges_repo::list_nudge_events(self.pool(), nudge_id, limit).await
     }
 
     pub async fn search_captures(
@@ -1251,7 +1283,7 @@ impl Storage {
         query: &str,
         filters: SearchFilters,
     ) -> Result<Vec<SearchResult>, StorageError> {
-        captures_repo::search_captures(&self.pool, query, filters).await
+        captures_repo::search_captures(self.pool(), query, filters).await
     }
 
     pub async fn insert_processing_job(
@@ -1262,7 +1294,7 @@ impl Storage {
         payload_json: &str,
     ) -> Result<(), StorageError> {
         processing_jobs_repo::insert_processing_job(
-            &self.pool,
+            self.pool(),
             job_id,
             job_type,
             status,
@@ -1275,37 +1307,37 @@ impl Storage {
         &self,
         job_type: &str,
     ) -> Result<Option<PendingJob>, StorageError> {
-        processing_jobs_repo::claim_next_pending_job(&self.pool, job_type).await
+        processing_jobs_repo::claim_next_pending_job(self.pool(), job_type).await
     }
 
     pub async fn mark_job_succeeded(&self, job_id: &str) -> Result<(), StorageError> {
-        processing_jobs_repo::mark_job_succeeded(&self.pool, job_id).await
+        processing_jobs_repo::mark_job_succeeded(self.pool(), job_id).await
     }
 
     pub async fn mark_job_failed(&self, job_id: &str, error: &str) -> Result<(), StorageError> {
-        processing_jobs_repo::mark_job_failed(&self.pool, job_id, error).await
+        processing_jobs_repo::mark_job_failed(self.pool(), job_id, error).await
     }
 
     pub async fn create_artifact(&self, input: ArtifactInsert) -> Result<ArtifactId, StorageError> {
-        artifacts_repo::create_artifact(&self.pool, input).await
+        artifacts_repo::create_artifact(self.pool(), input).await
     }
 
     pub async fn get_artifact_by_id(
         &self,
         id: &ArtifactId,
     ) -> Result<Option<ArtifactRecord>, StorageError> {
-        artifacts_repo::get_artifact_by_id(&self.pool, id.as_ref()).await
+        artifacts_repo::get_artifact_by_id(self.pool(), id.as_ref()).await
     }
 
     pub async fn get_latest_artifact_by_type(
         &self,
         artifact_type: &str,
     ) -> Result<Option<ArtifactRecord>, StorageError> {
-        artifacts_repo::get_latest_artifact_by_type(&self.pool, artifact_type).await
+        artifacts_repo::get_latest_artifact_by_type(self.pool(), artifact_type).await
     }
 
     pub async fn list_artifacts(&self, limit: u32) -> Result<Vec<ArtifactRecord>, StorageError> {
-        artifacts_repo::list_artifacts(&self.pool, limit).await
+        artifacts_repo::list_artifacts(self.pool(), limit).await
     }
 
     pub async fn create_run(
@@ -1314,11 +1346,11 @@ impl Storage {
         kind: RunKind,
         input_json: &JsonValue,
     ) -> Result<(), StorageError> {
-        runs_repo::create_run(&self.pool, id, kind, input_json).await
+        runs_repo::create_run(self.pool(), id, kind, input_json).await
     }
 
     pub async fn get_run_by_id(&self, run_id: &str) -> Result<Option<Run>, StorageError> {
-        runs_repo::get_run_by_id(&self.pool, run_id).await
+        runs_repo::get_run_by_id(self.pool(), run_id).await
     }
 
     pub async fn list_runs(
@@ -1330,7 +1362,7 @@ impl Storage {
         let kind_str = kind.map(|k| k.to_string());
         let status_str = status.map(|s| s.to_string());
         runs_repo::list_runs(
-            &self.pool,
+            self.pool(),
             limit,
             kind_str.as_deref(),
             status_str.as_deref(),
@@ -1348,7 +1380,7 @@ impl Storage {
         error_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
         runs_repo::update_run_status(
-            &self.pool,
+            self.pool(),
             run_id,
             status,
             started_at,
@@ -1360,7 +1392,7 @@ impl Storage {
     }
 
     pub async fn reset_run_for_retry(&self, run_id: &str) -> Result<(), StorageError> {
-        runs_repo::reset_run_for_retry(&self.pool, run_id).await
+        runs_repo::reset_run_for_retry(self.pool(), run_id).await
     }
 
     pub async fn append_run_event(
@@ -1370,11 +1402,11 @@ impl Storage {
         event_type: RunEventType,
         payload_json: &JsonValue,
     ) -> Result<String, StorageError> {
-        runs_repo::append_run_event(&self.pool, run_id, seq, event_type, payload_json).await
+        runs_repo::append_run_event(self.pool(), run_id, seq, event_type, payload_json).await
     }
 
     pub async fn next_run_event_seq(&self, run_id: &str) -> Result<u32, StorageError> {
-        runs_repo::next_run_event_seq(&self.pool, run_id).await
+        runs_repo::next_run_event_seq(self.pool(), run_id).await
     }
 
     pub async fn append_run_event_auto(
@@ -1383,7 +1415,7 @@ impl Storage {
         event_type: RunEventType,
         payload_json: &JsonValue,
     ) -> Result<String, StorageError> {
-        runs_repo::append_run_event_auto(&self.pool, run_id, event_type, payload_json).await
+        runs_repo::append_run_event_auto(self.pool(), run_id, event_type, payload_json).await
     }
 
     pub async fn list_retry_ready_runs(
@@ -1392,15 +1424,15 @@ impl Storage {
         limit: u32,
     ) -> Result<Vec<RetryReadyRun>, StorageError> {
         let now = OffsetDateTime::now_utc().unix_timestamp();
-        runs_repo::list_retry_ready_runs(&self.pool, now, max_retries as i64, limit).await
+        runs_repo::list_retry_ready_runs(self.pool(), now, max_retries as i64, limit).await
     }
 
     pub async fn list_run_events(&self, run_id: &str) -> Result<Vec<RunEvent>, StorageError> {
-        runs_repo::list_run_events(&self.pool, run_id).await
+        runs_repo::list_run_events(self.pool(), run_id).await
     }
 
     pub async fn create_ref(&self, ref_: &Ref) -> Result<(), StorageError> {
-        run_refs_repo::create_ref(&self.pool, ref_).await
+        run_refs_repo::create_ref(self.pool(), ref_).await
     }
 
     pub async fn list_refs_from(
@@ -1408,11 +1440,11 @@ impl Storage {
         from_type: &str,
         from_id: &str,
     ) -> Result<Vec<Ref>, StorageError> {
-        run_refs_repo::list_refs_from(&self.pool, from_type, from_id).await
+        run_refs_repo::list_refs_from(self.pool(), from_type, from_id).await
     }
 
     pub async fn list_refs_to(&self, to_type: &str, to_id: &str) -> Result<Vec<Ref>, StorageError> {
-        run_refs_repo::list_refs_to(&self.pool, to_type, to_id).await
+        run_refs_repo::list_refs_to(self.pool(), to_type, to_id).await
     }
 
     // --- Conversations (chat) ---
@@ -1421,7 +1453,7 @@ impl Storage {
         &self,
         input: ConversationInsert,
     ) -> Result<ConversationRecord, StorageError> {
-        chat_repo::create_conversation(&self.pool, input).await
+        chat_repo::create_conversation(self.pool(), input).await
     }
 
     pub async fn list_conversations(
@@ -1429,30 +1461,30 @@ impl Storage {
         archived: Option<bool>,
         limit: u32,
     ) -> Result<Vec<ConversationRecord>, StorageError> {
-        chat_repo::list_conversations(&self.pool, archived, limit).await
+        chat_repo::list_conversations(self.pool(), archived, limit).await
     }
 
     pub async fn get_conversation(
         &self,
         id: &str,
     ) -> Result<Option<ConversationRecord>, StorageError> {
-        chat_repo::get_conversation(&self.pool, id).await
+        chat_repo::get_conversation(self.pool(), id).await
     }
 
     pub async fn rename_conversation(&self, id: &str, title: &str) -> Result<(), StorageError> {
-        chat_repo::rename_conversation(&self.pool, id, title).await
+        chat_repo::rename_conversation(self.pool(), id, title).await
     }
 
     pub async fn pin_conversation(&self, id: &str, pinned: bool) -> Result<(), StorageError> {
-        chat_repo::pin_conversation(&self.pool, id, pinned).await
+        chat_repo::pin_conversation(self.pool(), id, pinned).await
     }
 
     pub async fn archive_conversation(&self, id: &str, archived: bool) -> Result<(), StorageError> {
-        chat_repo::archive_conversation(&self.pool, id, archived).await
+        chat_repo::archive_conversation(self.pool(), id, archived).await
     }
 
     pub async fn create_message(&self, input: MessageInsert) -> Result<MessageId, StorageError> {
-        chat_repo::create_message(&self.pool, input).await
+        chat_repo::create_message(self.pool(), input).await
     }
 
     pub async fn list_messages_by_conversation(
@@ -1460,50 +1492,50 @@ impl Storage {
         conversation_id: &str,
         limit: u32,
     ) -> Result<Vec<MessageRecord>, StorageError> {
-        chat_repo::list_messages_by_conversation(&self.pool, conversation_id, limit).await
+        chat_repo::list_messages_by_conversation(self.pool(), conversation_id, limit).await
     }
 
     pub async fn get_message(&self, id: &str) -> Result<Option<MessageRecord>, StorageError> {
-        chat_repo::get_message(&self.pool, id).await
+        chat_repo::get_message(self.pool(), id).await
     }
 
     pub async fn update_message_status(&self, id: &str, status: &str) -> Result<(), StorageError> {
-        chat_repo::update_message_status(&self.pool, id, status).await
+        chat_repo::update_message_status(self.pool(), id, status).await
     }
 
     pub async fn create_intervention(
         &self,
         input: InterventionInsert,
     ) -> Result<InterventionId, StorageError> {
-        chat_repo::create_intervention(&self.pool, input).await
+        chat_repo::create_intervention(self.pool(), input).await
     }
 
     pub async fn list_interventions_active(
         &self,
         limit: u32,
     ) -> Result<Vec<InterventionRecord>, StorageError> {
-        chat_repo::list_interventions_active(&self.pool, limit).await
+        chat_repo::list_interventions_active(self.pool(), limit).await
     }
 
     pub async fn get_interventions_by_message(
         &self,
         message_id: &str,
     ) -> Result<Vec<InterventionRecord>, StorageError> {
-        chat_repo::get_interventions_by_message(&self.pool, message_id).await
+        chat_repo::get_interventions_by_message(self.pool(), message_id).await
     }
 
     pub async fn get_interventions_by_conversation(
         &self,
         conversation_id: &str,
     ) -> Result<Vec<InterventionRecord>, StorageError> {
-        chat_repo::get_interventions_by_conversation(&self.pool, conversation_id).await
+        chat_repo::get_interventions_by_conversation(self.pool(), conversation_id).await
     }
 
     pub async fn get_intervention(
         &self,
         id: &str,
     ) -> Result<Option<InterventionRecord>, StorageError> {
-        chat_repo::get_intervention(&self.pool, id).await
+        chat_repo::get_intervention(self.pool(), id).await
     }
 
     pub async fn snooze_intervention(
@@ -1511,26 +1543,26 @@ impl Storage {
         id: &str,
         snoozed_until_ts: i64,
     ) -> Result<(), StorageError> {
-        chat_repo::snooze_intervention(&self.pool, id, snoozed_until_ts).await
+        chat_repo::snooze_intervention(self.pool(), id, snoozed_until_ts).await
     }
 
     pub async fn resolve_intervention(&self, id: &str) -> Result<(), StorageError> {
-        chat_repo::resolve_intervention(&self.pool, id).await
+        chat_repo::resolve_intervention(self.pool(), id).await
     }
 
     pub async fn dismiss_intervention(&self, id: &str) -> Result<(), StorageError> {
-        chat_repo::dismiss_intervention(&self.pool, id).await
+        chat_repo::dismiss_intervention(self.pool(), id).await
     }
 
     pub async fn append_event(&self, input: EventLogInsert) -> Result<EventId, StorageError> {
-        chat_repo::append_event(&self.pool, input).await
+        chat_repo::append_event(self.pool(), input).await
     }
 
     pub async fn list_events_recent(
         &self,
         limit: u32,
     ) -> Result<Vec<EventLogRecord>, StorageError> {
-        chat_repo::list_events_recent(&self.pool, limit).await
+        chat_repo::list_events_recent(self.pool(), limit).await
     }
 
     pub async fn list_events_by_aggregate(
@@ -1539,7 +1571,7 @@ impl Storage {
         aggregate_id: &str,
         limit: u32,
     ) -> Result<Vec<EventLogRecord>, StorageError> {
-        chat_repo::list_events_by_aggregate(&self.pool, aggregate_type, aggregate_id, limit).await
+        chat_repo::list_events_by_aggregate(self.pool(), aggregate_type, aggregate_id, limit).await
     }
 
     // --- Settings (chat/client) ---
@@ -1547,7 +1579,7 @@ impl Storage {
     pub async fn get_all_settings(
         &self,
     ) -> Result<std::collections::HashMap<String, serde_json::Value>, StorageError> {
-        settings_repo::get_all_settings(&self.pool).await
+        settings_repo::get_all_settings(self.pool()).await
     }
 
     pub async fn set_setting(
@@ -1555,7 +1587,7 @@ impl Storage {
         key: &str,
         value: &serde_json::Value,
     ) -> Result<(), StorageError> {
-        settings_repo::set_setting(&self.pool, key, value).await
+        settings_repo::set_setting(self.pool(), key, value).await
     }
 
     pub async fn claim_due_loop(
@@ -1564,7 +1596,7 @@ impl Storage {
         interval_seconds: i64,
         now_ts: i64,
     ) -> Result<bool, StorageError> {
-        runtime_loops_repo::claim_due_loop(&self.pool, loop_kind, interval_seconds, now_ts).await
+        runtime_loops_repo::claim_due_loop(self.pool(), loop_kind, interval_seconds, now_ts).await
     }
 
     pub async fn ensure_runtime_loop(
@@ -1575,7 +1607,7 @@ impl Storage {
         next_due_at: Option<i64>,
     ) -> Result<(), StorageError> {
         runtime_loops_repo::ensure_runtime_loop(
-            &self.pool,
+            self.pool(),
             loop_kind,
             enabled,
             interval_seconds,
@@ -1591,25 +1623,25 @@ impl Storage {
         error: Option<&str>,
         next_due_at: i64,
     ) -> Result<(), StorageError> {
-        runtime_loops_repo::complete_loop(&self.pool, loop_kind, status, error, next_due_at).await
+        runtime_loops_repo::complete_loop(self.pool(), loop_kind, status, error, next_due_at).await
     }
 
     pub async fn list_runtime_loops(&self) -> Result<Vec<RuntimeLoopRecord>, StorageError> {
-        runtime_loops_repo::list_runtime_loops(&self.pool).await
+        runtime_loops_repo::list_runtime_loops(self.pool()).await
     }
 
     pub async fn insert_work_assignment(
         &self,
         assignment: WorkAssignmentInsert,
     ) -> Result<String, StorageError> {
-        work_assignments_repo::insert_work_assignment(&self.pool, assignment).await
+        work_assignments_repo::insert_work_assignment(self.pool(), assignment).await
     }
 
     pub async fn update_work_assignment(
         &self,
         update: WorkAssignmentUpdate,
     ) -> Result<WorkAssignmentRecord, StorageError> {
-        work_assignments_repo::update_work_assignment(&self.pool, update).await
+        work_assignments_repo::update_work_assignment(self.pool(), update).await
     }
 
     pub async fn set_work_assignment_last_updated(
@@ -1618,7 +1650,7 @@ impl Storage {
         last_updated: i64,
     ) -> Result<(), StorageError> {
         work_assignments_repo::set_work_assignment_last_updated(
-            &self.pool,
+            self.pool(),
             receipt_id,
             last_updated,
         )
@@ -1630,29 +1662,29 @@ impl Storage {
         work_request_id: Option<&str>,
         worker_id: Option<&str>,
     ) -> Result<Vec<WorkAssignmentRecord>, StorageError> {
-        work_assignments_repo::list_work_assignments(&self.pool, work_request_id, worker_id).await
+        work_assignments_repo::list_work_assignments(self.pool(), work_request_id, worker_id).await
     }
 
     pub async fn upsert_cluster_worker(
         &self,
         worker: ClusterWorkerUpsert,
     ) -> Result<(), StorageError> {
-        cluster_workers_repo::upsert_cluster_worker(&self.pool, worker).await
+        cluster_workers_repo::upsert_cluster_worker(self.pool(), worker).await
     }
 
     pub async fn expire_cluster_workers(&self, stale_before: i64) -> Result<u64, StorageError> {
-        cluster_workers_repo::expire_cluster_workers(&self.pool, stale_before).await
+        cluster_workers_repo::expire_cluster_workers(self.pool(), stale_before).await
     }
 
     pub async fn list_cluster_workers(&self) -> Result<Vec<ClusterWorkerRecord>, StorageError> {
-        cluster_workers_repo::list_cluster_workers(&self.pool).await
+        cluster_workers_repo::list_cluster_workers(self.pool()).await
     }
 
     pub async fn get_runtime_loop(
         &self,
         loop_kind: &str,
     ) -> Result<Option<RuntimeLoopRecord>, StorageError> {
-        runtime_loops_repo::get_runtime_loop(&self.pool, loop_kind).await
+        runtime_loops_repo::get_runtime_loop(self.pool(), loop_kind).await
     }
 
     pub async fn update_runtime_loop_config(
@@ -1662,7 +1694,7 @@ impl Storage {
         interval_seconds: Option<i64>,
     ) -> Result<Option<RuntimeLoopRecord>, StorageError> {
         runtime_loops_repo::update_runtime_loop_config(
-            &self.pool,
+            self.pool(),
             loop_kind,
             enabled,
             interval_seconds,
@@ -1671,6 +1703,75 @@ impl Storage {
     }
 
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
-        captures_repo::orientation_snapshot(&self.pool).await
+        captures_repo::orientation_snapshot(self.pool()).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::repositories::{context_timeline_repo, current_context_repo};
+
+    static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
+
+    async fn test_pool() -> SqlitePool {
+        let pool = SqlitePool::connect(":memory:").await.unwrap();
+        MIGRATOR.run(&pool).await.unwrap();
+        pool
+    }
+
+    #[tokio::test]
+    async fn storage_backend_routes_through_explicit_pool_wrapper() {
+        let pool = test_pool().await;
+        let backend = SqliteBackend::new(pool);
+        let resolved_pool = backend_pool(&backend);
+
+        let version = infra::schema_version(resolved_pool).await.unwrap();
+        assert!(version > 0);
+    }
+
+    #[tokio::test]
+    async fn multi_repository_writes_share_a_single_transaction() {
+        let pool = test_pool().await;
+        let before_context = current_context_repo::get_current_context(&pool)
+            .await
+            .unwrap();
+        let before_timeline = context_timeline_repo::count_context_timeline(&pool)
+            .await
+            .unwrap();
+
+        {
+            let mut tx = pool.begin().await.unwrap();
+            current_context_repo::set_current_context_in_tx(
+                &mut tx,
+                1_700_001_234,
+                r#"{"mode":"shared_tx","morning_state":"ready"}"#,
+            )
+            .await
+            .unwrap();
+            context_timeline_repo::insert_context_timeline_in_tx(
+                &mut tx,
+                1_700_001_234,
+                r#"{"mode":"shared_tx","morning_state":"ready"}"#,
+                Some("sig_shared_tx"),
+            )
+            .await
+            .unwrap();
+            tx.commit().await.unwrap();
+        }
+
+        let after_context = current_context_repo::get_current_context(&pool)
+            .await
+            .unwrap();
+        let after_timeline = context_timeline_repo::count_context_timeline(&pool)
+            .await
+            .unwrap();
+
+        assert_ne!(after_context, before_context);
+        assert_eq!(after_timeline, before_timeline + 1);
+        let (computed_at, context) = after_context.expect("current context should exist");
+        assert_eq!(computed_at, 1_700_001_234);
+        assert_eq!(context.mode, "shared_tx");
+        assert_eq!(context.morning_state, "ready");
     }
 }

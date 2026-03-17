@@ -6,7 +6,7 @@ Vel uses a **Modular Repository Pattern** to manage persistence. The storage lay
 
 - **Crate**: `vel-storage`
 - **Database**: SQLite (local-first)
-- **Primary Interface**: `Storage` struct (Facade)
+- **Primary Interface**: `Storage` struct (Facade over an explicit storage backend)
 - **Implementation**: Domain-specific repositories in `src/repositories/`
 
 ## Repository Pattern
@@ -19,6 +19,7 @@ To prevent the `db.rs` file from becoming an unmaintainable monolith, all domain
 2.  **Statelessness**: Repository functions should generally be `pub(crate)` and take a `&SqlitePool` or `&mut Transaction`.
 3.  **Domain Types**: Return types should be `vel-core` domain types or local `Record` structs.
 4.  **No DTOs**: Repositories must never know about `vel-api-types`.
+5.  **Backend Boundary**: `Storage` sits on top of an internal `StorageBackend` seam so the pool-backed implementation is explicit instead of implicit.
 
 ### Active Repositories
 
@@ -49,7 +50,7 @@ To prevent the `db.rs` file from becoming an unmaintainable monolith, all domain
 
 ## Transaction Management
 
-The `Storage` facade provides high-level methods that manage their own transactions. For multi-repository atomic writes, the `repositories` functions can be called within a single `sqlx::Transaction`.
+The `Storage` facade provides high-level methods that manage their own transactions. For multi-repository atomic writes, the repository `*_in_tx` helpers can be called within a single `sqlx::Transaction`, and the crate has a focused test that exercises a cross-repository commit in one transaction.
 
 ## Schema Management
 

@@ -483,10 +483,14 @@ mod tests {
     };
     use time::OffsetDateTime;
     use tower::util::ServiceExt;
-    use vel_core::ArtifactId;
+    use vel_core::{ArtifactId, CurrentContextV1};
 
     fn test_policy_config() -> PolicyConfig {
         PolicyConfig::default()
+    }
+
+    fn current_context_json(context: CurrentContextV1) -> String {
+        serde_json::to_string(&context).unwrap()
     }
 
     fn repo_root_for_tests() -> String {
@@ -3371,15 +3375,15 @@ mod tests {
         );
         let storage = Storage::connect(&db_path).await.unwrap();
         storage.migrate().await.unwrap();
-        let context_json = serde_json::json!({
-            "attention_state": "scattered",
-            "drift_type": "context_switching",
-            "drift_severity": "medium",
-            "attention_reasons": ["many competing threads"],
-            "signals_used": [],
-            "commitments_used": [],
-        })
-        .to_string();
+        let context_json = current_context_json(CurrentContextV1 {
+            attention_state: "scattered".to_string(),
+            drift_type: Some("context_switching".to_string()),
+            drift_severity: Some("medium".to_string()),
+            attention_reasons: vec!["many competing threads".to_string()],
+            signals_used: vec![],
+            commitments_used: vec![],
+            ..CurrentContextV1::default()
+        });
         storage
             .set_current_context(OffsetDateTime::now_utc().unix_timestamp(), &context_json)
             .await
@@ -7194,14 +7198,15 @@ mod tests {
         storage
             .set_current_context(
                 now_ts,
-                &serde_json::json!({
-                    "global_risk_level": "high",
-                    "global_risk_score": 0.9,
-                    "attention_state": "drifting",
-                    "drift_type": "morning_drift",
-                    "message_waiting_on_me_count": 3
-                })
-                .to_string(),
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now_ts,
+                    global_risk_level: "high".to_string(),
+                    global_risk_score: Some(0.9),
+                    attention_state: "drifting".to_string(),
+                    drift_type: Some("morning_drift".to_string()),
+                    message_waiting_on_me_count: Some(3),
+                    ..CurrentContextV1::default()
+                }),
             )
             .await
             .unwrap();
@@ -7274,14 +7279,15 @@ mod tests {
         storage
             .set_current_context(
                 now_ts,
-                &serde_json::json!({
-                    "global_risk_level": "high",
-                    "global_risk_score": 0.8,
-                    "attention_state": "drifting",
-                    "drift_type": "morning_drift",
-                    "message_waiting_on_me_count": 3
-                })
-                .to_string(),
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now_ts,
+                    global_risk_level: "high".to_string(),
+                    global_risk_score: Some(0.8),
+                    attention_state: "drifting".to_string(),
+                    drift_type: Some("morning_drift".to_string()),
+                    message_waiting_on_me_count: Some(3),
+                    ..CurrentContextV1::default()
+                }),
             )
             .await
             .unwrap();
@@ -8719,12 +8725,13 @@ END:VCALENDAR
         storage
             .set_current_context(
                 now,
-                &serde_json::json!({
-                    "message_waiting_on_me_count": 0,
-                    "message_scheduling_thread_count": 0,
-                    "message_urgent_thread_count": 0
-                })
-                .to_string(),
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now,
+                    message_waiting_on_me_count: Some(0),
+                    message_scheduling_thread_count: Some(0),
+                    message_urgent_thread_count: Some(0),
+                    ..CurrentContextV1::default()
+                }),
             )
             .await
             .unwrap();
@@ -10415,38 +10422,41 @@ END:VCALENDAR
         storage
             .set_current_context(
                 now,
-                &serde_json::json!({
-                    "mode": "day_mode",
-                    "morning_state": "engaged",
-                    "meds_status": "pending",
-                    "global_risk_level": "medium",
-                    "global_risk_score": 0.72,
-                    "attention_state": "on_task",
-                    "drift_type": "none",
-                    "drift_severity": "none",
-                    "attention_confidence": 0.8,
-                    "attention_reasons": ["recent git activity indicates active work"],
-                    "git_activity_summary": {
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    meds_status: "pending".to_string(),
+                    global_risk_level: "medium".to_string(),
+                    global_risk_score: Some(0.72),
+                    attention_state: "on_task".to_string(),
+                    drift_type: Some("none".to_string()),
+                    drift_severity: Some("none".to_string()),
+                    attention_confidence: Some(0.8),
+                    attention_reasons: vec![
+                        "recent git activity indicates active work".to_string(),
+                    ],
+                    git_activity_summary: Some(serde_json::json!({
                         "timestamp": now - 300,
                         "repo": "vel",
                         "branch": "main",
                         "operation": "commit"
-                    },
-                    "note_document_summary": {
+                    })),
+                    note_document_summary: Some(serde_json::json!({
                         "timestamp": now - 180,
                         "title": "Today",
                         "path": "daily/today.md"
-                    },
-                    "assistant_message_summary": {
+                    })),
+                    assistant_message_summary: Some(serde_json::json!({
                         "timestamp": now - 60,
                         "conversation_id": "conv_external",
                         "role": "assistant",
                         "source": "chatgpt"
-                    },
-                    "signals_used": ["sig_manual"],
-                    "next_commitment_id": commitment_id.as_ref()
-                })
-                .to_string(),
+                    })),
+                    signals_used: vec!["sig_manual".to_string()],
+                    next_commitment_id: Some(commitment_id.as_ref().to_string()),
+                    ..CurrentContextV1::default()
+                }),
             )
             .await
             .unwrap();
@@ -10578,19 +10588,20 @@ END:VCALENDAR
         storage
             .set_current_context(
                 now.unix_timestamp(),
-                &serde_json::json!({
-                    "mode": "day_mode",
-                    "morning_state": "engaged",
-                    "meds_status": "pending",
-                    "global_risk_level": "low",
-                    "global_risk_score": 0.21,
-                    "attention_state": "on_task",
-                    "drift_type": "none",
-                    "drift_severity": "none",
-                    "attention_confidence": 0.9,
-                    "next_commitment_id": overdue_id.as_ref()
-                })
-                .to_string(),
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now.unix_timestamp(),
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    meds_status: "pending".to_string(),
+                    global_risk_level: "low".to_string(),
+                    global_risk_score: Some(0.21),
+                    attention_state: "on_task".to_string(),
+                    drift_type: Some("none".to_string()),
+                    drift_severity: Some("none".to_string()),
+                    attention_confidence: Some(0.9),
+                    next_commitment_id: Some(overdue_id.as_ref().to_string()),
+                    ..CurrentContextV1::default()
+                }),
             )
             .await
             .unwrap();
@@ -10701,19 +10712,20 @@ END:VCALENDAR
         storage
             .set_current_context(
                 now,
-                &serde_json::json!({
-                    "mode": "day_mode",
-                    "morning_state": "engaged",
-                    "meds_status": "done",
-                    "global_risk_level": "low",
-                    "global_risk_score": 0.1,
-                    "attention_state": "on_task",
-                    "drift_type": "none",
-                    "drift_severity": "none",
-                    "attention_confidence": 0.9,
-                    "signals_used": []
-                })
-                .to_string(),
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    meds_status: "done".to_string(),
+                    global_risk_level: "low".to_string(),
+                    global_risk_score: Some(0.1),
+                    attention_state: "on_task".to_string(),
+                    drift_type: Some("none".to_string()),
+                    drift_severity: Some("none".to_string()),
+                    attention_confidence: Some(0.9),
+                    signals_used: vec![],
+                    ..CurrentContextV1::default()
+                }),
             )
             .await
             .unwrap();
