@@ -5,7 +5,7 @@ use std::cmp::Reverse;
 
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
-use vel_core::{ConfidenceBand, SuggestionConfidence, SuggestionType};
+use vel_core::{ConfidenceBand, SuggestionType};
 use vel_storage::{NudgeRecord, Storage, SuggestionRecord};
 
 use crate::policy_config::{PolicyConfig, SuggestionPolicies};
@@ -25,6 +25,7 @@ struct SuggestionCandidate {
     summary: String,
     priority: i64,
     confidence: ConfidenceBand,
+    confidence_score: f64,
     dedupe_key: String,
     payload: JsonValue,
     decision_context: JsonValue,
@@ -44,6 +45,7 @@ pub async fn evaluate_after_nudges(
     let candidates = collect_candidates(storage, policy_config, now_ts).await?;
     let candidates = suppress_candidates(storage, suggestion_policy, candidates, now_ts).await?;
     let candidates = apply_feedback_history(storage, candidates).await?;
+    let candidates = defer_low_confidence_candidates(storage, candidates).await?;
     let candidates = rank_candidates(
         candidates,
         current_global_risk_score(storage).await?,
@@ -67,12 +69,15 @@ async fn collect_candidates(
             nudge.state == "resolved" && nudge.level == "danger"
         });
     if resolved_commute_danger.len() >= suggestion_policy.commute.threshold {
+        let (confidence, confidence_score) =
+            candidate_confidence(resolved_commute_danger.len(), suggestion_policy.commute.threshold);
         let current_minutes = current_commute_minutes(policy_config);
         let suggested_minutes = current_minutes + suggestion_policy.commute.increment_minutes;
         candidates.push(build_candidate(
             SuggestionType::IncreaseCommuteBuffer,
             70,
-            SuggestionConfidence::Medium,
+            confidence,
+            confidence_score,
             "Increase commute buffer",
             "Repeated commute danger nudges suggest the leave-time threshold is too tight.",
             serde_json::json!({
@@ -99,12 +104,15 @@ async fn collect_candidates(
         nudge.state == "resolved"
     });
     if resolved_prep.len() >= suggestion_policy.prep.threshold {
+        let (confidence, confidence_score) =
+            candidate_confidence(resolved_prep.len(), suggestion_policy.prep.threshold);
         let current_minutes = current_prep_minutes(policy_config);
         let suggested_minutes = current_minutes + suggestion_policy.prep.increment_minutes;
         candidates.push(build_candidate(
             SuggestionType::IncreasePrepWindow,
             60,
-            SuggestionConfidence::Medium,
+            confidence,
+            confidence_score,
             "Increase prep window",
             "Repeated prep nudges suggest the default meeting prep window is too small.",
             serde_json::json!({
@@ -131,10 +139,13 @@ async fn collect_candidates(
         matches!(nudge.state.as_str(), "active" | "resolved")
     });
     if morning_drift.len() >= suggestion_policy.morning_drift.threshold {
+        let (confidence, confidence_score) =
+            candidate_confidence(morning_drift.len(), suggestion_policy.morning_drift.threshold);
         candidates.push(build_candidate(
             SuggestionType::AddStartRoutine,
             35,
-            SuggestionConfidence::Medium,
+            confidence,
+            confidence_score,
             "Add start routine",
             "Repeated morning drift suggests the day needs a stronger startup routine.",
             serde_json::json!({
@@ -161,10 +172,15 @@ async fn collect_candidates(
         matches!(nudge.state.as_str(), "active" | "resolved")
     });
     if response_debt.len() >= suggestion_policy.response_debt.threshold {
+        let (confidence, confidence_score) = candidate_confidence(
+            response_debt.len(),
+            suggestion_policy.response_debt.threshold,
+        );
         candidates.push(build_candidate(
             SuggestionType::AddFollowupBlock,
             50,
-            SuggestionConfidence::Medium,
+            confidence,
+            confidence_score,
             "Add follow-up block",
             "Repeated response-debt pressure suggests reserving dedicated follow-up time.",
             serde_json::json!({
@@ -210,6 +226,7 @@ fn build_candidate(
     suggestion_type: SuggestionType,
     priority: i64,
     confidence: ConfidenceBand,
+    confidence_score: f64,
     title: &str,
     summary: &str,
     payload: JsonValue,
@@ -238,6 +255,7 @@ fn build_candidate(
         summary: summary.to_string(),
         priority,
         confidence,
+        confidence_score,
         dedupe_key: suggestion_type.to_string(),
         payload,
         decision_context,
@@ -272,12 +290,18 @@ async fn apply_feedback_history(
         if summary.accepted_and_policy_changed > 0 {
             let boost = i64::from(summary.accepted_and_policy_changed.min(3)) * 5;
             candidate.priority += boost;
-            candidate.confidence = raise_confidence(candidate.confidence);
+            candidate.confidence_score = (candidate.confidence_score + 0.18).clamp(0.0, 1.0);
+            candidate.confidence = crate::services::uncertainty::band_from_score(
+                candidate.confidence_score,
+            );
         }
         if summary.rejected_incorrect > 0 {
             let penalty = i64::from(summary.rejected_incorrect.min(3)) * 8;
             candidate.priority -= penalty;
-            candidate.confidence = lower_confidence(candidate.confidence);
+            candidate.confidence_score = (candidate.confidence_score - 0.22).clamp(0.0, 1.0);
+            candidate.confidence = crate::services::uncertainty::band_from_score(
+                candidate.confidence_score,
+            );
         }
         if let Some(context) = candidate.decision_context.as_object_mut() {
             context.insert(
@@ -290,6 +314,52 @@ async fn apply_feedback_history(
         }
     }
     Ok(candidates)
+}
+
+async fn defer_low_confidence_candidates(
+    storage: &Storage,
+    candidates: Vec<SuggestionCandidate>,
+) -> Result<Vec<SuggestionCandidate>, crate::errors::AppError> {
+    let mut accepted = Vec::new();
+    for candidate in candidates {
+        let resolution_mode = crate::services::uncertainty::resolution_mode_for(
+            candidate.confidence_score,
+            "suggestion_generation",
+        );
+        if resolution_mode == vel_core::ResolutionMode::Proceed {
+            accepted.push(candidate);
+            continue;
+        }
+
+        if storage
+            .find_open_uncertainty_record(
+                "suggestion_candidate",
+                Some(&candidate.dedupe_key),
+                "suggestion_generation",
+            )
+            .await?
+            .is_none()
+        {
+            storage
+                .insert_uncertainty_record(vel_storage::UncertaintyRecordInsert {
+                    subject_type: "suggestion_candidate".to_string(),
+                    subject_id: Some(candidate.dedupe_key.clone()),
+                    decision_kind: "suggestion_generation".to_string(),
+                    confidence_band: candidate.confidence.to_string(),
+                    confidence_score: Some(candidate.confidence_score),
+                    reasons_json: serde_json::json!({
+                        "suggestion_type": candidate.suggestion_type.to_string(),
+                        "title": candidate.title,
+                        "summary": candidate.summary,
+                        "decision_context": candidate.decision_context,
+                    }),
+                    missing_evidence_json: Some(missing_evidence_for_candidate(&candidate)),
+                    resolution_mode: resolution_mode.to_string(),
+                })
+                .await?;
+        }
+    }
+    Ok(accepted)
 }
 
 async fn should_suppress_candidate(
@@ -361,20 +431,35 @@ fn accepted_policy_already_applied(
     }
 }
 
-fn raise_confidence(confidence: ConfidenceBand) -> ConfidenceBand {
-    match confidence {
-        SuggestionConfidence::Low => SuggestionConfidence::Medium,
-        SuggestionConfidence::Medium => SuggestionConfidence::High,
-        SuggestionConfidence::High => SuggestionConfidence::High,
-    }
+fn candidate_confidence(count: usize, threshold: usize) -> (ConfidenceBand, f64) {
+    let margin = count.saturating_sub(threshold);
+    let score = match margin {
+        0 => 0.42,
+        1 => 0.58,
+        _ => 0.76,
+    };
+    (
+        crate::services::uncertainty::band_from_score(score),
+        score,
+    )
 }
 
-fn lower_confidence(confidence: ConfidenceBand) -> ConfidenceBand {
-    match confidence {
-        SuggestionConfidence::High => SuggestionConfidence::Medium,
-        SuggestionConfidence::Medium => SuggestionConfidence::Low,
-        SuggestionConfidence::Low => SuggestionConfidence::Low,
-    }
+fn missing_evidence_for_candidate(candidate: &SuggestionCandidate) -> JsonValue {
+    let threshold = candidate
+        .decision_context
+        .get("threshold")
+        .and_then(JsonValue::as_u64)
+        .unwrap_or(0);
+    let count = candidate
+        .decision_context
+        .get("count")
+        .and_then(JsonValue::as_u64)
+        .unwrap_or(candidate.evidence.len() as u64);
+    serde_json::json!({
+        "current_count": count,
+        "threshold": threshold,
+        "more_events_needed": threshold.saturating_add(1).saturating_sub(count),
+    })
 }
 
 fn rank_candidates(

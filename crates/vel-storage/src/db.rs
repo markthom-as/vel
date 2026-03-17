@@ -208,6 +208,34 @@ pub struct SuggestionFeedbackSummary {
 }
 
 #[derive(Debug, Clone)]
+pub struct UncertaintyRecordInsert {
+    pub subject_type: String,
+    pub subject_id: Option<String>,
+    pub decision_kind: String,
+    pub confidence_band: String,
+    pub confidence_score: Option<f64>,
+    pub reasons_json: JsonValue,
+    pub missing_evidence_json: Option<JsonValue>,
+    pub resolution_mode: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct UncertaintyRecord {
+    pub id: String,
+    pub subject_type: String,
+    pub subject_id: Option<String>,
+    pub decision_kind: String,
+    pub confidence_band: String,
+    pub confidence_score: Option<f64>,
+    pub reasons_json: JsonValue,
+    pub missing_evidence_json: Option<JsonValue>,
+    pub resolution_mode: String,
+    pub status: String,
+    pub created_at: i64,
+    pub resolved_at: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ConversationInsert {
     pub id: String,
     pub title: Option<String>,
@@ -1571,6 +1599,182 @@ impl Storage {
                 .max(0) as u32,
             rejected_incorrect: row.try_get::<i64, _>("rejected_incorrect")?.max(0) as u32,
         })
+    }
+
+    pub async fn insert_uncertainty_record(
+        &self,
+        input: UncertaintyRecordInsert,
+    ) -> Result<String, StorageError> {
+        let id = format!("unc_{}", Uuid::new_v4().simple());
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let reasons_json = serde_json::to_string(&input.reasons_json)
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        let missing_evidence_json = input
+            .missing_evidence_json
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| StorageError::Validation(error.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO uncertainty_records (
+                id,
+                subject_type,
+                subject_id,
+                decision_kind,
+                confidence_band,
+                confidence_score,
+                reasons_json,
+                missing_evidence_json,
+                resolution_mode,
+                status,
+                created_at,
+                resolved_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, NULL)
+            "#,
+        )
+        .bind(&id)
+        .bind(&input.subject_type)
+        .bind(&input.subject_id)
+        .bind(&input.decision_kind)
+        .bind(&input.confidence_band)
+        .bind(input.confidence_score)
+        .bind(reasons_json)
+        .bind(missing_evidence_json)
+        .bind(&input.resolution_mode)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(id)
+    }
+
+    pub async fn list_uncertainty_records(
+        &self,
+        status: Option<&str>,
+        limit: u32,
+    ) -> Result<Vec<UncertaintyRecord>, StorageError> {
+        let limit = i64::from(limit.max(1));
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                id,
+                subject_type,
+                subject_id,
+                decision_kind,
+                confidence_band,
+                confidence_score,
+                reasons_json,
+                missing_evidence_json,
+                resolution_mode,
+                status,
+                created_at,
+                resolved_at
+            FROM uncertainty_records
+            WHERE (? IS NULL OR status = ?)
+            ORDER BY created_at DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(status)
+        .bind(status)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| map_uncertainty_row(&row))
+            .collect()
+    }
+
+    pub async fn get_uncertainty_record(
+        &self,
+        id: &str,
+    ) -> Result<Option<UncertaintyRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                subject_type,
+                subject_id,
+                decision_kind,
+                confidence_band,
+                confidence_score,
+                reasons_json,
+                missing_evidence_json,
+                resolution_mode,
+                status,
+                created_at,
+                resolved_at
+            FROM uncertainty_records
+            WHERE id = ?
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|row| map_uncertainty_row(&row)).transpose()
+    }
+
+    pub async fn find_open_uncertainty_record(
+        &self,
+        subject_type: &str,
+        subject_id: Option<&str>,
+        decision_kind: &str,
+    ) -> Result<Option<UncertaintyRecord>, StorageError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                id,
+                subject_type,
+                subject_id,
+                decision_kind,
+                confidence_band,
+                confidence_score,
+                reasons_json,
+                missing_evidence_json,
+                resolution_mode,
+                status,
+                created_at,
+                resolved_at
+            FROM uncertainty_records
+            WHERE subject_type = ?
+              AND decision_kind = ?
+              AND status = 'open'
+              AND ((? IS NULL AND subject_id IS NULL) OR subject_id = ?)
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(subject_type)
+        .bind(decision_kind)
+        .bind(subject_id)
+        .bind(subject_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|row| map_uncertainty_row(&row)).transpose()
+    }
+
+    pub async fn resolve_uncertainty_record(
+        &self,
+        id: &str,
+    ) -> Result<Option<UncertaintyRecord>, StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let updated = sqlx::query(
+            r#"
+            UPDATE uncertainty_records
+            SET status = 'resolved',
+                resolved_at = COALESCE(resolved_at, ?)
+            WHERE id = ?
+            "#,
+        )
+        .bind(now)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        if updated.rows_affected() == 0 {
+            return Ok(None);
+        }
+        self.get_uncertainty_record(id).await
     }
 
     pub async fn find_recent_suggestion_by_dedupe_key(
@@ -3269,6 +3473,30 @@ fn map_suggestion_feedback_row(
     })
 }
 
+fn map_uncertainty_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<UncertaintyRecord, StorageError> {
+    let reasons_json = row.try_get::<String, _>("reasons_json")?;
+    let missing_evidence_json = row.try_get::<Option<String>, _>("missing_evidence_json")?;
+    Ok(UncertaintyRecord {
+        id: row.try_get("id")?,
+        subject_type: row.try_get("subject_type")?,
+        subject_id: row.try_get("subject_id")?,
+        decision_kind: row.try_get("decision_kind")?,
+        confidence_band: row.try_get("confidence_band")?,
+        confidence_score: row.try_get("confidence_score")?,
+        reasons_json: parse_json_value(&reasons_json)?,
+        missing_evidence_json: missing_evidence_json
+            .as_deref()
+            .map(parse_json_value)
+            .transpose()?,
+        resolution_mode: row.try_get("resolution_mode")?,
+        status: row.try_get("status")?,
+        created_at: row.try_get("created_at")?,
+        resolved_at: row.try_get("resolved_at")?,
+    })
+}
+
 fn map_runtime_loop_row(row: &sqlx::sqlite::SqliteRow) -> Result<RuntimeLoopRecord, StorageError> {
     let enabled: i64 = row.try_get("enabled")?;
     Ok(RuntimeLoopRecord {
@@ -3855,5 +4083,62 @@ mod tests {
             .unwrap();
         assert_eq!(summary.accepted_and_policy_changed, 1);
         assert_eq!(summary.rejected_incorrect, 1);
+    }
+
+    #[tokio::test]
+    async fn uncertainty_records_round_trip_and_resolve() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let id = storage
+            .insert_uncertainty_record(UncertaintyRecordInsert {
+                subject_type: "suggestion_candidate".to_string(),
+                subject_id: Some("increase_commute_buffer".to_string()),
+                decision_kind: "suggestion_generation".to_string(),
+                confidence_band: "low".to_string(),
+                confidence_score: Some(0.42),
+                reasons_json: json!({
+                    "summary": "Barely enough evidence for a commute-buffer change."
+                }),
+                missing_evidence_json: Some(json!({
+                    "current_count": 2,
+                    "threshold": 2,
+                    "more_events_needed": 1
+                })),
+                resolution_mode: "defer".to_string(),
+            })
+            .await
+            .unwrap();
+
+        let open = storage.list_uncertainty_records(Some("open"), 10).await.unwrap();
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0].id, id);
+        assert_eq!(open[0].resolution_mode, "defer");
+
+        let existing = storage
+            .find_open_uncertainty_record(
+                "suggestion_candidate",
+                Some("increase_commute_buffer"),
+                "suggestion_generation",
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(existing.id, id);
+
+        let resolved = storage
+            .resolve_uncertainty_record(&id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(resolved.status, "resolved");
+        assert!(resolved.resolved_at.is_some());
+        assert!(
+            storage
+                .list_uncertainty_records(Some("open"), 10)
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 }

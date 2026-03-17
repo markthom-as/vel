@@ -17,3 +17,4 @@ pub mod risk;
 pub mod suggestions;
 pub mod synthesis;
 pub mod timezone;
+pub mod uncertainty;

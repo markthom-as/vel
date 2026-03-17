@@ -2984,7 +2984,7 @@ mod tests {
         storage.migrate().await.unwrap();
         let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
         let window_start = now_ts - 7 * 86400;
-        for _ in 0..2 {
+        for _ in 0..3 {
             let _ = storage
                 .insert_nudge(vel_storage::NudgeInsert {
                     nudge_type: "commute_leave_time".to_string(),
@@ -3055,7 +3055,7 @@ mod tests {
             "ranked suggestion priority should reflect a nontrivial base priority"
         );
         assert_eq!(commute_buf[0]["confidence"].as_str(), Some("medium"));
-        assert_eq!(commute_buf[0]["evidence_count"].as_u64(), Some(2));
+        assert_eq!(commute_buf[0]["evidence_count"].as_u64(), Some(3));
         assert!(commute_buf[0]["decision_context_summary"].as_str().is_some());
 
         let suggestion_id = commute_buf[0]["id"]
@@ -3080,7 +3080,7 @@ mod tests {
             inspect_json["data"]["decision_context_summary"].as_str(),
             commute_buf[0]["decision_context_summary"].as_str()
         );
-        assert_eq!(inspect_json["data"]["evidence_count"].as_u64(), Some(2));
+        assert_eq!(inspect_json["data"]["evidence_count"].as_u64(), Some(3));
         assert_eq!(
             inspect_json["data"]["decision_context"]["trigger"].as_str(),
             Some("resolved_commute_danger")
@@ -3088,7 +3088,7 @@ mod tests {
         let evidence = inspect_json["data"]["evidence"]
             .as_array()
             .expect("inspect response should include suggestion evidence");
-        assert_eq!(evidence.len(), 2);
+        assert_eq!(evidence.len(), 3);
         assert!(
             evidence.iter().all(|item| item["evidence_type"].as_str() == Some("nudge")),
             "suggestion evidence should point back to the nudges that triggered it"
@@ -3111,7 +3111,7 @@ mod tests {
         let evidence_json: serde_json::Value = serde_json::from_slice(&evidence_body).unwrap();
         assert_eq!(
             evidence_json["data"].as_array().map(|items| items.len()),
-            Some(2)
+            Some(3)
         );
 
         let _ = app
@@ -3439,6 +3439,11 @@ mod tests {
             ("response_debt", "warning"),
             ("response_debt", "warning"),
             ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
         ] {
             storage
                 .insert_nudge(vel_storage::NudgeInsert {
@@ -3463,19 +3468,26 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(created, 2);
+        assert_eq!(created, 1);
 
         let suggestions = storage.list_suggestions(Some("pending"), 10).await.unwrap();
-        let commute = suggestions
-            .iter()
-            .find(|suggestion| suggestion.suggestion_type == "increase_commute_buffer")
-            .expect("commute suggestion should exist");
         let followup = suggestions
             .iter()
             .find(|suggestion| suggestion.suggestion_type == "add_followup_block")
             .expect("follow-up suggestion should exist");
-        assert_eq!(commute.confidence.as_deref(), Some("low"));
+        assert!(
+            suggestions
+                .iter()
+                .all(|suggestion| suggestion.suggestion_type != "increase_commute_buffer")
+        );
         assert!(followup.priority > 50);
+        let uncertainties = storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap();
+        assert_eq!(uncertainties.len(), 1);
+        assert_eq!(uncertainties[0].subject_id.as_deref(), Some("increase_commute_buffer"));
+        assert_eq!(uncertainties[0].resolution_mode, "defer");
     }
 
     #[tokio::test]
@@ -3503,10 +3515,15 @@ mod tests {
         for (nudge_type, level) in [
             ("commute_leave_time", "danger"),
             ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
+            ("meeting_prep_window", "warning"),
             ("meeting_prep_window", "warning"),
             ("meeting_prep_window", "warning"),
             ("morning_drift", "warning"),
             ("morning_drift", "warning"),
+            ("morning_drift", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
             ("response_debt", "warning"),
             ("response_debt", "warning"),
         ] {
@@ -3605,11 +3622,13 @@ mod tests {
         for (nudge_type, level) in [
             ("commute_leave_time", "danger"),
             ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
             ("meeting_prep_window", "warning"),
             ("meeting_prep_window", "warning"),
             ("morning_drift", "warning"),
             ("morning_drift", "warning"),
             ("morning_drift", "warning"),
+            ("response_debt", "warning"),
             ("response_debt", "warning"),
             ("response_debt", "warning"),
             ("response_debt", "warning"),

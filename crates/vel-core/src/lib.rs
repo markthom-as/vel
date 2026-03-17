@@ -7,6 +7,7 @@ pub mod provenance;
 pub mod risk;
 pub mod run;
 pub mod types;
+pub mod uncertainty;
 
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
 pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
@@ -20,6 +21,7 @@ pub use provenance::{Ref, RefRelationType};
 pub use risk::{RiskFactors, RiskSnapshot};
 pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
 pub use types::{ConversationId, EventId, InterventionId, MessageId};
+pub use uncertainty::{ResolutionMode, UncertaintyStatus};
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};

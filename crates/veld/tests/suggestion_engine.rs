@@ -39,6 +39,7 @@ async fn repeated_commute_danger_creates_one_suggestion() {
         &[
             ("commute_leave_time", "danger"),
             ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
         ],
     )
     .await;
@@ -60,6 +61,7 @@ async fn same_evidence_does_not_duplicate_pending_suggestions() {
     insert_nudges(
         &storage,
         &[
+            ("commute_leave_time", "danger"),
             ("commute_leave_time", "danger"),
             ("commute_leave_time", "danger"),
         ],
@@ -85,6 +87,7 @@ async fn rejected_recent_suggestion_suppresses_recreation() {
     insert_nudges(
         &storage,
         &[
+            ("meeting_prep_window", "warning"),
             ("meeting_prep_window", "warning"),
             ("meeting_prep_window", "warning"),
         ],
@@ -130,12 +133,13 @@ async fn config_thresholds_change_creation_behavior() {
         &[
             ("commute_leave_time", "danger"),
             ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
         ],
     )
     .await;
 
     let mut strict_policy = test_policy_config();
-    strict_policy.suggestions.commute.threshold = 3;
+    strict_policy.suggestions.commute.threshold = 4;
     let strict_created =
         veld::services::suggestions::evaluate_after_nudges(&storage, &strict_policy)
             .await
@@ -159,6 +163,7 @@ async fn evidence_rows_are_written_and_inspectable() {
         &[
             ("commute_leave_time", "danger"),
             ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
         ],
     )
     .await;
@@ -175,7 +180,7 @@ async fn evidence_rows_are_written_and_inspectable() {
         .next()
         .unwrap();
     let evidence = storage.list_suggestion_evidence(&suggestion.id).await.unwrap();
-    assert_eq!(evidence.len(), 2);
+    assert_eq!(evidence.len(), 3);
     assert!(evidence.iter().all(|item| item.evidence_type == "nudge"));
 }
 
@@ -197,10 +202,14 @@ async fn suggestions_are_ranked_deterministically() {
         &[
             ("commute_leave_time", "danger"),
             ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
+            ("meeting_prep_window", "warning"),
             ("meeting_prep_window", "warning"),
             ("meeting_prep_window", "warning"),
             ("response_debt", "warning"),
             ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("morning_drift", "warning"),
             ("morning_drift", "warning"),
             ("morning_drift", "warning"),
         ],
