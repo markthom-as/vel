@@ -173,6 +173,28 @@ enum Command {
         #[command(subcommand)]
         command: SuggestionCommand,
     },
+    Agents {
+        #[command(subcommand)]
+        command: AgentsCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum AgentsCommand {
+    Specs {
+        #[arg(long)]
+        json: bool,
+    },
+    Spawn {
+        spec_id: String,
+        #[arg(long)]
+        payload: Option<String>,
+    },
+    Inspect {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -673,6 +695,15 @@ async fn main() -> anyhow::Result<()> {
                 commands::suggestions::run_modify(&client, &id, payload.as_deref()).await
             }
         },
+        Command::Agents { command } => match command {
+            AgentsCommand::Specs { json } => commands::agents::run_specs(&client, json).await,
+            AgentsCommand::Spawn { spec_id, payload } => {
+                commands::agents::run_spawn(&client, &spec_id, payload.as_deref()).await
+            }
+            AgentsCommand::Inspect { id, json } => {
+                commands::agents::run_inspect(&client, &id, json).await
+            }
+        },
     }
 }
 
@@ -757,8 +788,7 @@ mod tests {
             _ => panic!("expected loop enable command"),
         }
 
-        let disable =
-            Cli::try_parse_from(["vel", "loop", "disable", "sync_messaging"]).unwrap();
+        let disable = Cli::try_parse_from(["vel", "loop", "disable", "sync_messaging"]).unwrap();
         match disable.command {
             Command::Loop {
                 command: LoopCommand::Disable { kind },
@@ -769,8 +799,8 @@ mod tests {
 
     #[test]
     fn cli_parses_uncertainty_commands() {
-        let list = Cli::try_parse_from(["vel", "uncertainty", "list", "--status", "resolved"])
-            .unwrap();
+        let list =
+            Cli::try_parse_from(["vel", "uncertainty", "list", "--status", "resolved"]).unwrap();
         match list.command {
             Command::Uncertainty {
                 command: UncertaintyCommand::List { status, json },
@@ -935,6 +965,54 @@ mod tests {
                 assert_eq!(reason.as_deref(), Some("not useful"));
             }
             _ => panic!("expected suggestion reject command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_agents_specs() {
+        let cli = Cli::try_parse_from(["vel", "agents", "specs", "--json"]).unwrap();
+        match cli.command {
+            Command::Agents {
+                command: AgentsCommand::Specs { json },
+            } => assert!(json),
+            _ => panic!("expected agents specs command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_agents_spawn_with_payload() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "agents",
+            "spawn",
+            "research_agent",
+            "--payload",
+            r#"{"goal":"triage"}"#,
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Agents {
+                command: AgentsCommand::Spawn { spec_id, payload },
+            } => {
+                assert_eq!(spec_id, "research_agent");
+                assert_eq!(payload.as_deref(), Some(r#"{"goal":"triage"}"#));
+            }
+            _ => panic!("expected agents spawn command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_agents_inspect() {
+        let cli =
+            Cli::try_parse_from(["vel", "agents", "inspect", "agent_run_abc", "--json"]).unwrap();
+        match cli.command {
+            Command::Agents {
+                command: AgentsCommand::Inspect { id, json },
+            } => {
+                assert_eq!(id, "agent_run_abc");
+                assert!(json);
+            }
+            _ => panic!("expected agents inspect command"),
         }
     }
 

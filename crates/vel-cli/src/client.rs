@@ -1,6 +1,7 @@
 use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use vel_api_types::{
     ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest,
     CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData,
@@ -13,6 +14,49 @@ use vel_api_types::{
 pub struct ApiClient {
     http: Client,
     base_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSpecData {
+    pub id: String,
+    #[serde(default)]
+    pub mission: Option<String>,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub allowed_tools: Option<Vec<String>>,
+    #[serde(default)]
+    pub memory_scope: Option<String>,
+    #[serde(default)]
+    pub return_contract: Option<String>,
+    #[serde(default)]
+    pub ttl_seconds: Option<u64>,
+    #[serde(default)]
+    pub budgets: Option<serde_json::Value>,
+    #[serde(default)]
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRunData {
+    #[serde(default)]
+    pub id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub spec_id: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub summary_json: Option<serde_json::Value>,
+    #[serde(default)]
+    pub confidence: Option<f64>,
+    #[serde(default)]
+    pub output: Option<serde_json::Value>,
+    #[serde(default)]
+    pub created_at: Option<String>,
 }
 
 impl ApiClient {
@@ -71,6 +115,33 @@ impl ApiClient {
             path.push_str(&params.join("&"));
         }
         self.get(&path).await
+    }
+
+    pub async fn list_agent_specs(&self) -> anyhow::Result<ApiResponse<Vec<AgentSpecData>>> {
+        self.get("/v1/agents/specs").await
+    }
+
+    pub async fn spawn_agent(
+        &self,
+        spec_id: &str,
+        input: serde_json::Value,
+    ) -> anyhow::Result<ApiResponse<AgentRunData>> {
+        let body = serde_json::json!({
+            "spec_id": spec_id,
+            "input": input,
+        });
+        let response = self
+            .http
+            .post(format!("{}/v1/agents/runs", self.base_url))
+            .json(&body)
+            .send()
+            .await
+            .context("POST /v1/agents/runs")?;
+        decode_response(response).await
+    }
+
+    pub async fn get_agent_run(&self, id: &str) -> anyhow::Result<ApiResponse<AgentRunData>> {
+        self.get(&format!("/v1/agents/runs/{}", id)).await
     }
 
     pub async fn get_run(
@@ -284,10 +355,7 @@ impl ApiClient {
         self.get(&path).await
     }
 
-    pub async fn get_uncertainty(
-        &self,
-        id: &str,
-    ) -> anyhow::Result<ApiResponse<UncertaintyData>> {
+    pub async fn get_uncertainty(&self, id: &str) -> anyhow::Result<ApiResponse<UncertaintyData>> {
         self.get(&format!("/v1/uncertainty/{}", id)).await
     }
 
