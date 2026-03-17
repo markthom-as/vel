@@ -14,7 +14,10 @@ pub enum LoopKind {
     SyncCalendar,
     SyncTodoist,
     SyncActivity,
+    SyncGit,
     SyncMessaging,
+    SyncNotes,
+    SyncTranscripts,
     WeeklySynthesis,
     StaleNudgeReconciliation,
 }
@@ -28,7 +31,10 @@ impl Display for LoopKind {
             Self::SyncCalendar => "sync_calendar",
             Self::SyncTodoist => "sync_todoist",
             Self::SyncActivity => "sync_activity",
+            Self::SyncGit => "sync_git",
             Self::SyncMessaging => "sync_messaging",
+            Self::SyncNotes => "sync_notes",
+            Self::SyncTranscripts => "sync_transcripts",
             Self::WeeklySynthesis => "weekly_synthesis",
             Self::StaleNudgeReconciliation => "stale_nudge_reconciliation",
         };
@@ -47,7 +53,10 @@ impl std::str::FromStr for LoopKind {
             "sync_calendar" => Ok(Self::SyncCalendar),
             "sync_todoist" => Ok(Self::SyncTodoist),
             "sync_activity" => Ok(Self::SyncActivity),
+            "sync_git" => Ok(Self::SyncGit),
             "sync_messaging" => Ok(Self::SyncMessaging),
+            "sync_notes" => Ok(Self::SyncNotes),
+            "sync_transcripts" => Ok(Self::SyncTranscripts),
             "weekly_synthesis" => Ok(Self::WeeklySynthesis),
             "stale_nudge_reconciliation" => Ok(Self::StaleNudgeReconciliation),
             _ => Err(crate::VelCoreError::Validation(format!(

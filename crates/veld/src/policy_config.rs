@@ -71,7 +71,10 @@ pub struct LoopPolicies {
     pub sync_calendar: Option<LoopPolicy>,
     pub sync_todoist: Option<LoopPolicy>,
     pub sync_activity: Option<LoopPolicy>,
+    pub sync_git: Option<LoopPolicy>,
     pub sync_messaging: Option<LoopPolicy>,
+    pub sync_notes: Option<LoopPolicy>,
+    pub sync_transcripts: Option<LoopPolicy>,
     pub weekly_synthesis: Option<LoopPolicy>,
     pub stale_nudge_reconciliation: Option<LoopPolicy>,
 }
@@ -188,9 +191,21 @@ impl Default for LoopPolicies {
                 enabled: false,
                 interval_seconds: 300,
             }),
+            sync_git: Some(LoopPolicy {
+                enabled: false,
+                interval_seconds: 600,
+            }),
             sync_messaging: Some(LoopPolicy {
                 enabled: true,
                 interval_seconds: 300,
+            }),
+            sync_notes: Some(LoopPolicy {
+                enabled: false,
+                interval_seconds: 900,
+            }),
+            sync_transcripts: Some(LoopPolicy {
+                enabled: false,
+                interval_seconds: 900,
             }),
             weekly_synthesis: Some(LoopPolicy {
                 enabled: true,
@@ -273,8 +288,17 @@ impl PolicyConfig {
     pub fn sync_activity_loop(&self) -> Option<&LoopPolicy> {
         self.loops.sync_activity.as_ref()
     }
+    pub fn sync_git_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_git.as_ref()
+    }
     pub fn sync_messaging_loop(&self) -> Option<&LoopPolicy> {
         self.loops.sync_messaging.as_ref()
+    }
+    pub fn sync_notes_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_notes.as_ref()
+    }
+    pub fn sync_transcripts_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_transcripts.as_ref()
     }
     pub fn weekly_synthesis_loop(&self) -> Option<&LoopPolicy> {
         self.loops.weekly_synthesis.as_ref()

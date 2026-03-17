@@ -13,9 +13,18 @@ loops:
   sync_activity:
     enabled: false
     interval_seconds: 300
+  sync_git:
+    enabled: false
+    interval_seconds: 600
   sync_messaging:
     enabled: true
     interval_seconds: 300
+  sync_notes:
+    enabled: false
+    interval_seconds: 900
+  sync_transcripts:
+    enabled: false
+    interval_seconds: 900
   weekly_synthesis:
     enabled: true
     interval_seconds: 86400

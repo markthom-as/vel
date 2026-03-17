@@ -41,12 +41,33 @@ fn only_enabled_loop(loop_policy: Option<(&str, u64)>) -> PolicyConfig {
                 .map(|(_, interval)| interval)
                 .unwrap_or(300),
         }),
+        sync_git: Some(LoopPolicy {
+            enabled: matches!(loop_policy, Some(("sync_git", _))),
+            interval_seconds: loop_policy
+                .filter(|(kind, _)| *kind == "sync_git")
+                .map(|(_, interval)| interval)
+                .unwrap_or(600),
+        }),
         sync_messaging: Some(LoopPolicy {
             enabled: matches!(loop_policy, Some(("sync_messaging", _))),
             interval_seconds: loop_policy
                 .filter(|(kind, _)| *kind == "sync_messaging")
                 .map(|(_, interval)| interval)
                 .unwrap_or(300),
+        }),
+        sync_notes: Some(LoopPolicy {
+            enabled: matches!(loop_policy, Some(("sync_notes", _))),
+            interval_seconds: loop_policy
+                .filter(|(kind, _)| *kind == "sync_notes")
+                .map(|(_, interval)| interval)
+                .unwrap_or(900),
+        }),
+        sync_transcripts: Some(LoopPolicy {
+            enabled: matches!(loop_policy, Some(("sync_transcripts", _))),
+            interval_seconds: loop_policy
+                .filter(|(kind, _)| *kind == "sync_transcripts")
+                .map(|(_, interval)| interval)
+                .unwrap_or(900),
         }),
         weekly_synthesis: Some(LoopPolicy {
             enabled: matches!(loop_policy, Some(("weekly_synthesis", _))),
@@ -74,7 +95,11 @@ async fn test_state(config: AppConfig, policy_config: PolicyConfig) -> AppState 
 }
 
 fn unique_path(extension: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("vel_runtime_loops_{}.{}", uuid::Uuid::new_v4().simple(), extension))
+    std::env::temp_dir().join(format!(
+        "vel_runtime_loops_{}.{}",
+        uuid::Uuid::new_v4().simple(),
+        extension
+    ))
 }
 
 #[tokio::test]
@@ -216,6 +241,56 @@ async fn sync_loop_can_trigger_evaluate_follow_up() {
 }
 
 #[tokio::test]
+async fn git_sync_loop_can_trigger_evaluate_follow_up() {
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let snapshot_path = unique_path("json");
+    let snapshot = serde_json::json!({
+        "source": "git",
+        "captured_at": now,
+        "events": [
+            {
+                "id": "evt_git_review",
+                "timestamp": now,
+                "repo": "/home/jove/code/vel",
+                "branch": "main",
+                "operation": "commit",
+                "message": "Tighten context ranking"
+            }
+        ]
+    });
+    std::fs::write(&snapshot_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+    let config = AppConfig {
+        git_snapshot_path: Some(snapshot_path.to_string_lossy().to_string()),
+        ..Default::default()
+    };
+    let state = test_state(config, only_enabled_loop(Some(("sync_git", 600)))).await;
+
+    worker::run_registered_loops_once(&state).await.unwrap();
+
+    let (_, context_json) = state
+        .storage
+        .get_current_context()
+        .await
+        .unwrap()
+        .expect("git sync loop should trigger evaluate follow-up");
+    let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+    assert_eq!(context["git_activity_summary"]["repo"], "vel");
+    assert_eq!(context["git_activity_summary"]["branch"], "main");
+    assert_eq!(context["git_activity_summary"]["operation"], "commit");
+
+    let loop_record = state
+        .storage
+        .get_runtime_loop("sync_git")
+        .await
+        .unwrap()
+        .expect("git loop should persist runtime status");
+    assert_eq!(loop_record.last_status.as_deref(), Some("succeeded"));
+
+    let _ = std::fs::remove_file(snapshot_path);
+}
+
+#[tokio::test]
 async fn retry_loop_remains_functional_after_worker_refactor() {
     let artifact_root = unique_path("artifacts");
     std::fs::create_dir_all(&artifact_root).unwrap();
@@ -282,7 +357,11 @@ async fn retry_loop_remains_functional_after_worker_refactor() {
         .unwrap();
     assert_eq!(run.status, RunStatus::Succeeded);
 
-    let events = state.storage.list_run_events(run_id.as_ref()).await.unwrap();
+    let events = state
+        .storage
+        .list_run_events(run_id.as_ref())
+        .await
+        .unwrap();
     assert!(events
         .iter()
         .any(|event| event.event_type == RunEventType::RunRequeued));

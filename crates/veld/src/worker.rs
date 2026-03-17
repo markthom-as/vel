@@ -64,8 +64,14 @@ fn registered_loops_with_policy(
         .sync_activity_loop()
         .cloned()
         .unwrap_or_default();
+    let sync_git_loop = policy_config.sync_git_loop().cloned().unwrap_or_default();
     let sync_messaging_loop = policy_config
         .sync_messaging_loop()
+        .cloned()
+        .unwrap_or_default();
+    let sync_notes_loop = policy_config.sync_notes_loop().cloned().unwrap_or_default();
+    let sync_transcripts_loop = policy_config
+        .sync_transcripts_loop()
         .cloned()
         .unwrap_or_default();
     let weekly_synthesis_loop = policy_config
@@ -115,10 +121,28 @@ fn registered_loops_with_policy(
             runner: run_sync_activity_loop_once,
         },
         LoopDefinition {
+            kind: LoopKind::SyncGit,
+            interval: Duration::from_secs(sync_git_loop.interval_seconds),
+            enabled: sync_git_loop.enabled,
+            runner: run_sync_git_loop_once,
+        },
+        LoopDefinition {
             kind: LoopKind::SyncMessaging,
             interval: Duration::from_secs(sync_messaging_loop.interval_seconds),
             enabled: sync_messaging_loop.enabled,
             runner: run_sync_messaging_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::SyncNotes,
+            interval: Duration::from_secs(sync_notes_loop.interval_seconds),
+            enabled: sync_notes_loop.enabled,
+            runner: run_sync_notes_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::SyncTranscripts,
+            interval: Duration::from_secs(sync_transcripts_loop.interval_seconds),
+            enabled: sync_transcripts_loop.enabled,
+            runner: run_sync_transcripts_loop_once,
         },
         LoopDefinition {
             kind: LoopKind::WeeklySynthesis,
@@ -275,6 +299,19 @@ fn run_sync_activity_loop_once(state: &AppState) -> LoopFuture<'_> {
     })
 }
 
+fn run_sync_git_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let count =
+            crate::services::integrations::run_git_sync(&state.storage, &state.config).await?;
+        if count > 0 {
+            if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
+                warn!(error = %error, "evaluate after git sync loop failed");
+            }
+        }
+        Ok(())
+    })
+}
+
 fn run_sync_messaging_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
         let count =
@@ -283,6 +320,35 @@ fn run_sync_messaging_loop_once(state: &AppState) -> LoopFuture<'_> {
         if count > 0 {
             if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
                 warn!(error = %error, "evaluate after messaging sync loop failed");
+            }
+        }
+        Ok(())
+    })
+}
+
+fn run_sync_notes_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let count =
+            crate::services::integrations::run_notes_sync(&state.storage, &state.config).await?;
+        if count > 0 {
+            if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
+                warn!(error = %error, "evaluate after notes sync loop failed");
+            }
+        }
+        Ok(())
+    })
+}
+
+fn run_sync_transcripts_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let count = crate::services::integrations::run_transcripts_sync(
+            &state.storage,
+            &state.config,
+        )
+        .await?;
+        if count > 0 {
+            if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
+                warn!(error = %error, "evaluate after transcripts sync loop failed");
             }
         }
         Ok(())
@@ -415,25 +481,31 @@ mod tests {
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
         let loops = registered_loops_with_policy(&crate::policy_config::PolicyConfig::default());
-        assert_eq!(loops.len(), 9);
+        assert_eq!(loops.len(), 12);
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
         assert_eq!(loops[2].kind, LoopKind::EvaluateCurrentState);
         assert_eq!(loops[3].kind, LoopKind::SyncCalendar);
         assert_eq!(loops[4].kind, LoopKind::SyncTodoist);
         assert_eq!(loops[5].kind, LoopKind::SyncActivity);
-        assert_eq!(loops[6].kind, LoopKind::SyncMessaging);
-        assert_eq!(loops[7].kind, LoopKind::WeeklySynthesis);
-        assert_eq!(loops[8].kind, LoopKind::StaleNudgeReconciliation);
+        assert_eq!(loops[6].kind, LoopKind::SyncGit);
+        assert_eq!(loops[7].kind, LoopKind::SyncMessaging);
+        assert_eq!(loops[8].kind, LoopKind::SyncNotes);
+        assert_eq!(loops[9].kind, LoopKind::SyncTranscripts);
+        assert_eq!(loops[10].kind, LoopKind::WeeklySynthesis);
+        assert_eq!(loops[11].kind, LoopKind::StaleNudgeReconciliation);
         assert!(loops[0].enabled);
         assert!(loops[1].enabled);
         assert!(loops[2].enabled);
         assert!(loops[3].enabled);
         assert!(loops[4].enabled);
         assert!(!loops[5].enabled);
-        assert!(loops[6].enabled);
+        assert!(!loops[6].enabled);
         assert!(loops[7].enabled);
-        assert!(loops[8].enabled);
+        assert!(!loops[8].enabled);
+        assert!(!loops[9].enabled);
+        assert!(loops[10].enabled);
+        assert!(loops[11].enabled);
     }
 
     #[tokio::test]
@@ -479,6 +551,15 @@ mod tests {
         assert!(loops
             .iter()
             .any(|loop_record| loop_record.loop_kind == "sync_messaging"));
+        assert!(!loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "sync_git"));
+        assert!(!loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "sync_notes"));
+        assert!(!loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "sync_transcripts"));
         assert!(loops
             .iter()
             .any(|loop_record| loop_record.loop_kind == "weekly_synthesis"));

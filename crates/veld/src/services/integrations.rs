@@ -195,6 +195,19 @@ pub async fn run_activity_sync(storage: &Storage, config: &AppConfig) -> Result<
     }
 }
 
+pub async fn run_git_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    match adapters::git::ingest(storage, config).await {
+        Ok(count) => {
+            let _ = record_sync_success(storage, "git", count).await;
+            Ok(count)
+        }
+        Err(error) => {
+            let _ = record_sync_error(storage, "git", &error.to_string()).await;
+            Err(error)
+        }
+    }
+}
+
 pub async fn run_messaging_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
     match adapters::messaging::ingest(storage, config).await {
         Ok(count) => {
@@ -203,6 +216,32 @@ pub async fn run_messaging_sync(storage: &Storage, config: &AppConfig) -> Result
         }
         Err(error) => {
             let _ = record_sync_error(storage, "messaging", &error.to_string()).await;
+            Err(error)
+        }
+    }
+}
+
+pub async fn run_notes_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    match adapters::notes::ingest(storage, config).await {
+        Ok(count) => {
+            let _ = record_sync_success(storage, "notes", count).await;
+            Ok(count)
+        }
+        Err(error) => {
+            let _ = record_sync_error(storage, "notes", &error.to_string()).await;
+            Err(error)
+        }
+    }
+}
+
+pub async fn run_transcripts_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    match adapters::transcripts::ingest(storage, config).await {
+        Ok(count) => {
+            let _ = record_sync_success(storage, "transcripts", count).await;
+            Ok(count)
+        }
+        Err(error) => {
+            let _ = record_sync_error(storage, "transcripts", &error.to_string()).await;
             Err(error)
         }
     }
@@ -949,7 +988,8 @@ fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuida
     if settings.client_id.is_none() || settings.client_secret.is_none() {
         return Some(guidance(
             "Calendar credentials missing",
-            "Add a Google client ID and client secret in Settings before attempting sync.".to_string(),
+            "Add a Google client ID and client secret in Settings before attempting sync."
+                .to_string(),
             "Save credentials",
         ));
     }

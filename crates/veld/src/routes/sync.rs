@@ -3,7 +3,7 @@ use axum::Json;
 use uuid::Uuid;
 use vel_api_types::{ApiResponse, SyncResultData};
 
-use crate::{adapters, errors::AppError, services, state::AppState};
+use crate::{errors::AppError, services, state::AppState};
 
 async fn evaluate_and_broadcast_context(state: &AppState) {
     if services::evaluate::run_and_broadcast(state).await.is_err() {
@@ -65,20 +65,10 @@ pub async fn sync_activity(
 pub async fn sync_git(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = match adapters::git::ingest(&state.storage, &state.config).await {
-        Ok(count) => count,
-        Err(error) => {
-            let _ = services::integrations::record_sync_error(
-                &state.storage,
-                "git",
-                &error.to_string(),
-            )
-            .await;
-            return Err(error);
-        }
-    };
-    let _ = services::integrations::record_sync_success(&state.storage, "git", count).await;
-    evaluate_and_broadcast_context(&state).await;
+    let count = services::integrations::run_git_sync(&state.storage, &state.config).await?;
+    if count > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -109,20 +99,10 @@ pub async fn sync_messaging(
 pub async fn sync_notes(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = match adapters::notes::ingest(&state.storage, &state.config).await {
-        Ok(count) => count,
-        Err(error) => {
-            let _ = services::integrations::record_sync_error(
-                &state.storage,
-                "notes",
-                &error.to_string(),
-            )
-            .await;
-            return Err(error);
-        }
-    };
-    let _ = services::integrations::record_sync_success(&state.storage, "notes", count).await;
-    evaluate_and_broadcast_context(&state).await;
+    let count = services::integrations::run_notes_sync(&state.storage, &state.config).await?;
+    if count > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -136,20 +116,11 @@ pub async fn sync_notes(
 pub async fn sync_transcripts(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = match adapters::transcripts::ingest(&state.storage, &state.config).await {
-        Ok(count) => count,
-        Err(error) => {
-            let _ = services::integrations::record_sync_error(
-                &state.storage,
-                "transcripts",
-                &error.to_string(),
-            )
-            .await;
-            return Err(error);
-        }
-    };
-    let _ = services::integrations::record_sync_success(&state.storage, "transcripts", count).await;
-    evaluate_and_broadcast_context(&state).await;
+    let count =
+        services::integrations::run_transcripts_sync(&state.storage, &state.config).await?;
+    if count > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {

@@ -44,11 +44,26 @@ fn configured_loop_defaults(state: &AppState, loop_kind: vel_core::LoopKind) -> 
             .sync_activity_loop()
             .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
             .unwrap_or((false, 300)),
+        vel_core::LoopKind::SyncGit => state
+            .policy_config
+            .sync_git_loop()
+            .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
+            .unwrap_or((false, 600)),
         vel_core::LoopKind::SyncMessaging => state
             .policy_config
             .sync_messaging_loop()
             .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
             .unwrap_or((true, 300)),
+        vel_core::LoopKind::SyncNotes => state
+            .policy_config
+            .sync_notes_loop()
+            .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
+            .unwrap_or((false, 900)),
+        vel_core::LoopKind::SyncTranscripts => state
+            .policy_config
+            .sync_transcripts_loop()
+            .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
+            .unwrap_or((false, 900)),
         vel_core::LoopKind::WeeklySynthesis => state
             .policy_config
             .weekly_synthesis_loop()
@@ -70,7 +85,10 @@ async fn ensure_known_loop_rows(state: &AppState) -> Result<(), AppError> {
         vel_core::LoopKind::SyncCalendar,
         vel_core::LoopKind::SyncTodoist,
         vel_core::LoopKind::SyncActivity,
+        vel_core::LoopKind::SyncGit,
         vel_core::LoopKind::SyncMessaging,
+        vel_core::LoopKind::SyncNotes,
+        vel_core::LoopKind::SyncTranscripts,
         vel_core::LoopKind::WeeklySynthesis,
         vel_core::LoopKind::StaleNudgeReconciliation,
     ];
