@@ -46,6 +46,12 @@ fn payload_to_data(
         services::command_lang::CommandExecutionPayload::ArtifactCreated(payload) => {
             CommandExecutionPayloadData::ArtifactCreated(payload)
         }
+        services::command_lang::CommandExecutionPayload::SpecDraftCreated(payload) => {
+            CommandExecutionPayloadData::SpecDraftCreated(payload)
+        }
+        services::command_lang::CommandExecutionPayload::ExecutionPlanCreated(payload) => {
+            CommandExecutionPayloadData::ExecutionPlanCreated(payload)
+        }
         services::command_lang::CommandExecutionPayload::ReviewToday(payload) => {
             CommandExecutionPayloadData::ReviewToday(payload)
         }

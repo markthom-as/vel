@@ -472,6 +472,23 @@ This allows the swarm scheduler to place work intelligently without out-of-band 
 
 ---
 
+## Scheduler & Retry/Reclaim Policy
+
+The scheduler is the first consumer of queued receipts. It drives placement, retries, and reclamation through the newly shipped queue endpoints:
+
+- `GET /v1/sync/work-queue` shows all pending work for a node–worker-class combination after filtering out work whose latest receipt is terminal (`completed`, `cancelled`).
+- `POST /v1/sync/work-assignments` claims a work request and records a `claimed` receipt; the scheduler includes its `worker_id`, `work_request_id`, and the targeted `node_id`.
+- `PATCH /v1/sync/work-assignments` moves receipts through `started`, `completed`, `failed`, or `cancelled` so both the scheduler and operator surfaces can follow progress.
+- `GET /v1/sync/work-assignments` exposes the receipt history for inspection, replay, and eventual audit.
+
+The scheduler must treat receipts older than the configured stale window (currently ~300 seconds) as reclaimable and may reassign the work unless the latest receipt is `completed` or `cancelled`. Duplicate incoming requests should look up the latest receipt and reuse it if it is still `claimed`, `started`, or `completed`; only a terminal/fresh failure or stale timeout should cause the scheduler to enqueue the unit again.
+
+Failure receipts should carry reason metadata so the scheduler can escalate, rerun on a different worker class, or present a clarification request rather than looping forever. Queue inspection also serves as a live backlog view so the scheduler can throttle new dispatches when too many items are already pending or when the configured `queue_depth` exceeds the worker’s advertised capacity.
+
+These scheduler-friendly receipts are the bridge between simple queue routing and full-fledged DAG scheduling. They let the swarm layer keep per-unit bookkeeping durable, survive restarts, and compose retry/reclaim policies while the supervisory code still owns the final integration step.
+
+---
+
 ## Temporary Authority Handoff
 
 When the preferred authority disappears:

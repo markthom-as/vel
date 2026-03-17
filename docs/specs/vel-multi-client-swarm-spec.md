@@ -478,6 +478,21 @@ Phone and watch workers must reserve headroom for:
 
 Do not schedule background heavy analysis onto a constrained edge device just because it is available.
 
+---
+
+## Scheduler State & Retry/Reclaim Signals
+
+The swarm scheduler needs an explicit queue view and receipt lane to do anything beyond naive dispatch. The new cluster sync surfaces provide that bridge:
+
+- `GET /v1/sync/work-queue` lets the scheduler peek at the backlog for each node/worker-class pair after receipts with terminal states have been removed.
+- `POST /v1/sync/work-assignments` claims a `work_request_id` and writes a `claimed` receipt; the scheduler must include its `worker_id` and any `queue_depth` it observed so other routers can respect capacity.
+- `PATCH /v1/sync/work-assignments` transitions each receipt through `started`, `completed`, `failed`, or `cancelled`. The scheduler observes these transitions to manage retries and to prevent duplicate side effects.
+- `GET /v1/sync/work-assignments` offers historical insight for diagnostics and for replaying what timed-out or failed work units previously did.
+
+The scheduler must treat receipts older than the configured stale window (currently 5 minutes) as eligible for reclamation unless `completed` or `cancelled`. Reclaimed work is rerouted, ideally to a worker class that can resolve the failure. Duplicate queue attempts should consult the latest receipt and either reuse it (if it is still `claimed`/`started`) or only enqueue a new unit when the latest receipt is terminal or explicitly failed with a retriable reason.
+
+Receipt metadata also powers the supervisor’s retry policy: per-worker failure rates surface from the worker registry, queue depth shows saturation, and the scheduler can decide whether to escalate to clarification or to retry on a higher-capacity worker class. This keeps the DAG scheduler deterministic while still surviving node restarts and operator reconnections.
+
 #### Rule 4: Data locality matters
 
 If the needed data is already cached locally on a worker, that worker may be preferred for bounded retrieval even if another node has more raw compute.

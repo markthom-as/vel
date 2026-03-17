@@ -112,6 +112,8 @@ pub enum CommandExecutionPayloadData {
     CaptureCreated(CaptureCreateResponse),
     CommitmentCreated(CommitmentData),
     ArtifactCreated(ArtifactData),
+    SpecDraftCreated(ArtifactData),
+    ExecutionPlanCreated(ArtifactData),
     ReviewToday(CommandReviewSummaryData),
     ReviewWeek(CommandReviewSummaryData),
 }
@@ -323,6 +325,34 @@ pub struct QueuedWorkItemData {
     #[serde(default)]
     pub latest_receipt: Option<WorkAssignmentReceiptData>,
     pub is_stale: bool,
+    pub attempt_count: u32,
+    pub claimable_now: bool,
+    #[serde(default)]
+    pub claim_reason: Option<String>,
+    #[serde(default)]
+    pub next_retry_at: Option<UnixSeconds>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimNextRequestData {
+    pub node_id: String,
+    pub worker_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimedWorkData {
+    pub queue_item: QueuedWorkItemData,
+    pub receipt: WorkAssignmentReceiptData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkAssignmentClaimNextResponseData {
+    #[serde(default)]
+    pub claim: Option<WorkAssignmentClaimedWorkData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

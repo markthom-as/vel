@@ -5,6 +5,7 @@ use vel_api_types::{
     ApiResponse, BranchSyncRequestData, ClientActionBatchRequest, ClientActionBatchResultData,
     QueuedWorkItemData, QueuedWorkRoutingData, SyncBootstrapData, SyncClusterStateData,
     SyncHeartbeatRequestData, SyncHeartbeatResponseData, SyncResultData, ValidationRequestData,
+    WorkAssignmentClaimNextRequestData, WorkAssignmentClaimNextResponseData,
     WorkAssignmentClaimRequestData, WorkAssignmentReceiptData, WorkAssignmentUpdateRequest,
 };
 
@@ -136,6 +137,15 @@ pub async fn list_worker_queue(
         query.capability.as_deref(),
     )
     .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn claim_next_worker_queue_item(
+    State(state): State<AppState>,
+    Json(payload): Json<WorkAssignmentClaimNextRequestData>,
+) -> Result<Json<ApiResponse<WorkAssignmentClaimNextResponseData>>, AppError> {
+    let data = services::client_sync::claim_next_work_for_worker(&state, payload).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

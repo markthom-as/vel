@@ -114,6 +114,22 @@ async fn execute_via_service(
                 println!("artifact_id: {}", result.artifact_id);
                 println!("artifact_type: {}", result.artifact_type);
             }
+            CommandExecutionPayloadData::SpecDraftCreated(result) => {
+                println!("result_kind: spec_draft_created");
+                println!("artifact_id: {}", result.artifact_id);
+                println!("artifact_type: {}", result.artifact_type);
+                if let Some(title) = &result.title {
+                    println!("title: {}", title);
+                }
+            }
+            CommandExecutionPayloadData::ExecutionPlanCreated(result) => {
+                println!("result_kind: execution_plan_created");
+                println!("artifact_id: {}", result.artifact_id);
+                println!("artifact_type: {}", result.artifact_type);
+                if let Some(title) = &result.title {
+                    println!("title: {}", title);
+                }
+            }
             CommandExecutionPayloadData::ReviewToday(result) => {
                 println!("result_kind: review_today");
                 println!("capture_count: {}", result.capture_count);

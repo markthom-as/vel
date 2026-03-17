@@ -24,7 +24,7 @@ Implement the supervisor-side integration path that validates work-unit results,
 - Workers cannot directly write canonical truth outside approved contracts.
 - Integration remains centralized and inspectable.
 - Conflicts produce deterministic outcomes and structured metadata.
-- Every receipt (claim, start, complete, fail) is archived so integration can replay or audit what each worker actually did before merging results.
+- Every receipt (claim, start, complete, fail) is archived so integration can replay or audit what each worker actually did before merging results, and aborted or stale receipts surface in the queue view so the supervisor can trigger a retry or clarification request instead of silently dropping work.
 - High-risk ambiguity routes to clarification rather than silent guessing.
 
 # Spec reference

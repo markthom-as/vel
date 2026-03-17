@@ -174,6 +174,10 @@ pub fn build_app_with_state(state: AppState) -> Router {
                 .patch(routes::sync::update_work_assignment),
         )
         .route("/v1/sync/work-queue", get(routes::sync::list_worker_queue))
+        .route(
+            "/v1/sync/work-queue/claim-next",
+            post(routes::sync::claim_next_worker_queue_item),
+        )
         .route("/v1/sync/actions", post(routes::sync::sync_actions))
         .route(
             "/v1/sync/branch-sync",
@@ -1007,6 +1011,247 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn claim_next_work_picks_oldest_unclaimed_item() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let first_body = serde_json::json!({
+            "repo_root": repo_root_for_tests(),
+            "profile_id": "repo-verify",
+            "environment": "repo",
+            "requested_by": "cli"
+        })
+        .to_string();
+        let first_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/validation")
+                    .header("content-type", "application/json")
+                    .body(Body::from(first_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let first_bytes = axum::body::to_bytes(first_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let first_payload: vel_api_types::ApiResponse<vel_api_types::QueuedWorkRoutingData> =
+            serde_json::from_slice(&first_bytes).unwrap();
+        let first = first_payload.data.unwrap();
+
+        let second_body = serde_json::json!({
+            "repo_root": repo_root_for_tests(),
+            "profile_id": "repo-verify",
+            "environment": "repo",
+            "requested_by": "cli"
+        })
+        .to_string();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/validation")
+                    .header("content-type", "application/json")
+                    .body(Body::from(second_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let claim_body = serde_json::json!({
+            "node_id": "vel-node",
+            "worker_id": "worker-1",
+            "worker_class": "validation",
+            "capability": "build_test_profiles"
+        })
+        .to_string();
+        let claim_response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/work-queue/claim-next")
+                    .header("content-type", "application/json")
+                    .body(Body::from(claim_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(claim_response.status(), StatusCode::OK);
+        let claim_bytes = axum::body::to_bytes(claim_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let claim_payload: vel_api_types::ApiResponse<
+            vel_api_types::WorkAssignmentClaimNextResponseData,
+        > = serde_json::from_slice(&claim_bytes).unwrap();
+        let claimed = claim_payload.data.unwrap().claim.unwrap();
+        assert_eq!(claimed.queue_item.work_request_id, first.work_request_id);
+        assert_eq!(claimed.queue_item.claim_reason.as_deref(), Some("unclaimed"));
+        assert_eq!(claimed.receipt.worker_id, "worker-1");
+    }
+
+    #[tokio::test]
+    async fn claim_next_work_skips_fresh_failed_retry_until_backoff_expires() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_app_state(storage.clone());
+
+        let routed = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-retry-fresh".to_string()),
+        )
+        .await
+        .unwrap();
+        let claimed = crate::services::client_sync::claim_work_assignment(
+            &state,
+            vel_api_types::WorkAssignmentClaimRequestData {
+                work_request_id: routed.work_request_id.clone(),
+                worker_id: "worker-1".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        crate::services::client_sync::update_work_assignment_receipt(
+            &state,
+            vel_api_types::WorkAssignmentUpdateRequest {
+                receipt_id: claimed.receipt_id.clone(),
+                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                started_at: None,
+                completed_at: Some(now),
+                result: None,
+                error_message: Some("boom".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+
+        let queue = crate::services::client_sync::list_worker_queue(
+            &state,
+            "vel-node",
+            Some("validation"),
+            Some("build_test_profiles"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(queue.len(), 1);
+        assert_eq!(queue[0].claim_reason.as_deref(), Some("retry_backoff"));
+        assert!(!queue[0].claimable_now);
+        assert!(queue[0].next_retry_at.unwrap() > now);
+
+        let next = crate::services::client_sync::claim_next_work_for_worker(
+            &state,
+            vel_api_types::WorkAssignmentClaimNextRequestData {
+                node_id: "vel-node".to_string(),
+                worker_id: "worker-2".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        assert!(next.claim.is_none());
+    }
+
+    #[tokio::test]
+    async fn failed_work_becomes_retry_ready_after_backoff_window() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_app_state(storage.clone());
+
+        let routed = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-retry-ready".to_string()),
+        )
+        .await
+        .unwrap();
+        let claimed = crate::services::client_sync::claim_work_assignment(
+            &state,
+            vel_api_types::WorkAssignmentClaimRequestData {
+                work_request_id: routed.work_request_id.clone(),
+                worker_id: "worker-1".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        let past = time::OffsetDateTime::now_utc().unix_timestamp() - 120;
+        crate::services::client_sync::update_work_assignment_receipt(
+            &state,
+            vel_api_types::WorkAssignmentUpdateRequest {
+                receipt_id: claimed.receipt_id.clone(),
+                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                started_at: None,
+                completed_at: Some(past),
+                result: None,
+                error_message: Some("boom".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+
+        let queue = crate::services::client_sync::list_worker_queue(
+            &state,
+            "vel-node",
+            Some("validation"),
+            Some("build_test_profiles"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(queue.len(), 1);
+        assert_eq!(queue[0].claim_reason.as_deref(), Some("retry_ready"));
+        assert!(queue[0].claimable_now);
+        assert_eq!(queue[0].attempt_count, 1);
+
+        let next = crate::services::client_sync::claim_next_work_for_worker(
+            &state,
+            vel_api_types::WorkAssignmentClaimNextRequestData {
+                node_id: "vel-node".to_string(),
+                worker_id: "worker-2".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        let claimed_retry = next.claim.unwrap();
+        assert_eq!(claimed_retry.queue_item.work_request_id, routed.work_request_id);
+        assert_eq!(
+            claimed_retry.queue_item.claim_reason.as_deref(),
+            Some("retry_ready")
+        );
+        assert_eq!(claimed_retry.receipt.worker_id, "worker-2");
+    }
+
+    #[tokio::test]
     async fn loops_endpoint_lists_known_runtime_loops() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -1560,11 +1805,80 @@ mod tests {
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
             json["data"]["result"]["result_kind"].as_str(),
-            Some("artifact_created")
+            Some("spec_draft_created")
         );
         assert_eq!(
             json["data"]["result"]["data"]["artifact_type"].as_str(),
             Some("spec_draft")
+        );
+        let artifact_id = json["data"]["result"]["data"]["artifact_id"]
+            .as_str()
+            .expect("artifact id in payload");
+        let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();
+        assert!(stored.is_some());
+    }
+
+    #[tokio::test]
+    async fn command_execute_endpoint_creates_execution_plan_artifact() {
+        let db_path = format!("/tmp/vel_command_plan_{}.db", uuid::Uuid::new_v4().simple());
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/execute")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "create",
+                                "targets": [
+                                    {
+                                        "kind": "execution_plan",
+                                        "attributes": {
+                                            "goal": "message backlog"
+                                        }
+                                    }
+                                ],
+                                "inferred": {
+                                    "planning_status": "planned"
+                                },
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["result"]["result_kind"].as_str(),
+            Some("execution_plan_created")
+        );
+        assert_eq!(
+            json["data"]["result"]["data"]["artifact_type"].as_str(),
+            Some("execution_plan")
         );
         let artifact_id = json["data"]["result"]["data"]["artifact_id"]
             .as_str()

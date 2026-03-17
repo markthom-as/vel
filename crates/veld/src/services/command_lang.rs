@@ -75,6 +75,8 @@ pub enum CommandExecutionPayload {
     CaptureCreated(CaptureCreateResponse),
     CommitmentCreated(CommitmentData),
     ArtifactCreated(ArtifactData),
+    SpecDraftCreated(ArtifactData),
+    ExecutionPlanCreated(ArtifactData),
     ReviewToday(CommandReviewSummaryData),
     ReviewWeek(CommandReviewSummaryData),
 }
@@ -129,10 +131,22 @@ pub async fn execute_command(
             execute_create_commitment(state, command).await
         }
         (DomainOperation::Create, Some(DomainKind::SpecDraft)) => {
-            execute_create_planning_artifact(state, command, "spec_draft").await
+            execute_create_planning_artifact(
+                state,
+                command,
+                "spec_draft",
+                CommandExecutionPayloadKind::SpecDraftCreated,
+            )
+            .await
         }
         (DomainOperation::Create, Some(DomainKind::ExecutionPlan)) => {
-            execute_create_planning_artifact(state, command, "execution_plan").await
+            execute_create_planning_artifact(
+                state,
+                command,
+                "execution_plan",
+                CommandExecutionPayloadKind::ExecutionPlanCreated,
+            )
+            .await
         }
         (DomainOperation::Execute, Some(DomainKind::Context)) => {
             execute_review_context(state, command).await
@@ -476,6 +490,7 @@ async fn execute_create_planning_artifact(
     state: &AppState,
     command: &ResolvedCommand,
     artifact_type: &str,
+    result_kind: CommandExecutionPayloadKind,
 ) -> Result<CommandExecutionResult, AppError> {
     let target = command
         .targets
@@ -548,11 +563,29 @@ async fn execute_create_planning_artifact(
         .get_artifact_by_id(artifact_id.as_ref())
         .await?
         .ok_or_else(|| AppError::internal("artifact not found after insert"))?;
+    let artifact = artifact_record_to_data(artifact)?;
 
     Ok(CommandExecutionResult {
-        result: CommandExecutionPayload::ArtifactCreated(artifact_record_to_data(artifact)?),
+        result: match result_kind {
+            CommandExecutionPayloadKind::ArtifactCreated => {
+                CommandExecutionPayload::ArtifactCreated(artifact)
+            }
+            CommandExecutionPayloadKind::SpecDraftCreated => {
+                CommandExecutionPayload::SpecDraftCreated(artifact)
+            }
+            CommandExecutionPayloadKind::ExecutionPlanCreated => {
+                CommandExecutionPayload::ExecutionPlanCreated(artifact)
+            }
+        },
         warnings: Vec::new(),
     })
+}
+
+#[derive(Debug, Clone, Copy)]
+enum CommandExecutionPayloadKind {
+    ArtifactCreated,
+    SpecDraftCreated,
+    ExecutionPlanCreated,
 }
 
 fn artifact_record_to_data(
@@ -705,7 +738,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn execute_create_spec_draft_returns_artifact_created_result() {
+    async fn execute_create_spec_draft_returns_spec_draft_created_result() {
         let state = test_state().await;
         let command = ResolvedCommand {
             operation: DomainOperation::Create,
@@ -725,8 +758,36 @@ mod tests {
 
         let result = execute_command(&state, &command).await.expect("execute");
         match result.result {
-            CommandExecutionPayload::ArtifactCreated(payload) => {
+            CommandExecutionPayload::SpecDraftCreated(payload) => {
                 assert_eq!(payload.artifact_type, "spec_draft");
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_create_execution_plan_returns_execution_plan_created_result() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget {
+                kind: DomainKind::ExecutionPlan,
+                id: None,
+                selector: Some(TargetSelector::Custom("goal".to_string())),
+                attributes: serde_json::json!({
+                    "goal": "message backlog"
+                }),
+            }],
+            inferred: serde_json::json!({
+                "planning_status": "planned"
+            }),
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        match result.result {
+            CommandExecutionPayload::ExecutionPlanCreated(payload) => {
+                assert_eq!(payload.artifact_type, "execution_plan");
             }
             other => panic!("unexpected result payload: {other:?}"),
         }

@@ -10,10 +10,12 @@ use vel_api_types::{
     BranchSyncCapabilityData, BranchSyncRequestData, ClientActionBatchRequest,
     ClientActionBatchResultData, ClientActionData, ClientActionKind, ClientActionResultData,
     ClusterBootstrapData, ClusterNodeStateData, ClusterWorkerStateData, CommitmentCreateRequest,
-    CommitmentData, CurrentContextData, NudgeData, QueuedWorkItemData, QueuedWorkRoutingData,
-    QueuedWorkRoutingKindData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
-    SyncHeartbeatResponseData, ValidationProfileData, ValidationRequestData,
-    WorkAssignmentClaimRequestData, WorkAssignmentReceiptData, WorkAssignmentStatusData,
+    CommitmentData, CurrentContextData, NudgeData, QueuedWorkItemData,
+    QueuedWorkRoutingData, QueuedWorkRoutingKindData, SyncBootstrapData, SyncClusterStateData,
+    SyncHeartbeatRequestData, SyncHeartbeatResponseData, ValidationProfileData,
+    ValidationRequestData, WorkAssignmentClaimNextRequestData,
+    WorkAssignmentClaimNextResponseData, WorkAssignmentClaimRequestData,
+    WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData, WorkAssignmentStatusData,
     WorkAssignmentUpdateRequest,
 };
 use vel_core::{CommitmentStatus, PrivacyClass};
@@ -27,6 +29,9 @@ use crate::{errors::AppError, state::AppState};
 
 const WORKER_HEARTBEAT_TTL_SECONDS: i64 = 90;
 const WORK_ASSIGNMENT_STALE_SECONDS: i64 = 300;
+const WORK_ASSIGNMENT_RETRY_BASE_SECONDS: i64 = 30;
+const WORK_ASSIGNMENT_RETRY_MAX_SECONDS: i64 = 300;
+const WORK_ASSIGNMENT_MAX_FAILURE_ATTEMPTS: usize = 3;
 
 pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData, AppError> {
     let current_context =
@@ -175,6 +180,16 @@ pub async fn queue_validation_request(
     .await
 }
 
+#[derive(Debug, Clone)]
+struct WorkQueueScheduleState {
+    include_in_queue: bool,
+    is_stale: bool,
+    attempt_count: u32,
+    claimable_now: bool,
+    claim_reason: Option<String>,
+    next_retry_at: Option<i64>,
+}
+
 async fn queue_work_request(
     state: &AppState,
     request_type: QueuedWorkRoutingKindData,
@@ -190,24 +205,8 @@ async fn queue_work_request(
     let target_worker = workers
         .workers
         .iter()
-        .filter(|worker| {
-            worker
-                .worker_classes
-                .iter()
-                .any(|class| class == target_worker_class)
-                && worker
-                    .capabilities
-                    .iter()
-                    .any(|capability| capability == requested_capability)
-        })
-        .max_by_key(|worker| {
-            (
-                u8::from(worker.tailscale_preferred || worker.tailscale_reachable),
-                u8::from(worker.power_class != "battery"),
-                worker.capacity.available_concurrency,
-                (1000.0 - (worker.recent_failure_rate * 1000.0)).max(0.0) as i64,
-            )
-        })
+        .filter(|worker| worker_matches_request(worker, target_worker_class, requested_capability))
+        .max_by_key(|worker| worker_placement_score(worker))
         .ok_or_else(|| {
             AppError::bad_request(format!(
                 "no reachable worker advertises class={} capability={}",
@@ -542,19 +541,12 @@ pub async fn list_worker_queue(
             .or(signal.source_ref.as_deref())
             .unwrap_or_default()
             .to_string();
-        let latest_receipt = latest_work_assignment_for_request(state, &work_request_id).await?;
-        if let Some(receipt) = latest_receipt.clone() {
-            if matches!(
-                receipt.status,
-                WorkAssignmentStatus::Completed | WorkAssignmentStatus::Cancelled
-            ) {
-                continue;
-            }
+        let history = work_assignment_history_for_request(state, &work_request_id).await?;
+        let latest_receipt = history.first().cloned();
+        let schedule = evaluate_queue_schedule(&history, now);
+        if !schedule.include_in_queue {
+            continue;
         }
-        let is_stale = latest_receipt
-            .as_ref()
-            .map(|receipt| is_stale_assignment(receipt, now))
-            .unwrap_or(false);
         let request_type = if signal.signal_type == "client_branch_sync_requested" {
             QueuedWorkRoutingKindData::BranchSync
         } else {
@@ -575,10 +567,59 @@ pub async fn list_worker_queue(
                 .cloned()
                 .unwrap_or_else(|| serde_json::json!({})),
             latest_receipt: latest_receipt.map(work_assignment_to_data),
-            is_stale,
+            is_stale: schedule.is_stale,
+            attempt_count: schedule.attempt_count,
+            claimable_now: schedule.claimable_now,
+            claim_reason: schedule.claim_reason,
+            next_retry_at: schedule.next_retry_at,
         });
     }
+    items.sort_by_key(|item| (item.queued_at, item.work_request_id.clone()));
     Ok(items)
+}
+
+pub async fn claim_next_work_for_worker(
+    state: &AppState,
+    request: WorkAssignmentClaimNextRequestData,
+) -> Result<WorkAssignmentClaimNextResponseData, AppError> {
+    let mut items = list_worker_queue(
+        state,
+        &request.node_id,
+        request.worker_class.as_deref(),
+        request.capability.as_deref(),
+    )
+    .await?;
+    items.retain(|item| item.claimable_now);
+    items.sort_by_key(|item| {
+        (
+            claim_priority(item.claim_reason.as_deref()),
+            item.queued_at,
+            item.work_request_id.clone(),
+        )
+    });
+
+    let Some(queue_item) = items.into_iter().next() else {
+        return Ok(WorkAssignmentClaimNextResponseData { claim: None });
+    };
+
+    let receipt = claim_work_assignment(
+        state,
+        WorkAssignmentClaimRequestData {
+            work_request_id: queue_item.work_request_id.clone(),
+            worker_id: request.worker_id,
+            worker_class: request
+                .worker_class
+                .or_else(|| Some(queue_item.target_worker_class.clone())),
+            capability: request
+                .capability
+                .or_else(|| Some(queue_item.requested_capability.clone())),
+        },
+    )
+    .await?;
+
+    Ok(WorkAssignmentClaimNextResponseData {
+        claim: Some(WorkAssignmentClaimedWorkData { queue_item, receipt }),
+    })
 }
 
 pub async fn apply_client_actions(
@@ -870,12 +911,20 @@ async fn latest_work_assignment_for_request(
     state: &AppState,
     work_request_id: &str,
 ) -> Result<Option<WorkAssignmentRecord>, AppError> {
-    Ok(state
-        .storage
-        .list_work_assignments(Some(work_request_id), None)
+    Ok(work_assignment_history_for_request(state, work_request_id)
         .await?
         .into_iter()
         .next())
+}
+
+async fn work_assignment_history_for_request(
+    state: &AppState,
+    work_request_id: &str,
+) -> Result<Vec<WorkAssignmentRecord>, AppError> {
+    Ok(state
+        .storage
+        .list_work_assignments(Some(work_request_id), None)
+        .await?)
 }
 
 async fn find_latest_routing_signal(
@@ -896,6 +945,119 @@ fn is_stale_assignment(record: &WorkAssignmentRecord, now: i64) -> bool {
         record.status,
         WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started
     ) && record.last_updated + WORK_ASSIGNMENT_STALE_SECONDS < now
+}
+
+fn evaluate_queue_schedule(history: &[WorkAssignmentRecord], now: i64) -> WorkQueueScheduleState {
+    let attempt_count = history.len() as u32;
+    let Some(latest) = history.first() else {
+        return WorkQueueScheduleState {
+            include_in_queue: true,
+            is_stale: false,
+            attempt_count,
+            claimable_now: true,
+            claim_reason: Some("unclaimed".to_string()),
+            next_retry_at: None,
+        };
+    };
+
+    match latest.status {
+        WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started => {
+            let is_stale = is_stale_assignment(latest, now);
+            WorkQueueScheduleState {
+                include_in_queue: true,
+                is_stale,
+                attempt_count,
+                claimable_now: is_stale,
+                claim_reason: Some(if is_stale {
+                    "stale_reclaim".to_string()
+                } else {
+                    "in_progress".to_string()
+                }),
+                next_retry_at: None,
+            }
+        }
+        WorkAssignmentStatus::Failed => {
+            let failures = history
+                .iter()
+                .filter(|record| record.status == WorkAssignmentStatus::Failed)
+                .count();
+            if failures >= WORK_ASSIGNMENT_MAX_FAILURE_ATTEMPTS {
+                return WorkQueueScheduleState {
+                    include_in_queue: true,
+                    is_stale: false,
+                    attempt_count,
+                    claimable_now: false,
+                    claim_reason: Some("retry_exhausted".to_string()),
+                    next_retry_at: None,
+                };
+            }
+            let retry_after = retry_backoff_seconds(failures);
+            let next_retry_at = latest.completed_at.unwrap_or(latest.last_updated) + retry_after;
+            WorkQueueScheduleState {
+                include_in_queue: true,
+                is_stale: false,
+                attempt_count,
+                claimable_now: next_retry_at <= now,
+                claim_reason: Some(if next_retry_at <= now {
+                    "retry_ready".to_string()
+                } else {
+                    "retry_backoff".to_string()
+                }),
+                next_retry_at: Some(next_retry_at),
+            }
+        }
+        WorkAssignmentStatus::Completed | WorkAssignmentStatus::Cancelled => WorkQueueScheduleState {
+            include_in_queue: false,
+            is_stale: false,
+            attempt_count,
+            claimable_now: false,
+            claim_reason: None,
+            next_retry_at: None,
+        },
+    }
+}
+
+fn retry_backoff_seconds(failure_count: usize) -> i64 {
+    let exponent = failure_count.saturating_sub(1).min(10) as u32;
+    (WORK_ASSIGNMENT_RETRY_BASE_SECONDS.saturating_mul(1_i64 << exponent))
+        .min(WORK_ASSIGNMENT_RETRY_MAX_SECONDS)
+}
+
+fn claim_priority(reason: Option<&str>) -> u8 {
+    match reason {
+        Some("unclaimed") => 0,
+        Some("stale_reclaim") => 1,
+        Some("retry_ready") => 2,
+        _ => 9,
+    }
+}
+
+fn worker_matches_request(
+    worker: &WorkerPresenceData,
+    target_worker_class: &str,
+    requested_capability: &str,
+) -> bool {
+    worker
+        .worker_classes
+        .iter()
+        .any(|class| class == target_worker_class)
+        && worker
+            .capabilities
+            .iter()
+            .any(|capability| capability == requested_capability)
+        && worker.status == "ready"
+        && worker.reachability == "reachable"
+}
+
+fn worker_placement_score(worker: &WorkerPresenceData) -> (u8, u8, u8, u32, u32, i64) {
+    (
+        u8::from(worker.tailscale_preferred || worker.tailscale_reachable),
+        u8::from(worker.power_class != "battery"),
+        u8::from(worker.status == "ready" && worker.reachability == "reachable"),
+        worker.capacity.available_concurrency,
+        u32::MAX.saturating_sub(worker.queue_depth),
+        (1000.0 - (worker.recent_failure_rate * 1000.0)).max(0.0) as i64,
+    )
 }
 
 fn nudge_record_to_data(r: vel_storage::NudgeRecord) -> NudgeData {

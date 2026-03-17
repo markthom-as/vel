@@ -57,6 +57,8 @@ The repo now has an initial shipped slice of the cluster/sync design:
 
 These surfaces provide authority metadata, Tailscale-aware routing metadata, unified client cache hydration, low-risk action batching, a durable heartbeat-backed worker registry, receipt-aware work-unit assignment, queue inspection for pending worker-class work, and first-pass queued-work placement metadata.
 
+Queue inspection now integrates the scheduler's retry/reclaim rules: stale `claimed` receipts (currently >300 s) are visible as reclaimable units, duplicate queue attempts check the latest receipt before enqueuing, and failures surface retriable reasons instead of silently dropping the work.
+
 They do not yet provide:
 
 - multi-node membership and replication
