@@ -1211,7 +1211,7 @@ mod tests {
     use super::*;
     use serde_json::json;
     use time::OffsetDateTime;
-    use vel_core::{Commitment, CommitmentId, CommitmentStatus};
+    use vel_core::{Commitment, CommitmentId, CommitmentStatus, ContextMigrator};
     use vel_storage::SignalRecord;
 
     fn test_signal(signal_id: &str, signal_type: &str, timestamp: i64) -> SignalRecord {
@@ -1356,6 +1356,61 @@ mod tests {
                 .signal_id,
             "sig_transcript"
         );
+    }
+
+    #[test]
+    fn build_current_context_output_is_compatible_with_typed_context_migrator() {
+        let context = build_current_context(
+            1_700_000_000,
+            "morning_mode",
+            "awake_unstarted",
+            "planning",
+            Some("com_1".to_string()),
+            Some(1_700_000_600),
+            "pending",
+            &["nud_1".to_string()],
+            &["com_1".to_string()],
+            &GlobalRiskSummary {
+                level: "medium",
+                score: Some(0.42),
+                missing: false,
+            },
+            &["sig_1".to_string()],
+            &["com_1".to_string()],
+            &["risk_1".to_string()],
+            &AttentionState {
+                attention_state: "focused",
+                drift_type: None,
+                drift_severity: None,
+                confidence: 0.8,
+                reasons: vec!["recent_activity"],
+            },
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            &MessageSummary {
+                waiting_on_me_count: 1,
+                waiting_on_others_count: 2,
+                scheduling_thread_count: 0,
+                urgent_thread_count: 0,
+                top_threads: Vec::new(),
+            },
+            &TemporalWindows {
+                prep_window_active: true,
+                commute_window_active: false,
+                leave_by_ts: Some(1_700_000_300),
+                next_event_start_ts: Some(1_700_000_600),
+            },
+        );
+
+        let typed =
+            ContextMigrator::from_json_value(context).expect("inference context should parse");
+        assert_eq!(typed.mode, "morning_mode");
+        assert_eq!(typed.morning_state, "awake_unstarted");
+        assert_eq!(typed.attention_confidence, Some(0.8));
     }
 
     #[test]

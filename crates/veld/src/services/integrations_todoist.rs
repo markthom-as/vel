@@ -1,7 +1,6 @@
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use vel_api_types::{IntegrationGuidanceData, TodoistIntegrationData};
 use vel_core::{Commitment, CommitmentStatus};
 use vel_storage::{CommitmentInsert, SignalInsert, Storage};
 
@@ -9,6 +8,25 @@ use crate::errors::AppError;
 
 pub(crate) const TODOIST_SETTINGS_KEY: &str = "integration_todoist";
 pub(crate) const TODOIST_SECRETS_KEY: &str = "integration_todoist_secrets";
+
+#[derive(Debug, Clone)]
+pub(crate) struct IntegrationGuidance {
+    pub title: String,
+    pub detail: String,
+    pub action: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct TodoistStatus {
+    pub configured: bool,
+    pub connected: bool,
+    pub has_api_token: bool,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidance>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub(crate) struct TodoistSettings {
@@ -32,8 +50,8 @@ pub(crate) struct TodoistSecrets {
     pub api_token: Option<String>,
 }
 
-pub(crate) fn todoist_status(settings: &TodoistSettings) -> TodoistIntegrationData {
-    TodoistIntegrationData {
+pub(crate) fn todoist_status(settings: &TodoistSettings) -> TodoistStatus {
+    TodoistStatus {
         configured: settings.api_token.is_some(),
         connected: settings.api_token.is_some(),
         has_api_token: settings.api_token.is_some(),
@@ -207,7 +225,7 @@ where
     Ok(())
 }
 
-fn todoist_guidance(settings: &TodoistSettings) -> Option<IntegrationGuidanceData> {
+fn todoist_guidance(settings: &TodoistSettings) -> Option<IntegrationGuidance> {
     if settings.api_token.is_none() {
         return Some(guidance(
             "Todoist token missing",
@@ -235,8 +253,8 @@ fn todoist_guidance(settings: &TodoistSettings) -> Option<IntegrationGuidanceDat
     None
 }
 
-fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceData {
-    IntegrationGuidanceData {
+fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidance {
+    IntegrationGuidance {
         title: title.to_string(),
         detail,
         action: action.to_string(),

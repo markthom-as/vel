@@ -32,6 +32,19 @@ Current ranked execution order for remaining high-value phase-1 slices:
 4. `021-canonical-schema-and-config-contracts.md` + `025-config-and-contract-fixture-parity.md`
    focus: keep schema/template/fixture/test parity strict as service and storage contracts evolve.
 
+## Execution Snapshot (2026-03-17)
+
+- `003-service-dto-layering.md`: in progress
+  - completed slices: journal, doctor, components, google auth-start, todoist status boundary mapping
+  - next slices: chat service seams and remaining `vel_api_types` imports in `crates/veld/src/services/*`
+- `001-storage-modularization.md`: in progress
+  - completed slices: signals, current context, context timeline
+  - active slice: inferred state repository extraction
+- `002-typed-context-transition.md`: in progress
+  - completed slices: `CurrentContextV1` + `ContextMigrator` foundation and inference compatibility coverage
+  - next slices: adopt typed reads at additional boundaries without changing stored payload fidelity
+- `021` + `025`: planned, queued after current `003`/`001`/`002` high-value slices stabilize
+
 ## Coordination Rules
 
 - Do not overlap primary write scopes in the same patch unless the change is a planned cross-lane integration slice.

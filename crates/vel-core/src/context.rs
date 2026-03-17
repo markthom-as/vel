@@ -80,7 +80,7 @@ pub struct CurrentContextV1 {
     #[serde(default)]
     pub drift_severity: Option<String>,
     #[serde(default)]
-    pub attention_confidence: Option<String>,
+    pub attention_confidence: Option<f64>,
     #[serde(default)]
     pub attention_reasons: Vec<String>,
     #[serde(default)]

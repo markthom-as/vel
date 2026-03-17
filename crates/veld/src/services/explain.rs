@@ -5,6 +5,7 @@ use vel_api_types::{
     ContextSourceSummariesData, ContextSourceSummaryData, DriftExplainData, RiskData,
     SignalExplainSummary,
 };
+use vel_core::ContextMigrator;
 use vel_storage::SignalRecord;
 
 use crate::{errors::AppError, services::risk::snapshot_from_row, state::AppState};
@@ -14,6 +15,7 @@ pub async fn explain_context_data(state: &AppState) -> Result<ContextExplainData
     let (computed_at, context_json) = row.unwrap_or((0, "{}".to_string()));
     let context: serde_json::Value =
         serde_json::from_str(&context_json).unwrap_or(serde_json::json!({}));
+    let _ = ContextMigrator::from_json_value(context.clone());
     let signals_used: Vec<String> = context
         .get("signals_used")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
@@ -110,6 +112,7 @@ pub async fn explain_commitment_data(
     let context_json = row.map(|(_, s)| s).unwrap_or_else(|| "{}".to_string());
     let context: serde_json::Value =
         serde_json::from_str(&context_json).unwrap_or(serde_json::json!({}));
+    let _ = ContextMigrator::from_json_value(context.clone());
     let commitments_used: Vec<String> = context
         .get("commitments_used")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
@@ -151,6 +154,7 @@ pub async fn explain_drift_data(state: &AppState) -> Result<DriftExplainData, Ap
     let (_, context_json) = row.unwrap_or((0, "{}".to_string()));
     let context: serde_json::Value =
         serde_json::from_str(&context_json).unwrap_or(serde_json::json!({}));
+    let _ = ContextMigrator::from_json_value(context.clone());
     let attention_state = context
         .get("attention_state")
         .and_then(|v| v.as_str())

@@ -24,11 +24,42 @@ use crate::services::chat::{
     messages::create_message_response,
     reads::{
         build_message_provenance_data, list_conversation_intervention_items, list_inbox_items,
-        list_message_intervention_items,
+        list_message_intervention_items, InboxItem, MessageProvenance, ProvenanceMessageEvent,
     },
     settings::settings_payload,
 };
 use crate::{errors::AppError, state::AppState};
+
+fn map_inbox_item(item: InboxItem) -> InboxItemData {
+    InboxItemData {
+        id: item.id,
+        message_id: item.message_id,
+        kind: item.kind,
+        state: item.state,
+        surfaced_at: item.surfaced_at,
+        snoozed_until: item.snoozed_until,
+        confidence: item.confidence,
+    }
+}
+
+fn map_provenance_event(event: ProvenanceMessageEvent) -> vel_api_types::ProvenanceEvent {
+    vel_api_types::ProvenanceEvent {
+        id: event.id,
+        event_name: event.event_name,
+        created_at: event.created_at,
+        payload: event.payload,
+    }
+}
+
+fn map_message_provenance(data: MessageProvenance) -> ProvenanceData {
+    ProvenanceData {
+        message_id: data.message_id,
+        events: data.events.into_iter().map(map_provenance_event).collect(),
+        signals: data.signals,
+        policy_decisions: data.policy_decisions,
+        linked_objects: data.linked_objects,
+    }
+}
 
 // --- Conversation handlers ---
 
@@ -126,7 +157,11 @@ pub async fn get_inbox(
     Query(q): Query<InboxQuery>,
 ) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
     let limit = q.limit.unwrap_or(100).min(500);
-    let data = list_inbox_items(&state, limit).await?;
+    let data = list_inbox_items(&state, limit)
+        .await?
+        .into_iter()
+        .map(map_inbox_item)
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -142,7 +177,11 @@ pub async fn list_conversation_interventions(
     State(state): State<AppState>,
     Path(conversation_id): Path<String>,
 ) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
-    let data = list_conversation_intervention_items(&state, conversation_id.trim()).await?;
+    let data = list_conversation_intervention_items(&state, conversation_id.trim())
+        .await?
+        .into_iter()
+        .map(map_inbox_item)
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -151,7 +190,11 @@ pub async fn list_message_interventions(
     State(state): State<AppState>,
     Path(message_id): Path<String>,
 ) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
-    let data = list_message_intervention_items(&state, message_id.trim()).await?;
+    let data = list_message_intervention_items(&state, message_id.trim())
+        .await?
+        .into_iter()
+        .map(map_inbox_item)
+        .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -160,7 +203,8 @@ pub async fn get_message_provenance(
     State(state): State<AppState>,
     Path(message_id): Path<String>,
 ) -> Result<Json<ApiResponse<ProvenanceData>>, AppError> {
-    let data = build_message_provenance_data(&state, message_id.trim()).await?;
+    let data =
+        map_message_provenance(build_message_provenance_data(&state, message_id.trim()).await?);
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

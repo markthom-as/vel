@@ -12,7 +12,7 @@ use time::OffsetDateTime;
 use vel_api_types::{
     GoogleCalendarIntegrationData, IntegrationCalendarData, IntegrationConnectionData,
     IntegrationConnectionEventData, IntegrationConnectionSettingRefData, IntegrationGuidanceData,
-    IntegrationLogEventData, IntegrationsData, LocalIntegrationData,
+    IntegrationLogEventData, IntegrationsData, LocalIntegrationData, TodoistIntegrationData,
 };
 use vel_config::AppConfig;
 use vel_core::{IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider};
@@ -323,7 +323,7 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
     Ok(IntegrationsData {
         google_calendar: google_status(&google),
-        todoist: integrations_todoist::todoist_status(&todoist),
+        todoist: map_todoist_status(integrations_todoist::todoist_status(&todoist)),
         activity: local_status(
             integrations_host::effective_local_source_path(
                 "activity",
@@ -394,7 +394,7 @@ pub async fn get_integrations_with_config(
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
     Ok(IntegrationsData {
         google_calendar: google_status(&google),
-        todoist: integrations_todoist::todoist_status(&todoist),
+        todoist: map_todoist_status(integrations_todoist::todoist_status(&todoist)),
         activity: local_status(
             integrations_host::effective_local_source_path(
                 "activity",
@@ -945,6 +945,23 @@ fn local_status(
         last_sync_status: settings.last_sync_status.clone(),
         last_error: settings.last_error.clone(),
         last_item_count: settings.last_item_count,
+    }
+}
+
+fn map_todoist_status(status: integrations_todoist::TodoistStatus) -> TodoistIntegrationData {
+    TodoistIntegrationData {
+        configured: status.configured,
+        connected: status.connected,
+        has_api_token: status.has_api_token,
+        last_sync_at: status.last_sync_at,
+        last_sync_status: status.last_sync_status,
+        last_error: status.last_error,
+        last_item_count: status.last_item_count,
+        guidance: status.guidance.map(|guidance| IntegrationGuidanceData {
+            title: guidance.title,
+            detail: guidance.detail,
+            action: guidance.action,
+        }),
     }
 }
 

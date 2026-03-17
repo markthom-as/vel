@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
-use vel_api_types::{ComponentData, ComponentLogEventData};
 use vel_config::AppConfig;
 use vel_storage::Storage;
 
@@ -8,6 +7,39 @@ use crate::{adapters, errors::AppError, policy_config::PolicyConfig};
 
 const COMPONENT_SETTINGS_PREFIX: &str = "component_state:";
 const COMPONENT_LOG_LIMIT_DEFAULT: u32 = 50;
+
+#[derive(Debug, Clone)]
+pub struct ComponentListItem {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub status: String,
+    pub last_restarted_at: Option<i64>,
+    pub last_error: Option<String>,
+    pub restart_count: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct ComponentLogEvent {
+    pub id: String,
+    pub component_id: String,
+    pub event_name: String,
+    pub status: String,
+    pub message: String,
+    pub payload: serde_json::Value,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ComponentRestartResult {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub status: String,
+    pub last_restarted_at: Option<i64>,
+    pub last_error: Option<String>,
+    pub restart_count: u32,
+}
 
 #[derive(Clone, Copy)]
 pub(crate) struct ComponentSpec {
@@ -194,8 +226,8 @@ async fn save_component_state(
     Ok(())
 }
 
-fn to_api_data(id: &str, spec: &ComponentSpec, state: StoredComponentState) -> ComponentData {
-    ComponentData {
+fn to_list_item(id: &str, spec: &ComponentSpec, state: StoredComponentState) -> ComponentListItem {
+    ComponentListItem {
         id: id.to_string(),
         name: spec.name.to_string(),
         description: spec.description.to_string(),
@@ -206,11 +238,11 @@ fn to_api_data(id: &str, spec: &ComponentSpec, state: StoredComponentState) -> C
     }
 }
 
-pub async fn list_components(storage: &Storage) -> Result<Vec<ComponentData>, AppError> {
+pub async fn list_components(storage: &Storage) -> Result<Vec<ComponentListItem>, AppError> {
     let mut output = Vec::new();
     for spec in COMPONENT_SPECS {
         let state = load_component_state(storage, spec.id).await?;
-        output.push(to_api_data(spec.id, spec, state));
+        output.push(to_list_item(spec.id, spec, state));
     }
     Ok(output)
 }
@@ -219,7 +251,7 @@ pub async fn list_component_logs(
     storage: &Storage,
     component_id: &str,
     limit: Option<u32>,
-) -> Result<Vec<ComponentLogEventData>, AppError> {
+) -> Result<Vec<ComponentLogEvent>, AppError> {
     if !component_exists(component_id) {
         return Err(AppError::not_found("component not found"));
     }
@@ -240,7 +272,7 @@ pub async fn list_component_logs(
             } else {
                 status
             };
-            ComponentLogEventData {
+            ComponentLogEvent {
                 id: event.id.to_string(),
                 component_id: event
                     .aggregate_id
@@ -347,7 +379,7 @@ pub async fn restart_component(
     config: &AppConfig,
     policy_config: &PolicyConfig,
     component_id: &str,
-) -> Result<ComponentData, AppError> {
+) -> Result<ComponentRestartResult, AppError> {
     let component_id = component_id.trim();
     let spec =
         component_spec(component_id).ok_or_else(|| AppError::not_found("component not found"))?;
@@ -411,7 +443,7 @@ pub async fn restart_component(
     };
 
     save_component_state(storage, component_id, &state).await?;
-    Ok(ComponentData {
+    Ok(ComponentRestartResult {
         id: component_id.to_string(),
         name: spec.name.to_string(),
         description: spec.description.to_string(),

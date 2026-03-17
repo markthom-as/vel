@@ -1,7 +1,7 @@
 use crate::{
     chat, infra, integrations,
     mapping::{parse_json_value, timestamp_to_datetime},
-    repositories::{current_context_repo, signals_repo},
+    repositories::{context_timeline_repo, current_context_repo, inferred_state_repo, signals_repo},
     runs, runtime_cluster, runtime_loops, threads,
 };
 use serde_json::{json, Value as JsonValue};
@@ -1053,22 +1053,7 @@ impl Storage {
         &self,
         input: InferredStateInsert,
     ) -> Result<String, StorageError> {
-        let state_id = format!("ist_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let context_str = serde_json::to_string(input.context_json.as_ref().unwrap_or(&json!({})))
-            .map_err(|e| StorageError::Validation(e.to_string()))?;
-        sqlx::query(
-            r#"INSERT INTO inferred_state (state_id, state_name, confidence, timestamp, context_json, created_at) VALUES (?, ?, ?, ?, ?, ?)"#,
-        )
-        .bind(&state_id)
-        .bind(&input.state_name)
-        .bind(&input.confidence)
-        .bind(input.timestamp)
-        .bind(&context_str)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(state_id)
+        inferred_state_repo::insert_inferred_state(&self.pool, input).await
     }
 
     pub async fn list_inferred_state_recent(
@@ -1076,24 +1061,7 @@ impl Storage {
         state_name: Option<&str>,
         limit: u32,
     ) -> Result<Vec<InferredStateRecord>, StorageError> {
-        let limit = limit.min(100) as i64;
-        let rows = sqlx::query(
-            r#"
-            SELECT state_id, state_name, confidence, timestamp, context_json, created_at
-            FROM inferred_state
-            WHERE (? IS NULL OR state_name = ?)
-            ORDER BY timestamp DESC
-            LIMIT ?
-            "#,
-        )
-        .bind(state_name)
-        .bind(state_name)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter()
-            .map(|row| map_inferred_state_row(&row))
-            .collect()
+        inferred_state_repo::list_inferred_state_recent(&self.pool, state_name, limit).await
     }
 
     // --- Nudges (Phase D) ---
@@ -1231,33 +1199,20 @@ impl Storage {
         context_json: &str,
         trigger_signal_id: Option<&str>,
     ) -> Result<(), StorageError> {
-        let id = format!("ctl_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        sqlx::query(
-            r#"INSERT INTO context_timeline (id, timestamp, context_json, trigger_signal_id, created_at) VALUES (?, ?, ?, ?, ?)"#,
+        context_timeline_repo::insert_context_timeline(
+            &self.pool,
+            timestamp,
+            context_json,
+            trigger_signal_id,
         )
-        .bind(&id)
-        .bind(timestamp)
-        .bind(context_json)
-        .bind(trigger_signal_id)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        .await
     }
 
     pub async fn list_context_timeline(
         &self,
         limit: u32,
     ) -> Result<Vec<(String, i64, String)>, StorageError> {
-        let limit = limit.min(100) as i64;
-        let rows = sqlx::query_as::<_, (String, i64, String)>(
-            r#"SELECT id, timestamp, context_json FROM context_timeline ORDER BY timestamp DESC LIMIT ?"#,
-        )
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows)
+        context_timeline_repo::list_context_timeline(&self.pool, limit).await
     }
 
     // --- Integration foundation (INTG-001) ---
@@ -3018,20 +2973,6 @@ fn map_commitment_row(row: &sqlx::sqlite::SqliteRow) -> Result<Commitment, Stora
             .try_get::<Option<i64>, _>("resolved_at")?
             .and_then(|t| timestamp_to_datetime(t).ok()),
         metadata_json,
-    })
-}
-
-fn map_inferred_state_row(
-    row: &sqlx::sqlite::SqliteRow,
-) -> Result<InferredStateRecord, StorageError> {
-    let context_str: String = row.try_get("context_json")?;
-    Ok(InferredStateRecord {
-        state_id: row.try_get("state_id")?,
-        state_name: row.try_get("state_name")?,
-        confidence: row.try_get("confidence")?,
-        timestamp: row.try_get("timestamp")?,
-        context_json: serde_json::from_str(&context_str).unwrap_or_else(|_| json!({})),
-        created_at: row.try_get("created_at")?,
     })
 }
 
