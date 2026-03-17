@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../api/client'
 import { clearQueryCache } from '../data/query'
@@ -12,6 +12,7 @@ describe('NowView', () => {
   beforeEach(() => {
     cleanup()
     clearQueryCache()
+    vi.useRealTimers()
     vi.mocked(api.apiGet).mockReset()
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
       if (path === '/v1/now') {
@@ -247,5 +248,148 @@ describe('NowView', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Design review')).toBeInTheDocument()
     expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()
+  })
+
+  it('refetches on focus and reveals debug payload on demand', async () => {
+    const initial = {
+      ok: true,
+      data: {
+        computed_at: 1710000000,
+        timezone: 'America/Denver',
+        summary: {
+          mode: { key: 'day_mode', label: 'Day' },
+          phase: { key: 'engaged', label: 'Engaged' },
+          meds: { key: 'pending', label: 'Pending' },
+          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+        },
+        schedule: {
+          empty_message: null,
+          next_event: null,
+          upcoming_events: [],
+        },
+        tasks: {
+          todoist: [],
+          other_open: [],
+          next_commitment: null,
+        },
+        attention: {
+          state: { key: 'on_task', label: 'On task' },
+          drift: { key: 'none', label: 'None' },
+          severity: { key: 'none', label: 'None' },
+          confidence: 0.8,
+          reasons: [],
+        },
+        freshness: {
+          overall_status: 'fresh',
+          sources: [],
+        },
+        reasons: [],
+        debug: {
+          raw_context: { mode: 'day_mode' },
+          signals_used: ['sig_1'],
+          commitments_used: ['commit_1'],
+          risk_used: ['risk_1'],
+        },
+      },
+      meta: { request_id: 'req_now_1' },
+    }
+    const refreshed = {
+      ...initial,
+      data: {
+        ...initial.data,
+        computed_at: 1710000300,
+        summary: {
+          ...initial.data.summary,
+          mode: { key: 'meeting_mode', label: 'Meeting prep' },
+        },
+      },
+      meta: { request_id: 'req_now_2' },
+    }
+    vi.mocked(api.apiGet)
+      .mockResolvedValueOnce(initial as never)
+      .mockResolvedValueOnce(refreshed as never)
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Day')).toBeInTheDocument()
+    })
+
+    fireEvent(window, new Event('focus'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Meeting prep')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText(/show raw fields/i))
+    expect(screen.getByText(/"signals_used": \[/i)).toBeInTheDocument()
+    expect(screen.getByText(/"risk_used": \[/i)).toBeInTheDocument()
+  })
+
+  it('registers a background refresh interval', async () => {
+    const setIntervalSpy = vi.spyOn(window, 'setInterval')
+    const initial = {
+      ok: true,
+      data: {
+        computed_at: 1710000000,
+        timezone: 'America/Denver',
+        summary: {
+          mode: { key: 'day_mode', label: 'Day' },
+          phase: { key: 'engaged', label: 'Engaged' },
+          meds: { key: 'pending', label: 'Pending' },
+          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+        },
+        schedule: {
+          empty_message: null,
+          next_event: null,
+          upcoming_events: [],
+        },
+        tasks: {
+          todoist: [],
+          other_open: [],
+          next_commitment: null,
+        },
+        attention: {
+          state: { key: 'on_task', label: 'On task' },
+          drift: { key: 'none', label: 'None' },
+          severity: { key: 'none', label: 'None' },
+          confidence: 0.8,
+          reasons: [],
+        },
+        freshness: {
+          overall_status: 'fresh',
+          sources: [],
+        },
+        reasons: [],
+        debug: {
+          raw_context: {},
+          signals_used: [],
+          commitments_used: [],
+          risk_used: [],
+        },
+      },
+      meta: { request_id: 'req_now_1' },
+    }
+    const refreshed = {
+      ...initial,
+      data: {
+        ...initial.data,
+        summary: {
+          ...initial.data.summary,
+          phase: { key: 'underway', label: 'Underway' },
+        },
+      },
+    }
+    vi.mocked(api.apiGet)
+      .mockResolvedValueOnce(initial as never)
+      .mockResolvedValueOnce(refreshed as never)
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Engaged')).toBeInTheDocument()
+    })
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000)
+    setIntervalSpy.mockRestore()
   })
 })

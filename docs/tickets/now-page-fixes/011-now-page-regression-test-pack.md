@@ -1,6 +1,6 @@
 ---
 id: NOW-011
-status: proposed
+status: implemented
 title: Add regression coverage for Now-page awareness and freshness
 owner: qa+engineering
 priority: P1

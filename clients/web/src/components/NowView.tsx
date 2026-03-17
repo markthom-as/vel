@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { useQuery } from '../data/query';
 import { loadNow, queryKeys } from '../data/resources';
 import type { NowData, NowTaskData } from '../types';
@@ -6,13 +6,35 @@ import { SurfaceState } from './SurfaceState';
 
 export function NowView() {
   const nowKey = useMemo(() => queryKeys.now(), []);
-  const { data, loading, error } = useQuery<NowData | null>(
+  const { data, loading, error, refetch } = useQuery<NowData | null>(
     nowKey,
     async () => {
       const response = await loadNow();
       return response.ok ? response.data ?? null : null;
     },
   );
+
+  useEffect(() => {
+    const handleFocus = () => {
+      void refetch();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refetch();
+      }
+    };
+    const interval = window.setInterval(() => {
+      void refetch();
+    }, 60_000);
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refetch]);
 
   if (loading) {
     return <SurfaceState message="Loading your current state…" layout="centered" />;
@@ -214,6 +236,15 @@ export function NowView() {
                   ))}
                 </div>
               )}
+            </Panel>
+
+            <Panel title="Debug" subtitle="Raw inputs behind this snapshot">
+              <details className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                <summary className="cursor-pointer text-sm text-zinc-100">Show raw fields</summary>
+                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">
+                  {JSON.stringify(data.debug, null, 2)}
+                </pre>
+              </details>
             </Panel>
           </div>
         </section>
