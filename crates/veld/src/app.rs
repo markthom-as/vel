@@ -3228,6 +3228,99 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn suggestion_policy_limits_new_items_and_suppresses_recent_rejections() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let recent = now_ts - 3600;
+
+        storage
+            .set_current_context(
+                now_ts,
+                &serde_json::json!({
+                    "global_risk_level": "high",
+                    "global_risk_score": 0.8,
+                    "attention_state": "drifting",
+                    "drift_type": "morning_drift",
+                    "message_waiting_on_me_count": 3
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+
+        storage
+            .insert_suggestion_v2(vel_storage::SuggestionInsertV2 {
+                suggestion_type: "increase_prep_window".to_string(),
+                state: "rejected".to_string(),
+                title: Some("Increase prep window".to_string()),
+                summary: None,
+                priority: 60,
+                confidence: Some("medium".to_string()),
+                dedupe_key: Some("increase_prep_window".to_string()),
+                payload_json: serde_json::json!({
+                    "type": "increase_prep_window",
+                    "suggested_minutes": 45
+                }),
+                decision_context_json: None,
+            })
+            .await
+            .unwrap();
+        let rejected = storage
+            .find_recent_suggestion_by_dedupe_key("increase_prep_window")
+            .await
+            .unwrap()
+            .unwrap();
+        storage
+            .update_suggestion_state(&rejected.id, "rejected", Some(recent), None)
+            .await
+            .unwrap();
+
+        for (nudge_type, level) in [
+            ("commute_leave_time", "danger"),
+            ("commute_leave_time", "danger"),
+            ("meeting_prep_window", "warning"),
+            ("meeting_prep_window", "warning"),
+            ("morning_drift", "warning"),
+            ("morning_drift", "warning"),
+            ("morning_drift", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+            ("response_debt", "warning"),
+        ] {
+            storage
+                .insert_nudge(vel_storage::NudgeInsert {
+                    nudge_type: nudge_type.to_string(),
+                    level: level.to_string(),
+                    state: "resolved".to_string(),
+                    related_commitment_id: None,
+                    message: format!("{} happened", nudge_type),
+                    snoozed_until: None,
+                    resolved_at: Some(recent),
+                    signals_snapshot_json: None,
+                    inference_snapshot_json: None,
+                    metadata_json: None,
+                })
+                .await
+                .unwrap();
+        }
+
+        let created =
+            crate::services::suggestions::evaluate_after_nudges(&storage).await.unwrap();
+        assert_eq!(created, 2);
+
+        let suggestions = storage.list_suggestions(Some("pending"), 10).await.unwrap();
+        let suggestion_types: Vec<_> = suggestions
+            .iter()
+            .map(|suggestion| suggestion.suggestion_type.as_str())
+            .collect();
+        assert_eq!(
+            suggestion_types,
+            vec!["increase_commute_buffer", "add_followup_block"]
+        );
+    }
+
     // --- Chat API (ticket 034) ---
 
     #[tokio::test]
@@ -5358,6 +5451,11 @@ END:VCALENDAR
         assert_eq!(json["data"]["notes"]["source_path"], "/tmp/notes");
         assert_eq!(json["data"]["notes"]["last_sync_status"], "ok");
         assert_eq!(json["data"]["notes"]["last_item_count"], 2);
+        assert_eq!(
+            json["data"]["google_calendar"]["guidance"]["action"],
+            "Save credentials"
+        );
+        assert_eq!(json["data"]["activity"]["guidance"]["action"], "Sync now");
     }
 
     #[tokio::test]

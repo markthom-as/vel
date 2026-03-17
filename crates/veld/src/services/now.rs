@@ -176,6 +176,7 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowData {
                 status: "missing".to_string(),
                 last_sync_at: None,
                 age_seconds: None,
+                guidance: None,
             }],
         },
         reasons: vec!["No current context yet. Sync integrations or run evaluate.".to_string()],
@@ -237,6 +238,7 @@ fn build_freshness(
         status: age_status(now_ts - computed_at).to_string(),
         last_sync_at: Some(computed_at),
         age_seconds: Some(now_ts - computed_at),
+        guidance: None,
     }];
     sources.push(sync_freshness(
         now_ts,
@@ -244,6 +246,11 @@ fn build_freshness(
         "Calendar",
         integrations.google_calendar.last_sync_at,
         integrations.google_calendar.last_sync_status.as_deref(),
+        integrations
+            .google_calendar
+            .guidance
+            .as_ref()
+            .map(|guidance| format!("{}: {}", guidance.title, guidance.detail)),
     ));
     sources.push(sync_freshness(
         now_ts,
@@ -251,6 +258,11 @@ fn build_freshness(
         "Todoist",
         integrations.todoist.last_sync_at,
         integrations.todoist.last_sync_status.as_deref(),
+        integrations
+            .todoist
+            .guidance
+            .as_ref()
+            .map(|guidance| format!("{}: {}", guidance.title, guidance.detail)),
     ));
     sources.push(sync_freshness(
         now_ts,
@@ -258,6 +270,11 @@ fn build_freshness(
         "Activity",
         integrations.activity.last_sync_at,
         integrations.activity.last_sync_status.as_deref(),
+        integrations
+            .activity
+            .guidance
+            .as_ref()
+            .map(|guidance| format!("{}: {}", guidance.title, guidance.detail)),
     ));
     sources.push(sync_freshness(
         now_ts,
@@ -265,6 +282,11 @@ fn build_freshness(
         "Messaging",
         integrations.messaging.last_sync_at,
         integrations.messaging.last_sync_status.as_deref(),
+        integrations
+            .messaging
+            .guidance
+            .as_ref()
+            .map(|guidance| format!("{}: {}", guidance.title, guidance.detail)),
     ));
     let overall_status = if sources
         .iter()
@@ -288,6 +310,7 @@ fn sync_freshness(
     label_text: &str,
     last_sync_at: Option<i64>,
     last_sync_status: Option<&str>,
+    guidance: Option<String>,
 ) -> NowFreshnessEntryData {
     let age_seconds = last_sync_at.map(|timestamp| now_ts - timestamp);
     let status = match last_sync_status {
@@ -301,6 +324,7 @@ fn sync_freshness(
         status: status.to_string(),
         last_sync_at,
         age_seconds,
+        guidance,
     }
 }
 

@@ -95,6 +95,11 @@ describe('transport decoders', () => {
             last_sync_status: null,
             last_error: null,
             last_item_count: null,
+            guidance: {
+              title: 'Calendar credentials missing',
+              detail: 'Add credentials first.',
+              action: 'Save credentials',
+            },
           },
           todoist: {
             configured: false,
@@ -104,6 +109,7 @@ describe('transport decoders', () => {
             last_sync_status: null,
             last_error: null,
             last_item_count: null,
+            guidance: null,
           },
           activity: {
             configured: true,
@@ -112,6 +118,7 @@ describe('transport decoders', () => {
             last_sync_status: 'ok',
             last_error: null,
             last_item_count: 4,
+            guidance: null,
           },
           git: {
             configured: false,
@@ -120,6 +127,11 @@ describe('transport decoders', () => {
             last_sync_status: null,
             last_error: null,
             last_item_count: null,
+            guidance: {
+              title: 'Local source missing',
+              detail: 'Configure a source path.',
+              action: 'Set source path',
+            },
           },
           messaging: {
             configured: false,
@@ -128,6 +140,7 @@ describe('transport decoders', () => {
             last_sync_status: null,
             last_error: null,
             last_item_count: null,
+            guidance: null,
           },
           notes: {
             configured: false,
@@ -136,6 +149,7 @@ describe('transport decoders', () => {
             last_sync_status: null,
             last_error: null,
             last_item_count: null,
+            guidance: null,
           },
           transcripts: {
             configured: false,
@@ -144,6 +158,7 @@ describe('transport decoders', () => {
             last_sync_status: null,
             last_error: null,
             last_item_count: null,
+            guidance: null,
           },
         },
         meta: { request_id: 'req_integrations' },
@@ -153,6 +168,7 @@ describe('transport decoders', () => {
 
     expect(response.data?.activity.source_path).toBe('/tmp/activity.json')
     expect(response.data?.activity.last_item_count).toBe(4)
+    expect(response.data?.google_calendar.guidance?.action).toBe('Save credentials')
   })
 
   it('decodes consolidated now responses', () => {
@@ -192,6 +208,7 @@ describe('transport decoders', () => {
               status: 'fresh',
               last_sync_at: 1710000000,
               age_seconds: 10,
+              guidance: null,
             },
           ],
         },
@@ -238,6 +255,7 @@ describe('transport decoders', () => {
             status: 'fresh',
             last_sync_at: 1710000000,
             age_seconds: 10,
+            guidance: null,
           },
         ],
       },

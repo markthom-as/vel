@@ -6,7 +6,8 @@ use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 use vel_api_types::{
     GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
-    IntegrationLogEventData, IntegrationsData, LocalIntegrationData, TodoistIntegrationData,
+    IntegrationGuidanceData, IntegrationLogEventData, IntegrationsData, LocalIntegrationData,
+    TodoistIntegrationData,
 };
 use vel_config::AppConfig;
 use vel_core::{Commitment, CommitmentStatus};
@@ -904,6 +905,7 @@ fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegration
         last_sync_status: settings.last_sync_status.clone(),
         last_error: settings.last_error.clone(),
         last_item_count: settings.last_item_count,
+        guidance: google_guidance(settings),
     }
 }
 
@@ -916,6 +918,7 @@ fn todoist_status(settings: &TodoistSettings) -> TodoistIntegrationData {
         last_sync_status: settings.last_sync_status.clone(),
         last_error: settings.last_error.clone(),
         last_item_count: settings.last_item_count,
+        guidance: todoist_guidance(settings),
     }
 }
 
@@ -925,12 +928,115 @@ fn local_status(
 ) -> LocalIntegrationData {
     LocalIntegrationData {
         configured: source_path.is_some(),
+        guidance: local_guidance(source_path.as_deref(), settings),
         source_path,
         last_sync_at: settings.last_sync_at,
         last_sync_status: settings.last_sync_status.clone(),
         last_error: settings.last_error.clone(),
         last_item_count: settings.last_item_count,
     }
+}
+
+fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceData {
+    IntegrationGuidanceData {
+        title: title.to_string(),
+        detail,
+        action: action.to_string(),
+    }
+}
+
+fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuidanceData> {
+    if settings.client_id.is_none() || settings.client_secret.is_none() {
+        return Some(guidance(
+            "Calendar credentials missing",
+            "Add a Google client ID and client secret in Settings before attempting sync.".to_string(),
+            "Save credentials",
+        ));
+    }
+    if settings.refresh_token.is_none() {
+        return Some(guidance(
+            "Calendar not connected",
+            "Start the Google OAuth flow from Settings, then run sync.".to_string(),
+            "Connect Google",
+        ));
+    }
+    if settings.last_sync_status.as_deref() == Some("error") {
+        return Some(guidance(
+            "Calendar sync failed",
+            settings
+                .last_error
+                .clone()
+                .unwrap_or_else(|| "Google Calendar sync last failed.".to_string()),
+            "Inspect history and retry sync",
+        ));
+    }
+    if settings.last_sync_at.is_none() {
+        return Some(guidance(
+            "Calendar has not synced yet",
+            "Run a calendar sync to populate upcoming events and prep/commute context.".to_string(),
+            "Sync now",
+        ));
+    }
+    None
+}
+
+fn todoist_guidance(settings: &TodoistSettings) -> Option<IntegrationGuidanceData> {
+    if settings.api_token.is_none() {
+        return Some(guidance(
+            "Todoist token missing",
+            "Save a Todoist API token before attempting sync.".to_string(),
+            "Save token",
+        ));
+    }
+    if settings.last_sync_status.as_deref() == Some("error") {
+        return Some(guidance(
+            "Todoist sync failed",
+            settings
+                .last_error
+                .clone()
+                .unwrap_or_else(|| "Todoist sync last failed.".to_string()),
+            "Inspect history and retry sync",
+        ));
+    }
+    if settings.last_sync_at.is_none() {
+        return Some(guidance(
+            "Todoist has not synced yet",
+            "Run a Todoist sync to load open commitments and due tasks.".to_string(),
+            "Sync now",
+        ));
+    }
+    None
+}
+
+fn local_guidance(
+    source_path: Option<&str>,
+    settings: &LocalIntegrationSettings,
+) -> Option<IntegrationGuidanceData> {
+    if source_path.is_none() {
+        return Some(guidance(
+            "Local source missing",
+            "Configure a source path for this local adapter before syncing it.".to_string(),
+            "Set source path",
+        ));
+    }
+    if settings.last_sync_status.as_deref() == Some("error") {
+        return Some(guidance(
+            "Local sync failed",
+            settings
+                .last_error
+                .clone()
+                .unwrap_or_else(|| "The last local sync failed.".to_string()),
+            "Fix the source and retry sync",
+        ));
+    }
+    if settings.last_sync_at.is_none() {
+        return Some(guidance(
+            "Local source has not synced yet",
+            "Run sync now to ingest this local source into Vel.".to_string(),
+            "Sync now",
+        ));
+    }
+    None
 }
 
 async fn load_google_settings(storage: &Storage) -> Result<GoogleCalendarSettings, AppError> {

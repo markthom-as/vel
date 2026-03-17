@@ -90,6 +90,12 @@ export interface IntegrationCalendarData {
   selected: boolean;
 }
 
+export interface IntegrationGuidanceData {
+  title: string;
+  detail: string;
+  action: string;
+}
+
 export interface GoogleCalendarIntegrationData {
   configured: boolean;
   connected: boolean;
@@ -101,6 +107,7 @@ export interface GoogleCalendarIntegrationData {
   last_sync_status: string | null;
   last_error: string | null;
   last_item_count: number | null;
+  guidance: IntegrationGuidanceData | null;
 }
 
 export interface TodoistIntegrationData {
@@ -111,6 +118,7 @@ export interface TodoistIntegrationData {
   last_sync_status: string | null;
   last_error: string | null;
   last_item_count: number | null;
+  guidance: IntegrationGuidanceData | null;
 }
 
 export interface LocalIntegrationData {
@@ -120,6 +128,7 @@ export interface LocalIntegrationData {
   last_sync_status: string | null;
   last_error: string | null;
   last_item_count: number | null;
+  guidance: IntegrationGuidanceData | null;
 }
 
 export interface IntegrationsData {
@@ -288,6 +297,7 @@ export interface NowFreshnessEntryData {
   status: string;
   last_sync_at: UnixSeconds | null;
   age_seconds: UnixSeconds | null;
+  guidance: string | null;
 }
 
 export interface NowFreshnessData {
@@ -655,6 +665,7 @@ export function decodeNowData(value: unknown): NowData {
           status: expectString(source.status, 'now freshness source.status'),
           last_sync_at: expectNullableUnixSeconds(source.last_sync_at, 'now freshness source.last_sync_at'),
           age_seconds: expectNullableUnixSeconds(source.age_seconds, 'now freshness source.age_seconds'),
+          guidance: expectNullableString(source.guidance, 'now freshness source.guidance'),
         };
       }),
     },
@@ -742,6 +753,15 @@ export function decodeIntegrationCalendarData(value: unknown): IntegrationCalend
   };
 }
 
+export function decodeIntegrationGuidanceData(value: unknown): IntegrationGuidanceData {
+  const record = expectRecord(value, 'integration guidance');
+  return {
+    title: expectString(record.title, 'integration guidance.title'),
+    detail: expectString(record.detail, 'integration guidance.detail'),
+    action: expectString(record.action, 'integration guidance.action'),
+  };
+}
+
 export function decodeGoogleCalendarIntegrationData(value: unknown): GoogleCalendarIntegrationData {
   const record = expectRecord(value, 'google calendar integration');
   return {
@@ -767,6 +787,7 @@ export function decodeGoogleCalendarIntegrationData(value: unknown): GoogleCalen
       record.last_item_count,
       'google calendar integration.last_item_count',
     ),
+    guidance: decodeNullable(record.guidance, decodeIntegrationGuidanceData),
   };
 }
 
@@ -780,6 +801,7 @@ export function decodeTodoistIntegrationData(value: unknown): TodoistIntegration
     last_sync_status: expectNullableString(record.last_sync_status, 'todoist integration.last_sync_status'),
     last_error: expectNullableString(record.last_error, 'todoist integration.last_error'),
     last_item_count: expectNullableNumber(record.last_item_count, 'todoist integration.last_item_count'),
+    guidance: decodeNullable(record.guidance, decodeIntegrationGuidanceData),
   };
 }
 
@@ -792,6 +814,7 @@ export function decodeLocalIntegrationData(value: unknown): LocalIntegrationData
     last_sync_status: expectNullableString(record.last_sync_status, 'local integration.last_sync_status'),
     last_error: expectNullableString(record.last_error, 'local integration.last_error'),
     last_item_count: expectNullableNumber(record.last_item_count, 'local integration.last_item_count'),
+    guidance: decodeNullable(record.guidance, decodeIntegrationGuidanceData),
   };
 }
 

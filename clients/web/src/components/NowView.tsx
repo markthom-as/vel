@@ -218,6 +218,9 @@ export function NowView() {
                         Last sync {formatTimestamp(source.last_sync_at, data.timezone)}
                       </p>
                     ) : null}
+                    {source.guidance ? (
+                      <p className="mt-1 text-xs text-amber-300">{source.guidance}</p>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -260,7 +263,10 @@ function FreshnessBanner({ freshness }: { freshness: NowData['freshness'] }) {
   }
 
   const summary = degraded
-    .map((source) => `${source.label}: ${labelFreshness(source.status)}`)
+    .map((source) => {
+      const guidance = source.guidance ? ` · ${source.guidance}` : ''
+      return `${source.label}: ${labelFreshness(source.status)}${guidance}`
+    })
     .join(' • ');
 
   return (

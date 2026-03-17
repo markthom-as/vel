@@ -213,6 +213,13 @@ pub struct IntegrationCalendarData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationGuidanceData {
+    pub title: String,
+    pub detail: String,
+    pub action: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarIntegrationData {
     pub configured: bool,
     pub connected: bool,
@@ -224,6 +231,7 @@ pub struct GoogleCalendarIntegrationData {
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidanceData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,6 +243,7 @@ pub struct TodoistIntegrationData {
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidanceData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -245,6 +254,7 @@ pub struct LocalIntegrationData {
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
+    pub guidance: Option<IntegrationGuidanceData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -915,6 +925,7 @@ pub struct NowFreshnessEntryData {
     pub status: String,
     pub last_sync_at: Option<UnixSeconds>,
     pub age_seconds: Option<UnixSeconds>,
+    pub guidance: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

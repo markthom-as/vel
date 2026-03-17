@@ -96,6 +96,7 @@ describe('NowView', () => {
                   status: 'fresh',
                   last_sync_at: 1710000000,
                   age_seconds: 10,
+                  guidance: null,
                 },
               ],
             },
@@ -201,6 +202,7 @@ describe('NowView', () => {
               status: 'aging',
               last_sync_at: 1709999400,
               age_seconds: 600,
+              guidance: 'Re-run evaluate soon.',
             },
             {
               key: 'calendar',
@@ -208,6 +210,7 @@ describe('NowView', () => {
               status: 'stale',
               last_sync_at: 1709990000,
               age_seconds: 10000,
+              guidance: 'Calendar sync failed earlier. Inspect history and retry sync.',
             },
             {
               key: 'todoist',
@@ -215,6 +218,7 @@ describe('NowView', () => {
               status: 'error',
               last_sync_at: 1709995000,
               age_seconds: 5000,
+              guidance: 'Todoist sync failed. Inspect history and retry sync.',
             },
           ],
         },
@@ -243,6 +247,8 @@ describe('NowView', () => {
     expect(
       screen.getByText('Todoist sync last failed. Backlog state may be incomplete.'),
     ).toBeInTheDocument()
+    expect(screen.getAllByText(/Calendar sync failed earlier\. Inspect history and retry sync\./i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Todoist sync failed\. Inspect history and retry sync\./i).length).toBeGreaterThan(0)
     expect(
       screen.getByText('Current context is aging. Evaluate soon if you need fresher state.'),
     ).toBeInTheDocument()

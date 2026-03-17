@@ -117,6 +117,11 @@ describe('SettingsPage', () => {
               last_sync_status: null,
               last_error: null,
               last_item_count: null,
+              guidance: {
+                title: 'Calendar has not synced yet',
+                detail: 'Run a calendar sync to populate upcoming events and prep/commute context.',
+                action: 'Sync now',
+              },
             },
             todoist: {
               configured: true,
@@ -126,6 +131,7 @@ describe('SettingsPage', () => {
               last_sync_status: null,
               last_error: null,
               last_item_count: null,
+              guidance: null,
             },
             activity: {
               configured: true,
@@ -134,6 +140,7 @@ describe('SettingsPage', () => {
               last_sync_status: null,
               last_error: null,
               last_item_count: null,
+              guidance: null,
             },
             git: {
               configured: true,
@@ -142,6 +149,7 @@ describe('SettingsPage', () => {
               last_sync_status: null,
               last_error: null,
               last_item_count: null,
+              guidance: null,
             },
             messaging: {
               configured: true,
@@ -150,6 +158,7 @@ describe('SettingsPage', () => {
               last_sync_status: null,
               last_error: null,
               last_item_count: null,
+              guidance: null,
             },
             notes: {
               configured: true,
@@ -158,6 +167,11 @@ describe('SettingsPage', () => {
               last_sync_status: null,
               last_error: null,
               last_item_count: null,
+              guidance: {
+                title: 'Local sync failed',
+                detail: 'The notes source could not be read.',
+                action: 'Fix the source and retry sync',
+              },
             },
             transcripts: {
               configured: true,
@@ -166,6 +180,7 @@ describe('SettingsPage', () => {
               last_sync_status: null,
               last_error: null,
               last_item_count: null,
+              guidance: null,
             },
           },
           meta: { request_id: 'req_integrations' },
@@ -586,6 +601,16 @@ describe('SettingsPage', () => {
     fireEvent.click(within(todoistCard as HTMLElement).getByRole('checkbox', { name: /failures only/i }))
     expect(within(todoistCard as HTMLElement).queryByText('No failed syncs in recent history.')).toBeNull()
     expect(within(todoistCard as HTMLElement).getByText('todoist sync failed: upstream 500')).toBeInTheDocument()
+  })
+
+  it('renders guidance callouts for degraded integrations', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+
+    expect(within(root).getByText('Calendar has not synced yet')).toBeInTheDocument()
+    expect(within(root).getByText(/Run a calendar sync to populate upcoming events/i)).toBeInTheDocument()
+    expect(within(root).getByText(/Recommended action: Sync now/i)).toBeInTheDocument()
+    expect(within(root).getByText('Local sync failed')).toBeInTheDocument()
   })
 
   it('renders component cards in the components tab', async () => {

@@ -115,6 +115,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_sync_status: null,
     last_error: null,
     last_item_count: null,
+    guidance: null,
   },
   todoist: {
     configured: false,
@@ -124,6 +125,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_sync_status: null,
     last_error: null,
     last_item_count: null,
+    guidance: null,
   },
   activity: {
     configured: false,
@@ -132,6 +134,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_sync_status: null,
     last_error: null,
     last_item_count: null,
+    guidance: null,
   },
   git: {
     configured: false,
@@ -140,6 +143,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_sync_status: null,
     last_error: null,
     last_item_count: null,
+    guidance: null,
   },
   messaging: {
     configured: false,
@@ -148,6 +152,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_sync_status: null,
     last_error: null,
     last_item_count: null,
+    guidance: null,
   },
   notes: {
     configured: false,
@@ -156,6 +161,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_sync_status: null,
     last_error: null,
     last_item_count: null,
+    guidance: null,
   },
   transcripts: {
     configured: false,
@@ -164,6 +170,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_sync_status: null,
     last_error: null,
     last_item_count: null,
+    guidance: null,
   },
 };
 
@@ -1080,6 +1087,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               lastSyncStatus={integrations.google_calendar.last_sync_status}
               lastItemCount={integrations.google_calendar.last_item_count}
               lastError={integrations.google_calendar.last_error}
+              guidance={integrations.google_calendar.guidance}
             />
             {expandedIntegrationLogs['google-calendar'] ? (
               <IntegrationLogPanel integrationId="google-calendar" />
@@ -1194,6 +1202,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               lastSyncStatus={integrations.todoist.last_sync_status}
               lastItemCount={integrations.todoist.last_item_count}
               lastError={integrations.todoist.last_error}
+              guidance={integrations.todoist.guidance}
             />
             {expandedIntegrationLogs.todoist ? <IntegrationLogPanel integrationId="todoist" /> : null}
             {todoistFeedback.length > 0 ? (
@@ -1255,6 +1264,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   lastSyncStatus={integration.last_sync_status}
                   lastItemCount={integration.last_item_count}
                   lastError={integration.last_error}
+                  guidance={integration.guidance}
                 />
                 {expandedIntegrationLogs[spec.key] ? <IntegrationLogPanel integrationId={spec.key} /> : null}
                 {feedback.length > 0 ? (
@@ -1837,20 +1847,31 @@ function IntegrationMeta({
   lastSyncStatus,
   lastItemCount,
   lastError,
+  guidance,
 }: {
   sourcePath?: string | null;
   lastSyncAt: number | null;
   lastSyncStatus: string | null;
   lastItemCount: number | null;
   lastError: string | null;
+  guidance?: { title: string; detail: string; action: string } | null;
 }) {
   return (
-    <div className="mt-4 space-y-1 text-sm text-zinc-400">
+    <div className="mt-4 space-y-2 text-sm text-zinc-400">
       {sourcePath ? <p>Source: {sourcePath}</p> : null}
       <p>Last sync: {lastSyncAt ? new Date(lastSyncAt * 1000).toLocaleString() : 'never'}</p>
       <p>Status: {lastSyncStatus ?? 'unknown'}</p>
       <p>Items ingested: {lastItemCount ?? 0}</p>
       {lastError ? <p className="text-rose-400">Last error: {lastError}</p> : null}
+      {guidance ? (
+        <div className="rounded-md border border-amber-900/70 bg-amber-950/30 p-3 text-amber-200">
+          <p className="font-medium">{guidance.title}</p>
+          <p className="mt-1 text-sm text-amber-100/90">{guidance.detail}</p>
+          <p className="mt-2 text-xs uppercase tracking-wide text-amber-300">
+            Recommended action: {guidance.action}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
