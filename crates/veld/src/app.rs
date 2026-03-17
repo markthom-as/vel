@@ -202,6 +202,18 @@ pub fn build_app_with_state(state: AppState) -> Router {
             get(routes::integrations::get_integrations),
         )
         .route(
+            "/api/integrations/connections",
+            get(routes::integrations::list_integration_connections),
+        )
+        .route(
+            "/api/integrations/connections/:id",
+            get(routes::integrations::get_integration_connection),
+        )
+        .route(
+            "/api/integrations/connections/:id/events",
+            get(routes::integrations::list_integration_connection_events),
+        )
+        .route(
             "/api/integrations/:id/logs",
             get(routes::integrations::list_integration_logs),
         )
@@ -890,6 +902,82 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn duplicate_queue_request_returns_stale_reclaim_without_new_signal() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_app_state(storage.clone());
+
+        let first = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-stale-dup".to_string()),
+        )
+        .await
+        .unwrap();
+        let claimed = crate::services::client_sync::claim_work_assignment(
+            &state,
+            vel_api_types::WorkAssignmentClaimRequestData {
+                work_request_id: "wrkreq-stale-dup".to_string(),
+                worker_id: "vel-node".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        storage
+            .update_work_assignment(vel_storage::WorkAssignmentUpdate {
+                receipt_id: claimed.receipt_id,
+                status: None,
+                started_at: None,
+                completed_at: None,
+                result: None,
+                error_message: None,
+                worker_id: None,
+                worker_class: None,
+                capability: None,
+                last_updated: Some(time::OffsetDateTime::now_utc().unix_timestamp() - 600),
+            })
+            .await
+            .unwrap();
+
+        let second = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-stale-dup".to_string()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(first.work_request_id, second.work_request_id);
+        assert_eq!(second.status, "stale_reclaim");
+
+        let signals = storage
+            .list_signals(Some("client_validation_requested"), None, 10)
+            .await
+            .unwrap();
+        let matching: Vec<_> = signals
+            .into_iter()
+            .filter(|signal| signal.source_ref.as_deref() == Some("wrkreq-stale-dup"))
+            .collect();
+        assert_eq!(matching.len(), 1);
+    }
+
+    #[tokio::test]
     async fn worker_queue_lists_pending_item_and_hides_completed_receipt() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -1008,6 +1096,86 @@ mod tests {
         let empty_payload: vel_api_types::ApiResponse<Vec<vel_api_types::QueuedWorkItemData>> =
             serde_json::from_slice(&empty_bytes).unwrap();
         assert!(empty_payload.data.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn worker_queue_marks_stale_assigned_receipt_reclaimable() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_app_state(storage.clone());
+
+        let routed = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-stale-queue".to_string()),
+        )
+        .await
+        .unwrap();
+        let claimed = crate::services::client_sync::claim_work_assignment(
+            &state,
+            vel_api_types::WorkAssignmentClaimRequestData {
+                work_request_id: routed.work_request_id.clone(),
+                worker_id: "worker-1".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+        storage
+            .update_work_assignment(vel_storage::WorkAssignmentUpdate {
+                receipt_id: claimed.receipt_id,
+                status: None,
+                started_at: None,
+                completed_at: None,
+                result: None,
+                error_message: None,
+                worker_id: None,
+                worker_class: None,
+                capability: None,
+                last_updated: Some(time::OffsetDateTime::now_utc().unix_timestamp() - 600),
+            })
+            .await
+            .unwrap();
+
+        let queue = crate::services::client_sync::list_worker_queue(
+            &state,
+            "vel-node",
+            Some("validation"),
+            Some("build_test_profiles"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(queue.len(), 1);
+        assert_eq!(queue[0].claim_reason.as_deref(), Some("stale_reclaim"));
+        assert!(queue[0].claimable_now);
+
+        let next = crate::services::client_sync::claim_next_work_for_worker(
+            &state,
+            vel_api_types::WorkAssignmentClaimNextRequestData {
+                node_id: "vel-node".to_string(),
+                worker_id: "worker-2".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap()
+        .claim
+        .unwrap();
+        assert_eq!(next.queue_item.work_request_id, routed.work_request_id);
+        assert_eq!(
+            next.queue_item.claim_reason.as_deref(),
+            Some("stale_reclaim")
+        );
+        assert_eq!(next.receipt.worker_id, "worker-2");
     }
 
     #[tokio::test]

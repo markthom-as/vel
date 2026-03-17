@@ -909,6 +909,38 @@ pub struct IntegrationsData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationConnectionSettingRefData {
+    pub setting_key: String,
+    pub setting_value: String,
+    pub created_at: UnixSeconds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationConnectionData {
+    pub id: String,
+    pub family: String,
+    pub provider_key: String,
+    pub status: String,
+    pub display_name: String,
+    pub account_ref: Option<String>,
+    pub metadata: JsonValue,
+    pub created_at: UnixSeconds,
+    pub updated_at: UnixSeconds,
+    #[serde(default)]
+    pub setting_refs: Vec<IntegrationConnectionSettingRefData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationConnectionEventData {
+    pub id: String,
+    pub connection_id: String,
+    pub event_type: String,
+    pub payload: JsonValue,
+    pub timestamp: UnixSeconds,
+    pub created_at: UnixSeconds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarAuthStartData {
     pub auth_url: String,
 }
