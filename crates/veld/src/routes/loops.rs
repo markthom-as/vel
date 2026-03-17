@@ -157,11 +157,19 @@ pub async fn update_loop(
     let record = state
         .storage
         .update_runtime_loop_config(loop_kind, body.enabled, body.interval_seconds)
-        .await?
+        .await
+        .map_err(map_loop_storage_error)?
         .ok_or_else(|| AppError::not_found("loop not found"))?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         map_loop_data(record),
         request_id,
     )))
+}
+
+fn map_loop_storage_error(error: vel_storage::StorageError) -> AppError {
+    match error {
+        vel_storage::StorageError::Validation(message) => AppError::bad_request(message),
+        other => AppError::from(other),
+    }
 }

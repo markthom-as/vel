@@ -318,6 +318,126 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn loop_get_returns_single_runtime_loop() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/loops/sync_calendar")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::LoopData> =
+            serde_json::from_slice(&body).unwrap();
+        let loop_data = payload.data.unwrap();
+        assert_eq!(loop_data.kind, "sync_calendar");
+        assert_eq!(loop_data.interval_seconds, 900);
+    }
+
+    #[tokio::test]
+    async fn loop_patch_rejects_non_positive_interval() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/v1/loops/evaluate_current_state")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"interval_seconds":0}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn loop_patch_updates_interval_seconds() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/v1/loops/sync_calendar")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"interval_seconds":1200}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::LoopData> =
+            serde_json::from_slice(&body).unwrap();
+        let loop_data = payload.data.unwrap();
+        assert_eq!(loop_data.kind, "sync_calendar");
+        assert_eq!(loop_data.interval_seconds, 1200);
+    }
+
+    #[tokio::test]
+    async fn loop_endpoint_rejects_unknown_loop_kind() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/loops/not_a_loop")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
     async fn search_endpoint_returns_ok_for_matching_capture() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

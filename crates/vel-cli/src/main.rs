@@ -690,6 +690,51 @@ mod tests {
     }
 
     #[test]
+    fn cli_parses_loops_list() {
+        let cli = Cli::try_parse_from(["vel", "loops", "--json"]).unwrap();
+        match cli.command {
+            Command::Loops { json } => assert!(json),
+            _ => panic!("expected loops command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_loop_inspect() {
+        let cli =
+            Cli::try_parse_from(["vel", "loop", "inspect", "evaluate_current_state", "--json"])
+                .unwrap();
+        match cli.command {
+            Command::Loop {
+                command: LoopCommand::Inspect { kind, json },
+            } => {
+                assert_eq!(kind, "evaluate_current_state");
+                assert!(json);
+            }
+            _ => panic!("expected loop inspect command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_loop_enable_and_disable() {
+        let enable = Cli::try_parse_from(["vel", "loop", "enable", "sync_calendar"]).unwrap();
+        match enable.command {
+            Command::Loop {
+                command: LoopCommand::Enable { kind },
+            } => assert_eq!(kind, "sync_calendar"),
+            _ => panic!("expected loop enable command"),
+        }
+
+        let disable =
+            Cli::try_parse_from(["vel", "loop", "disable", "sync_messaging"]).unwrap();
+        match disable.command {
+            Command::Loop {
+                command: LoopCommand::Disable { kind },
+            } => assert_eq!(kind, "sync_messaging"),
+            _ => panic!("expected loop disable command"),
+        }
+    }
+
+    #[test]
     fn cli_parses_run_status_with_retry_flags() {
         let cli = Cli::try_parse_from([
             "vel",
