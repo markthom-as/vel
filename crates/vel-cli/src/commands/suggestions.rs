@@ -67,19 +67,25 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
         "payload:         {}",
         serde_json::to_string_pretty(&s.payload)?
     );
-    if let Some(evidence) = &s.evidence {
-        if evidence.is_empty() {
-            println!("evidence:        []");
-        } else {
-            println!("evidence:");
-            for item in evidence {
-                println!(
-                    "  - {}  {}  weight={:?}",
-                    item.evidence_type, item.ref_id, item.weight
-                );
-                if let Some(details) = &item.evidence {
-                    println!("    {}", serde_json::to_string_pretty(details)?);
-                }
+    let evidence_resp = client
+        .get_suggestion_evidence(id)
+        .await
+        .context("get suggestion evidence")?;
+    let evidence = evidence_resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no evidence data"))?;
+    if evidence.is_empty() {
+        println!("evidence:        []");
+    } else {
+        println!("evidence:");
+        for item in evidence {
+            println!(
+                "  - {}  {}  weight={:?}",
+                item.evidence_type, item.ref_id, item.weight
+            );
+            if let Some(details) = &item.evidence {
+                println!("    {}", serde_json::to_string_pretty(details)?);
             }
         }
     }
@@ -88,7 +94,7 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
 
 pub async fn run_accept(client: &ApiClient, id: &str) -> anyhow::Result<()> {
     let resp = client
-        .update_suggestion(id, "accepted", None)
+        .accept_suggestion(id)
         .await
         .context("accept suggestion")?;
     let s = resp
@@ -99,16 +105,23 @@ pub async fn run_accept(client: &ApiClient, id: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn run_reject(client: &ApiClient, id: &str) -> anyhow::Result<()> {
+pub async fn run_reject(client: &ApiClient, id: &str, reason: Option<&str>) -> anyhow::Result<()> {
     let resp = client
-        .update_suggestion(id, "rejected", None)
+        .reject_suggestion(id, reason)
         .await
         .context("reject suggestion")?;
     let s = resp
         .data
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("no data"))?;
-    println!("Rejected suggestion {} (state: {})", s.id, s.state);
+    if let Some(reason) = reason {
+        println!(
+            "Rejected suggestion {} (state: {}) reason={}",
+            s.id, s.state, reason
+        );
+    } else {
+        println!("Rejected suggestion {} (state: {})", s.id, s.state);
+    }
     Ok(())
 }
 

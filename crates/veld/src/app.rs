@@ -3050,6 +3050,26 @@ mod tests {
             "suggestion evidence should point back to the nudges that triggered it"
         );
 
+        let evidence_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/suggestions/{}/evidence", suggestion_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(evidence_resp.status(), StatusCode::OK);
+        let evidence_body = axum::body::to_bytes(evidence_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let evidence_json: serde_json::Value = serde_json::from_slice(&evidence_body).unwrap();
+        assert_eq!(
+            evidence_json["data"].as_array().map(|items| items.len()),
+            Some(2)
+        );
+
         let _ = app
             .clone()
             .oneshot(
@@ -3177,10 +3197,10 @@ mod tests {
             .clone()
             .oneshot(
                 Request::builder()
-                    .method("PATCH")
-                    .uri(format!("/v1/suggestions/{}", suggestion_id))
+                    .method("POST")
+                    .uri(format!("/v1/suggestions/{}/accept", suggestion_id))
                     .header("content-type", "application/json")
-                    .body(Body::from(r#"{"state":"accepted"}"#.to_string()))
+                    .body(Body::from(r#"{}"#.to_string()))
                     .unwrap(),
             )
             .await

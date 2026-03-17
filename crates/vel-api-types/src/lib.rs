@@ -728,6 +728,11 @@ pub struct SuggestionUpdateRequest {
     pub payload: Option<JsonValue>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SuggestionActionRequest {
+    pub reason: Option<String>,
+}
+
 // --- Signals (Phase B) ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

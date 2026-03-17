@@ -181,6 +181,8 @@ enum SuggestionCommand {
     },
     Reject {
         id: String,
+        #[arg(long)]
+        reason: Option<String>,
     },
     Modify {
         id: String,
@@ -633,8 +635,8 @@ async fn main() -> anyhow::Result<()> {
             SuggestionCommand::Accept { id } => {
                 commands::suggestions::run_accept(&client, &id).await
             }
-            SuggestionCommand::Reject { id } => {
-                commands::suggestions::run_reject(&client, &id).await
+            SuggestionCommand::Reject { id, reason } => {
+                commands::suggestions::run_reject(&client, &id, reason.as_deref()).await
             }
             SuggestionCommand::Modify { id, payload } => {
                 commands::suggestions::run_modify(&client, &id, payload.as_deref()).await
@@ -848,6 +850,29 @@ mod tests {
                 assert!(blocked_reason.is_none());
             }
             _ => panic!("expected run status command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_suggestion_reject_with_reason() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "suggestion",
+            "reject",
+            "sugg_123",
+            "--reason",
+            "not useful",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Suggestion {
+                command: SuggestionCommand::Reject { id, reason },
+            } => {
+                assert_eq!(id, "sugg_123");
+                assert_eq!(reason.as_deref(), Some("not useful"));
+            }
+            _ => panic!("expected suggestion reject command"),
         }
     }
 

@@ -432,6 +432,13 @@ impl ApiClient {
         self.get(&format!("/v1/suggestions/{}", id)).await
     }
 
+    pub async fn get_suggestion_evidence(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<Vec<vel_api_types::SuggestionEvidenceData>>> {
+        self.get(&format!("/v1/suggestions/{}/evidence", id)).await
+    }
+
     pub async fn update_suggestion(
         &self,
         id: &str,
@@ -449,6 +456,37 @@ impl ApiClient {
             .send()
             .await
             .context("PATCH suggestion")?;
+        decode_response(response).await
+    }
+
+    pub async fn accept_suggestion(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::SuggestionData>> {
+        let response = self
+            .http
+            .post(format!("{}/v1/suggestions/{}/accept", self.base_url, id))
+            .json(&vel_api_types::SuggestionActionRequest::default())
+            .send()
+            .await
+            .context("POST accept suggestion")?;
+        decode_response(response).await
+    }
+
+    pub async fn reject_suggestion(
+        &self,
+        id: &str,
+        reason: Option<&str>,
+    ) -> anyhow::Result<ApiResponse<vel_api_types::SuggestionData>> {
+        let response = self
+            .http
+            .post(format!("{}/v1/suggestions/{}/reject", self.base_url, id))
+            .json(&vel_api_types::SuggestionActionRequest {
+                reason: reason.map(ToString::to_string),
+            })
+            .send()
+            .await
+            .context("POST reject suggestion")?;
         decode_response(response).await
     }
 
