@@ -85,7 +85,7 @@ pub(crate) async fn summarize_suggestion_feedback(
     let row = sqlx::query(
         r#"
         SELECT
-            COUNT(CASE WHEN outcome_type = 'accepted_policy_changed' THEN 1 END) as accepted,
+            COUNT(CASE WHEN outcome_type = 'accepted_and_policy_changed' THEN 1 END) as accepted,
             COUNT(CASE WHEN outcome_type = 'rejected_not_useful' THEN 1 END) as rejected_not_useful,
             COUNT(CASE WHEN outcome_type = 'rejected_incorrect' THEN 1 END) as rejected_incorrect
         FROM suggestion_feedback sf

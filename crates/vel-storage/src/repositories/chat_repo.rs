@@ -429,7 +429,7 @@ fn map_intervention_row(row: &sqlx::sqlite::SqliteRow) -> Result<InterventionRec
         confidence: row.try_get("confidence")?,
         source_json: row.try_get("source_json")?,
         provenance_json: row.try_get("provenance_json")?,
-        created_at: row.try_get("created_at")?,
+        created_at: row.try_get("surfaced_at")?,
     })
 }
 

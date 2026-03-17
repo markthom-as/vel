@@ -18,7 +18,7 @@ pub(crate) async fn claim_due_loop(
             last_error = NULL
         WHERE loop_kind = ?
           AND enabled = 1
-          AND (last_status != 'running' OR last_started_at < ? - 300)
+          AND (last_status IS NULL OR last_status != 'running' OR last_started_at IS NULL OR last_started_at < ? - 300)
           AND (next_due_at IS NULL OR next_due_at <= ?)
         "#,
     )
@@ -56,7 +56,7 @@ pub(crate) async fn claim_due_loop(
                 last_error = NULL
             WHERE loop_kind = ?
               AND enabled = 1
-              AND last_status != 'running'
+              AND (last_status IS NULL OR last_status != 'running')
               AND (next_due_at IS NULL OR next_due_at <= ?)
             "#,
         )

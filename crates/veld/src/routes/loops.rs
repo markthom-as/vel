@@ -176,6 +176,12 @@ pub async fn update_loop(
     Path(loop_kind): Path<String>,
     Json(body): Json<LoopUpdateRequest>,
 ) -> Result<Json<ApiResponse<LoopData>>, AppError> {
+    if let Some(interval_seconds) = body.interval_seconds {
+        if interval_seconds <= 0 {
+            return Err(AppError::bad_request("interval_seconds must be positive"));
+        }
+    }
+
     let loop_kind = loop_kind.trim();
     let parsed_loop_kind = loop_kind
         .parse::<vel_core::LoopKind>()

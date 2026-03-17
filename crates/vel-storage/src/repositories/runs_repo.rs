@@ -254,7 +254,7 @@ pub(crate) async fn list_retry_ready_runs(
           ON e.run_id = latest.run_id AND e.seq = latest.max_seq
         WHERE r.status = ?
           AND CAST(json_extract(e.payload_json, '$.retry_at') AS INTEGER) <= ?
-          AND CAST(json_extract(e.payload_json, '$.attempt_count') AS INTEGER) <= ?
+          AND COALESCE(CAST(json_extract(e.payload_json, '$.attempt_count') AS INTEGER), 0) <= ?
         ORDER BY retry_at ASC, r.created_at ASC
         LIMIT ?
         "#,

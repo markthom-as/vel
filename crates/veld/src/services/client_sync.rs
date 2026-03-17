@@ -1170,45 +1170,52 @@ async fn queue_work_request(
 
     let existing = state.storage.list_work_assignments(Some(&work_request_id), None).await?;
     if let Some(latest) = existing.first() {
-        match latest.status {
-            WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started => {
-                if !is_stale_assignment(latest, now) {
+        let retry_policy = retry_policy_for_request_type(state, request_type);
+        let schedule = evaluate_queue_schedule(&existing, now, retry_policy);
+
+        if matches!(
+            latest.status,
+            WorkAssignmentStatus::Completed | WorkAssignmentStatus::Cancelled
+        ) {
+            return build_existing_routing_response(
+                state,
+                signal_type,
+                request_type,
+                &work_request_id,
+                match latest.status {
+                    WorkAssignmentStatus::Completed => "completed",
+                    WorkAssignmentStatus::Cancelled => "cancelled",
+                    _ => "completed",
+                },
+                &bootstrap.active_authority_node_id,
+                bootstrap.active_authority_epoch,
+                request_payload,
+            )
+            .await;
+        }
+
+        if let Some(claim_reason) = schedule.claim_reason.as_deref() {
+            match claim_reason {
+                "in_progress" | "stale_reclaim" | "retry_ready" | "retry_backoff" | "retry_exhausted" => {
                     return build_existing_routing_response(
                         state,
                         signal_type,
                         request_type,
                         &work_request_id,
-                        "in_progress",
+                        match claim_reason {
+                            "retry_ready" => "retry_ready",
+                            "retry_backoff" => "retry_backoff",
+                            "retry_exhausted" => "retry_exhausted",
+                            "stale_reclaim" => "stale_reclaim",
+                            _ => "in_progress",
+                        },
                         &bootstrap.active_authority_node_id,
                         bootstrap.active_authority_epoch,
                         request_payload,
                     )
                     .await;
                 }
-            }
-            WorkAssignmentStatus::Completed => {
-                return build_existing_routing_response(
-                    state,
-                    signal_type,
-                    request_type,
-                    &work_request_id,
-                    "completed",
-                    &bootstrap.active_authority_node_id,
-                    bootstrap.active_authority_epoch,
-                    request_payload,
-                )
-                .await;
-            }
-            WorkAssignmentStatus::Failed | WorkAssignmentStatus::Cancelled => {
-                let _ = state.storage.insert_work_assignment(WorkAssignmentInsert {
-                    receipt_id: None,
-                    work_request_id: work_request_id.clone(),
-                    worker_id: "".to_string(),
-                    worker_class: "".to_string(),
-                    capability: "".to_string(),
-                    status: WorkAssignmentStatus::Cancelled,
-                    assigned_at: now,
-                }).await;
+                _ => {}
             }
         }
     }
