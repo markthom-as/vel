@@ -56,6 +56,11 @@ struct InferenceState {
     mode: &'static str,
 }
 
+struct NextCommitmentSummary {
+    id: Option<String>,
+    due_at: Option<i64>,
+}
+
 /// **Recompute-and-persist.** Run inference once: compute morning state, meds status, prep window;
 /// build canonical current context; persist inferred_state and current_context; append to context_timeline on material change.
 /// Returns count of state records written. Only call from evaluate orchestration.
@@ -118,49 +123,13 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         recent_git_summary.is_some(),
     );
 
-    let next_commitment = select_next_commitment(&open_commitments, &risk_snapshots);
-    let next_commitment_id = next_commitment.map(|c| c.id.as_ref().to_string());
-    let next_commitment_due_at = next_commitment.and_then(|c| c.due_at.map(|t| t.unix_timestamp()));
-
-    let active_nudge_ids: Vec<String> = active_nudges
-        .iter()
-        .chain(snoozed_nudges.iter())
-        .map(|n| n.nudge_id.clone())
-        .collect();
-
-    let top_risk_commitment_ids: Vec<String> = risk_snapshots
-        .iter()
-        .map(|snapshot| snapshot.commitment_id.clone())
-        .take(10)
-        .collect();
-    let risk_used: Vec<String> = risk_snapshots
-        .iter()
-        .map(|snapshot| snapshot.commitment_id.clone())
-        .take(50)
-        .collect();
+    let next_commitment = summarize_next_commitment(&open_commitments, &risk_snapshots);
+    let active_nudge_ids = collect_active_nudge_ids(&active_nudges, &snoozed_nudges);
+    let (top_risk_commitment_ids, risk_used) = summarize_risk_usage(&risk_snapshots);
     let global_risk = derive_global_risk_summary(&risk_snapshots);
 
-    let signals_used: Vec<String> = signals_today
-        .iter()
-        .filter(|s| {
-            matches!(
-                s.signal_type.as_str(),
-                "calendar_event"
-                    | "vel_invocation"
-                    | "shell_login"
-                    | "computer_activity"
-                    | "git_activity"
-                    | "message_thread"
-            )
-        })
-        .take(50)
-        .map(|s| s.signal_id.clone())
-        .collect();
-    let commitments_used: Vec<String> = open_commitments
-        .iter()
-        .take(20)
-        .map(|c| c.id.as_ref().to_string())
-        .collect();
+    let signals_used = collect_signals_used(&signals_today);
+    let commitments_used = collect_commitments_used(&open_commitments);
 
     let attention = derive_attention_state(
         inference_state.morning_state,
@@ -173,8 +142,8 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         inference_state.mode,
         inference_state.morning_state,
         inference_state.inferred_activity,
-        next_commitment_id,
-        next_commitment_due_at,
+        next_commitment.id,
+        next_commitment.due_at,
         meds_status,
         &active_nudge_ids,
         &top_risk_commitment_ids,
@@ -191,6 +160,70 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     persist_inference_outputs(storage, now_ts, inference_state.morning_state, &context).await?;
 
     Ok(1)
+}
+
+fn summarize_next_commitment(
+    open_commitments: &[vel_core::Commitment],
+    risk_snapshots: &[RiskSnapshot],
+) -> NextCommitmentSummary {
+    let next_commitment = select_next_commitment(open_commitments, risk_snapshots);
+    NextCommitmentSummary {
+        id: next_commitment.map(|commitment| commitment.id.as_ref().to_string()),
+        due_at: next_commitment
+            .and_then(|commitment| commitment.due_at.map(|value| value.unix_timestamp())),
+    }
+}
+
+fn collect_active_nudge_ids(
+    active_nudges: &[vel_storage::NudgeRecord],
+    snoozed_nudges: &[vel_storage::NudgeRecord],
+) -> Vec<String> {
+    active_nudges
+        .iter()
+        .chain(snoozed_nudges.iter())
+        .map(|nudge| nudge.nudge_id.clone())
+        .collect()
+}
+
+fn summarize_risk_usage(risk_snapshots: &[RiskSnapshot]) -> (Vec<String>, Vec<String>) {
+    let top_risk_commitment_ids = risk_snapshots
+        .iter()
+        .map(|snapshot| snapshot.commitment_id.clone())
+        .take(10)
+        .collect();
+    let risk_used = risk_snapshots
+        .iter()
+        .map(|snapshot| snapshot.commitment_id.clone())
+        .take(50)
+        .collect();
+    (top_risk_commitment_ids, risk_used)
+}
+
+fn collect_signals_used(signals_today: &[vel_storage::SignalRecord]) -> Vec<String> {
+    signals_today
+        .iter()
+        .filter(|signal| {
+            matches!(
+                signal.signal_type.as_str(),
+                "calendar_event"
+                    | "vel_invocation"
+                    | "shell_login"
+                    | "computer_activity"
+                    | "git_activity"
+                    | "message_thread"
+            )
+        })
+        .take(50)
+        .map(|signal| signal.signal_id.clone())
+        .collect()
+}
+
+fn collect_commitments_used(open_commitments: &[vel_core::Commitment]) -> Vec<String> {
+    open_commitments
+        .iter()
+        .take(20)
+        .map(|commitment| commitment.id.as_ref().to_string())
+        .collect()
 }
 
 fn derive_inference_state(
@@ -675,10 +708,7 @@ fn is_externally_anchored(commitment: &vel_core::Commitment) -> bool {
     commitment.source_type == "calendar" || matches!(kind, "meeting" | "prep" | "commute")
 }
 
-fn commitment_risk_rank(
-    commitment: &vel_core::Commitment,
-    risk_snapshots: &[RiskSnapshot],
-) -> u32 {
+fn commitment_risk_rank(commitment: &vel_core::Commitment, risk_snapshots: &[RiskSnapshot]) -> u32 {
     risk_snapshots
         .iter()
         .find(|snapshot| snapshot.commitment_id == commitment.id.as_ref())
@@ -880,8 +910,7 @@ mod tests {
             test_commitment("com_sooner", Some(now_ts + 900), None),
         ];
 
-        let selected =
-            select_next_commitment(&commitments, &[]).expect("expected a commitment");
+        let selected = select_next_commitment(&commitments, &[]).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_sooner");
     }
@@ -909,8 +938,8 @@ mod tests {
             computed_at: Some(now_ts),
         }];
 
-        let selected = select_next_commitment(&commitments, &risk_snapshots)
-            .expect("expected a commitment");
+        let selected =
+            select_next_commitment(&commitments, &risk_snapshots).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_meeting");
     }
@@ -987,10 +1016,23 @@ mod tests {
             test_commitment("com_anchored", None, Some("meeting")),
         ];
 
-        let selected =
-            select_next_commitment(&commitments, &[]).expect("expected a commitment");
+        let selected = select_next_commitment(&commitments, &[]).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_anchored");
+    }
+
+    #[test]
+    fn summarize_next_commitment_carries_id_and_due_at() {
+        let now_ts = 1_700_000_000;
+        let commitments = vec![
+            test_commitment("com_later", Some(now_ts + 7200), None),
+            test_commitment("com_sooner", Some(now_ts + 900), None),
+        ];
+
+        let summary = summarize_next_commitment(&commitments, &[]);
+
+        assert_eq!(summary.id.as_deref(), Some("com_sooner"));
+        assert_eq!(summary.due_at, Some(now_ts + 900));
     }
 
     #[test]
