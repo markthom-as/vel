@@ -7,6 +7,7 @@ import { SuggestionsView } from './SuggestionsView'
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
   apiPatch: vi.fn(),
+  apiPost: vi.fn(),
 }))
 
 describe('SuggestionsView', () => {
@@ -17,6 +18,7 @@ describe('SuggestionsView', () => {
     let listCalls = 0
     vi.mocked(api.apiGet).mockReset()
     vi.mocked(api.apiPatch).mockReset()
+    vi.mocked(api.apiPost).mockReset()
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
       if (path === '/v1/suggestions?state=pending&limit=50') {
         listCalls += 1
@@ -60,6 +62,32 @@ describe('SuggestionsView', () => {
               ]
             : [],
           meta: { request_id: `req_list_${listCalls}` },
+        } as never
+      }
+      if (path === '/v1/uncertainty?status=open&limit=50') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'unc_1',
+              subject_type: 'suggestion_candidate',
+              subject_id: 'followup_block',
+              decision_kind: 'add_followup_block',
+              confidence_band: 'borderline',
+              confidence_score: 0.47,
+              reasons: {
+                summary: 'Weak evidence for follow-up scheduling',
+              },
+              missing_evidence: {
+                needed: ['recent_response_debt'],
+              },
+              resolution_mode: 'operator_review',
+              status: 'open',
+              created_at: 1710000100,
+              resolved_at: null,
+            },
+          ],
+          meta: { request_id: 'req_uncertainty_list' },
         } as never
       }
       if (path === '/v1/suggestions/sug_1') {
@@ -153,6 +181,34 @@ describe('SuggestionsView', () => {
       },
       meta: { request_id: 'req_patch' },
     }) as never)
+
+    vi.mocked(api.apiPost).mockImplementation(async (path: string) => {
+      if (path === '/v1/uncertainty/unc_1/resolve') {
+        return {
+          ok: true,
+          data: {
+            id: 'unc_1',
+            subject_type: 'suggestion_candidate',
+            subject_id: 'followup_block',
+            decision_kind: 'add_followup_block',
+            confidence_band: 'borderline',
+            confidence_score: 0.47,
+            reasons: {
+              summary: 'Weak evidence for follow-up scheduling',
+            },
+            missing_evidence: {
+              needed: ['recent_response_debt'],
+            },
+            resolution_mode: 'operator_review',
+            status: 'resolved',
+            created_at: 1710000100,
+            resolved_at: 1710000200,
+          },
+          meta: { request_id: 'req_uncertainty_resolve' },
+        } as never
+      }
+      throw new Error(`unexpected apiPost path: ${path}`)
+    })
   })
 
   it('renders pending suggestions, loads detail, and accepts a suggestion', async () => {
@@ -179,7 +235,32 @@ describe('SuggestionsView', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('No pending suggestions right now.')).toBeInTheDocument()
+      expect(screen.queryByText('Pending suggestions')).toBeNull()
+    })
+
+    expect(screen.getAllByText('Deferred uncertainty').length).toBeGreaterThan(0)
+  })
+
+  it('renders open uncertainty records and resolves one', async () => {
+    render(<SuggestionsView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Deferred uncertainty')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /add followup block/i }))
+
+    expect(screen.getByText(/Subject: followup_block/i)).toBeInTheDocument()
+    expect(screen.getByText('Missing evidence')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /mark resolved/i }))
+
+    await waitFor(() => {
+      expect(vi.mocked(api.apiPost)).toHaveBeenCalledWith(
+        '/v1/uncertainty/unc_1/resolve',
+        {},
+        expect.any(Function),
+      )
     })
   })
 })

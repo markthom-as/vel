@@ -18,6 +18,7 @@ import {
   decodeRunSummaryData,
   decodeSettingsData,
   decodeSuggestionData,
+  decodeUncertaintyData,
   decodeWsEvent,
 } from './types'
 
@@ -580,6 +581,38 @@ describe('transport decoders', () => {
       last_status: 'success',
       last_error: null,
       next_due_at: 1710000300,
+    })
+  })
+
+  it('decodes uncertainty payloads', () => {
+    expect(
+      decodeUncertaintyData({
+        id: 'unc_1',
+        subject_type: 'suggestion_candidate',
+        subject_id: 'followup_block',
+        decision_kind: 'add_followup_block',
+        confidence_band: 'borderline',
+        confidence_score: 0.47,
+        reasons: { summary: 'Weak evidence for follow-up scheduling' },
+        missing_evidence: { needed: ['recent_response_debt'] },
+        resolution_mode: 'operator_review',
+        status: 'open',
+        created_at: 1710000100,
+        resolved_at: null,
+      }),
+    ).toEqual({
+      id: 'unc_1',
+      subject_type: 'suggestion_candidate',
+      subject_id: 'followup_block',
+      decision_kind: 'add_followup_block',
+      confidence_band: 'borderline',
+      confidence_score: 0.47,
+      reasons: { summary: 'Weak evidence for follow-up scheduling' },
+      missing_evidence: { needed: ['recent_response_debt'] },
+      resolution_mode: 'operator_review',
+      status: 'open',
+      created_at: 1710000100,
+      resolved_at: null,
     })
   })
 
