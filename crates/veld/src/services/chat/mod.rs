@@ -1,4 +1,5 @@
 pub mod assistant;
+pub mod conversations;
 pub mod events;
 pub mod interventions;
 pub mod mapping;

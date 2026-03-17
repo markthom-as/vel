@@ -11,19 +11,19 @@ use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, ConversationCreateRequest, ConversationData, ConversationUpdateRequest,
     CreateMessageResponse, InboxItemData, InterventionActionData, MessageCreateRequest,
-    MessageData, ProvenanceData, ProvenanceEvent, WsEventType,
+    MessageData, ProvenanceData, ProvenanceEvent,
 };
-use vel_storage::ConversationInsert;
 
-use crate::broadcast::WsEnvelope;
 use crate::services::chat::{
-    assistant::generate_assistant_reply,
-    events::emit_chat_event,
+    conversations::{
+        create_conversation as create_conversation_data,
+        update_conversation as update_conversation_data,
+    },
     interventions::{dismiss_intervention, resolve_intervention, snooze_intervention},
     mapping::{
         conversation_record_to_data, intervention_record_to_inbox_item, message_record_to_data,
     },
-    messages::create_user_message,
+    messages::create_message_response,
     provenance::{build_linked_objects, build_policy_decisions, build_provenance_signals},
     settings::settings_payload,
 };
@@ -52,36 +52,9 @@ pub async fn create_conversation(
     State(state): State<AppState>,
     Json(payload): Json<ConversationCreateRequest>,
 ) -> Result<Json<ApiResponse<ConversationData>>, AppError> {
-    let id = format!("conv_{}", Uuid::new_v4().simple());
-    let kind = payload.kind.clone();
-    state
-        .storage
-        .create_conversation(ConversationInsert {
-            id: id.clone(),
-            title: payload.title,
-            kind: kind.clone(),
-            pinned: false,
-            archived: false,
-        })
-        .await?;
-    emit_chat_event(
-        &state,
-        "conversation.created",
-        "conversation",
-        &id,
-        serde_json::json!({ "id": id, "kind": kind }),
-    )
-    .await;
-    let conv = state
-        .storage
-        .get_conversation(&id)
-        .await?
-        .ok_or_else(|| AppError::internal("conversation not found after create"))?;
+    let conv = create_conversation_data(&state, payload).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        conversation_record_to_data(conv),
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(conv, request_id)))
 }
 
 pub async fn get_conversation(
@@ -105,34 +78,9 @@ pub async fn update_conversation(
     Path(id): Path<String>,
     Json(payload): Json<ConversationUpdateRequest>,
 ) -> Result<Json<ApiResponse<ConversationData>>, AppError> {
-    let id = id.trim();
-    if let Some(title) = payload.title {
-        state.storage.rename_conversation(id, &title).await?;
-    }
-    if let Some(pinned) = payload.pinned {
-        state.storage.pin_conversation(id, pinned).await?;
-    }
-    if let Some(archived) = payload.archived {
-        state.storage.archive_conversation(id, archived).await?;
-    }
-    emit_chat_event(
-        &state,
-        "conversation.updated",
-        "conversation",
-        id,
-        serde_json::json!({ "id": id }),
-    )
-    .await;
-    let conv = state
-        .storage
-        .get_conversation(id)
-        .await?
-        .ok_or_else(|| AppError::not_found("conversation not found"))?;
+    let conv = update_conversation_data(&state, id.trim(), payload).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        conversation_record_to_data(conv),
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(conv, request_id)))
 }
 
 // --- Message handlers ---
@@ -165,48 +113,7 @@ pub async fn create_message(
     Path(conversation_id): Path<String>,
     Json(payload): Json<MessageCreateRequest>,
 ) -> Result<Json<ApiResponse<CreateMessageResponse>>, AppError> {
-    let conversation_id = conversation_id.trim();
-    let created_message = create_user_message(&state, conversation_id, &payload).await?;
-
-    let (assistant_message, assistant_error) = if let (Some(router), Some(profile_id)) =
-        (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
-    {
-        tracing::info!(conversation_id = %conversation_id, "calling LLM for assistant reply");
-        match generate_assistant_reply(
-            &state,
-            conversation_id,
-            profile_id,
-            state.chat_fallback_profile_id.as_deref(),
-            router,
-        )
-        .await
-        {
-            Ok(Some(assistant_data)) => {
-                let payload = serde_json::to_value(&assistant_data).unwrap_or_default();
-                let _ = state
-                    .broadcast_tx
-                    .send(WsEnvelope::new(WsEventType::MessagesNew, payload));
-                (Some(assistant_data), None)
-            }
-            Ok(None) => (None, None),
-            Err(e) => {
-                let msg = e.to_string();
-                tracing::error!(error = %e, "assistant reply failed");
-                (None, Some(msg))
-            }
-        }
-    } else {
-        (
-            None,
-            Some("Chat model not configured. Set VEL_LLM_MODEL and run llama-server, or see configs/models/README.md.".to_string()),
-        )
-    };
-
-    let response = CreateMessageResponse {
-        user_message: created_message,
-        assistant_message,
-        assistant_error,
-    };
+    let response = create_message_response(&state, conversation_id.trim(), &payload).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(response, request_id)))
 }
