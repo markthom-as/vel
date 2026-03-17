@@ -4118,6 +4118,8 @@ END:VCALENDAR
         assert_eq!(updated.project.as_deref(), Some("proj-1"));
         assert_eq!(updated.commitment_kind.as_deref(), Some("medication"));
         assert!(updated.resolved_at.is_none());
+        assert_eq!(updated.metadata_json["priority"], 1);
+        assert_eq!(updated.metadata_json["has_due_time"], true);
 
         let _ = std::fs::remove_file(&file_path);
     }
@@ -5305,6 +5307,143 @@ END:VCALENDAR
             "Design review"
         );
         assert_eq!(json["data"]["freshness"]["sources"][0]["key"], "context");
+    }
+
+    #[tokio::test]
+    async fn now_endpoint_prioritizes_urgent_todoist_tasks() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc();
+        let due_today = now + time::Duration::hours(2);
+        let overdue = now - time::Duration::hours(1);
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Backlog cleanup".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: Some("todo_backlog".to_string()),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({ "priority": 1 })),
+            })
+            .await
+            .unwrap();
+        let overdue_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Follow up with finance".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: Some("todo_overdue".to_string()),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: Some(overdue),
+                project: None,
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({
+                    "priority": 2,
+                    "has_due_time": true
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Take meds".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: Some("todo_meds".to_string()),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: Some(due_today),
+                project: None,
+                commitment_kind: Some("medication".to_string()),
+                metadata_json: Some(serde_json::json!({
+                    "priority": 4,
+                    "has_due_time": true
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Prep interview packet".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: Some("todo_due_today".to_string()),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: Some(due_today),
+                project: None,
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({
+                    "priority": 1,
+                    "has_due_time": true
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now.unix_timestamp(),
+                &serde_json::json!({
+                    "mode": "day_mode",
+                    "morning_state": "engaged",
+                    "meds_status": "pending",
+                    "global_risk_level": "low",
+                    "global_risk_score": 0.21,
+                    "attention_state": "on_task",
+                    "drift_type": "none",
+                    "drift_severity": "none",
+                    "attention_confidence": 0.9,
+                    "next_commitment_id": overdue_id.as_ref()
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let tasks = json["data"]["tasks"]["todoist"]
+            .as_array()
+            .expect("todoist tasks should be an array");
+        let ordered_texts = tasks
+            .iter()
+            .map(|task| {
+                task["text"]
+                    .as_str()
+                    .expect("task text should be present")
+                    .to_string()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            ordered_texts,
+            vec![
+                "Take meds".to_string(),
+                "Follow up with finance".to_string(),
+                "Prep interview packet".to_string(),
+                "Backlog cleanup".to_string(),
+            ]
+        );
+        assert_eq!(
+            json["data"]["tasks"]["next_commitment"]["text"],
+            "Follow up with finance"
+        );
     }
 
     #[tokio::test]
