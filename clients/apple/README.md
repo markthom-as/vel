@@ -17,7 +17,7 @@ Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-cl
 On Linux or any host without Xcode, the repo Nix shell now includes the Swift toolchain for package-level checks:
 
 ```bash
-nix-shell --run 'cd clients/apple/VelAPI && swift --version && swift build'
+make check-apple-swift
 ```
 
 This is useful for validating the shared `VelAPI` package, but full app builds still require Xcode on macOS.

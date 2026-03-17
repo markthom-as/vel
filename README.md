@@ -29,6 +29,7 @@ From the repo root:
 | `make verify` | Run repository truth check, Rust fmt/clippy checks, and Rust/web test/lint checks. |
 | `make ci` | Run the same command set as CI for local verification (`install-web`, checks, tests, and build). |
 | `make smoke` | Run a daemon/API/CLI smoke check (healthy startup, capture/search/recent today-flow). |
+| `make check-apple-swift` | Verify the shared Apple `VelAPI` package builds inside the repo Nix shell. |
 | `make install-web` | Install web dependencies in `clients/web` (`npm ci`). |
 | `make bootstrap-demo-data` | Populate a local API with starter captures/commitments (`scripts/bootstrap-demo-data.sh`). |
 
