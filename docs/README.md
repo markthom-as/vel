@@ -28,6 +28,8 @@ These files describe the current implementation sequence and near-term convergen
 
 - [tickets/README.md](tickets/README.md): ticket-pack inventory, maturity index, and triage entry point
 - [tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md): current audit-derived hardening and modularization sequence
+- [architecture-inventory.md](architecture-inventory.md): current architecture inventory, drift map, and extraction-seam audit
+- [future-architecture-map.md](future-architecture-map.md): planned future architecture synthesis paired with the current inventory; not shipped-behavior authority
 - [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md): one active convergence packet for architecture and cleanup work
 - [roadmap.md](roadmap.md): broader product direction, subordinate to `status.md` for shipped behavior
 

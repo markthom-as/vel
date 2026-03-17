@@ -34,6 +34,11 @@ The main goals are:
 3. normalize pack maturity and authority,
 4. create a big-picture architecture map before major decomposition.
 
+Current map outputs:
+
+- [docs/architecture-inventory.md](../../architecture-inventory.md): current-state architecture inventory and drift audit
+- [docs/future-architecture-map.md](../../future-architecture-map.md): future-facing synthesis that active decomposition work should converge toward
+
 ## Pack schema
 
 This pack uses the following pack-level metadata:

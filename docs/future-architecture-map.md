@@ -17,6 +17,35 @@ Use them together:
 
 This document does not override [docs/status.md](status.md) for shipped behavior.
 
+It also does not rename the current codebase.
+
+When this document uses service names such as `context_service`, `agent_runtime_service`, or `project_workspace_projection_service`, those are target architectural boundaries, not claims that those exact modules or crates already exist today.
+
+### 1.1 Current-code anchor points
+
+This future map must stay compatible with the current runtime shape:
+
+- `vel-core` remains the domain-semantics boundary
+- `vel-storage` remains the persistence boundary
+- `vel-api-types` remains the transport DTO boundary
+- `veld` remains the canonical runtime and orchestration process
+- route handlers are still thin HTTP boundaries over `veld` services
+- current context remains the shipped present-tense authority
+- run lifecycle and work-receipt lifecycle are both real shipped control-plane primitives
+
+If a proposed future boundary contradicts those current anchors, that proposal should be treated as wrong or premature until `docs/status.md` says otherwise.
+
+### 1.2 Active-work alignment
+
+This document should be read together with the active convergence and expansion lanes that are already shaping the repo:
+
+- [docs/tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md) for architecture cleanup, module extraction planning, and doc-truth work
+- [docs/tickets/repo-feedback/README.md](tickets/repo-feedback/README.md) for current convergence and boundary correction work
+- [docs/tickets/multi-client-swarm/README.md](tickets/multi-client-swarm/README.md) for planned distributed execution and cluster orchestration
+- [docs/specs/vel-cluster-sync-spec.md](specs/vel-cluster-sync-spec.md) and [docs/specs/vel-multi-client-swarm-spec.md](specs/vel-multi-client-swarm-spec.md) for the still-planned distributed/runtime direction
+
+The map is only useful if it helps those active workstreams converge on one architecture rather than fork into parallel partial designs.
+
 ## 2. Core Future Principle
 
 Vel should converge on:
@@ -140,6 +169,11 @@ Unification rule:
 - agents, Navs, workers, and subagents should collapse into one supervised execution model
 - they are different roles in one runtime, not separate planner species
 
+Current-code alignment:
+
+- this future plane must extend the shipped run lifecycle, retry lifecycle, worker loop machinery, and queued-work receipt model instead of inventing a second execution ledger
+- execution control should converge around shared receipts, capabilities, decision traces, and durable artifacts rather than one-off route-specific control paths
+
 ### 4.4 Integration substrate
 
 This is the provider-aware edge of the system.
@@ -154,17 +188,28 @@ It should own:
 - people and external identity graph
 - sync state and sync history
 - provider-specific normalization and writeback modules
+- host capability contracts for client-specific affordances
 
 Canonical model:
 
 - family
 - provider
 - connection
+- capability contract
+- host adapter
 
 Guardrail:
 
 - treat “plugin” as packaging, not ontology
 - the family/provider/connection model is the real substrate
+- do not bind integration semantics to a single client host
+- clients should advertise capabilities such as auth handoff, notifications, local file access, background sync, and device-native capture
+- the same integration family should be runnable across desktop, mobile, web, CLI, or server-hosted surfaces when the required capabilities exist
+
+Current-code alignment:
+
+- the future substrate must remain compatible with the shipped family/provider/connection direction already visible in `vel-core::integration` and the partially shipped cluster/sync surfaces described in [docs/status.md](status.md)
+- provider-specific work should continue to normalize into canonical signals, commitments, refs, and context inputs rather than bypassing the runtime with ad hoc client-owned state
 
 ### 4.5 Project and session control plane
 
@@ -227,6 +272,10 @@ Separation rule:
 
 ## 5. Planned Service Subdivision
 
+These are target seams for future decomposition.
+
+They are not evidence that the current repo already has one-file-per-service or one-crate-per-service boundaries today.
+
 ### 5.1 Services that should remain in `veld` for a long time
 
 These are canonical-brain responsibilities and should not fork early:
@@ -260,7 +309,18 @@ These are clear boundaries, but should stabilize inside `veld` before crate or p
 - `notification_projection_service`
 - `voice_projection_service`
 
-### 5.3 Services that are good later crate candidates
+### 5.3 Translation to today’s code
+
+Today, many of these future service seams still live inside broader modules under `crates/veld/src/services`, `crates/veld/src/routes`, `crates/veld/src/worker.rs`, and the large DTO/storage files noted in [docs/architecture-inventory.md](architecture-inventory.md).
+
+That means the practical use of this map is:
+
+- clarify target ownership before extraction
+- prevent new code from deepening current file concentration
+- keep active cleanup tickets pointed toward one future shape
+- avoid claiming that planned subsystem names are already shipped module boundaries
+
+### 5.4 Services that are good later crate candidates
 
 After contracts are exercised and stable:
 
@@ -272,7 +332,7 @@ After contracts are exercised and stable:
 - `placement_engine`
 - `metadata_enrichment`
 
-### 5.4 Services that are likely separate processes later
+### 5.5 Services that are likely separate processes later
 
 Not early, but eventually defensible:
 
@@ -321,6 +381,7 @@ Guardrail:
 - suggestion logic
 - thread and project/session semantics
 - provider and connection registry
+- integration capability contracts
 - person identity resolution
 - metadata enrichment decisions
 - provenance and explainability
@@ -335,11 +396,14 @@ Guardrail:
 - HealthKit/EventKit/watch connectivity
 - local cache and optimistic mutation queue
 - widgets and complications
+- client host adapters for capabilities exposed to the integration substrate
 
 ### 7.3 Shared client guardrails
 
 - clients may cache and project
 - clients must not own business logic for context, risk, or policy
+- clients must not become the only place an integration can run unless the capability is inherently device-bound
+- integration APIs and domain types must stay host-agnostic and capability-based
 - watch/widget/mobile surfaces must consume backend-shaped state instead of deriving domain rules locally
 - HTTP/API boundary remains the default before embedded Rust
 
