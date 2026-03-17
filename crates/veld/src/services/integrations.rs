@@ -1572,3 +1572,116 @@ struct TodoistPage<T> {
     #[serde(default)]
     next_cursor: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_sqlite_path(prefix: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("vel-{prefix}-{nanos}.sqlite"))
+    }
+
+    #[tokio::test]
+    async fn google_credentials_persist_across_storage_reopen() {
+        let db_path = unique_sqlite_path("google-creds");
+        let db_path_string = db_path.to_string_lossy().to_string();
+
+        {
+            let storage = Storage::connect(&db_path_string).await.unwrap();
+            storage.migrate().await.unwrap();
+
+            update_google_settings(
+                &storage,
+                Some("google-client-id".to_string()),
+                Some("google-client-secret".to_string()),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        }
+
+        {
+            let storage = Storage::connect(&db_path_string).await.unwrap();
+            storage.migrate().await.unwrap();
+
+            let integrations = get_integrations(&storage).await.unwrap();
+            assert!(integrations.google_calendar.has_client_id);
+            assert!(integrations.google_calendar.has_client_secret);
+
+            let all_settings = storage.get_all_settings().await.unwrap();
+            let public_settings = all_settings
+                .get(GOOGLE_SETTINGS_KEY)
+                .expect("google public settings should exist")
+                .clone();
+            let secret_settings = all_settings
+                .get(GOOGLE_SECRETS_KEY)
+                .expect("google secret settings should exist")
+                .clone();
+
+            assert_eq!(public_settings.get("client_id").and_then(|v| v.as_str()), Some("google-client-id"));
+            assert_eq!(
+                public_settings.get("client_secret"),
+                None,
+                "public google settings must not contain the client secret"
+            );
+            assert_eq!(
+                secret_settings.get("client_secret").and_then(|v| v.as_str()),
+                Some("google-client-secret")
+            );
+        }
+
+        let _ = std::fs::remove_file(&db_path);
+    }
+
+    #[tokio::test]
+    async fn todoist_token_persists_across_storage_reopen() {
+        let db_path = unique_sqlite_path("todoist-creds");
+        let db_path_string = db_path.to_string_lossy().to_string();
+
+        {
+            let storage = Storage::connect(&db_path_string).await.unwrap();
+            storage.migrate().await.unwrap();
+
+            update_todoist_settings(&storage, Some("todoist-secret-token".to_string()))
+                .await
+                .unwrap();
+        }
+
+        {
+            let storage = Storage::connect(&db_path_string).await.unwrap();
+            storage.migrate().await.unwrap();
+
+            let integrations = get_integrations(&storage).await.unwrap();
+            assert!(integrations.todoist.has_api_token);
+
+            let all_settings = storage.get_all_settings().await.unwrap();
+            let public_settings = all_settings
+                .get(TODOIST_SETTINGS_KEY)
+                .expect("todoist public settings should exist")
+                .clone();
+            let secret_settings = all_settings
+                .get(TODOIST_SECRETS_KEY)
+                .expect("todoist secret settings should exist")
+                .clone();
+
+            assert_eq!(
+                public_settings.get("api_token"),
+                None,
+                "public todoist settings must not contain the API token"
+            );
+            assert_eq!(
+                secret_settings.get("api_token").and_then(|v| v.as_str()),
+                Some("todoist-secret-token")
+            );
+        }
+
+        let _ = std::fs::remove_file(&db_path);
+    }
+}

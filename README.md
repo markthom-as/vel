@@ -41,6 +41,8 @@ Vel stores local development data under `var/` by default:
 - database: `var/data/vel.sqlite`
 - artifacts: `var/artifacts`
 - logs: `var/logs`
+- integration credentials: persisted in the local SQLite settings store under `var/data/vel.sqlite`; secret values are kept out of the public `/api/integrations` payloads
+- Git safety: `var/` is ignored by Git, so saved local credentials survive restarts without being tracked in the repo
 - Use `scripts/bootstrap-demo-data.sh` to prefill a local database/API with demo captures and commitments.
 
 Example CLI commands (veld must be running for health/capture/search/context):
