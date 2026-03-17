@@ -1,5 +1,5 @@
 use reqwest::Url;
-use time::{Duration, OffsetDateTime, format_description::well_known::Rfc3339};
+use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 use vel_api_types::GoogleCalendarAuthStartData;
 use vel_config::AppConfig;

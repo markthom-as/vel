@@ -1789,11 +1789,9 @@ mod tests {
         .await
         .unwrap_err();
 
-        assert!(
-            error
-                .to_string()
-                .contains("validation profile unknown-profile is not available on this node")
-        );
+        assert!(error
+            .to_string()
+            .contains("validation profile unknown-profile is not available on this node"));
     }
 
     #[test]
@@ -1803,15 +1801,11 @@ mod tests {
         let profiles = validation_profiles(&repo_root);
 
         assert!(capabilities.iter().any(|cap| cap == "build_test_profiles"));
-        assert!(
-            profiles
-                .iter()
-                .any(|profile| profile.profile_id == "repo-verify")
-        );
-        assert!(
-            profiles
-                .iter()
-                .any(|profile| profile.profile_id == "api-test")
-        );
+        assert!(profiles
+            .iter()
+            .any(|profile| profile.profile_id == "repo-verify"));
+        assert!(profiles
+            .iter()
+            .any(|profile| profile.profile_id == "api-test"));
     }
 }

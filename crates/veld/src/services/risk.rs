@@ -5,7 +5,7 @@
 //! Read routes (GET /v1/risk, GET /v1/explain/*) use storage only (list_commitment_risk_*).
 
 use vel_core::{
-    Commitment, CommitmentStatus, RiskFactors, RiskSnapshot, sort_snapshots_by_priority_desc,
+    sort_snapshots_by_priority_desc, Commitment, CommitmentStatus, RiskFactors, RiskSnapshot,
 };
 use vel_storage::Storage;
 

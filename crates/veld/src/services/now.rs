@@ -1,4 +1,4 @@
-use serde_json::{Value as JsonValue, json};
+use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_api_types::{
     NowAttentionData, NowData, NowDebugData, NowEventData, NowFreshnessData, NowFreshnessEntryData,
@@ -6,7 +6,7 @@ use vel_api_types::{
     NowSummaryData, NowTaskData, NowTasksData,
 };
 use vel_config::AppConfig;
-use vel_core::{Commitment, CommitmentStatus, normalize_risk_level};
+use vel_core::{normalize_risk_level, Commitment, CommitmentStatus};
 use vel_storage::{SignalRecord, Storage};
 
 use crate::{errors::AppError, services::integrations};

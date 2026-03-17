@@ -1,6 +1,6 @@
 use axum::{
-    Router,
     routing::{get, post},
+    Router,
 };
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
@@ -1548,16 +1548,12 @@ mod tests {
         let payload: vel_api_types::ApiResponse<Vec<vel_api_types::LoopData>> =
             serde_json::from_slice(&body).unwrap();
         let loops = payload.data.unwrap();
-        assert!(
-            loops
-                .iter()
-                .any(|loop_data| loop_data.kind == "evaluate_current_state")
-        );
-        assert!(
-            loops
-                .iter()
-                .any(|loop_data| loop_data.kind == "sync_calendar")
-        );
+        assert!(loops
+            .iter()
+            .any(|loop_data| loop_data.kind == "evaluate_current_state"));
+        assert!(loops
+            .iter()
+            .any(|loop_data| loop_data.kind == "sync_calendar"));
     }
 
     #[tokio::test]
@@ -1874,11 +1870,9 @@ mod tests {
             json["data"]["intent_hints"]["mode"].as_str(),
             Some("execute")
         );
-        assert!(
-            json["data"]["planned_records"]
-                .as_array()
-                .is_some_and(|records| records.is_empty())
-        );
+        assert!(json["data"]["planned_records"]
+            .as_array()
+            .is_some_and(|records| records.is_empty()));
         assert_eq!(json["data"]["validation"]["is_valid"].as_bool(), Some(true));
         assert_eq!(
             json["data"]["steps"][2]["title"].as_str(),
@@ -2428,20 +2422,16 @@ mod tests {
             created_again, 0,
             "resolved uncertainty should suppress immediate recreation of the same deferred candidate"
         );
-        assert!(
-            storage
-                .list_uncertainty_records(Some("open"), 10)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-        assert!(
-            storage
-                .list_suggestions(Some("pending"), 10)
-                .await
-                .unwrap()
-                .is_empty()
-        );
+        assert!(storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap()
+            .is_empty());
+        assert!(storage
+            .list_suggestions(Some("pending"), 10)
+            .await
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]
@@ -2568,12 +2558,11 @@ mod tests {
         assert_eq!(art.storage_kind, vel_core::ArtifactStorageKind::Managed);
         assert_eq!(art.artifact_type, "context_brief");
         assert!(art.storage_uri.contains("context/today"));
-        assert!(
-            art.content_hash
-                .as_deref()
-                .map(|h| h.starts_with("sha256:"))
-                .unwrap_or(false)
-        );
+        assert!(art
+            .content_hash
+            .as_deref()
+            .map(|h| h.starts_with("sha256:"))
+            .unwrap_or(false));
     }
 
     #[tokio::test]
@@ -2956,12 +2945,10 @@ mod tests {
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert!(
-            json["error"]["message"]
-                .as_str()
-                .expect("error message should be present")
-                .contains("allow_unsupported_retry=true")
-        );
+        assert!(json["error"]["message"]
+            .as_str()
+            .expect("error message should be present")
+            .contains("allow_unsupported_retry=true"));
 
         let run = storage
             .get_run_by_id(run_id.as_ref())
@@ -5120,11 +5107,9 @@ mod tests {
         );
         assert_eq!(commute_buf[0]["confidence"].as_str(), Some("medium"));
         assert_eq!(commute_buf[0]["evidence_count"].as_u64(), Some(3));
-        assert!(
-            commute_buf[0]["decision_context_summary"]
-                .as_str()
-                .is_some()
-        );
+        assert!(commute_buf[0]["decision_context_summary"]
+            .as_str()
+            .is_some());
 
         let suggestion_id = commute_buf[0]["id"]
             .as_str()
@@ -5487,14 +5472,12 @@ mod tests {
             .unwrap();
         assert_eq!(feedback.len(), 1);
         assert_eq!(feedback[0].outcome_type, "accepted_no_effect");
-        assert!(
-            storage
-                .get_all_settings()
-                .await
-                .unwrap()
-                .get("adaptive_policy_overrides")
-                .is_none()
-        );
+        assert!(storage
+            .get_all_settings()
+            .await
+            .unwrap()
+            .get("adaptive_policy_overrides")
+            .is_none());
     }
 
     #[tokio::test]
@@ -5670,11 +5653,9 @@ mod tests {
             .iter()
             .find(|suggestion| suggestion.suggestion_type == "add_followup_block")
             .expect("follow-up suggestion should exist");
-        assert!(
-            suggestions
-                .iter()
-                .all(|suggestion| suggestion.suggestion_type != "increase_commute_buffer")
-        );
+        assert!(suggestions
+            .iter()
+            .all(|suggestion| suggestion.suggestion_type != "increase_commute_buffer"));
         assert!(followup.priority > 50);
         let uncertainties = storage
             .list_uncertainty_records(Some("open"), 10)
@@ -5895,12 +5876,10 @@ mod tests {
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["ok"].as_bool().unwrap());
-        assert!(
-            json["data"]
-                .as_array()
-                .map(|a| a.is_empty())
-                .unwrap_or(false)
-        );
+        assert!(json["data"]
+            .as_array()
+            .map(|a| a.is_empty())
+            .unwrap_or(false));
     }
 
     #[tokio::test]
@@ -6072,12 +6051,10 @@ mod tests {
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["ok"].as_bool().unwrap());
-        assert!(
-            json["data"]
-                .as_array()
-                .map(|a| a.is_empty())
-                .unwrap_or(false)
-        );
+        assert!(json["data"]
+            .as_array()
+            .map(|a| a.is_empty())
+            .unwrap_or(false));
     }
 
     #[tokio::test]
@@ -6212,11 +6189,9 @@ mod tests {
             .list_events_by_aggregate("intervention", interventions[0].id.as_ref(), 10)
             .await
             .unwrap();
-        assert!(
-            events
-                .iter()
-                .any(|event| event.event_name == "intervention.created")
-        );
+        assert!(events
+            .iter()
+            .any(|event| event.event_name == "intervention.created"));
     }
 
     #[tokio::test]
@@ -7782,13 +7757,11 @@ END:VCALENDAR
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["data"]["context"]["next_event_start_ts"].is_null());
         assert_eq!(json["data"]["context"]["prep_window_active"], false);
-        assert!(
-            !json["data"]["context"]["signals_used"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|value| value.as_str() == Some(signal_id.as_str()))
-        );
+        assert!(!json["data"]["context"]["signals_used"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value.as_str() == Some(signal_id.as_str())));
     }
 
     #[tokio::test]
@@ -8442,11 +8415,9 @@ END:VCALENDAR
             integrations_json["data"]["messaging"]["last_sync_status"],
             "error"
         );
-        assert!(
-            integrations_json["data"]["messaging"]["last_error"]
-                .as_str()
-                .is_some()
-        );
+        assert!(integrations_json["data"]["messaging"]["last_error"]
+            .as_str()
+            .is_some());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -8500,11 +8471,9 @@ END:VCALENDAR
                     .unwrap_or_default()
                     .contains("notes snapshot missing")
         }));
-        assert!(
-            entries
-                .iter()
-                .any(|entry| entry["status"] == "ok" && entry["payload"]["item_count"] == 2)
-        );
+        assert!(entries
+            .iter()
+            .any(|entry| entry["status"] == "ok" && entry["payload"]["item_count"] == 2));
     }
 
     #[tokio::test]
@@ -8789,14 +8758,12 @@ END:VCALENDAR
         let logs_json: serde_json::Value = serde_json::from_slice(&logs_body).unwrap();
         let logs = logs_json["data"].as_array().expect("logs array");
         assert!(!logs.is_empty());
-        assert!(
-            logs.iter()
-                .any(|entry| entry["event_name"] == "component.restart.requested")
-        );
-        assert!(
-            logs.iter()
-                .any(|entry| entry["event_name"] == "component.restart.completed")
-        );
+        assert!(logs
+            .iter()
+            .any(|entry| entry["event_name"] == "component.restart.requested"));
+        assert!(logs
+            .iter()
+            .any(|entry| entry["event_name"] == "component.restart.completed"));
     }
 
     #[tokio::test]

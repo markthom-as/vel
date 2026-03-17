@@ -1,6 +1,6 @@
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use vel_api_types::{IntegrationGuidanceData, TodoistIntegrationData};
 use vel_core::{Commitment, CommitmentStatus};
 use vel_storage::{CommitmentInsert, SignalInsert, Storage};

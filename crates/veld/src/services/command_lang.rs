@@ -907,12 +907,10 @@ mod tests {
 
         let validation = validate_command(&command);
         assert!(!validation.is_valid);
-        assert!(
-            validation
-                .issues
-                .iter()
-                .any(|issue| issue.code == ValidationIssueCode::UnsupportedOperation)
-        );
+        assert!(validation
+            .issues
+            .iter()
+            .any(|issue| issue.code == ValidationIssueCode::UnsupportedOperation));
     }
 
     #[test]
