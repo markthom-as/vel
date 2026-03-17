@@ -220,7 +220,7 @@ pub struct GoogleCalendarIntegrationData {
     pub has_client_secret: bool,
     pub calendars: Vec<IntegrationCalendarData>,
     pub all_calendars_selected: bool,
-    pub last_sync_at: Option<i64>,
+    pub last_sync_at: Option<UnixSeconds>,
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
@@ -231,7 +231,7 @@ pub struct TodoistIntegrationData {
     pub configured: bool,
     pub connected: bool,
     pub has_api_token: bool,
-    pub last_sync_at: Option<i64>,
+    pub last_sync_at: Option<UnixSeconds>,
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
@@ -241,7 +241,7 @@ pub struct TodoistIntegrationData {
 pub struct LocalIntegrationData {
     pub configured: bool,
     pub source_path: Option<String>,
-    pub last_sync_at: Option<i64>,
+    pub last_sync_at: Option<UnixSeconds>,
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
@@ -272,8 +272,8 @@ pub struct ConversationData {
     pub kind: String,
     pub pinned: bool,
     pub archived: bool,
-    pub created_at: i64,
-    pub updated_at: i64,
+    pub created_at: UnixSeconds,
+    pub updated_at: UnixSeconds,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -303,8 +303,8 @@ pub struct MessageData {
     pub content: JsonValue,
     pub status: Option<String>,
     pub importance: Option<String>,
-    pub created_at: i64,
-    pub updated_at: Option<i64>,
+    pub created_at: UnixSeconds,
+    pub updated_at: Option<UnixSeconds>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -329,8 +329,8 @@ pub struct InboxItemData {
     pub message_id: String,
     pub kind: String,
     pub state: String,
-    pub surfaced_at: i64,
-    pub snoozed_until: Option<i64>,
+    pub surfaced_at: UnixSeconds,
+    pub snoozed_until: Option<UnixSeconds>,
     pub confidence: Option<f64>,
 }
 
@@ -353,7 +353,7 @@ pub struct ProvenanceData {
 pub struct ProvenanceEvent {
     pub id: String,
     pub event_name: String,
-    pub created_at: i64,
+    pub created_at: UnixSeconds,
     pub payload: JsonValue,
 }
 
@@ -773,7 +773,7 @@ pub struct ComponentLogEventData {
     pub status: String,
     pub message: String,
     pub payload: JsonValue,
-    pub created_at: i64,
+    pub created_at: UnixSeconds,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -784,7 +784,7 @@ pub struct IntegrationLogEventData {
     pub status: String,
     pub message: String,
     pub payload: JsonValue,
-    pub created_at: i64,
+    pub created_at: UnixSeconds,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -802,7 +802,7 @@ pub struct SynthesisWeekData {
 /// Persistent current context singleton (computed by inference engine).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CurrentContextData {
-    pub computed_at: i64,
+    pub computed_at: UnixSeconds,
     pub context: JsonValue,
 }
 
@@ -862,14 +862,14 @@ pub struct SignalExplainSummary {
     pub signal_id: String,
     pub signal_type: String,
     pub source: String,
-    pub timestamp: i64,
+    pub timestamp: UnixSeconds,
     pub summary: JsonValue,
 }
 
 /// Explain payload for current context (context + reasons + entity ids used).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextExplainData {
-    pub computed_at: i64,
+    pub computed_at: UnixSeconds,
     pub mode: Option<String>,
     pub morning_state: Option<String>,
     pub context: JsonValue,

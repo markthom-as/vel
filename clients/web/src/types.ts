@@ -18,8 +18,8 @@ export interface ConversationData {
   kind: string;
   pinned: boolean;
   archived: boolean;
-  created_at: number;
-  updated_at: number;
+  created_at: UnixSeconds;
+  updated_at: UnixSeconds;
 }
 
 export interface MessageData {
@@ -30,8 +30,8 @@ export interface MessageData {
   content: JsonValue;
   status: string | null;
   importance: string | null;
-  created_at: number;
-  updated_at: number | null;
+  created_at: UnixSeconds;
+  updated_at: UnixSeconds | null;
 }
 
 export interface CreateMessageResponse {
@@ -45,8 +45,8 @@ export interface InboxItemData {
   message_id: string;
   kind: string;
   state: string;
-  surfaced_at: number;
-  snoozed_until: number | null;
+  surfaced_at: UnixSeconds;
+  snoozed_until: UnixSeconds | null;
   confidence: number | null;
 }
 
@@ -66,7 +66,7 @@ export interface ProvenanceData {
 export interface ProvenanceEvent {
   id: string;
   event_name: string;
-  created_at: number;
+  created_at: UnixSeconds;
   payload: JsonValue;
 }
 
@@ -91,7 +91,7 @@ export interface GoogleCalendarIntegrationData {
   has_client_secret: boolean;
   calendars: IntegrationCalendarData[];
   all_calendars_selected: boolean;
-  last_sync_at: number | null;
+  last_sync_at: UnixSeconds | null;
   last_sync_status: string | null;
   last_error: string | null;
   last_item_count: number | null;
@@ -101,7 +101,7 @@ export interface TodoistIntegrationData {
   configured: boolean;
   connected: boolean;
   has_api_token: boolean;
-  last_sync_at: number | null;
+  last_sync_at: UnixSeconds | null;
   last_sync_status: string | null;
   last_error: string | null;
   last_item_count: number | null;
@@ -110,7 +110,7 @@ export interface TodoistIntegrationData {
 export interface LocalIntegrationData {
   configured: boolean;
   source_path: string | null;
-  last_sync_at: number | null;
+  last_sync_at: UnixSeconds | null;
   last_sync_status: string | null;
   last_error: string | null;
   last_item_count: number | null;
@@ -131,7 +131,7 @@ export interface ComponentData {
   name: string;
   description: string;
   status: string;
-  last_restarted_at: number | null;
+  last_restarted_at: UnixSeconds | null;
   last_error: string | null;
   restart_count: number;
 }
@@ -143,7 +143,7 @@ export interface ComponentLogEventData {
   status: string;
   message: string;
   payload: JsonValue;
-  created_at: number;
+  created_at: UnixSeconds;
 }
 
 export interface IntegrationLogEventData {
@@ -153,7 +153,7 @@ export interface IntegrationLogEventData {
   status: string;
   message: string;
   payload: JsonValue;
-  created_at: number;
+  created_at: UnixSeconds;
 }
 
 export interface GoogleCalendarAuthStartData {
@@ -178,7 +178,7 @@ export interface RunSummaryData {
 }
 
 export interface CurrentContextData {
-  computed_at: number;
+  computed_at: UnixSeconds;
   context: JsonValue;
 }
 
@@ -200,12 +200,12 @@ export interface SignalExplainSummary {
   signal_id: string;
   signal_type: string;
   source: string;
-  timestamp: number;
+  timestamp: UnixSeconds;
   summary: JsonValue;
 }
 
 export interface ContextExplainData {
-  computed_at: number;
+  computed_at: UnixSeconds;
   mode: string | null;
   morning_state: string | null;
   context: JsonValue;
@@ -361,8 +361,8 @@ export function decodeConversationData(value: unknown): ConversationData {
     kind: expectString(record.kind, 'conversation.kind'),
     pinned: expectBoolean(record.pinned, 'conversation.pinned'),
     archived: expectBoolean(record.archived, 'conversation.archived'),
-    created_at: expectNumber(record.created_at, 'conversation.created_at'),
-    updated_at: expectNumber(record.updated_at, 'conversation.updated_at'),
+    created_at: expectUnixSeconds(record.created_at, 'conversation.created_at'),
+    updated_at: expectUnixSeconds(record.updated_at, 'conversation.updated_at'),
   };
 }
 
@@ -376,8 +376,8 @@ export function decodeMessageData(value: unknown): MessageData {
     content: decodeJsonValue(record.content),
     status: expectNullableString(record.status, 'message.status'),
     importance: expectNullableString(record.importance, 'message.importance'),
-    created_at: expectNumber(record.created_at, 'message.created_at'),
-    updated_at: expectNullableNumber(record.updated_at, 'message.updated_at'),
+    created_at: expectUnixSeconds(record.created_at, 'message.created_at'),
+    updated_at: expectNullableUnixSeconds(record.updated_at, 'message.updated_at'),
   };
 }
 
@@ -403,8 +403,8 @@ export function decodeInboxItemData(value: unknown): InboxItemData {
     message_id: expectString(record.message_id, 'inbox item.message_id'),
     kind: expectString(record.kind, 'inbox item.kind'),
     state: expectString(record.state, 'inbox item.state'),
-    surfaced_at: expectNumber(record.surfaced_at, 'inbox item.surfaced_at'),
-    snoozed_until: expectNullableNumber(record.snoozed_until, 'inbox item.snoozed_until'),
+    surfaced_at: expectUnixSeconds(record.surfaced_at, 'inbox item.surfaced_at'),
+    snoozed_until: expectNullableUnixSeconds(record.snoozed_until, 'inbox item.snoozed_until'),
     confidence: expectNullableNumber(record.confidence, 'inbox item.confidence'),
   };
 }
@@ -424,7 +424,7 @@ export function decodeRunUpdateEventData(value: unknown): RunUpdateEventData {
 export function decodeCurrentContextData(value: unknown): CurrentContextData {
   const record = expectRecord(value, 'current context');
   return {
-    computed_at: expectNumber(record.computed_at, 'current context.computed_at'),
+    computed_at: expectUnixSeconds(record.computed_at, 'current context.computed_at'),
     context: decodeJsonValue(record.context),
   };
 }
@@ -435,7 +435,7 @@ export function decodeSignalExplainSummary(value: unknown): SignalExplainSummary
     signal_id: expectString(record.signal_id, 'signal explain summary.signal_id'),
     signal_type: expectString(record.signal_type, 'signal explain summary.signal_type'),
     source: expectString(record.source, 'signal explain summary.source'),
-    timestamp: expectNumber(record.timestamp, 'signal explain summary.timestamp'),
+    timestamp: expectUnixSeconds(record.timestamp, 'signal explain summary.timestamp'),
     summary: decodeJsonValue(record.summary),
   };
 }
@@ -443,7 +443,7 @@ export function decodeSignalExplainSummary(value: unknown): SignalExplainSummary
 export function decodeContextExplainData(value: unknown): ContextExplainData {
   const record = expectRecord(value, 'context explain');
   return {
-    computed_at: expectNumber(record.computed_at, 'context explain.computed_at'),
+    computed_at: expectUnixSeconds(record.computed_at, 'context explain.computed_at'),
     mode: expectNullableString(record.mode, 'context explain.mode'),
     morning_state: expectNullableString(record.morning_state, 'context explain.morning_state'),
     context: decodeJsonValue(record.context),
@@ -514,7 +514,7 @@ export function decodeGoogleCalendarIntegrationData(value: unknown): GoogleCalen
       record.all_calendars_selected,
       'google calendar integration.all_calendars_selected',
     ),
-    last_sync_at: expectNullableNumber(record.last_sync_at, 'google calendar integration.last_sync_at'),
+    last_sync_at: expectNullableUnixSeconds(record.last_sync_at, 'google calendar integration.last_sync_at'),
     last_sync_status: expectNullableString(
       record.last_sync_status,
       'google calendar integration.last_sync_status',
@@ -533,7 +533,7 @@ export function decodeTodoistIntegrationData(value: unknown): TodoistIntegration
     configured: expectBoolean(record.configured, 'todoist integration.configured'),
     connected: expectBoolean(record.connected, 'todoist integration.connected'),
     has_api_token: expectBoolean(record.has_api_token, 'todoist integration.has_api_token'),
-    last_sync_at: expectNullableNumber(record.last_sync_at, 'todoist integration.last_sync_at'),
+    last_sync_at: expectNullableUnixSeconds(record.last_sync_at, 'todoist integration.last_sync_at'),
     last_sync_status: expectNullableString(record.last_sync_status, 'todoist integration.last_sync_status'),
     last_error: expectNullableString(record.last_error, 'todoist integration.last_error'),
     last_item_count: expectNullableNumber(record.last_item_count, 'todoist integration.last_item_count'),
@@ -545,7 +545,7 @@ export function decodeLocalIntegrationData(value: unknown): LocalIntegrationData
   return {
     configured: expectBoolean(record.configured, 'local integration.configured'),
     source_path: expectNullableString(record.source_path, 'local integration.source_path'),
-    last_sync_at: expectNullableNumber(record.last_sync_at, 'local integration.last_sync_at'),
+    last_sync_at: expectNullableUnixSeconds(record.last_sync_at, 'local integration.last_sync_at'),
     last_sync_status: expectNullableString(record.last_sync_status, 'local integration.last_sync_status'),
     last_error: expectNullableString(record.last_error, 'local integration.last_error'),
     last_item_count: expectNullableNumber(record.last_item_count, 'local integration.last_item_count'),
@@ -574,7 +574,7 @@ export function decodeComponentData(value: unknown): ComponentData {
     name: expectString(record.name, 'component.name'),
     description: expectString(record.description, 'component.description'),
     status: expectString(record.status, 'component.status'),
-    last_restarted_at: expectNullableNumber(
+    last_restarted_at: expectNullableUnixSeconds(
       record.last_restarted_at,
       'component.last_restarted_at',
     ),
@@ -592,7 +592,7 @@ export function decodeComponentLogEventData(value: unknown): ComponentLogEventDa
     status: expectString(record.status, 'component log event.status'),
     message: expectString(record.message, 'component log event.message'),
     payload: decodeJsonValue(record.payload ?? null),
-    created_at: expectNumber(record.created_at, 'component log event.created_at'),
+    created_at: expectUnixSeconds(record.created_at, 'component log event.created_at'),
   };
 }
 
@@ -605,7 +605,7 @@ export function decodeIntegrationLogEventData(value: unknown): IntegrationLogEve
     status: expectString(record.status, 'integration log event.status'),
     message: expectString(record.message, 'integration log event.message'),
     payload: decodeJsonValue(record.payload ?? null),
-    created_at: expectNumber(record.created_at, 'integration log event.created_at'),
+    created_at: expectUnixSeconds(record.created_at, 'integration log event.created_at'),
   };
 }
 
@@ -687,7 +687,7 @@ export function decodeProvenanceEvent(value: unknown): ProvenanceEvent {
   return {
     id: expectString(record.id, 'provenance event.id'),
     event_name: expectString(record.event_name, 'provenance event.event_name'),
-    created_at: expectNumber(record.created_at, 'provenance event.created_at'),
+    created_at: expectUnixSeconds(record.created_at, 'provenance event.created_at'),
     payload: decodeJsonValue(record.payload),
   };
 }
@@ -889,11 +889,22 @@ function expectNumber(value: unknown, label: string): number {
   return value;
 }
 
+function expectUnixSeconds(value: unknown, label: string): UnixSeconds {
+  return expectNumber(value, label);
+}
+
 function expectNullableNumber(value: unknown, label: string): number | null {
   if (value === null || value === undefined) {
     return null;
   }
   return expectNumber(value, label);
+}
+
+function expectNullableUnixSeconds(value: unknown, label: string): UnixSeconds | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return expectUnixSeconds(value, label);
 }
 
 function expectBoolean(value: unknown, label: string): boolean {
