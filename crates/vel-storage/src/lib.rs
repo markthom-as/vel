@@ -1,5 +1,6 @@
 mod db;
 mod infra;
+mod integrations;
 mod mapping;
 mod runtime_loops;
 mod threads;
