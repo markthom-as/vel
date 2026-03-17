@@ -87,7 +87,13 @@ A source is usually working when:
 
 `notes` is path-backed rather than single-snapshot only. It can ingest a file or a directory.
 
-This makes it useful for local markdown or plaintext note stores.
+This makes it useful for local markdown or plaintext note stores, especially an Obsidian vault that is already being replicated by Obsidian Sync.
+
+Practical setup:
+
+- keep Obsidian Sync responsible for multi-device file replication
+- point Vel's `notes` / `Obsidian Vault` setting at the local vault root on the daemon host
+- run `sync notes`, then `evaluate`
 
 ## Messaging and health
 

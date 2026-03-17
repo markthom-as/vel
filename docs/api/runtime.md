@@ -13,6 +13,16 @@ For repo-wide implementation truth, see [`../status.md`](../status.md).
 - version
 - degraded flag (if relevant)
 
+## Connect
+
+### `GET /v1/connect/instances`
+### `GET /v1/connect/instances/:id`
+
+- returns a Connect-oriented instance registry projection backed by the durable cluster worker registry.
+- exposes per-instance transport endpoints, worker ids/classes, status, and a capability manifest.
+- launchable runtimes are derived from advertised worker capabilities such as `agent_runtime:codex`.
+- this is inspection only; launch/control APIs are still planned.
+
 ## Captures
 
 ### `POST /v1/captures`
@@ -75,4 +85,3 @@ For repo-wide implementation truth, see [`../status.md`](../status.md).
 ### `POST /v1/synthesis/project/:slug`
 
 - weekly and project synthesis; see `specs/vel-weekly-synthesis-spec.md` and `specs/vel-agent-next-implementation-steps.md`.
-

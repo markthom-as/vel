@@ -232,6 +232,12 @@ Examples:
 - worker availability
 - node health
 
+### 4. Operator swarm client view
+
+Operators also need a consolidated client view (`/v1/swarm/clients` or an extended `/v1/sync/cluster`) that brings together identity (node/client id, platform, client version/protocol), capabilities, transport reachability, heartbeat/ping, sync timestamps, and active `work_request_id`s so they can triage stale/mismatched clients. This requirement is captured in ticket [SWARM-009-swarm-client-view.md](../tickets/multi-client-swarm/SWARM-009-swarm-client-view.md) and should be treated as part of the shipped churn: the view reuses existing heartbeats/cluster metadata but explicitly advertises the fields, preventing downstream consumers from assuming features that are still planned.
+
+The documentation for this view must flag which columns are already implemented and which are still coming online, keeping the operator surface in sync with the runtime’s actual telemetry.
+
 ---
 
 ## Upstream / Downstream Split
@@ -449,7 +455,7 @@ Every queued work item must carry a unique `work_request_id`, the target node, t
 
 Workers claim, start, and complete work via heartbeat/assignment-aware surfaces such as `POST /v1/sync/heartbeat` plus explicit receipt endpoints. Each heartbeat refreshes the worker registry and can include the optional `work_request_id` the worker is handling along with `component` (API/branch/validation) and a `receipt_state` (`claimed`, `started`, `completed`, `failed`). Receipts must be persisted (even temporarily) so replay, retry, and operator inspection can prove what ran, when, and whether it succeeded.
 
-In the current runtime, the local worker entry is also refreshed from `WorkerRuntimeState` during cluster reads and queued-work lifecycle transitions, so `current_load` and `queue_depth` are live snapshots rather than fixed placeholders. That means scheduler inputs degrade naturally when the local runtime stops reporting and the stale heartbeat expires.
+In the current runtime, the local worker entry is also refreshed from `WorkerRuntimeState` during cluster reads and queued-work lifecycle transitions, and a dedicated `worker_presence_heartbeat` runtime loop keeps that entry alive even when the queue is idle, so `current_load` and `queue_depth` are live snapshots rather than fixed placeholders. That means scheduler inputs degrade naturally when the local runtime stops reporting and the stale heartbeat expires.
 
 Receipts also enable idempotent retries: before re-queuing a request, the authority checks the latest receipt for that `work_request_id`. Duplicate requests must install idempotency keys and reuse receipts rather than re-executing side effects. Workers should emit receipts for every attempt along with optional failure reasons or logs so the supervisor can decide when to escalate. Queue inspection should filter out requests whose latest receipt is already terminal (`completed`, `cancelled`) and expose only work that is still pending or reclaimable.
 
@@ -490,7 +496,7 @@ Failure receipts should carry reason metadata so the scheduler can escalate, rer
 
 These scheduler-friendly receipts are the bridge between simple queue routing and full-fledged DAG scheduling. They let the swarm layer keep per-unit bookkeeping durable, survive restarts, and compose retry/reclaim policies while the supervisory code still owns the final integration step.
 
-The runtime exposes this behavior through a dedicated scheduler loop (visible via `GET /v1/loops` and `vel loops`), which regularly calls `POST /v1/sync/work-queue/claim-next`, updates receipts via `POST /v1/sync/work-assignments` / `PATCH /v1/sync/work-assignments`, and publishes loop events so operators can see when the queue drains or when retries are blocked by backoff. That loop now claims and executes queued branch-sync work (in addition to validation) whenever the serving node advertises the required capability, but the execution still observes the receipt history, per-work-type policy, and authority metadata so a single node controls the final integration step.
+The runtime exposes this behavior through dedicated heartbeat/scheduler loops (visible via `GET /v1/loops` and `vel loops`). `worker_presence_heartbeat` regularly refreshes the local registry row, while the scheduler loop calls `POST /v1/sync/work-queue/claim-next`, updates receipts via `POST /v1/sync/work-assignments` / `PATCH /v1/sync/work-assignments`, and publishes loop events so operators can see when the queue drains or when retries are blocked by backoff. The scheduler now also refuses fresh claims when the requesting worker is saturated or no longer marked ready/reachable in the registry. It claims and executes queued branch-sync work (in addition to validation) whenever the serving node advertises the required capability, but the execution still observes the receipt history, per-work-type policy, and authority metadata so a single node controls the final integration step.
 
 ---
 

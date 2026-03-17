@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
 import type { ContextExplainData, DriftExplainData, JsonObject, JsonValue, SignalExplainSummary } from '../types';
+import { contextQueryKeys, loadContextExplain, loadDriftExplain } from '../data/context';
 import { useQuery } from '../data/query';
-import { loadContextExplain, loadDriftExplain, queryKeys } from '../data/resources';
 import { SurfaceState } from './SurfaceState';
 
 type ContextMode = 'state' | 'why' | 'debug';
 
 export function ContextPanel() {
   const [mode, setMode] = useState<ContextMode>('state');
-  const contextExplainKey = useMemo(() => queryKeys.contextExplain(), []);
-  const driftExplainKey = useMemo(() => queryKeys.driftExplain(), []);
+  const contextExplainKey = useMemo(() => contextQueryKeys.contextExplain(), []);
+  const driftExplainKey = useMemo(() => contextQueryKeys.driftExplain(), []);
   const {
     data: context,
     loading: contextLoading,

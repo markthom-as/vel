@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { InboxItemData, MessageData } from '../types';
+import {
+  chatQueryKeys,
+  loadConversationInterventions,
+  loadConversationMessages,
+  mutateIntervention,
+} from '../data/chat';
 import { getQueryData, invalidateQuery, setQueryData, useQuery } from '../data/query';
 import {
   appendUniqueMessages,
@@ -9,12 +15,6 @@ import {
   setPendingInterventionAction,
   type PendingInterventionAction,
 } from '../data/chat-state';
-import {
-  loadConversationInterventions,
-  loadConversationMessages,
-  mutateIntervention,
-  queryKeys,
-} from '../data/resources';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
@@ -28,15 +28,15 @@ interface ThreadViewProps {
 export function ThreadView({ conversationId }: ThreadViewProps) {
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const messagesKey = useMemo(() => queryKeys.conversationMessages(conversationId), [conversationId]);
+  const messagesKey = useMemo(() => chatQueryKeys.conversationMessages(conversationId), [conversationId]);
   const interventionsKey = useMemo(
-    () => queryKeys.conversationInterventions(conversationId),
+    () => chatQueryKeys.conversationInterventions(conversationId),
     [conversationId],
   );
-  const conversationsKey = useMemo(() => queryKeys.conversations(), []);
-  const inboxKey = useMemo(() => queryKeys.inbox(), []);
+  const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
+  const inboxKey = useMemo(() => chatQueryKeys.inbox(), []);
   const pendingInterventionActionsKey = useMemo(
-    () => queryKeys.pendingInterventionActions(),
+    () => chatQueryKeys.pendingInterventionActions(),
     [],
   );
 

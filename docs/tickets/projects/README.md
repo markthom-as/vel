@@ -47,6 +47,54 @@ Overlap rule:
 - Connect-backed launch work should extend that substrate rather than invent a parallel session or message-control model
 - `task-hud/` should consume routine/dependency outputs for ranking and glance behavior rather than inventing a competing project/task backend
 
+## Parallel lanes
+
+Use these lanes when splitting work across agents or contributors:
+
+### Lane A — Registry and typed contracts
+
+- 01 — boundary + project registry foundation
+- 02 — storage, migrations, DTO contracts
+- 14 — registry source mappings and sync policies
+
+### Lane B — Workspace projection and task semantics
+
+- 03 — workspace projection service + APIs
+- 05 — task tagging and operator ergonomics
+- 15 — normalized tags and project match rules
+- 16 — dependency and blocker projection
+
+### Lane C — Task write-through and provider mutation
+
+- 04 — Todoist write-through project/task mutations
+
+### Lane D — Session and control plane
+
+- 06 — agent session registry
+- 07 — outbox, steering, feedback, session settings
+- 08 — websocket/event contract
+
+### Lane E — Surface consumers and rollout
+
+- 09 — web Projects page shell
+- 10 — web Tasks workspace
+- 11 — web Chats/Agents workspace
+- 12 — CLI project workspace
+- 13 — tests, fixtures, docs, rollout
+
+### Lane F — Routine follow-on
+
+- 17 — routine definitions and project-affine anchors
+- 18 — routine-aware schedule blocks and planning policy
+
+Lane gates:
+
+- start Lane B after Lane A has stabilized the registry and DTO boundaries
+- Lane C can begin once Lane A defines source mappings and write-through policy
+- start Lane D after Lane A has settled the shared project/session contract
+- start Lane E after Lane B and Lane D expose stable projection/session payloads
+- keep Lane F behind Lanes A and B; do not let routines invent a parallel planning or dependency authority
+
 ## Included
 - 01 — boundary + project registry foundation
 - 02 — storage, migrations, DTO contracts

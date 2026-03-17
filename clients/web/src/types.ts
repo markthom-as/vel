@@ -81,6 +81,9 @@ export interface SettingsData {
   toggle_risks?: boolean;
   toggle_reminders?: boolean;
   timezone?: string | null;
+  node_display_name?: string | null;
+  tailscale_base_url?: string | null;
+  lan_base_url?: string | null;
   adaptive_policy_overrides?: {
     default_prep_minutes?: number | null;
     commute_buffer_minutes?: number | null;
@@ -188,6 +191,18 @@ export interface ComponentData {
   last_restarted_at: UnixSeconds | null;
   last_error: string | null;
   restart_count: number;
+}
+
+export interface ClusterBootstrapData {
+  node_id: string;
+  node_display_name: string;
+  active_authority_node_id: string;
+  active_authority_epoch: number;
+  sync_base_url: string;
+  sync_transport: string;
+  tailscale_base_url: string | null;
+  lan_base_url: string | null;
+  localhost_base_url: string | null;
 }
 
 export interface ComponentLogEventData {
@@ -922,6 +937,18 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.timezone === undefined
         ? undefined
         : expectNullableString(record.timezone, 'settings.timezone'),
+    node_display_name:
+      record.node_display_name === undefined
+        ? undefined
+        : expectNullableString(record.node_display_name, 'settings.node_display_name'),
+    tailscale_base_url:
+      record.tailscale_base_url === undefined
+        ? undefined
+        : expectNullableString(record.tailscale_base_url, 'settings.tailscale_base_url'),
+    lan_base_url:
+      record.lan_base_url === undefined
+        ? undefined
+        : expectNullableString(record.lan_base_url, 'settings.lan_base_url'),
     adaptive_policy_overrides:
       adaptiveOverrides === undefined
         ? undefined
@@ -1002,6 +1029,39 @@ export function decodeIntegrationGuidanceData(value: unknown): IntegrationGuidan
     title: expectString(record.title, 'integration guidance.title'),
     detail: expectString(record.detail, 'integration guidance.detail'),
     action: expectString(record.action, 'integration guidance.action'),
+  };
+}
+
+export function decodeClusterBootstrapData(value: unknown): ClusterBootstrapData {
+  const record = expectRecord(value, 'cluster bootstrap');
+  return {
+    node_id: expectString(record.node_id, 'cluster bootstrap.node_id'),
+    node_display_name: expectString(
+      record.node_display_name,
+      'cluster bootstrap.node_display_name',
+    ),
+    active_authority_node_id: expectString(
+      record.active_authority_node_id,
+      'cluster bootstrap.active_authority_node_id',
+    ),
+    active_authority_epoch: expectNumber(
+      record.active_authority_epoch,
+      'cluster bootstrap.active_authority_epoch',
+    ),
+    sync_base_url: expectString(record.sync_base_url, 'cluster bootstrap.sync_base_url'),
+    sync_transport: expectString(record.sync_transport, 'cluster bootstrap.sync_transport'),
+    tailscale_base_url: expectNullableString(
+      record.tailscale_base_url,
+      'cluster bootstrap.tailscale_base_url',
+    ),
+    lan_base_url: expectNullableString(
+      record.lan_base_url,
+      'cluster bootstrap.lan_base_url',
+    ),
+    localhost_base_url: expectNullableString(
+      record.localhost_base_url,
+      'cluster bootstrap.localhost_base_url',
+    ),
   };
 }
 

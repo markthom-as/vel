@@ -317,6 +317,9 @@ describe('transport decoders', () => {
         toggle_risks: true,
         toggle_reminders: true,
         timezone: 'America/Denver',
+        node_display_name: 'Vel Desktop',
+        tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        lan_base_url: 'http://192.168.1.50:4130',
         adaptive_policy_overrides: {
           commute_buffer_minutes: 30,
           default_prep_minutes: 45,
@@ -333,6 +336,9 @@ describe('transport decoders', () => {
       toggle_risks: true,
       toggle_reminders: true,
       timezone: 'America/Denver',
+      node_display_name: 'Vel Desktop',
+      tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+      lan_base_url: 'http://192.168.1.50:4130',
       adaptive_policy_overrides: {
         commute_buffer_minutes: 30,
         default_prep_minutes: 45,

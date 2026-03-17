@@ -8,29 +8,32 @@ import type {
   LoopData,
   RunSummaryData,
 } from '../types';
-import { useQuery } from '../data/query';
 import {
-  loadComponents,
+  contextQueryKeys,
   loadContextExplain,
   loadCurrentContext,
   loadDriftExplain,
+} from '../data/context';
+import {
+  loadComponents,
   loadIntegrations,
   loadLoops,
   loadRecentRuns,
-  queryKeys,
-} from '../data/resources';
+  operatorQueryKeys,
+} from '../data/operator';
+import { useQuery } from '../data/query';
 import { SurfaceState } from './SurfaceState';
 
 const RUN_LIMIT = 20;
 
 export function StatsView() {
-  const integrationsKey = useMemo(() => queryKeys.integrations(), []);
-  const runsKey = useMemo(() => queryKeys.runs(RUN_LIMIT), []);
-  const loopsKey = useMemo(() => queryKeys.loops(), []);
-  const componentsKey = useMemo(() => queryKeys.components(), []);
-  const contextKey = useMemo(() => queryKeys.currentContext(), []);
-  const contextExplainKey = useMemo(() => queryKeys.contextExplain(), []);
-  const driftExplainKey = useMemo(() => queryKeys.driftExplain(), []);
+  const integrationsKey = useMemo(() => operatorQueryKeys.integrations(), []);
+  const runsKey = useMemo(() => operatorQueryKeys.runs(RUN_LIMIT), []);
+  const loopsKey = useMemo(() => operatorQueryKeys.loops(), []);
+  const componentsKey = useMemo(() => operatorQueryKeys.components(), []);
+  const contextKey = useMemo(() => contextQueryKeys.currentContext(), []);
+  const contextExplainKey = useMemo(() => contextQueryKeys.contextExplain(), []);
+  const driftExplainKey = useMemo(() => contextQueryKeys.driftExplain(), []);
 
   const { data: integrations, loading: integrationsLoading, error: integrationsError } = useQuery<IntegrationsData | null>(
     integrationsKey,

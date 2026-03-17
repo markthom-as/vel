@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import type { ConversationData } from '../types';
+import { chatQueryKeys, loadConversationList } from '../data/chat';
 import { useQuery } from '../data/query';
-import { loadConversationList, queryKeys } from '../data/resources';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import { SurfaceState } from './SurfaceState';
 
@@ -11,7 +11,7 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ selectedId, onSelect }: ConversationListProps) {
-  const conversationsKey = useMemo(() => queryKeys.conversations(), []);
+  const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data: conversations = [], loading, error } = useQuery<ConversationData[]>(
     conversationsKey,
     async () => {

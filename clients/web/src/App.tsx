@@ -5,11 +5,11 @@ import { AppShell } from './components/AppShell';
 import { ContextPanel } from './components/ContextPanel';
 import { MainPanel } from './components/MainPanel';
 import { Sidebar, type MainView } from './components/Sidebar';
+import { chatQueryKeys } from './data/chat';
 import { invalidateQuery } from './data/query';
-import { queryKeys } from './data/resources';
 
 export type SettingsNavigationTarget = {
-  tab: 'general' | 'integrations' | 'components' | 'runs' | 'loops';
+  tab: 'general' | 'integrations' | 'runtime';
   integrationId?: 'google' | 'todoist' | 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
 };
 
@@ -31,7 +31,7 @@ function App() {
     if (res.ok && res.data) {
       setSelectedConversationId(res.data.id);
       setMainView('threads');
-      invalidateQuery(queryKeys.conversations(), { refetch: true });
+      invalidateQuery(chatQueryKeys.conversations(), { refetch: true });
     }
   }
 

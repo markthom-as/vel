@@ -109,6 +109,10 @@ enum Command {
         #[command(subcommand)]
         command: IntegrationsCommand,
     },
+    Connect {
+        #[command(subcommand)]
+        command: ConnectCommand,
+    },
     Integration {
         #[command(subcommand)]
         command: IntegrationCommand,
@@ -336,6 +340,19 @@ enum IntegrationCommand {
         id: String,
         #[arg(long, default_value = "10")]
         events_limit: u32,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ConnectCommand {
+    Instances {
+        #[arg(long)]
+        json: bool,
+    },
+    Inspect {
+        id: String,
         #[arg(long)]
         json: bool,
     },
@@ -717,6 +734,14 @@ async fn main() -> anyhow::Result<()> {
                     json,
                 )
                 .await
+            }
+        },
+        Command::Connect { command } => match command {
+            ConnectCommand::Instances { json } => {
+                commands::connect::run_list_instances(&client, json).await
+            }
+            ConnectCommand::Inspect { id, json } => {
+                commands::connect::run_inspect_instance(&client, &id, json).await
             }
         },
         Command::Integration { command } => match command {

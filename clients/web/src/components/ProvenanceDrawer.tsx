@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { JsonValue, ProvenanceData } from '../types';
+import { chatQueryKeys, loadProvenance } from '../data/chat';
 import { useQuery } from '../data/query';
-import { loadProvenance, queryKeys } from '../data/resources';
 import { SurfaceState } from './SurfaceState';
 
 interface ProvenanceDrawerProps {
@@ -10,7 +10,7 @@ interface ProvenanceDrawerProps {
 }
 
 export function ProvenanceDrawer({ messageId, onClose }: ProvenanceDrawerProps) {
-  const provenanceKey = useMemo(() => queryKeys.provenance(messageId), [messageId]);
+  const provenanceKey = useMemo(() => chatQueryKeys.provenance(messageId), [messageId]);
   const { data, loading, error } = useQuery<ProvenanceData>(
     provenanceKey,
     async () => {
