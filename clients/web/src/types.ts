@@ -291,6 +291,18 @@ export interface NowAttentionData {
   reasons: string[];
 }
 
+export interface NowSourceActivityData {
+  label: string;
+  timestamp: UnixSeconds;
+  summary: JsonValue;
+}
+
+export interface NowSourcesData {
+  git_activity: NowSourceActivityData | null;
+  note_document: NowSourceActivityData | null;
+  assistant_message: NowSourceActivityData | null;
+}
+
 export interface NowFreshnessEntryData {
   key: string;
   label: string;
@@ -319,6 +331,7 @@ export interface NowData {
   schedule: NowScheduleData;
   tasks: NowTasksData;
   attention: NowAttentionData;
+  sources: NowSourcesData;
   freshness: NowFreshnessData;
   reasons: string[];
   debug: NowDebugData;
@@ -621,12 +634,22 @@ export function decodeNowTaskData(value: unknown): NowTaskData {
   };
 }
 
+function decodeNowSourceActivityData(value: unknown): NowSourceActivityData {
+  const record = expectRecord(value, 'now source activity');
+  return {
+    label: expectString(record.label, 'now source activity.label'),
+    timestamp: expectUnixSeconds(record.timestamp, 'now source activity.timestamp'),
+    summary: decodeJsonValue(record.summary),
+  };
+}
+
 export function decodeNowData(value: unknown): NowData {
   const record = expectRecord(value, 'now data');
   const summary = expectRecord(record.summary, 'now data.summary');
   const schedule = expectRecord(record.schedule, 'now data.schedule');
   const tasks = expectRecord(record.tasks, 'now data.tasks');
   const attention = expectRecord(record.attention, 'now data.attention');
+  const sources = expectRecord(record.sources, 'now data.sources');
   const freshness = expectRecord(record.freshness, 'now data.freshness');
   const debug = expectRecord(record.debug, 'now data.debug');
   return {
@@ -654,6 +677,14 @@ export function decodeNowData(value: unknown): NowData {
       severity: decodeNowLabelData(attention.severity),
       confidence: expectNullableNumber(attention.confidence, 'now data.attention.confidence'),
       reasons: decodeArray(attention.reasons ?? [], (item) => expectString(item, 'now data.attention.reasons')),
+    },
+    sources: {
+      git_activity: decodeNullable(sources.git_activity, decodeNowSourceActivityData),
+      note_document: decodeNullable(sources.note_document, decodeNowSourceActivityData),
+      assistant_message: decodeNullable(
+        sources.assistant_message,
+        decodeNowSourceActivityData,
+      ),
     },
     freshness: {
       overall_status: expectString(freshness.overall_status, 'now data.freshness.overall_status'),

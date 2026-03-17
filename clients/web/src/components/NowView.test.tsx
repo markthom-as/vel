@@ -87,6 +87,34 @@ describe('NowView', () => {
               confidence: 0.8,
               reasons: ['recent git activity indicates active work'],
             },
+            sources: {
+              git_activity: {
+                label: 'Git activity',
+                timestamp: 1710000000,
+                summary: {
+                  repo: 'vel',
+                  branch: 'main',
+                  operation: 'commit',
+                },
+              },
+              note_document: {
+                label: 'Recent note',
+                timestamp: 1710000060,
+                summary: {
+                  title: 'Today',
+                  path: 'daily/today.md',
+                },
+              },
+              assistant_message: {
+                label: 'Recent transcript',
+                timestamp: 1710000120,
+                summary: {
+                  conversation_id: 'conv_external',
+                  role: 'assistant',
+                  source: 'chatgpt',
+                },
+              },
+            },
             freshness: {
               overall_status: 'fresh',
               sources: [
@@ -134,6 +162,10 @@ describe('NowView', () => {
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
     expect(screen.getByText('Prep window active')).toBeInTheDocument()
     expect(screen.getByText('recent git activity indicates active work')).toBeInTheDocument()
+    expect(screen.getByText('Recent source activity')).toBeInTheDocument()
+    expect(screen.getByText('repo: vel')).toBeInTheDocument()
+    expect(screen.getByText('path: daily/today.md')).toBeInTheDocument()
+    expect(screen.getByText('conversation id: conv_external')).toBeInTheDocument()
     expect(screen.getAllByText('Fresh').length).toBeGreaterThan(0)
   })
 
@@ -192,6 +224,11 @@ describe('NowView', () => {
           severity: { key: 'none', label: 'None' },
           confidence: 0.8,
           reasons: [],
+        },
+        sources: {
+          git_activity: null,
+          note_document: null,
+          assistant_message: null,
         },
         freshness: {
           overall_status: 'stale',
@@ -285,6 +322,11 @@ describe('NowView', () => {
           confidence: 0.8,
           reasons: [],
         },
+        sources: {
+          git_activity: null,
+          note_document: null,
+          assistant_message: null,
+        },
         freshness: {
           overall_status: 'fresh',
           sources: [],
@@ -361,6 +403,11 @@ describe('NowView', () => {
           severity: { key: 'none', label: 'None' },
           confidence: 0.8,
           reasons: [],
+        },
+        sources: {
+          git_activity: null,
+          note_document: null,
+          assistant_message: null,
         },
         freshness: {
           overall_status: 'fresh',

@@ -149,6 +149,39 @@ export function NowView() {
                 </div>
               )}
             </Panel>
+
+            <Panel title="Recent source activity" subtitle="Latest non-calendar signals shaping current context">
+              {hasSourceActivity(data) ? (
+                <div className="space-y-3">
+                  {data.sources.git_activity ? (
+                    <SourceActivityCard
+                      title={data.sources.git_activity.label}
+                      timestamp={data.sources.git_activity.timestamp}
+                      timezone={data.timezone}
+                      lines={sourceSummaryLines(data.sources.git_activity.summary, ['repo', 'branch', 'operation'])}
+                    />
+                  ) : null}
+                  {data.sources.note_document ? (
+                    <SourceActivityCard
+                      title={data.sources.note_document.label}
+                      timestamp={data.sources.note_document.timestamp}
+                      timezone={data.timezone}
+                      lines={sourceSummaryLines(data.sources.note_document.summary, ['title', 'path'])}
+                    />
+                  ) : null}
+                  {data.sources.assistant_message ? (
+                    <SourceActivityCard
+                      title={data.sources.assistant_message.label}
+                      timestamp={data.sources.assistant_message.timestamp}
+                      timezone={data.timezone}
+                      lines={sourceSummaryLines(data.sources.assistant_message.summary, ['conversation_id', 'role', 'source'])}
+                    />
+                  ) : null}
+                </div>
+              ) : (
+                <SurfaceState message="No recent git, note, or transcript activity is attached to this snapshot." />
+              )}
+            </Panel>
           </div>
 
           <div className="space-y-6">
@@ -311,6 +344,32 @@ function TaskCard({ task, timezone }: { task: NowTaskData; timezone: string }) {
   );
 }
 
+function SourceActivityCard({
+  title,
+  timestamp,
+  timezone,
+  lines,
+}: {
+  title: string;
+  timestamp: number;
+  timezone: string;
+  lines: string[];
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-medium text-zinc-100">{title}</p>
+        <p className="text-xs text-zinc-500">{formatTimestamp(timestamp, timezone)}</p>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
+        {lines.map((line) => (
+          <span key={line}>{line}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Panel({
   title,
   subtitle,
@@ -359,6 +418,28 @@ function formatDateTime(value: string, timezone: string): string {
 
 function findFreshnessSource(data: NowData, key: string) {
   return data.freshness.sources.find((source) => source.key === key);
+}
+
+function hasSourceActivity(data: NowData): boolean {
+  return Boolean(
+    data.sources.git_activity || data.sources.note_document || data.sources.assistant_message,
+  );
+}
+
+function sourceSummaryLines(summary: unknown, keys: string[]): string[] {
+  if (!summary || typeof summary !== 'object') {
+    return [];
+  }
+  const record = summary as Record<string, unknown>;
+  return keys
+    .map((key) => {
+      const value = record[key];
+      if (typeof value === 'string' && value.length > 0) {
+        return `${key.replaceAll('_', ' ')}: ${value}`;
+      }
+      return null;
+    })
+    .filter((value): value is string => value !== null);
 }
 
 function isDegraded(status: string): boolean {

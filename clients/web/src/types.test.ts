@@ -199,6 +199,23 @@ describe('transport decoders', () => {
           confidence: 0.8,
           reasons: ['recent git activity'],
         },
+        sources: {
+          git_activity: {
+            label: 'Git activity',
+            timestamp: 1710000000,
+            summary: { repo: 'vel' },
+          },
+          note_document: {
+            label: 'Recent note',
+            timestamp: 1710000060,
+            summary: { path: 'daily/today.md' },
+          },
+          assistant_message: {
+            label: 'Recent transcript',
+            timestamp: 1710000120,
+            summary: { conversation_id: 'conv_external' },
+          },
+        },
         freshness: {
           overall_status: 'fresh',
           sources: [
@@ -245,6 +262,23 @@ describe('transport decoders', () => {
         severity: { key: 'none', label: 'None' },
         confidence: 0.8,
         reasons: ['recent git activity'],
+      },
+      sources: {
+        git_activity: {
+          label: 'Git activity',
+          timestamp: 1710000000,
+          summary: { repo: 'vel' },
+        },
+        note_document: {
+          label: 'Recent note',
+          timestamp: 1710000060,
+          summary: { path: 'daily/today.md' },
+        },
+        assistant_message: {
+          label: 'Recent transcript',
+          timestamp: 1710000120,
+          summary: { conversation_id: 'conv_external' },
+        },
       },
       freshness: {
         overall_status: 'fresh',
