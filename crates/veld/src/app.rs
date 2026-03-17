@@ -32,7 +32,6 @@ pub fn build_app(
 }
 
 pub fn build_app_with_state(state: AppState) -> Router {
-
     Router::new()
         .route("/v1/health", get(routes::health::health))
         .route("/v1/doctor", get(routes::doctor::doctor))
@@ -125,7 +124,10 @@ pub fn build_app_with_state(state: AppState) -> Router {
             "/api/components/:id/restart",
             post(routes::components::restart_component),
         )
-        .route("/api/integrations", get(routes::integrations::get_integrations))
+        .route(
+            "/api/integrations",
+            get(routes::integrations::get_integrations),
+        )
         .route(
             "/api/integrations/google-calendar",
             axum::routing::patch(routes::integrations::patch_google_calendar),
@@ -452,7 +454,11 @@ mod tests {
         assert_eq!(data["retry_reason"], "transient_failure");
         assert!(data.get("retry_scheduled_at").is_some());
 
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.status, vel_core::RunStatus::RetryScheduled);
         assert_eq!(
             run.output_json.as_ref().and_then(|v| v.get("retry_reason")),
@@ -513,7 +519,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(resp.status(), StatusCode::OK);
-        let envelope = rx.recv().await.expect("websocket event should be broadcast");
+        let envelope = rx
+            .recv()
+            .await
+            .expect("websocket event should be broadcast");
         assert_eq!(envelope.event_type.to_string(), "runs:updated");
         assert_eq!(envelope.payload["id"], run_id.as_ref());
         assert_eq!(envelope.payload["kind"], "synthesis");
@@ -570,10 +579,16 @@ mod tests {
         assert_eq!(data["status"], "blocked");
         assert_eq!(data["blocked_reason"], "waiting_on_dependency");
 
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.status, vel_core::RunStatus::Blocked);
         assert_eq!(
-            run.output_json.as_ref().and_then(|v| v.get("blocked_reason")),
+            run.output_json
+                .as_ref()
+                .and_then(|v| v.get("blocked_reason")),
             Some(&serde_json::json!("waiting_on_dependency"))
         );
     }
@@ -620,7 +635,11 @@ mod tests {
             .unwrap();
 
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.status, vel_core::RunStatus::Queued);
     }
 
@@ -670,7 +689,11 @@ mod tests {
 
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
         let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
-        assert_eq!(events.len(), 1, "no retry event should be appended on invalid input");
+        assert_eq!(
+            events.len(),
+            1,
+            "no retry event should be appended on invalid input"
+        );
     }
 
     #[tokio::test]
@@ -719,17 +742,23 @@ mod tests {
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert!(
-            json["error"]["message"]
-                .as_str()
-                .expect("error message should be present")
-                .contains("allow_unsupported_retry=true")
-        );
+        assert!(json["error"]["message"]
+            .as_str()
+            .expect("error message should be present")
+            .contains("allow_unsupported_retry=true"));
 
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.status, vel_core::RunStatus::Queued);
         let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
-        assert_eq!(events.len(), 1, "no retry event should be appended on rejection");
+        assert_eq!(
+            events.len(),
+            1,
+            "no retry event should be appended on rejection"
+        );
     }
 
     #[tokio::test]
@@ -789,7 +818,11 @@ mod tests {
             "manual operator override"
         );
 
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.status, vel_core::RunStatus::RetryScheduled);
         assert_eq!(
             run.output_json
@@ -2467,7 +2500,10 @@ mod tests {
             "active"
         );
 
-        assert_eq!(message_event.event_type, vel_api_types::WsEventType::MessagesNew);
+        assert_eq!(
+            message_event.event_type,
+            vel_api_types::WsEventType::MessagesNew
+        );
         assert_eq!(message_event.payload["role"].as_str().unwrap(), "assistant");
         assert_eq!(
             message_event.payload["kind"].as_str().unwrap(),
@@ -3104,7 +3140,10 @@ END:VCALENDAR
             assert_eq!(resp.status(), StatusCode::OK);
         }
 
-        let signals = storage.list_signals(Some("git_activity"), None, 10).await.unwrap();
+        let signals = storage
+            .list_signals(Some("git_activity"), None, 10)
+            .await
+            .unwrap();
         assert_eq!(signals.len(), 1);
         assert_eq!(
             signals[0].source_ref.as_deref(),
@@ -3183,7 +3222,10 @@ END:VCALENDAR
         assert_eq!(signals[0].payload_json["waiting_state"], "me");
         assert_eq!(signals[0].payload_json["scheduling_related"], true);
         assert_eq!(signals[0].payload_json["urgent"], true);
-        assert_eq!(signals[0].payload_json["snippet"], "Can we move the review to 3?");
+        assert_eq!(
+            signals[0].payload_json["snippet"],
+            "Can we move the review to 3?"
+        );
 
         let _ = std::fs::remove_file(&file_path);
     }
@@ -3531,7 +3573,10 @@ END:VCALENDAR
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(json["data"]["context"]["inferred_activity"], "computer_active");
+        assert_eq!(
+            json["data"]["context"]["inferred_activity"],
+            "computer_active"
+        );
         assert_eq!(json["data"]["context"]["morning_state"], "engaged");
         assert!(json["data"]["context"]["git_activity_summary"].is_null());
     }
@@ -3544,7 +3589,9 @@ END:VCALENDAR
             .insert_signal(vel_storage::SignalInsert {
                 signal_type: "git_activity".to_string(),
                 source: "git".to_string(),
-                source_ref: Some("git:/home/jove/code/vel|main|commit|abc123|1700002000".to_string()),
+                source_ref: Some(
+                    "git:/home/jove/code/vel|main|commit|abc123|1700002000".to_string(),
+                ),
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
                 payload_json: Some(serde_json::json!({
                     "repo": "/home/jove/code/vel",
@@ -3592,8 +3639,14 @@ END:VCALENDAR
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["data"]["context"]["inferred_activity"], "coding");
         assert_eq!(json["data"]["context"]["morning_state"], "engaged");
-        assert_eq!(json["data"]["context"]["git_activity_summary"]["repo"], "vel");
-        assert_eq!(json["data"]["context"]["git_activity_summary"]["branch"], "main");
+        assert_eq!(
+            json["data"]["context"]["git_activity_summary"]["repo"],
+            "vel"
+        );
+        assert_eq!(
+            json["data"]["context"]["git_activity_summary"]["branch"],
+            "main"
+        );
         assert_eq!(
             json["data"]["context"]["git_activity_summary"]["operation"],
             "commit"
@@ -3674,7 +3727,10 @@ END:VCALENDAR
         assert_eq!(patch_json["data"]["google_calendar"]["configured"], true);
         assert_eq!(patch_json["data"]["google_calendar"]["connected"], false);
         assert_eq!(patch_json["data"]["google_calendar"]["has_client_id"], true);
-        assert_eq!(patch_json["data"]["google_calendar"]["has_client_secret"], true);
+        assert_eq!(
+            patch_json["data"]["google_calendar"]["has_client_secret"],
+            true
+        );
 
         let auth_resp = app
             .oneshot(
@@ -3697,7 +3753,77 @@ END:VCALENDAR
         assert!(auth_url.starts_with("https://accounts.google.com/o/oauth2/v2/auth?"));
         assert!(auth_url.contains("client_id=gcal-client"));
         assert!(auth_url.contains("redirect_uri=http%3A%2F%2F127.0.0.1%3A4130%2Fapi%2Fintegrations%2Fgoogle-calendar%2Foauth%2Fcallback"));
-        assert!(auth_url.contains("scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly"));
+        assert!(
+            auth_url.contains("scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly")
+        );
+    }
+
+    #[tokio::test]
+    async fn integrations_store_sensitive_tokens_separately_from_public_settings() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/integrations/google-calendar")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"client_id":"gcal-client","client_secret":"gcal-secret"}"#.to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let _ = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/integrations/todoist")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"api_token":"todoist-token"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let settings = storage.get_all_settings().await.unwrap();
+        let google_public = settings
+            .get("integration_google_calendar")
+            .expect("google public settings should exist");
+        let google_secrets = settings
+            .get("integration_google_calendar_secrets")
+            .expect("google secrets should exist");
+        let todoist_public = settings
+            .get("integration_todoist")
+            .expect("todoist public settings should exist");
+        let todoist_secrets = settings
+            .get("integration_todoist_secrets")
+            .expect("todoist secrets should exist");
+
+        assert_eq!(google_public["client_id"], "gcal-client");
+        assert!(
+            google_public.get("client_secret").is_none()
+                || google_public["client_secret"].is_null()
+        );
+        assert!(
+            google_public.get("refresh_token").is_none()
+                || google_public["refresh_token"].is_null()
+        );
+        assert_eq!(google_secrets["client_secret"], "gcal-secret");
+
+        assert!(todoist_public.get("api_token").is_none() || todoist_public["api_token"].is_null());
+        assert_eq!(todoist_secrets["api_token"], "todoist-token");
     }
 
     #[tokio::test]
@@ -3751,7 +3877,111 @@ END:VCALENDAR
         assert_eq!(disconnect_json["data"]["todoist"]["configured"], false);
         assert_eq!(disconnect_json["data"]["todoist"]["connected"], false);
         assert_eq!(disconnect_json["data"]["todoist"]["has_api_token"], false);
-        assert_eq!(disconnect_json["data"]["todoist"]["last_sync_status"], "disconnected");
+        assert_eq!(
+            disconnect_json["data"]["todoist"]["last_sync_status"],
+            "disconnected"
+        );
+    }
+
+    #[tokio::test]
+    async fn integrations_google_calendar_selection_persists_and_disconnect_clears_connection() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting(
+                "integration_google_calendar",
+                &serde_json::json!({
+                    "client_id": "gcal-client",
+                    "calendars": [
+                        { "id": "cal_a", "summary": "Primary", "primary": true, "selected": true },
+                        { "id": "cal_b", "summary": "Work", "primary": false, "selected": false }
+                    ],
+                    "all_calendars_selected": false
+                }),
+            )
+            .await
+            .unwrap();
+        storage
+            .set_setting(
+                "integration_google_calendar_secrets",
+                &serde_json::json!({
+                    "client_secret": "gcal-secret",
+                    "refresh_token": "refresh-token",
+                    "access_token": "access-token"
+                }),
+            )
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let patch_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/integrations/google-calendar")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"selected_calendar_ids":["cal_b"],"all_calendars_selected":false}"#
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::OK);
+        let patch_body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let patch_json: serde_json::Value = serde_json::from_slice(&patch_body).unwrap();
+        let calendars = patch_json["data"]["google_calendar"]["calendars"]
+            .as_array()
+            .expect("calendars should be an array");
+        assert_eq!(calendars[0]["selected"], false);
+        assert_eq!(calendars[1]["selected"], true);
+        assert_eq!(
+            patch_json["data"]["google_calendar"]["all_calendars_selected"],
+            false
+        );
+        assert_eq!(patch_json["data"]["google_calendar"]["connected"], true);
+
+        let disconnect_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/integrations/google-calendar/disconnect")
+                    .body(Body::from("{}".to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(disconnect_resp.status(), StatusCode::OK);
+        let disconnect_body = axum::body::to_bytes(disconnect_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let disconnect_json: serde_json::Value = serde_json::from_slice(&disconnect_body).unwrap();
+        assert_eq!(
+            disconnect_json["data"]["google_calendar"]["connected"],
+            false
+        );
+        assert_eq!(
+            disconnect_json["data"]["google_calendar"]["has_client_id"],
+            true
+        );
+        assert_eq!(
+            disconnect_json["data"]["google_calendar"]["has_client_secret"],
+            true
+        );
+        let calendars = disconnect_json["data"]["google_calendar"]["calendars"]
+            .as_array()
+            .expect("calendars should be an array");
+        assert_eq!(calendars[1]["selected"], true);
     }
 
     #[tokio::test]
@@ -3786,7 +4016,10 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["data"]["activity"]["configured"], true);
-        assert_eq!(json["data"]["activity"]["source_path"], "/tmp/activity.json");
+        assert_eq!(
+            json["data"]["activity"]["source_path"],
+            "/tmp/activity.json"
+        );
         assert_eq!(json["data"]["notes"]["configured"], true);
         assert_eq!(json["data"]["notes"]["source_path"], "/tmp/notes");
         assert_eq!(json["data"]["notes"]["last_sync_status"], "ok");
@@ -3832,7 +4065,8 @@ END:VCALENDAR
         let integrations_body = axum::body::to_bytes(integrations_resp.into_body(), usize::MAX)
             .await
             .unwrap();
-        let integrations_json: serde_json::Value = serde_json::from_slice(&integrations_body).unwrap();
+        let integrations_json: serde_json::Value =
+            serde_json::from_slice(&integrations_body).unwrap();
         assert_eq!(integrations_json["data"]["notes"]["last_sync_status"], "ok");
         assert_eq!(integrations_json["data"]["notes"]["last_item_count"], 1);
 
@@ -3840,7 +4074,9 @@ END:VCALENDAR
             storage.clone(),
             AppConfig {
                 notes_path: Some(dir.to_string_lossy().to_string()),
-                messaging_snapshot_path: Some(dir.join("missing.json").to_string_lossy().to_string()),
+                messaging_snapshot_path: Some(
+                    dir.join("missing.json").to_string_lossy().to_string(),
+                ),
                 ..Default::default()
             },
             test_policy_config(),
@@ -3863,7 +4099,9 @@ END:VCALENDAR
             storage,
             AppConfig {
                 notes_path: Some(dir.to_string_lossy().to_string()),
-                messaging_snapshot_path: Some(dir.join("missing.json").to_string_lossy().to_string()),
+                messaging_snapshot_path: Some(
+                    dir.join("missing.json").to_string_lossy().to_string(),
+                ),
                 ..Default::default()
             },
             test_policy_config(),
@@ -3881,9 +4119,15 @@ END:VCALENDAR
         let integrations_body = axum::body::to_bytes(integrations_resp.into_body(), usize::MAX)
             .await
             .unwrap();
-        let integrations_json: serde_json::Value = serde_json::from_slice(&integrations_body).unwrap();
-        assert_eq!(integrations_json["data"]["messaging"]["last_sync_status"], "error");
-        assert!(integrations_json["data"]["messaging"]["last_error"].as_str().is_some());
+        let integrations_json: serde_json::Value =
+            serde_json::from_slice(&integrations_body).unwrap();
+        assert_eq!(
+            integrations_json["data"]["messaging"]["last_sync_status"],
+            "error"
+        );
+        assert!(integrations_json["data"]["messaging"]["last_error"]
+            .as_str()
+            .is_some());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -3994,7 +4238,12 @@ END:VCALENDAR
         assert_eq!(restart_json["data"]["id"], "evaluate");
         assert_eq!(restart_json["data"]["status"], "ok");
         assert_eq!(restart_json["data"]["restart_count"], 1);
-        assert!(restart_json["data"]["last_restarted_at"].as_i64().unwrap_or(0) > 0);
+        assert!(
+            restart_json["data"]["last_restarted_at"]
+                .as_i64()
+                .unwrap_or(0)
+                > 0
+        );
 
         let logs_resp = app
             .oneshot(
@@ -4012,8 +4261,49 @@ END:VCALENDAR
         let logs_json: serde_json::Value = serde_json::from_slice(&logs_body).unwrap();
         let logs = logs_json["data"].as_array().expect("logs array");
         assert!(!logs.is_empty());
-        assert!(logs.iter().any(|entry| entry["event_name"] == "component.restart.requested"));
-        assert!(logs.iter().any(|entry| entry["event_name"] == "component.restart.completed"));
+        assert!(logs
+            .iter()
+            .any(|entry| entry["event_name"] == "component.restart.requested"));
+        assert!(logs
+            .iter()
+            .any(|entry| entry["event_name"] == "component.restart.completed"));
+    }
+
+    #[tokio::test]
+    async fn restart_evaluate_emits_components_updated_websocket_event() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
+        let mut rx = broadcast_tx.subscribe();
+        let state = crate::state::AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            broadcast_tx,
+            None,
+            None,
+        );
+        let app = build_app_with_state(state);
+
+        let restart_resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/components/evaluate/restart")
+                    .body(Body::from("{}".to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(restart_resp.status(), StatusCode::OK);
+        let envelope = rx
+            .recv()
+            .await
+            .expect("websocket event should be broadcast");
+        assert_eq!(envelope.event_type.to_string(), "components:updated");
+        assert_eq!(envelope.payload["id"], "evaluate");
+        assert_eq!(envelope.payload["status"], "ok");
+        assert_eq!(envelope.payload["restart_count"], 1);
     }
 
     #[tokio::test]

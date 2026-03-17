@@ -15,7 +15,9 @@ use vel_storage::{CommitmentInsert, SignalInsert, Storage};
 use crate::errors::AppError;
 
 const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
+const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
 const TODOIST_SETTINGS_KEY: &str = "integration_todoist";
+const TODOIST_SECRETS_KEY: &str = "integration_todoist_secrets";
 const ACTIVITY_SETTINGS_KEY: &str = "integration_activity";
 const GIT_SETTINGS_KEY: &str = "integration_git";
 const MESSAGING_SETTINGS_KEY: &str = "integration_messaging";
@@ -34,6 +36,20 @@ pub struct GoogleCalendarSettings {
     pub access_token: Option<String>,
     pub refresh_token: Option<String>,
     pub token_expires_at: Option<i64>,
+    #[serde(default)]
+    pub calendars: Vec<StoredCalendar>,
+    #[serde(default = "default_true")]
+    pub all_calendars_selected: bool,
+    pub pending_oauth_state: Option<String>,
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GoogleCalendarPublicSettings {
+    pub client_id: Option<String>,
     #[serde(default)]
     pub calendars: Vec<StoredCalendar>,
     #[serde(default = "default_true")]
@@ -65,6 +81,27 @@ pub struct TodoistSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TodoistPublicSettings {
+    pub last_sync_at: Option<i64>,
+    pub last_sync_status: Option<String>,
+    pub last_error: Option<String>,
+    pub last_item_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GoogleCalendarSecrets {
+    pub client_secret: Option<String>,
+    pub access_token: Option<String>,
+    pub refresh_token: Option<String>,
+    pub token_expires_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TodoistSecrets {
+    pub api_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LocalIntegrationSettings {
     pub last_sync_at: Option<i64>,
     pub last_sync_status: Option<String>,
@@ -87,26 +124,11 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
     Ok(IntegrationsData {
         google_calendar: google_status(&google),
         todoist: todoist_status(&todoist),
-        activity: local_status(
-            config_source_path(None, None),
-            &activity,
-        ),
-        git: local_status(
-            config_source_path(None, None),
-            &git,
-        ),
-        messaging: local_status(
-            config_source_path(None, None),
-            &messaging,
-        ),
-        notes: local_status(
-            config_source_path(None, None),
-            &notes,
-        ),
-        transcripts: local_status(
-            config_source_path(None, None),
-            &transcripts,
-        ),
+        activity: local_status(config_source_path(None, None), &activity),
+        git: local_status(config_source_path(None, None), &git),
+        messaging: local_status(config_source_path(None, None), &messaging),
+        notes: local_status(config_source_path(None, None), &notes),
+        transcripts: local_status(config_source_path(None, None), &transcripts),
     })
 }
 
@@ -136,7 +158,10 @@ pub async fn get_integrations_with_config(
             config_source_path(config.messaging_snapshot_path.as_deref(), None),
             &messaging,
         ),
-        notes: local_status(config_source_path(config.notes_path.as_deref(), None), &notes),
+        notes: local_status(
+            config_source_path(config.notes_path.as_deref(), None),
+            &notes,
+        ),
         transcripts: local_status(
             config_source_path(config.transcript_snapshot_path.as_deref(), None),
             &transcripts,
@@ -322,13 +347,8 @@ pub async fn sync_google_calendar(
         return Ok(None);
     }
 
-    let access_token = ensure_google_access_token(
-        storage,
-        &mut settings,
-        &client_id,
-        &client_secret,
-    )
-    .await?;
+    let access_token =
+        ensure_google_access_token(storage, &mut settings, &client_id, &client_secret).await?;
     let calendars = list_google_calendars_with_token(&access_token).await?;
     settings.calendars = merge_calendar_selection(settings.calendars, calendars);
     let selected = selected_calendars(&settings);
@@ -337,13 +357,8 @@ pub async fn sync_google_calendar(
 
     let mut inserted = 0u32;
     for calendar in &selected {
-        let events = list_google_events_with_token(
-            &access_token,
-            &calendar.id,
-            time_min,
-            time_max,
-        )
-        .await?;
+        let events =
+            list_google_events_with_token(&access_token, &calendar.id, time_min, time_max).await?;
         for event in events {
             if event.status.as_deref() == Some("cancelled") {
                 continue;
@@ -413,7 +428,10 @@ pub async fn sync_todoist(storage: &Storage) -> Result<Option<u32>, AppError> {
     let now = now_ts();
     let mut signals_count = 0u32;
 
-    for item in tasks.into_iter().filter(|task| !task.content.trim().is_empty()) {
+    for item in tasks
+        .into_iter()
+        .filter(|task| !task.content.trim().is_empty())
+    {
         let completed = item.checked.unwrap_or(false);
         let due_ts = item
             .due
@@ -761,25 +779,76 @@ fn local_status(
 }
 
 async fn load_google_settings(storage: &Storage) -> Result<GoogleCalendarSettings, AppError> {
-    load_settings(storage, GOOGLE_SETTINGS_KEY).await
+    let public_settings: GoogleCalendarPublicSettings =
+        load_settings(storage, GOOGLE_SETTINGS_KEY).await?;
+    let secrets: GoogleCalendarSecrets = load_settings(storage, GOOGLE_SECRETS_KEY).await?;
+    Ok(GoogleCalendarSettings {
+        client_id: public_settings.client_id,
+        client_secret: secrets.client_secret,
+        access_token: secrets.access_token,
+        refresh_token: secrets.refresh_token,
+        token_expires_at: secrets.token_expires_at,
+        calendars: public_settings.calendars,
+        all_calendars_selected: public_settings.all_calendars_selected,
+        pending_oauth_state: public_settings.pending_oauth_state,
+        last_sync_at: public_settings.last_sync_at,
+        last_sync_status: public_settings.last_sync_status,
+        last_error: public_settings.last_error,
+        last_item_count: public_settings.last_item_count,
+    })
 }
 
 async fn save_google_settings(
     storage: &Storage,
     settings: &GoogleCalendarSettings,
 ) -> Result<(), AppError> {
-    save_settings(storage, GOOGLE_SETTINGS_KEY, settings).await
+    let public_settings = GoogleCalendarPublicSettings {
+        client_id: settings.client_id.clone(),
+        calendars: settings.calendars.clone(),
+        all_calendars_selected: settings.all_calendars_selected,
+        pending_oauth_state: settings.pending_oauth_state.clone(),
+        last_sync_at: settings.last_sync_at,
+        last_sync_status: settings.last_sync_status.clone(),
+        last_error: settings.last_error.clone(),
+        last_item_count: settings.last_item_count,
+    };
+    let secrets = GoogleCalendarSecrets {
+        client_secret: settings.client_secret.clone(),
+        access_token: settings.access_token.clone(),
+        refresh_token: settings.refresh_token.clone(),
+        token_expires_at: settings.token_expires_at,
+    };
+    save_settings(storage, GOOGLE_SETTINGS_KEY, &public_settings).await?;
+    save_settings(storage, GOOGLE_SECRETS_KEY, &secrets).await
 }
 
 async fn load_todoist_settings(storage: &Storage) -> Result<TodoistSettings, AppError> {
-    load_settings(storage, TODOIST_SETTINGS_KEY).await
+    let public_settings: TodoistPublicSettings = load_settings(storage, TODOIST_SETTINGS_KEY).await?;
+    let secrets: TodoistSecrets = load_settings(storage, TODOIST_SECRETS_KEY).await?;
+    Ok(TodoistSettings {
+        api_token: secrets.api_token,
+        last_sync_at: public_settings.last_sync_at,
+        last_sync_status: public_settings.last_sync_status,
+        last_error: public_settings.last_error,
+        last_item_count: public_settings.last_item_count,
+    })
 }
 
 async fn save_todoist_settings(
     storage: &Storage,
     settings: &TodoistSettings,
 ) -> Result<(), AppError> {
-    save_settings(storage, TODOIST_SETTINGS_KEY, settings).await
+    let public_settings = TodoistPublicSettings {
+        last_sync_at: settings.last_sync_at,
+        last_sync_status: settings.last_sync_status.clone(),
+        last_error: settings.last_error.clone(),
+        last_item_count: settings.last_item_count,
+    };
+    let secrets = TodoistSecrets {
+        api_token: settings.api_token.clone(),
+    };
+    save_settings(storage, TODOIST_SETTINGS_KEY, &public_settings).await?;
+    save_settings(storage, TODOIST_SECRETS_KEY, &secrets).await
 }
 
 async fn load_local_settings(
@@ -805,8 +874,9 @@ async fn save_settings<T>(storage: &Storage, key: &str, value: &T) -> Result<(),
 where
     T: Serialize,
 {
-    let value = serde_json::to_value(value)
-        .map_err(|error| AppError::internal(format!("serialize integration settings: {}", error)))?;
+    let value = serde_json::to_value(value).map_err(|error| {
+        AppError::internal(format!("serialize integration settings: {}", error))
+    })?;
     storage.set_setting(key, &value).await?;
     Ok(())
 }
@@ -1022,7 +1092,11 @@ async fn reconcile_commitment(
 
 fn infer_todoist_kind(task: &TodoistTask) -> &'static str {
     let content_lower = task.content.to_lowercase();
-    let labels: Vec<String> = task.labels.iter().map(|label| label.to_lowercase()).collect();
+    let labels: Vec<String> = task
+        .labels
+        .iter()
+        .map(|label| label.to_lowercase())
+        .collect();
     if labels.iter().any(|label| label == "health")
         || content_lower.contains("meds")
         || content_lower.contains("medication")
