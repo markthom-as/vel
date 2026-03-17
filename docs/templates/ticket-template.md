@@ -1,71 +1,51 @@
 ---
-title: TICKET-XXX-short-name
-doc_type: ticket
-status: proposed
-owner: team-or-person
+title: TICKET-ID-short-name
+status: planned | in-progress | completed
+owner: agent | staff-eng
+type: architecture | feature | bugfix | refactor
+priority: high | medium | low
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-priority: medium
-keywords:
+depends_on:
+  - TICKET-ID
+labels:
   - subsystem
-  - feature
-  - bugfix
-index_terms:
-  - alternate feature name
-  - likely triage phrase
-  - likely wiki lookup phrase
-related_files:
-  - docs/status.md
-  - docs/specs/example-spec.md
-summary: One or two sentences describing the concrete implementation task and the user or system outcome it should produce.
+  - technical-debt
+  - distributed
 ---
 
-# Outcome
+# Context & Objectives
+*A technical, high-signal summary of the task. Explain the current state and the target state.*
 
-State the concrete result this ticket should deliver.
+# Impacted Files & Symbols
+- **File**: `crates/veld/src/services/example.rs`
+  - **Symbols**: `ExampleStruct`, `trait ExampleTrait`, `fn handle_event`
+- **File**: `crates/vel-storage/src/db.rs`
+  - **Symbols**: `impl Storage`, `fn get_example`
 
-# Why
+# Technical Requirements
+- **Constraint 1**: No public API breaking changes.
+- **Constraint 2**: Use `tokio::sync::mpsc` for inter-service communication.
+- **Constraint 3**: All new logic must be unit-tested in isolation.
 
-State why this work matters now.
-
-# Scope
-
-Include what is in scope and what is not.
-
-# Implementation Notes
-
-- note
-- note
-
-# Files Or Areas
-
-- `path/or/module`
-- `path/or/module`
+# Implementation Steps (The "How")
+1. **Research**: Locate symbols and verify current behavior using `grep_search`.
+2. **Strategy**: Outline the code motion or new logic in a plan.
+3. **Act**: Apply surgical changes using `replace` or `write_file`.
+4. **Clean**: Run `cargo fmt` and `cargo clippy`.
 
 # Acceptance Criteria
+1. [ ] Criterion A: Specific behavioral outcome.
+2. [ ] Criterion B: Specific structural outcome (e.g., "File X is < 500 lines").
+3. [ ] Criterion C: Performance target (e.g., "Inference latency < 50ms").
 
-1. criterion
-2. criterion
-3. criterion
+# Verification & Regression
+- **Unit Test**: `cargo test -p veld services::example`
+- **Integration Test**: `cargo test -p veld --test api_example`
+- **Smoke Check**: `vel example run --debug`
+- **Invariants**: Assert that `X` still holds true after the change.
 
-# Verification
-
-- command or test
-- command or test
-
-# Risks
-
-- risk
-- risk
-
-# Related Terms
-
-- canonical name:
-- aliases:
-- affected surface:
-
-# Search Terms
-
-- keyword:
-- keyword:
-- alternate phrase:
+# Agent Guardrails
+- **Secret Protection**: Do not log or print anything from `var/data/` or `.env`.
+- **Minimal Context**: Use `read_file` with line ranges for large files.
+- **Parallelism**: Run independent `grep_search` calls in parallel.
