@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{adapters, errors::AppError};
 use serde::{Deserialize, Serialize};
-use time::{OffsetDateTime, format_description::well_known::Rfc3339};
+use time::OffsetDateTime;
 use vel_api_types::{
     GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
     IntegrationConnectionData, IntegrationConnectionEventData, IntegrationConnectionSettingRefData,
@@ -20,8 +20,6 @@ use vel_storage::{IntegrationConnectionFilters, SignalRecord, Storage};
 
 const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
 const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
-const TODOIST_SETTINGS_KEY: &str = "integration_todoist";
-const TODOIST_SECRETS_KEY: &str = "integration_todoist_secrets";
 const ACTIVITY_SETTINGS_KEY: &str = "integration_activity";
 const HEALTH_SETTINGS_KEY: &str = "integration_health";
 const GIT_SETTINGS_KEY: &str = "integration_git";
@@ -1066,22 +1064,6 @@ fn now_ts() -> i64 {
     OffsetDateTime::now_utc().unix_timestamp()
 }
 
-fn parse_iso_datetime(value: &str) -> Option<i64> {
-    OffsetDateTime::parse(value, &Rfc3339)
-        .ok()
-        .map(|date_time| date_time.unix_timestamp())
-        .or_else(|| {
-            let normalized = if value.ends_with('Z') {
-                value.to_string()
-            } else {
-                format!("{}Z", value)
-            };
-            OffsetDateTime::parse(&normalized, &Rfc3339)
-                .ok()
-                .map(|date_time| date_time.unix_timestamp())
-        })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1218,11 +1200,11 @@ mod tests {
 
             let all_settings = storage.get_all_settings().await.unwrap();
             let public_settings = all_settings
-                .get(TODOIST_SETTINGS_KEY)
+                .get(integrations_todoist::TODOIST_SETTINGS_KEY)
                 .expect("todoist public settings should exist")
                 .clone();
             let secret_settings = all_settings
-                .get(TODOIST_SECRETS_KEY)
+                .get(integrations_todoist::TODOIST_SECRETS_KEY)
                 .expect("todoist secret settings should exist")
                 .clone();
 
