@@ -142,6 +142,22 @@ Use:
 - `vel_base_url` for explicit override
 - `vel_lan_base_url` as a local-network fallback
 
+The web Settings page now also exposes the daemon-side sync metadata that cluster/bootstrap surfaces use:
+
+- `node_display_name`
+- `tailscale_base_url`
+- `lan_base_url`
+
+Set `tailscale_base_url` to the stable tailnet address for the daemon you want every client to prefer. Apple clients should use the same URL for `vel_tailscale_url`.
+
+## Obsidian vault setup
+
+If you use Obsidian Sync for notes across devices, point Vel's `notes` integration at the local vault root on the machine running `veld`.
+
+- Obsidian Sync remains responsible for replicating vault files.
+- Vel reads the synced markdown/plaintext files from disk and ingests them through `sync notes`.
+- The web Settings page labels this adapter as `Obsidian Vault` so the path you save there should be the local vault directory, not a separate export.
+
 ## Trust and local ownership
 
 Vel is designed to be local-first.

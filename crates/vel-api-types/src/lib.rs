@@ -406,6 +406,14 @@ pub struct SyncHeartbeatRequestData {
     pub node_id: String,
     #[serde(default)]
     pub node_display_name: Option<String>,
+    #[serde(default)]
+    pub client_kind: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub protocol_version: Option<String>,
+    #[serde(default)]
+    pub build_id: Option<String>,
     pub worker_id: String,
     #[serde(default)]
     pub worker_classes: Vec<String>,
@@ -445,6 +453,16 @@ pub struct SyncHeartbeatRequestData {
     pub lan_base_url: Option<String>,
     #[serde(default)]
     pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub ping_ms: Option<u32>,
+    #[serde(default)]
+    pub sync_status: Option<String>,
+    #[serde(default)]
+    pub last_upstream_sync_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_downstream_sync_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_sync_error: Option<String>,
     #[serde(default)]
     pub last_heartbeat_at: Option<UnixSeconds>,
     #[serde(default)]
@@ -538,6 +556,14 @@ pub struct ClusterWorkerStateData {
     #[serde(default)]
     pub node_display_name: Option<String>,
     #[serde(default)]
+    pub client_kind: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub protocol_version: Option<String>,
+    #[serde(default)]
+    pub build_id: Option<String>,
+    #[serde(default)]
     pub worker_class: Option<String>,
     #[serde(default)]
     pub worker_classes: Vec<String>,
@@ -576,6 +602,18 @@ pub struct ClusterWorkerStateData {
     #[serde(default)]
     pub localhost_base_url: Option<String>,
     #[serde(default)]
+    pub ping_ms: Option<u32>,
+    #[serde(default)]
+    pub heartbeat_age_seconds: Option<UnixSeconds>,
+    #[serde(default)]
+    pub sync_status: Option<String>,
+    #[serde(default)]
+    pub last_upstream_sync_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_downstream_sync_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_sync_error: Option<String>,
+    #[serde(default)]
     pub last_heartbeat_at: Option<UnixSeconds>,
     #[serde(default)]
     pub started_at: Option<UnixSeconds>,
@@ -583,6 +621,8 @@ pub struct ClusterWorkerStateData {
     pub available_concurrency: Option<u32>,
     #[serde(default)]
     pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub active_work: Vec<SwarmClientActiveWorkData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -601,6 +641,82 @@ pub struct SyncClusterStateData {
     pub nodes: Vec<ClusterNodeStateData>,
     #[serde(default)]
     pub workers: Vec<ClusterWorkerStateData>,
+    #[serde(default)]
+    pub clients: Vec<SwarmClientData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientActiveWorkData {
+    pub receipt_id: String,
+    pub work_request_id: String,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub capability: Option<String>,
+    pub status: String,
+    pub assigned_at: UnixSeconds,
+    #[serde(default)]
+    pub started_at: Option<UnixSeconds>,
+    pub last_updated: UnixSeconds,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientData {
+    pub client_id: String,
+    pub node_id: String,
+    #[serde(default)]
+    pub node_display_name: Option<String>,
+    #[serde(default)]
+    pub client_kind: Option<String>,
+    #[serde(default)]
+    pub client_version: Option<String>,
+    #[serde(default)]
+    pub protocol_version: Option<String>,
+    #[serde(default)]
+    pub build_id: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub ping_ms: Option<u32>,
+    #[serde(default)]
+    pub heartbeat_age_seconds: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_heartbeat_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_upstream_sync_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub last_downstream_sync_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub sync_status: Option<String>,
+    #[serde(default)]
+    pub last_sync_error: Option<String>,
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub max_concurrency: Option<u32>,
+    #[serde(default)]
+    pub current_load: Option<u32>,
+    #[serde(default)]
+    pub queue_depth: Option<u32>,
+    #[serde(default)]
+    pub active_work: Vec<SwarmClientActiveWorkData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwarmClientsData {
+    pub generated_at: UnixSeconds,
+    pub active_authority_node_id: String,
+    pub active_authority_epoch: i64,
+    #[serde(default)]
+    pub clients: Vec<SwarmClientData>,
 }
 
 /// Status of a single diagnostic check.
@@ -969,6 +1085,52 @@ pub struct IntegrationConnectionEventData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarAuthStartData {
     pub auth_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectRuntimeCapabilityData {
+    pub runtime_id: String,
+    pub display_name: String,
+    pub supports_launch: bool,
+    pub supports_interactive_followup: bool,
+    pub supports_native_open: bool,
+    pub supports_host_agent_control: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectInstanceCapabilityManifestData {
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub launchable_runtimes: Vec<ConnectRuntimeCapabilityData>,
+    pub supports_agent_launch: bool,
+    pub supports_interactive_followup: bool,
+    pub supports_native_open: bool,
+    pub supports_host_agent_control: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectInstanceData {
+    pub id: String,
+    pub node_id: String,
+    pub display_name: String,
+    pub connection_id: Option<String>,
+    pub status: String,
+    pub reachability: String,
+    pub sync_base_url: Option<String>,
+    pub sync_transport: Option<String>,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub worker_ids: Vec<String>,
+    #[serde(default)]
+    pub worker_classes: Vec<String>,
+    pub last_seen_at: Option<UnixSeconds>,
+    pub manifest: ConnectInstanceCapabilityManifestData,
+    pub metadata: JsonValue,
 }
 
 // --- Chat / Web surfaces ---

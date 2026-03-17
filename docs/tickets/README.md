@@ -135,6 +135,16 @@ Execution pack for the global web shell, shared operator UX rules, surface-speci
 - **Use when:** changing the web shell, shared UI/state architecture, global operator UX, or the Projects web surface.
 - **Caution:** this pack consolidates older `ui-v4`, `now-page-fixes`, `projects`, and frontend-cleanup packets for execution; use [docs/status.md](../status.md) for shipped behavior.
 
+#### Client connect + sync milestone (`client-connect-sync/`)
+
+Cross-pack execution index for the immediate milestone of getting clients connected to one authority node, bootstrapped, stale-aware, and operator-visible.
+
+- **Index:** [client-connect-sync/README.md](client-connect-sync/README.md)
+- **Spec:** [docs/specs/vel-client-connection-and-sync-milestone-spec.md](../specs/vel-client-connection-and-sync-milestone-spec.md)
+- **Primary source tickets:** `APPLE-003`, `WUI-005`, `WUI-006`, `SWARM-009`
+- **Use when:** prioritizing the concrete client connection/sync slice across daemon, Apple, web, and docs work.
+- **Caution:** this pack consolidates execution for the immediate milestone; broader swarm replication, authority handoff, and distribution work remain in their existing packs/specs.
+
 ### Near-term design / expansion
 
 #### 5. Agentic engineering (`agentic/`)

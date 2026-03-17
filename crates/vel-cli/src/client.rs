@@ -5,12 +5,12 @@ use vel_api_types::{
     ApiResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
     ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
     CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
-    CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData, HealthData,
-    IntegrationConnectionData, IntegrationConnectionEventData, LoopData, LoopUpdateRequest,
-    MoodJournalCreateRequest, MorningData, NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest,
-    QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData,
-    SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData, UncertaintyData,
-    ValidationRequestData,
+    CommitmentUpdateRequest, ConnectInstanceData, DoctorData, EndOfDayData, EvaluateResultData,
+    HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LoopData,
+    LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NudgeData, NudgeSnoozeRequest,
+    PainJournalCreateRequest, QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults,
+    SyncBootstrapData, SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData,
+    UncertaintyData, ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -382,6 +382,19 @@ impl ApiClient {
 
     pub async fn cluster_bootstrap(&self) -> anyhow::Result<ApiResponse<ClusterBootstrapData>> {
         self.get("/v1/cluster/bootstrap").await
+    }
+
+    pub async fn list_connect_instances(
+        &self,
+    ) -> anyhow::Result<ApiResponse<Vec<ConnectInstanceData>>> {
+        self.get("/v1/connect/instances").await
+    }
+
+    pub async fn get_connect_instance(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<ConnectInstanceData>> {
+        self.get(&format!("/v1/connect/instances/{}", id)).await
     }
 
     pub async fn sync_cluster_state(&self) -> anyhow::Result<ApiResponse<SyncClusterStateData>> {

@@ -51,14 +51,18 @@ Start with [docs/README.md](README.md) if you need the shortest authoritative re
 - full-fat end-user documentation target — [spec](specs/vel-user-documentation-spec.md)
 - shipped implementation truth for user-facing maturity claims — [status](status.md)
 - current user-docs entrypoint — [docs/user/README.md](user/README.md)
-- planned operator UI v4 redesign — [spec](specs/vel-ui-v4-spec.md), [tickets](tickets/ui-v4/README.md)
+- planned web/operator UX convergence — [spec](specs/vel-web-operator-surface-spec.md), [tickets](tickets/web-ui-convergence/README.md)
+
+## Projects and Workspaces
+- projects surface and shared workspace contract — [spec](specs/vel-projects-page-spec.md), [tickets](tickets/projects/README.md)
+- project registry, normalized tags, dependencies, and routines substrate — [spec](specs/vel-project-operations-substrate-spec.md), [tickets](tickets/projects/README.md)
 
 ## Testing
 - canonical day fixture — [spec](specs/vel-canonical-day-fixture-spec.md)
 - integration tests — see [status](status.md) for current coverage
 
 ## Ticket packs and spec packs
-- **Ticket packs:** [docs/tickets/README.md](tickets/README.md) — Chat (001–035), [agentic](tickets/agentic/), [ios-watch-monorepo](tickets/ios-watch-monorepo/), [ios-watch](tickets/ios-watch/), [visual-interface](tickets/visual-interface/), [repo-feedback](tickets/repo-feedback/), [context-reasoning](tickets/context-reasoning/), [agent-runtime](tickets/agent-runtime/), [uncertainty](tickets/uncertainty/), [projects](tickets/projects/), [adaptive-configuration](tickets/adaptive-configuration/), [metadata-enrichment](tickets/metadata-enrichment/), [task-hud](tickets/task-hud/), [self-knowledge](tickets/self-knowledge/), [orchestration](tickets/orchestration/), [ui-v4](tickets/ui-v4/), [full-spec-pack](tickets/full-spec-pack/).
+- **Ticket packs:** [docs/tickets/README.md](tickets/README.md) — Chat (001–037), [repo-feedback](tickets/repo-feedback/), [vel-docs](tickets/vel-docs/), [repo-audit-hardening](tickets/repo-audit-hardening/), [web-ui-convergence](tickets/web-ui-convergence/), [agentic](tickets/agentic/), [agent-runtime](tickets/agent-runtime/), [ios-watch-monorepo](tickets/ios-watch-monorepo/), [visual-interface](tickets/visual-interface/), [uncertainty](tickets/uncertainty/), [adaptive-configuration](tickets/adaptive-configuration/), [metadata-enrichment](tickets/metadata-enrichment/), [projects](tickets/projects/), [self-knowledge](tickets/self-knowledge/), [multi-client-swarm](tickets/multi-client-swarm/), [integration-expansion](tickets/integration-expansion/), [ticket-object](tickets/ticket-object/), [storage-backup-sync](tickets/storage-backup-sync/), [connect-agent-launch](tickets/connect-agent-launch/).
 - **Product spec pack:** [docs/product-spec-pack/](product-spec-pack/) — architecture, surfaces, interaction, engines, design, flows, plus imported packets preserved under [docs/product-spec-pack/imported/](product-spec-pack/imported/).
 - **Visual interface:** [docs/visual-interface/](visual-interface/), [specs/visual-interface-README.md](specs/visual-interface-README.md), repo [packages/](../packages/) (vel-affect-core, vel-visual-morphology, vel-protocol, vel-render-web, vel-render-watch).
 - **Cognitive agent architecture:** [docs/cognitive-agent-architecture/](cognitive-agent-architecture/) — architecture (event-bus, state-graph), cognition (memory, context, introspection), agents, voice, devices, integrations, policies, metrics, implementation.

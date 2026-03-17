@@ -1,19 +1,19 @@
 import { useMemo, useState } from 'react';
 import type { JsonValue, SuggestionData, UncertaintyData } from '../types';
-import { invalidateQuery, useQuery } from '../data/query';
 import {
+  contextQueryKeys,
   loadSuggestion,
   loadSuggestions,
   loadUncertainty,
-  queryKeys,
   resolveUncertainty,
   updateSuggestion,
-} from '../data/resources';
+} from '../data/context';
+import { invalidateQuery, useQuery } from '../data/query';
 import { SurfaceState } from './SurfaceState';
 
 export function SuggestionsView() {
-  const listKey = useMemo(() => queryKeys.suggestions('pending'), []);
-  const uncertaintyKey = useMemo(() => queryKeys.uncertainty('open'), []);
+  const listKey = useMemo(() => contextQueryKeys.suggestions('pending'), []);
+  const uncertaintyKey = useMemo(() => contextQueryKeys.uncertainty('open'), []);
   const [selectedSuggestionId, setSelectedSuggestionId] = useState<string | null>(null);
   const [selectedUncertaintyId, setSelectedUncertaintyId] = useState<string | null>(null);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function SuggestionsView() {
       : activeSuggestionId === null
         ? uncertainty[0] ?? null
         : null;
-  const detailKey = useMemo(() => queryKeys.suggestion(activeSuggestionId), [activeSuggestionId]);
+  const detailKey = useMemo(() => contextQueryKeys.suggestion(activeSuggestionId), [activeSuggestionId]);
   const {
     data: selectedSuggestion,
     loading: detailLoading,
@@ -77,11 +77,11 @@ export function SuggestionsView() {
         throw new Error(response.error?.message ?? 'Failed to update suggestion');
       }
       if (activeSuggestionId === id) {
-        invalidateQuery(queryKeys.suggestion(id), { refetch: true });
+        invalidateQuery(contextQueryKeys.suggestion(id), { refetch: true });
       }
       invalidateQuery(listKey, { refetch: true });
-      invalidateQuery(queryKeys.now(), { refetch: true });
-      invalidateQuery(queryKeys.contextExplain(), { refetch: true });
+      invalidateQuery(contextQueryKeys.now(), { refetch: true });
+      invalidateQuery(contextQueryKeys.contextExplain(), { refetch: true });
       await refetchSuggestions();
       if (activeSuggestionId === id) {
         setSelectedSuggestionId(null);

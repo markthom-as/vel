@@ -32,14 +32,14 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
-async function openRunsTab(container: HTMLElement) {
+async function openRuntimeTab(container: HTMLElement) {
   const root = getSettingsRoot(container)
   await waitFor(() => {
-    expect(within(root).getByRole('button', { name: /^runs$/i })).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: /^runtime$/i })).toBeInTheDocument()
   })
-  fireEvent.click(within(root).getByRole('button', { name: /^runs$/i }))
+  fireEvent.click(within(root).getByRole('button', { name: /^runtime$/i }))
   await waitFor(() => {
-    expect(within(root).getByRole('heading', { name: /recent runs/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /runtime controls/i })).toBeInTheDocument()
   })
   return root
 }
@@ -52,30 +52,6 @@ async function openIntegrationsTab(container: HTMLElement) {
   fireEvent.click(within(root).getByRole('button', { name: /^integrations$/i }))
   await waitFor(() => {
     expect(within(root).getByRole('heading', { name: /google calendar/i })).toBeInTheDocument()
-  })
-  return root
-}
-
-async function openComponentsTab(container: HTMLElement) {
-  const root = getSettingsRoot(container)
-  await waitFor(() => {
-    expect(within(root).getByRole('button', { name: /^components$/i })).toBeInTheDocument()
-  })
-  fireEvent.click(within(root).getByRole('button', { name: /^components$/i }))
-  await waitFor(() => {
-    expect(within(root).getByRole('heading', { name: /google calendar/i })).toBeInTheDocument()
-  })
-  return root
-}
-
-async function openLoopsTab(container: HTMLElement) {
-  const root = getSettingsRoot(container)
-  await waitFor(() => {
-    expect(within(root).getByRole('button', { name: /^loops$/i })).toBeInTheDocument()
-  })
-  fireEvent.click(within(root).getByRole('button', { name: /^loops$/i }))
-  await waitFor(() => {
-    expect(within(root).getByRole('heading', { name: /runtime loops/i })).toBeInTheDocument()
   })
   return root
 }
@@ -98,6 +74,9 @@ describe('SettingsPage', () => {
             toggle_risks: true,
             toggle_reminders: true,
             timezone: 'America/Denver',
+            node_display_name: 'Vel Desktop',
+            tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            lan_base_url: 'http://192.168.1.50:4130',
             adaptive_policy_overrides: {
               commute_buffer_minutes: 30,
               default_prep_minutes: 45,
@@ -110,6 +89,23 @@ describe('SettingsPage', () => {
             },
           },
           meta: { request_id: 'req_1' },
+        } as never
+      }
+      if (path === '/v1/cluster/bootstrap') {
+        return {
+          ok: true,
+          data: {
+            node_id: 'vel-desktop',
+            node_display_name: 'Vel Desktop',
+            active_authority_node_id: 'vel-desktop',
+            active_authority_epoch: 1,
+            sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            sync_transport: 'tailscale',
+            tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            lan_base_url: 'http://192.168.1.50:4130',
+            localhost_base_url: 'http://127.0.0.1:4130',
+          },
+          meta: { request_id: 'req_cluster_bootstrap' },
         } as never
       }
       if (path === '/api/integrations') {
@@ -385,6 +381,7 @@ describe('SettingsPage', () => {
     expect(within(root).getByText(/show risks/i)).toBeInTheDocument()
     expect(within(root).getByText(/show reminders/i)).toBeInTheDocument()
     expect(within(root).getByDisplayValue('America/Denver')).toBeInTheDocument()
+    expect(within(root).getByDisplayValue('Vel Desktop')).toBeInTheDocument()
   })
 
   it('calls onBack when Back is clicked', async () => {
@@ -433,6 +430,34 @@ describe('SettingsPage', () => {
       expect(client.apiPatch).toHaveBeenCalledWith(
         '/api/settings',
         { timezone: 'America/Los_Angeles' },
+        expect.any(Function),
+      )
+    })
+  })
+
+  it('saves cross-client sync settings through settings api', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    await waitFor(() => {
+      const root = getSettingsRoot(container)
+      expect(within(root).getByRole('heading', { name: /cross-client sync/i })).toBeInTheDocument()
+    })
+
+    const root = getSettingsRoot(container)
+    fireEvent.change(within(root).getByDisplayValue('Vel Desktop'), { target: { value: 'Vel NAS' } })
+    fireEvent.change(
+      within(root).getByDisplayValue('http://vel-desktop.tailnet.ts.net:4130'),
+      { target: { value: 'http://vel-nas.tailnet.ts.net:4130' } },
+    )
+    fireEvent.click(within(root).getByRole('button', { name: /save sync settings/i }))
+
+    await waitFor(() => {
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/settings',
+        {
+          node_display_name: 'Vel NAS',
+          tailscale_base_url: 'http://vel-nas.tailnet.ts.net:4130',
+          lan_base_url: 'http://192.168.1.50:4130',
+        },
         expect.any(Function),
       )
     })
@@ -604,12 +629,12 @@ describe('SettingsPage', () => {
     expect(within(root).getByRole('heading', { name: /computer activity/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /git activity/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /^messaging$/i })).toBeInTheDocument()
-    expect(within(root).getByRole('heading', { name: /^notes$/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /obsidian vault/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /transcripts/i })).toBeInTheDocument()
     expect(within(root).getByText('Source: /tmp/activity.json')).toBeInTheDocument()
 
     const notesSyncButton = within(root).getAllByRole('button', { name: /sync now/i }).find((button) =>
-      button.closest('.rounded-lg')?.textContent?.includes('Notes'),
+      button.closest('.rounded-lg')?.textContent?.includes('Obsidian Vault'),
     )
     expect(notesSyncButton).toBeDefined()
     fireEvent.click(notesSyncButton as HTMLElement)
@@ -617,14 +642,14 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/notes', {}, expect.any(Function))
     })
-    expect(within(root).getByText('Notes synced (0 signals).')).toBeInTheDocument()
+    expect(within(root).getByText('Obsidian Vault synced (0 signals).')).toBeInTheDocument()
   })
 
   it('shows integration sync history for the selected card', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openIntegrationsTab(container)
 
-    const notesCard = within(root).getByRole('heading', { name: /^notes$/i }).closest('.rounded-lg')
+    const notesCard = within(root).getByRole('heading', { name: /obsidian vault/i }).closest('.rounded-lg')
     expect(notesCard).not.toBeNull()
     fireEvent.click(within(notesCard as HTMLElement).getByRole('button', { name: /^show history$/i }))
 
@@ -695,7 +720,7 @@ describe('SettingsPage', () => {
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openIntegrationsTab(container)
-    const notesCard = within(root).getByRole('heading', { name: /^notes$/i }).closest('.rounded-lg')
+    const notesCard = within(root).getByRole('heading', { name: /obsidian vault/i }).closest('.rounded-lg')
     expect(notesCard).not.toBeNull()
 
     fireEvent.click(within(notesCard as HTMLElement).getByRole('button', { name: /open history/i }))
@@ -708,7 +733,7 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/notes', {}, expect.any(Function))
     })
-    expect(within(notesCard as HTMLElement).getByText('Notes synced (4 signals).')).toBeInTheDocument()
+    expect(within(notesCard as HTMLElement).getByText('Obsidian Vault synced (4 signals).')).toBeInTheDocument()
   })
 
   it('saves a local integration source path from the settings card', async () => {
@@ -1034,7 +1059,7 @@ describe('SettingsPage', () => {
 
   it('renders component cards in the components tab', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openComponentsTab(container)
+    const root = await openRuntimeTab(container)
 
     expect(within(root).getByRole('heading', { name: /google calendar/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /todoist/i })).toBeInTheDocument()
@@ -1045,7 +1070,7 @@ describe('SettingsPage', () => {
 
   it('expands component logs and shows restart event history', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openComponentsTab(container)
+    const root = await openRuntimeTab(container)
 
     const evaluateCard = within(root).getByRole('heading', { name: /evaluate/i }).closest('.rounded-lg')
     expect(evaluateCard).not.toBeNull()
@@ -1074,7 +1099,7 @@ describe('SettingsPage', () => {
     } as never)
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openComponentsTab(container)
+    const root = await openRuntimeTab(container)
 
     const evaluateCard = within(root).getByRole('heading', { name: /evaluate/i }).closest('.rounded-lg')
     expect(evaluateCard).not.toBeNull()
@@ -1090,7 +1115,7 @@ describe('SettingsPage', () => {
     vi.mocked(client.apiPost).mockRejectedValueOnce(new Error('component panic'))
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openComponentsTab(container)
+    const root = await openRuntimeTab(container)
 
     const evaluateCard = within(root).getByRole('heading', { name: /evaluate/i }).closest('.rounded-lg')
     expect(evaluateCard).not.toBeNull()
@@ -1103,7 +1128,7 @@ describe('SettingsPage', () => {
 
   it('renders recent run policy and override metadata', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     expect(within(root).getByText('run_123')).toBeInTheDocument()
     expect(within(root).getByText('run_122')).toBeInTheDocument()
     expect(within(root).getAllByText(/auto retry:/i)).toHaveLength(2)
@@ -1139,7 +1164,7 @@ describe('SettingsPage', () => {
       meta: { request_id: 'req_patch' },
     } as never)
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     const reasonInputs = within(root).getAllByLabelText(/retry reason/i)
     const delayInputs = within(root).getAllByLabelText(/delay seconds/i)
     fireEvent.change(reasonInputs[0] as HTMLElement, { target: { value: 'manual_backoff' } })
@@ -1171,7 +1196,7 @@ describe('SettingsPage', () => {
 
   it('cancels unsupported retry override without hitting the API', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     fireEvent.click(within(root).getAllByRole('button', { name: /schedule retry/i })[0] as HTMLElement)
 
     expect(within(root).getByRole('button', { name: /confirm override retry/i })).toBeInTheDocument()
@@ -1189,7 +1214,7 @@ describe('SettingsPage', () => {
     })
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     fireEvent.click(within(root).getAllByRole('button', { name: /schedule retry/i })[0] as HTMLElement)
     expect(within(root).getByRole('button', { name: /confirm override retry/i })).toBeInTheDocument()
 
@@ -1231,7 +1256,7 @@ describe('SettingsPage', () => {
     })
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     fireEvent.click(within(root).getAllByRole('button', { name: /schedule retry/i })[0] as HTMLElement)
     expect(within(root).getByRole('button', { name: /confirm override retry/i })).toBeInTheDocument()
 
@@ -1293,7 +1318,7 @@ describe('SettingsPage', () => {
     } as never)
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     fireEvent.click(within(root).getAllByRole('button', { name: /schedule retry/i })[0] as HTMLElement)
     fireEvent.click(within(root).getByRole('button', { name: /confirm override retry/i }))
 
@@ -1341,7 +1366,7 @@ describe('SettingsPage', () => {
     vi.mocked(client.apiPatch).mockRejectedValueOnce(new Error('API 500: /v1/runs/run_122'))
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     fireEvent.click(within(root).getAllByRole('button', { name: /block run/i })[0] as HTMLElement)
 
     await waitFor(() => {
@@ -1405,7 +1430,7 @@ describe('SettingsPage', () => {
       } as never)
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     const blockButtons = within(root).getAllByRole('button', { name: /block run/i })
     fireEvent.click(blockButtons[0] as HTMLElement)
 
@@ -1472,7 +1497,7 @@ describe('SettingsPage', () => {
       meta: { request_id: 'req_patch_block' },
     } as never)
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     const blockedReasonInputs = within(root).getAllByLabelText(/blocked reason/i)
     fireEvent.change(blockedReasonInputs[0] as HTMLElement, { target: { value: 'waiting_on_dependency' } })
     fireEvent.click(within(root).getAllByRole('button', { name: /block run/i })[0] as HTMLElement)
@@ -1497,7 +1522,7 @@ describe('SettingsPage', () => {
     vi.mocked(client.apiPatch).mockRejectedValueOnce(new Error('API 500: /v1/runs/run_122'))
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     fireEvent.click(within(root).getAllByRole('button', { name: /block run/i })[0] as HTMLElement)
 
     await waitFor(() => {
@@ -1513,7 +1538,7 @@ describe('SettingsPage', () => {
     })
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openRunsTab(container)
+    const root = await openRuntimeTab(container)
     const runsCallsBefore = vi.mocked(client.apiGet).mock.calls.filter(
       ([path]) => path === '/v1/runs?limit=6',
     ).length
@@ -1556,7 +1581,7 @@ describe('SettingsPage', () => {
     })
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openComponentsTab(container)
+    const root = await openRuntimeTab(container)
 
     const evaluateCard = within(root).getByRole('heading', { name: /evaluate/i }).closest('.rounded-lg')
     expect(evaluateCard).not.toBeNull()
@@ -1605,7 +1630,7 @@ describe('SettingsPage', () => {
     } as never)
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    const root = await openLoopsTab(container)
+    const root = await openRuntimeTab(container)
 
     fireEvent.change(within(root).getByDisplayValue('300'), { target: { value: '600' } })
     fireEvent.click(within(root).getByLabelText(/enabled/i))
@@ -1623,7 +1648,7 @@ describe('SettingsPage', () => {
 
   it('subscribes to websocket updates for runs', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
-    await openRunsTab(container)
+    await openRuntimeTab(container)
 
     expect(subscribeWs.mock.calls.length).toBeGreaterThanOrEqual(1)
   })

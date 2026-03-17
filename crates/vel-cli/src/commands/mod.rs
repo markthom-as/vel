@@ -3,6 +3,7 @@ pub mod backup;
 pub mod capture;
 pub mod commitments;
 pub mod config;
+pub mod connect;
 pub mod context;
 pub mod docs;
 pub mod doctor;

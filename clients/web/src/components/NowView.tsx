@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { contextQueryKeys, loadNow } from '../data/context';
+import { operatorQueryKeys, runEvaluate, syncSource } from '../data/operator';
 import { invalidateQuery, useQuery } from '../data/query';
-import { loadNow, queryKeys, runEvaluate, syncSource } from '../data/resources';
 import type { NowData, NowTaskData } from '../types';
 import { SurfaceState } from './SurfaceState';
 
@@ -18,9 +19,9 @@ interface NowViewProps {
 }
 
 export function NowView({ onOpenSettings }: NowViewProps) {
-  const nowKey = useMemo(() => queryKeys.now(), []);
-  const currentContextKey = useMemo(() => queryKeys.currentContext(), []);
-  const integrationsKey = useMemo(() => queryKeys.integrations(), []);
+  const nowKey = useMemo(() => contextQueryKeys.now(), []);
+  const currentContextKey = useMemo(() => contextQueryKeys.currentContext(), []);
+  const integrationsKey = useMemo(() => operatorQueryKeys.integrations(), []);
   const { data, loading, error, refetch } = useQuery<NowData | null>(
     nowKey,
     async () => {

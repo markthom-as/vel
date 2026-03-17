@@ -8,6 +8,8 @@ import type {
   WsEvent,
 } from '../types';
 import { subscribeWs } from '../realtime/ws';
+import { chatQueryKeys } from './chat';
+import { contextQueryKeys } from './context';
 import {
   getQueryData,
   invalidateQuery,
@@ -22,7 +24,6 @@ import {
   upsertInboxItem,
   type PendingInterventionAction,
 } from './chat-state';
-import { queryKeys } from './resources';
 
 let refCount = 0;
 let unsubscribe: (() => void) | null = null;
@@ -46,7 +47,7 @@ function isComponentsKey(key: QueryKey): boolean {
 }
 
 function pendingInterventionActions() {
-  return getQueryData<Record<string, PendingInterventionAction>>(queryKeys.pendingInterventionActions()) ?? {};
+  return getQueryData<Record<string, PendingInterventionAction>>(chatQueryKeys.pendingInterventionActions()) ?? {};
 }
 
 function updateRunsCache(run: RunSummaryData) {
@@ -86,7 +87,7 @@ function updateComponentsCache(component: ComponentData) {
 }
 
 function applyMessageEvent(message: MessageData) {
-  setQueryData<ConversationData[]>(queryKeys.conversations(), (current = []) =>
+  setQueryData<ConversationData[]>(chatQueryKeys.conversations(), (current = []) =>
     reconcileConversationFromMessage(current, message),
   );
 
@@ -100,7 +101,7 @@ function applyMessageEvent(message: MessageData) {
 
 function applyInterventionCreated(inboxItem: InboxItemData) {
   const pendingActions = pendingInterventionActions();
-  setQueryData<InboxItemData[]>(queryKeys.inbox(), (current = []) =>
+  setQueryData<InboxItemData[]>(chatQueryKeys.inbox(), (current = []) =>
     upsertInboxItem(current, inboxItem, pendingActions),
   );
 
@@ -112,7 +113,7 @@ function applyInterventionCreated(inboxItem: InboxItemData) {
     if (!conversationId) {
       continue;
     }
-    const messages = getQueryData<MessageData[]>(queryKeys.conversationMessages(conversationId)) ?? [];
+    const messages = getQueryData<MessageData[]>(chatQueryKeys.conversationMessages(conversationId)) ?? [];
     if (!messages.some((message) => message.id === inboxItem.message_id)) {
       continue;
     }
@@ -124,10 +125,10 @@ function applyInterventionCreated(inboxItem: InboxItemData) {
 
 function applyInterventionUpdated(id: string, state: string) {
   setQueryData<Record<string, PendingInterventionAction>>(
-    queryKeys.pendingInterventionActions(),
+    chatQueryKeys.pendingInterventionActions(),
     (current = {}) => markPendingInterventionActionConfirmed(current, id, state),
   );
-  invalidateQuery(queryKeys.inbox(), { refetch: true });
+  invalidateQuery(chatQueryKeys.inbox(), { refetch: true });
   for (const key of listLoadedQueryKeys()) {
     if (isConversationInterventionsKey(key)) {
       invalidateQuery(key, { refetch: true });
@@ -136,10 +137,10 @@ function applyInterventionUpdated(id: string, state: string) {
 }
 
 function applyContextUpdated(currentContext: CurrentContextData) {
-  setQueryData(queryKeys.currentContext(), currentContext);
-  invalidateQuery(queryKeys.now(), { refetch: true });
-  invalidateQuery(queryKeys.contextExplain(), { refetch: true });
-  invalidateQuery(queryKeys.driftExplain(), { refetch: true });
+  setQueryData(contextQueryKeys.currentContext(), currentContext);
+  invalidateQuery(contextQueryKeys.now(), { refetch: true });
+  invalidateQuery(contextQueryKeys.contextExplain(), { refetch: true });
+  invalidateQuery(contextQueryKeys.driftExplain(), { refetch: true });
 
   for (const key of listLoadedQueryKeys()) {
     if (key.length === 2 && key[0] === 'commitments') {

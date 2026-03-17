@@ -1,18 +1,18 @@
 import { useEffect, useMemo } from 'react';
 import type { InboxItemData } from '../types';
+import { chatQueryKeys, loadInbox } from '../data/chat';
 import { setQueryData, useQuery } from '../data/query';
 import {
   prunePendingInterventionActions,
   type PendingInterventionAction,
 } from '../data/chat-state';
-import { loadInbox, queryKeys } from '../data/resources';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import { SurfaceState } from './SurfaceState';
 
 export function InboxView() {
-  const inboxKey = useMemo(() => queryKeys.inbox(), []);
+  const inboxKey = useMemo(() => chatQueryKeys.inbox(), []);
   const pendingInterventionActionsKey = useMemo(
-    () => queryKeys.pendingInterventionActions(),
+    () => chatQueryKeys.pendingInterventionActions(),
     [],
   );
   const { data: items = [], loading, error } = useQuery<InboxItemData[]>(

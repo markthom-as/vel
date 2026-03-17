@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiPost } from '../api/client';
 import type {
+  ClusterBootstrapData,
   ComponentData,
   ComponentLogEventData,
   IntegrationLogEventData,
@@ -17,6 +18,7 @@ import {
   disconnectGoogleCalendar,
   disconnectTodoist as disconnectTodoistIntegration,
   decodeGoogleCalendarAuthStartResponse,
+  loadClusterBootstrap,
   loadComponentLogs,
   loadComponents,
   loadIntegrations,
@@ -37,7 +39,7 @@ import {
 
 interface SettingsPageProps {
   onBack: () => void;
-  initialTab?: SettingsTab;
+  initialTab?: SettingsTab | LegacySettingsTab;
   initialIntegrationId?: IntegrationSectionKey;
 }
 
@@ -102,7 +104,15 @@ interface GuidanceActionButton {
   disabled?: boolean;
 }
 
-export type SettingsTab = 'general' | 'integrations' | 'components' | 'runs' | 'loops';
+type LegacySettingsTab = 'components' | 'runs' | 'loops';
+export type SettingsTab = 'general' | 'integrations' | 'runtime';
+
+function normalizeSettingsTab(tab: SettingsTab | LegacySettingsTab): SettingsTab {
+  if (tab === 'components' || tab === 'runs' || tab === 'loops') {
+    return 'runtime';
+  }
+  return tab;
+}
 
 interface LoopDraft {
   intervalSeconds: string;
@@ -227,8 +237,8 @@ const LOCAL_INTEGRATION_SPECS: Array<{
   },
   {
     key: 'notes',
-    title: 'Notes',
-    description: 'Markdown/plaintext note ingestion for recall and project continuity.',
+    title: 'Obsidian Vault',
+    description: 'Point Vel at your Obsidian vault root. Obsidian Sync handles replication; Vel ingests the synced markdown for recall and commitments.',
   },
   {
     key: 'transcripts',
@@ -275,7 +285,7 @@ export function SettingsPage({
   initialTab = 'general',
   initialIntegrationId,
 }: SettingsPageProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(normalizeSettingsTab(initialTab));
   const [saving, setSaving] = useState(false);
   const [pendingIntegrationActions, setPendingIntegrationActions] = useState<Record<string, true>>({});
   const [pendingComponentActions, setPendingComponentActions] = useState<Record<string, true>>({});
@@ -283,6 +293,13 @@ export function SettingsPage({
   const [googleClientSecret, setGoogleClientSecret] = useState('');
   const [todoistToken, setTodoistToken] = useState('');
   const [timezoneDraft, setTimezoneDraft] = useState('');
+  const [nodeDisplayNameDraft, setNodeDisplayNameDraft] = useState('');
+  const [tailscaleBaseUrlDraft, setTailscaleBaseUrlDraft] = useState('');
+  const [lanBaseUrlDraft, setLanBaseUrlDraft] = useState('');
+  const [syncNetworkFeedback, setSyncNetworkFeedback] = useState<{
+    status: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [localSourceDrafts, setLocalSourceDrafts] = useState<Record<LocalIntegrationSource, string>>({
     activity: '',
     health: '',
@@ -330,6 +347,7 @@ export function SettingsPage({
   });
   const runLimit = 6;
   const settingsKey = useMemo(() => queryKeys.settings(), []);
+  const clusterBootstrapKey = useMemo(() => queryKeys.clusterBootstrap(), []);
   const integrationsKey = useMemo(() => queryKeys.integrations(), []);
   const componentsKey = useMemo(() => queryKeys.components(), []);
   const runsKey = useMemo(() => queryKeys.runs(runLimit), []);
@@ -344,6 +362,17 @@ export function SettingsPage({
       const response = await loadSettings();
       return response.ok && response.data ? response.data : {};
     },
+  );
+  const { data: clusterBootstrap, error: clusterBootstrapError } = useQuery<ClusterBootstrapData>(
+    clusterBootstrapKey,
+    async () => {
+      const response = await loadClusterBootstrap();
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to load cluster bootstrap');
+      }
+      return response.data;
+    },
+    { enabled: activeTab === 'general' },
   );
   const {
     data: integrationsData,
@@ -376,7 +405,7 @@ export function SettingsPage({
       const response = await loadComponents();
       return response.ok && response.data ? response.data : [];
     },
-    { enabled: activeTab === 'components' },
+    { enabled: activeTab === 'runtime' },
   );
   const { data: loops = [] } = useQuery<LoopData[]>(
     loopsKey,
@@ -384,7 +413,7 @@ export function SettingsPage({
       const response = await loadLoops();
       return response.ok && response.data ? response.data : [];
     },
-    { enabled: activeTab === 'loops' },
+    { enabled: activeTab === 'runtime' },
   );
 
   useEffect(() => {
@@ -392,12 +421,24 @@ export function SettingsPage({
   }, []);
 
   useEffect(() => {
-    setActiveTab(initialTab);
+    setActiveTab(normalizeSettingsTab(initialTab));
   }, [initialTab]);
 
   useEffect(() => {
     setTimezoneDraft(settings.timezone ?? '');
   }, [settings.timezone]);
+
+  useEffect(() => {
+    setNodeDisplayNameDraft(settings.node_display_name ?? '');
+  }, [settings.node_display_name]);
+
+  useEffect(() => {
+    setTailscaleBaseUrlDraft(settings.tailscale_base_url ?? '');
+  }, [settings.tailscale_base_url]);
+
+  useEffect(() => {
+    setLanBaseUrlDraft(settings.lan_base_url ?? '');
+  }, [settings.lan_base_url]);
 
   useEffect(() => {
     setLocalSourceDrafts((current) => {
@@ -497,6 +538,36 @@ export function SettingsPage({
     Object.keys(expandedIntegrationLogs).forEach((integrationId) => {
       invalidateQuery(queryKeys.integrationLogs(integrationId), { refetch: true });
     });
+  };
+
+  const saveSyncNetworkSettings = async () => {
+    setSaving(true);
+    setSyncNetworkFeedback(null);
+    try {
+      const response = await updateSettings({
+        node_display_name: nodeDisplayNameDraft.trim() || null,
+        tailscale_base_url: tailscaleBaseUrlDraft.trim() || null,
+        lan_base_url: lanBaseUrlDraft.trim() || null,
+      });
+      if (!response.ok) {
+        throw new Error(response.error?.message ?? 'Failed to save sync settings');
+      }
+      if (response.data) {
+        setQueryData<SettingsData>(settingsKey, () => response.data as SettingsData);
+      }
+      invalidateQuery(clusterBootstrapKey, { refetch: true });
+      setSyncNetworkFeedback({
+        status: 'success',
+        message: 'Cross-client sync settings saved.',
+      });
+    } catch (error) {
+      setSyncNetworkFeedback({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const refreshComponentViews = () => {
@@ -1063,7 +1134,7 @@ export function SettingsPage({
       </button>
       <h2 className="text-xl font-medium text-zinc-200 mb-6">Settings</h2>
       <div className="mb-8 flex gap-2 border-b border-zinc-800 pb-3">
-        {(['general', 'integrations', 'components', 'runs', 'loops'] as const).map((tab) => (
+        {(['general', 'integrations', 'runtime'] as const).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -1135,6 +1206,93 @@ export function SettingsPage({
               >
                 Save timezone
               </button>
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-zinc-200">Cross-client Sync</h3>
+                <p className="text-sm text-zinc-500">
+                  Commitments are the global task authority across Vel clients. Prefer a Tailscale endpoint so Apple clients and other nodes resolve the same daemon consistently.
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs uppercase tracking-wide text-zinc-500">Node display name</span>
+                  <input
+                    type="text"
+                    value={nodeDisplayNameDraft}
+                    onChange={(event) => setNodeDisplayNameDraft(event.target.value)}
+                    placeholder="Vel Desktop"
+                    disabled={saving}
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs uppercase tracking-wide text-zinc-500">Tailscale URL</span>
+                  <input
+                    type="text"
+                    value={tailscaleBaseUrlDraft}
+                    onChange={(event) => setTailscaleBaseUrlDraft(event.target.value)}
+                    placeholder="http://vel-desktop.tailnet.ts.net:4130"
+                    disabled={saving}
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="text-xs uppercase tracking-wide text-zinc-500">LAN fallback URL</span>
+                  <input
+                    type="text"
+                    value={lanBaseUrlDraft}
+                    onChange={(event) => setLanBaseUrlDraft(event.target.value)}
+                    placeholder="http://192.168.1.50:4130"
+                    disabled={saving}
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                  />
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void saveSyncNetworkSettings()}
+                  disabled={
+                    saving
+                    || (
+                      nodeDisplayNameDraft.trim() === (settings.node_display_name ?? '')
+                      && tailscaleBaseUrlDraft.trim() === (settings.tailscale_base_url ?? '')
+                      && lanBaseUrlDraft.trim() === (settings.lan_base_url ?? '')
+                    )
+                  }
+                  className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
+                >
+                  Save sync settings
+                </button>
+                <p className="text-sm text-zinc-500">
+                  Apple clients should set `vel_tailscale_url` to the same Tailscale URL shown here.
+                </p>
+              </div>
+              {clusterBootstrap ? (
+                <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2">
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                    <dt className="text-zinc-500">Effective transport</dt>
+                    <dd className="mt-1 text-base text-zinc-100">{clusterBootstrap.sync_transport}</dd>
+                  </div>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                    <dt className="text-zinc-500">Effective sync base URL</dt>
+                    <dd className="mt-1 break-all text-base text-zinc-100">{clusterBootstrap.sync_base_url}</dd>
+                  </div>
+                </dl>
+              ) : null}
+              {clusterBootstrapError ? (
+                <p className="text-sm text-amber-300">
+                  Cluster bootstrap unavailable: {clusterBootstrapError}
+                </p>
+              ) : null}
+              {syncNetworkFeedback ? (
+                <p className={`text-sm ${syncNetworkFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {syncNetworkFeedback.message}
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
@@ -1218,6 +1376,12 @@ export function SettingsPage({
 
       {activeTab === 'integrations' ? (
         <section className="space-y-8">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <h3 className="text-base font-medium text-zinc-100">Integration control plane</h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              Configure participation and run sync from here. Use Stats for cross-integration diagnostics and long-form runtime inspection.
+            </p>
+          </div>
           {integrationsLoadError ? (
             <div className="rounded-lg border border-amber-900/80 bg-amber-950/30 p-4 text-sm text-amber-200">
               Integrations API unavailable: {integrationsLoadError}. Restart `veld` to pick up the new backend routes.
@@ -1510,11 +1674,20 @@ export function SettingsPage({
                           [spec.key]: nextValue,
                         }));
                       }}
-                      placeholder="Path to local snapshot file or directory"
+                      placeholder={
+                        spec.key === 'notes'
+                          ? 'Path to your Obsidian vault root or synced notes directory'
+                          : 'Path to local snapshot file or directory'
+                      }
                       className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
                     />
                   </label>
                 </div>
+                {spec.key === 'notes' ? (
+                  <p className="mt-2 text-sm text-zinc-500">
+                    Vel reads the vault from disk after Obsidian Sync lands the files locally. This keeps note sync local-first while the daemon ingests the same markdown across clients.
+                  </p>
+                ) : null}
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
                     type="button"
@@ -1592,34 +1765,96 @@ export function SettingsPage({
         </section>
       ) : null}
 
-      {activeTab === 'components' ? (
-        <section className="space-y-8">
-          {componentsLoadError ? (
-            <div className="rounded-lg border border-amber-900/80 bg-amber-950/30 p-4 text-sm text-amber-200">
-              Components API unavailable: {componentsLoadError}. Restart `veld` to pick up the latest backend routes.
+      {activeTab === 'runtime' ? (
+      <section className="space-y-8">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+          <h3 className="text-base font-medium text-zinc-100">Runtime controls</h3>
+          <p className="mt-1 text-sm text-zinc-500">
+            This tab is for operator actions only: adjust loops, manage retries, and restart components. Use Stats for passive observability.
+          </p>
+        </div>
+        <section>
+          <div className="mb-3">
+            <h3 className="text-lg font-medium text-zinc-200">Runtime loops</h3>
+            <p className="text-sm text-zinc-500">
+              Enable or slow down durable backend loops without dropping to the CLI.
+            </p>
+          </div>
+          {loops.length === 0 ? (
+            <p className="text-sm text-zinc-500">No loop records yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {loops.map((loop) => (
+                <article key={loop.kind} className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-zinc-100">{loop.kind}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Next due {loop.next_due_at ? formatUnixTimestamp(loop.next_due_at) : '—'}
+                      </p>
+                      {loop.last_status ? (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          Last status {loop.last_status}
+                          {loop.last_error ? ` · ${loop.last_error}` : ''}
+                        </p>
+                      ) : null}
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-zinc-300">
+                      <input
+                        type="checkbox"
+                        checked={loop.enabled}
+                        onChange={(event) => void saveLoop(loop, event.target.checked)}
+                        disabled={Boolean(actingLoops[loop.kind])}
+                        className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      Enabled
+                    </label>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
+                    <label className="flex-1 space-y-1">
+                      <span className="text-xs uppercase tracking-wide text-zinc-500">Interval seconds</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={loopDrafts[loop.kind]?.intervalSeconds ?? String(loop.interval_seconds)}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          setLoopDrafts((current) => ({
+                            ...current,
+                            [loop.kind]: {
+                              intervalSeconds: nextValue,
+                            },
+                          }));
+                        }}
+                        disabled={Boolean(actingLoops[loop.kind])}
+                        className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => void saveLoop(loop, loop.enabled)}
+                      disabled={Boolean(actingLoops[loop.kind])}
+                      className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+                    >
+                      {actingLoops[loop.kind] ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                  {loopActionState[loop.kind] ? (
+                    <p
+                      className={`mt-3 text-sm ${
+                        loopActionState[loop.kind]?.status === 'error' ? 'text-rose-400' : 'text-emerald-400'
+                      }`}
+                    >
+                      {loopActionState[loop.kind]?.message}
+                    </p>
+                  ) : null}
+                </article>
+              ))}
             </div>
-          ) : null}
-
-          {components.length === 0 ? (
-            <p className="text-sm text-zinc-500">No components loaded yet.</p>
-          ) : null}
-
-          {components.map((component) => (
-            <ComponentCard
-              key={component.id}
-              component={component}
-              action={componentActions[component.id]}
-              isExpanded={Boolean(expandedComponentLogs[component.id])}
-              isRestarting={Boolean(pendingComponentActions[component.id])}
-              onRestart={() => void restartComponentAction(component)}
-              onToggleLogs={() => updateComponentLogsVisibility(component.id, !expandedComponentLogs[component.id])}
-            />
-          ))}
+          )}
         </section>
-      ) : null}
-
-      {activeTab === 'runs' ? (
-      <section className="mt-2">
+        <section className="mt-2">
         <div className="mb-3">
           <h3 className="text-lg font-medium text-zinc-200">Recent runs</h3>
           <p className="text-sm text-zinc-500">
@@ -1795,89 +2030,38 @@ export function SettingsPage({
             ))
           )}
         </div>
-      </section>
-      ) : null}
+        </section>
+        <section className="space-y-8">
+          {componentsLoadError ? (
+            <div className="rounded-lg border border-amber-900/80 bg-amber-950/30 p-4 text-sm text-amber-200">
+              Components API unavailable: {componentsLoadError}. Restart `veld` to pick up the latest backend routes.
+            </div>
+          ) : null}
 
-      {activeTab === 'loops' ? (
-        <section className="space-y-4">
           <div>
-            <h3 className="text-lg font-medium text-zinc-200">Runtime loops</h3>
+            <h3 className="text-lg font-medium text-zinc-200">Runtime components</h3>
             <p className="text-sm text-zinc-500">
-              Enable or slow down durable backend loops without dropping to the CLI.
+              Restart degraded components from the control plane. Open logs only when actively debugging.
             </p>
           </div>
-          {loops.length === 0 ? (
-            <p className="text-sm text-zinc-500">No loop records yet.</p>
-          ) : (
-            loops.map((loop) => (
-              <article key={loop.kind} className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-100">{loop.kind}</p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      Next due {loop.next_due_at ? formatUnixTimestamp(loop.next_due_at) : '—'}
-                    </p>
-                    {loop.last_status ? (
-                      <p className="mt-1 text-xs text-zinc-500">
-                        Last status {loop.last_status}
-                        {loop.last_error ? ` · ${loop.last_error}` : ''}
-                      </p>
-                    ) : null}
-                  </div>
-                  <label className="flex items-center gap-2 text-sm text-zinc-300">
-                    <input
-                      type="checkbox"
-                      checked={loop.enabled}
-                      onChange={(event) => void saveLoop(loop, event.target.checked)}
-                      disabled={Boolean(actingLoops[loop.kind])}
-                      className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    Enabled
-                  </label>
-                </div>
-                <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
-                  <label className="flex-1 space-y-1">
-                    <span className="text-xs uppercase tracking-wide text-zinc-500">Interval seconds</span>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={loopDrafts[loop.kind]?.intervalSeconds ?? String(loop.interval_seconds)}
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setLoopDrafts((current) => ({
-                          ...current,
-                          [loop.kind]: {
-                            intervalSeconds: nextValue,
-                          },
-                        }));
-                      }}
-                      disabled={Boolean(actingLoops[loop.kind])}
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => void saveLoop(loop, loop.enabled)}
-                    disabled={Boolean(actingLoops[loop.kind])}
-                    className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
-                  >
-                    {actingLoops[loop.kind] ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
-                {loopActionState[loop.kind] ? (
-                  <p
-                    className={`mt-3 text-sm ${
-                      loopActionState[loop.kind]?.status === 'error' ? 'text-rose-400' : 'text-emerald-400'
-                    }`}
-                  >
-                    {loopActionState[loop.kind]?.message}
-                  </p>
-                ) : null}
-              </article>
-            ))
-          )}
+
+          {components.length === 0 ? (
+            <p className="text-sm text-zinc-500">No components loaded yet.</p>
+          ) : null}
+
+          {components.map((component) => (
+            <ComponentCard
+              key={component.id}
+              component={component}
+              action={componentActions[component.id]}
+              isExpanded={Boolean(expandedComponentLogs[component.id])}
+              isRestarting={Boolean(pendingComponentActions[component.id])}
+              onRestart={() => void restartComponentAction(component)}
+              onToggleLogs={() => updateComponentLogsVisibility(component.id, !expandedComponentLogs[component.id])}
+            />
+          ))}
         </section>
+      </section>
       ) : null}
       {saving && <p className="text-zinc-500 text-sm mt-4">Saving…</p>}
     </div>

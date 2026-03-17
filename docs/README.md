@@ -29,6 +29,11 @@ These files describe the current implementation sequence and near-term convergen
 - [tickets/README.md](tickets/README.md): ticket-pack inventory, maturity index, and triage entry point
 - [tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md): current audit-derived hardening and modularization sequence
 - [tickets/storage-backup-sync/README.md](tickets/storage-backup-sync/README.md): active backup, manifest, verification, and restore planning lane
+- [tickets/projects/README.md](tickets/projects/README.md): active project workspace and project-operations substrate planning lane
+- [tickets/web-ui-convergence/README.md](tickets/web-ui-convergence/README.md): active web/operator UX execution lane
+- [tickets/client-connect-sync/README.md](tickets/client-connect-sync/README.md): immediate cross-pack execution lane for client connection, bootstrap, sync freshness, and operator visibility
+- [specs/vel-client-connection-and-sync-milestone-spec.md](specs/vel-client-connection-and-sync-milestone-spec.md): canonical milestone spec for getting clients connected and syncing
+- [specs/vel-tester-readiness-onboarding-spec.md](specs/vel-tester-readiness-onboarding-spec.md): planned path from contributor-oriented setup to tester-ready onboarding, discovery, and client linking
 - [architecture-inventory.md](architecture-inventory.md): current architecture inventory, drift map, and extraction-seam audit
 - [future-architecture-map.md](future-architecture-map.md): planned future architecture synthesis paired with the current inventory; not shipped-behavior authority
 - [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md): one active convergence packet for architecture and cleanup work
@@ -58,4 +63,6 @@ For a coding agent or new contributor, start here:
 - Use [tickets/README.md](tickets/README.md) to choose the right active plan or ticket pack for the task at hand.
 - Use pack `README.md` files for in-flight status and overlap guidance instead of treating `status.md` as a worklog.
 - Treat [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md) as one convergence-oriented packet, not as the only possible active plan.
+- Treat [tickets/projects/README.md](tickets/projects/README.md) as the canonical planning entrypoint for project registry, tag, dependency, and routine substrate work.
+- Treat [tickets/web-ui-convergence/README.md](tickets/web-ui-convergence/README.md) as the canonical execution entrypoint for global web/operator UX work.
 - Treat files under [reviews/](reviews/) as historical input, not current requirements.

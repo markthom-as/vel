@@ -106,6 +106,11 @@ Use these as source material, not as the primary queue:
 - WUI-009
 - WUI-010
 
+Lane dependency note:
+
+- treat Lane D as downstream of the shared project substrate in [docs/tickets/projects/README.md](../projects/README.md), especially tickets 01, 02, 03, 14, 15, and 16
+- do not let web-only DTOs, task tagging, or dependency semantics diverge from the project pack
+
 ### Lane E — Docs, tests, and rollout
 
 - WUI-011

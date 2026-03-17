@@ -76,6 +76,7 @@ Overlap rule:
 | SWARM-006 | Implement supervisor integration and conflict handling | todo |
 | SWARM-007 | Add cluster-aware load balancing and rebalancing | todo |
 | SWARM-008 | Add observability, replay, and end-to-end failover tests | todo |
+| SWARM-009 | Build the swarm client/operator view | todo |
 
 ## Partial implementation note
 
@@ -93,7 +94,7 @@ The repo now has an initial shipped slice of the cluster/sync design:
 - `POST /v1/sync/work-queue/claim-next`
 - `POST /v1/sync/actions`
 
-These surfaces provide authority metadata, Tailscale-aware routing metadata, unified client cache hydration, low-risk action batching, a durable heartbeat-backed worker registry, receipt-aware work-unit assignment, queue inspection for pending worker-class work, queue-level retry/reclaim metadata, a `claim-next` scheduler primitive, and first-pass queued-work placement metadata. A background scheduler loop now polls `POST /v1/sync/work-queue/claim-next` via the runtime loops surface, keeps receipts in sync with retries/backoff, surfaces loop events for operators, and can execute queued branch-sync units when the worker advertises that capability while still following the receipt/authority policy. The shipped local worker entry is also refreshed from live runtime state during queue reads and work transitions, so published `current_load` and `queue_depth` are usable placement signals rather than placeholders.
+These surfaces provide authority metadata, Tailscale-aware routing metadata, unified client cache hydration, low-risk action batching, a durable heartbeat-backed worker registry, receipt-aware work-unit assignment, queue inspection for pending worker-class work, queue-level retry/reclaim metadata, a `claim-next` scheduler primitive, and first-pass queued-work placement metadata. Runtime loops now include `worker_presence_heartbeat` plus the queue scheduler: the heartbeat loop keeps the local worker row fresh, and the scheduler loop polls `POST /v1/sync/work-queue/claim-next`, keeps receipts in sync with retries/backoff, surfaces loop events for operators, and can execute queued branch-sync units when the worker advertises that capability while still following the receipt/authority policy. The local worker entry is also refreshed from live runtime state during queue reads and work transitions, and claim-next now refuses saturated or non-ready workers, so published `current_load` and `queue_depth` are usable placement signals rather than placeholders.
 
 Queue inspection now integrates the scheduler's retry/reclaim rules: stale `claimed` receipts (currently >300 s) are visible as reclaimable units, duplicate queue attempts check the latest receipt before enqueuing, failures surface retriable reasons instead of silently dropping the work, and retry timing/exhaustion is now driven by per-work-type policy config rather than hardcoded queue behavior.
 

@@ -1,5 +1,6 @@
 pub mod command;
 pub mod commitment;
+pub mod connect;
 pub mod context;
 pub mod integration;
 pub mod intervention;
@@ -18,6 +19,10 @@ pub use command::{
     TypedTarget,
 };
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
+pub use connect::{
+    ConnectInstance, ConnectInstanceCapabilityManifest, ConnectInstanceStatus,
+    ConnectRuntimeCapability,
+};
 pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
 pub use integration::{
     IntegrationConnection, IntegrationConnectionEvent, IntegrationConnectionEventType,
