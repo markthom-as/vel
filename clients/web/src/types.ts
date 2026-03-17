@@ -229,6 +229,8 @@ export interface SuggestionData {
   decision_context_summary: string | null;
   decision_context: JsonValue | null;
   evidence: SuggestionEvidenceData[] | null;
+  latest_feedback_outcome: string | null;
+  latest_feedback_notes: string | null;
   payload: JsonValue;
   created_at: UnixSeconds;
   resolved_at: UnixSeconds | null;
@@ -1066,6 +1068,14 @@ export function decodeSuggestionData(value: unknown): SuggestionData {
     ),
     decision_context: decodeNullable(record.decision_context, decodeJsonValue),
     evidence: decodeNullable(record.evidence, (items) => decodeArray(items, decodeSuggestionEvidenceData)),
+    latest_feedback_outcome: expectNullableString(
+      record.latest_feedback_outcome ?? null,
+      'suggestion.latest_feedback_outcome',
+    ),
+    latest_feedback_notes: expectNullableString(
+      record.latest_feedback_notes ?? null,
+      'suggestion.latest_feedback_notes',
+    ),
     payload: decodeJsonValue(record.payload),
     created_at: expectUnixSeconds(record.created_at, 'suggestion.created_at'),
     resolved_at: expectNullableUnixSeconds(record.resolved_at, 'suggestion.resolved_at'),

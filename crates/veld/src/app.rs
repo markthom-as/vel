@@ -35,6 +35,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
     Router::new()
         .route("/v1/health", get(routes::health::health))
         .route("/v1/cluster/bootstrap", get(routes::cluster::bootstrap))
+        .route("/v1/cluster/workers", get(routes::cluster::workers))
         .route("/v1/doctor", get(routes::doctor::doctor))
         .route(
             "/v1/captures",
@@ -298,6 +299,40 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn cluster_workers_endpoint_returns_current_node_capacity() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut config = AppConfig::default();
+        config.node_id = Some("vel-desktop".to_string());
+        config.node_display_name = Some("Vel Desktop".to_string());
+        config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/cluster/workers")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<serde_json::Value> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        let workers = data["workers"].as_array().unwrap();
+        assert_eq!(workers.len(), 1);
+        assert_eq!(workers[0]["node_id"], "vel-desktop");
+        assert_eq!(workers[0]["sync_transport"], "tailscale");
+        assert!(workers[0]["capacity"]["max_concurrency"].as_u64().unwrap() >= 1);
     }
 
     #[tokio::test]
@@ -3556,6 +3591,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(accept_resp.status(), StatusCode::OK);
+        let accept_body = axum::body::to_bytes(accept_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let accept_json: serde_json::Value = serde_json::from_slice(&accept_body).unwrap();
+        assert_eq!(
+            accept_json["data"]["latest_feedback_outcome"].as_str(),
+            Some("accepted_and_policy_changed")
+        );
 
         let overrides = storage
             .get_all_settings()
@@ -3606,6 +3649,72 @@ mod tests {
             context_json["leave_by_ts"].as_i64(),
             Some(event_start - 30 * 60)
         );
+    }
+
+    #[tokio::test]
+    async fn accepting_non_policy_suggestion_reports_no_effect() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let suggestion_id = storage
+            .insert_suggestion_v2(vel_storage::SuggestionInsertV2 {
+                suggestion_type: "add_start_routine".to_string(),
+                state: "pending".to_string(),
+                title: Some("Add start routine".to_string()),
+                summary: Some("Morning drift suggests a stronger startup block.".to_string()),
+                priority: 35,
+                confidence: Some("medium".to_string()),
+                dedupe_key: Some("add_start_routine".to_string()),
+                payload_json: serde_json::json!({
+                    "type": "add_start_routine",
+                    "suggested_block_minutes": 20
+                }),
+                decision_context_json: Some(serde_json::json!({
+                    "summary": "Observed repeated morning drift."
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let accept_resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/suggestions/{}/accept", suggestion_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(accept_resp.status(), StatusCode::OK);
+        let accept_body = axum::body::to_bytes(accept_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let accept_json: serde_json::Value = serde_json::from_slice(&accept_body).unwrap();
+        assert_eq!(
+            accept_json["data"]["latest_feedback_outcome"].as_str(),
+            Some("accepted_no_effect")
+        );
+
+        let feedback = storage
+            .list_suggestion_feedback(suggestion_id.as_ref())
+            .await
+            .unwrap();
+        assert_eq!(feedback.len(), 1);
+        assert_eq!(feedback[0].outcome_type, "accepted_no_effect");
+        assert!(storage
+            .get_all_settings()
+            .await
+            .unwrap()
+            .get("adaptive_policy_overrides")
+            .is_none());
     }
 
     #[tokio::test]

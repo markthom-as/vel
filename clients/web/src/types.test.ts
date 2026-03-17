@@ -441,6 +441,8 @@ describe('transport decoders', () => {
           current_minutes: 20,
           suggested_minutes: 30,
         },
+        latest_feedback_outcome: 'accepted_and_policy_changed',
+        latest_feedback_notes: 'helpful',
         created_at: 1710000000,
         resolved_at: null,
       }),
@@ -472,6 +474,8 @@ describe('transport decoders', () => {
         current_minutes: 20,
         suggested_minutes: 30,
       },
+      latest_feedback_outcome: 'accepted_and_policy_changed',
+      latest_feedback_notes: 'helpful',
       created_at: 1710000000,
       resolved_at: null,
     })

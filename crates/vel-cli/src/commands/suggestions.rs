@@ -25,13 +25,7 @@ pub async fn run_list(client: &ApiClient, state: Option<&str>, json: bool) -> an
         let confidence = s.confidence.as_deref().unwrap_or("-");
         println!(
             "{}  {}  {}  p{}  conf={}  evidence={}  {}",
-            s.id,
-            s.suggestion_type,
-            s.state,
-            s.priority,
-            confidence,
-            s.evidence_count,
-            title
+            s.id, s.suggestion_type, s.state, s.priority, confidence, s.evidence_count, title
         );
     }
     Ok(())
@@ -49,11 +43,22 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
     println!("title:           {}", s.title.as_deref().unwrap_or("-"));
     println!("summary:         {}", s.summary.as_deref().unwrap_or("-"));
     println!("priority:        {}", s.priority);
-    println!("confidence:      {}", s.confidence.as_deref().unwrap_or("-"));
+    println!(
+        "confidence:      {}",
+        s.confidence.as_deref().unwrap_or("-")
+    );
     println!("evidence_count:  {}", s.evidence_count);
     println!(
         "decision:        {}",
         s.decision_context_summary.as_deref().unwrap_or("-")
+    );
+    println!(
+        "feedback:        {}",
+        s.latest_feedback_outcome.as_deref().unwrap_or("-")
+    );
+    println!(
+        "feedback_notes:  {}",
+        s.latest_feedback_notes.as_deref().unwrap_or("-")
     );
     if let Some(context) = &s.decision_context {
         println!(
@@ -101,7 +106,14 @@ pub async fn run_accept(client: &ApiClient, id: &str) -> anyhow::Result<()> {
         .data
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("no data"))?;
-    println!("Accepted suggestion {} (state: {})", s.id, s.state);
+    if let Some(outcome) = &s.latest_feedback_outcome {
+        println!(
+            "Accepted suggestion {} (state: {}, effect: {})",
+            s.id, s.state, outcome
+        );
+    } else {
+        println!("Accepted suggestion {} (state: {})", s.id, s.state);
+    }
     Ok(())
 }
 

@@ -184,6 +184,83 @@ pub struct ClientActionBatchResultData {
     pub results: Vec<ClientActionResultData>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterNodeStateData {
+    pub node_id: String,
+    #[serde(default, alias = "display_name")]
+    pub node_display_name: Option<String>,
+    #[serde(default)]
+    pub node_class: Option<String>,
+    #[serde(default)]
+    pub sync_base_url: Option<String>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub tailscale_base_url: Option<String>,
+    #[serde(default)]
+    pub lan_base_url: Option<String>,
+    #[serde(default)]
+    pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub last_seen_at: Option<UnixSeconds>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterWorkerStateData {
+    #[serde(alias = "id")]
+    pub worker_id: String,
+    #[serde(default)]
+    pub node_id: Option<String>,
+    #[serde(default)]
+    pub worker_class: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub max_concurrency: Option<u32>,
+    #[serde(default)]
+    pub current_load: Option<u32>,
+    #[serde(default)]
+    pub queue_depth: Option<u32>,
+    #[serde(default)]
+    pub reachability: Option<String>,
+    #[serde(default)]
+    pub latency_class: Option<String>,
+    #[serde(default)]
+    pub compute_class: Option<String>,
+    #[serde(default)]
+    pub power_class: Option<String>,
+    #[serde(default)]
+    pub recent_failure_rate: Option<f64>,
+    #[serde(default)]
+    pub tailscale_preferred: Option<bool>,
+    #[serde(default)]
+    pub last_heartbeat_at: Option<UnixSeconds>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncClusterStateData {
+    #[serde(default)]
+    pub cluster_view_version: Option<i64>,
+    #[serde(default)]
+    pub authority_node_id: Option<String>,
+    #[serde(default)]
+    pub authority_epoch: Option<i64>,
+    #[serde(default)]
+    pub sync_transport: Option<String>,
+    #[serde(default)]
+    pub cluster: Option<ClusterBootstrapData>,
+    #[serde(default)]
+    pub nodes: Vec<ClusterNodeStateData>,
+    #[serde(default)]
+    pub workers: Vec<ClusterWorkerStateData>,
+}
+
 /// Status of a single diagnostic check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -933,6 +1010,10 @@ pub struct SuggestionData {
     pub decision_context_summary: Option<String>,
     pub decision_context: Option<JsonValue>,
     pub evidence: Option<Vec<SuggestionEvidenceData>>,
+    #[serde(default)]
+    pub latest_feedback_outcome: Option<String>,
+    #[serde(default)]
+    pub latest_feedback_notes: Option<String>,
     pub payload: JsonValue,
     pub created_at: i64,
     pub resolved_at: Option<i64>,

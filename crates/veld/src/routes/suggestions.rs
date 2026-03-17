@@ -27,10 +27,29 @@ fn map_suggestion(record: vel_storage::SuggestionRecord) -> SuggestionData {
             .map(ToString::to_string),
         decision_context: None,
         evidence: None,
+        latest_feedback_outcome: None,
+        latest_feedback_notes: None,
         payload: record.payload_json,
         created_at: record.created_at,
         resolved_at: record.resolved_at,
     }
+}
+
+async fn enrich_suggestion_feedback(
+    state: &AppState,
+    mut data: SuggestionData,
+) -> Result<SuggestionData, AppError> {
+    if let Some(latest_feedback) = state
+        .storage
+        .list_suggestion_feedback(&data.id)
+        .await?
+        .into_iter()
+        .next()
+    {
+        data.latest_feedback_outcome = Some(latest_feedback.outcome_type);
+        data.latest_feedback_notes = latest_feedback.notes;
+    }
+    Ok(data)
 }
 
 fn map_suggestion_evidence(
@@ -106,6 +125,7 @@ pub async fn get(
     let mut data = map_suggestion(row.clone());
     data.decision_context = row.decision_context_json;
     data.evidence = Some(evidence);
+    let data = enrich_suggestion_feedback(&state, data).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -182,7 +202,9 @@ async fn apply_state_transition(
         .as_deref()
         .map(serde_json::from_str::<serde_json::Value>)
         .transpose()
-        .map_err(|error| AppError::internal(format!("parse suggestion feedback payload: {error}")))?;
+        .map_err(|error| {
+            AppError::internal(format!("parse suggestion feedback payload: {error}"))
+        })?;
     if new_state == "accepted" {
         let applied = crate::services::adaptive_policies::apply_suggestion_acceptance(
             &state.storage,
@@ -219,9 +241,14 @@ async fn apply_state_transition(
             })
             .await?;
     }
-    let row = state.storage.get_suggestion_by_id(&existing.id).await?.unwrap();
+    let row = state
+        .storage
+        .get_suggestion_by_id(&existing.id)
+        .await?
+        .unwrap();
     let mut data = map_suggestion(row.clone());
     data.decision_context = row.decision_context_json;
+    let data = enrich_suggestion_feedback(state, data).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
