@@ -1,10 +1,10 @@
-use serde_json::{json, Value as JsonValue};
-use sqlx::{
-    migrate::Migrator,
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
-    QueryBuilder, Row, Sqlite, SqlitePool,
+use crate::{
+    infra::sqlite_connect_options,
+    mapping::{parse_json_value, timestamp_to_datetime},
+    runtime_loops,
 };
-use std::str::FromStr;
+use serde_json::{json, Value as JsonValue};
+use sqlx::{migrate::Migrator, sqlite::SqlitePoolOptions, QueryBuilder, Row, Sqlite, SqlitePool};
 use std::{fs, path::Path};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -16,7 +16,6 @@ use vel_core::{
     JobStatus, MessageId, OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType,
     RunId, RunKind, RunStatus, SearchResult, SyncClass,
 };
-
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
 
 #[derive(Debug, Clone)]
@@ -3462,42 +3461,7 @@ impl Storage {
         interval_seconds: i64,
         now_ts: i64,
     ) -> Result<bool, StorageError> {
-        sqlx::query(
-            r#"
-            INSERT OR IGNORE INTO runtime_loops (
-                loop_kind,
-                enabled,
-                interval_seconds,
-                next_due_at
-            ) VALUES (?, 1, ?, 0)
-            "#,
-        )
-        .bind(loop_kind)
-        .bind(interval_seconds)
-        .execute(&self.pool)
-        .await?;
-
-        let result = sqlx::query(
-            r#"
-            UPDATE runtime_loops
-            SET interval_seconds = ?,
-                last_started_at = ?,
-                last_status = 'running',
-                last_error = NULL
-            WHERE loop_kind = ?
-              AND enabled = 1
-              AND COALESCE(last_status, '') != 'running'
-              AND COALESCE(next_due_at, 0) <= ?
-            "#,
-        )
-        .bind(interval_seconds)
-        .bind(now_ts)
-        .bind(loop_kind)
-        .bind(now_ts)
-        .execute(&self.pool)
-        .await?;
-
-        Ok(result.rows_affected() == 1)
+        runtime_loops::claim_due_loop(&self.pool, loop_kind, interval_seconds, now_ts).await
     }
 
     pub async fn ensure_runtime_loop(
@@ -3507,23 +3471,14 @@ impl Storage {
         interval_seconds: i64,
         next_due_at: Option<i64>,
     ) -> Result<(), StorageError> {
-        sqlx::query(
-            r#"
-            INSERT OR IGNORE INTO runtime_loops (
-                loop_kind,
-                enabled,
-                interval_seconds,
-                next_due_at
-            ) VALUES (?, ?, ?, ?)
-            "#,
+        runtime_loops::ensure_runtime_loop(
+            &self.pool,
+            loop_kind,
+            enabled,
+            interval_seconds,
+            next_due_at,
         )
-        .bind(loop_kind)
-        .bind(if enabled { 1_i64 } else { 0_i64 })
-        .bind(interval_seconds)
-        .bind(next_due_at)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        .await
     }
 
     pub async fn complete_loop(
@@ -3533,49 +3488,11 @@ impl Storage {
         error: Option<&str>,
         next_due_at: i64,
     ) -> Result<(), StorageError> {
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        sqlx::query(
-            r#"
-            UPDATE runtime_loops
-            SET last_finished_at = ?,
-                last_status = ?,
-                last_error = ?,
-                next_due_at = ?
-            WHERE loop_kind = ?
-            "#,
-        )
-        .bind(now)
-        .bind(status)
-        .bind(error)
-        .bind(next_due_at)
-        .bind(loop_kind)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        runtime_loops::complete_loop(&self.pool, loop_kind, status, error, next_due_at).await
     }
 
     pub async fn list_runtime_loops(&self) -> Result<Vec<RuntimeLoopRecord>, StorageError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                loop_kind,
-                enabled,
-                interval_seconds,
-                last_started_at,
-                last_finished_at,
-                last_status,
-                last_error,
-                next_due_at
-            FROM runtime_loops
-            ORDER BY loop_kind ASC
-            "#,
-        )
-        .fetch_all(&self.pool)
-        .await?;
-
-        rows.into_iter()
-            .map(|row| map_runtime_loop_row(&row))
-            .collect::<Result<Vec<_>, _>>()
+        runtime_loops::list_runtime_loops(&self.pool).await
     }
 
     pub async fn insert_work_assignment(
@@ -3869,26 +3786,7 @@ impl Storage {
         &self,
         loop_kind: &str,
     ) -> Result<Option<RuntimeLoopRecord>, StorageError> {
-        let row = sqlx::query(
-            r#"
-            SELECT
-                loop_kind,
-                enabled,
-                interval_seconds,
-                last_started_at,
-                last_finished_at,
-                last_status,
-                last_error,
-                next_due_at
-            FROM runtime_loops
-            WHERE loop_kind = ?
-            "#,
-        )
-        .bind(loop_kind)
-        .fetch_optional(&self.pool)
-        .await?;
-
-        row.as_ref().map(map_runtime_loop_row).transpose()
+        runtime_loops::get_runtime_loop(&self.pool, loop_kind).await
     }
 
     pub async fn update_runtime_loop_config(
@@ -3897,42 +3795,8 @@ impl Storage {
         enabled: Option<bool>,
         interval_seconds: Option<i64>,
     ) -> Result<Option<RuntimeLoopRecord>, StorageError> {
-        let Some(existing) = self.get_runtime_loop(loop_kind).await? else {
-            return Ok(None);
-        };
-
-        let next_enabled = enabled.unwrap_or(existing.enabled);
-        let next_interval_seconds = interval_seconds.unwrap_or(existing.interval_seconds);
-        if next_interval_seconds <= 0 {
-            return Err(StorageError::Validation(
-                "interval_seconds must be > 0".to_string(),
-            ));
-        }
-
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let next_due_at = if next_enabled {
-            Some(now + next_interval_seconds)
-        } else {
-            existing.next_due_at
-        };
-
-        sqlx::query(
-            r#"
-            UPDATE runtime_loops
-            SET enabled = ?,
-                interval_seconds = ?,
-                next_due_at = ?
-            WHERE loop_kind = ?
-            "#,
-        )
-        .bind(if next_enabled { 1_i64 } else { 0_i64 })
-        .bind(next_interval_seconds)
-        .bind(next_due_at)
-        .bind(loop_kind)
-        .execute(&self.pool)
-        .await?;
-
-        self.get_runtime_loop(loop_kind).await
+        runtime_loops::update_runtime_loop_config(&self.pool, loop_kind, enabled, interval_seconds)
+            .await
     }
 
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
@@ -4279,20 +4143,6 @@ fn map_uncertainty_row(row: &sqlx::sqlite::SqliteRow) -> Result<UncertaintyRecor
     })
 }
 
-fn map_runtime_loop_row(row: &sqlx::sqlite::SqliteRow) -> Result<RuntimeLoopRecord, StorageError> {
-    let enabled: i64 = row.try_get("enabled")?;
-    Ok(RuntimeLoopRecord {
-        loop_kind: row.try_get("loop_kind")?,
-        enabled: enabled != 0,
-        interval_seconds: row.try_get("interval_seconds")?,
-        last_started_at: row.try_get("last_started_at")?,
-        last_finished_at: row.try_get("last_finished_at")?,
-        last_status: row.try_get("last_status")?,
-        last_error: row.try_get("last_error")?,
-        next_due_at: row.try_get("next_due_at")?,
-    })
-}
-
 fn map_cluster_worker_row(
     row: &sqlx::sqlite::SqliteRow,
 ) -> Result<ClusterWorkerRecord, StorageError> {
@@ -4337,10 +4187,6 @@ fn map_cluster_worker_row(
         started_at: row.try_get("started_at")?,
         updated_at: row.try_get("updated_at")?,
     })
-}
-
-fn parse_json_value(s: &str) -> Result<JsonValue, StorageError> {
-    serde_json::from_str(s).map_err(|e| StorageError::Validation(e.to_string()))
 }
 
 fn map_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<Run, StorageError> {
@@ -4424,25 +4270,6 @@ fn map_ref_row(row: sqlx::sqlite::SqliteRow) -> Result<Ref, StorageError> {
             .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
         created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
     })
-}
-
-fn timestamp_to_datetime(timestamp: i64) -> Result<OffsetDateTime, StorageError> {
-    OffsetDateTime::from_unix_timestamp(timestamp)
-        .map_err(|error| StorageError::InvalidTimestamp(error.to_string()))
-}
-
-fn sqlite_connect_options(db_path: &str) -> Result<SqliteConnectOptions, StorageError> {
-    let url = if db_path == ":memory:" {
-        "sqlite::memory:".to_string()
-    } else if db_path.starts_with("sqlite:") {
-        db_path.to_string()
-    } else {
-        format!("sqlite://{db_path}")
-    };
-
-    let options = SqliteConnectOptions::from_str(&url)?.create_if_missing(true);
-
-    Ok(options)
 }
 
 #[cfg(test)]
