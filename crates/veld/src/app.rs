@@ -108,7 +108,10 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/nudges/:id", get(routes::nudges::get_nudge))
         .route("/v1/nudges/:id/done", post(routes::nudges::nudge_done))
         .route("/v1/nudges/:id/snooze", post(routes::nudges::nudge_snooze))
-        .route("/v1/nudges/:id/dismiss", post(routes::nudges::nudge_dismiss))
+        .route(
+            "/v1/nudges/:id/dismiss",
+            post(routes::nudges::nudge_dismiss),
+        )
         .route("/v1/sync/calendar", post(routes::sync::sync_calendar))
         .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
         .route("/v1/sync/activity", post(routes::sync::sync_activity))
@@ -4448,7 +4451,10 @@ END:VCALENDAR
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(json["data"]["context"]["next_event_start_ts"], now + 15 * 60);
+        assert_eq!(
+            json["data"]["context"]["next_event_start_ts"],
+            now + 15 * 60
+        );
     }
 
     #[tokio::test]
@@ -5162,10 +5168,12 @@ END:VCALENDAR
             .expect("context websocket event should be broadcast after evaluate restart")
             .expect("context websocket event should be readable");
         assert_eq!(context_envelope.event_type.to_string(), "context:updated");
-        assert!(context_envelope.payload["computed_at"]
-            .as_i64()
-            .unwrap_or_default()
-            > 0);
+        assert!(
+            context_envelope.payload["computed_at"]
+                .as_i64()
+                .unwrap_or_default()
+                > 0
+        );
         assert!(context_envelope.payload["context"].is_object());
     }
 
@@ -5207,6 +5215,99 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn now_endpoint_returns_consolidated_snapshot() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: None,
+                timestamp: now + 3600,
+                payload_json: Some(serde_json::json!({
+                    "title": "Design review",
+                    "start": now + 3600,
+                    "end": now + 5400,
+                    "location": "Room 4B",
+                    "prep_minutes": 15,
+                    "travel_minutes": 0
+                })),
+            })
+            .await
+            .unwrap();
+        let commitment_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Reply to Dimitri".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: Some("todo_1".to_string()),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({})),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now,
+                &serde_json::json!({
+                    "mode": "day_mode",
+                    "morning_state": "engaged",
+                    "meds_status": "pending",
+                    "global_risk_level": "medium",
+                    "global_risk_score": 0.72,
+                    "attention_state": "on_task",
+                    "drift_type": "none",
+                    "drift_severity": "none",
+                    "attention_confidence": 0.8,
+                    "attention_reasons": ["recent git activity indicates active work"],
+                    "signals_used": ["sig_manual"],
+                    "next_commitment_id": commitment_id.as_ref()
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["summary"]["mode"]["label"], "Day");
+        assert_eq!(json["data"]["summary"]["risk"]["label"], "medium · 72%");
+        assert_eq!(
+            json["data"]["tasks"]["todoist"][0]["text"],
+            "Reply to Dimitri"
+        );
+        assert_eq!(
+            json["data"]["schedule"]["upcoming_events"][0]["title"],
+            "Design review"
+        );
+        assert_eq!(json["data"]["freshness"]["sources"][0]["key"], "context");
+    }
+
+    #[tokio::test]
     async fn restart_evaluate_emits_context_updated_websocket_event() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -5234,10 +5335,16 @@ END:VCALENDAR
             .unwrap();
         assert_eq!(restart_resp.status(), StatusCode::OK);
 
-        let first = rx.recv().await.expect("components websocket event should be broadcast");
+        let first = rx
+            .recv()
+            .await
+            .expect("components websocket event should be broadcast");
         assert_eq!(first.event_type.to_string(), "components:updated");
 
-        let second = rx.recv().await.expect("context websocket event should be broadcast");
+        let second = rx
+            .recv()
+            .await
+            .expect("context websocket event should be broadcast");
         assert_eq!(second.event_type.to_string(), "context:updated");
         assert!(second.payload["computed_at"].as_i64().unwrap_or_default() > 0);
         assert!(second.payload["context"].is_object());
