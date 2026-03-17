@@ -4,8 +4,7 @@
 use serde::Deserialize;
 use std::path::Path;
 
-#[derive(Debug, Clone, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct PolicyConfig {
     pub policies: PoliciesMap,
 }
@@ -61,7 +60,6 @@ pub struct PolicyMorningDrift {
     pub danger_after_minutes: u32,
     pub default_snooze_minutes: u32,
 }
-
 
 impl Default for PoliciesMap {
     fn default() -> Self {

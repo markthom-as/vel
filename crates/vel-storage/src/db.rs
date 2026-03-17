@@ -963,6 +963,39 @@ impl Storage {
         Ok(())
     }
 
+    pub async fn update_nudge_lifecycle(
+        &self,
+        nudge_id: &str,
+        level: &str,
+        state: &str,
+        message: &str,
+        snoozed_until: Option<i64>,
+        resolved_at: Option<i64>,
+        inference_snapshot_json: Option<&str>,
+        metadata_json: &JsonValue,
+    ) -> Result<(), StorageError> {
+        let metadata_json = serde_json::to_string(metadata_json)
+            .map_err(|e| StorageError::Validation(e.to_string()))?;
+        sqlx::query(
+            r#"
+            UPDATE nudges
+            SET level = ?, state = ?, message = ?, snoozed_until = ?, resolved_at = ?, inference_snapshot_json = ?, metadata_json = ?
+            WHERE nudge_id = ?
+            "#,
+        )
+        .bind(level)
+        .bind(state)
+        .bind(message)
+        .bind(snoozed_until)
+        .bind(resolved_at)
+        .bind(inference_snapshot_json)
+        .bind(metadata_json)
+        .bind(nudge_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     // --- Current context (singleton) ---
 
     pub async fn get_current_context(&self) -> Result<Option<(i64, String)>, StorageError> {
