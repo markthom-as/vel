@@ -282,51 +282,43 @@ fn run_retry_due_runs_loop_once(state: &AppState) -> LoopFuture<'_> {
 fn run_queue_work_scheduler_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
         let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state);
-        if bootstrap
-            .capabilities
-            .iter()
-            .any(|capability| capability == QUEUED_REPO_SYNC_CAPABILITY)
-        {
-            let claimed = crate::services::client_sync::claim_next_work_for_worker(
-                state,
-                vel_api_types::WorkAssignmentClaimNextRequestData {
-                    node_id: bootstrap.node_id.clone(),
-                    worker_id: bootstrap.node_id.clone(),
-                    worker_class: Some(QUEUED_REPO_SYNC_WORKER_CLASS.to_string()),
-                    capability: Some(QUEUED_REPO_SYNC_CAPABILITY.to_string()),
-                },
-            )
-            .await?;
-
-            if let Some(claim) = claimed.claim {
-                process_claimed_branch_sync_work(state, claim).await?;
-                return Ok(());
-            }
+        if !bootstrap.capabilities.iter().any(|capability| {
+            capability == QUEUED_REPO_SYNC_CAPABILITY || capability == QUEUED_VALIDATION_CAPABILITY
+        }) {
+            return Ok(());
         }
 
-        if bootstrap
-            .capabilities
-            .iter()
-            .any(|capability| capability == QUEUED_VALIDATION_CAPABILITY)
-        {
-            let claimed = crate::services::client_sync::claim_next_work_for_worker(
-                state,
-                vel_api_types::WorkAssignmentClaimNextRequestData {
-                    node_id: bootstrap.node_id.clone(),
-                    worker_id: bootstrap.node_id,
-                    worker_class: Some(QUEUED_VALIDATION_WORKER_CLASS.to_string()),
-                    capability: Some(QUEUED_VALIDATION_CAPABILITY.to_string()),
-                },
-            )
-            .await?;
+        let claimed = crate::services::client_sync::claim_next_work_for_worker(
+            state,
+            vel_api_types::WorkAssignmentClaimNextRequestData {
+                node_id: bootstrap.node_id.clone(),
+                worker_id: bootstrap.node_id,
+                worker_class: None,
+                capability: None,
+            },
+        )
+        .await?;
 
-            if let Some(claim) = claimed.claim {
-                process_claimed_validation_work(state, claim).await?;
-            }
+        if let Some(claim) = claimed.claim {
+            process_claimed_work(state, claim).await?;
         }
 
         Ok(())
     })
+}
+
+async fn process_claimed_work(
+    state: &AppState,
+    claim: vel_api_types::WorkAssignmentClaimedWorkData,
+) -> Result<(), crate::errors::AppError> {
+    match claim.queue_item.request_type {
+        vel_api_types::QueuedWorkRoutingKindData::BranchSync => {
+            process_claimed_branch_sync_work(state, claim).await
+        }
+        vel_api_types::QueuedWorkRoutingKindData::Validation => {
+            process_claimed_validation_work(state, claim).await
+        }
+    }
 }
 
 fn run_evaluate_current_state_loop_once(state: &AppState) -> LoopFuture<'_> {

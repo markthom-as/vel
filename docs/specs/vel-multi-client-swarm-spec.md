@@ -494,7 +494,7 @@ The scheduler must treat receipts older than the configured stale window (curren
 
 Receipt metadata also powers the supervisor’s retry policy: per-worker failure rates surface from the worker registry, queue depth shows saturation, and the scheduler can decide whether to escalate to clarification or to retry on a higher-capacity worker class. This keeps the DAG scheduler deterministic while still surviving node restarts and operator reconnections.
 
-The runtime wires this into the existing loops subsystem so a background scheduler loop can self-poll `POST /v1/sync/work-queue/claim-next`, mark receipts via `POST /v1/sync/work-assignments` / `PATCH /v1/sync/work-assignments`, and surface `loop` events whenever the queue is empty or retry backoff blocks new claims. Worker self-polling uses the same contract, ensuring local batches obey global retry/backoff state even if the operator interface isn’t open.
+The runtime wires this into the existing loops subsystem so a background scheduler loop can self-poll `POST /v1/sync/work-queue/claim-next`, mark receipts via `POST /v1/sync/work-assignments` / `PATCH /v1/sync/work-assignments`, and surface `loop` events whenever the queue is empty or retry backoff blocks new claims. That loop now executes queued branch-sync work along with validation units when the targeted worker class supports it, but worker self-polling and the loop still follow the authority-backed receipt history and per-work-type retry policy so the DAG executor never deviates from a single source of truth. Worker self-polling uses the same contract, ensuring local batches obey global retry/backoff state even if the operator interface isn’t open.
 
 #### Rule 4: Data locality matters
 
