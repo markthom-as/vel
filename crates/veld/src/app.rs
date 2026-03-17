@@ -3253,6 +3253,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn rejecting_suggestion_records_reason_in_payload() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let suggestion_id = storage
+            .insert_suggestion_v2(vel_storage::SuggestionInsertV2 {
+                suggestion_type: "add_start_routine".to_string(),
+                state: "pending".to_string(),
+                title: Some("Add start routine".to_string()),
+                summary: Some("Morning drift suggests a stronger startup block.".to_string()),
+                priority: 35,
+                confidence: Some("medium".to_string()),
+                dedupe_key: Some("add_start_routine".to_string()),
+                payload_json: serde_json::json!({
+                    "type": "add_start_routine",
+                    "suggested_block_minutes": 20
+                }),
+                decision_context_json: Some(serde_json::json!({
+                    "summary": "Observed repeated morning drift."
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let reject_resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/suggestions/{}/reject", suggestion_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"reason":"not useful right now"}"#.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(reject_resp.status(), StatusCode::OK);
+
+        let stored = storage
+            .get_suggestion_by_id(suggestion_id.as_ref())
+            .await
+            .unwrap()
+            .expect("suggestion should still exist after rejection");
+        assert_eq!(stored.state, "rejected");
+        assert_eq!(
+            stored.payload_json["rejection_reason"].as_str(),
+            Some("not useful right now")
+        );
+        assert!(stored.resolved_at.is_some());
+    }
+
+    #[tokio::test]
     async fn evaluate_creates_multiple_suggestion_families_in_priority_order() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
