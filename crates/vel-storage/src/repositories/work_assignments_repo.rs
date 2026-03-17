@@ -2,10 +2,8 @@ use sqlx::{QueryBuilder, Row, SqlitePool};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::db::{
-    StorageError, WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentStatus,
-    WorkAssignmentUpdate,
-};
+use crate::db::{StorageError, WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentUpdate};
+use vel_core::WorkAssignmentStatus;
 
 pub(crate) async fn insert_work_assignment(
     pool: &SqlitePool,

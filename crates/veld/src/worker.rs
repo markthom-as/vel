@@ -9,13 +9,11 @@ use std::time::Duration;
 #[cfg(not(test))]
 use std::process::Command;
 use tracing::{debug, warn};
-use vel_api_types::{
-    BranchSyncCapabilityData, BranchSyncRequestData, QueuedWorkRoutingKindData,
-    ValidationRequestData, WorkAssignmentClaimNextRequestData, WorkAssignmentClaimedWorkData,
-    WorkAssignmentStatusData, WorkAssignmentUpdateRequest,
+use vel_core::{
+    LoopKind, RunEventType, RunKind, RunStatus, WorkAssignmentStatus,
 };
-use vel_core::{LoopKind, RunEventType, RunKind, RunStatus};
-use vel_storage::{PendingJob, RetryReadyRun};
+use vel_storage::{PendingJob, RetryReadyRun, WorkAssignmentUpdate};
+use crate::services::client_sync;
 
 use crate::state::AppState;
 
@@ -298,7 +296,7 @@ fn run_retry_due_runs_loop_once(state: &AppState) -> LoopFuture<'_> {
 
 fn run_queue_work_scheduler_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
-        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state);
+        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state).await?;
         if !bootstrap.capabilities.iter().any(|capability| {
             capability == QUEUED_REPO_SYNC_CAPABILITY || capability == QUEUED_VALIDATION_CAPABILITY
         }) {
@@ -307,12 +305,10 @@ fn run_queue_work_scheduler_loop_once(state: &AppState) -> LoopFuture<'_> {
 
         let claimed = crate::services::client_sync::claim_next_work_for_worker(
             state,
-            WorkAssignmentClaimNextRequestData {
-                node_id: bootstrap.node_id.clone(),
-                worker_id: bootstrap.node_id,
-                worker_class: None,
-                capability: None,
-            },
+            bootstrap.node_id.clone(),
+            bootstrap.node_id,
+            None,
+            None,
         )
         .await?;
 
@@ -326,13 +322,13 @@ fn run_queue_work_scheduler_loop_once(state: &AppState) -> LoopFuture<'_> {
 
 async fn process_claimed_work(
     state: &AppState,
-    claim: WorkAssignmentClaimedWorkData,
+    claim: client_sync::WorkAssignmentClaimedWork,
 ) -> Result<(), crate::errors::AppError> {
     match claim.queue_item.request_type {
-        QueuedWorkRoutingKindData::BranchSync => {
+        client_sync::QueuedWorkRoutingKind::BranchSync => {
             process_claimed_branch_sync_work(state, claim).await
         }
-        QueuedWorkRoutingKindData::Validation => {
+        client_sync::QueuedWorkRoutingKind::Validation => {
             process_claimed_validation_work(state, claim).await
         }
     }
@@ -482,15 +478,15 @@ fn run_stale_nudge_reconciliation_loop_once(state: &AppState) -> LoopFuture<'_> 
 
 async fn process_claimed_validation_work(
     state: &AppState,
-    claim: WorkAssignmentClaimedWorkData,
+    claim: client_sync::WorkAssignmentClaimedWork,
 ) -> Result<(), crate::errors::AppError> {
     let load = state.worker_runtime.begin_work();
     let started_at = time::OffsetDateTime::now_utc().unix_timestamp();
     crate::services::client_sync::update_work_assignment_receipt(
         state,
-        WorkAssignmentUpdateRequest {
+        WorkAssignmentUpdate {
             receipt_id: claim.receipt.receipt_id.clone(),
-            status: WorkAssignmentStatusData::Started,
+            status: WorkAssignmentStatus::Started,
             started_at: Some(started_at),
             completed_at: None,
             result: None,
@@ -499,7 +495,7 @@ async fn process_claimed_validation_work(
     )
     .await?;
 
-    let request: ValidationRequestData =
+    let request: client_sync::ValidationRequest =
         match serde_json::from_value(claim.queue_item.request_payload.clone()) {
             Ok(request) => request,
             Err(error) => {
@@ -514,7 +510,7 @@ async fn process_claimed_validation_work(
                 return Ok(());
             }
         };
-    let command_hint = match validation_command_hint(state, &request) {
+    let command_hint = match validation_command_hint(state, &request).await {
         Some(command_hint) => command_hint,
         None => {
             fail_claimed_work(
@@ -537,9 +533,9 @@ async fn process_claimed_validation_work(
         Ok(result) => {
             crate::services::client_sync::update_work_assignment_receipt(
                 state,
-                WorkAssignmentUpdateRequest {
+                WorkAssignmentUpdate {
                     receipt_id: claim.receipt.receipt_id,
-                    status: WorkAssignmentStatusData::Completed,
+                    status: WorkAssignmentStatus::Completed,
                     started_at: None,
                     completed_at: Some(completed_at),
                     result: Some(result),
@@ -551,9 +547,9 @@ async fn process_claimed_validation_work(
         Err(error_message) => {
             crate::services::client_sync::update_work_assignment_receipt(
                 state,
-                WorkAssignmentUpdateRequest {
+                WorkAssignmentUpdate {
                     receipt_id: claim.receipt.receipt_id,
-                    status: WorkAssignmentStatusData::Failed,
+                    status: WorkAssignmentStatus::Failed,
                     started_at: None,
                     completed_at: Some(completed_at),
                     result: None,
@@ -571,15 +567,15 @@ async fn process_claimed_validation_work(
 
 async fn process_claimed_branch_sync_work(
     state: &AppState,
-    claim: WorkAssignmentClaimedWorkData,
+    claim: client_sync::WorkAssignmentClaimedWork,
 ) -> Result<(), crate::errors::AppError> {
     let load = state.worker_runtime.begin_work();
     let started_at = time::OffsetDateTime::now_utc().unix_timestamp();
     crate::services::client_sync::update_work_assignment_receipt(
         state,
-        WorkAssignmentUpdateRequest {
+        WorkAssignmentUpdate {
             receipt_id: claim.receipt.receipt_id.clone(),
-            status: WorkAssignmentStatusData::Started,
+            status: WorkAssignmentStatus::Started,
             started_at: Some(started_at),
             completed_at: None,
             result: None,
@@ -588,7 +584,7 @@ async fn process_claimed_branch_sync_work(
     )
     .await?;
 
-    let request: BranchSyncRequestData =
+    let request: client_sync::BranchSyncRequest =
         match serde_json::from_value(claim.queue_item.request_payload.clone()) {
             Ok(request) => request,
             Err(error) => {
@@ -604,7 +600,7 @@ async fn process_claimed_branch_sync_work(
             }
         };
 
-    let capability = match branch_sync_capability(state, &request) {
+    let capability = match branch_sync_capability(state, &request).await {
         Some(capability) => capability,
         None => {
             fail_claimed_work(
@@ -624,9 +620,9 @@ async fn process_claimed_branch_sync_work(
         Ok(result) => {
             crate::services::client_sync::update_work_assignment_receipt(
                 state,
-                WorkAssignmentUpdateRequest {
+                WorkAssignmentUpdate {
                     receipt_id: claim.receipt.receipt_id,
-                    status: WorkAssignmentStatusData::Completed,
+                    status: WorkAssignmentStatus::Completed,
                     started_at: None,
                     completed_at: Some(completed_at),
                     result: Some(result),
@@ -638,9 +634,9 @@ async fn process_claimed_branch_sync_work(
         Err(error_message) => {
             crate::services::client_sync::update_work_assignment_receipt(
                 state,
-                WorkAssignmentUpdateRequest {
+                WorkAssignmentUpdate {
                     receipt_id: claim.receipt.receipt_id,
-                    status: WorkAssignmentStatusData::Failed,
+                    status: WorkAssignmentStatus::Failed,
                     started_at: None,
                     completed_at: Some(completed_at),
                     result: None,
@@ -663,9 +659,9 @@ async fn fail_claimed_work(
 ) -> Result<(), crate::errors::AppError> {
     crate::services::client_sync::update_work_assignment_receipt(
         state,
-        WorkAssignmentUpdateRequest {
+        WorkAssignmentUpdate {
             receipt_id: receipt_id.to_string(),
-            status: WorkAssignmentStatusData::Failed,
+            status: WorkAssignmentStatus::Failed,
             started_at: None,
             completed_at: Some(time::OffsetDateTime::now_utc().unix_timestamp()),
             result: None,
@@ -676,33 +672,38 @@ async fn fail_claimed_work(
     Ok(())
 }
 
-fn validation_command_hint(state: &AppState, request: &ValidationRequestData) -> Option<String> {
-    crate::services::client_sync::cluster_bootstrap_data(state)
+async fn validation_command_hint(
+    state: &AppState,
+    request: &client_sync::ValidationRequest,
+) -> Option<String> {
+    let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state).await.ok()?;
+    bootstrap
         .validation_profiles
         .into_iter()
         .find(|profile| profile.profile_id == request.profile_id)
         .map(|profile| profile.command_hint)
 }
 
-fn branch_sync_capability(
+async fn branch_sync_capability(
     state: &AppState,
-    request: &BranchSyncRequestData,
-) -> Option<BranchSyncCapabilityData> {
-    crate::services::client_sync::cluster_bootstrap_data(state)
+    request: &client_sync::BranchSyncRequest,
+) -> Option<client_sync::BranchSyncCapability> {
+    let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state).await.ok()?;
+    bootstrap
         .branch_sync
         .filter(|capability| capability.repo_root == request.repo_root)
 }
 
 #[cfg(not(test))]
 async fn execute_branch_sync_command(
-    request: &BranchSyncRequestData,
+    request: &client_sync::BranchSyncRequest,
     default_remote: &str,
 ) -> Result<String, String> {
     let repo_root = request.repo_root.clone();
     let remote = request
         .remote
         .clone()
-        .filter(|value| !value.trim().is_empty())
+        .filter(|value: &String| !value.trim().is_empty())
         .unwrap_or_else(|| default_remote.to_string());
     let branch = request.branch.clone();
     let mode = request.mode.as_deref().unwrap_or("pull").to_string();
@@ -766,7 +767,7 @@ fn shell_escape(value: &str) -> String {
 
 #[cfg(test)]
 async fn execute_branch_sync_command(
-    request: &vel_api_types::BranchSyncRequestData,
+    request: &client_sync::BranchSyncRequest,
     default_remote: &str,
 ) -> Result<String, String> {
     let remote = request.remote.as_deref().unwrap_or(default_remote);
@@ -1111,7 +1112,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join("../..")
                     .to_string_lossy()
@@ -1159,7 +1160,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_branch_sync_request(
             &state,
-            vel_api_types::BranchSyncRequestData {
+            crate::services::client_sync::BranchSyncRequest {
                 repo_root: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join("../..")
                     .to_string_lossy()
@@ -1208,7 +1209,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_branch_sync_request(
             &state,
-            vel_api_types::BranchSyncRequestData {
+            crate::services::client_sync::BranchSyncRequest {
                 repo_root: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
                     .join("../..")
                     .to_string_lossy()
@@ -1254,7 +1255,7 @@ mod tests {
             None,
             None,
         );
-        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state);
+        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state).await.unwrap();
 
         insert_queued_signal(
             &storage,
@@ -1302,7 +1303,7 @@ mod tests {
             None,
             None,
         );
-        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state);
+        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state).await.unwrap();
         let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .to_string_lossy()

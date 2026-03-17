@@ -13,6 +13,6 @@ pub use db::{
     StorageError, SuggestionEvidenceInsert, SuggestionEvidenceRecord, SuggestionFeedbackInsert,
     SuggestionFeedbackRecord, SuggestionFeedbackSummary, SuggestionInsertV2, SuggestionRecord,
     UncertaintyRecord, UncertaintyRecordInsert, WorkAssignmentInsert, WorkAssignmentRecord,
-    WorkAssignmentStatus, WorkAssignmentUpdate,
+    WorkAssignmentUpdate,
 };
-pub use vel_core::{ContextCapture, OrientationSnapshot, SearchResult};
+pub use vel_core::{ContextCapture, OrientationSnapshot, SearchResult, WorkAssignmentStatus};

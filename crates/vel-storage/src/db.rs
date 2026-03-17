@@ -3,17 +3,18 @@ use crate::{
     repositories::{
         artifacts_repo, assistant_transcripts_repo, captures_repo, chat_repo, cluster_workers_repo,
         commitment_risk_repo, commitments_repo, context_timeline_repo, current_context_repo,
-        inferred_state_repo, integration_connections_repo, nudges_repo,
-        processing_jobs_repo, run_refs_repo, runs_repo, runtime_loops_repo, settings_repo,
-        signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
-        uncertainty_records_repo, work_assignments_repo,
+        inferred_state_repo, integration_connections_repo, nudges_repo, processing_jobs_repo,
+        run_refs_repo, runs_repo, runtime_loops_repo, settings_repo, signals_repo,
+        suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
+        work_assignments_repo,
     },
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value as JsonValue;
 use sqlx::{migrate::Migrator, SqlitePool};
 use time::OffsetDateTime;
 use vel_core::context::CurrentContextV1;
+pub use vel_core::WorkAssignmentStatus;
 use vel_core::{
     ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus,
     ContextCapture, ConversationId, EventId, IntegrationConnection, IntegrationConnectionEvent,
@@ -448,45 +449,6 @@ pub struct RuntimeLoopRecord {
     pub next_due_at: Option<i64>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum WorkAssignmentStatus {
-    Assigned,
-    Started,
-    Completed,
-    Failed,
-    Cancelled,
-}
-
-impl std::fmt::Display for WorkAssignmentStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Self::Assigned => "assigned",
-            Self::Started => "started",
-            Self::Completed => "completed",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-impl std::str::FromStr for WorkAssignmentStatus {
-    type Err = vel_core::VelCoreError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "assigned" => Ok(Self::Assigned),
-            "started" => Ok(Self::Started),
-            "completed" => Ok(Self::Completed),
-            "failed" => Ok(Self::Failed),
-            "cancelled" => Ok(Self::Cancelled),
-            _ => Err(vel_core::VelCoreError::Validation(format!(
-                "invalid work assignment status: {s}"
-            ))),
-        }
-    }
-}
-
 pub struct WorkAssignmentInsert {
     pub receipt_id: Option<String>,
     pub work_request_id: String,
@@ -596,7 +558,7 @@ pub struct WorkAssignmentUpdate {
 
 impl Storage {
     pub async fn connect(db_path: &str) -> Result<Self, StorageError> {
-        let pool = SqlitePool::connect(db_path).await?;
+        let pool = infra::connect_pool(db_path).await?;
         Ok(Self { pool })
     }
 
@@ -1272,7 +1234,8 @@ impl Storage {
         payload_json: &str,
         timestamp: i64,
     ) -> Result<String, StorageError> {
-        nudges_repo::insert_nudge_event(&self.pool, nudge_id, event_type, payload_json, timestamp).await
+        nudges_repo::insert_nudge_event(&self.pool, nudge_id, event_type, payload_json, timestamp)
+            .await
     }
 
     pub async fn list_nudge_events(
@@ -1298,8 +1261,14 @@ impl Storage {
         status: JobStatus,
         payload_json: &str,
     ) -> Result<(), StorageError> {
-        processing_jobs_repo::insert_processing_job(&self.pool, job_id, job_type, status, payload_json)
-            .await
+        processing_jobs_repo::insert_processing_job(
+            &self.pool,
+            job_id,
+            job_type,
+            status,
+            payload_json,
+        )
+        .await
     }
 
     pub async fn claim_next_pending_job(
@@ -1366,7 +1335,7 @@ impl Storage {
             kind_str.as_deref(),
             status_str.as_deref(),
         )
-            .await
+        .await
     }
 
     pub async fn update_run_status(
@@ -1648,8 +1617,12 @@ impl Storage {
         receipt_id: &str,
         last_updated: i64,
     ) -> Result<(), StorageError> {
-        work_assignments_repo::set_work_assignment_last_updated(&self.pool, receipt_id, last_updated)
-            .await
+        work_assignments_repo::set_work_assignment_last_updated(
+            &self.pool,
+            receipt_id,
+            last_updated,
+        )
+        .await
     }
 
     pub async fn list_work_assignments(
@@ -1688,8 +1661,13 @@ impl Storage {
         enabled: Option<bool>,
         interval_seconds: Option<i64>,
     ) -> Result<Option<RuntimeLoopRecord>, StorageError> {
-        runtime_loops_repo::update_runtime_loop_config(&self.pool, loop_kind, enabled, interval_seconds)
-            .await
+        runtime_loops_repo::update_runtime_loop_config(
+            &self.pool,
+            loop_kind,
+            enabled,
+            interval_seconds,
+        )
+        .await
     }
 
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {

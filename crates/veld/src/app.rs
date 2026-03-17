@@ -477,13 +477,13 @@ fn build_app_with_policy(state: AppState, exposure_policy: HttpExposurePolicy) -
 mod tests {
     use super::*;
     use crate::policy_config::PolicyConfig;
-    use vel_core::ArtifactId;
     use axum::{
         body::Body,
         http::{Method, Request, StatusCode},
     };
     use time::OffsetDateTime;
     use tower::util::ServiceExt;
+    use vel_core::ArtifactId;
 
     fn test_policy_config() -> PolicyConfig {
         PolicyConfig::default()
@@ -2079,7 +2079,7 @@ mod tests {
 
         let first = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2093,19 +2093,17 @@ mod tests {
         .unwrap();
         let _claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
-                work_request_id: "wrkreq-dup".to_string(),
-                worker_id: "vel-node".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            "wrkreq-dup".to_string(),
+            "vel-node".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
 
         let second = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2130,7 +2128,7 @@ mod tests {
 
         let first = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2144,12 +2142,10 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
-                work_request_id: "wrkreq-stale-dup".to_string(),
-                worker_id: "vel-node".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            "wrkreq-stale-dup".to_string(),
+            "vel-node".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
@@ -2163,7 +2159,7 @@ mod tests {
 
         let second = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2319,7 +2315,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2333,12 +2329,10 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
-                work_request_id: routed.work_request_id.clone(),
-                worker_id: "worker-1".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            routed.work_request_id.clone(),
+            "worker-1".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
@@ -2364,12 +2358,10 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
-                node_id: "vel-node".to_string(),
-                worker_id: "worker-2".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            "vel-node".to_string(),
+            "worker-2".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap()
@@ -2391,7 +2383,7 @@ mod tests {
 
         let first = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2405,7 +2397,7 @@ mod tests {
         .unwrap();
         let _second = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2420,12 +2412,10 @@ mod tests {
 
         let claimed = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
-                node_id: "vel-node".to_string(),
-                worker_id: "worker-1".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            "vel-node".to_string(),
+            "worker-1".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap()
@@ -2447,7 +2437,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2461,21 +2451,19 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
-                work_request_id: routed.work_request_id.clone(),
-                worker_id: "worker-1".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            routed.work_request_id.clone(),
+            "worker-1".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
         crate::services::client_sync::update_work_assignment_receipt(
             &state,
-            vel_api_types::WorkAssignmentUpdateRequest {
+            vel_storage::WorkAssignmentUpdate {
                 receipt_id: claimed.receipt_id.clone(),
-                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                status: vel_core::WorkAssignmentStatus::Failed,
                 started_at: None,
                 completed_at: Some(now),
                 result: None,
@@ -2500,12 +2488,10 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
-                node_id: "vel-node".to_string(),
-                worker_id: "worker-2".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            "vel-node".to_string(),
+            "worker-2".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
@@ -2520,7 +2506,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2534,21 +2520,19 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
-                work_request_id: routed.work_request_id.clone(),
-                worker_id: "worker-1".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            routed.work_request_id.clone(),
+            "worker-1".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
         let past = time::OffsetDateTime::now_utc().unix_timestamp() - 120;
         crate::services::client_sync::update_work_assignment_receipt(
             &state,
-            vel_api_types::WorkAssignmentUpdateRequest {
+            vel_storage::WorkAssignmentUpdate {
                 receipt_id: claimed.receipt_id.clone(),
-                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                status: vel_core::WorkAssignmentStatus::Failed,
                 started_at: None,
                 completed_at: Some(past),
                 result: None,
@@ -2573,12 +2557,10 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
-                node_id: "vel-node".to_string(),
-                worker_id: "worker-2".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            "vel-node".to_string(),
+            "worker-2".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
@@ -2602,7 +2584,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2616,21 +2598,19 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
-                work_request_id: routed.work_request_id.clone(),
-                worker_id: "worker-1".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            routed.work_request_id.clone(),
+            "worker-1".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
         crate::services::client_sync::update_work_assignment_receipt(
             &state,
-            vel_api_types::WorkAssignmentUpdateRequest {
+            vel_storage::WorkAssignmentUpdate {
                 receipt_id: claimed.receipt_id,
-                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                status: vel_core::WorkAssignmentStatus::Failed,
                 started_at: None,
                 completed_at: Some(now),
                 result: None,
@@ -2642,7 +2622,7 @@ mod tests {
 
         let duplicate = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2677,7 +2657,7 @@ mod tests {
 
         let routed = crate::services::client_sync::queue_validation_request(
             &state,
-            vel_api_types::ValidationRequestData {
+            crate::services::client_sync::ValidationRequest {
                 repo_root: repo_root_for_tests(),
                 profile_id: "repo-verify".to_string(),
                 branch: None,
@@ -2691,20 +2671,18 @@ mod tests {
         .unwrap();
         let claimed = crate::services::client_sync::claim_work_assignment(
             &state,
-            vel_api_types::WorkAssignmentClaimRequestData {
-                work_request_id: routed.work_request_id.clone(),
-                worker_id: "worker-1".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            routed.work_request_id.clone(),
+            "worker-1".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
         crate::services::client_sync::update_work_assignment_receipt(
             &state,
-            vel_api_types::WorkAssignmentUpdateRequest {
+            vel_storage::WorkAssignmentUpdate {
                 receipt_id: claimed.receipt_id,
-                status: vel_api_types::WorkAssignmentStatusData::Failed,
+                status: vel_core::WorkAssignmentStatus::Failed,
                 started_at: None,
                 completed_at: Some(time::OffsetDateTime::now_utc().unix_timestamp() - 120),
                 result: None,
@@ -2728,12 +2706,10 @@ mod tests {
 
         let next = crate::services::client_sync::claim_next_work_for_worker(
             &state,
-            vel_api_types::WorkAssignmentClaimNextRequestData {
-                node_id: "vel-node".to_string(),
-                worker_id: "worker-2".to_string(),
-                worker_class: Some("validation".to_string()),
-                capability: Some("build_test_profiles".to_string()),
-            },
+            "vel-node".to_string(),
+            "worker-2".to_string(),
+            Some("validation".to_string()),
+            Some("build_test_profiles".to_string()),
         )
         .await
         .unwrap();
@@ -3624,7 +3600,10 @@ mod tests {
         let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
-        let stored = storage.get_artifact_by_id(&ArtifactId::from(artifact_id.to_string())).await.unwrap();
+        let stored = storage
+            .get_artifact_by_id(&ArtifactId::from(artifact_id.to_string()))
+            .await
+            .unwrap();
         assert!(stored.is_some());
         let stored_thread = storage.get_thread_by_id(thread_id).await.unwrap();
         assert!(stored_thread.is_some());
@@ -3710,7 +3689,10 @@ mod tests {
         let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
-        let stored = storage.get_artifact_by_id(&ArtifactId::from(artifact_id.to_string())).await.unwrap();
+        let stored = storage
+            .get_artifact_by_id(&ArtifactId::from(artifact_id.to_string()))
+            .await
+            .unwrap();
         assert!(stored.is_some());
         let stored_thread = storage.get_thread_by_id(thread_id).await.unwrap();
         assert!(stored_thread.is_some());
@@ -3799,7 +3781,10 @@ mod tests {
         let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
-        let stored = storage.get_artifact_by_id(&ArtifactId::from(artifact_id.to_string())).await.unwrap();
+        let stored = storage
+            .get_artifact_by_id(&ArtifactId::from(artifact_id.to_string()))
+            .await
+            .unwrap();
         assert!(stored.is_some());
         let stored_thread = storage.get_thread_by_id(thread_id).await.unwrap();
         assert!(stored_thread.is_some());
@@ -7016,11 +7001,11 @@ mod tests {
         storage.migrate().await.unwrap();
         let suggestion_id = storage
             .insert_suggestion_v2(vel_storage::SuggestionInsertV2 {
-                    suggestion_type: "add_start_routine".to_string(),
-                    state: "pending".to_string(),
-                    title: Some("Add start routine".to_string()),
-                    summary: Some("Morning drift suggests a stronger startup block.".to_string()),
-                    priority: 35,
+                suggestion_type: "add_start_routine".to_string(),
+                state: "pending".to_string(),
+                title: Some("Add start routine".to_string()),
+                summary: Some("Morning drift suggests a stronger startup block.".to_string()),
+                priority: 35,
                 confidence: Some("0.66".to_string()),
                 dedupe_key: Some("add_start_routine".to_string()),
                 payload_json: serde_json::json!({
@@ -7121,7 +7106,7 @@ mod tests {
                     title: Some("Add follow-up block".to_string()),
                     summary: None,
                     priority: 50,
-                confidence: Some("0.66".to_string()),
+                    confidence: Some("0.66".to_string()),
                     dedupe_key: None,
                     payload_json: serde_json::json!({
                         "type": "add_followup_block",
