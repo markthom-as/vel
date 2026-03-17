@@ -19,6 +19,7 @@ use crate::broadcast::WsEnvelope;
 use crate::services::chat::{
     assistant::generate_assistant_reply,
     events::emit_chat_event,
+    interventions::{dismiss_intervention, resolve_intervention, snooze_intervention},
     mapping::{
         conversation_record_to_data, intervention_record_to_inbox_item, message_record_to_data,
     },
@@ -388,35 +389,13 @@ pub async fn intervention_snooze(
     Path(id): Path<String>,
     Json(payload): Json<SnoozeRequest>,
 ) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
-    let id = id.trim();
     let until_ts = payload
         .snoozed_until_ts
         .or(payload
             .minutes
             .map(|m| time::OffsetDateTime::now_utc().unix_timestamp() + (m as i64) * 60))
         .ok_or_else(|| AppError::bad_request("snoozed_until_ts or minutes required"))?;
-    let _ = state
-        .storage
-        .get_intervention(id)
-        .await?
-        .ok_or_else(|| AppError::not_found("intervention not found"))?;
-    state.storage.snooze_intervention(id, until_ts).await?;
-    emit_chat_event(
-        &state,
-        "intervention.snoozed",
-        "intervention",
-        id,
-        serde_json::json!({ "id": id, "snoozed_until": until_ts }),
-    )
-    .await;
-    let payload = InterventionActionData {
-        id: id.to_string(),
-        state: "snoozed".to_string(),
-    };
-    let _ = state.broadcast_tx.send(WsEnvelope::new(
-        WsEventType::InterventionsUpdated,
-        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-    ));
+    let payload = snooze_intervention(&state, id.trim(), until_ts).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(payload, request_id)))
 }
@@ -431,29 +410,7 @@ pub async fn intervention_resolve(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
-    let id = id.trim();
-    let _ = state
-        .storage
-        .get_intervention(id)
-        .await?
-        .ok_or_else(|| AppError::not_found("intervention not found"))?;
-    state.storage.resolve_intervention(id).await?;
-    emit_chat_event(
-        &state,
-        "intervention.resolved",
-        "intervention",
-        id,
-        serde_json::json!({ "id": id }),
-    )
-    .await;
-    let payload = InterventionActionData {
-        id: id.to_string(),
-        state: "resolved".to_string(),
-    };
-    let _ = state.broadcast_tx.send(WsEnvelope::new(
-        WsEventType::InterventionsUpdated,
-        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-    ));
+    let payload = resolve_intervention(&state, id.trim()).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(payload, request_id)))
 }
@@ -462,29 +419,7 @@ pub async fn intervention_dismiss(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
-    let id = id.trim();
-    let _ = state
-        .storage
-        .get_intervention(id)
-        .await?
-        .ok_or_else(|| AppError::not_found("intervention not found"))?;
-    state.storage.dismiss_intervention(id).await?;
-    emit_chat_event(
-        &state,
-        "intervention.dismissed",
-        "intervention",
-        id,
-        serde_json::json!({ "id": id }),
-    )
-    .await;
-    let payload = InterventionActionData {
-        id: id.to_string(),
-        state: "dismissed".to_string(),
-    };
-    let _ = state.broadcast_tx.send(WsEnvelope::new(
-        WsEventType::InterventionsUpdated,
-        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-    ));
+    let payload = dismiss_intervention(&state, id.trim()).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(payload, request_id)))
 }
