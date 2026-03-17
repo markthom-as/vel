@@ -1,6 +1,7 @@
 pub mod commitment;
 pub mod context;
 pub mod intervention;
+pub mod loops;
 pub mod message;
 pub mod provenance;
 pub mod risk;
@@ -10,6 +11,7 @@ pub mod types;
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
 pub use context::{ContextCapture, OrientationSnapshot, SearchResult};
 pub use intervention::{Intervention, InterventionState};
+pub use loops::LoopKind;
 pub use message::{
     Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,

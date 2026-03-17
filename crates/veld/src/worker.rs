@@ -7,45 +7,117 @@
 use std::time::Duration;
 
 use tracing::{debug, warn};
-use vel_core::{RunEventType, RunKind, RunStatus};
+use vel_core::{LoopKind, RunEventType, RunKind, RunStatus};
 use vel_storage::{PendingJob, RetryReadyRun};
 
 use crate::state::AppState;
 
-const POLL_INTERVAL: Duration = Duration::from_secs(5);
+const LOOP_INTERVAL: Duration = Duration::from_secs(5);
 const JOB_TYPE_CAPTURE_INGEST: &str = "capture_ingest";
 const RETRY_BATCH_LIMIT: u32 = 10;
 
 pub async fn run_background_workers(state: AppState) {
-    loop {
-        if let Err(e) = poll_once(&state).await {
-            warn!(error = %e, "background worker poll failed");
+    for loop_definition in registered_loops() {
+        if !loop_definition.enabled {
+            debug!(loop_kind = %loop_definition.kind, "background loop disabled");
+            continue;
         }
-        tokio::time::sleep(POLL_INTERVAL).await;
+
+        let state = state.clone();
+        tokio::spawn(async move {
+            run_registered_loop(state, loop_definition).await;
+        });
+    }
+
+    std::future::pending::<()>().await;
+}
+
+#[derive(Debug, Clone, Copy)]
+struct LoopDefinition {
+    kind: LoopKind,
+    interval: Duration,
+    enabled: bool,
+    runner: LoopRunner,
+}
+
+type LoopRunner = fn(&AppState) -> LoopFuture<'_>;
+type LoopFuture<'a> = std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<(), crate::errors::AppError>> + Send + 'a>,
+>;
+
+fn registered_loops() -> Vec<LoopDefinition> {
+    vec![
+        LoopDefinition {
+            kind: LoopKind::CaptureIngest,
+            interval: LOOP_INTERVAL,
+            enabled: true,
+            runner: run_capture_ingest_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::RetryDueRuns,
+            interval: LOOP_INTERVAL,
+            enabled: true,
+            runner: run_retry_due_runs_loop_once,
+        },
+    ]
+}
+
+async fn run_registered_loop(state: AppState, loop_definition: LoopDefinition) {
+    let mut ticker = tokio::time::interval(loop_definition.interval);
+    loop {
+        ticker.tick().await;
+        if let Err(error) = (loop_definition.runner)(&state).await {
+            warn!(
+                error = %error,
+                loop_kind = %loop_definition.kind,
+                "background loop execution failed"
+            );
+        }
     }
 }
 
-async fn poll_once(state: &AppState) -> Result<(), crate::errors::AppError> {
-    if let Some(job) = state
-        .storage
-        .claim_next_pending_job(JOB_TYPE_CAPTURE_INGEST)
-        .await?
+async fn run_registered_loops_once(state: &AppState) -> Result<(), crate::errors::AppError> {
+    for loop_definition in registered_loops()
+        .into_iter()
+        .filter(|loop_definition| loop_definition.enabled)
     {
-        process_capture_ingest_job(&state.storage, job).await?;
+        (loop_definition.runner)(state).await?;
     }
-
-    let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
-    let ready_runs = state
-        .storage
-        .list_retry_ready_runs(now_ts, RETRY_BATCH_LIMIT)
-        .await?;
-    for retry in ready_runs {
-        if let Err(e) = process_retry_ready_run(state, retry).await {
-            warn!(error = %e, "run retry execution failed");
-        }
-    }
-
     Ok(())
+}
+
+fn run_capture_ingest_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        if let Some(job) = state
+            .storage
+            .claim_next_pending_job(JOB_TYPE_CAPTURE_INGEST)
+            .await?
+        {
+            process_capture_ingest_job(&state.storage, job).await?;
+        }
+        Ok(())
+    })
+}
+
+fn run_retry_due_runs_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let ready_runs = state
+            .storage
+            .list_retry_ready_runs(now_ts, RETRY_BATCH_LIMIT)
+            .await?;
+        for retry in ready_runs {
+            if let Err(error) = process_retry_ready_run(state, retry).await {
+                warn!(error = %error, "run retry execution failed");
+            }
+        }
+        Ok(())
+    })
+}
+
+#[cfg(test)]
+async fn poll_once(state: &AppState) -> Result<(), crate::errors::AppError> {
+    run_registered_loops_once(state).await
 }
 
 async fn process_capture_ingest_job(
@@ -145,11 +217,20 @@ async fn process_retry_ready_run(
 
 #[cfg(test)]
 mod tests {
-    use super::poll_once;
+    use super::{poll_once, registered_loops};
     use crate::state::AppState;
     use vel_config::AppConfig;
-    use vel_core::{RunEventType, RunId, RunKind, RunStatus};
+    use vel_core::{LoopKind, RunEventType, RunId, RunKind, RunStatus};
     use vel_storage::Storage;
+
+    #[test]
+    fn registered_loops_are_explicit_and_enabled() {
+        let loops = registered_loops();
+        assert_eq!(loops.len(), 2);
+        assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
+        assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
+        assert!(loops.iter().all(|loop_definition| loop_definition.enabled));
+    }
 
     #[tokio::test]
     async fn poll_once_retries_due_context_run() {
