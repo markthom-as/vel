@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// HTTP client for the Vel daemon (veld) API. All clients talk to the same core.
 /// Configure baseURL (default http://localhost:4130) before use.
@@ -77,7 +80,7 @@ public final class VelClient: Sendable {
     }
 
     private func request(path: String, method: String, body: Data?) async throws -> Data {
-        let url = baseURL.appendingPathComponent(path.dropFirst())
+        let url = baseURL.appendingPathComponent(String(path.dropFirst()))
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -85,13 +88,30 @@ public final class VelClient: Sendable {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
         }
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
         guard let http = response as? HTTPURLResponse else { return data }
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? JSONDecoder().decode(APIErrorEnvelope.self, from: data)).map { $0.error.message } ?? String(data: data, encoding: .utf8) ?? "Unknown error"
             throw VelClientError.http(statusCode: http.statusCode, message: message)
         }
         return data
+    }
+
+    private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try await withCheckedThrowingContinuation { continuation in
+            let task = session.dataTask(with: request) { data, response, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let data, let response else {
+                    continuation.resume(throwing: VelClientError.apiError("No response"))
+                    return
+                }
+                continuation.resume(returning: (data, response))
+            }
+            task.resume()
+        }
     }
 }
 

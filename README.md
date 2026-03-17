@@ -73,6 +73,12 @@ To verify the local LLM setup that `make dev` expects, run:
 make check-llm-setup
 ```
 
+To enter a repo shell with both `hf` and the Swift toolchain available:
+
+```bash
+nix-shell
+```
+
 ## Local integration defaults
 
 The repo-local `vel.toml` points the current workspace at local integration seed files:
@@ -90,6 +96,8 @@ llm_fast_model_path = "configs/models/weights/qwen2.5-coder-14b-instruct-*.gguf"
 calendar_ics_path = "var/integrations/calendar/local.ics"
 todoist_snapshot_path = "var/integrations/todoist/snapshot.json"
 ```
+
+On macOS, `veld` also auto-discovers local source files for `activity`, `messaging`, `notes`, `git`, and `transcripts` under `~/Library/Application Support/Vel/...` when present, then performs a startup bootstrap sync so those sources can influence current context without manual path entry.
 
 ## Operator commands
 

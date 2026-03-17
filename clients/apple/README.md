@@ -14,6 +14,14 @@ Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-cl
 - Xcode 15+ (Swift 5.9)
 - **veld** running (e.g. `veld` in the repo root, or `cargo run -p veld`). Default bind address: `127.0.0.1:4130` (base URL `http://127.0.0.1:4130`).
 
+On Linux or any host without Xcode, the repo Nix shell now includes the Swift toolchain for package-level checks:
+
+```bash
+nix-shell --run 'cd clients/apple/VelAPI && swift --version && swift build'
+```
+
+This is useful for validating the shared `VelAPI` package, but full app builds still require Xcode on macOS.
+
 On a physical device, set the daemon base URL (e.g. `http://<your-mac-ip>:4130`) in the app or via UserDefaults key `vel_base_url` until a Settings bundle is added.
 
 ## 1. Open the project in Xcode
