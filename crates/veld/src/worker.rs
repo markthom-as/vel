@@ -152,7 +152,8 @@ async fn run_registered_loop(state: AppState, loop_definition: LoopDefinition) {
     }
 }
 
-async fn run_registered_loops_once(state: &AppState) -> Result<(), crate::errors::AppError> {
+#[cfg_attr(not(test), allow(dead_code))]
+pub async fn run_registered_loops_once(state: &AppState) -> Result<(), crate::errors::AppError> {
     for loop_definition in registered_loops_with_policy(&state.policy_config)
         .into_iter()
         .filter(|loop_definition| loop_definition.enabled)
