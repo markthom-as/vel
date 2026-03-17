@@ -1698,6 +1698,118 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    #[tokio::test]
+    async fn explain_nudge_includes_lifecycle_events() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!(
+            "vel_nudge_history_{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        ));
+        let path_str = path.to_string_lossy().to_string();
+
+        let storage = Storage::connect(&path_str).await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Take meds".to_string(),
+                source_type: "test".to_string(),
+                source_id: None,
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("medication".to_string()),
+                metadata_json: None,
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let storage2 = Storage::connect(&path_str).await.unwrap();
+        let nudge = storage2
+            .list_nudges(None, 10)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|nudge| nudge.nudge_type == "meds_not_logged")
+            .expect("meds nudge should exist");
+        storage2
+            .update_nudge_state(
+                &nudge.nudge_id,
+                "snoozed",
+                Some(time::OffsetDateTime::now_utc().unix_timestamp() - 60),
+                None,
+            )
+            .await
+            .unwrap();
+        let _ = storage2
+            .insert_nudge_event(
+                &nudge.nudge_id,
+                "nudge_snoozed",
+                r#"{"reason":"test"}"#,
+                time::OffsetDateTime::now_utc().unix_timestamp() - 60,
+            )
+            .await;
+
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let explain_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/explain/nudge/{}", nudge.nudge_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(explain_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(explain_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let event_types: Vec<_> = json["data"]["events"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|event| event["event_type"].as_str())
+            .collect();
+        assert_eq!(
+            event_types,
+            vec!["nudge_created", "nudge_snoozed", "nudge_reactivated"]
+        );
+
+        let _ = std::fs::remove_file(&path);
+    }
+
     // --- Canonical day fixture: Meeting with Dimitri at 11:00, prep 30 min, travel 40 min, meds/prep/commute open ---
     async fn canonical_day_fixture(
         storage: &vel_storage::Storage,

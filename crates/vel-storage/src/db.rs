@@ -122,6 +122,16 @@ pub struct NudgeRecord {
 }
 
 #[derive(Debug, Clone)]
+pub struct NudgeEventRecord {
+    pub id: String,
+    pub nudge_id: String,
+    pub event_type: String,
+    pub payload_json: JsonValue,
+    pub timestamp: i64,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone)]
 pub struct ConversationInsert {
     pub id: String,
     pub title: Option<String>,
@@ -1372,6 +1382,28 @@ impl Storage {
         Ok(())
     }
 
+    pub async fn list_nudge_events(
+        &self,
+        nudge_id: &str,
+        limit: u32,
+    ) -> Result<Vec<NudgeEventRecord>, StorageError> {
+        let limit = limit.min(100) as i64;
+        let rows = sqlx::query(
+            r#"
+            SELECT id, nudge_id, event_type, payload_json, timestamp, created_at
+            FROM nudge_events
+            WHERE nudge_id = ?
+            ORDER BY rowid ASC
+            LIMIT ?
+            "#,
+        )
+        .bind(nudge_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(|row| map_nudge_event_row(&row)).collect()
+    }
+
     pub async fn search_captures(
         &self,
         query: &str,
@@ -2590,6 +2622,18 @@ fn map_nudge_row(row: &sqlx::sqlite::SqliteRow) -> Result<NudgeRecord, StorageEr
         signals_snapshot_json: row.try_get("signals_snapshot_json")?,
         inference_snapshot_json: row.try_get("inference_snapshot_json")?,
         metadata_json: serde_json::from_str(&meta_str).unwrap_or_else(|_| json!({})),
+    })
+}
+
+fn map_nudge_event_row(row: &sqlx::sqlite::SqliteRow) -> Result<NudgeEventRecord, StorageError> {
+    let payload_json = row.try_get::<String, _>("payload_json")?;
+    Ok(NudgeEventRecord {
+        id: row.try_get("id")?,
+        nudge_id: row.try_get("nudge_id")?,
+        event_type: row.try_get("event_type")?,
+        payload_json: serde_json::from_str(&payload_json).unwrap_or(JsonValue::Object(Default::default())),
+        timestamp: row.try_get("timestamp")?,
+        created_at: row.try_get("created_at")?,
     })
 }
 

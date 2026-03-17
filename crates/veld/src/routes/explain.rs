@@ -6,7 +6,8 @@ use axum::{
 };
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, CommitmentExplainData, ContextExplainData, DriftExplainData, NudgeExplainData,
+    ApiResponse, CommitmentExplainData, ContextExplainData, DriftExplainData, NudgeEventData,
+    NudgeExplainData,
     SignalExplainSummary,
 };
 use vel_storage::SignalRecord;
@@ -295,6 +296,19 @@ pub async fn explain_nudge(
         .signals_snapshot_json
         .as_deref()
         .and_then(|s| serde_json::from_str(s).ok());
+    let events = state
+        .storage
+        .list_nudge_events(id.trim(), 50)
+        .await?
+        .into_iter()
+        .map(|event| NudgeEventData {
+            id: event.id,
+            event_type: event.event_type,
+            payload: event.payload_json,
+            timestamp: event.timestamp,
+            created_at: event.created_at,
+        })
+        .collect();
     let data = NudgeExplainData {
         nudge_id: nudge.nudge_id,
         nudge_type: nudge.nudge_type,
@@ -303,6 +317,7 @@ pub async fn explain_nudge(
         message: nudge.message,
         inference_snapshot,
         signals_snapshot,
+        events,
     };
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))

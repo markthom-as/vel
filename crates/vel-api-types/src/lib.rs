@@ -904,4 +904,14 @@ pub struct NudgeExplainData {
     pub message: String,
     pub inference_snapshot: Option<JsonValue>,
     pub signals_snapshot: Option<JsonValue>,
+    pub events: Vec<NudgeEventData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NudgeEventData {
+    pub id: String,
+    pub event_type: String,
+    pub payload: JsonValue,
+    pub timestamp: i64,
+    pub created_at: i64,
 }
