@@ -7,9 +7,9 @@ Vel is a **local-first cognition runtime** for capture, recall, and daily orient
 
 ## Status
 
-**Implemented:** capture storage, lexical search, artifacts API, run/event schema and inspection, doctor diagnostics, **run-backed context** (today/morning/end-of-day create runs, artifacts, and provenance), full CLI surface including `vel recent`, `vel inspect artifact`, capture with `--type`/`--source`/`--stdin`. Domain types live in `vel-core`; storage does not depend on API types.
+**Implemented:** capture storage, lexical search, artifacts API, run/event schema and inspection, doctor diagnostics, **run-backed context** (today/morning/end-of-day create runs, artifacts, and provenance), recent/review flows, synthesis workflows, import/ingestion, web/chat operator surfaces, and the current Apple bootstrap clients. Domain types live in `vel-core`; storage does not depend on API types.
 
-**Planned next:** recent/review flows, synthesis workflows, import/ingestion, usability improvements for daily operation. See [docs/status.md](docs/status.md) for the dogfooding roadmap.
+**Current work:** repo audit and hardening follow-through live in [docs/tickets/repo-audit-hardening/README.md](docs/tickets/repo-audit-hardening/README.md). Repo-wide truth remains [docs/status.md](docs/status.md).
 
 Context endpoints (today/morning/end-of-day) are **run-backed**: each request creates a run, writes a managed JSON artifact, and links run → artifact; inspect with `vel run inspect <id>`.
 
