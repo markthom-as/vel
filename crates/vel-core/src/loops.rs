@@ -35,3 +35,24 @@ impl Display for LoopKind {
         f.write_str(value)
     }
 }
+
+impl std::str::FromStr for LoopKind {
+    type Err = crate::VelCoreError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "capture_ingest" => Ok(Self::CaptureIngest),
+            "retry_due_runs" => Ok(Self::RetryDueRuns),
+            "evaluate_current_state" => Ok(Self::EvaluateCurrentState),
+            "sync_calendar" => Ok(Self::SyncCalendar),
+            "sync_todoist" => Ok(Self::SyncTodoist),
+            "sync_activity" => Ok(Self::SyncActivity),
+            "sync_messaging" => Ok(Self::SyncMessaging),
+            "weekly_synthesis" => Ok(Self::WeeklySynthesis),
+            "stale_nudge_reconciliation" => Ok(Self::StaleNudgeReconciliation),
+            _ => Err(crate::VelCoreError::Validation(format!(
+                "unknown loop kind: {value}"
+            ))),
+        }
+    }
+}

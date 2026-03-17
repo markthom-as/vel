@@ -66,12 +66,15 @@ async fn run_registered_loop(state: AppState, loop_definition: LoopDefinition) {
     let mut ticker = tokio::time::interval(loop_definition.interval);
     loop {
         ticker.tick().await;
-        if let Err(error) = (loop_definition.runner)(&state).await {
-            warn!(
-                error = %error,
-                loop_kind = %loop_definition.kind,
-                "background loop execution failed"
-            );
+        match run_claimed_loop_once(&state, loop_definition).await {
+            Ok(true) | Ok(false) => {}
+            Err(error) => {
+                warn!(
+                    error = %error,
+                    loop_kind = %loop_definition.kind,
+                    "background loop execution failed"
+                );
+            }
         }
     }
 }
@@ -81,9 +84,46 @@ async fn run_registered_loops_once(state: &AppState) -> Result<(), crate::errors
         .into_iter()
         .filter(|loop_definition| loop_definition.enabled)
     {
-        (loop_definition.runner)(state).await?;
+        let _ = run_claimed_loop_once(state, loop_definition).await?;
     }
     Ok(())
+}
+
+async fn run_claimed_loop_once(
+    state: &AppState,
+    loop_definition: LoopDefinition,
+) -> Result<bool, crate::errors::AppError> {
+    let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+    let interval_seconds = loop_definition.interval.as_secs() as i64;
+    let loop_kind = loop_definition.kind.to_string();
+
+    let claimed = state
+        .storage
+        .claim_due_loop(&loop_kind, interval_seconds, now_ts)
+        .await?;
+    if !claimed {
+        debug!(loop_kind = %loop_kind, "background loop not due or already running");
+        return Ok(false);
+    }
+
+    let next_due_at = now_ts + interval_seconds;
+    match (loop_definition.runner)(state).await {
+        Ok(()) => {
+            state
+                .storage
+                .complete_loop(&loop_kind, "succeeded", None, next_due_at)
+                .await?;
+            Ok(true)
+        }
+        Err(error) => {
+            let error_message = error.to_string();
+            state
+                .storage
+                .complete_loop(&loop_kind, "failed", Some(&error_message), next_due_at)
+                .await?;
+            Err(error)
+        }
+    }
 }
 
 fn run_capture_ingest_loop_once(state: &AppState) -> LoopFuture<'_> {
@@ -230,6 +270,39 @@ mod tests {
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
         assert!(loops.iter().all(|loop_definition| loop_definition.enabled));
+    }
+
+    #[tokio::test]
+    async fn poll_once_records_runtime_loop_status() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        poll_once(&state).await.unwrap();
+
+        let loops = storage.list_runtime_loops().await.unwrap();
+        assert_eq!(loops.len(), 2);
+        assert!(loops
+            .iter()
+            .all(|loop_record| loop_record.last_started_at.is_some()));
+        assert!(loops
+            .iter()
+            .all(|loop_record| loop_record.last_finished_at.is_some()));
+        assert!(loops
+            .iter()
+            .all(|loop_record| loop_record.last_status.as_deref() == Some("succeeded")));
+        assert!(loops
+            .iter()
+            .all(|loop_record| loop_record.next_due_at.is_some()));
     }
 
     #[tokio::test]

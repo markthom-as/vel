@@ -287,6 +287,18 @@ pub struct RetryReadyRun {
     pub retry_reason: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct RuntimeLoopRecord {
+    pub loop_kind: String,
+    pub enabled: bool,
+    pub interval_seconds: i64,
+    pub last_started_at: Option<i64>,
+    pub last_finished_at: Option<i64>,
+    pub last_status: Option<String>,
+    pub last_error: Option<String>,
+    pub next_due_at: Option<i64>,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
     #[error("database error: {0}")]
@@ -1401,7 +1413,9 @@ impl Storage {
         .bind(limit)
         .fetch_all(&self.pool)
         .await?;
-        rows.into_iter().map(|row| map_nudge_event_row(&row)).collect()
+        rows.into_iter()
+            .map(|row| map_nudge_event_row(&row))
+            .collect()
     }
 
     pub async fn search_captures(
@@ -2427,6 +2441,102 @@ impl Storage {
         Ok(())
     }
 
+    pub async fn claim_due_loop(
+        &self,
+        loop_kind: &str,
+        interval_seconds: i64,
+        now_ts: i64,
+    ) -> Result<bool, StorageError> {
+        sqlx::query(
+            r#"
+            INSERT OR IGNORE INTO runtime_loops (
+                loop_kind,
+                enabled,
+                interval_seconds,
+                next_due_at
+            ) VALUES (?, 1, ?, 0)
+            "#,
+        )
+        .bind(loop_kind)
+        .bind(interval_seconds)
+        .execute(&self.pool)
+        .await?;
+
+        let result = sqlx::query(
+            r#"
+            UPDATE runtime_loops
+            SET interval_seconds = ?,
+                last_started_at = ?,
+                last_status = 'running',
+                last_error = NULL
+            WHERE loop_kind = ?
+              AND enabled = 1
+              AND COALESCE(last_status, '') != 'running'
+              AND COALESCE(next_due_at, 0) <= ?
+            "#,
+        )
+        .bind(interval_seconds)
+        .bind(now_ts)
+        .bind(loop_kind)
+        .bind(now_ts)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() == 1)
+    }
+
+    pub async fn complete_loop(
+        &self,
+        loop_kind: &str,
+        status: &str,
+        error: Option<&str>,
+        next_due_at: i64,
+    ) -> Result<(), StorageError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        sqlx::query(
+            r#"
+            UPDATE runtime_loops
+            SET last_finished_at = ?,
+                last_status = ?,
+                last_error = ?,
+                next_due_at = ?
+            WHERE loop_kind = ?
+            "#,
+        )
+        .bind(now)
+        .bind(status)
+        .bind(error)
+        .bind(next_due_at)
+        .bind(loop_kind)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_runtime_loops(&self) -> Result<Vec<RuntimeLoopRecord>, StorageError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                loop_kind,
+                enabled,
+                interval_seconds,
+                last_started_at,
+                last_finished_at,
+                last_status,
+                last_error,
+                next_due_at
+            FROM runtime_loops
+            ORDER BY loop_kind ASC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| map_runtime_loop_row(&row))
+            .collect::<Result<Vec<_>, _>>()
+    }
+
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
         let now = OffsetDateTime::now_utc();
         let start_of_day = now
@@ -2631,9 +2741,24 @@ fn map_nudge_event_row(row: &sqlx::sqlite::SqliteRow) -> Result<NudgeEventRecord
         id: row.try_get("id")?,
         nudge_id: row.try_get("nudge_id")?,
         event_type: row.try_get("event_type")?,
-        payload_json: serde_json::from_str(&payload_json).unwrap_or(JsonValue::Object(Default::default())),
+        payload_json: serde_json::from_str(&payload_json)
+            .unwrap_or(JsonValue::Object(Default::default())),
         timestamp: row.try_get("timestamp")?,
         created_at: row.try_get("created_at")?,
+    })
+}
+
+fn map_runtime_loop_row(row: &sqlx::sqlite::SqliteRow) -> Result<RuntimeLoopRecord, StorageError> {
+    let enabled: i64 = row.try_get("enabled")?;
+    Ok(RuntimeLoopRecord {
+        loop_kind: row.try_get("loop_kind")?,
+        enabled: enabled != 0,
+        interval_seconds: row.try_get("interval_seconds")?,
+        last_started_at: row.try_get("last_started_at")?,
+        last_finished_at: row.try_get("last_finished_at")?,
+        last_status: row.try_get("last_status")?,
+        last_error: row.try_get("last_error")?,
+        next_due_at: row.try_get("next_due_at")?,
     })
 }
 
@@ -2829,6 +2954,68 @@ mod tests {
             .await
             .unwrap();
         assert!(again.is_none());
+    }
+
+    #[tokio::test]
+    async fn claim_due_loop_prevents_overlap_and_tracks_next_due_time() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        assert!(storage
+            .claim_due_loop("retry_due_runs", 30, 100)
+            .await
+            .unwrap());
+        assert!(!storage
+            .claim_due_loop("retry_due_runs", 30, 100)
+            .await
+            .unwrap());
+
+        storage
+            .complete_loop("retry_due_runs", "succeeded", None, 130)
+            .await
+            .unwrap();
+
+        assert!(!storage
+            .claim_due_loop("retry_due_runs", 30, 129)
+            .await
+            .unwrap());
+        assert!(storage
+            .claim_due_loop("retry_due_runs", 30, 130)
+            .await
+            .unwrap());
+
+        let loops = storage.list_runtime_loops().await.unwrap();
+        assert_eq!(loops.len(), 1);
+        let retry_loop = &loops[0];
+        assert_eq!(retry_loop.loop_kind, "retry_due_runs");
+        assert_eq!(retry_loop.interval_seconds, 30);
+        assert_eq!(retry_loop.last_status.as_deref(), Some("running"));
+        assert_eq!(retry_loop.next_due_at, Some(130));
+    }
+
+    #[tokio::test]
+    async fn complete_loop_persists_terminal_status_and_error() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        assert!(storage
+            .claim_due_loop("capture_ingest", 5, 200)
+            .await
+            .unwrap());
+        storage
+            .complete_loop("capture_ingest", "failed", Some("boom"), 205)
+            .await
+            .unwrap();
+
+        let loops = storage.list_runtime_loops().await.unwrap();
+        assert_eq!(loops.len(), 1);
+        let capture_loop = &loops[0];
+        assert_eq!(capture_loop.loop_kind, "capture_ingest");
+        assert_eq!(capture_loop.last_status.as_deref(), Some("failed"));
+        assert_eq!(capture_loop.last_error.as_deref(), Some("boom"));
+        assert_eq!(capture_loop.next_due_at, Some(205));
+        assert!(capture_loop.last_started_at.is_some());
+        assert!(capture_loop.last_finished_at.is_some());
     }
 
     #[tokio::test]
