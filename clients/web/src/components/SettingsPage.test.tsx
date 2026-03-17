@@ -1550,4 +1550,27 @@ describe('SettingsPage', () => {
     expect(subscribeWs.mock.calls.length).toBeGreaterThanOrEqual(1)
   })
 
+  it('opens directly to a targeted integration card', async () => {
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    })
+
+    const { container } = render(
+      <SettingsPage
+        onBack={() => {}}
+        initialTab="integrations"
+        initialIntegrationId="activity"
+      />,
+    )
+
+    const root = getSettingsRoot(container)
+    await waitFor(() => {
+      expect(within(root).getByRole('heading', { name: /computer activity/i })).toBeInTheDocument()
+    })
+
+    expect(scrollIntoView).toHaveBeenCalled()
+  })
+
 })

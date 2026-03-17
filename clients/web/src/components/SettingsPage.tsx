@@ -37,6 +37,8 @@ import {
 
 interface SettingsPageProps {
   onBack: () => void;
+  initialTab?: SettingsTab;
+  initialIntegrationId?: IntegrationSectionKey;
 }
 
 interface RetryDraft {
@@ -97,7 +99,7 @@ interface GuidanceActionButton {
   disabled?: boolean;
 }
 
-type SettingsTab = 'general' | 'integrations' | 'components' | 'runs' | 'loops';
+export type SettingsTab = 'general' | 'integrations' | 'components' | 'runs' | 'loops';
 
 interface LoopDraft {
   intervalSeconds: string;
@@ -251,8 +253,12 @@ function integrationFeedbackForSection(
   return Object.values(feedback).filter((entry) => entry.section === section);
 }
 
-export function SettingsPage({ onBack }: SettingsPageProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+export function SettingsPage({
+  onBack,
+  initialTab = 'general',
+  initialIntegrationId,
+}: SettingsPageProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [saving, setSaving] = useState(false);
   const [pendingIntegrationActions, setPendingIntegrationActions] = useState<Record<string, true>>({});
   const [pendingComponentActions, setPendingComponentActions] = useState<Record<string, true>>({});
@@ -287,6 +293,15 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const latestComponentActionIdRef = useRef(0);
   const latestRunActionIdByRunRef = useRef<Record<string, number>>({});
   const localSourceInputRefs = useRef<Record<LocalIntegrationSource, HTMLInputElement | null>>({
+    activity: null,
+    git: null,
+    messaging: null,
+    notes: null,
+    transcripts: null,
+  });
+  const integrationSectionRefs = useRef<Record<IntegrationSectionKey, HTMLDivElement | null>>({
+    google: null,
+    todoist: null,
     activity: null,
     git: null,
     messaging: null,
@@ -355,6 +370,10 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   useEffect(() => {
     return subscribeWsQuerySync();
   }, []);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     setTimezoneDraft(settings.timezone ?? '');
@@ -428,6 +447,16 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       return changed ? next : current;
     });
   }, [loops]);
+
+  useEffect(() => {
+    if (activeTab !== 'integrations' || !initialIntegrationId) {
+      return;
+    }
+    integrationSectionRefs.current[initialIntegrationId]?.scrollIntoView({
+      block: 'start',
+      behavior: 'auto',
+    });
+  }, [activeTab, initialIntegrationId, integrations]);
 
   const update = async (key: keyof SettingsData, value: boolean | unknown) => {
     setSaving(true);
@@ -1098,7 +1127,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               Integrations API unavailable: {integrationsLoadError}. Restart `veld` to pick up the new backend routes.
             </div>
           ) : null}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5">
+          <div
+            ref={(node) => {
+              integrationSectionRefs.current.google = node;
+            }}
+            className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-medium text-zinc-100">Google Calendar</h3>
@@ -1242,7 +1276,12 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             ) : null}
           </div>
 
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5">
+          <div
+            ref={(node) => {
+              integrationSectionRefs.current.todoist = node;
+            }}
+            className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-medium text-zinc-100">Todoist</h3>
@@ -1341,7 +1380,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
             const saveActionKey = `${spec.key}-save` as IntegrationActionKey;
             const sourceDraft = localSourceDrafts[spec.key];
             return (
-              <div key={spec.key} className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5">
+              <div
+                key={spec.key}
+                ref={(node) => {
+                  integrationSectionRefs.current[spec.key] = node;
+                }}
+                className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-medium text-zinc-100">{spec.title}</h3>

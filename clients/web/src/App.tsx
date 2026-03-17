@@ -10,11 +10,21 @@ import { invalidateQuery } from './data/query';
 import { queryKeys } from './data/resources';
 
 type MainView = 'now' | 'inbox' | 'suggestions' | 'threads';
+type SettingsNavigationTarget = {
+  tab: 'general' | 'integrations' | 'components' | 'runs' | 'loops';
+  integrationId?: 'google' | 'todoist' | 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
+};
 
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('now');
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState<SettingsNavigationTarget>({ tab: 'general' });
+
+  function openSettings(target: SettingsNavigationTarget = { tab: 'general' }) {
+    setSettingsTarget(target);
+    setShowSettings(true);
+  }
 
   async function startNewConversation() {
     const res = await apiPost<ApiResponse<ConversationData>>('/api/conversations', {
@@ -31,7 +41,11 @@ function App() {
   if (showSettings) {
     return (
       <div className="h-screen bg-zinc-950 text-zinc-100">
-        <SettingsPage onBack={() => setShowSettings(false)} />
+        <SettingsPage
+          onBack={() => setShowSettings(false)}
+          initialTab={settingsTarget.tab}
+          initialIntegrationId={settingsTarget.integrationId}
+        />
       </div>
     );
   }
@@ -77,11 +91,11 @@ function App() {
               setMainView('threads');
             }}
             onNewConversation={startNewConversation}
-            onOpenSettings={() => setShowSettings(true)}
+            onOpenSettings={() => openSettings()}
           />
         </>
       }
-      main={<MainPanel conversationId={selectedConversationId} mainView={mainView} />}
+      main={<MainPanel conversationId={selectedConversationId} mainView={mainView} onOpenSettings={openSettings} />}
       contextPanel={<ContextPanel />}
     />
   );

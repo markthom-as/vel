@@ -4,7 +4,20 @@ import { loadNow, queryKeys, runEvaluate, syncSource } from '../data/resources';
 import type { NowData, NowTaskData } from '../types';
 import { SurfaceState } from './SurfaceState';
 
-export function NowView() {
+type SettingsIntegrationTarget =
+  | 'google'
+  | 'todoist'
+  | 'activity'
+  | 'git'
+  | 'messaging'
+  | 'notes'
+  | 'transcripts';
+
+interface NowViewProps {
+  onOpenSettings?: (target: { tab: 'integrations'; integrationId: SettingsIntegrationTarget }) => void;
+}
+
+export function NowView({ onOpenSettings }: NowViewProps) {
   const nowKey = useMemo(() => queryKeys.now(), []);
   const currentContextKey = useMemo(() => queryKeys.currentContext(), []);
   const integrationsKey = useMemo(() => queryKeys.integrations(), []);
@@ -50,7 +63,7 @@ export function NowView() {
             message: 'Context refreshed.',
           },
         }));
-      } else {
+      } else if (action.type === 'sync') {
         const response = await syncSource(action.source);
         if (!response.ok) {
           throw new Error(response.error?.message ?? `Failed to sync ${action.source}`);
@@ -65,6 +78,8 @@ export function NowView() {
             message: `${action.successLabel} synced (${response.data?.signals_ingested ?? 0} signals).`,
           },
         }));
+      } else {
+        onOpenSettings?.({ tab: 'integrations', integrationId: action.integrationId });
       }
     } catch (actionError) {
       setActionMessages((current) => ({
@@ -482,7 +497,7 @@ function FreshnessActionControls({
           disabled={Boolean(pendingActions[source.key])}
           className="rounded-md border border-amber-700/70 px-3 py-1.5 text-xs font-medium text-amber-100 transition hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:border-amber-900/40 disabled:text-amber-300/50"
         >
-          {pendingActions[source.key] ? action.pendingLabel : action.label}
+          {pendingActions[source.key] && action.type !== 'open_settings' ? action.pendingLabel : action.label}
         </button>
       ) : null}
       {feedback ? (
@@ -618,28 +633,62 @@ function actionForFreshnessSource(source: NowData['freshness']['sources'][number
       pendingLabel: string;
       successLabel: string;
     }
+  | {
+      type: 'open_settings';
+      integrationId: SettingsIntegrationTarget;
+      label: string;
+      pendingLabel: string;
+    }
   | null {
   const guidance = source.guidance?.toLowerCase() ?? '';
   if (source.key === 'context') {
     return { type: 'evaluate', label: 'Re-run evaluate', pendingLabel: 'Re-running…' };
   }
 
+  if (guidance.includes('configure a source path')) {
+    return {
+      type: 'open_settings',
+      integrationId: source.key as Extract<SettingsIntegrationTarget, 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts'>,
+      label: 'Open source settings',
+      pendingLabel: 'Open source settings',
+    };
+  }
+
   if (
-    guidance.includes('configure a source path')
-    || guidance.includes('save a todoist api token')
+    guidance.includes('save a todoist api token')
     || guidance.includes('save a todoist token')
     || guidance.includes('save a todoist')
-    || guidance.includes('save a google')
+  ) {
+    return {
+      type: 'open_settings',
+      integrationId: 'todoist',
+      label: 'Open Todoist settings',
+      pendingLabel: 'Open Todoist settings',
+    };
+  }
+
+  if (
+    guidance.includes('save a google')
     || guidance.includes('save credentials')
     || guidance.includes('connect google')
   ) {
-    return null;
+    return {
+      type: 'open_settings',
+      integrationId: 'google',
+      label: 'Open Google settings',
+      pendingLabel: 'Open Google settings',
+    };
   }
 
   switch (source.key) {
     case 'calendar':
       if (source.status === 'disconnected') {
-        return null;
+        return {
+          type: 'open_settings',
+          integrationId: 'google',
+          label: 'Open Google settings',
+          pendingLabel: 'Open Google settings',
+        };
       }
       return {
         type: 'sync',
@@ -650,7 +699,12 @@ function actionForFreshnessSource(source: NowData['freshness']['sources'][number
       };
     case 'todoist':
       if (source.status === 'disconnected') {
-        return null;
+        return {
+          type: 'open_settings',
+          integrationId: 'todoist',
+          label: 'Open Todoist settings',
+          pendingLabel: 'Open Todoist settings',
+        };
       }
       return {
         type: 'sync',

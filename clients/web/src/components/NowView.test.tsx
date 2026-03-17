@@ -763,4 +763,84 @@ describe('NowView', () => {
     expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000)
     setIntervalSpy.mockRestore()
   })
+
+  it('opens integration settings for non-retryable degraded sources', async () => {
+    vi.mocked(api.apiGet).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        computed_at: 1710000000,
+        timezone: 'America/Denver',
+        summary: {
+          mode: { key: 'day_mode', label: 'Day' },
+          phase: { key: 'engaged', label: 'Engaged' },
+          meds: { key: 'pending', label: 'Pending' },
+          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+        },
+        schedule: {
+          empty_message: null,
+          next_event: null,
+          upcoming_events: [],
+        },
+        tasks: {
+          todoist: [],
+          other_open: [],
+          next_commitment: null,
+        },
+        attention: {
+          state: { key: 'on_task', label: 'On task' },
+          drift: { key: 'none', label: 'None' },
+          severity: { key: 'none', label: 'None' },
+          confidence: 0.8,
+          reasons: [],
+        },
+        sources: {
+          git_activity: null,
+          note_document: null,
+          assistant_message: null,
+        },
+        freshness: {
+          overall_status: 'disconnected',
+          sources: [
+            {
+              key: 'calendar',
+              label: 'Calendar',
+              status: 'disconnected',
+              last_sync_at: null,
+              age_seconds: null,
+              guidance: 'Connect Google before syncing calendar data.',
+            },
+            {
+              key: 'activity',
+              label: 'Computer activity',
+              status: 'missing',
+              last_sync_at: null,
+              age_seconds: null,
+              guidance: 'Configure a source path for this local adapter before syncing it.',
+            },
+          ],
+        },
+        reasons: [],
+        debug: {
+          raw_context: {},
+          signals_used: [],
+          commitments_used: [],
+          risk_used: [],
+        },
+      },
+      meta: { request_id: 'req_now_settings' },
+    } as never)
+
+    const onOpenSettings = vi.fn()
+    render(<NowView onOpenSettings={onOpenSettings} />)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /open google settings/i }).length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getAllByRole('button', { name: /open google settings/i })[0] as HTMLElement)
+    fireEvent.click(screen.getAllByRole('button', { name: /open source settings/i })[0] as HTMLElement)
+
+    expect(onOpenSettings).toHaveBeenNthCalledWith(1, { tab: 'integrations', integrationId: 'google' })
+    expect(onOpenSettings).toHaveBeenNthCalledWith(2, { tab: 'integrations', integrationId: 'activity' })
+  })
 })
