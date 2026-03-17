@@ -254,7 +254,7 @@ pub(crate) fn local_status_data(
     );
     LocalIntegrationData {
         configured: source_path.is_some(),
-        guidance: local_guidance(source_path.as_deref(), settings),
+        guidance: local_guidance(integration_id, source_path.as_deref(), settings),
         source_path,
         last_sync_at: settings.last_sync_at,
         last_sync_status: settings.last_sync_status.clone(),
@@ -310,15 +310,18 @@ pub(crate) async fn runtime_local_config(
 }
 
 fn local_guidance(
+    integration_id: &str,
     source_path: Option<&str>,
     settings: &LocalIntegrationSettings,
 ) -> Option<IntegrationGuidanceData> {
     if source_path.is_none() {
-        return Some(guidance(
-            "Local source missing",
-            "Configure a source path for this local adapter before syncing it.".to_string(),
-            "Set source path",
-        ));
+        let detail = if integration_id == "notes" {
+            "Configure the Obsidian vault root or another local notes directory before syncing it."
+                .to_string()
+        } else {
+            "Configure a source path for this local adapter before syncing it.".to_string()
+        };
+        return Some(guidance("Local source missing", detail, "Set source path"));
     }
     if settings.last_sync_status.as_deref() == Some("error") {
         return Some(guidance(
@@ -331,9 +334,15 @@ fn local_guidance(
         ));
     }
     if settings.last_sync_at.is_none() {
+        let detail = if integration_id == "notes" {
+            "Run sync now after Obsidian Sync or your local notes workflow has updated the vault."
+                .to_string()
+        } else {
+            "Run sync now to ingest this local source into Vel.".to_string()
+        };
         return Some(guidance(
             "Local source has not synced yet",
-            "Run sync now to ingest this local source into Vel.".to_string(),
+            detail,
             "Sync now",
         ));
     }

@@ -11,18 +11,11 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use vel_api_types::{
     GoogleCalendarAuthStartData, IntegrationConnectionData, IntegrationConnectionEventData,
-    IntegrationConnectionSettingRefData, IntegrationGuidanceData, IntegrationLogEventData,
-    IntegrationsData, LocalIntegrationData,
+    IntegrationConnectionSettingRefData, IntegrationLogEventData, IntegrationsData,
 };
 use vel_config::AppConfig;
 use vel_core::IntegrationFamily;
 use vel_storage::{IntegrationConnectionFilters, SignalRecord, Storage};
-
-use crate::services::integrations_host::LocalIntegrationSettings;
-use crate::services::integrations_host::{
-    ACTIVITY_SETTINGS_KEY, GIT_SETTINGS_KEY, HEALTH_SETTINGS_KEY, MESSAGING_SETTINGS_KEY,
-    NOTES_SETTINGS_KEY, TRANSCRIPTS_SETTINGS_KEY,
-};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarSettings {
@@ -633,105 +626,6 @@ pub async fn record_sync_success(
     Ok(())
 }
 
-fn local_status(
-    source_path: Option<String>,
-    settings: &LocalIntegrationSettings,
-) -> LocalIntegrationData {
-    LocalIntegrationData {
-        configured: source_path.is_some(),
-        guidance: local_guidance(source_path.as_deref(), settings),
-        source_path,
-        last_sync_at: settings.last_sync_at,
-        last_sync_status: settings.last_sync_status.clone(),
-        last_error: settings.last_error.clone(),
-        last_item_count: settings.last_item_count,
-    }
-}
-
-fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceData {
-    IntegrationGuidanceData {
-        title: title.to_string(),
-        detail,
-        action: action.to_string(),
-    }
-}
-
-fn local_guidance(
-    source_path: Option<&str>,
-    settings: &LocalIntegrationSettings,
-) -> Option<IntegrationGuidanceData> {
-    if source_path.is_none() {
-        return Some(guidance(
-            "Local source missing",
-            "Configure a source path for this local adapter before syncing it.".to_string(),
-            "Set source path",
-        ));
-    }
-    if settings.last_sync_status.as_deref() == Some("error") {
-        return Some(guidance(
-            "Local sync failed",
-            settings
-                .last_error
-                .clone()
-                .unwrap_or_else(|| "The last local sync failed.".to_string()),
-            "Fix the source and retry sync",
-        ));
-    }
-    if settings.last_sync_at.is_none() {
-        return Some(guidance(
-            "Local source has not synced yet",
-            "Run sync now to ingest this local source into Vel.".to_string(),
-            "Sync now",
-        ));
-    }
-    None
-}
-
-async fn load_local_settings(
-    storage: &Storage,
-    key: &str,
-) -> Result<LocalIntegrationSettings, AppError> {
-    load_settings(storage, key).await
-}
-
-async fn load_settings<T>(storage: &Storage, key: &str) -> Result<T, AppError>
-where
-    T: for<'de> Deserialize<'de> + Default,
-{
-    let all = storage.get_all_settings().await?;
-    Ok(all
-        .get(key)
-        .cloned()
-        .map(|value| serde_json::from_value::<T>(value).unwrap_or_default())
-        .unwrap_or_default())
-}
-
-async fn save_settings<T>(storage: &Storage, key: &str, value: &T) -> Result<(), AppError>
-where
-    T: Serialize,
-{
-    let value = serde_json::to_value(value).map_err(|error| {
-        AppError::internal(format!("serialize integration settings: {}", error))
-    })?;
-    storage.set_setting(key, &value).await?;
-    Ok(())
-}
-
-async fn update_local_sync_settings(
-    storage: &Storage,
-    key: &str,
-    status: &str,
-    error: Option<String>,
-    item_count: Option<u32>,
-) -> Result<(), AppError> {
-    let mut settings = load_local_settings(storage, key).await?;
-    settings.last_sync_at = Some(now_ts());
-    settings.last_sync_status = Some(status.to_string());
-    settings.last_error = error;
-    settings.last_item_count = item_count;
-    save_settings(storage, key, &settings).await
-}
-
 async fn append_sync_event(
     storage: &Storage,
     integration_id: &str,
@@ -759,85 +653,6 @@ async fn append_sync_event(
         })
         .await?;
     Ok(())
-}
-
-fn local_settings_key(source: &str) -> &'static str {
-    match source {
-        "activity" => ACTIVITY_SETTINGS_KEY,
-        "health" => HEALTH_SETTINGS_KEY,
-        "git" => GIT_SETTINGS_KEY,
-        "messaging" => MESSAGING_SETTINGS_KEY,
-        "notes" => NOTES_SETTINGS_KEY,
-        "transcripts" => TRANSCRIPTS_SETTINGS_KEY,
-        _ => "",
-    }
-}
-
-fn local_integration_id(source: &str) -> &'static str {
-    match source {
-        "activity" => "activity",
-        "health" => "health",
-        "git" => "git",
-        "messaging" => "messaging",
-        "notes" => "notes",
-        "transcripts" => "transcripts",
-        _ => "",
-    }
-}
-
-async fn runtime_local_config(
-    storage: &Storage,
-    config: &AppConfig,
-) -> Result<AppConfig, AppError> {
-    let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
-    let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
-    let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
-    let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
-    let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
-    let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
-
-    let mut runtime = config.clone();
-    runtime.activity_snapshot_path = integrations_host::effective_local_source_path(
-        "activity",
-        activity.source_path.as_deref(),
-        config.activity_snapshot_path.as_deref(),
-    );
-    runtime.health_snapshot_path = integrations_host::effective_local_source_path(
-        "health",
-        health.source_path.as_deref(),
-        config.health_snapshot_path.as_deref(),
-    );
-    runtime.git_snapshot_path = integrations_host::effective_local_source_path(
-        "git",
-        git.source_path.as_deref(),
-        config.git_snapshot_path.as_deref(),
-    );
-    runtime.messaging_snapshot_path = integrations_host::effective_local_source_path(
-        "messaging",
-        messaging.source_path.as_deref(),
-        config.messaging_snapshot_path.as_deref(),
-    );
-    runtime.notes_path = integrations_host::effective_local_source_path(
-        "notes",
-        notes.source_path.as_deref(),
-        config.notes_path.as_deref(),
-    );
-    runtime.transcript_snapshot_path = integrations_host::effective_local_source_path(
-        "transcripts",
-        transcripts.source_path.as_deref(),
-        config.transcript_snapshot_path.as_deref(),
-    );
-    integrations_host::sanitize_missing_default_local_sources(&mut runtime);
-    Ok(runtime)
-}
-
-fn normalize_optional(value: String) -> Option<String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }
 
 fn now_ts() -> i64 {

@@ -293,10 +293,15 @@ fn run_retry_due_runs_loop_once(state: &AppState) -> LoopFuture<'_> {
 
 fn run_queue_work_scheduler_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
-        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state);
+        let bootstrap =
+            crate::services::client_sync::effective_cluster_bootstrap_data(state).await?;
         if !bootstrap.capabilities.iter().any(|capability| {
             capability == QUEUED_REPO_SYNC_CAPABILITY || capability == QUEUED_VALIDATION_CAPABILITY
         }) {
+            return Ok(());
+        }
+        let runtime = state.worker_runtime.snapshot();
+        if runtime.current_load >= runtime.max_concurrency {
             return Ok(());
         }
 
@@ -921,7 +926,8 @@ async fn process_retry_ready_run(
 #[cfg(test)]
 mod tests {
     use super::{
-        poll_once, registered_loops_with_policy, QUEUED_REPO_SYNC_CAPABILITY,
+        poll_once, registered_loops_with_policy, run_queue_work_scheduler_loop_once,
+        run_worker_presence_heartbeat_loop_once, QUEUED_REPO_SYNC_CAPABILITY,
         QUEUED_REPO_SYNC_WORKER_CLASS, QUEUED_VALIDATION_CAPABILITY,
         QUEUED_VALIDATION_WORKER_CLASS,
     };
@@ -1017,7 +1023,7 @@ mod tests {
         assert!(!loops[9].enabled);
         assert!(loops[10].enabled);
         assert!(!loops[11].enabled);
-        assert!(loops[12].enabled);
+        assert!(!loops[12].enabled);
         assert!(loops[13].enabled);
         assert!(loops[14].enabled);
     }
@@ -1121,7 +1127,7 @@ mod tests {
         .await
         .unwrap();
 
-        poll_once(&state).await.unwrap();
+        run_queue_work_scheduler_loop_once(&state).await.unwrap();
 
         let receipts = storage
             .list_work_assignments(Some(&routed.work_request_id), None)
@@ -1168,6 +1174,67 @@ mod tests {
             .unwrap()
             .expect("heartbeat loop row should be created");
         assert_eq!(loop_record.last_status.as_deref(), Some("succeeded"));
+    }
+
+    #[tokio::test]
+    async fn poll_once_skips_queue_claim_when_local_runtime_is_saturated() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        let routed = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../..")
+                    .to_string_lossy()
+                    .to_string(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("worker-test".to_string()),
+            },
+            "test",
+            Some("wrkreq-worker-saturated".to_string()),
+        )
+        .await
+        .unwrap();
+
+        let runtime = state.worker_runtime.clone();
+        let mut guards = Vec::new();
+        for _ in 0..runtime.snapshot().max_concurrency {
+            guards.push(runtime.begin_work());
+        }
+
+        poll_once(&state).await.unwrap();
+
+        let receipts = storage
+            .list_work_assignments(Some(&routed.work_request_id), None)
+            .await
+            .unwrap();
+        assert!(receipts.is_empty());
+
+        drop(guards);
+        run_worker_presence_heartbeat_loop_once(&state)
+            .await
+            .unwrap();
+        run_queue_work_scheduler_loop_once(&state).await.unwrap();
+
+        let receipts = storage
+            .list_work_assignments(Some(&routed.work_request_id), None)
+            .await
+            .unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].status.to_string(), "completed");
     }
 
     #[tokio::test]

@@ -182,6 +182,9 @@ pub struct SettingsUpdateRequest {
     pub toggle_risks: Option<bool>,
     pub toggle_reminders: Option<bool>,
     pub timezone: Option<String>,
+    pub node_display_name: Option<String>,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
 }
 
 pub async fn patch_settings(
@@ -224,9 +227,61 @@ pub async fn patch_settings(
                 .await?;
         }
     }
+    if let Some(value) = payload.node_display_name {
+        write_optional_string_setting(&state, "node_display_name", &value).await?;
+    }
+    if let Some(value) = payload.tailscale_base_url {
+        write_optional_url_setting(&state, "tailscale_base_url", &value).await?;
+    }
+    if let Some(value) = payload.lan_base_url {
+        write_optional_url_setting(&state, "lan_base_url", &value).await?;
+    }
     let data = settings_payload(&state.storage).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+async fn write_optional_string_setting(
+    state: &AppState,
+    key: &str,
+    value: &str,
+) -> Result<(), AppError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        state
+            .storage
+            .set_setting(key, &serde_json::Value::Null)
+            .await?;
+    } else {
+        state
+            .storage
+            .set_setting(key, &serde_json::json!(trimmed))
+            .await?;
+    }
+    Ok(())
+}
+
+async fn write_optional_url_setting(
+    state: &AppState,
+    key: &str,
+    value: &str,
+) -> Result<(), AppError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        state
+            .storage
+            .set_setting(key, &serde_json::Value::Null)
+            .await?;
+        return Ok(());
+    }
+
+    reqwest::Url::parse(trimmed)
+        .map_err(|error| AppError::bad_request(format!("invalid {}: {}", key, error)))?;
+    state
+        .storage
+        .set_setting(key, &serde_json::json!(trimmed))
+        .await?;
+    Ok(())
 }
 
 // --- Intervention action handlers ---

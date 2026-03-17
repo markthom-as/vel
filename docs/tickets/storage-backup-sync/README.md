@@ -90,4 +90,4 @@ Do not use this pack to imply that remote backup is already shipped.
 ## Current focus
 
 - `STOR-001` is complete as the model and boundary definition lane.
-- `STOR-002` is the active implementation lane for local manifests and verification.
+- `STOR-002` is the active implementation lane for local manifests and verification, with the first CLI slice landed and follow-on schema/operator work still open.

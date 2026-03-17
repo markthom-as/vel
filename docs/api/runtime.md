@@ -23,6 +23,19 @@ For repo-wide implementation truth, see [`../status.md`](../status.md).
 - launchable runtimes are derived from advertised worker capabilities such as `agent_runtime:codex`.
 - this is inspection only; launch/control APIs are still planned.
 
+## Cluster And Swarm
+
+### `GET /v1/cluster/workers`
+
+- returns the heartbeat-backed worker registry used by cluster scheduling and operator views.
+- includes node and worker identity, reachability, transport endpoints, worker classes, capacity/load, and queue depth.
+
+### `GET /v1/cluster/clients`
+
+- returns the operator-oriented swarm client view projected from the cluster worker registry and active work receipts.
+- includes client identity (`client_id`, `node_id`, `client_kind`), version/build metadata, protocol version, capabilities, worker classes, sync transport/base URL, heartbeat age, ping, sync timestamps/status, last sync error, and active work assignments.
+- this is the current inspection surface for client/swarm health; write/control actions still flow through the existing sync and work-assignment routes.
+
 ## Captures
 
 ### `POST /v1/captures`

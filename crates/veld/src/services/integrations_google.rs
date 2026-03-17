@@ -1,6 +1,6 @@
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use time::{Duration, OffsetDateTime, format_description::well_known::Rfc3339};
+use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 use vel_api_types::{
     GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
@@ -127,6 +127,15 @@ pub(crate) fn disconnect_google_calendar(settings: &mut GoogleCalendarSettings) 
     settings.last_error = None;
 }
 
+fn normalize_optional(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 pub(crate) async fn load_google_settings(
     storage: &Storage,
 ) -> Result<GoogleCalendarSettings, AppError> {
@@ -171,6 +180,29 @@ pub(crate) async fn save_google_settings(
     };
     save_settings(storage, GOOGLE_SETTINGS_KEY, &public_settings).await?;
     save_settings(storage, GOOGLE_SECRETS_KEY, &secrets).await
+}
+
+async fn load_settings<T>(storage: &Storage, key: &str) -> Result<T, AppError>
+where
+    T: for<'de> Deserialize<'de> + Default,
+{
+    let all = storage.get_all_settings().await?;
+    Ok(all
+        .get(key)
+        .cloned()
+        .map(|value| serde_json::from_value::<T>(value).unwrap_or_default())
+        .unwrap_or_default())
+}
+
+async fn save_settings<T>(storage: &Storage, key: &str, value: &T) -> Result<(), AppError>
+where
+    T: Serialize,
+{
+    let value = serde_json::to_value(value).map_err(|error| {
+        AppError::internal(format!("serialize integration settings: {}", error))
+    })?;
+    storage.set_setting(key, &value).await?;
+    Ok(())
 }
 
 pub(crate) async fn start_google_auth(
@@ -574,38 +606,6 @@ fn google_redirect_uri(config: &AppConfig) -> Result<String, AppError> {
 
 fn now_ts() -> i64 {
     OffsetDateTime::now_utc().unix_timestamp()
-}
-
-fn normalize_optional(value: String) -> Option<String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-async fn load_settings<T>(storage: &Storage, key: &str) -> Result<T, AppError>
-where
-    T: for<'de> Deserialize<'de> + Default,
-{
-    let all = storage.get_all_settings().await?;
-    Ok(all
-        .get(key)
-        .cloned()
-        .map(|value| serde_json::from_value::<T>(value).unwrap_or_default())
-        .unwrap_or_default())
-}
-
-async fn save_settings<T>(storage: &Storage, key: &str, value: &T) -> Result<(), AppError>
-where
-    T: Serialize,
-{
-    let value = serde_json::to_value(value).map_err(|error| {
-        AppError::internal(format!("serialize integration settings: {}", error))
-    })?;
-    storage.set_setting(key, &value).await?;
-    Ok(())
 }
 
 fn format_rfc3339(value: OffsetDateTime) -> Result<String, AppError> {

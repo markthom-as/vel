@@ -2,7 +2,7 @@ use axum::{extract::State, Json};
 use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, BranchSyncRequestData, ClusterBootstrapData, QueuedWorkRoutingData,
-    ValidationRequestData,
+    SwarmClientsData, ValidationRequestData,
 };
 
 use crate::{errors::AppError, state::AppState};
@@ -11,7 +11,7 @@ pub async fn bootstrap(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<ClusterBootstrapData>>, AppError> {
     state.storage.healthcheck().await?;
-    let data = crate::services::client_sync::cluster_bootstrap_data(&state);
+    let data = crate::services::client_sync::effective_cluster_bootstrap_data(&state).await?;
 
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -22,6 +22,16 @@ pub async fn workers(
 ) -> Result<Json<ApiResponse<crate::services::client_sync::ClusterWorkersData>>, AppError> {
     state.storage.healthcheck().await?;
     let data = crate::services::client_sync::cluster_workers_data(&state).await?;
+
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn clients(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<SwarmClientsData>>, AppError> {
+    state.storage.healthcheck().await?;
+    let data = crate::services::client_sync::swarm_clients_data(&state).await?;
 
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))

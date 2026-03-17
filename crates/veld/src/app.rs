@@ -41,6 +41,15 @@ pub fn build_app_with_state(state: AppState) -> Router {
         )
         .route("/v1/cluster/bootstrap", get(routes::cluster::bootstrap))
         .route("/v1/cluster/workers", get(routes::cluster::workers))
+        .route("/v1/cluster/clients", get(routes::cluster::clients))
+        .route(
+            "/v1/connect/instances",
+            get(routes::connect::list_instances),
+        )
+        .route(
+            "/v1/connect/instances/:id",
+            get(routes::connect::get_instance),
+        )
         .route(
             "/v1/cluster/branch-sync",
             post(routes::cluster::branch_sync_request),
@@ -621,6 +630,66 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn connect_instances_endpoint_returns_cluster_projection() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut config = AppConfig::default();
+        config.node_id = Some("vel-desktop".to_string());
+        config.node_display_name = Some("Vel Desktop".to_string());
+        config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/connect/instances")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<Vec<vel_api_types::ConnectInstanceData>> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        assert_eq!(data.len(), 1);
+        assert_eq!(data[0].id, "vel-desktop");
+        assert_eq!(data[0].node_id, "vel-desktop");
+        assert_eq!(data[0].status, "ready");
+        assert_eq!(data[0].sync_transport.as_deref(), Some("tailscale"));
+        assert_eq!(data[0].metadata["source"], "cluster_worker_projection");
+    }
+
+    #[tokio::test]
+    async fn connect_instance_detail_endpoint_returns_not_found_for_missing_instance() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/connect/instances/missing-node")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
     async fn sync_bootstrap_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -976,6 +1045,85 @@ mod tests {
             serde_json::from_slice(&body).unwrap();
         let data = payload.data.unwrap();
         assert_eq!(data.target_node_id, "vel-remote");
+        assert_eq!(data.target_worker_class, "validation");
+    }
+
+    #[tokio::test]
+    async fn validation_work_request_prefers_available_local_worker_over_saturated_tailscale_remote_worker(
+    ) {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let heartbeat = serde_json::json!({
+            "node_id": "vel-remote",
+            "node_display_name": "Vel Remote",
+            "worker_id": "vel-remote",
+            "worker_classes": ["validation"],
+            "capabilities": ["build_test_profiles"],
+            "status": "ready",
+            "max_concurrency": 12,
+            "current_load": 12,
+            "queue_depth": 0,
+            "reachability": "reachable",
+            "latency_class": "low",
+            "compute_class": "high",
+            "power_class": "ac_or_unknown",
+            "tailscale_preferred": true,
+            "sync_base_url": "http://vel-remote.tailnet.ts.net:4130",
+            "sync_transport": "tailscale",
+            "tailscale_base_url": "http://vel-remote.tailnet.ts.net:4130",
+            "preferred_tailnet_endpoint": "http://vel-remote.tailnet.ts.net:4130",
+            "tailscale_reachable": true
+        })
+        .to_string();
+        let heartbeat_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/heartbeat")
+                    .header("content-type", "application/json")
+                    .body(Body::from(heartbeat))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(heartbeat_response.status(), StatusCode::OK);
+
+        let body = serde_json::json!({
+            "repo_root": repo_root_for_tests(),
+            "profile_id": "repo-verify",
+            "environment": "repo",
+            "requested_by": "cli"
+        })
+        .to_string();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/validation")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::QueuedWorkRoutingData> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        assert_eq!(data.target_node_id, "vel-node");
         assert_eq!(data.target_worker_class, "validation");
     }
 
@@ -1646,7 +1794,9 @@ mod tests {
         )
         .await
         .unwrap();
-        let claimed = next.claim.expect("work should be claimable once capacity frees");
+        let claimed = next
+            .claim
+            .expect("work should be claimable once capacity frees");
         assert_eq!(claimed.queue_item.work_request_id, routed.work_request_id);
     }
 
@@ -2938,7 +3088,11 @@ mod tests {
 
     #[tokio::test]
     async fn thread_create_planning_thread_defaults_to_planned_lifecycle() {
-        let storage = Storage::connect(":memory:").await.unwrap();
+        let db_path = format!(
+            "/tmp/vel_thread_planning_create_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
         storage.migrate().await.unwrap();
         let app = build_app(
             storage.clone(),
@@ -3040,7 +3194,11 @@ mod tests {
 
     #[tokio::test]
     async fn update_thread_rejects_planning_status_violations() {
-        let storage = Storage::connect(":memory:").await.unwrap();
+        let db_path = format!(
+            "/tmp/vel_thread_planning_update_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
         storage.migrate().await.unwrap();
         let app = build_app(
             storage.clone(),
@@ -8670,7 +8828,7 @@ END:VCALENDAR
                     .uri("/api/settings")
                     .header("content-type", "application/json")
                     .body(Body::from(
-                        r#"{"disable_proactive":true,"timezone":"America/Denver"}"#.to_string(),
+                        r#"{"disable_proactive":true,"timezone":"America/Denver","node_display_name":"Vel Desktop","tailscale_base_url":"http://vel-desktop.tailnet.ts.net:4130","lan_base_url":"http://192.168.1.50:4130"}"#.to_string(),
                     ))
                     .unwrap(),
             )
@@ -8683,6 +8841,12 @@ END:VCALENDAR
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["data"]["disable_proactive"].as_bool().unwrap());
         assert_eq!(json["data"]["timezone"], "America/Denver");
+        assert_eq!(json["data"]["node_display_name"], "Vel Desktop");
+        assert_eq!(
+            json["data"]["tailscale_base_url"],
+            "http://vel-desktop.tailnet.ts.net:4130"
+        );
+        assert_eq!(json["data"]["lan_base_url"], "http://192.168.1.50:4130");
     }
 
     #[tokio::test]
@@ -8709,6 +8873,53 @@ END:VCALENDAR
             .await
             .unwrap();
         assert_eq!(patch_resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn cluster_bootstrap_prefers_runtime_sync_settings_from_api() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut config = AppConfig::default();
+        config.node_id = Some("vel-node".to_string());
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        let patch_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/settings")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"node_display_name":"Vel Desktop","tailscale_base_url":"http://vel-desktop.tailnet.ts.net:4130","lan_base_url":"http://192.168.1.50:4130"}"#.to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::OK);
+
+        let bootstrap_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/cluster/bootstrap")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(bootstrap_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(bootstrap_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["node_display_name"], "Vel Desktop");
+        assert_eq!(json["data"]["sync_transport"], "tailscale");
+        assert_eq!(
+            json["data"]["sync_base_url"],
+            "http://vel-desktop.tailnet.ts.net:4130"
+        );
+        assert_eq!(json["data"]["lan_base_url"], "http://192.168.1.50:4130");
     }
 
     #[tokio::test]

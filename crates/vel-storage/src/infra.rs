@@ -1,5 +1,10 @@
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{migrate::Migrator, sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::{
+    migrate::{MigrateError, Migrator},
+    sqlite::SqlitePoolOptions,
+    Row, SqlitePool,
+};
+use std::collections::HashSet;
 use std::{fs, path::Path, str::FromStr};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -39,7 +44,89 @@ pub(crate) async fn run_migrations(
     pool: &SqlitePool,
     migrator: &Migrator,
 ) -> Result<(), StorageError> {
-    migrator.run(pool).await?;
+    match migrator.run(pool).await {
+        Ok(()) => {}
+        Err(MigrateError::ExecuteMigration(error, version))
+            if error
+                .to_string()
+                .contains("duplicate column name: client_kind") =>
+        {
+            ensure_swarm_client_columns(pool).await?;
+            mark_migration_applied(pool, migrator, version).await?;
+            migrator.run(pool).await?;
+        }
+        Err(error) => return Err(error.into()),
+    }
+    Ok(())
+}
+
+async fn ensure_swarm_client_columns(pool: &SqlitePool) -> Result<(), StorageError> {
+    let rows = sqlx::query("PRAGMA table_info(cluster_workers)")
+        .fetch_all(pool)
+        .await?;
+    let existing: HashSet<String> = rows
+        .into_iter()
+        .map(|row| row.try_get::<String, _>("name"))
+        .collect::<Result<_, _>>()?;
+
+    for (column, sql_type) in [
+        ("client_kind", "TEXT"),
+        ("client_version", "TEXT"),
+        ("protocol_version", "TEXT"),
+        ("build_id", "TEXT"),
+        ("ping_ms", "INTEGER"),
+        ("sync_status", "TEXT"),
+        ("last_upstream_sync_at", "INTEGER"),
+        ("last_downstream_sync_at", "INTEGER"),
+        ("last_sync_error", "TEXT"),
+    ] {
+        if existing.contains(column) {
+            continue;
+        }
+
+        sqlx::query(&format!(
+            "ALTER TABLE cluster_workers ADD COLUMN {column} {sql_type}"
+        ))
+        .execute(pool)
+        .await?;
+    }
+
+    Ok(())
+}
+
+async fn mark_migration_applied(
+    pool: &SqlitePool,
+    migrator: &Migrator,
+    version: i64,
+) -> Result<(), StorageError> {
+    let already_applied =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM _sqlx_migrations WHERE version = ?1")
+            .bind(version)
+            .fetch_one(pool)
+            .await?;
+
+    if already_applied > 0 {
+        return Ok(());
+    }
+
+    let migration = migrator
+        .migrations
+        .iter()
+        .find(|migration| migration.version == version)
+        .ok_or_else(|| StorageError::Migration(MigrateError::VersionMissing(version)))?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO _sqlx_migrations (version, description, success, checksum, execution_time)
+        VALUES (?1, ?2, TRUE, ?3, -1)
+        "#,
+    )
+    .bind(migration.version)
+    .bind(&*migration.description)
+    .bind(&*migration.checksum)
+    .execute(pool)
+    .await?;
+
     Ok(())
 }
 

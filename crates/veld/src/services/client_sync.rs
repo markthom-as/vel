@@ -11,11 +11,12 @@ use vel_api_types::{
     ClientActionBatchResultData, ClientActionData, ClientActionKind, ClientActionResultData,
     ClusterBootstrapData, ClusterNodeStateData, ClusterWorkerStateData, CommitmentCreateRequest,
     CommitmentData, CurrentContextData, NudgeData, QueuedWorkItemData, QueuedWorkRoutingData,
-    QueuedWorkRoutingKindData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
-    SyncHeartbeatResponseData, ValidationProfileData, ValidationRequestData,
-    WorkAssignmentClaimNextRequestData, WorkAssignmentClaimNextResponseData,
-    WorkAssignmentClaimRequestData, WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData,
-    WorkAssignmentStatusData, WorkAssignmentUpdateRequest,
+    QueuedWorkRoutingKindData, SwarmClientActiveWorkData, SwarmClientData, SwarmClientsData,
+    SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData, SyncHeartbeatResponseData,
+    ValidationProfileData, ValidationRequestData, WorkAssignmentClaimNextRequestData,
+    WorkAssignmentClaimNextResponseData, WorkAssignmentClaimRequestData,
+    WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData, WorkAssignmentStatusData,
+    WorkAssignmentUpdateRequest,
 };
 use vel_core::{CommitmentStatus, PrivacyClass};
 use vel_storage::{
@@ -60,7 +61,7 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData,
         .collect();
 
     Ok(SyncBootstrapData {
-        cluster: cluster_bootstrap_data(state),
+        cluster: effective_cluster_bootstrap_data(state).await?,
         current_context,
         nudges,
         commitments,
@@ -68,8 +69,10 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData,
 }
 
 pub async fn build_sync_cluster_state(state: &AppState) -> Result<SyncClusterStateData, AppError> {
-    let cluster = cluster_bootstrap_data(state);
+    let cluster = effective_cluster_bootstrap_data(state).await?;
     let workers = cluster_workers_data(state).await?;
+    let clients = swarm_clients_from_workers(state, &workers).await?;
+    let now = OffsetDateTime::now_utc().unix_timestamp();
     let mut nodes = BTreeMap::new();
 
     for worker in &workers.workers {
@@ -104,36 +107,183 @@ pub async fn build_sync_cluster_state(state: &AppState) -> Result<SyncClusterSta
         workers: workers
             .workers
             .into_iter()
-            .map(|worker| ClusterWorkerStateData {
-                worker_id: worker.worker_id,
-                node_id: Some(worker.node_id),
-                node_display_name: Some(worker.node_display_name),
-                worker_class: worker.worker_classes.first().cloned(),
-                worker_classes: worker.worker_classes,
-                status: Some(worker.status),
-                max_concurrency: Some(worker.capacity.max_concurrency),
-                current_load: Some(worker.capacity.current_load),
-                queue_depth: Some(worker.queue_depth),
-                reachability: Some(worker.reachability),
-                latency_class: Some(worker.latency_class),
-                compute_class: Some(worker.compute_class),
-                power_class: Some(worker.power_class),
-                recent_failure_rate: Some(worker.recent_failure_rate),
-                tailscale_preferred: Some(worker.tailscale_preferred),
-                sync_base_url: Some(worker.sync_base_url),
-                sync_transport: Some(worker.sync_transport),
-                tailscale_base_url: worker.tailscale_base_url,
-                preferred_tailnet_endpoint: worker.preferred_tailnet_endpoint,
-                tailscale_reachable: Some(worker.tailscale_reachable),
-                lan_base_url: worker.lan_base_url,
-                localhost_base_url: worker.localhost_base_url,
-                last_heartbeat_at: Some(worker.last_heartbeat_at),
-                started_at: Some(worker.started_at),
-                available_concurrency: Some(worker.capacity.available_concurrency),
-                capabilities: worker.capabilities,
+            .map(|worker| {
+                let worker_id = worker.worker_id.clone();
+                let sync_status = sync_status_for_worker(&worker, now);
+                let active_work = active_work_for_worker(&clients, &worker_id);
+
+                ClusterWorkerStateData {
+                    worker_id,
+                    node_id: Some(worker.node_id),
+                    node_display_name: Some(worker.node_display_name),
+                    client_kind: worker.client_kind,
+                    client_version: worker.client_version,
+                    protocol_version: worker.protocol_version,
+                    build_id: worker.build_id,
+                    worker_class: worker.worker_classes.first().cloned(),
+                    worker_classes: worker.worker_classes,
+                    status: Some(worker.status),
+                    max_concurrency: Some(worker.capacity.max_concurrency),
+                    current_load: Some(worker.capacity.current_load),
+                    queue_depth: Some(worker.queue_depth),
+                    reachability: Some(worker.reachability),
+                    latency_class: Some(worker.latency_class),
+                    compute_class: Some(worker.compute_class),
+                    power_class: Some(worker.power_class),
+                    recent_failure_rate: Some(worker.recent_failure_rate),
+                    tailscale_preferred: Some(worker.tailscale_preferred),
+                    sync_base_url: Some(worker.sync_base_url),
+                    sync_transport: Some(worker.sync_transport),
+                    tailscale_base_url: worker.tailscale_base_url,
+                    preferred_tailnet_endpoint: worker.preferred_tailnet_endpoint,
+                    tailscale_reachable: Some(worker.tailscale_reachable),
+                    lan_base_url: worker.lan_base_url,
+                    localhost_base_url: worker.localhost_base_url,
+                    ping_ms: worker.ping_ms,
+                    heartbeat_age_seconds: Some(now.saturating_sub(worker.last_heartbeat_at)),
+                    sync_status: Some(sync_status),
+                    last_upstream_sync_at: worker.last_upstream_sync_at,
+                    last_downstream_sync_at: worker.last_downstream_sync_at,
+                    last_sync_error: worker.last_sync_error,
+                    last_heartbeat_at: Some(worker.last_heartbeat_at),
+                    started_at: Some(worker.started_at),
+                    available_concurrency: Some(worker.capacity.available_concurrency),
+                    capabilities: worker.capabilities,
+                    active_work,
+                }
             })
             .collect(),
+        clients,
     })
+}
+
+pub async fn swarm_clients_data(state: &AppState) -> Result<SwarmClientsData, AppError> {
+    let workers = cluster_workers_data(state).await?;
+    let clients = swarm_clients_from_workers(state, &workers).await?;
+    Ok(SwarmClientsData {
+        generated_at: workers.generated_at,
+        active_authority_node_id: workers.active_authority_node_id,
+        active_authority_epoch: workers.active_authority_epoch,
+        clients,
+    })
+}
+
+async fn swarm_clients_from_workers(
+    state: &AppState,
+    workers: &ClusterWorkersData,
+) -> Result<Vec<SwarmClientData>, AppError> {
+    let assignments = state.storage.list_work_assignments(None, None).await?;
+
+    Ok(workers
+        .workers
+        .iter()
+        .map(|worker| SwarmClientData {
+            client_id: worker.worker_id.clone(),
+            node_id: worker.node_id.clone(),
+            node_display_name: Some(worker.node_display_name.clone()),
+            client_kind: worker.client_kind.clone(),
+            client_version: worker.client_version.clone(),
+            protocol_version: worker.protocol_version.clone(),
+            build_id: worker.build_id.clone(),
+            status: Some(worker.status.clone()),
+            reachability: Some(worker.reachability.clone()),
+            sync_transport: Some(worker.sync_transport.clone()),
+            sync_base_url: Some(worker.sync_base_url.clone()),
+            ping_ms: worker.ping_ms,
+            heartbeat_age_seconds: Some(
+                workers.generated_at.saturating_sub(worker.last_heartbeat_at),
+            ),
+            last_heartbeat_at: Some(worker.last_heartbeat_at),
+            last_upstream_sync_at: worker.last_upstream_sync_at,
+            last_downstream_sync_at: worker.last_downstream_sync_at,
+            sync_status: Some(sync_status_for_worker(worker, workers.generated_at)),
+            last_sync_error: worker.last_sync_error.clone(),
+            worker_classes: worker.worker_classes.clone(),
+            capabilities: worker.capabilities.clone(),
+            max_concurrency: Some(worker.capacity.max_concurrency),
+            current_load: Some(worker.capacity.current_load),
+            queue_depth: Some(worker.queue_depth),
+            active_work: active_work_from_assignments(&assignments, &worker.worker_id),
+        })
+        .collect())
+}
+
+fn active_work_for_worker(
+    clients: &[SwarmClientData],
+    worker_id: &str,
+) -> Vec<SwarmClientActiveWorkData> {
+    clients
+        .iter()
+        .find(|client| client.client_id == worker_id)
+        .map(|client| client.active_work.clone())
+        .unwrap_or_default()
+}
+
+fn active_work_from_assignments(
+    assignments: &[WorkAssignmentRecord],
+    worker_id: &str,
+) -> Vec<SwarmClientActiveWorkData> {
+    assignments
+        .iter()
+        .filter(|assignment| assignment.worker_id == worker_id)
+        .filter(|assignment| {
+            matches!(
+                assignment.status,
+                WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started
+            )
+        })
+        .take(5)
+        .map(|assignment| SwarmClientActiveWorkData {
+            receipt_id: assignment.receipt_id.clone(),
+            work_request_id: assignment.work_request_id.clone(),
+            worker_class: assignment.worker_class.clone(),
+            capability: assignment.capability.clone(),
+            status: assignment.status.to_string(),
+            assigned_at: assignment.assigned_at,
+            started_at: assignment.started_at,
+            last_updated: assignment.last_updated,
+        })
+        .collect()
+}
+
+fn sync_status_for_worker(worker: &WorkerPresenceData, now: i64) -> String {
+    if let Some(status) = worker
+        .sync_status
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        return status.to_string();
+    }
+    if worker.last_sync_error.is_some() {
+        return "error".to_string();
+    }
+    if worker.reachability == "unreachable" {
+        return "offline".to_string();
+    }
+
+    let freshest_sync = worker
+        .last_upstream_sync_at
+        .into_iter()
+        .chain(worker.last_downstream_sync_at)
+        .max();
+
+    if let Some(timestamp) = freshest_sync {
+        let age = now.saturating_sub(timestamp);
+        if age <= 60 {
+            return "fresh".to_string();
+        }
+        if age <= 5 * 60 {
+            return "aging".to_string();
+        }
+        return "stale".to_string();
+    }
+
+    let heartbeat_age = now.saturating_sub(worker.last_heartbeat_at);
+    if heartbeat_age > WORKER_HEARTBEAT_TTL_SECONDS {
+        "stale".to_string()
+    } else {
+        "idle".to_string()
+    }
 }
 
 pub async fn queue_branch_sync_request(
@@ -1162,8 +1312,9 @@ fn worker_matches_request(
         && worker.reachability == "reachable"
 }
 
-fn worker_placement_score(worker: &WorkerPresenceData) -> (u8, u8, u8, u32, u32, i64) {
+fn worker_placement_score(worker: &WorkerPresenceData) -> (u8, u8, u8, u8, u32, u32, i64) {
     (
+        u8::from(worker.capacity.available_concurrency > 0),
         u8::from(worker.tailscale_preferred || worker.tailscale_reachable),
         u8::from(worker.power_class != "battery"),
         u8::from(worker.status == "ready" && worker.reachability == "reachable"),
@@ -1349,6 +1500,10 @@ pub struct WorkerPresenceData {
     pub worker_id: String,
     pub node_id: String,
     pub node_display_name: String,
+    pub client_kind: Option<String>,
+    pub client_version: Option<String>,
+    pub protocol_version: Option<String>,
+    pub build_id: Option<String>,
     pub worker_classes: Vec<String>,
     pub capabilities: Vec<String>,
     pub status: String,
@@ -1368,6 +1523,11 @@ pub struct WorkerPresenceData {
     pub tailscale_reachable: bool,
     pub lan_base_url: Option<String>,
     pub localhost_base_url: Option<String>,
+    pub ping_ms: Option<u32>,
+    pub sync_status: Option<String>,
+    pub last_upstream_sync_at: Option<i64>,
+    pub last_downstream_sync_at: Option<i64>,
+    pub last_sync_error: Option<String>,
     pub capacity: WorkerCapacityData,
 }
 
@@ -1380,7 +1540,7 @@ pub struct WorkerCapacityData {
 
 pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkersData, AppError> {
     refresh_local_worker_presence(state).await?;
-    let bootstrap = cluster_bootstrap_data(state);
+    let bootstrap = effective_cluster_bootstrap_data(state).await?;
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let _ = state
         .storage
@@ -1403,21 +1563,32 @@ pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkersData
 }
 
 pub fn cluster_bootstrap_data(state: &AppState) -> ClusterBootstrapData {
-    let node_id = state
-        .config
+    cluster_bootstrap_from_config(&state.config)
+}
+
+pub async fn effective_cluster_bootstrap_data(
+    state: &AppState,
+) -> Result<ClusterBootstrapData, AppError> {
+    let runtime_config =
+        crate::services::operator_settings::runtime_sync_config(&state.storage, &state.config)
+            .await?;
+    Ok(cluster_bootstrap_from_config(&runtime_config))
+}
+
+fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBootstrapData {
+    let node_id = config
         .node_id
         .clone()
         .unwrap_or_else(|| "vel-node".to_string());
-    let node_display_name = state
-        .config
+    let node_display_name = config
         .node_display_name
         .clone()
         .unwrap_or_else(|| node_id.clone());
-    let localhost_base_url = localhost_base_url(&state.config.bind_addr);
+    let localhost_base_url = localhost_base_url(&config.bind_addr);
     let (sync_base_url, sync_transport) = preferred_sync_target(
-        state.config.tailscale_base_url.as_deref(),
-        state.config.base_url.as_str(),
-        state.config.lan_base_url.as_deref(),
+        config.tailscale_base_url.as_deref(),
+        config.base_url.as_str(),
+        config.lan_base_url.as_deref(),
         localhost_base_url.as_deref(),
     );
     let repo_root = repo_root();
@@ -1429,8 +1600,8 @@ pub fn cluster_bootstrap_data(state: &AppState) -> ClusterBootstrapData {
         active_authority_epoch: 1,
         sync_base_url,
         sync_transport,
-        tailscale_base_url: state.config.tailscale_base_url.clone(),
-        lan_base_url: state.config.lan_base_url.clone(),
+        tailscale_base_url: config.tailscale_base_url.clone(),
+        lan_base_url: config.lan_base_url.clone(),
         localhost_base_url,
         capabilities: execution_capabilities(&repo_root),
         branch_sync: branch_sync_capability(&repo_root),
@@ -1451,6 +1622,10 @@ pub async fn ingest_worker_heartbeat(
             worker_id: request.worker_id.clone(),
             node_id: request.node_id,
             node_display_name: request.node_display_name,
+            client_kind: request.client_kind,
+            client_version: request.client_version,
+            protocol_version: request.protocol_version,
+            build_id: request.build_id,
             worker_class: request.worker_classes.first().cloned(),
             worker_classes: request.worker_classes,
             capabilities: request.capabilities,
@@ -1471,6 +1646,11 @@ pub async fn ingest_worker_heartbeat(
             tailscale_reachable: request.tailscale_reachable.unwrap_or(false),
             lan_base_url: request.lan_base_url,
             localhost_base_url: request.localhost_base_url,
+            ping_ms: request.ping_ms,
+            sync_status: request.sync_status,
+            last_upstream_sync_at: request.last_upstream_sync_at,
+            last_downstream_sync_at: request.last_downstream_sync_at,
+            last_sync_error: request.last_sync_error,
             last_heartbeat_at,
             started_at: request.started_at,
         })
@@ -1486,7 +1666,7 @@ pub async fn ingest_worker_heartbeat(
 }
 
 pub(crate) async fn refresh_local_worker_presence(state: &AppState) -> Result<(), AppError> {
-    let bootstrap = cluster_bootstrap_data(state);
+    let bootstrap = effective_cluster_bootstrap_data(state).await?;
     let runtime = state.worker_runtime.snapshot();
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let current_load = runtime.current_load.min(runtime.max_concurrency);
@@ -1506,6 +1686,10 @@ pub(crate) async fn refresh_local_worker_presence(state: &AppState) -> Result<()
             worker_id: bootstrap.node_id.clone(),
             node_id: bootstrap.node_id.clone(),
             node_display_name: Some(bootstrap.node_display_name.clone()),
+            client_kind: Some("veld".to_string()),
+            client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+            protocol_version: Some("v1".to_string()),
+            build_id: Some(format!("veld-{}", env!("CARGO_PKG_VERSION"))),
             worker_class: worker_classes.first().cloned(),
             worker_classes,
             capabilities: bootstrap.capabilities.clone(),
@@ -1526,6 +1710,11 @@ pub(crate) async fn refresh_local_worker_presence(state: &AppState) -> Result<()
             tailscale_reachable,
             lan_base_url: bootstrap.lan_base_url,
             localhost_base_url: bootstrap.localhost_base_url,
+            ping_ms: Some(0),
+            sync_status: Some("idle".to_string()),
+            last_upstream_sync_at: None,
+            last_downstream_sync_at: None,
+            last_sync_error: None,
             last_heartbeat_at: now,
             started_at: Some(runtime.started_at),
         })
@@ -1544,6 +1733,10 @@ fn worker_presence_from_record(record: ClusterWorkerRecord) -> WorkerPresenceDat
         node_display_name: record
             .node_display_name
             .unwrap_or_else(|| "Vel Node".to_string()),
+        client_kind: record.client_kind,
+        client_version: record.client_version,
+        protocol_version: record.protocol_version,
+        build_id: record.build_id,
         worker_classes: record.worker_classes,
         capabilities: record.capabilities,
         status: record.status.unwrap_or_else(|| "ready".to_string()),
@@ -1569,6 +1762,11 @@ fn worker_presence_from_record(record: ClusterWorkerRecord) -> WorkerPresenceDat
         tailscale_reachable: record.tailscale_reachable,
         lan_base_url: record.lan_base_url,
         localhost_base_url: record.localhost_base_url,
+        ping_ms: record.ping_ms,
+        sync_status: record.sync_status,
+        last_upstream_sync_at: record.last_upstream_sync_at,
+        last_downstream_sync_at: record.last_downstream_sync_at,
+        last_sync_error: record.last_sync_error,
         capacity: WorkerCapacityData {
             max_concurrency,
             current_load,
