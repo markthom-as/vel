@@ -56,6 +56,8 @@ type IntegrationActionKey =
   | 'google-calendars'
   | 'activity-sync'
   | 'activity-save'
+  | 'health-sync'
+  | 'health-save'
   | 'git-sync'
   | 'git-save'
   | 'messaging-sync'
@@ -71,6 +73,7 @@ type IntegrationSectionKey =
   | 'google'
   | 'todoist'
   | 'activity'
+  | 'health'
   | 'git'
   | 'messaging'
   | 'notes'
@@ -282,6 +285,7 @@ export function SettingsPage({
   const [timezoneDraft, setTimezoneDraft] = useState('');
   const [localSourceDrafts, setLocalSourceDrafts] = useState<Record<LocalIntegrationSource, string>>({
     activity: '',
+    health: '',
     git: '',
     messaging: '',
     notes: '',
@@ -308,6 +312,7 @@ export function SettingsPage({
   const latestRunActionIdByRunRef = useRef<Record<string, number>>({});
   const localSourceInputRefs = useRef<Record<LocalIntegrationSource, HTMLInputElement | null>>({
     activity: null,
+    health: null,
     git: null,
     messaging: null,
     notes: null,
@@ -317,6 +322,7 @@ export function SettingsPage({
     google: null,
     todoist: null,
     activity: null,
+    health: null,
     git: null,
     messaging: null,
     notes: null,
@@ -1416,11 +1422,12 @@ export function SettingsPage({
             const integration = integrations[spec.key] as LocalIntegrationData;
             const feedback = ({
               activity: activityFeedback,
+              health: integrationFeedbackForSection(integrationFeedback, 'health'),
               git: gitFeedback,
               messaging: messagingFeedback,
               notes: notesFeedback,
               transcripts: transcriptsFeedback,
-            } as const)[spec.key];
+            } as const)[spec.key] ?? [];
             const syncActionKey = `${spec.key}-sync` as IntegrationActionKey;
             const saveActionKey = `${spec.key}-save` as IntegrationActionKey;
             const sourceDraft = localSourceDrafts[spec.key];
