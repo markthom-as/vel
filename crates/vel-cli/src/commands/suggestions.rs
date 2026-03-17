@@ -55,12 +55,34 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
         "decision:        {}",
         s.decision_context_summary.as_deref().unwrap_or("-")
     );
+    if let Some(context) = &s.decision_context {
+        println!(
+            "decision_json:   {}",
+            serde_json::to_string_pretty(context)?
+        );
+    }
     println!("created_at:      {}", s.created_at);
     println!("resolved_at:     {:?}", s.resolved_at);
     println!(
         "payload:         {}",
         serde_json::to_string_pretty(&s.payload)?
     );
+    if let Some(evidence) = &s.evidence {
+        if evidence.is_empty() {
+            println!("evidence:        []");
+        } else {
+            println!("evidence:");
+            for item in evidence {
+                println!(
+                    "  - {}  {}  weight={:?}",
+                    item.evidence_type, item.ref_id, item.weight
+                );
+                if let Some(details) = &item.evidence {
+                    println!("    {}", serde_json::to_string_pretty(details)?);
+                }
+            }
+        }
+    }
     Ok(())
 }
 

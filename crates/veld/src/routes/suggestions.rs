@@ -2,7 +2,7 @@
 
 use axum::{extract::Path, extract::Query, extract::State, Json};
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, SuggestionData, SuggestionUpdateRequest};
+use vel_api_types::{ApiResponse, SuggestionData, SuggestionEvidenceData, SuggestionUpdateRequest};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -22,9 +22,22 @@ fn map_suggestion(record: vel_storage::SuggestionRecord) -> SuggestionData {
             .and_then(|json| json.get("summary"))
             .and_then(serde_json::Value::as_str)
             .map(ToString::to_string),
+        decision_context: None,
+        evidence: None,
         payload: record.payload_json,
         created_at: record.created_at,
         resolved_at: record.resolved_at,
+    }
+}
+
+fn map_suggestion_evidence(record: vel_storage::SuggestionEvidenceRecord) -> SuggestionEvidenceData {
+    SuggestionEvidenceData {
+        id: record.id,
+        evidence_type: record.evidence_type,
+        ref_id: record.ref_id,
+        evidence: record.evidence_json,
+        weight: record.weight,
+        created_at: record.created_at,
     }
 }
 
@@ -57,7 +70,16 @@ pub async fn get(
         .get_suggestion_by_id(id.trim())
         .await?
         .ok_or_else(|| AppError::not_found("suggestion not found"))?;
-    let data = map_suggestion(row);
+    let evidence = state
+        .storage
+        .list_suggestion_evidence(&row.id)
+        .await?
+        .into_iter()
+        .map(map_suggestion_evidence)
+        .collect();
+    let mut data = map_suggestion(row.clone());
+    data.decision_context = row.decision_context_json;
+    data.evidence = Some(evidence);
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -102,7 +124,8 @@ pub async fn update(
         )
         .await?;
     let row = state.storage.get_suggestion_by_id(id).await?.unwrap();
-    let data = map_suggestion(row);
+    let mut data = map_suggestion(row.clone());
+    data.decision_context = row.decision_context_json;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

@@ -695,9 +695,21 @@ pub struct SuggestionData {
     pub confidence: Option<String>,
     pub evidence_count: u32,
     pub decision_context_summary: Option<String>,
+    pub decision_context: Option<JsonValue>,
+    pub evidence: Option<Vec<SuggestionEvidenceData>>,
     pub payload: JsonValue,
     pub created_at: i64,
     pub resolved_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuggestionEvidenceData {
+    pub id: String,
+    pub evidence_type: String,
+    pub ref_id: String,
+    pub evidence: Option<JsonValue>,
+    pub weight: Option<f64>,
+    pub created_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
