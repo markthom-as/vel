@@ -21,6 +21,7 @@ These are the current authoritative entrypoints:
 - [api/README.md](api/README.md): current API docs for `/v1`, `/api`, and `/ws`.
 - [templates/README.md](templates/README.md): canonical templates for docs, specs, tickets, prompts, and runbooks.
 - [../config/README.md](../config/README.md): canonical config, template, schema, and example asset map.
+- [documentation-catalog.json](documentation-catalog.json): canonical surfaced documentation catalog for CLI, web settings, and Apple clients.
 
 ## Planning Surfaces
 

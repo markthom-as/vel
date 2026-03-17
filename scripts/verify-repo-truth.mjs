@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -38,6 +39,7 @@ const requiredFiles = [
   'Makefile',
   'README.md',
   'AGENTS.md',
+  'docs/documentation-catalog.json',
   'config/README.md',
   'config/contracts-manifest.json',
   'config/examples/connector-manifest.example.json',
@@ -84,6 +86,10 @@ const requiredFiles = [
   'docs/user/integrations/local-sources.md',
   'scripts/ci-smoke.sh',
   'scripts/bootstrap-demo-data.sh',
+  'scripts/sync-documentation-catalog.mjs',
+  'crates/vel-cli/src/commands/docs_catalog.generated.json',
+  'clients/web/src/data/documentationCatalog.generated.ts',
+  'clients/apple/VelAPI/Sources/VelAPI/VelDocumentation.swift',
 ];
 
 for (const file of requiredFiles) {
@@ -130,6 +136,16 @@ const agentProtocol = readFile('docs/templates/agent-implementation-protocol.md'
 const apiRuntime = readFile('docs/api/runtime.md');
 const apiChat = readFile('docs/api/chat.md');
 const makefile = readFile('Makefile');
+
+try {
+  execFileSync('node', ['scripts/sync-documentation-catalog.mjs', '--check'], {
+    cwd: repoRoot,
+    stdio: 'pipe',
+  });
+} catch (error) {
+  const detail = error?.stderr?.toString()?.trim() || error?.message || 'unknown error';
+  ensure(false, `documentation catalog artifacts are out of sync: ${detail}`);
+}
 
 const requiredReadmeCommands = [
   'make build',
@@ -218,6 +234,10 @@ ensure(
 ensure(
   docsReadme.includes('[../config/README.md](../config/README.md)'),
   'docs/README.md does not point to config/README.md',
+);
+ensure(
+  docsReadme.includes('[documentation-catalog.json](documentation-catalog.json)'),
+  'docs/README.md does not point to the canonical documentation catalog manifest',
 );
 ensure(
   docsReadme.includes('docs/tickets/phase-1') || docsReadme.includes('docs/tickets/phase-1/*.md'),

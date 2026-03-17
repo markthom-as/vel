@@ -1,3 +1,5 @@
+// GENERATED FILE. DO NOT EDIT.
+// Source: docs/documentation-catalog.json
 import Foundation
 
 public struct VelDocumentationReference: Identifiable, Sendable {
@@ -46,42 +48,42 @@ public enum VelDocumentationCatalog {
             summary: "Durable architecture and agentic design principles."
         ),
         .init(
-            id: "core-traits",
+            id: "core-cross-cutting-traits",
             category: "core",
             title: "Cross-Cutting Traits",
             path: "docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md",
-            summary: "Repo-wide system traits and subsystem expectations."
-        ),
+            summary: "Repo-wide architecture traits and subsystem expectations."
+        )
     ]
 
     public static let user: [VelDocumentationReference] = [
         .init(
-            id: "user-docs-entry",
+            id: "user-docs",
             category: "user",
             title: "User Docs",
             path: "docs/user/README.md",
-            summary: "Operator-facing entrypoint for running Vel."
+            summary: "Canonical user-facing entrypoint for operating Vel."
         ),
         .init(
             id: "user-quickstart",
             category: "user",
             title: "Quickstart",
             path: "docs/user/quickstart.md",
-            summary: "Shortest path to first working local setup."
+            summary: "Shortest path to first working local Vel use."
         ),
         .init(
             id: "user-setup",
             category: "user",
             title: "Setup",
             path: "docs/user/setup.md",
-            summary: "Config, integrations, and macOS local-source setup."
+            summary: "Configuration, storage, integrations, and macOS setup."
         ),
         .init(
             id: "user-daily-use",
             category: "user",
             title: "Daily Use",
             path: "docs/user/daily-use.md",
-            summary: "Repeated workflow for day-to-day operation."
-        ),
+            summary: "Repeated daily workflow once Vel is running."
+        )
     ]
 }

@@ -1,95 +1,35 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct DocEntry {
-    category: &'static str,
-    title: &'static str,
-    path: &'static str,
-    description: &'static str,
+    category: String,
+    title: String,
+    path: String,
+    description: String,
 }
 
-const DOCS: &[DocEntry] = &[
-    DocEntry {
-        category: "core",
-        title: "Docs Guide",
-        path: "docs/README.md",
-        description: "Top-level documentation authority and navigation guide.",
-    },
-    DocEntry {
-        category: "core",
-        title: "Master Plan",
-        path: "docs/MASTER_PLAN.md",
-        description: "Canonical implementation truth and phase roadmap.",
-    },
-    DocEntry {
-        category: "core",
-        title: "Concept Spec",
-        path: "docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md",
-        description: "Durable architecture and agentic design principles.",
-    },
-    DocEntry {
-        category: "core",
-        title: "Cross-Cutting Traits",
-        path: "docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md",
-        description: "Repo-wide architecture traits and subsystem expectations.",
-    },
-    DocEntry {
-        category: "core",
-        title: "Architecture Pack",
-        path: "docs/cognitive-agent-architecture/README.md",
-        description: "Entry point for the cognitive and agent architecture pack.",
-    },
-    DocEntry {
-        category: "core",
-        title: "API Overview",
-        path: "docs/api/README.md",
-        description: "Canonical entry point for runtime and operator API docs.",
-    },
-    DocEntry {
-        category: "user",
-        title: "User Docs",
-        path: "docs/user/README.md",
-        description: "Canonical user-facing entrypoint for operating Vel.",
-    },
-    DocEntry {
-        category: "user",
-        title: "Quickstart",
-        path: "docs/user/quickstart.md",
-        description: "Shortest path to first working local Vel use.",
-    },
-    DocEntry {
-        category: "user",
-        title: "Setup",
-        path: "docs/user/setup.md",
-        description: "Configuration, storage, integrations, and macOS setup.",
-    },
-    DocEntry {
-        category: "user",
-        title: "Daily Use",
-        path: "docs/user/daily-use.md",
-        description: "Repeated daily workflow once Vel is running.",
-    },
-    DocEntry {
-        category: "user",
-        title: "Privacy",
-        path: "docs/user/privacy.md",
-        description: "Local-first trust model and data ownership guide.",
-    },
-];
+const DOCS_CATALOG_JSON: &str = include_str!("docs_catalog.generated.json");
+
+fn docs_catalog() -> anyhow::Result<Vec<DocEntry>> {
+    serde_json::from_str(DOCS_CATALOG_JSON)
+        .map_err(|error| anyhow::anyhow!("failed to parse docs catalog: {error}"))
+}
 
 pub fn run(json: bool) -> anyhow::Result<()> {
+    let docs = docs_catalog()?;
+
     if json {
-        println!("{}", serde_json::to_string_pretty(DOCS)?);
+        println!("{}", serde_json::to_string_pretty(&docs)?);
         return Ok(());
     }
 
     println!("Core documentation");
-    for doc in DOCS.iter().filter(|entry| entry.category == "core") {
+    for doc in docs.iter().filter(|entry| entry.category == "core") {
         println!("- {}: {} — {}", doc.title, doc.path, doc.description);
     }
     println!();
     println!("User-specific Vel documentation");
-    for doc in DOCS.iter().filter(|entry| entry.category == "user") {
+    for doc in docs.iter().filter(|entry| entry.category == "user") {
         println!("- {}: {} — {}", doc.title, doc.path, doc.description);
     }
 
@@ -98,11 +38,12 @@ pub fn run(json: bool) -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::DOCS;
+    use super::docs_catalog;
 
     #[test]
     fn docs_catalog_points_at_current_authority_docs() {
-        let paths: Vec<&str> = DOCS.iter().map(|entry| entry.path).collect();
+        let docs = docs_catalog().expect("docs catalog should parse");
+        let paths: Vec<&str> = docs.iter().map(|entry| entry.path.as_str()).collect();
         assert!(paths.contains(&"docs/README.md"));
         assert!(paths.contains(&"docs/MASTER_PLAN.md"));
         assert!(paths.contains(

@@ -1,0 +1,68 @@
+[
+  {
+    "category": "core",
+    "title": "Docs Guide",
+    "path": "docs/README.md",
+    "description": "Top-level documentation authority and navigation guide."
+  },
+  {
+    "category": "core",
+    "title": "Master Plan",
+    "path": "docs/MASTER_PLAN.md",
+    "description": "Canonical implementation truth and phase roadmap."
+  },
+  {
+    "category": "core",
+    "title": "Concept Spec",
+    "path": "docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md",
+    "description": "Durable architecture and agentic design principles."
+  },
+  {
+    "category": "core",
+    "title": "Cross-Cutting Traits",
+    "path": "docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md",
+    "description": "Repo-wide architecture traits and subsystem expectations."
+  },
+  {
+    "category": "core",
+    "title": "Architecture Pack",
+    "path": "docs/cognitive-agent-architecture/README.md",
+    "description": "Entry point for the cognitive and agent architecture pack."
+  },
+  {
+    "category": "core",
+    "title": "API Overview",
+    "path": "docs/api/README.md",
+    "description": "Canonical entry point for runtime and operator API docs."
+  },
+  {
+    "category": "user",
+    "title": "User Docs",
+    "path": "docs/user/README.md",
+    "description": "Canonical user-facing entrypoint for operating Vel."
+  },
+  {
+    "category": "user",
+    "title": "Quickstart",
+    "path": "docs/user/quickstart.md",
+    "description": "Shortest path to first working local Vel use."
+  },
+  {
+    "category": "user",
+    "title": "Setup",
+    "path": "docs/user/setup.md",
+    "description": "Configuration, storage, integrations, and macOS setup."
+  },
+  {
+    "category": "user",
+    "title": "Daily Use",
+    "path": "docs/user/daily-use.md",
+    "description": "Repeated daily workflow once Vel is running."
+  },
+  {
+    "category": "user",
+    "title": "Privacy",
+    "path": "docs/user/privacy.md",
+    "description": "Local-first trust model and data ownership guide."
+  }
+]

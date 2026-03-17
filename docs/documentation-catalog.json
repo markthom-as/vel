@@ -1,0 +1,93 @@
+{
+  "version": "1",
+  "entries": [
+    {
+      "id": "core-docs-guide",
+      "category": "core",
+      "title": "Docs Guide",
+      "path": "docs/README.md",
+      "description": "Top-level documentation authority and navigation guide.",
+      "surfaces": ["cli", "web", "apple"]
+    },
+    {
+      "id": "core-master-plan",
+      "category": "core",
+      "title": "Master Plan",
+      "path": "docs/MASTER_PLAN.md",
+      "description": "Canonical implementation truth and phase roadmap.",
+      "surfaces": ["cli", "web", "apple"]
+    },
+    {
+      "id": "core-concept-spec",
+      "category": "core",
+      "title": "Concept Spec",
+      "path": "docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md",
+      "description": "Durable architecture and agentic design principles.",
+      "surfaces": ["cli", "web", "apple"]
+    },
+    {
+      "id": "core-cross-cutting-traits",
+      "category": "core",
+      "title": "Cross-Cutting Traits",
+      "path": "docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md",
+      "description": "Repo-wide architecture traits and subsystem expectations.",
+      "surfaces": ["cli", "web", "apple"]
+    },
+    {
+      "id": "core-architecture-pack",
+      "category": "core",
+      "title": "Architecture Pack",
+      "path": "docs/cognitive-agent-architecture/README.md",
+      "description": "Entry point for the cognitive and agent architecture pack.",
+      "surfaces": ["cli"]
+    },
+    {
+      "id": "core-api-overview",
+      "category": "core",
+      "title": "API Overview",
+      "path": "docs/api/README.md",
+      "description": "Canonical entry point for runtime and operator API docs.",
+      "surfaces": ["cli"]
+    },
+    {
+      "id": "user-docs",
+      "category": "user",
+      "title": "User Docs",
+      "path": "docs/user/README.md",
+      "description": "Canonical user-facing entrypoint for operating Vel.",
+      "surfaces": ["cli", "web", "apple"]
+    },
+    {
+      "id": "user-quickstart",
+      "category": "user",
+      "title": "Quickstart",
+      "path": "docs/user/quickstart.md",
+      "description": "Shortest path to first working local Vel use.",
+      "surfaces": ["cli", "web", "apple"]
+    },
+    {
+      "id": "user-setup",
+      "category": "user",
+      "title": "Setup",
+      "path": "docs/user/setup.md",
+      "description": "Configuration, storage, integrations, and macOS setup.",
+      "surfaces": ["cli", "web", "apple"]
+    },
+    {
+      "id": "user-daily-use",
+      "category": "user",
+      "title": "Daily Use",
+      "path": "docs/user/daily-use.md",
+      "description": "Repeated daily workflow once Vel is running.",
+      "surfaces": ["cli", "web", "apple"]
+    },
+    {
+      "id": "user-privacy",
+      "category": "user",
+      "title": "Privacy",
+      "path": "docs/user/privacy.md",
+      "description": "Local-first trust model and data ownership guide.",
+      "surfaces": ["cli"]
+    }
+  ]
+}

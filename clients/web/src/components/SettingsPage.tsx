@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiPost } from '../api/client';
+import {
+  CORE_DOCUMENTATION_ENTRIES,
+  USER_DOCUMENTATION_ENTRIES,
+} from '../data/documentationCatalog.generated';
 import type {
   ClusterBootstrapData,
   ComponentData,
@@ -1353,21 +1357,11 @@ export function SettingsPage({
               <div className="grid gap-3 md:grid-cols-2">
                 <DocumentationCard
                   title="Core documentation"
-                  docs={[
-                    ['Docs Guide', 'docs/README.md', 'Top-level docs authority and navigation.'],
-                    ['Master Plan', 'docs/MASTER_PLAN.md', 'Canonical implementation truth and phase roadmap.'],
-                    ['Concept Spec', 'docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md', 'Durable architecture and agentic design principles.'],
-                    ['Cross-Cutting Traits', 'docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md', 'Repo-wide system traits and subsystem expectations.'],
-                  ]}
+                  docs={CORE_DOCUMENTATION_ENTRIES}
                 />
                 <DocumentationCard
                   title="Your Vel documentation"
-                  docs={[
-                    ['User Docs', 'docs/user/README.md', 'Operator-facing entrypoint.'],
-                    ['Quickstart', 'docs/user/quickstart.md', 'Shortest path to first working setup.'],
-                    ['Setup', 'docs/user/setup.md', 'Configuration, integrations, and macOS local-source setup.'],
-                    ['Daily Use', 'docs/user/daily-use.md', 'Repeated workflow for day-to-day use.'],
-                  ]}
+                  docs={USER_DOCUMENTATION_ENTRIES}
                 />
               </div>
             </div>
