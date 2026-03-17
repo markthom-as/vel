@@ -1,6 +1,9 @@
 # Policy configuration for Vel. Required at startup. See docs/specs/vel-agent-next-steps-policy-config-commute.md
 
 loops:
+  queue_work_scheduler:
+    enabled: true
+    interval_seconds: 30
   evaluate_current_state:
     enabled: true
     interval_seconds: 300
@@ -31,6 +34,16 @@ loops:
   stale_nudge_reconciliation:
     enabled: true
     interval_seconds: 1800
+
+queued_work:
+  validation:
+    max_failure_attempts: 3
+    retry_base_seconds: 30
+    retry_max_seconds: 300
+  branch_sync:
+    max_failure_attempts: 2
+    retry_base_seconds: 60
+    retry_max_seconds: 600
 
 suggestions:
   enabled: true

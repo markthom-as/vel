@@ -13,6 +13,13 @@ use veld::{
 fn only_enabled_loop(loop_policy: Option<(&str, u64)>) -> PolicyConfig {
     let mut config = PolicyConfig::default();
     config.loops = LoopPolicies {
+        queue_work_scheduler: Some(LoopPolicy {
+            enabled: matches!(loop_policy, Some(("queue_work_scheduler", _))),
+            interval_seconds: loop_policy
+                .filter(|(kind, _)| *kind == "queue_work_scheduler")
+                .map(|(_, interval)| interval)
+                .unwrap_or(30),
+        }),
         evaluate_current_state: Some(LoopPolicy {
             enabled: matches!(loop_policy, Some(("evaluate_current_state", _))),
             interval_seconds: loop_policy

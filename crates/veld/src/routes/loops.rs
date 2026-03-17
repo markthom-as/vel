@@ -24,6 +24,11 @@ fn configured_loop_defaults(state: &AppState, loop_kind: vel_core::LoopKind) -> 
     match loop_kind {
         vel_core::LoopKind::CaptureIngest => (true, 5),
         vel_core::LoopKind::RetryDueRuns => (true, 5),
+        vel_core::LoopKind::QueueWorkScheduler => state
+            .policy_config
+            .queue_work_scheduler_loop()
+            .map(|cfg| (cfg.enabled, cfg.interval_seconds as i64))
+            .unwrap_or((true, 30)),
         vel_core::LoopKind::EvaluateCurrentState => state
             .policy_config
             .evaluate_current_state_loop()
@@ -86,6 +91,7 @@ async fn ensure_known_loop_rows(state: &AppState) -> Result<(), AppError> {
     let all_loop_kinds = [
         vel_core::LoopKind::CaptureIngest,
         vel_core::LoopKind::RetryDueRuns,
+        vel_core::LoopKind::QueueWorkScheduler,
         vel_core::LoopKind::EvaluateCurrentState,
         vel_core::LoopKind::SyncCalendar,
         vel_core::LoopKind::SyncTodoist,

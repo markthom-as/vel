@@ -24,6 +24,10 @@ pub struct WorkerRuntimeState {
     current_load: AtomicU32,
 }
 
+pub struct WorkerLoadGuard<'a> {
+    state: &'a WorkerRuntimeState,
+}
+
 impl WorkerRuntimeState {
     pub fn new() -> Self {
         let max_concurrency = std::thread::available_parallelism()
@@ -43,6 +47,17 @@ impl WorkerRuntimeState {
             max_concurrency: self.max_concurrency,
             current_load: self.current_load.load(Ordering::Relaxed),
         }
+    }
+
+    pub fn begin_work(&self) -> WorkerLoadGuard<'_> {
+        self.current_load.fetch_add(1, Ordering::Relaxed);
+        WorkerLoadGuard { state: self }
+    }
+}
+
+impl Drop for WorkerLoadGuard<'_> {
+    fn drop(&mut self) {
+        self.state.current_load.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

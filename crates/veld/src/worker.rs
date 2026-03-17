@@ -6,6 +6,8 @@
 
 use std::time::Duration;
 
+#[cfg(not(test))]
+use std::process::Command;
 use tracing::{debug, warn};
 use vel_core::{LoopKind, RunEventType, RunKind, RunStatus};
 use vel_storage::{PendingJob, RetryReadyRun};
@@ -15,6 +17,8 @@ use crate::state::AppState;
 const LOOP_INTERVAL: Duration = Duration::from_secs(5);
 const JOB_TYPE_CAPTURE_INGEST: &str = "capture_ingest";
 const RETRY_BATCH_LIMIT: u32 = 10;
+const QUEUED_VALIDATION_WORKER_CLASS: &str = "validation";
+const QUEUED_VALIDATION_CAPABILITY: &str = "build_test_profiles";
 
 pub async fn run_background_workers(state: AppState) {
     for loop_definition in registered_loops_with_policy(&state.policy_config) {
@@ -48,6 +52,10 @@ type LoopFuture<'a> = std::pin::Pin<
 fn registered_loops_with_policy(
     policy_config: &crate::policy_config::PolicyConfig,
 ) -> Vec<LoopDefinition> {
+    let queue_work_scheduler_loop = policy_config
+        .queue_work_scheduler_loop()
+        .cloned()
+        .unwrap_or_default();
     let evaluate_loop = policy_config
         .evaluate_current_state_loop()
         .cloned()
@@ -99,6 +107,12 @@ fn registered_loops_with_policy(
             interval: LOOP_INTERVAL,
             enabled: true,
             runner: run_retry_due_runs_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::QueueWorkScheduler,
+            interval: Duration::from_secs(queue_work_scheduler_loop.interval_seconds),
+            enabled: queue_work_scheduler_loop.enabled,
+            runner: run_queue_work_scheduler_loop_once,
         },
         LoopDefinition {
             kind: LoopKind::EvaluateCurrentState,
@@ -263,6 +277,37 @@ fn run_retry_due_runs_loop_once(state: &AppState) -> LoopFuture<'_> {
     })
 }
 
+fn run_queue_work_scheduler_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state);
+        if !bootstrap
+            .capabilities
+            .iter()
+            .any(|capability| capability == QUEUED_VALIDATION_CAPABILITY)
+        {
+            return Ok(());
+        }
+
+        let claimed = crate::services::client_sync::claim_next_work_for_worker(
+            state,
+            vel_api_types::WorkAssignmentClaimNextRequestData {
+                node_id: bootstrap.node_id.clone(),
+                worker_id: bootstrap.node_id,
+                worker_class: Some(QUEUED_VALIDATION_WORKER_CLASS.to_string()),
+                capability: Some(QUEUED_VALIDATION_CAPABILITY.to_string()),
+            },
+        )
+        .await?;
+
+        let Some(claim) = claimed.claim else {
+            return Ok(());
+        };
+
+        process_claimed_validation_work(state, claim).await?;
+        Ok(())
+    })
+}
+
 fn run_evaluate_current_state_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
         crate::services::evaluate::run_and_broadcast(state).await?;
@@ -391,6 +436,163 @@ fn run_stale_nudge_reconciliation_loop_once(state: &AppState) -> LoopFuture<'_> 
     })
 }
 
+async fn process_claimed_validation_work(
+    state: &AppState,
+    claim: vel_api_types::WorkAssignmentClaimedWorkData,
+) -> Result<(), crate::errors::AppError> {
+    let _load = state.worker_runtime.begin_work();
+    let started_at = time::OffsetDateTime::now_utc().unix_timestamp();
+    crate::services::client_sync::update_work_assignment_receipt(
+        state,
+        vel_api_types::WorkAssignmentUpdateRequest {
+            receipt_id: claim.receipt.receipt_id.clone(),
+            status: vel_api_types::WorkAssignmentStatusData::Started,
+            started_at: Some(started_at),
+            completed_at: None,
+            result: None,
+            error_message: None,
+        },
+    )
+    .await?;
+
+    let request: vel_api_types::ValidationRequestData =
+        match serde_json::from_value(claim.queue_item.request_payload.clone()) {
+            Ok(request) => request,
+            Err(error) => {
+                fail_claimed_validation_work(
+                    state,
+                    &claim.receipt.receipt_id,
+                    format!("invalid queued validation payload: {error}"),
+                )
+                .await?;
+                return Ok(());
+            }
+        };
+    let command_hint = match validation_command_hint(state, &request) {
+        Some(command_hint) => command_hint,
+        None => {
+            fail_claimed_validation_work(
+                state,
+                &claim.receipt.receipt_id,
+                format!(
+                    "validation profile {} is not available on this node",
+                    request.profile_id
+                ),
+            )
+            .await?;
+            return Ok(());
+        }
+    };
+
+    let completed_at = time::OffsetDateTime::now_utc().unix_timestamp();
+    match execute_validation_command(&request.repo_root, &command_hint).await {
+        Ok(result) => {
+            crate::services::client_sync::update_work_assignment_receipt(
+                state,
+                vel_api_types::WorkAssignmentUpdateRequest {
+                    receipt_id: claim.receipt.receipt_id,
+                    status: vel_api_types::WorkAssignmentStatusData::Completed,
+                    started_at: None,
+                    completed_at: Some(completed_at),
+                    result: Some(result),
+                    error_message: None,
+                },
+            )
+            .await?;
+        }
+        Err(error_message) => {
+            crate::services::client_sync::update_work_assignment_receipt(
+                state,
+                vel_api_types::WorkAssignmentUpdateRequest {
+                    receipt_id: claim.receipt.receipt_id,
+                    status: vel_api_types::WorkAssignmentStatusData::Failed,
+                    started_at: None,
+                    completed_at: Some(completed_at),
+                    result: None,
+                    error_message: Some(error_message),
+                },
+            )
+            .await?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn fail_claimed_validation_work(
+    state: &AppState,
+    receipt_id: &str,
+    error_message: String,
+) -> Result<(), crate::errors::AppError> {
+    crate::services::client_sync::update_work_assignment_receipt(
+        state,
+        vel_api_types::WorkAssignmentUpdateRequest {
+            receipt_id: receipt_id.to_string(),
+            status: vel_api_types::WorkAssignmentStatusData::Failed,
+            started_at: None,
+            completed_at: Some(time::OffsetDateTime::now_utc().unix_timestamp()),
+            result: None,
+            error_message: Some(error_message),
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+fn validation_command_hint(
+    state: &AppState,
+    request: &vel_api_types::ValidationRequestData,
+) -> Option<String> {
+    crate::services::client_sync::cluster_bootstrap_data(state)
+        .validation_profiles
+        .into_iter()
+        .find(|profile| profile.profile_id == request.profile_id)
+        .map(|profile| profile.command_hint)
+}
+
+#[cfg(not(test))]
+async fn execute_validation_command(repo_root: &str, command_hint: &str) -> Result<String, String> {
+    let repo_root = repo_root.to_string();
+    let command_hint = command_hint.to_string();
+    let command_hint_for_exec = command_hint.clone();
+    let output = tokio::task::spawn_blocking(move || {
+        Command::new("zsh")
+            .arg("-lc")
+            .arg(&command_hint_for_exec)
+            .current_dir(&repo_root)
+            .output()
+            .map_err(|error| format!("failed to run validation command: {error}"))
+    })
+    .await
+    .map_err(|error| format!("failed to join validation command task: {error}"))??;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if output.status.success() {
+        let summary = if stdout.is_empty() {
+            format!("validation command succeeded: {command_hint}")
+        } else {
+            format!("validation command succeeded: {command_hint}; stdout={stdout}")
+        };
+        Ok(summary.chars().take(400).collect())
+    } else {
+        let code = output.status.code().unwrap_or(-1);
+        let summary = if stderr.is_empty() {
+            format!("validation command failed ({code}): {command_hint}")
+        } else {
+            format!("validation command failed ({code}): {command_hint}; stderr={stderr}")
+        };
+        Err(summary.chars().take(400).collect())
+    }
+}
+
+#[cfg(test)]
+async fn execute_validation_command(repo_root: &str, command_hint: &str) -> Result<String, String> {
+    Ok(format!(
+        "simulated validation success: {command_hint} @ {repo_root}"
+    ))
+}
+
 #[cfg(test)]
 async fn poll_once(state: &AppState) -> Result<(), crate::errors::AppError> {
     run_registered_loops_once(state).await
@@ -502,33 +704,35 @@ mod tests {
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
         let loops = registered_loops_with_policy(&crate::policy_config::PolicyConfig::default());
-        assert_eq!(loops.len(), 13);
+        assert_eq!(loops.len(), 14);
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
-        assert_eq!(loops[2].kind, LoopKind::EvaluateCurrentState);
-        assert_eq!(loops[3].kind, LoopKind::SyncCalendar);
-        assert_eq!(loops[4].kind, LoopKind::SyncTodoist);
-        assert_eq!(loops[5].kind, LoopKind::SyncActivity);
-        assert_eq!(loops[6].kind, LoopKind::SyncHealth);
-        assert_eq!(loops[7].kind, LoopKind::SyncGit);
-        assert_eq!(loops[8].kind, LoopKind::SyncMessaging);
-        assert_eq!(loops[9].kind, LoopKind::SyncNotes);
-        assert_eq!(loops[10].kind, LoopKind::SyncTranscripts);
-        assert_eq!(loops[11].kind, LoopKind::WeeklySynthesis);
-        assert_eq!(loops[12].kind, LoopKind::StaleNudgeReconciliation);
+        assert_eq!(loops[2].kind, LoopKind::QueueWorkScheduler);
+        assert_eq!(loops[3].kind, LoopKind::EvaluateCurrentState);
+        assert_eq!(loops[4].kind, LoopKind::SyncCalendar);
+        assert_eq!(loops[5].kind, LoopKind::SyncTodoist);
+        assert_eq!(loops[6].kind, LoopKind::SyncActivity);
+        assert_eq!(loops[7].kind, LoopKind::SyncHealth);
+        assert_eq!(loops[8].kind, LoopKind::SyncGit);
+        assert_eq!(loops[9].kind, LoopKind::SyncMessaging);
+        assert_eq!(loops[10].kind, LoopKind::SyncNotes);
+        assert_eq!(loops[11].kind, LoopKind::SyncTranscripts);
+        assert_eq!(loops[12].kind, LoopKind::WeeklySynthesis);
+        assert_eq!(loops[13].kind, LoopKind::StaleNudgeReconciliation);
         assert!(loops[0].enabled);
         assert!(loops[1].enabled);
         assert!(loops[2].enabled);
         assert!(loops[3].enabled);
         assert!(loops[4].enabled);
-        assert!(!loops[5].enabled);
+        assert!(loops[5].enabled);
         assert!(!loops[6].enabled);
         assert!(!loops[7].enabled);
-        assert!(loops[8].enabled);
-        assert!(!loops[9].enabled);
+        assert!(!loops[8].enabled);
+        assert!(loops[9].enabled);
         assert!(!loops[10].enabled);
-        assert!(loops[11].enabled);
+        assert!(!loops[11].enabled);
         assert!(loops[12].enabled);
+        assert!(loops[13].enabled);
     }
 
     #[tokio::test]
@@ -549,7 +753,7 @@ mod tests {
         poll_once(&state).await.unwrap();
 
         let loops = storage.list_runtime_loops().await.unwrap();
-        assert_eq!(loops.len(), 8);
+        assert_eq!(loops.len(), 9);
         assert!(loops
             .iter()
             .all(|loop_record| loop_record.last_started_at.is_some()));
@@ -562,6 +766,9 @@ mod tests {
         assert!(loops
             .iter()
             .all(|loop_record| loop_record.next_due_at.is_some()));
+        assert!(loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "queue_work_scheduler"));
         assert!(loops
             .iter()
             .any(|loop_record| loop_record.loop_kind == "evaluate_current_state"));
@@ -589,6 +796,54 @@ mod tests {
         assert!(loops
             .iter()
             .any(|loop_record| loop_record.loop_kind == "stale_nudge_reconciliation"));
+    }
+
+    #[tokio::test]
+    async fn poll_once_processes_queued_validation_work() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state = AppState::new(
+            storage.clone(),
+            AppConfig::default(),
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        let routed = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../..")
+                    .to_string_lossy()
+                    .to_string(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("worker-test".to_string()),
+            },
+            "test",
+            Some("wrkreq-worker-loop".to_string()),
+        )
+        .await
+        .unwrap();
+
+        poll_once(&state).await.unwrap();
+
+        let receipts = storage
+            .list_work_assignments(Some(&routed.work_request_id), None)
+            .await
+            .unwrap();
+        assert_eq!(receipts.len(), 1);
+        assert_eq!(receipts[0].status.to_string(), "completed");
+        assert!(receipts[0]
+            .result
+            .as_deref()
+            .unwrap_or_default()
+            .contains("simulated validation success"));
     }
 
     #[tokio::test]

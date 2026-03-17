@@ -9,6 +9,8 @@ pub struct PolicyConfig {
     #[serde(default)]
     pub loops: LoopPolicies,
     #[serde(default)]
+    pub queued_work: QueuedWorkPolicies,
+    #[serde(default)]
     pub suggestions: SuggestionPolicies,
     pub policies: PoliciesMap,
 }
@@ -85,6 +87,19 @@ pub struct LoopPolicies {
 pub struct LoopPolicy {
     pub enabled: bool,
     pub interval_seconds: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct QueuedWorkPolicies {
+    pub validation: QueuedWorkRetryPolicy,
+    pub branch_sync: QueuedWorkRetryPolicy,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct QueuedWorkRetryPolicy {
+    pub max_failure_attempts: usize,
+    pub retry_base_seconds: u64,
+    pub retry_max_seconds: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -238,6 +253,23 @@ impl Default for LoopPolicy {
     }
 }
 
+impl Default for QueuedWorkPolicies {
+    fn default() -> Self {
+        Self {
+            validation: QueuedWorkRetryPolicy {
+                max_failure_attempts: 3,
+                retry_base_seconds: 30,
+                retry_max_seconds: 300,
+            },
+            branch_sync: QueuedWorkRetryPolicy {
+                max_failure_attempts: 2,
+                retry_base_seconds: 60,
+                retry_max_seconds: 600,
+            },
+        }
+    }
+}
+
 impl Default for SuggestionPolicies {
     fn default() -> Self {
         Self {
@@ -322,6 +354,12 @@ impl PolicyConfig {
     pub fn stale_nudge_reconciliation_loop(&self) -> Option<&LoopPolicy> {
         self.loops.stale_nudge_reconciliation.as_ref()
     }
+    pub fn queued_work_validation_policy(&self) -> &QueuedWorkRetryPolicy {
+        &self.queued_work.validation
+    }
+    pub fn queued_work_branch_sync_policy(&self) -> &QueuedWorkRetryPolicy {
+        &self.queued_work.branch_sync
+    }
     pub fn suggestions(&self) -> &SuggestionPolicies {
         &self.suggestions
     }
@@ -346,6 +384,7 @@ mod tests {
         assert!(config.meeting_prep_window().is_some());
         assert!(config.commute_leave_time().is_some());
         assert!(config.morning_drift().is_some());
+        assert!(config.queue_work_scheduler_loop().is_some());
         assert!(config.evaluate_current_state_loop().is_some());
         assert!(config.sync_calendar_loop().is_some());
         assert!(config.sync_todoist_loop().is_some());
@@ -359,6 +398,10 @@ mod tests {
         assert_eq!(config.suggestions().response_debt.threshold, 3);
         assert!(config.meeting_prep_window().unwrap().default_prep_minutes == 30);
         assert!(config.commute_leave_time().unwrap().require_travel_minutes);
+        assert_eq!(
+            config.queue_work_scheduler_loop().unwrap().interval_seconds,
+            30
+        );
         assert_eq!(
             config
                 .evaluate_current_state_loop()
@@ -381,6 +424,14 @@ mod tests {
                 .unwrap()
                 .interval_seconds,
             1_800
+        );
+        assert_eq!(
+            config.queued_work_validation_policy().max_failure_attempts,
+            3
+        );
+        assert_eq!(
+            config.queued_work_branch_sync_policy().retry_base_seconds,
+            60
         );
     }
 

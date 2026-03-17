@@ -28,9 +28,6 @@ use crate::{errors::AppError, state::AppState};
 
 const WORKER_HEARTBEAT_TTL_SECONDS: i64 = 90;
 const WORK_ASSIGNMENT_STALE_SECONDS: i64 = 300;
-const WORK_ASSIGNMENT_RETRY_BASE_SECONDS: i64 = 30;
-const WORK_ASSIGNMENT_RETRY_MAX_SECONDS: i64 = 300;
-const WORK_ASSIGNMENT_MAX_FAILURE_ATTEMPTS: usize = 3;
 
 pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData, AppError> {
     let current_context =
@@ -201,6 +198,7 @@ async fn queue_work_request(
 ) -> Result<QueuedWorkRoutingData, AppError> {
     let bootstrap = cluster_bootstrap_data(state);
     let workers = cluster_workers_data(state).await?;
+    let retry_policy = retry_policy_for_request_type(state, request_type);
     let target_worker = workers
         .workers
         .iter()
@@ -216,7 +214,8 @@ async fn queue_work_request(
     let work_request_id = source_ref
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| format!("wrkreq_{}", Uuid::new_v4().simple()));
-    if let Some(existing) = latest_work_assignment_for_request(state, &work_request_id).await? {
+    let history = work_assignment_history_for_request(state, &work_request_id).await?;
+    if let Some(existing) = history.first() {
         match existing.status {
             WorkAssignmentStatus::Completed => {
                 return build_existing_routing_response(
@@ -232,7 +231,7 @@ async fn queue_work_request(
                 .await;
             }
             WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started => {
-                if !is_stale_assignment(&existing, now) {
+                if !is_stale_assignment(existing, now) {
                     return build_existing_routing_response(
                         state,
                         signal_type,
@@ -246,7 +245,33 @@ async fn queue_work_request(
                     .await;
                 }
             }
-            WorkAssignmentStatus::Failed | WorkAssignmentStatus::Cancelled => {}
+            WorkAssignmentStatus::Failed => {
+                let schedule = evaluate_queue_schedule(&history, now, retry_policy);
+                return build_existing_routing_response(
+                    state,
+                    signal_type,
+                    request_type,
+                    &work_request_id,
+                    schedule.claim_reason.as_deref().unwrap_or("retry_ready"),
+                    &bootstrap.active_authority_node_id,
+                    bootstrap.active_authority_epoch,
+                    request_payload,
+                )
+                .await;
+            }
+            WorkAssignmentStatus::Cancelled => {
+                return build_existing_routing_response(
+                    state,
+                    signal_type,
+                    request_type,
+                    &work_request_id,
+                    "cancelled",
+                    &bootstrap.active_authority_node_id,
+                    bootstrap.active_authority_epoch,
+                    request_payload,
+                )
+                .await;
+            }
         }
     }
     let signal_payload = serde_json::json!({
@@ -542,15 +567,19 @@ pub async fn list_worker_queue(
             .to_string();
         let history = work_assignment_history_for_request(state, &work_request_id).await?;
         let latest_receipt = history.first().cloned();
-        let schedule = evaluate_queue_schedule(&history, now);
-        if !schedule.include_in_queue {
-            continue;
-        }
         let request_type = if signal.signal_type == "client_branch_sync_requested" {
             QueuedWorkRoutingKindData::BranchSync
         } else {
             QueuedWorkRoutingKindData::Validation
         };
+        let schedule = evaluate_queue_schedule(
+            &history,
+            now,
+            retry_policy_for_request_type(state, request_type),
+        );
+        if !schedule.include_in_queue {
+            continue;
+        }
         items.push(QueuedWorkItemData {
             work_request_id,
             request_type,
@@ -909,16 +938,6 @@ fn work_assignment_to_data(record: vel_storage::WorkAssignmentRecord) -> WorkAss
     }
 }
 
-async fn latest_work_assignment_for_request(
-    state: &AppState,
-    work_request_id: &str,
-) -> Result<Option<WorkAssignmentRecord>, AppError> {
-    Ok(work_assignment_history_for_request(state, work_request_id)
-        .await?
-        .into_iter()
-        .next())
-}
-
 async fn work_assignment_history_for_request(
     state: &AppState,
     work_request_id: &str,
@@ -949,7 +968,11 @@ fn is_stale_assignment(record: &WorkAssignmentRecord, now: i64) -> bool {
     ) && record.last_updated + WORK_ASSIGNMENT_STALE_SECONDS < now
 }
 
-fn evaluate_queue_schedule(history: &[WorkAssignmentRecord], now: i64) -> WorkQueueScheduleState {
+fn evaluate_queue_schedule(
+    history: &[WorkAssignmentRecord],
+    now: i64,
+    retry_policy: &crate::policy_config::QueuedWorkRetryPolicy,
+) -> WorkQueueScheduleState {
     let attempt_count = history.len() as u32;
     let Some(latest) = history.first() else {
         return WorkQueueScheduleState {
@@ -983,7 +1006,7 @@ fn evaluate_queue_schedule(history: &[WorkAssignmentRecord], now: i64) -> WorkQu
                 .iter()
                 .filter(|record| record.status == WorkAssignmentStatus::Failed)
                 .count();
-            if failures >= WORK_ASSIGNMENT_MAX_FAILURE_ATTEMPTS {
+            if failures >= retry_policy.max_failure_attempts {
                 return WorkQueueScheduleState {
                     include_in_queue: true,
                     is_stale: false,
@@ -993,7 +1016,7 @@ fn evaluate_queue_schedule(history: &[WorkAssignmentRecord], now: i64) -> WorkQu
                     next_retry_at: None,
                 };
             }
-            let retry_after = retry_backoff_seconds(failures);
+            let retry_after = retry_backoff_seconds(failures, retry_policy);
             let next_retry_at = latest.completed_at.unwrap_or(latest.last_updated) + retry_after;
             WorkQueueScheduleState {
                 include_in_queue: true,
@@ -1021,10 +1044,27 @@ fn evaluate_queue_schedule(history: &[WorkAssignmentRecord], now: i64) -> WorkQu
     }
 }
 
-fn retry_backoff_seconds(failure_count: usize) -> i64 {
+fn retry_backoff_seconds(
+    failure_count: usize,
+    retry_policy: &crate::policy_config::QueuedWorkRetryPolicy,
+) -> i64 {
     let exponent = failure_count.saturating_sub(1).min(10) as u32;
-    (WORK_ASSIGNMENT_RETRY_BASE_SECONDS.saturating_mul(1_i64 << exponent))
-        .min(WORK_ASSIGNMENT_RETRY_MAX_SECONDS)
+    ((retry_policy.retry_base_seconds as i64).saturating_mul(1_i64 << exponent))
+        .min(retry_policy.retry_max_seconds as i64)
+}
+
+fn retry_policy_for_request_type(
+    state: &AppState,
+    request_type: QueuedWorkRoutingKindData,
+) -> &crate::policy_config::QueuedWorkRetryPolicy {
+    match request_type {
+        QueuedWorkRoutingKindData::Validation => {
+            state.policy_config.queued_work_validation_policy()
+        }
+        QueuedWorkRoutingKindData::BranchSync => {
+            state.policy_config.queued_work_branch_sync_policy()
+        }
+    }
 }
 
 fn claim_priority(reason: Option<&str>) -> u8 {
@@ -1078,7 +1118,7 @@ fn nudge_record_to_data(r: vel_storage::NudgeRecord) -> NudgeData {
     }
 }
 
-fn repo_root() -> PathBuf {
+pub(crate) fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
@@ -1114,7 +1154,7 @@ fn branch_sync_capability(repo_root: &Path) -> Option<BranchSyncCapabilityData> 
     })
 }
 
-fn validation_profiles(repo_root: &Path) -> Vec<ValidationProfileData> {
+pub(crate) fn validation_profiles(repo_root: &Path) -> Vec<ValidationProfileData> {
     let mut profiles = Vec::new();
 
     if repo_root.join("Cargo.toml").exists() {
