@@ -4208,6 +4208,142 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn evaluate_exposes_explicit_missing_risk_state_in_current_context() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "computer_activity".to_string(),
+                source: "activity".to_string(),
+                source_ref: Some("activity:test".to_string()),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp(),
+                payload_json: Some(serde_json::json!({ "host": "ws-1" })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let eval_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(eval_resp.status(), StatusCode::OK);
+
+        let ctx_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ctx_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(ctx_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["context"]["global_risk_level"], "unknown");
+        assert!(json["data"]["context"]["global_risk_score"].is_null());
+        assert_eq!(json["data"]["context"]["global_risk_missing"], true);
+    }
+
+    #[tokio::test]
+    async fn evaluate_current_context_prefers_nearest_future_event() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "calendar".to_string(),
+                source_ref: Some("calendar:past".to_string()),
+                timestamp: now - 20 * 60,
+                payload_json: Some(serde_json::json!({
+                    "title": "Past event",
+                    "start_time": now - 20 * 60,
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "calendar".to_string(),
+                source_ref: Some("calendar:later".to_string()),
+                timestamp: now + 60 * 60,
+                payload_json: Some(serde_json::json!({
+                    "title": "Later event",
+                    "start_time": now + 60 * 60,
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "calendar".to_string(),
+                source_ref: Some("calendar:next".to_string()),
+                timestamp: now + 15 * 60,
+                payload_json: Some(serde_json::json!({
+                    "title": "Next event",
+                    "start_time": now + 15 * 60,
+                })),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let eval_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(eval_resp.status(), StatusCode::OK);
+
+        let ctx_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ctx_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(ctx_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["context"]["next_event_start_ts"], now + 15 * 60);
+    }
+
+    #[tokio::test]
     async fn chat_settings_get_and_patch() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
