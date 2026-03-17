@@ -31,8 +31,11 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         storage
             .insert_signal(SignalInsert {
                 signal_type: signal_type.to_string(),
-                source: event.source.unwrap_or_else(|| default_source.clone()),
-                source_ref: None,
+                source: event
+                    .source
+                    .clone()
+                    .unwrap_or_else(|| default_source.clone()),
+                source_ref: Some(activity_source_ref(&event, signal_type)),
                 timestamp: event.timestamp,
                 payload_json: Some(serde_json::json!({
                     "host": event.host,
@@ -64,6 +67,11 @@ pub async fn ingest_vel_invocation(storage: &Storage) -> Result<u32, crate::erro
     Ok(1)
 }
 
+fn activity_source_ref(event: &ActivityEvent, signal_type: &str) -> String {
+    let host = event.host.as_deref().unwrap_or("unknown");
+    format!("activity:{signal_type}:{host}:{}", event.timestamp)
+}
+
 fn normalize_signal_type(signal_type: &str) -> Option<&'static str> {
     match signal_type {
         "shell_login" => Some("shell_login"),
@@ -89,4 +97,25 @@ struct ActivityEvent {
     source: Option<String>,
     host: Option<String>,
     details: Option<serde_json::Value>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_ref_is_stable_for_same_event() {
+        let event = ActivityEvent {
+            signal_type: "computer_activity".to_string(),
+            timestamp: 123,
+            source: None,
+            host: Some("mbp".to_string()),
+            details: None,
+        };
+
+        assert_eq!(
+            activity_source_ref(&event, "computer_activity"),
+            "activity:computer_activity:mbp:123"
+        );
+    }
 }

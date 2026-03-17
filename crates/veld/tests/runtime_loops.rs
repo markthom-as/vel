@@ -41,6 +41,13 @@ fn only_enabled_loop(loop_policy: Option<(&str, u64)>) -> PolicyConfig {
                 .map(|(_, interval)| interval)
                 .unwrap_or(300),
         }),
+        sync_health: Some(LoopPolicy {
+            enabled: matches!(loop_policy, Some(("sync_health", _))),
+            interval_seconds: loop_policy
+                .filter(|(kind, _)| *kind == "sync_health")
+                .map(|(_, interval)| interval)
+                .unwrap_or(900),
+        }),
         sync_git: Some(LoopPolicy {
             enabled: matches!(loop_policy, Some(("sync_git", _))),
             interval_seconds: loop_policy

@@ -69,6 +69,25 @@ async fn main() -> anyhow::Result<()> {
         chat_profile_id,
         chat_fallback_profile_id,
     );
+    let startup_state = state.clone();
+    tokio::spawn(async move {
+        match services::integrations::bootstrap_local_context_sources(
+            &startup_state.storage,
+            &startup_state.config,
+        )
+        .await
+        {
+            Ok(count) if count > 0 => {
+                if let Err(error) = services::evaluate::run_and_broadcast(&startup_state).await {
+                    tracing::warn!(error = %error, "evaluate after startup local source bootstrap failed");
+                }
+            }
+            Ok(_) => {}
+            Err(error) => {
+                tracing::warn!(error = %error, "startup local source bootstrap failed");
+            }
+        }
+    });
     tokio::spawn(worker::run_background_workers(state.clone()));
 
     let bind_addr = config.bind_addr.clone();

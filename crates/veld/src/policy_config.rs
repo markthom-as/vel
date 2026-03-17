@@ -71,6 +71,7 @@ pub struct LoopPolicies {
     pub sync_calendar: Option<LoopPolicy>,
     pub sync_todoist: Option<LoopPolicy>,
     pub sync_activity: Option<LoopPolicy>,
+    pub sync_health: Option<LoopPolicy>,
     pub sync_git: Option<LoopPolicy>,
     pub sync_messaging: Option<LoopPolicy>,
     pub sync_notes: Option<LoopPolicy>,
@@ -191,6 +192,10 @@ impl Default for LoopPolicies {
                 enabled: false,
                 interval_seconds: 300,
             }),
+            sync_health: Some(LoopPolicy {
+                enabled: false,
+                interval_seconds: 900,
+            }),
             sync_git: Some(LoopPolicy {
                 enabled: false,
                 interval_seconds: 600,
@@ -288,6 +293,9 @@ impl PolicyConfig {
     pub fn sync_activity_loop(&self) -> Option<&LoopPolicy> {
         self.loops.sync_activity.as_ref()
     }
+    pub fn sync_health_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_health.as_ref()
+    }
     pub fn sync_git_loop(&self) -> Option<&LoopPolicy> {
         self.loops.sync_git.as_ref()
     }
@@ -334,6 +342,7 @@ mod tests {
         assert!(config.sync_calendar_loop().is_some());
         assert!(config.sync_todoist_loop().is_some());
         assert!(config.sync_activity_loop().is_some());
+        assert!(config.sync_health_loop().is_some());
         assert!(config.sync_messaging_loop().is_some());
         assert!(config.weekly_synthesis_loop().is_some());
         assert!(config.stale_nudge_reconciliation_loop().is_some());
@@ -352,6 +361,7 @@ mod tests {
         assert_eq!(config.sync_calendar_loop().unwrap().interval_seconds, 900);
         assert_eq!(config.sync_todoist_loop().unwrap().interval_seconds, 600);
         assert!(!config.sync_activity_loop().unwrap().enabled);
+        assert!(!config.sync_health_loop().unwrap().enabled);
         assert_eq!(config.sync_messaging_loop().unwrap().interval_seconds, 300);
         assert_eq!(
             config.weekly_synthesis_loop().unwrap().interval_seconds,

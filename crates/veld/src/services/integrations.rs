@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    env,
+    path::{Path, PathBuf},
+};
 
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -20,6 +24,7 @@ const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
 const TODOIST_SETTINGS_KEY: &str = "integration_todoist";
 const TODOIST_SECRETS_KEY: &str = "integration_todoist_secrets";
 const ACTIVITY_SETTINGS_KEY: &str = "integration_activity";
+const HEALTH_SETTINGS_KEY: &str = "integration_health";
 const GIT_SETTINGS_KEY: &str = "integration_git";
 const MESSAGING_SETTINGS_KEY: &str = "integration_messaging";
 const NOTES_SETTINGS_KEY: &str = "integration_notes";
@@ -30,6 +35,19 @@ const GOOGLE_CALENDAR_BASE: &str = "https://www.googleapis.com/calendar/v3";
 const GOOGLE_LOOKBACK_DAYS: i64 = 60;
 const GOOGLE_LOOKAHEAD_DAYS: i64 = 180;
 const INTEGRATION_LOG_LIMIT_DEFAULT: u32 = 10;
+
+const LOCAL_INTEGRATION_IDS: &[&str] = &[
+    "activity",
+    "health",
+    "git",
+    "messaging",
+    "notes",
+    "transcripts",
+];
+const MACOS_SUPPORT_RELATIVE_DIRS: &[&str] = &[
+    "Library/Application Support/Vel/integrations",
+    "Library/Application Support/vel/integrations",
+];
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoogleCalendarSettings {
@@ -197,6 +215,20 @@ pub async fn run_activity_sync(storage: &Storage, config: &AppConfig) -> Result<
     }
 }
 
+pub async fn run_health_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    let runtime_config = runtime_local_config(storage, config).await?;
+    match adapters::health::ingest(storage, &runtime_config).await {
+        Ok(count) => {
+            let _ = record_sync_success(storage, "health", count).await;
+            Ok(count)
+        }
+        Err(error) => {
+            let _ = record_sync_error(storage, "health", &error.to_string()).await;
+            Err(error)
+        }
+    }
+}
+
 pub async fn run_git_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
     let runtime_config = runtime_local_config(storage, config).await?;
     match adapters::git::ingest(storage, &runtime_config).await {
@@ -253,10 +285,40 @@ pub async fn run_transcripts_sync(storage: &Storage, config: &AppConfig) -> Resu
     }
 }
 
+pub async fn bootstrap_local_context_sources(
+    storage: &Storage,
+    config: &AppConfig,
+) -> Result<u32, AppError> {
+    let runtime_config = runtime_local_config(storage, config).await?;
+    let mut ingested = 0u32;
+
+    if runtime_config.activity_snapshot_path.is_some() {
+        ingested += run_activity_sync(storage, config).await?;
+    }
+    if runtime_config.health_snapshot_path.is_some() {
+        ingested += run_health_sync(storage, config).await?;
+    }
+    if runtime_config.git_snapshot_path.is_some() {
+        ingested += run_git_sync(storage, config).await?;
+    }
+    if runtime_config.messaging_snapshot_path.is_some() {
+        ingested += run_messaging_sync(storage, config).await?;
+    }
+    if runtime_config.notes_path.is_some() {
+        ingested += run_notes_sync(storage, config).await?;
+    }
+    if runtime_config.transcript_snapshot_path.is_some() {
+        ingested += run_transcripts_sync(storage, config).await?;
+    }
+
+    Ok(ingested)
+}
+
 pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, AppError> {
     let google = load_google_settings(storage).await?;
     let todoist = load_todoist_settings(storage).await?;
     let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
+    let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
     let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
     let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
     let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
@@ -264,11 +326,21 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
     Ok(IntegrationsData {
         google_calendar: google_status(&google),
         todoist: todoist_status(&todoist),
-        activity: local_status(effective_local_source_path(&activity, None), &activity),
-        git: local_status(effective_local_source_path(&git, None), &git),
-        messaging: local_status(effective_local_source_path(&messaging, None), &messaging),
-        notes: local_status(effective_local_source_path(&notes, None), &notes),
-        transcripts: local_status(effective_local_source_path(&transcripts, None), &transcripts),
+        activity: local_status(
+            effective_local_source_path("activity", &activity, None),
+            &activity,
+        ),
+        health: local_status(effective_local_source_path("health", &health, None), &health),
+        git: local_status(effective_local_source_path("git", &git, None), &git),
+        messaging: local_status(
+            effective_local_source_path("messaging", &messaging, None),
+            &messaging,
+        ),
+        notes: local_status(effective_local_source_path("notes", &notes, None), &notes),
+        transcripts: local_status(
+            effective_local_source_path("transcripts", &transcripts, None),
+            &transcripts,
+        ),
     })
 }
 
@@ -279,6 +351,7 @@ pub async fn get_integrations_with_config(
     let google = load_google_settings(storage).await?;
     let todoist = load_todoist_settings(storage).await?;
     let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
+    let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
     let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
     let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
     let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
@@ -287,23 +360,39 @@ pub async fn get_integrations_with_config(
         google_calendar: google_status(&google),
         todoist: todoist_status(&todoist),
         activity: local_status(
-            effective_local_source_path(&activity, config.activity_snapshot_path.as_deref()),
+            effective_local_source_path(
+                "activity",
+                &activity,
+                config.activity_snapshot_path.as_deref(),
+            ),
             &activity,
         ),
+        health: local_status(
+            effective_local_source_path("health", &health, config.health_snapshot_path.as_deref()),
+            &health,
+        ),
         git: local_status(
-            effective_local_source_path(&git, config.git_snapshot_path.as_deref()),
+            effective_local_source_path("git", &git, config.git_snapshot_path.as_deref()),
             &git,
         ),
         messaging: local_status(
-            effective_local_source_path(&messaging, config.messaging_snapshot_path.as_deref()),
+            effective_local_source_path(
+                "messaging",
+                &messaging,
+                config.messaging_snapshot_path.as_deref(),
+            ),
             &messaging,
         ),
         notes: local_status(
-            effective_local_source_path(&notes, config.notes_path.as_deref()),
+            effective_local_source_path("notes", &notes, config.notes_path.as_deref()),
             &notes,
         ),
         transcripts: local_status(
-            effective_local_source_path(&transcripts, config.transcript_snapshot_path.as_deref()),
+            effective_local_source_path(
+                "transcripts",
+                &transcripts,
+                config.transcript_snapshot_path.as_deref(),
+            ),
             &transcripts,
         ),
     })
@@ -713,7 +802,7 @@ pub async fn record_sync_error(
             save_todoist_settings(storage, &settings).await?;
             append_sync_event(storage, "todoist", "error", 0, Some(error)).await?;
         }
-        "activity" | "git" | "messaging" | "notes" | "transcripts" => {
+        "activity" | "health" | "git" | "messaging" | "notes" | "transcripts" => {
             update_local_sync_settings(
                 storage,
                 local_settings_key(source),
@@ -742,7 +831,7 @@ pub async fn record_sync_success(
     item_count: u32,
 ) -> Result<(), AppError> {
     match source {
-        "activity" | "git" | "messaging" | "notes" | "transcripts" => {
+        "activity" | "health" | "git" | "messaging" | "notes" | "transcripts" => {
             update_local_sync_settings(
                 storage,
                 local_settings_key(source),
@@ -999,10 +1088,12 @@ fn local_status(
 }
 
 fn effective_local_source_path(
+    integration_id: &str,
     settings: &LocalIntegrationSettings,
     config_source: Option<&str>,
 ) -> Option<String> {
     config_source_path(settings.source_path.as_deref(), config_source)
+        .or_else(|| auto_local_source_path(integration_id))
 }
 
 fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceData {
@@ -1259,6 +1350,7 @@ async fn append_sync_event(
 fn local_settings_key(source: &str) -> &'static str {
     match source {
         "activity" => ACTIVITY_SETTINGS_KEY,
+        "health" => HEALTH_SETTINGS_KEY,
         "git" => GIT_SETTINGS_KEY,
         "messaging" => MESSAGING_SETTINGS_KEY,
         "notes" => NOTES_SETTINGS_KEY,
@@ -1270,6 +1362,7 @@ fn local_settings_key(source: &str) -> &'static str {
 fn local_integration_id(source: &str) -> &'static str {
     match source {
         "activity" => "activity",
+        "health" => "health",
         "git" => "git",
         "messaging" => "messaging",
         "notes" => "notes",
@@ -1278,21 +1371,35 @@ fn local_integration_id(source: &str) -> &'static str {
     }
 }
 
-async fn runtime_local_config(storage: &Storage, config: &AppConfig) -> Result<AppConfig, AppError> {
+async fn runtime_local_config(
+    storage: &Storage,
+    config: &AppConfig,
+) -> Result<AppConfig, AppError> {
     let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
+    let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
     let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
     let messaging = load_local_settings(storage, MESSAGING_SETTINGS_KEY).await?;
     let notes = load_local_settings(storage, NOTES_SETTINGS_KEY).await?;
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
 
     let mut runtime = config.clone();
-    runtime.activity_snapshot_path =
-        effective_local_source_path(&activity, config.activity_snapshot_path.as_deref());
-    runtime.git_snapshot_path = effective_local_source_path(&git, config.git_snapshot_path.as_deref());
-    runtime.messaging_snapshot_path =
-        effective_local_source_path(&messaging, config.messaging_snapshot_path.as_deref());
-    runtime.notes_path = effective_local_source_path(&notes, config.notes_path.as_deref());
+    runtime.activity_snapshot_path = effective_local_source_path(
+        "activity",
+        &activity,
+        config.activity_snapshot_path.as_deref(),
+    );
+    runtime.health_snapshot_path =
+        effective_local_source_path("health", &health, config.health_snapshot_path.as_deref());
+    runtime.git_snapshot_path =
+        effective_local_source_path("git", &git, config.git_snapshot_path.as_deref());
+    runtime.messaging_snapshot_path = effective_local_source_path(
+        "messaging",
+        &messaging,
+        config.messaging_snapshot_path.as_deref(),
+    );
+    runtime.notes_path = effective_local_source_path("notes", &notes, config.notes_path.as_deref());
     runtime.transcript_snapshot_path = effective_local_source_path(
+        "transcripts",
         &transcripts,
         config.transcript_snapshot_path.as_deref(),
     );
@@ -1305,6 +1412,90 @@ fn config_source_path(primary: Option<&str>, secondary: Option<&str>) -> Option<
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+fn auto_local_source_path(integration_id: &str) -> Option<String> {
+    if !running_on_macos() {
+        return None;
+    }
+
+    if !LOCAL_INTEGRATION_IDS.contains(&integration_id) {
+        return None;
+    }
+
+    auto_local_source_path_for_integration(integration_id)
+}
+
+fn running_on_macos() -> bool {
+    cfg!(target_os = "macos")
+        || env::var("VEL_FORCE_MACOS_LOCAL_SOURCE_DISCOVERY")
+            .ok()
+            .as_deref()
+            == Some("1")
+}
+
+fn auto_local_source_path_for_integration(integration_id: &str) -> Option<String> {
+    let home = env::var_os("HOME").map(PathBuf::from)?;
+    auto_local_source_path_from_home(integration_id, &home)
+}
+
+fn auto_local_source_path_from_home(integration_id: &str, home: &Path) -> Option<String> {
+    let candidates = match integration_id {
+        "activity" => vec![
+            home.join("Library/Application Support/Vel/activity/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/activity/snapshot.json"),
+        ],
+        "health" => vec![
+            home.join("Library/Application Support/Vel/health/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/health/snapshot.json"),
+        ],
+        "git" => vec![
+            home.join("Library/Application Support/Vel/git/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/git/snapshot.json"),
+        ],
+        "messaging" => vec![
+            home.join("Library/Application Support/Vel/messages/snapshot.json"),
+            home.join("Library/Application Support/Vel/messaging/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/messages/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/messaging/snapshot.json"),
+        ],
+        "notes" => vec![
+            home.join("Library/Application Support/Vel/notes"),
+            home.join("Library/Application Support/Vel/integrations/notes"),
+        ],
+        "transcripts" => vec![
+            home.join("Library/Application Support/Vel/transcripts/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/transcripts/snapshot.json"),
+        ],
+        _ => Vec::new(),
+    };
+
+    candidates
+        .into_iter()
+        .find(|candidate| candidate.exists())
+        .map(|candidate| candidate.to_string_lossy().to_string())
+        .or_else(|| auto_local_source_path_from_support_roots(integration_id, home))
+}
+
+fn auto_local_source_path_from_support_roots(integration_id: &str, home: &Path) -> Option<String> {
+    let suffix = match integration_id {
+        "activity" | "health" | "git" | "messaging" | "transcripts" => "snapshot.json",
+        "notes" => "",
+        _ => return None,
+    };
+
+    MACOS_SUPPORT_RELATIVE_DIRS
+        .iter()
+        .map(|relative| home.join(relative).join(integration_id))
+        .map(|base| {
+            if suffix.is_empty() {
+                base
+            } else {
+                base.join(suffix)
+            }
+        })
+        .find(|candidate| candidate.exists())
+        .map(|candidate| candidate.to_string_lossy().to_string())
 }
 
 fn google_redirect_uri(config: &AppConfig) -> Result<String, AppError> {
@@ -1637,6 +1828,16 @@ mod tests {
         std::env::temp_dir().join(format!("vel-{prefix}-{nanos}.sqlite"))
     }
 
+    fn unique_temp_dir(prefix: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("vel-{prefix}-{nanos}"));
+        std::fs::create_dir_all(&path).unwrap();
+        path
+    }
+
     #[tokio::test]
     async fn google_credentials_persist_across_storage_reopen() {
         let db_path = unique_sqlite_path("google-creds");
@@ -1675,14 +1876,19 @@ mod tests {
                 .expect("google secret settings should exist")
                 .clone();
 
-            assert_eq!(public_settings.get("client_id").and_then(|v| v.as_str()), Some("google-client-id"));
+            assert_eq!(
+                public_settings.get("client_id").and_then(|v| v.as_str()),
+                Some("google-client-id")
+            );
             assert_eq!(
                 public_settings.get("client_secret"),
                 None,
                 "public google settings must not contain the client secret"
             );
             assert_eq!(
-                secret_settings.get("client_secret").and_then(|v| v.as_str()),
+                secret_settings
+                    .get("client_secret")
+                    .and_then(|v| v.as_str()),
                 Some("google-client-secret")
             );
         }
@@ -1733,5 +1939,74 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&db_path);
+    }
+
+    #[test]
+    fn auto_discovers_macos_messaging_snapshot_from_home_dir() {
+        let home = unique_temp_dir("mac-home");
+        let snapshot_path = home.join("Library/Application Support/Vel/messages/snapshot.json");
+        std::fs::create_dir_all(snapshot_path.parent().unwrap()).unwrap();
+        std::fs::write(&snapshot_path, "{}").unwrap();
+
+        let discovered = auto_local_source_path_from_home("messaging", &home)
+            .expect("messaging snapshot should be discovered");
+        assert_eq!(discovered, snapshot_path.to_string_lossy());
+    }
+
+    #[tokio::test]
+    async fn bootstrap_local_context_sources_ingests_and_updates_context() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        let snapshot_path = unique_temp_dir("bootstrap-messaging").join("messaging.json");
+        let snapshot = serde_json::json!({
+            "source": "messages",
+            "account_id": "local-default",
+            "threads": [
+                {
+                    "thread_id": "thr_bootstrap",
+                    "platform": "imessage",
+                    "title": "Dinner plan",
+                    "participants": [
+                        { "id": "me", "name": "Me", "is_me": true },
+                        { "id": "+15551234567", "name": "Sam", "is_me": false }
+                    ],
+                    "latest_timestamp": now,
+                    "waiting_state": "me",
+                    "scheduling_related": true,
+                    "urgent": false,
+                    "summary": "Need to answer about dinner.",
+                    "snippet": "Can we do 7?"
+                }
+            ]
+        });
+        std::fs::write(&snapshot_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = AppConfig {
+            messaging_snapshot_path: Some(snapshot_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+
+        let ingested = bootstrap_local_context_sources(&storage, &config)
+            .await
+            .expect("bootstrap should ingest configured local sources");
+        assert_eq!(ingested, 1);
+
+        let policy_config = crate::policy_config::PolicyConfig::default();
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
+        let state =
+            crate::state::AppState::new(storage, config, policy_config, broadcast_tx, None, None);
+        crate::services::evaluate::run_and_broadcast(&state)
+            .await
+            .expect("evaluate should succeed after bootstrap");
+
+        let (_, context_json) = state
+            .storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("bootstrap + evaluate should persist current context");
+        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        assert_eq!(context["message_waiting_on_me_count"], 1);
     }
 }

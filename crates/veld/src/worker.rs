@@ -64,6 +64,7 @@ fn registered_loops_with_policy(
         .sync_activity_loop()
         .cloned()
         .unwrap_or_default();
+    let sync_health_loop = policy_config.sync_health_loop().cloned().unwrap_or_default();
     let sync_git_loop = policy_config.sync_git_loop().cloned().unwrap_or_default();
     let sync_messaging_loop = policy_config
         .sync_messaging_loop()
@@ -119,6 +120,12 @@ fn registered_loops_with_policy(
             interval: Duration::from_secs(sync_activity_loop.interval_seconds),
             enabled: sync_activity_loop.enabled,
             runner: run_sync_activity_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::SyncHealth,
+            interval: Duration::from_secs(sync_health_loop.interval_seconds),
+            enabled: sync_health_loop.enabled,
+            runner: run_sync_health_loop_once,
         },
         LoopDefinition {
             kind: LoopKind::SyncGit,
@@ -299,6 +306,19 @@ fn run_sync_activity_loop_once(state: &AppState) -> LoopFuture<'_> {
     })
 }
 
+fn run_sync_health_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let count =
+            crate::services::integrations::run_health_sync(&state.storage, &state.config).await?;
+        if count > 0 {
+            if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
+                warn!(error = %error, "evaluate after health sync loop failed");
+            }
+        }
+        Ok(())
+    })
+}
+
 fn run_sync_git_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
         let count =
@@ -341,11 +361,9 @@ fn run_sync_notes_loop_once(state: &AppState) -> LoopFuture<'_> {
 
 fn run_sync_transcripts_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
-        let count = crate::services::integrations::run_transcripts_sync(
-            &state.storage,
-            &state.config,
-        )
-        .await?;
+        let count =
+            crate::services::integrations::run_transcripts_sync(&state.storage, &state.config)
+                .await?;
         if count > 0 {
             if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
                 warn!(error = %error, "evaluate after transcripts sync loop failed");
@@ -481,19 +499,20 @@ mod tests {
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
         let loops = registered_loops_with_policy(&crate::policy_config::PolicyConfig::default());
-        assert_eq!(loops.len(), 12);
+        assert_eq!(loops.len(), 13);
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
         assert_eq!(loops[2].kind, LoopKind::EvaluateCurrentState);
         assert_eq!(loops[3].kind, LoopKind::SyncCalendar);
         assert_eq!(loops[4].kind, LoopKind::SyncTodoist);
         assert_eq!(loops[5].kind, LoopKind::SyncActivity);
-        assert_eq!(loops[6].kind, LoopKind::SyncGit);
-        assert_eq!(loops[7].kind, LoopKind::SyncMessaging);
-        assert_eq!(loops[8].kind, LoopKind::SyncNotes);
-        assert_eq!(loops[9].kind, LoopKind::SyncTranscripts);
-        assert_eq!(loops[10].kind, LoopKind::WeeklySynthesis);
-        assert_eq!(loops[11].kind, LoopKind::StaleNudgeReconciliation);
+        assert_eq!(loops[6].kind, LoopKind::SyncHealth);
+        assert_eq!(loops[7].kind, LoopKind::SyncGit);
+        assert_eq!(loops[8].kind, LoopKind::SyncMessaging);
+        assert_eq!(loops[9].kind, LoopKind::SyncNotes);
+        assert_eq!(loops[10].kind, LoopKind::SyncTranscripts);
+        assert_eq!(loops[11].kind, LoopKind::WeeklySynthesis);
+        assert_eq!(loops[12].kind, LoopKind::StaleNudgeReconciliation);
         assert!(loops[0].enabled);
         assert!(loops[1].enabled);
         assert!(loops[2].enabled);
@@ -501,11 +520,12 @@ mod tests {
         assert!(loops[4].enabled);
         assert!(!loops[5].enabled);
         assert!(!loops[6].enabled);
-        assert!(loops[7].enabled);
-        assert!(!loops[8].enabled);
+        assert!(!loops[7].enabled);
+        assert!(loops[8].enabled);
         assert!(!loops[9].enabled);
-        assert!(loops[10].enabled);
+        assert!(!loops[10].enabled);
         assert!(loops[11].enabled);
+        assert!(loops[12].enabled);
     }
 
     #[tokio::test]

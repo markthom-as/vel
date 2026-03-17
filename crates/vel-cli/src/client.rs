@@ -284,10 +284,7 @@ impl ApiClient {
         self.get(&path).await
     }
 
-    pub async fn get_uncertainty(
-        &self,
-        id: &str,
-    ) -> anyhow::Result<ApiResponse<UncertaintyData>> {
+    pub async fn get_uncertainty(&self, id: &str) -> anyhow::Result<ApiResponse<UncertaintyData>> {
         self.get(&format!("/v1/uncertainty/{}", id)).await
     }
 
@@ -314,6 +311,10 @@ impl ApiClient {
 
     pub async fn sync_activity(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
         self.post_empty("/v1/sync/activity").await
+    }
+
+    pub async fn sync_health(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
+        self.post_empty("/v1/sync/health").await
     }
 
     pub async fn sync_git(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {

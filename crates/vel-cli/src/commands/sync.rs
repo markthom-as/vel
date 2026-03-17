@@ -31,6 +31,16 @@ pub async fn run_activity(client: &ApiClient) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub async fn run_health(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client.sync_health().await.context("sync health")?;
+    let d = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("health: {} signals ingested", d.signals_ingested);
+    Ok(())
+}
+
 pub async fn run_git(client: &ApiClient) -> anyhow::Result<()> {
     let resp = client.sync_git().await.context("sync git")?;
     let d = resp

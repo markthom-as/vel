@@ -62,6 +62,23 @@ pub async fn sync_activity(
     )))
 }
 
+pub async fn sync_health(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
+    let count = services::integrations::run_health_sync(&state.storage, &state.config).await?;
+    if count > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(
+        SyncResultData {
+            source: "health".to_string(),
+            signals_ingested: count,
+        },
+        request_id,
+    )))
+}
+
 pub async fn sync_git(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
@@ -116,8 +133,7 @@ pub async fn sync_notes(
 pub async fn sync_transcripts(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count =
-        services::integrations::run_transcripts_sync(&state.storage, &state.config).await?;
+    let count = services::integrations::run_transcripts_sync(&state.storage, &state.config).await?;
     if count > 0 {
         evaluate_and_broadcast_context(&state).await;
     }

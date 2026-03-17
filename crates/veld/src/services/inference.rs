@@ -62,7 +62,6 @@ struct NextCommitmentSummary {
     due_at: Option<i64>,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct CommitmentPriority {
     due_bucket: u8,
@@ -79,6 +78,7 @@ struct SignalInputs<'a> {
     has_workstation_activity: bool,
     calendar_events: Vec<&'a vel_storage::SignalRecord>,
     message_threads: Vec<&'a vel_storage::SignalRecord>,
+    latest_health_signal: Option<&'a vel_storage::SignalRecord>,
     latest_git_activity: Option<&'a vel_storage::SignalRecord>,
     latest_note_document: Option<&'a vel_storage::SignalRecord>,
     latest_assistant_message: Option<&'a vel_storage::SignalRecord>,
@@ -95,6 +95,7 @@ struct DerivedContextState {
     commitments_used: Vec<String>,
     risk_used: Vec<String>,
     attention: AttentionState,
+    health_summary: Option<HealthSummary>,
     git_activity_summary: Option<GitActivitySummary>,
     note_document_summary: Option<NoteDocumentSummary>,
     assistant_message_summary: Option<AssistantMessageSummary>,
@@ -156,6 +157,7 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         &derived.commitments_used,
         &derived.risk_used,
         &derived.attention,
+        derived.health_summary.as_ref(),
         derived.git_activity_summary.as_ref(),
         derived.note_document_summary.as_ref(),
         derived.assistant_message_summary.as_ref(),
@@ -190,6 +192,10 @@ fn collect_signal_inputs(signals_today: &[vel_storage::SignalRecord]) -> SignalI
             .iter()
             .filter(|signal| signal.signal_type == "message_thread")
             .collect(),
+        latest_health_signal: signals_today
+            .iter()
+            .filter(|signal| signal.signal_type == "health_metric")
+            .max_by_key(|signal| signal.timestamp),
         latest_git_activity: signals_today
             .iter()
             .filter(|signal| signal.signal_type == "git_activity")
@@ -219,6 +225,9 @@ fn derive_context_state(
     temporal_windows: &TemporalWindows,
     now_ts: i64,
 ) -> DerivedContextState {
+    let health_summary = signal_inputs
+        .latest_health_signal
+        .and_then(build_health_summary);
     let recent_git_summary = signal_inputs
         .latest_git_activity
         .and_then(build_git_activity_summary)
@@ -264,6 +273,7 @@ fn derive_context_state(
         commitments_used,
         risk_used,
         attention,
+        health_summary,
         git_activity_summary: signal_inputs
             .latest_git_activity
             .and_then(build_git_activity_summary),
@@ -324,6 +334,7 @@ fn collect_signals_used(signals_today: &[vel_storage::SignalRecord]) -> Vec<Stri
                     | "vel_invocation"
                     | "shell_login"
                     | "computer_activity"
+                    | "health_metric"
                     | "git_activity"
                     | "message_thread"
             )
@@ -412,6 +423,16 @@ async fn collect_inputs(
             .await
             .unwrap_or_default(),
     })
+}
+
+#[derive(Clone)]
+struct HealthSummary {
+    timestamp: i64,
+    metric_type: String,
+    value: serde_json::Value,
+    unit: Option<String>,
+    source_app: Option<String>,
+    device: Option<String>,
 }
 
 #[derive(Clone)]
@@ -703,6 +724,7 @@ fn build_current_context(
     commitments_used: &[String],
     risk_used: &[String],
     attention: &AttentionState,
+    health_summary: Option<&HealthSummary>,
     git_activity_summary: Option<&GitActivitySummary>,
     note_document_summary: Option<&NoteDocumentSummary>,
     assistant_message_summary: Option<&AssistantMessageSummary>,
@@ -737,6 +759,14 @@ fn build_current_context(
         "drift_severity": attention.drift_severity,
         "attention_confidence": attention.confidence,
         "attention_reasons": attention_reasons_json,
+        "health_summary": health_summary.map(|summary| serde_json::json!({
+            "timestamp": summary.timestamp,
+            "metric_type": summary.metric_type,
+            "value": summary.value,
+            "unit": summary.unit,
+            "source_app": summary.source_app,
+            "device": summary.device,
+        })),
         "git_activity_summary": git_activity_summary.map(|summary| serde_json::json!({
             "timestamp": summary.timestamp,
             "repo": summary.repo,
@@ -877,9 +907,7 @@ fn commitment_priority(
     };
     let risk_rank = u32::MAX - snapshot_risk_rank(snapshot);
     let updated_at = commitment_updated_at(commitment);
-    let recent_activity_bucket = if updated_at
-        >= now_ts - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS
-    {
+    let recent_activity_bucket = if updated_at >= now_ts - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS {
         0
     } else {
         1
@@ -965,6 +993,41 @@ fn build_git_activity_summary(signal: &vel_storage::SignalRecord) -> Option<GitA
             .get("deletions")
             .and_then(serde_json::Value::as_u64)
             .map(|value| value as u32),
+    })
+}
+
+fn build_health_summary(signal: &vel_storage::SignalRecord) -> Option<HealthSummary> {
+    if signal.signal_type != "health_metric" {
+        return None;
+    }
+
+    Some(HealthSummary {
+        timestamp: signal.timestamp,
+        metric_type: signal
+            .payload_json
+            .get("metric_type")
+            .and_then(serde_json::Value::as_str)?
+            .to_string(),
+        value: signal
+            .payload_json
+            .get("value")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null),
+        unit: signal
+            .payload_json
+            .get("unit")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        source_app: signal
+            .payload_json
+            .get("source_app")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        device: signal
+            .payload_json
+            .get("device")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
     })
 }
 
@@ -1390,8 +1453,8 @@ mod tests {
         });
         let commitments = [stale, recent];
 
-        let selected = select_next_commitment(&commitments, &[], now_ts)
-            .expect("expected a commitment");
+        let selected =
+            select_next_commitment(&commitments, &[], now_ts).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_recent");
     }
@@ -1409,8 +1472,8 @@ mod tests {
         });
         let commitments = [older, recent];
 
-        let selected = select_next_commitment(&commitments, &[], ranking_now)
-            .expect("expected a commitment");
+        let selected =
+            select_next_commitment(&commitments, &[], ranking_now).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_recent");
     }

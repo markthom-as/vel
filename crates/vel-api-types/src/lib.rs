@@ -394,6 +394,7 @@ pub struct IntegrationsData {
     pub google_calendar: GoogleCalendarIntegrationData,
     pub todoist: TodoistIntegrationData,
     pub activity: LocalIntegrationData,
+    pub health: LocalIntegrationData,
     pub git: LocalIntegrationData,
     pub messaging: LocalIntegrationData,
     pub notes: LocalIntegrationData,
@@ -1082,6 +1083,7 @@ pub struct NowSourceActivityData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowSourcesData {
     pub git_activity: Option<NowSourceActivityData>,
+    pub health: Option<NowSourceActivityData>,
     pub note_document: Option<NowSourceActivityData>,
     pub assistant_message: Option<NowSourceActivityData>,
 }
@@ -1193,6 +1195,7 @@ pub struct ContextSourceSummaryData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSourceSummariesData {
     pub git_activity: Option<ContextSourceSummaryData>,
+    pub health: Option<ContextSourceSummaryData>,
     pub note_document: Option<ContextSourceSummaryData>,
     pub assistant_message: Option<ContextSourceSummaryData>,
 }

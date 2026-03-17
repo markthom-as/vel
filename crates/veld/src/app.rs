@@ -145,6 +145,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/sync/calendar", post(routes::sync::sync_calendar))
         .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
         .route("/v1/sync/activity", post(routes::sync::sync_activity))
+        .route("/v1/sync/health", post(routes::sync::sync_health))
         .route("/v1/sync/git", post(routes::sync::sync_git))
         .route("/v1/sync/messaging", post(routes::sync::sync_messaging))
         .route("/v1/sync/notes", post(routes::sync::sync_notes))
@@ -4759,6 +4760,66 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn sync_health_ingests_snapshot_and_triggers_evaluation() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        let dir = std::env::temp_dir();
+        let file_path = dir.join(format!("vel_health_{}.json", uuid::Uuid::new_v4().simple()));
+        let snapshot = serde_json::json!({
+            "source": "healthkit",
+            "samples": [
+                {
+                    "metric_type": "step_count",
+                    "timestamp": now,
+                    "value": 6400,
+                    "unit": "count",
+                    "source_app": "Health",
+                    "device": "Apple Watch"
+                }
+            ]
+        });
+        std::fs::write(&file_path, serde_json::to_vec(&snapshot).unwrap()).unwrap();
+
+        let config = vel_config::AppConfig {
+            health_snapshot_path: Some(file_path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        let app = build_app(storage.clone(), config, test_policy_config(), None, None);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let signals = storage
+            .list_signals(Some("health_metric"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(signals.len(), 1);
+        assert_eq!(signals[0].source, "healthkit");
+
+        let (_, context_json) = storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("health sync should trigger evaluate");
+        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        assert_eq!(context["health_summary"]["metric_type"], "step_count");
+        assert_eq!(context["health_summary"]["value"], 6400);
+
+        let _ = std::fs::remove_file(&file_path);
+    }
+
+    #[tokio::test]
     async fn sync_notes_ingests_markdown_files_as_captures() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -5941,6 +6002,7 @@ END:VCALENDAR
         assert!(record_result.is_ok());
         let config = AppConfig {
             activity_snapshot_path: Some("/tmp/activity.json".to_string()),
+            health_snapshot_path: Some("/tmp/health.json".to_string()),
             git_snapshot_path: Some("/tmp/git.json".to_string()),
             messaging_snapshot_path: Some("/tmp/messaging.json".to_string()),
             notes_path: Some("/tmp/notes".to_string()),
@@ -5968,6 +6030,8 @@ END:VCALENDAR
             json["data"]["activity"]["source_path"],
             "/tmp/activity.json"
         );
+        assert_eq!(json["data"]["health"]["configured"], true);
+        assert_eq!(json["data"]["health"]["source_path"], "/tmp/health.json");
         assert_eq!(json["data"]["notes"]["configured"], true);
         assert_eq!(json["data"]["notes"]["source_path"], "/tmp/notes");
         assert_eq!(json["data"]["notes"]["last_sync_status"], "ok");

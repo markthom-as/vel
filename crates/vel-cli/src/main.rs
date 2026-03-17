@@ -397,6 +397,7 @@ enum SyncCommand {
     Calendar,
     Todoist,
     Activity,
+    Health,
     Git,
     Notes,
     Transcripts,
@@ -601,6 +602,7 @@ async fn main() -> anyhow::Result<()> {
             SyncCommand::Calendar => commands::sync::run_calendar(&client).await,
             SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
             SyncCommand::Activity => commands::sync::run_activity(&client).await,
+            SyncCommand::Health => commands::sync::run_health(&client).await,
             SyncCommand::Git => commands::sync::run_git(&client).await,
             SyncCommand::Notes => commands::sync::run_notes(&client).await,
             SyncCommand::Transcripts => commands::sync::run_transcripts(&client).await,
@@ -723,6 +725,17 @@ mod tests {
     }
 
     #[test]
+    fn cli_parses_sync_health() {
+        let cli = Cli::try_parse_from(["vel", "sync", "health"]).unwrap();
+        match cli.command {
+            Command::Sync {
+                command: SyncCommand::Health,
+            } => {}
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
     fn cli_parses_loops_list() {
         let cli = Cli::try_parse_from(["vel", "loops", "--json"]).unwrap();
         match cli.command {
@@ -757,8 +770,7 @@ mod tests {
             _ => panic!("expected loop enable command"),
         }
 
-        let disable =
-            Cli::try_parse_from(["vel", "loop", "disable", "sync_messaging"]).unwrap();
+        let disable = Cli::try_parse_from(["vel", "loop", "disable", "sync_messaging"]).unwrap();
         match disable.command {
             Command::Loop {
                 command: LoopCommand::Disable { kind },
@@ -769,8 +781,8 @@ mod tests {
 
     #[test]
     fn cli_parses_uncertainty_commands() {
-        let list = Cli::try_parse_from(["vel", "uncertainty", "list", "--status", "resolved"])
-            .unwrap();
+        let list =
+            Cli::try_parse_from(["vel", "uncertainty", "list", "--status", "resolved"]).unwrap();
         match list.command {
             Command::Uncertainty {
                 command: UncertaintyCommand::List { status, json },

@@ -224,6 +224,7 @@ async fn hydrate_signal_summaries(
 fn context_source_summaries(context: &serde_json::Value) -> ContextSourceSummariesData {
     ContextSourceSummariesData {
         git_activity: context_source_summary(context, "git_activity_summary"),
+        health: context_source_summary(context, "health_summary"),
         note_document: context_source_summary(context, "note_document_summary"),
         assistant_message: context_source_summary(context, "assistant_message_summary"),
     }
@@ -257,6 +258,13 @@ fn signal_summary(signal: &SignalRecord) -> SignalExplainSummary {
                 "command": payload.get("command").and_then(|value| value.as_str()),
             })
         }
+        "health_metric" => serde_json::json!({
+            "metric_type": payload.get("metric_type").and_then(|value| value.as_str()),
+            "value": payload.get("value"),
+            "unit": payload.get("unit").and_then(|value| value.as_str()),
+            "source_app": payload.get("source_app").and_then(|value| value.as_str()),
+            "device": payload.get("device").and_then(|value| value.as_str()),
+        }),
         "calendar_event" => serde_json::json!({
             "title": payload.get("title").and_then(|value| value.as_str()),
             "prep_minutes": payload.get("prep_minutes").and_then(|value| value.as_i64()),

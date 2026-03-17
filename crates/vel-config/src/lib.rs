@@ -41,6 +41,8 @@ pub struct AppConfig {
     pub todoist_snapshot_path: Option<String>,
     /// Activity: path to workstation activity snapshot JSON.
     pub activity_snapshot_path: Option<String>,
+    /// Health: path to local health/activity snapshot JSON.
+    pub health_snapshot_path: Option<String>,
     /// Git: path to local git activity snapshot JSON.
     pub git_snapshot_path: Option<String>,
     /// Messaging: path to local messaging snapshot JSON.
@@ -217,6 +219,7 @@ impl Default for AppConfig {
             calendar_ics_path: None,
             todoist_snapshot_path: None,
             activity_snapshot_path: None,
+            health_snapshot_path: None,
             git_snapshot_path: None,
             messaging_snapshot_path: None,
             notes_path: None,
@@ -243,6 +246,7 @@ struct FileConfig {
     calendar_ics_path: Option<String>,
     todoist_snapshot_path: Option<String>,
     activity_snapshot_path: Option<String>,
+    health_snapshot_path: Option<String>,
     git_snapshot_path: Option<String>,
     messaging_snapshot_path: Option<String>,
     notes_path: Option<String>,
@@ -350,6 +354,9 @@ impl AppConfig {
         if file.activity_snapshot_path.is_some() {
             self.activity_snapshot_path = file.activity_snapshot_path;
         }
+        if file.health_snapshot_path.is_some() {
+            self.health_snapshot_path = file.health_snapshot_path;
+        }
         if file.git_snapshot_path.is_some() {
             self.git_snapshot_path = file.git_snapshot_path;
         }
@@ -413,6 +420,9 @@ impl AppConfig {
         if let Some(value) = env_map.get("VEL_ACTIVITY_SNAPSHOT_PATH") {
             self.activity_snapshot_path = Some(value.clone());
         }
+        if let Some(value) = env_map.get("VEL_HEALTH_SNAPSHOT_PATH") {
+            self.health_snapshot_path = Some(value.clone());
+        }
         if let Some(value) = env_map.get("VEL_GIT_SNAPSHOT_PATH") {
             self.git_snapshot_path = Some(value.clone());
         }
@@ -467,6 +477,10 @@ mod tests {
                 "/tmp/messaging.json".to_string(),
             ),
             (
+                "VEL_HEALTH_SNAPSHOT_PATH".to_string(),
+                "/tmp/health.json".to_string(),
+            ),
+            (
                 "VEL_AGENT_SPEC_PATH".to_string(),
                 "/tmp/agent-specs.yaml".to_string(),
             ),
@@ -483,6 +497,10 @@ mod tests {
         );
         assert_eq!(config.llm_model_path, "/tmp/qwen3-coder-30b.gguf");
         assert_eq!(config.llm_fast_model_path, "/tmp/qwen25-fast-14b.gguf");
+        assert_eq!(
+            config.health_snapshot_path.as_deref(),
+            Some("/tmp/health.json")
+        );
         assert_eq!(
             config.messaging_snapshot_path.as_deref(),
             Some("/tmp/messaging.json")
