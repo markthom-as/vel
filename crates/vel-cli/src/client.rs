@@ -4,8 +4,8 @@ use serde::de::DeserializeOwned;
 use vel_api_types::{
     ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest,
     CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData,
-    HealthData, MorningData, NudgeData, NudgeSnoozeRequest, RunUpdateRequest, SearchQuery,
-    SearchResults, SyncResultData, SynthesisWeekData, TodayData,
+    HealthData, LoopData, LoopUpdateRequest, MorningData, NudgeData, NudgeSnoozeRequest,
+    RunUpdateRequest, SearchQuery, SearchResults, SyncResultData, SynthesisWeekData, TodayData,
 };
 
 #[derive(Clone)]
@@ -238,6 +238,29 @@ impl ApiClient {
 
     pub async fn end_of_day(&self) -> anyhow::Result<ApiResponse<EndOfDayData>> {
         self.get("/v1/context/end-of-day").await
+    }
+
+    pub async fn list_loops(&self) -> anyhow::Result<ApiResponse<Vec<LoopData>>> {
+        self.get("/v1/loops").await
+    }
+
+    pub async fn get_loop(&self, kind: &str) -> anyhow::Result<ApiResponse<LoopData>> {
+        self.get(&format!("/v1/loops/{}", kind)).await
+    }
+
+    pub async fn update_loop(
+        &self,
+        kind: &str,
+        body: &LoopUpdateRequest,
+    ) -> anyhow::Result<ApiResponse<LoopData>> {
+        let response = self
+            .http
+            .patch(format!("{}/v1/loops/{}", self.base_url, kind))
+            .json(body)
+            .send()
+            .await
+            .context("sending update loop request")?;
+        decode_response(response).await
     }
 
     pub async fn sync_calendar(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {

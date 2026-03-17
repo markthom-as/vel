@@ -12,6 +12,7 @@ pub mod export_;
 pub mod health;
 pub mod import_;
 pub mod inspect;
+pub mod loops;
 pub mod morning;
 pub mod nudges;
 pub mod recent;

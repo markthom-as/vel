@@ -20,6 +20,14 @@ function readFile(relativePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
+function normalizeRepoFeedbackStatus(statusValue) {
+  const normalized = statusValue.trim().toLowerCase().replaceAll(' ', '_');
+  if (normalized.includes('deferred')) return 'deferred';
+  if (normalized.includes('in_progress')) return 'in_progress';
+  if (normalized === 'done') return 'done';
+  return normalized;
+}
+
 const requiredFiles = [
   '.github/workflows/ci.yml',
   'Makefile',
@@ -175,6 +183,24 @@ if (fs.existsSync(repoFeedbackDir)) {
       `repo-feedback ticket has ambiguous status (${statusValue}): ${entry}`,
     );
     repoFeedbackStatuses.set(entry, statusValue);
+  }
+  const repoFeedbackSummaryStatuses = new Map();
+  for (const match of repoFeedbackReadme.matchAll(/^- `(\d{3})` [^:]+: ([a-z_ ]+)/gm)) {
+    repoFeedbackSummaryStatuses.set(match[1], normalizeRepoFeedbackStatus(match[2]));
+  }
+  for (const [entry, statusValue] of repoFeedbackStatuses.entries()) {
+    const ticketNumber = entry.match(/^(\d{3})-/)?.[1];
+    if (!ticketNumber) continue;
+    const summaryStatus = repoFeedbackSummaryStatuses.get(ticketNumber);
+    ensure(
+      summaryStatus,
+      `repo-feedback README missing convergence summary entry for ticket ${ticketNumber}`,
+    );
+    if (!summaryStatus) continue;
+    ensure(
+      summaryStatus === statusValue,
+      `repo-feedback README summary status (${summaryStatus}) disagrees with frontmatter (${statusValue}) for ticket ${ticketNumber}`,
+    );
   }
   ensure(
     [...repoFeedbackStatuses.values()].some((statusValue) => statusValue === 'done'),

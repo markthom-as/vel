@@ -76,6 +76,14 @@ enum Command {
         #[command(subcommand)]
         command: RunCommand,
     },
+    Loops {
+        #[arg(long)]
+        json: bool,
+    },
+    Loop {
+        #[command(subcommand)]
+        command: LoopCommand,
+    },
     Review {
         #[command(subcommand)]
         command: ReviewCommand,
@@ -279,6 +287,21 @@ enum ReviewCommand {
 }
 
 #[derive(Debug, Subcommand)]
+enum LoopCommand {
+    Inspect {
+        kind: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Enable {
+        kind: String,
+    },
+    Disable {
+        kind: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum ArtifactCommand {
     Latest {
         #[arg(long)]
@@ -467,6 +490,14 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .await
             }
+        },
+        Command::Loops { json } => commands::loops::run_list(&client, json).await,
+        Command::Loop { command } => match command {
+            LoopCommand::Inspect { kind, json } => {
+                commands::loops::run_inspect(&client, &kind, json).await
+            }
+            LoopCommand::Enable { kind } => commands::loops::run_enable(&client, &kind).await,
+            LoopCommand::Disable { kind } => commands::loops::run_disable(&client, &kind).await,
         },
         Command::Review { command } => match command {
             ReviewCommand::Today { json } => commands::review::run_today(&client, json).await,

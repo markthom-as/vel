@@ -23,11 +23,7 @@ pub async fn run_list(client: &ApiClient, json: bool) -> anyhow::Result<()> {
             r.commitment_id,
             r.risk_level,
             r.risk_score,
-            r.factors
-                .get("reasons")
-                .and_then(serde_json::Value::as_array)
-                .map(|a| a.len())
-                .unwrap_or(0)
+            r.factors.reasons.len()
         );
     }
     Ok(())
@@ -53,16 +49,10 @@ pub async fn run_commitment(
     println!("commitment_id: {}", r.commitment_id);
     println!("risk_score:    {}", r.risk_score);
     println!("risk_level:   {}", r.risk_level);
-    if let Some(reasons) = r
-        .factors
-        .get("reasons")
-        .and_then(serde_json::Value::as_array)
-    {
+    if !r.factors.reasons.is_empty() {
         println!("reasons:");
-        for x in reasons {
-            if let Some(s) = x.as_str() {
-                println!("  - {}", s);
-            }
+        for reason in &r.factors.reasons {
+            println!("  - {}", reason);
         }
     }
     println!("factors: {}", serde_json::to_string_pretty(&r.factors)?);
