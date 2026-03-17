@@ -97,6 +97,9 @@ struct ContentView: View {
                         }
                     }
                 }
+                Section("Documentation") {
+                    DocumentationListView()
+                }
             }
             .navigationTitle("Vel")
             .refreshable { await load() }
@@ -133,6 +136,42 @@ struct ContentView: View {
                 commitments = store.offlineStore.cachedCommitmentsApplyingPendingActions()
                 context = store.offlineStore.cachedContext()
                 store.pendingActionCount = store.offlineStore.pendingActionCount()
+            }
+        }
+    }
+}
+
+struct DocumentationListView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Core docs")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ForEach(VelAPI.VelDocumentationCatalog.core) { doc in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(doc.title)
+                    Text(doc.path)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(doc.summary)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Text("Your Vel docs")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+            ForEach(VelAPI.VelDocumentationCatalog.user) { doc in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(doc.title)
+                    Text(doc.path)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(doc.summary)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
     }

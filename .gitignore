@@ -7,7 +7,7 @@ var/
 .DS_Store
 .idea/
 .vscode/
+clients/apple/VelAPI/.build/
 
 # Downloaded model weights (see scripts/download-chat-model.sh)
 configs/models/weights/
-
