@@ -1,31 +1,72 @@
 ---
 title: Tester-Readiness Onboarding & Node Discovery
-status: planned
+status: in-progress
 owner: staff-eng
 type: onboarding
 priority: medium
 created: 2026-03-17
+updated: 2026-03-17
 labels:
   - onboarding
   - distributed
   - phase-2
 ---
 
-Develop a frictionless onboarding flow for early testers, focusing on automated discovery and linking of multiple nodes (Phone, Laptop, Authority Node).
+# Context & Objectives
 
-## Technical Details
-- **Local Source Discovery**: Automate the detection of common signal sources (e.g., Apple Health, local Git repos, Obsidian vaults) during first-run.
-- **Node Link CLI**: Create `vel node link` which generates a short-lived QR code or pairing code for linking devices via Tailscale or LAN.
-- **Scoped Pairing**: Pairing tokens should be short-lived, purpose-scoped, and revocable.
-- **Onboarding Wizard**: A simple Web/CLI wizard that guides the user through setting up their primary authority node.
-- **Freshness Diagnostics**: A diagnostic surface to show the sync state and "freshness" of newly connected nodes.
-- **Trust Visibility**: Onboarding should make it clear what a linked device can read, write, or execute.
-- **Accessibility Baseline**: Onboarding flows should remain usable through keyboard-first web interactions, readable CLI paths, and platform accessibility affordances on Apple surfaces.
-- **Configurability**: Effective node configuration and pairing state should be inspectable after setup, not hidden behind one-shot setup flows.
+Parts of onboarding are already present (local source discovery paths and cluster/node visibility), but first-run linking and guided setup are incomplete.
 
-## Acceptance Criteria
-- A non-technical tester can connect their iPhone to a local authority node in < 2 minutes.
-- Common local data sources are automatically suggested for ingestion.
-- The system correctly identifies and displays the newly linked node in the `vel node list` output.
-- Linked-device onboarding does not hand out long-lived broad credentials by default.
-- Onboarding paths remain operable through accessible web or CLI flows even when the ideal surface is unavailable.
+This ticket is now treated as **partial implementation closure**: preserve shipped pieces and close the remaining pairing and guided onboarding gaps.
+
+# Execution Slices
+
+- **Slice A (Already Partial)**: source discovery suggestions, cluster/node freshness visibility.
+- **Slice B (Remaining)**: `vel node link` pairing flow, short-lived scoped pairing tokens, guided web/CLI linking wizard.
+
+# Impacted Files & Symbols
+
+- **Crate**: `vel-cli`
+  - **Symbols**: node link/list command set
+- **Directory**: `clients/web/src/`
+  - **Symbols**: onboarding and diagnostics surfaces
+- **Directory**: `clients/apple/`
+  - **Symbols**: linked-node diagnostics and setup affordances
+- **File**: `crates/veld/src/routes/cluster.rs`
+  - **Symbols**: node visibility/status surfaces
+
+# Technical Requirements
+
+- **Scoped Pairing**: pairing tokens are short-lived, revocable, and purpose scoped.
+- **Fallback Paths**: onboarding remains operable through web or CLI if one surface is unavailable.
+- **Trust Visibility**: link flow states what a linked device can read/write/execute.
+- **Config Visibility**: linked-node config and pairing state remain inspectable post-setup.
+
+# Cross-Cutting Trait Impact
+
+- **Modularity**: affected — onboarding should consume existing cluster/sync services.
+- **Accessibility**: required — keyboard/readability baseline across web and CLI.
+- **Configurability**: required — effective pairing and endpoint config must be visible.
+- **Data Logging**: affected — onboarding failures should be diagnosable.
+- **Rewind/Replay**: affected — queued sync state should explain replay behavior.
+- **Composability**: required — onboarding terminology aligns with operator/config docs.
+
+# Implementation Steps (The How)
+
+1. **Command surface**: add `vel node link` and supporting link status commands.
+2. **Token flow**: implement short-lived pairing token issue/redeem path.
+3. **Wizard pass**: add minimal guided setup flow in CLI/web.
+4. **Trust text**: expose capability scope and linked-node permissions in setup/status outputs.
+
+# Acceptance Criteria
+
+1. [ ] Non-technical tester can complete node linking in a short guided flow.
+2. [ ] Local data source suggestions are surfaced during onboarding.
+3. [ ] Linked nodes and freshness state are inspectable in CLI/web diagnostics.
+4. [ ] Pairing does not grant broad long-lived credentials by default.
+
+# Verification & Regression
+
+- **Unit Test**: token lifetime/scope enforcement.
+- **Integration Test**: pairing issue/redeem and linked-node visibility.
+- **Smoke Check**: CLI-driven linking from a clean local setup.
+- **Invariants**: pairing flows fail closed when token is expired, malformed, or out-of-scope.

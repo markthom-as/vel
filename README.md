@@ -13,9 +13,9 @@ Vel is a **local-first personal executive system** and **autonomous cognition ru
 
 Vel is currently transitioning from a prototype to a bulletproof distributed swarm. Our development is guided by a **four-phase Master Plan** that consolidates all architectural and feature requirements:
 
-1.  **Phase 1: Foundations** — Monolith decomposition, modular storage, and typed context. **[IN_PROGRESS]**
-2.  **Phase 2: Swarm & Sync** — Distributed state, Hybrid Logical Clocks, and Agent Connect. **[PARTIAL]**
-3.  **Phase 3: Verification** — Deterministic simulation, reasoning evals, and tracing. **[PLANNED]**
+1.  **Phase 1: Foundations** — Monolith decomposition, modular storage, and typed context. **[COMPLETE]**
+2.  **Phase 2: Swarm & Sync** — Distributed state, deterministic sync ordering, and Agent Connect. **[PARTIAL]**
+3.  **Phase 3: Verification** — Deterministic simulation, reasoning evals, and tracing. **[PARTIAL]**
 4.  **Phase 4: Autonomy** — Semantic Graph RAG, WASM sandboxing, and P2P sync. **[PLANNED]**
 
 **Full Roadmap & Status**: [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md)  
@@ -25,10 +25,10 @@ Vel is currently transitioning from a prototype to a bulletproof distributed swa
 
 ## Current Status (MVP)
 
-The **Vel v0 (MVP)** is 75% complete.
+The **Vel v0 (MVP)** is 75% complete and currently blocked on remaining hardening/contract closure outside the shipped core.
 
 - **Implemented**: Capture storage (CLI/Web), Lexical search (FTS5), Commitment CRUD, SQLite migration engine, Context runs (Today/Morning/End-of-Day), and Cluster worker heartbeats.
-- **Active Development**: Closing the remaining typed-context migration seams, contract publication work, and the Connect agent launch protocol.
+- **Active Development**: Connect agent launch protocol, distributed sync foundations, and operator-surface accessibility clarity.
 
 ---
 

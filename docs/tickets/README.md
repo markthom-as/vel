@@ -22,7 +22,10 @@ Use it to find the right active or planned work item after you read [MASTER_PLAN
 
 Use [architecture-first-parallel-queue.md](architecture-first-parallel-queue.md) when the work spans architecture docs, schemas, contracts, manifests, or queue sequencing. That queue is the canonical “do these first” lane before broader implementation breadth.
 
-For active lane ownership and non-overlapping write scopes, use [phase-1/parallel-execution-board.md](phase-1/parallel-execution-board.md).
+For active lane ownership and non-overlapping write scopes, use the phase execution boards:
+- [phase-2/parallel-execution-board.md](phase-2/parallel-execution-board.md)
+- [phase-3/parallel-execution-board.md](phase-3/parallel-execution-board.md)
+- [phase-4/parallel-execution-board.md](phase-4/parallel-execution-board.md)
 
 ## Phase 1: Structural Foundations
 
@@ -36,26 +39,26 @@ Execution evidence: [phase-1/phase-1-evidence-matrix.md](phase-1/phase-1-evidenc
 - [018-cross-cutting-system-traits-baseline.md](phase-1/018-cross-cutting-system-traits-baseline.md) `[complete]` Cross-cutting trait baseline and subsystem audit
 - [020-documentation-catalog-single-source.md](phase-1/020-documentation-catalog-single-source.md) `[complete]` Single-source documentation catalog and surfaced-doc parity
 - [021-canonical-schema-and-config-contracts.md](phase-1/021-canonical-schema-and-config-contracts.md) `[complete]` Canonical schema catalog, object definitions, and config templates
-- [022-data-sources-and-connector-architecture.md](phase-1/022-data-sources-and-connector-architecture.md) `[planned]` Canonical data sources, integration families, and connector contracts
-- [023-self-awareness-and-supervised-self-modification.md](phase-1/023-self-awareness-and-supervised-self-modification.md) `[planned]` Vel self-awareness, repo visibility, and supervised self-modification
-- [024-machine-readable-schema-and-manifest-publication.md](phase-1/024-machine-readable-schema-and-manifest-publication.md) `[planned]` Publish machine-readable schema and manifest resources for shared contract surfaces
+- [022-data-sources-and-connector-architecture.md](phase-1/022-data-sources-and-connector-architecture.md) `[complete]` Canonical data sources, integration families, and connector contracts
+- [023-self-awareness-and-supervised-self-modification.md](phase-1/023-self-awareness-and-supervised-self-modification.md) `[complete]` Vel self-awareness, repo visibility, and supervised self-modification
+- [024-machine-readable-schema-and-manifest-publication.md](phase-1/024-machine-readable-schema-and-manifest-publication.md) `[complete]` Publish machine-readable schema and manifest resources for shared contract surfaces
 - [025-config-and-contract-fixture-parity.md](phase-1/025-config-and-contract-fixture-parity.md) `[complete]` Ensure template and fixture parity for config and contract artifacts used by tests and docs
 
 ## Phase 2: Distributed State, Offline Clients & System-Of-Systems
 
 - [004-signal-reducer-pipeline.md](phase-2/004-signal-reducer-pipeline.md) `[planned]` Pluggable signal ingestion and context reducer pipeline
-- [005-hlc-sync-implementation.md](phase-2/005-hlc-sync-implementation.md) `[planned]` Offline-first Apple clients and HLC synchronization
+- [005-hlc-sync-implementation.md](phase-2/005-hlc-sync-implementation.md) `[planned]` Sync ordering primitive and deterministic conflict resolution baseline
 - [006-connect-launch-protocol.md](phase-2/006-connect-launch-protocol.md) `[partial]` Agent connect launch protocol and supervision
-- [012-tester-readiness-onboarding.md](phase-2/012-tester-readiness-onboarding.md) `[planned]` Tester-readiness onboarding and node discovery
+- [012-tester-readiness-onboarding.md](phase-2/012-tester-readiness-onboarding.md) `[partial]` Tester-readiness onboarding and node discovery closure
 - [016-capability-broker-secret-mediation.md](phase-2/016-capability-broker-secret-mediation.md) `[planned]` Capability broker and secret mediation
-- [019-operator-accessibility-config-clarity.md](phase-2/019-operator-accessibility-config-clarity.md) `[planned]` Operator-surface accessibility and effective-config clarity
+- [019-operator-accessibility-config-clarity.md](phase-2/019-operator-accessibility-config-clarity.md) `[partial]` Operator-surface accessibility and effective-config clarity closure
 
 ## Phase 3: Deterministic Verification & Continuous Alignment
 
 - [007-day-simulation-harness.md](phase-3/007-day-simulation-harness.md) `[planned]` Deterministic replay engine and day simulation harness
 - [008-llm-eval-pipeline.md](phase-3/008-llm-eval-pipeline.md) `[planned]` LLM-as-a-judge evaluation pipeline
-- [013-user-documentation-architecture.md](phase-3/013-user-documentation-architecture.md) `[planned]` Comprehensive user documentation and support wiki
-- [017-execution-tracing-reviewability.md](phase-3/017-execution-tracing-reviewability.md) `[planned]` Execution tracing, handoff telemetry, and reviewability
+- [013-user-documentation-architecture.md](phase-3/013-user-documentation-architecture.md) `[partial]` Comprehensive user documentation and support wiki closure
+- [017-execution-tracing-reviewability.md](phase-3/017-execution-tracing-reviewability.md) `[partial]` Execution tracing, handoff telemetry, and reviewability closure
 
 ## Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution
 

@@ -8,28 +8,64 @@ created: 2026-03-17
 updated: 2026-03-17
 depends_on:
   - 016-capability-broker-secret-mediation
+  - 017-execution-tracing-reviewability
   - 023-self-awareness-and-supervised-self-modification
   - 024-machine-readable-schema-and-manifest-publication
 labels:
   - veld
   - agentic
   - wasm
+  - phase-4
 ---
 
-Implement a Zero-Trust WebAssembly (WASM) agent sandboxing environment within `veld` to securely execute 3rd-party community agents and skills.
+# Context & Objectives
 
-## Technical Details
-- **WASM Runtime**: Incorporate `wasmtime` or `extism` as a host environment inside `veld`.
-- **Capability Host API**: Develop a `VelHostABI` that provides a strict set of data and action requests to the sandbox.
-- **Permission Interception**: Implement a system that prompts the user for approval via the Web UI when an agent requests access to external resources (e.g., the filesystem).
-- **Secret Mediation**: Sandbox modules must use brokered capabilities or point-of-use injection for secrets instead of receiving raw credentials.
-- **No Permission Widening**: Sandbox modules must not be able to widen their own permissions after launch.
-- **Deny By Default**: Host ABI calls that are not explicitly declared and allowed should reject safely.
-- **Traceability**: Host ABI requests and denials must emit inspectable run or trace records.
-- **Skill SDK**: Provide a basic Rust/TS SDK for community developers to compile their logic to WASM.
+Vel does not yet ship an in-process zero-trust sandbox for third-party/community agents. This ticket introduces a WASM execution boundary with explicit host ABI, capability mediation, and deny-by-default policy.
 
-## Acceptance Criteria
-- External agents can be executed in a secure, isolated sandbox.
-- Sandbox modules have zero direct access to the host's filesystem or network.
-- All requests for Vel data/actions must pass through the Host ABI and Policy Engine.
-- Secret use is mediated through approved capability boundaries only.
+# Impacted Files & Symbols
+
+- **Crate**: `veld`
+  - **Symbols**: wasm runtime host, policy gating, execution lifecycle
+- **Crate**: `vel-core`
+  - **Symbols**: host ABI contracts, capability request/denial records
+- **Crate**: `vel-api-types`
+  - **Symbols**: operator-facing sandbox run/diagnostic DTOs
+- **Docs**: architecture and operator guidance for sandbox policy and limits
+
+# Technical Requirements
+
+- **Sandbox Runtime**: execute untrusted logic inside constrained WASM host.
+- **Host ABI**: only explicit ABI calls are available; undefined calls fail closed.
+- **Capability Mediation**: all external side effects go through brokered scope checks.
+- **No Self-Escalation**: modules cannot widen permissions after launch.
+- **Traceability**: ABI calls, denials, and terminal states emit trace-linked records.
+
+# Cross-Cutting Trait Impact
+
+- **Modularity**: required — isolate sandbox/runtime seam from core authority logic.
+- **Accessibility**: affected — denial and failure reasons must be operator-readable.
+- **Configurability**: required — policy scopes/timeouts/resource limits are explicit.
+- **Data Logging**: required — sandbox calls and policy outcomes are inspectable.
+- **Rewind/Replay**: affected — sandbox workflows should be reproducible for diagnostics.
+- **Composability**: required — sandboxed agents must compose with connect/broker contracts.
+
+# Implementation Steps (The How)
+
+1. **Host ABI design**: finalize callable surface and deny-by-default behavior.
+2. **Runtime integration**: embed WASM runtime with strict resource/policy limits.
+3. **Capability wiring**: route side effects through broker mediation.
+4. **Inspection tooling**: expose sandbox lifecycle/denial traces to operators.
+
+# Acceptance Criteria
+
+1. [ ] Sandboxed agents run without direct host filesystem/network authority.
+2. [ ] Host ABI mediates all data/action requests with explicit policy checks.
+3. [ ] Capability denials and outcomes are traceable and inspectable.
+4. [ ] Secret material remains mediated and never leaked to sandbox payloads.
+
+# Verification & Regression
+
+- **Unit Test**: ABI allow/deny semantics and policy matching.
+- **Integration Test**: sandboxed agent run with approved and denied operations.
+- **Smoke Check**: run a sample sandbox module through operator flow.
+- **Invariants**: no sandbox path bypasses capability broker checks.

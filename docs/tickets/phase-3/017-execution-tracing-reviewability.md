@@ -1,6 +1,6 @@
 ---
 title: Execution Tracing, Handoff Telemetry & Reviewability
-status: planned
+status: in-progress
 owner: staff-eng
 type: verification
 priority: high
@@ -20,52 +20,70 @@ labels:
 
 # Context & Objectives
 
-Vel already values inspectability, but the queue does not yet include a dedicated tracing and handoff reviewability ticket for agentic execution.
+Vel already has durable run IDs, run events, and operator run inspection surfaces. Remaining work is to elevate this into full trace/handoff reviewability for multi-step and delegated workflows.
 
-This ticket makes run IDs, handoff telemetry, external-call attribution, and operator inspection first-class so the system can explain what happened across multi-step workflows.
+This ticket closes that gap by introducing trace linkage, handoff envelopes, and external-call attribution while preserving existing run-event coverage.
+
+# Current Baseline (Already Present)
+
+- run records and run events persist in storage
+- run inspection exists in API and CLI (`/v1/runs`, `vel run inspect`)
+- retry/requeue lifecycle events are already emitted and test-covered
+
+# Remaining Work Focus
+
+- add explicit `trace_id` and parent-child linkage semantics
+- persist/inspect structured handoff envelopes
+- attribute external calls and capability denials to trace/run boundaries
+- provide operator-readable trace views (CLI/web/API)
 
 # Impacted Files & Symbols
 
-- **Crate**: `veld`
-  - **Symbols**: run events, connect lifecycle, external-call boundaries, handoff logging
 - **Crate**: `vel-core`
-  - **Symbols**: trace or handoff envelope types
-- **Docs**: `docs/cognitive-agent-architecture/agents/handoffs.md`
-  - **Symbols**: handoff envelope, trace linkage
-- **Docs**: `docs/api/runtime.md`
-  - **Symbols**: inspect surfaces for runs and traces
+  - **Symbols**: trace/handoff envelope types and identifiers
+- **Crate**: `vel-storage`
+  - **Symbols**: trace/handoff persistence models and queries
+- **Crate**: `veld`
+  - **Symbols**: boundary instrumentation (connect, tools, external calls)
+- **Crate**: `vel-cli` and `clients/web`
+  - **Symbols**: trace inspection surfaces
+- **Docs**: `docs/cognitive-agent-architecture/agents/handoffs.md`, `docs/api/runtime.md`
+  - **Symbols**: handoff envelope and inspect-path contracts
 
 # Technical Requirements
 
-- **Stable Identifiers**: Introduce or standardize `run_id`, `trace_id`, and child step/span identifiers for agentic workflows.
-- **Handoff Telemetry**: Log handoffs with objective, constraints, output schema, and capability scope.
-- **Boundary Events**: Emit structured records for external calls, capability denials, workflow transitions, and terminal outcomes.
-- **Inspection Surface**: Provide an operator-readable inspection path through CLI, web, or both.
-- **Verification Hooks**: Allow deterministic tests and eval harnesses to assert trace completeness.
+- **Stable Identifiers**: standardize run, trace, and parent/child step linkage.
+- **Handoff Records**: capture objective, constraints, capability scope, and expected output contract.
+- **Boundary Attribution**: emit structured records for external calls, denials, and terminal outcomes.
+- **Inspection Surfaces**: operators can inspect trace-linked workflows without raw log spelunking.
+- **Test Hooks**: deterministic tests can assert trace completeness and linkage.
 
-# Implementation Steps (The "How")
+# Cross-Cutting Trait Impact
 
-1. **Envelope Design**: Define the trace and handoff record shapes.
-2. **Instrumentation**: Add structured emission at major workflow boundaries.
-3. **Inspection Surface**: Expose trace-linked run inspection to operators.
-4. **Test Hooks**: Add assertions for trace presence and linkage in replay/eval flows.
+- **Modularity**: required — tracing schema should be shared across runtime boundaries.
+- **Accessibility**: affected — trace inspection must remain operator-readable.
+- **Configurability**: affected — trace retention/detail knobs should be explicit.
+- **Data Logging**: required — this is the primary observability ticket.
+- **Rewind/Replay**: required — trace records must support replay and reconstruction.
+- **Composability**: required — trace linkage should compose with eval and connect workflows.
+
+# Implementation Steps (The How)
+
+1. **Schema pass**: define trace/handoff envelope structures and IDs.
+2. **Persistence pass**: add storage/query support for trace-linked records.
+3. **Instrumentation pass**: emit structured boundary events in delegated flows.
+4. **Inspection pass**: expose trace views in operator API/CLI/web and tests.
 
 # Acceptance Criteria
 
-1. [ ] Agentic workflows produce stable run and trace identifiers.
-2. [ ] Handoffs record objective, scope, and expected output shape.
-3. [ ] External calls and capability denials are attributable to the initiating run or trace.
-4. [ ] Operators can inspect a completed workflow without reading raw source code or logs only.
+1. [ ] Trace-linked identifiers are present for multi-step/delegated workflows.
+2. [ ] Handoffs persist objective/scope/output-contract metadata.
+3. [ ] External calls and denials are attributable to originating run/trace.
+4. [ ] Operators can inspect workflow traces through supported surfaces.
 
 # Verification & Regression
 
-- **Unit Test**: envelope serialization and linkage logic
-- **Integration Test**: multi-step workflow with trace completeness assertions
-- **Smoke Check**: CLI or web inspection of one traced workflow
-- **Invariants**: no high-impact workflow completes without terminal state and boundary events
-
-# Agent Guardrails
-
-- **Trace Before Trust**: If an execution path cannot be inspected, do not treat it as production-ready.
-- **No Secret Leakage**: Traces must carry identifiers and metadata, not decrypted credentials.
-- **Structured Over Stringy**: Prefer typed envelopes over ad hoc log-string parsing.
+- **Unit Test**: trace ID/linkage and envelope serialization.
+- **Integration Test**: multi-step workflow with trace completeness assertions.
+- **Smoke Check**: inspect one traced workflow via API/CLI/web path.
+- **Invariants**: no high-impact delegated workflow completes without boundary events.

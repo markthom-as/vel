@@ -9,9 +9,9 @@
 | Phase | Status | Focus |
 | :--- | :--- | :--- |
 | **v0: MVP** | **[75% - BLOCKED]** | Local core functionality and reliable capture. |
-| **Phase 1** | **[PARTIAL]** | Monolith decomposition and structural foundations. |
+| **Phase 1** | **[COMPLETE]** | Monolith decomposition and structural foundations. |
 | **Phase 2** | **[PARTIAL]** | Distributed swarm, offline sync, and agent connect. |
-| **Phase 3** | **[PLANNED]** | Deterministic verification and reasoning evals. |
+| **Phase 3** | **[PARTIAL]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[PLANNED]** | Semantic memory, WASM sandboxing, and P2P sync. |
 
 ---
@@ -33,7 +33,10 @@
 ## Architecture Lock-In Queue (Execute First, Parallelizable)
 
 Before broad implementation expansion, run the architecture-first queue in `docs/tickets/architecture-first-parallel-queue.md`.
-Use `docs/tickets/phase-1/parallel-execution-board.md` for active parallel lane ownership and write-scope boundaries.
+Use the phase execution boards for current lane ownership and write-scope boundaries:
+- `docs/tickets/phase-2/parallel-execution-board.md`
+- `docs/tickets/phase-3/parallel-execution-board.md`
+- `docs/tickets/phase-4/parallel-execution-board.md`
 
 The minimum phase-1 architecture lock-in lane is:
 
@@ -52,7 +55,7 @@ Primary outcome:
 ---
 
 ## Phase 1: Structural Foundations & Monolith Decomposition
-**Current Status: [PARTIAL]**
+**Current Status: [COMPLETE]**
 
 ### 1.1 Storage Repository Pattern & Transaction Lifecycles **[COMPLETE]**
 *   *Ticket*: `001-storage-modularization.md`
@@ -78,13 +81,13 @@ Primary outcome:
 ### 1.8 Canonical Schemas, Config Contracts & Templates **[COMPLETE]**
 *   *Ticket*: `021-canonical-schema-and-config-contracts.md`
 
-### 1.9 Canonical Data Sources, Integrations & Connector Contracts **[PLANNED]**
+### 1.9 Canonical Data Sources, Integrations & Connector Contracts **[COMPLETE]**
 *   *Ticket*: `022-data-sources-and-connector-architecture.md`
 
-### 1.10 Self-Awareness, Repo Visibility & Supervised Self-Modification **[PLANNED]**
+### 1.10 Self-Awareness, Repo Visibility & Supervised Self-Modification **[COMPLETE]**
 *   *Ticket*: `023-self-awareness-and-supervised-self-modification.md`
 
-### 1.11 Machine-Readable Contract Manifest Publication **[PLANNED]**
+### 1.11 Machine-Readable Contract Manifest Publication **[COMPLETE]**
 *   *Ticket*: `024-machine-readable-schema-and-manifest-publication.md`
 
 ### 1.12 Config Template And Fixture Parity **[COMPLETE]**
@@ -99,28 +102,32 @@ Primary outcome:
 ## Phase 2: Distributed State, Offline Clients & System-of-Systems
 **Current Status: [PARTIAL]**
 
+Execution board: `docs/tickets/phase-2/parallel-execution-board.md`
+
 ### 2.1 Pluggable Signal Ingestion & Context Reducer Pipeline **[PLANNED]**
 *   *Ticket*: `004-signal-reducer-pipeline.md`
 
-### 2.2 Offline-First Apple Clients & HLC Synchronization **[PLANNED]**
+### 2.2 Sync Ordering & Conflict Resolution Baseline **[PLANNED]**
 *   *Ticket*: `005-hlc-sync-implementation.md`
 
 ### 2.3 Agent Connect Launch Protocol & Supervision **[PARTIAL]**
 *   *Ticket*: `006-connect-launch-protocol.md`
 
-### 2.4 Tester-Readiness Onboarding & Node Discovery **[PLANNED]**
+### 2.4 Tester-Readiness Onboarding & Node Discovery **[PARTIAL]**
 *   *Ticket*: `012-tester-readiness-onboarding.md`
 
 ### 2.5 Capability Broker & Secret Mediation **[PLANNED]**
 *   *Ticket*: `016-capability-broker-secret-mediation.md`
 
-### 2.6 Operator Surface Accessibility & Effective Config Clarity **[PLANNED]**
+### 2.6 Operator Surface Accessibility & Effective Config Clarity **[PARTIAL]**
 *   *Ticket*: `019-operator-accessibility-config-clarity.md`
 
 ---
 
 ## Phase 3: Deterministic Verification & Continuous Alignment
-**Current Status: [PLANNED]**
+**Current Status: [PARTIAL]**
+
+Execution board: `docs/tickets/phase-3/parallel-execution-board.md`
 
 ### 3.1 The Deterministic Replay Engine (Day-Simulation Harness) **[PLANNED]**
 *   *Ticket*: `007-day-simulation-harness.md`
@@ -128,16 +135,18 @@ Primary outcome:
 ### 3.2 LLM-as-a-Judge Evaluation Pipeline (Evals) **[PLANNED]**
 *   *Ticket*: `008-llm-eval-pipeline.md`
 
-### 3.3 Execution Tracing, Handoff Telemetry & Reviewability **[PLANNED]**
+### 3.3 Execution Tracing, Handoff Telemetry & Reviewability **[PARTIAL]**
 *   *Ticket*: `017-execution-tracing-reviewability.md`
 
-### 3.4 Comprehensive User Documentation & Support Wiki **[PLANNED]**
+### 3.4 Comprehensive User Documentation & Support Wiki **[PARTIAL]**
 *   *Ticket*: `013-user-documentation-architecture.md`
 
 ---
 
 ## Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution
 **Current Status: [PLANNED]**
+
+Execution board: `docs/tickets/phase-4/parallel-execution-board.md`
 
 ### 4.1 Semantic Memory & Graph RAG **[PLANNED]**
 *   *Ticket*: `009-semantic-memory-rag.md`

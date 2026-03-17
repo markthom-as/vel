@@ -1,6 +1,6 @@
 ---
 title: Operator Surface Accessibility & Effective Config Clarity
-status: planned
+status: in-progress
 owner: staff-eng
 type: architecture
 priority: medium
@@ -8,7 +8,6 @@ created: 2026-03-17
 updated: 2026-03-17
 depends_on:
   - 018-cross-cutting-system-traits-baseline
-  - 012-tester-readiness-onboarding
 labels:
   - clients
   - web
@@ -21,59 +20,66 @@ labels:
 
 # Context & Objectives
 
-Vel has operator surfaces across web, Apple clients, CLI, and docs, but the queue does not yet treat accessibility and effective configuration clarity as one coherent cross-surface architecture concern.
+Operator clarity and accessibility work already exists across web, CLI, Apple, and docs, but the remaining gaps are not explicitly tracked as closure work.
 
-This ticket establishes a baseline for accessible operator flows and inspectable configuration across all primary surfaces.
+This ticket is narrowed to close those remaining gaps and align language/config diagnostics across surfaces.
+
+# Current Baseline (Already Present)
+
+- Web exposes freshness/degraded state and recovery affordances.
+- CLI provides readable config and cluster summary outputs.
+- Apple client surfaces endpoint resolution and offline queue state.
+
+# Remaining Work Focus
+
+- Align terminology across surfaces for freshness, denial, degraded mode, and recovery.
+- Close accessibility gaps in high-friction journeys.
+- Ensure effective config values are discoverable from the surface where issues appear.
 
 # Impacted Files & Symbols
 
 - **Directory**: `clients/web/src/`
-  - **Symbols**: navigation, settings, context, onboarding, diagnostics
+  - **Symbols**: settings, diagnostics, context state messaging
 - **Directory**: `clients/apple/`
-  - **Symbols**: primary capture, settings, diagnostics, documentation views
+  - **Symbols**: settings/diagnostics labels and recovery hints
 - **Crate**: `vel-cli`
-  - **Symbols**: `config show`, diagnostics, node/link commands
+  - **Symbols**: config and diagnostics command output text
 - **Docs**: `docs/user/`
-  - **Symbols**: setup, troubleshooting, surfaces
+  - **Symbols**: setup/troubleshooting wording and config guidance
 
 # Technical Requirements
 
-- **Accessibility Baseline**: Critical operator paths should support semantic labels, keyboard-first use where applicable, readable status messaging, and platform accessibility affordances.
-- **Config Visibility**: Users should be able to inspect effective configuration and important defaults without reading source code.
-- **Cross-Surface Consistency**: Web, Apple, CLI, and docs should use compatible language for source state, sync freshness, denial states, and degraded modes.
-- **Diagnostics Reachability**: Configuration and recovery paths should be discoverable from the surface where the problem appears.
+- **Accessibility Baseline**: critical operator flows support keyboard/readability/platform accessibility affordances.
+- **Config Visibility**: effective values and defaults are inspectable without source diving.
+- **Terminology Consistency**: same state words across web, Apple, CLI, and docs.
+- **Reachable Recovery**: each surface exposes next-step recovery from where failure appears.
 
 # Cross-Cutting Trait Impact
-- **Modularity**: affected — surface-specific accessibility fixes should sit on top of shared contracts, not introduce policy forks.
-- **Accessibility**: required — this is the primary trait under work.
-- **Configurability**: required — effective config and defaults must be inspectable.
-- **Data Logging**: affected — diagnostics and state messaging should connect to actual logs or inspect surfaces.
-- **Rewind/Replay**: affected — queued-action and retry flows should explain replay behavior clearly.
-- **Composability**: affected — docs, CLI, web, and Apple surfaces should reuse shared terminology and contracts.
 
-# Implementation Steps (The "How")
+- **Modularity**: affected — UI labels should depend on shared contracts/state meaning.
+- **Accessibility**: required — primary trait under work.
+- **Configurability**: required — effective config visibility is a core output.
+- **Data Logging**: affected — diagnostics text should map to inspectable state.
+- **Rewind/Replay**: affected — queued/retry messaging should describe replay behavior consistently.
+- **Composability**: required — language and diagnostics model shared across surfaces.
 
-1. **Audit**: Identify critical operator journeys across web, Apple, CLI, and docs.
-2. **Config Mapping**: Define the set of config and status values users must be able to inspect.
-3. **Surface Fixes**: Patch the highest-value accessibility and config-visibility gaps.
-4. **Terminology Alignment**: Normalize wording for settings, freshness, denial, and degraded states across surfaces.
+# Implementation Steps (The How)
+
+1. **Gap audit**: list remaining accessibility/config-clarity deltas by surface.
+2. **Terminology map**: define canonical wording table for key runtime states.
+3. **Patch pass**: fix highest-value deltas in web/CLI/Apple/docs.
+4. **Regression checks**: run focused surface tests and docs consistency checks.
 
 # Acceptance Criteria
 
-1. [ ] Critical operator flows have an explicit accessibility baseline across the relevant surfaces.
-2. [ ] Effective configuration is inspectable from at least one primary operator surface and documented for the others.
-3. [ ] Settings, diagnostics, and degraded-mode messaging use consistent terminology across web, Apple, CLI, and docs.
-4. [ ] Recovery paths for configuration issues are reachable from the surface that exposed the issue.
+1. [ ] Critical operator journeys meet baseline accessibility checks.
+2. [ ] Effective configuration is visible on at least one direct operator surface per journey.
+3. [ ] Runtime state terminology is consistent across web, Apple, CLI, and docs.
+4. [ ] Recovery guidance is reachable from the failure surface.
 
 # Verification & Regression
 
-- **Web Check**: keyboard and semantic-label smoke checks on the highest-value web flows
-- **Apple Check**: platform accessibility review of primary capture/settings/diagnostics paths
-- **CLI Check**: operator commands remain readable and structured where appropriate
-- **Doc Check**: user docs explain the same effective-config and recovery model shown in product surfaces
-
-# Agent Guardrails
-
-- **No Accessibility Theater**: Do not equate visible polish with accessibility.
-- **No Config Hide-and-Seek**: Do not bury effective settings behind dev-only commands unless that limitation is documented and intentional.
-- **No Surface Drift**: Avoid inventing different words for the same state across clients and docs.
+- **Web Check**: focused keyboard/label tests in settings and diagnostics paths.
+- **Apple Check**: platform accessibility review for settings/diagnostics.
+- **CLI Check**: config/diagnostic command outputs stay readable and structured.
+- **Doc Check**: user docs match shipped terminology and recovery paths.

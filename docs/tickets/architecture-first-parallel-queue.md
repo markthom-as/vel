@@ -2,7 +2,10 @@
 
 This file is the canonical sequencing guide for architecture, documentation, schema, and contract work that should happen before broad implementation expansion.
 
-For current lane ownership and write-scope boundaries while executing this queue, see `phase-1/parallel-execution-board.md`.
+For current lane ownership and write-scope boundaries while executing this queue, see:
+- `phase-2/parallel-execution-board.md`
+- `phase-3/parallel-execution-board.md`
+- `phase-4/parallel-execution-board.md`
 
 Use this queue when a task spans multiple layers or when the repo needs clearer contracts before code should spread further.
 
@@ -80,6 +83,18 @@ These can run in parallel after the earlier waves have produced stable boundarie
 Primary outcome:
 
 - trustworthy verification, replay, and evaluation for the resulting system
+
+## Wave 5: Autonomous Runtime Boundaries
+
+These can run in parallel after earlier-wave verification and capability boundaries are stable:
+
+- [009-semantic-memory-rag.md](phase-4/009-semantic-memory-rag.md)
+- [010-wasm-agent-sandboxing.md](phase-4/010-wasm-agent-sandboxing.md)
+- [014-swarm-execution-sdk.md](phase-4/014-swarm-execution-sdk.md)
+
+Primary outcome:
+
+- semantic memory, sandboxed delegated execution, and external SDK contracts built on explicit mediation and traceability boundaries
 
 ## Gating Questions
 

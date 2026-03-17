@@ -14,23 +14,60 @@ labels:
   - veld
   - agentic
   - connect
+  - phase-2
 ---
 
-Formalize the `Connect` RPC protocol to allow the Authority Node to launch, monitor, and supervise external agent runtimes across the cluster.
+# Context & Objectives
 
-## Technical Details
-- **RPC Protocol**: Define a `ConnectMessage` enum for `LaunchRequest`, `Heartbeat`, `StatusUpdate`, and `KillRequest`.
-- **Lease System**: Implement a lease-based token system where launched agents must check-in via heartbeat to maintain their execution lease.
-- **Worker Discovery**: Update `client_sync` to match `LaunchRequests` with nodes advertising the relevant `agent_runtime:*` capability.
-- **Capability Scopes**: Launch requests must include explicit tool or capability allowlists, not ambient authority.
-- **No Self-Escalation**: Launched agents must not be able to widen their own permissions through the protocol.
-- **Trace Linkage**: Connect workflows must emit stable run or trace identifiers for launch, handoff, heartbeat, denial, and termination events.
-- **Execution Isolation**: External runtimes should execute in dedicated sandboxes or isolated runtime envelopes where possible.
-- **Termination**: Implement graceful and forced termination logic for runaway processes.
+Connect runtime foundations exist (types and worker routing primitives), but runtime routes remain deny-by-default and end-to-end launch supervision is not shipped.
 
-## Acceptance Criteria
-- Authority node can launch an external process (e.g., a local LLM or coding agent) on a worker node.
-- Agents are terminated if they fail to provide heartbeats.
-- Every launched process is tracked with a `RunRecord` in the database.
-- Agents launch with explicit scoped capabilities rather than implicit full access.
-- Basic launch-and-kill integration tests pass.
+This ticket ships Connect in supervised slices with explicit capability scopes, denial paths, and traceability.
+
+# Impacted Files & Symbols
+
+- **File**: `crates/veld/src/app.rs`
+  - **Symbols**: connect route registration and auth policy
+- **Directory**: `crates/veld/src/routes/`
+  - **Symbols**: connect route handlers
+- **File**: `crates/veld/src/services/client_sync.rs`
+  - **Symbols**: placement/capability routing for launch targets
+- **Crate**: `vel-api-types`
+  - **Symbols**: connect transport DTOs
+
+# Technical Requirements
+
+- **Protocol Messages**: support launch, heartbeat, status update, and termination semantics.
+- **Lease Supervision**: launched runtimes require heartbeat to keep execution lease.
+- **Scoped Capabilities**: launch requests use explicit allowlists; no ambient full authority.
+- **Trace Linkage**: launch/heartbeat/denial/termination emit stable run or trace IDs.
+- **Isolation**: delegated execution runs in sandboxed or isolated worker envelopes where available.
+
+# Cross-Cutting Trait Impact
+
+- **Modularity**: required — route handlers thin, service logic centralized.
+- **Accessibility**: affected — operator surfaces need readable connect state.
+- **Configurability**: required — capability scopes and connect policy must be inspectable.
+- **Data Logging**: required — lifecycle event trail is mandatory.
+- **Rewind/Replay**: affected — run history should reconstruct launch outcomes.
+- **Composability**: required — connect should compose with capability broker ticket (`016`).
+
+# Implementation Steps (The How)
+
+1. **MVP route activation**: replace blanket `403` reservation with authenticated connect endpoints.
+2. **Lifecycle plumbing**: implement launch/heartbeat/terminate flow with lease expiry.
+3. **Capability enforcement**: enforce scoped launch allowlists and denial records.
+4. **Operator visibility**: expose connect status in inspectable API/CLI outputs.
+
+# Acceptance Criteria
+
+1. [ ] Authority can launch and supervise delegated runtime instances through authenticated connect routes.
+2. [ ] Missing heartbeat causes lease expiry and terminal run state.
+3. [ ] Launches enforce explicit scoped capabilities and reject out-of-scope requests.
+4. [ ] Connect lifecycle transitions are persisted and traceable.
+
+# Verification & Regression
+
+- **Unit Test**: lease and capability-denial logic.
+- **Integration Test**: launch, heartbeat, expiry, and termination flow.
+- **Smoke Check**: CLI connect commands against local daemon.
+- **Invariants**: no delegated runtime can self-escalate permissions.

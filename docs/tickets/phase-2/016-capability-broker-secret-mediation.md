@@ -21,52 +21,55 @@ labels:
 
 # Context & Objectives
 
-Vel is moving toward delegated workers, external runtimes, and broader integration support. The queue currently lacks a first-class ticket for secret mediation and scoped capability access.
+Vel already separates public integration settings from secret values in core integration flows, but delegated runtime execution still lacks a first-class broker boundary for scoped external actions.
 
-This ticket introduces a capability broker model so agents and worker runtimes can perform useful external actions without receiving prompt-visible raw credentials or ambient network authority.
+This ticket introduces that broker boundary so agent requests are mediated by explicit capability scope checks and point-of-use secret injection.
 
 # Impacted Files & Symbols
 
 - **Directory**: `crates/veld/src/services/`
-  - **Symbols**: integration services, connect services, future broker services
+  - **Symbols**: broker service, integration execution mediation
 - **Directory**: `crates/veld/src/routes/`
-  - **Symbols**: future capability or connect endpoints
+  - **Symbols**: capability/connect request entrypoints
 - **Crate**: `vel-core`
-  - **Symbols**: capability descriptors, scoped grants, deny records
+  - **Symbols**: capability descriptors, grants, denials
 - **Docs**: `docs/cognitive-agent-architecture/agents/tool-access.md`
-  - **Symbols**: capability boundary rules
+  - **Symbols**: capability boundary policy language
 
 # Technical Requirements
 
-- **Brokered Access**: Prefer brokered actions, scoped tokens, or point-of-use injection over handing raw provider secrets to agents.
-- **Scope Model**: Capabilities must be scoped by tool, action, host, path, or resource where possible.
-- **Fail Closed**: Unknown or unmatched external-access requests must reject safely.
-- **Secret Hygiene**: Decrypt secrets only at the narrowest point of use; never log or return decrypted values.
-- **Auditability**: Capability grants, denials, and executions should produce run events or equivalent traces.
+- **Brokered Access**: execute through brokered capabilities instead of raw provider credentials in prompts.
+- **Scope Model**: support scope at tool/action/resource boundary (host/path or equivalent).
+- **Fail Closed**: unmatched external requests deny by default.
+- **Secret Hygiene**: decrypt only at point-of-use and never log decrypted values.
+- **Auditability**: grants/denials/executions emit traceable run events.
 
-# Implementation Steps (The "How")
+# Cross-Cutting Trait Impact
 
-1. **Capability Model**: Define capability descriptors and scope semantics.
-2. **Broker Layer**: Introduce a mediation service between agent intent and external execution.
-3. **Secret Boundary**: Move secret resolution and point-of-use injection behind the broker boundary.
-4. **Tracing**: Emit grant, denial, and execution events with stable IDs.
+- **Modularity**: required — mediation boundary isolates policy from route handlers.
+- **Accessibility**: affected — denial reasons should be operator-readable.
+- **Configurability**: required — capability policy must be inspectable.
+- **Data Logging**: required — denial/grant traces are mandatory.
+- **Rewind/Replay**: affected — capability decisions should be reconstructable.
+- **Composability**: required — broker composes with connect launch supervision.
+
+# Implementation Steps (The How)
+
+1. **Capability model**: define descriptors and matcher semantics.
+2. **Broker service**: implement mediation layer between intent and execution.
+3. **Secret boundary**: resolve and inject secrets only inside broker execution path.
+4. **Trace emission**: persist grant/deny/execution events with stable IDs.
 
 # Acceptance Criteria
 
-1. [ ] Delegated agents can perform approved external actions without receiving raw provider credentials.
-2. [ ] Capability checks can scope access by at least host/path or equivalent resource boundary.
-3. [ ] Rejected external requests fail closed and leave an inspectable denial record.
-4. [ ] No raw decrypted secret appears in prompts, traces, logs, or returned payloads.
+1. [ ] Delegated runtimes can perform approved actions without receiving raw provider credentials.
+2. [ ] Capability checks enforce scoped access and deny out-of-scope requests.
+3. [ ] Denials are fail-closed and inspectable.
+4. [ ] No decrypted secret appears in prompts, traces, logs, or response DTOs.
 
 # Verification & Regression
 
-- **Unit Test**: capability matching and denial cases
-- **Integration Test**: approved action, denied action, and secret-leak regression cases
-- **Smoke Check**: manual execution through a delegated path using a scoped capability
-- **Invariants**: agents never receive provider master credentials as ordinary payload data
-
-# Agent Guardrails
-
-- **No Secret Shortcuts**: Do not move secrets into prompts, fixtures, or client-visible DTOs.
-- **Scoped First**: Prefer the narrowest practical capability scope.
-- **Honest Failure**: If a request is out of scope, deny it clearly rather than degrading into a broad allow.
+- **Unit Test**: scope matching and denial cases.
+- **Integration Test**: approved path, denied path, and secret-leak regression cases.
+- **Smoke Check**: delegated action through scoped broker capability.
+- **Invariants**: provider master credentials never leave broker-only execution path.
