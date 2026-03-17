@@ -64,7 +64,10 @@ fn registered_loops_with_policy(
         .sync_activity_loop()
         .cloned()
         .unwrap_or_default();
-    let sync_health_loop = policy_config.sync_health_loop().cloned().unwrap_or_default();
+    let sync_health_loop = policy_config
+        .sync_health_loop()
+        .cloned()
+        .unwrap_or_default();
     let sync_git_loop = policy_config.sync_git_loop().cloned().unwrap_or_default();
     let sync_messaging_loop = policy_config
         .sync_messaging_loop()

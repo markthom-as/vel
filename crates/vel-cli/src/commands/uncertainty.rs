@@ -76,6 +76,9 @@ pub async fn run_resolve(client: &ApiClient, id: &str) -> anyhow::Result<()> {
         .data
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("no data"))?;
-    println!("Resolved uncertainty {} (status: {})", record.id, record.status);
+    println!(
+        "Resolved uncertainty {} (status: {})",
+        record.id, record.status
+    );
     Ok(())
 }

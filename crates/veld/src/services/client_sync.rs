@@ -10,13 +10,12 @@ use vel_api_types::{
     BranchSyncCapabilityData, BranchSyncRequestData, ClientActionBatchRequest,
     ClientActionBatchResultData, ClientActionData, ClientActionKind, ClientActionResultData,
     ClusterBootstrapData, ClusterNodeStateData, ClusterWorkerStateData, CommitmentCreateRequest,
-    CommitmentData, CurrentContextData, NudgeData, QueuedWorkItemData,
-    QueuedWorkRoutingData, QueuedWorkRoutingKindData, SyncBootstrapData, SyncClusterStateData,
-    SyncHeartbeatRequestData, SyncHeartbeatResponseData, ValidationProfileData,
-    ValidationRequestData, WorkAssignmentClaimNextRequestData,
-    WorkAssignmentClaimNextResponseData, WorkAssignmentClaimRequestData,
-    WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData, WorkAssignmentStatusData,
-    WorkAssignmentUpdateRequest,
+    CommitmentData, CurrentContextData, NudgeData, QueuedWorkItemData, QueuedWorkRoutingData,
+    QueuedWorkRoutingKindData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
+    SyncHeartbeatResponseData, ValidationProfileData, ValidationRequestData,
+    WorkAssignmentClaimNextRequestData, WorkAssignmentClaimNextResponseData,
+    WorkAssignmentClaimRequestData, WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData,
+    WorkAssignmentStatusData, WorkAssignmentUpdateRequest,
 };
 use vel_core::{CommitmentStatus, PrivacyClass};
 use vel_storage::{
@@ -618,7 +617,10 @@ pub async fn claim_next_work_for_worker(
     .await?;
 
     Ok(WorkAssignmentClaimNextResponseData {
-        claim: Some(WorkAssignmentClaimedWorkData { queue_item, receipt }),
+        claim: Some(WorkAssignmentClaimedWorkData {
+            queue_item,
+            receipt,
+        }),
     })
 }
 
@@ -1006,14 +1008,16 @@ fn evaluate_queue_schedule(history: &[WorkAssignmentRecord], now: i64) -> WorkQu
                 next_retry_at: Some(next_retry_at),
             }
         }
-        WorkAssignmentStatus::Completed | WorkAssignmentStatus::Cancelled => WorkQueueScheduleState {
-            include_in_queue: false,
-            is_stale: false,
-            attempt_count,
-            claimable_now: false,
-            claim_reason: None,
-            next_retry_at: None,
-        },
+        WorkAssignmentStatus::Completed | WorkAssignmentStatus::Cancelled => {
+            WorkQueueScheduleState {
+                include_in_queue: false,
+                is_stale: false,
+                attempt_count,
+                claimable_now: false,
+                claim_reason: None,
+                next_retry_at: None,
+            }
+        }
     }
 }
 

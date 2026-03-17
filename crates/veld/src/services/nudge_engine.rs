@@ -396,7 +396,9 @@ pub async fn evaluate(
         .iter()
         .any(|n| suppresses_new_nudge(n, "meeting_prep_window", now_ts));
     if prep_window_active {
-        let meeting_risk_high = risk_snapshots.iter().any(|snapshot| snapshot.is_high_or_worse());
+        let meeting_risk_high = risk_snapshots
+            .iter()
+            .any(|snapshot| snapshot.is_high_or_worse());
         let prep_level = if meeting_risk_high {
             "warning"
         } else {

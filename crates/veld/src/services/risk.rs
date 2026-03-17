@@ -4,7 +4,9 @@
 //! **Boundary: recompute-and-persist.** [run] must only be called from the evaluate orchestration.
 //! Read routes (GET /v1/risk, GET /v1/explain/*) use storage only (list_commitment_risk_*).
 
-use vel_core::{sort_snapshots_by_priority_desc, Commitment, CommitmentStatus, RiskFactors, RiskSnapshot};
+use vel_core::{
+    sort_snapshots_by_priority_desc, Commitment, CommitmentStatus, RiskFactors, RiskSnapshot,
+};
 use vel_storage::Storage;
 
 /// Weights for risk score (consequence, proximity, dependency_pressure only).
