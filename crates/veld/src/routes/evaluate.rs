@@ -10,8 +10,7 @@ use vel_api_types::{ApiResponse, EvaluateResultData};
 pub async fn run_evaluate(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<EvaluateResultData>>, AppError> {
-    let result = evaluate::run(&state.storage, &state.policy_config).await?;
-    evaluate::broadcast_context_updated(&state).await?;
+    let result = evaluate::run_and_broadcast(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         EvaluateResultData {

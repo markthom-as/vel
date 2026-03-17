@@ -12,7 +12,7 @@ use vel_config::AppConfig;
 use vel_core::{Commitment, CommitmentStatus};
 use vel_storage::{CommitmentInsert, SignalInsert, Storage};
 
-use crate::errors::AppError;
+use crate::{adapters, errors::AppError};
 
 const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
 const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
@@ -156,6 +156,54 @@ fn canonical_integration_id(integration_id: &str) -> Option<&'static str> {
         "notes" => Some("notes"),
         "transcripts" => Some("transcripts"),
         _ => None,
+    }
+}
+
+pub async fn run_calendar_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    match sync_google_calendar(storage, config).await {
+        Ok(Some(count)) => Ok(count),
+        Ok(None) => adapters::calendar::ingest(storage, config).await,
+        Err(error) => {
+            let _ = record_sync_error(storage, "google_calendar", &error.to_string()).await;
+            Err(error)
+        }
+    }
+}
+
+pub async fn run_todoist_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    match sync_todoist(storage).await {
+        Ok(Some(count)) => Ok(count),
+        Ok(None) => adapters::todoist::ingest(storage, config).await,
+        Err(error) => {
+            let _ = record_sync_error(storage, "todoist", &error.to_string()).await;
+            Err(error)
+        }
+    }
+}
+
+pub async fn run_activity_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    match adapters::activity::ingest(storage, config).await {
+        Ok(count) => {
+            let _ = record_sync_success(storage, "activity", count).await;
+            Ok(count)
+        }
+        Err(error) => {
+            let _ = record_sync_error(storage, "activity", &error.to_string()).await;
+            Err(error)
+        }
+    }
+}
+
+pub async fn run_messaging_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
+    match adapters::messaging::ingest(storage, config).await {
+        Ok(count) => {
+            let _ = record_sync_success(storage, "messaging", count).await;
+            Ok(count)
+        }
+        Err(error) => {
+            let _ = record_sync_error(storage, "messaging", &error.to_string()).await;
+            Err(error)
+        }
     }
 }
 

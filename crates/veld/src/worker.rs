@@ -52,6 +52,22 @@ fn registered_loops_with_policy(
         .evaluate_current_state_loop()
         .cloned()
         .unwrap_or_default();
+    let sync_calendar_loop = policy_config
+        .sync_calendar_loop()
+        .cloned()
+        .unwrap_or_default();
+    let sync_todoist_loop = policy_config
+        .sync_todoist_loop()
+        .cloned()
+        .unwrap_or_default();
+    let sync_activity_loop = policy_config
+        .sync_activity_loop()
+        .cloned()
+        .unwrap_or_default();
+    let sync_messaging_loop = policy_config
+        .sync_messaging_loop()
+        .cloned()
+        .unwrap_or_default();
 
     vec![
         LoopDefinition {
@@ -71,6 +87,30 @@ fn registered_loops_with_policy(
             interval: Duration::from_secs(evaluate_loop.interval_seconds),
             enabled: evaluate_loop.enabled,
             runner: run_evaluate_current_state_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::SyncCalendar,
+            interval: Duration::from_secs(sync_calendar_loop.interval_seconds),
+            enabled: sync_calendar_loop.enabled,
+            runner: run_sync_calendar_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::SyncTodoist,
+            interval: Duration::from_secs(sync_todoist_loop.interval_seconds),
+            enabled: sync_todoist_loop.enabled,
+            runner: run_sync_todoist_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::SyncActivity,
+            interval: Duration::from_secs(sync_activity_loop.interval_seconds),
+            enabled: sync_activity_loop.enabled,
+            runner: run_sync_activity_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::SyncMessaging,
+            interval: Duration::from_secs(sync_messaging_loop.interval_seconds),
+            enabled: sync_messaging_loop.enabled,
+            runner: run_sync_messaging_loop_once,
         },
     ]
 }
@@ -170,8 +210,60 @@ fn run_retry_due_runs_loop_once(state: &AppState) -> LoopFuture<'_> {
 
 fn run_evaluate_current_state_loop_once(state: &AppState) -> LoopFuture<'_> {
     Box::pin(async move {
-        crate::services::evaluate::run(&state.storage, &state.policy_config).await?;
-        crate::services::evaluate::broadcast_context_updated(state).await?;
+        crate::services::evaluate::run_and_broadcast(state).await?;
+        Ok(())
+    })
+}
+
+fn run_sync_calendar_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let count =
+            crate::services::integrations::run_calendar_sync(&state.storage, &state.config).await?;
+        if count > 0 {
+            if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
+                warn!(error = %error, "evaluate after calendar sync loop failed");
+            }
+        }
+        Ok(())
+    })
+}
+
+fn run_sync_todoist_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let count =
+            crate::services::integrations::run_todoist_sync(&state.storage, &state.config).await?;
+        if count > 0 {
+            if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
+                warn!(error = %error, "evaluate after todoist sync loop failed");
+            }
+        }
+        Ok(())
+    })
+}
+
+fn run_sync_activity_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let count =
+            crate::services::integrations::run_activity_sync(&state.storage, &state.config).await?;
+        if count > 0 {
+            if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
+                warn!(error = %error, "evaluate after activity sync loop failed");
+            }
+        }
+        Ok(())
+    })
+}
+
+fn run_sync_messaging_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let count =
+            crate::services::integrations::run_messaging_sync(&state.storage, &state.config)
+                .await?;
+        if count > 0 {
+            if let Err(error) = crate::services::evaluate::run_and_broadcast(state).await {
+                warn!(error = %error, "evaluate after messaging sync loop failed");
+            }
+        }
         Ok(())
     })
 }
@@ -287,11 +379,21 @@ mod tests {
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
         let loops = registered_loops_with_policy(&crate::policy_config::PolicyConfig::default());
-        assert_eq!(loops.len(), 3);
+        assert_eq!(loops.len(), 7);
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
         assert_eq!(loops[2].kind, LoopKind::EvaluateCurrentState);
-        assert!(loops.iter().all(|loop_definition| loop_definition.enabled));
+        assert_eq!(loops[3].kind, LoopKind::SyncCalendar);
+        assert_eq!(loops[4].kind, LoopKind::SyncTodoist);
+        assert_eq!(loops[5].kind, LoopKind::SyncActivity);
+        assert_eq!(loops[6].kind, LoopKind::SyncMessaging);
+        assert!(loops[0].enabled);
+        assert!(loops[1].enabled);
+        assert!(loops[2].enabled);
+        assert!(loops[3].enabled);
+        assert!(loops[4].enabled);
+        assert!(!loops[5].enabled);
+        assert!(loops[6].enabled);
     }
 
     #[tokio::test]
@@ -312,7 +414,7 @@ mod tests {
         poll_once(&state).await.unwrap();
 
         let loops = storage.list_runtime_loops().await.unwrap();
-        assert_eq!(loops.len(), 3);
+        assert_eq!(loops.len(), 6);
         assert!(loops
             .iter()
             .all(|loop_record| loop_record.last_started_at.is_some()));
@@ -328,6 +430,15 @@ mod tests {
         assert!(loops
             .iter()
             .any(|loop_record| loop_record.loop_kind == "evaluate_current_state"));
+        assert!(loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "sync_calendar"));
+        assert!(loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "sync_todoist"));
+        assert!(loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "sync_messaging"));
     }
 
     #[tokio::test]

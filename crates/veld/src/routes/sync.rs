@@ -6,32 +6,18 @@ use vel_api_types::{ApiResponse, SyncResultData};
 use crate::{adapters, errors::AppError, services, state::AppState};
 
 async fn evaluate_and_broadcast_context(state: &AppState) {
-    if services::evaluate::run(&state.storage, &state.policy_config)
-        .await
-        .is_ok()
-    {
-        let _ = crate::routes::evaluate::broadcast_context_updated(state).await;
+    if services::evaluate::run_and_broadcast(state).await.is_err() {
+        tracing::warn!("evaluate after sync failed");
     }
 }
 
 pub async fn sync_calendar(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count =
-        match services::integrations::sync_google_calendar(&state.storage, &state.config).await {
-            Ok(Some(count)) => count,
-            Ok(None) => adapters::calendar::ingest(&state.storage, &state.config).await?,
-            Err(error) => {
-                let _ = services::integrations::record_sync_error(
-                    &state.storage,
-                    "google_calendar",
-                    &error.to_string(),
-                )
-                .await;
-                return Err(error);
-            }
-        };
-    evaluate_and_broadcast_context(&state).await;
+    let count = services::integrations::run_calendar_sync(&state.storage, &state.config).await?;
+    if count > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -45,20 +31,10 @@ pub async fn sync_calendar(
 pub async fn sync_todoist(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = match services::integrations::sync_todoist(&state.storage).await {
-        Ok(Some(count)) => count,
-        Ok(None) => adapters::todoist::ingest(&state.storage, &state.config).await?,
-        Err(error) => {
-            let _ = services::integrations::record_sync_error(
-                &state.storage,
-                "todoist",
-                &error.to_string(),
-            )
-            .await;
-            return Err(error);
-        }
-    };
-    evaluate_and_broadcast_context(&state).await;
+    let count = services::integrations::run_todoist_sync(&state.storage, &state.config).await?;
+    if count > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -72,20 +48,10 @@ pub async fn sync_todoist(
 pub async fn sync_activity(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = match adapters::activity::ingest(&state.storage, &state.config).await {
-        Ok(count) => count,
-        Err(error) => {
-            let _ = services::integrations::record_sync_error(
-                &state.storage,
-                "activity",
-                &error.to_string(),
-            )
-            .await;
-            return Err(error);
-        }
-    };
-    let _ = services::integrations::record_sync_success(&state.storage, "activity", count).await;
-    evaluate_and_broadcast_context(&state).await;
+    let count = services::integrations::run_activity_sync(&state.storage, &state.config).await?;
+    if count > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -126,20 +92,10 @@ pub async fn sync_git(
 pub async fn sync_messaging(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = match adapters::messaging::ingest(&state.storage, &state.config).await {
-        Ok(count) => count,
-        Err(error) => {
-            let _ = services::integrations::record_sync_error(
-                &state.storage,
-                "messaging",
-                &error.to_string(),
-            )
-            .await;
-            return Err(error);
-        }
-    };
-    let _ = services::integrations::record_sync_success(&state.storage, "messaging", count).await;
-    evaluate_and_broadcast_context(&state).await;
+    let count = services::integrations::run_messaging_sync(&state.storage, &state.config).await?;
+    if count > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {

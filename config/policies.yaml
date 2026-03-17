@@ -4,6 +4,18 @@ loops:
   evaluate_current_state:
     enabled: true
     interval_seconds: 300
+  sync_calendar:
+    enabled: true
+    interval_seconds: 900
+  sync_todoist:
+    enabled: true
+    interval_seconds: 600
+  sync_activity:
+    enabled: false
+    interval_seconds: 300
+  sync_messaging:
+    enabled: true
+    interval_seconds: 300
 
 policies:
   meds_not_logged:

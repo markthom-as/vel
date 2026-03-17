@@ -38,6 +38,12 @@ pub async fn run(
     })
 }
 
+pub async fn run_and_broadcast(state: &AppState) -> Result<EvaluateResult, AppError> {
+    let result = run(&state.storage, &state.policy_config).await?;
+    broadcast_context_updated(state).await?;
+    Ok(result)
+}
+
 pub async fn broadcast_context_updated(state: &AppState) -> Result<(), AppError> {
     let Some((computed_at, context_json)) = state.storage.get_current_context().await? else {
         return Ok(());

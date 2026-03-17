@@ -66,6 +66,10 @@ pub struct PolicyMorningDrift {
 #[derive(Debug, Clone, Deserialize)]
 pub struct LoopPolicies {
     pub evaluate_current_state: Option<LoopPolicy>,
+    pub sync_calendar: Option<LoopPolicy>,
+    pub sync_todoist: Option<LoopPolicy>,
+    pub sync_activity: Option<LoopPolicy>,
+    pub sync_messaging: Option<LoopPolicy>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -139,6 +143,22 @@ impl Default for LoopPolicies {
     fn default() -> Self {
         Self {
             evaluate_current_state: Some(LoopPolicy::default()),
+            sync_calendar: Some(LoopPolicy {
+                enabled: true,
+                interval_seconds: 900,
+            }),
+            sync_todoist: Some(LoopPolicy {
+                enabled: true,
+                interval_seconds: 600,
+            }),
+            sync_activity: Some(LoopPolicy {
+                enabled: false,
+                interval_seconds: 300,
+            }),
+            sync_messaging: Some(LoopPolicy {
+                enabled: true,
+                interval_seconds: 300,
+            }),
         }
     }
 }
@@ -179,6 +199,18 @@ impl PolicyConfig {
     pub fn evaluate_current_state_loop(&self) -> Option<&LoopPolicy> {
         self.loops.evaluate_current_state.as_ref()
     }
+    pub fn sync_calendar_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_calendar.as_ref()
+    }
+    pub fn sync_todoist_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_todoist.as_ref()
+    }
+    pub fn sync_activity_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_activity.as_ref()
+    }
+    pub fn sync_messaging_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.sync_messaging.as_ref()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -201,6 +233,10 @@ mod tests {
         assert!(config.commute_leave_time().is_some());
         assert!(config.morning_drift().is_some());
         assert!(config.evaluate_current_state_loop().is_some());
+        assert!(config.sync_calendar_loop().is_some());
+        assert!(config.sync_todoist_loop().is_some());
+        assert!(config.sync_activity_loop().is_some());
+        assert!(config.sync_messaging_loop().is_some());
         assert!(config.meeting_prep_window().unwrap().default_prep_minutes == 30);
         assert!(config.commute_leave_time().unwrap().require_travel_minutes);
         assert_eq!(
@@ -210,6 +246,10 @@ mod tests {
                 .interval_seconds,
             300
         );
+        assert_eq!(config.sync_calendar_loop().unwrap().interval_seconds, 900);
+        assert_eq!(config.sync_todoist_loop().unwrap().interval_seconds, 600);
+        assert!(!config.sync_activity_loop().unwrap().enabled);
+        assert_eq!(config.sync_messaging_loop().unwrap().interval_seconds, 300);
     }
 
     #[test]
