@@ -9,15 +9,6 @@ import AppKit
 import HealthKit
 #endif
 
-public enum VelLocalSourceKind: String, Codable, CaseIterable, Sendable {
-    case activity
-    case health
-    case git
-    case messaging
-    case notes
-    case transcripts
-}
-
 public struct VelActivitySnapshot: Codable, Sendable {
     public var source: String
     public var events: [Event]

@@ -22,7 +22,34 @@ make check-apple-swift
 
 This is useful for validating the shared `VelAPI` package, but full app builds still require Xcode on macOS.
 
-On a physical device, set the daemon base URL (e.g. `http://<your-mac-ip>:4130`) in the app or via UserDefaults key `vel_base_url` until a Settings bundle is added.
+On a physical device, set the daemon base URL (e.g. `http://<your-mac-ip>:4130`) in app settings/UserDefaults.
+
+## Endpoint resolution
+
+The Apple clients resolve endpoint candidates in this order:
+
+1. `vel_base_url` (manual override)
+2. `vel_tailscale_url` (tailnet endpoint, preferred for cross-device)
+3. `vel_lan_base_url` (local network fallback)
+4. `http://127.0.0.1:4130`
+5. `http://localhost:4130`
+
+Use `vel_tailscale_url` for day-to-day multi-device use. Keep `vel_base_url` for explicit temporary overrides.
+
+## Offline cache + queue behavior
+
+When the daemon is unreachable, clients keep rendering cached data and queue low-risk actions:
+
+- cached surfaces: current context, nudges, commitments
+- queued actions: nudge `done`, nudge `snooze`, commitment `done`, commitment `create`, capture `create`
+
+Queued actions are drained automatically on next successful reachability/bootstrap check.
+
+Current guardrails:
+
+- queued actions are replayed in insertion order
+- on first replay failure, remaining actions stay queued for next retry
+- cache is best-effort and can be overwritten by canonical server state after reconnect
 
 ## 1. Open the project in Xcode
 
