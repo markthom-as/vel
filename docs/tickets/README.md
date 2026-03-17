@@ -118,6 +118,16 @@ Normalization note:
 
 - this is the current reference pack for the shared schema in [pack-schema.md](pack-schema.md)
 
+#### Web UI convergence (`web-ui-convergence/`)
+
+Execution pack for the global web shell, shared operator UX rules, surface-specific read models, query/realtime architecture, and project workspace integration.
+
+- **Index:** [web-ui-convergence/README.md](web-ui-convergence/README.md)
+- **Spec:** [docs/specs/vel-web-operator-surface-spec.md](../specs/vel-web-operator-surface-spec.md)
+- **Tickets:** `WUI-001-shell-ia-and-route-ownership.md` … `WUI-011-docs-tests-and-pack-reconciliation.md`
+- **Use when:** changing the web shell, shared UI/state architecture, global operator UX, or the Projects web surface.
+- **Caution:** this pack consolidates older `ui-v4`, `now-page-fixes`, `projects`, and frontend-cleanup packets for execution; use [docs/status.md](../status.md) for shipped behavior.
+
 ### Near-term design / expansion
 
 #### 5. Agentic engineering (`agentic/`)
@@ -236,9 +246,19 @@ Artifact backup and storage-target planning: manifest-driven backup model, verif
 - **Use when:** planning or implementing artifact backup targets, off-device storage, verification, or restore workflows.
 - **Caution:** this pack is about trust and recovery surfaces, not broader cluster/client sync or runtime authority.
 
+#### 19. Connect-backed agent launch (`connect-agent-launch/`)
+
+Execution pack for launching external coding-agent runtimes on compatible Connect instances, representing them as live Vel sessions, and exposing those sessions through Projects, CLI, and host-agent supervision flows.
+
+- **Index:** [connect-agent-launch/README.md](connect-agent-launch/README.md)
+- **Spec:** [docs/specs/vel-connect-agent-launch-spec.md](../specs/vel-connect-agent-launch-spec.md)
+- **Tickets:** `CAL-001-connect-instance-registry-and-capability-manifest.md` … `CAL-008-fixtures-tests-docs-and-rollout-guards.md`
+- **Use when:** implementing instance capability discovery, launch APIs, live launched-session modeling, Projects launch UX, or host-agent supervision of external runtimes.
+- **Caution:** this pack extends `integration-expansion/`, `projects/`, and `multi-client-swarm/`; it should not duplicate their core substrate work or imply that broad runtime/vendor support is already shipped.
+
 ### Speculative / future architecture
 
-#### 19. Full spec pack (`full-spec-pack/`)
+#### 20. Full spec pack (`full-spec-pack/`)
 
 Imported workflow-first planning packet covering templates, workflows, media, integrations, policy, UI system, voice UX, and high-level architecture.
 
@@ -246,7 +266,7 @@ Imported workflow-first planning packet covering templates, workflows, media, in
 - **Tickets:** `ticket_templates.md` … `ticket_voice.md`
 - **Use with caution:** this pack is broad and partially overlaps current commitments/context/nudge architecture. Reconcile against [docs/status.md](../status.md) and existing specs before execution.
 
-#### 20. Context reasoning (`context-reasoning/`)
+#### 21. Context reasoning (`context-reasoning/`)
 
 Context/decision tickets: belief store, inference engine, inspector UI, decision trace logging, explanation UI, feedback learning loop, belief expiration, confidence calibration, introspection report.
 
