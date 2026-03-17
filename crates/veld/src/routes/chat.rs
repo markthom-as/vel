@@ -8,6 +8,7 @@ use axum::{
 };
 use serde::Deserialize;
 use uuid::Uuid;
+use vel_core::normalize_risk_level;
 use vel_api_types::{
     ApiResponse, ConversationCreateRequest, ConversationData, ConversationUpdateRequest,
     CreateMessageResponse, InboxItemData, InterventionActionData, MessageCreateRequest,
@@ -720,7 +721,11 @@ fn message_signal_summary(message: &MessageData) -> Option<serde_json::Value> {
             "kind": "message_content",
             "message_kind": message.kind,
             "commitment_title": message.content.get("commitment_title").and_then(|value| value.as_str()),
-            "risk_level": message.content.get("risk_level").and_then(|value| value.as_str()),
+            "risk_level": message
+                .content
+                .get("risk_level")
+                .and_then(|value| value.as_str())
+                .map(normalize_risk_level),
             "top_drivers": message.content.get("top_drivers").cloned().unwrap_or(serde_json::Value::Null),
             "proposed_next_step": message.content.get("proposed_next_step").and_then(|value| value.as_str()),
         })),
@@ -746,7 +751,11 @@ fn message_policy_summary(message: &MessageData) -> Option<serde_json::Value> {
         "risk_card" => Some(serde_json::json!({
             "kind": "message_policy",
             "message_kind": message.kind,
-            "risk_level": message.content.get("risk_level").and_then(|value| value.as_str()),
+            "risk_level": message
+                .content
+                .get("risk_level")
+                .and_then(|value| value.as_str())
+                .map(normalize_risk_level),
             "top_drivers": message.content.get("top_drivers").cloned().unwrap_or(serde_json::Value::Null),
             "proposed_next_step": message.content.get("proposed_next_step").and_then(|value| value.as_str()),
         })),
@@ -972,7 +981,9 @@ pub fn chat_routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
-    use super::should_fallback_for_assistant_error;
+    use super::{message_policy_summary, message_signal_summary, should_fallback_for_assistant_error};
+    use serde_json::json;
+    use vel_api_types::MessageData;
     use vel_llm::{LlmError, ProviderError};
 
     #[test]
@@ -1005,5 +1016,31 @@ mod tests {
         assert!(!should_fallback_for_assistant_error(&LlmError::Provider(
             ProviderError::RateLimit("maxed".to_string()),
         )));
+    }
+
+    #[test]
+    fn risk_card_summaries_normalize_risk_level() {
+        let message = MessageData {
+            id: "msg_1".to_string(),
+            conversation_id: "con_1".to_string(),
+            role: "assistant".to_string(),
+            kind: "risk_card".to_string(),
+            content: json!({
+                "commitment_title": "Ship report",
+                "risk_level": "danger",
+                "top_drivers": ["due soon"],
+                "proposed_next_step": "Start now"
+            }),
+            status: None,
+            importance: None,
+            created_at: 1,
+            updated_at: None,
+        };
+
+        let signal_summary = message_signal_summary(&message).expect("signal summary");
+        let policy_summary = message_policy_summary(&message).expect("policy summary");
+
+        assert_eq!(signal_summary["risk_level"], "unknown");
+        assert_eq!(policy_summary["risk_level"], "unknown");
     }
 }
