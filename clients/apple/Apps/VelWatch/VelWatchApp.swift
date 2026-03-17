@@ -35,7 +35,7 @@ final class VelWatchStore: ObservableObject {
         let cached = offlineStore.cachedNudgesApplyingPendingActions()
         let cachedContext = offlineStore.cachedContext()
         let cachedCommitments = offlineStore.cachedCommitmentsApplyingPendingActions()
-        let hasCachedContent = !cached.isEmpty
+        let hasCachedContent = !cached.isEmpty || cachedContext != nil || !cachedCommitments.isEmpty
         if hasCachedContent {
             let active = cached.filter { $0.state == "active" || $0.state == "snoozed" }
             await MainActor.run {
@@ -69,7 +69,6 @@ final class VelWatchStore: ObservableObject {
                         preferredID: bootstrap.current_context?.context?.next_commitment_id,
                         commitments: bootstrap.commitments
                     )?.text
-                    lastActionStatus = nil
                 }
                 return
             } catch {
