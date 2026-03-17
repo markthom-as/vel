@@ -11,6 +11,8 @@ use vel_storage::Storage;
 const W_CONSEQUENCE: f64 = 0.35;
 const W_PROXIMITY: f64 = 0.30;
 const W_DEPENDENCY: f64 = 0.20;
+const W_EXTERNAL_ANCHOR: f64 = 0.05;
+const W_STALE_OPEN_AGE: f64 = 0.10;
 
 /// Thresholds for risk level.
 const LOW_MAX: f64 = 0.24;
@@ -71,6 +73,30 @@ fn dependency_pressure(
     0.0
 }
 
+fn external_anchor(commitment: &Commitment) -> f64 {
+    let kind = commitment.commitment_kind.as_deref().unwrap_or("");
+    if commitment.source_type == "calendar" || matches!(kind, "meeting" | "prep" | "commute") {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+fn stale_open_age(commitment: &Commitment, now_ts: i64) -> f64 {
+    let age_secs = now_ts - commitment.created_at.unix_timestamp();
+    if age_secs >= 14 * 24 * 60 * 60 {
+        1.0
+    } else if age_secs >= 7 * 24 * 60 * 60 {
+        0.8
+    } else if age_secs >= 3 * 24 * 60 * 60 {
+        0.5
+    } else if age_secs >= 24 * 60 * 60 {
+        0.2
+    } else {
+        0.0
+    }
+}
+
 fn score_to_level(score: f64) -> &'static str {
     if score > HIGH_MAX {
         "critical"
@@ -88,6 +114,8 @@ pub fn decode_factors_json(factors_json: &str) -> RiskFactors {
         consequence: 0.0,
         proximity: 0.0,
         dependency_pressure: 0.0,
+        external_anchor: 0.0,
+        stale_open_age: 0.0,
         reasons: Vec::new(),
         dependency_ids: Vec::new(),
     })
@@ -169,8 +197,13 @@ pub async fn run(
     for (i, c) in open.iter().enumerate() {
         let (_, consequence_val, proximity_val, _) = &first_pass[i];
         let dep_val = dependency_pressure(c.id.as_ref(), &parent_scores, &deps_by_child);
-        let score =
-            W_CONSEQUENCE * consequence_val + W_PROXIMITY * proximity_val + W_DEPENDENCY * dep_val;
+        let external_anchor_val = external_anchor(c);
+        let stale_open_age_val = stale_open_age(c, now_ts);
+        let score = W_CONSEQUENCE * consequence_val
+            + W_PROXIMITY * proximity_val
+            + W_DEPENDENCY * dep_val
+            + W_EXTERNAL_ANCHOR * external_anchor_val
+            + W_STALE_OPEN_AGE * stale_open_age_val;
         let score = score.min(1.0);
         let level = score_to_level(score).to_string();
         let dependency_ids: Vec<String> = deps_by_child
@@ -194,6 +227,16 @@ pub async fn run(
             } else {
                 None
             },
+            if external_anchor_val > 0.0 {
+                Some("externally anchored commitment")
+            } else {
+                None
+            },
+            if stale_open_age_val >= 0.5 {
+                Some("long-stale open commitment")
+            } else {
+                None
+            },
         ]
         .into_iter()
         .flatten()
@@ -202,6 +245,8 @@ pub async fn run(
             consequence: *consequence_val,
             proximity: *proximity_val,
             dependency_pressure: dep_val,
+            external_anchor: external_anchor_val,
+            stale_open_age: stale_open_age_val,
             reasons: reasons.iter().map(|reason| (*reason).to_string()).collect(),
             dependency_ids,
         };
@@ -231,7 +276,7 @@ mod tests {
             "com_1".to_string(),
             0.91,
             "critical".to_string(),
-            r#"{"consequence":0.9,"proximity":1.0,"dependency_pressure":0.8,"reasons":["due now"],"dependency_ids":["com_parent"]}"#,
+            r#"{"consequence":0.9,"proximity":1.0,"dependency_pressure":0.8,"external_anchor":1.0,"stale_open_age":0.5,"reasons":["due now"],"dependency_ids":["com_parent"]}"#,
             Some(123),
         );
 
@@ -240,11 +285,54 @@ mod tests {
         assert_eq!(snapshot.factors.consequence, 0.9);
         assert_eq!(snapshot.factors.proximity, 1.0);
         assert_eq!(snapshot.factors.dependency_pressure, 0.8);
+        assert_eq!(snapshot.factors.external_anchor, 1.0);
+        assert_eq!(snapshot.factors.stale_open_age, 0.5);
         assert_eq!(snapshot.factors.reasons, vec!["due now".to_string()]);
         assert_eq!(
             snapshot.factors.dependency_ids,
             vec!["com_parent".to_string()]
         );
         assert_eq!(snapshot.computed_at, Some(123));
+    }
+
+    fn test_commitment(
+        id: &str,
+        source_type: &str,
+        kind: Option<&str>,
+        created_at: i64,
+        due_at: Option<i64>,
+    ) -> Commitment {
+        Commitment {
+            id: vel_core::CommitmentId::from(id.to_string()),
+            text: id.to_string(),
+            source_type: source_type.to_string(),
+            source_id: None,
+            status: CommitmentStatus::Open,
+            due_at: due_at.and_then(|timestamp| time::OffsetDateTime::from_unix_timestamp(timestamp).ok()),
+            project: None,
+            commitment_kind: kind.map(ToString::to_string),
+            created_at: time::OffsetDateTime::from_unix_timestamp(created_at).unwrap(),
+            resolved_at: None,
+            metadata_json: serde_json::json!({}),
+        }
+    }
+
+    #[test]
+    fn external_anchor_marks_calendar_linked_commitments() {
+        let commitment = test_commitment("com_calendar", "calendar", Some("meeting"), 1_700_000_000, None);
+        assert_eq!(external_anchor(&commitment), 1.0);
+    }
+
+    #[test]
+    fn stale_open_age_marks_long_open_commitments() {
+        let now_ts = 1_700_000_000;
+        let commitment = test_commitment(
+            "com_stale",
+            "capture",
+            Some("todo"),
+            now_ts - 10 * 24 * 60 * 60,
+            None,
+        );
+        assert!(stale_open_age(&commitment, now_ts) >= 0.8);
     }
 }

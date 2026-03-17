@@ -6,6 +6,10 @@ pub struct RiskFactors {
     pub proximity: f64,
     pub dependency_pressure: f64,
     #[serde(default)]
+    pub external_anchor: f64,
+    #[serde(default)]
+    pub stale_open_age: f64,
+    #[serde(default)]
     pub reasons: Vec<String>,
     #[serde(default)]
     pub dependency_ids: Vec<String>,

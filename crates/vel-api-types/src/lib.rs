@@ -648,6 +648,8 @@ pub struct RiskFactorsData {
     pub consequence: f64,
     pub proximity: f64,
     pub dependency_pressure: f64,
+    pub external_anchor: f64,
+    pub stale_open_age: f64,
     pub reasons: Vec<String>,
     pub dependency_ids: Vec<String>,
 }
@@ -658,6 +660,8 @@ impl From<RiskFactors> for RiskFactorsData {
             consequence: value.consequence,
             proximity: value.proximity,
             dependency_pressure: value.dependency_pressure,
+            external_anchor: value.external_anchor,
+            stale_open_age: value.stale_open_age,
             reasons: value.reasons,
             dependency_ids: value.dependency_ids,
         }

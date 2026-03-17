@@ -50,6 +50,12 @@ struct GlobalRiskSummary {
     missing: bool,
 }
 
+struct InferenceState {
+    morning_state: &'static str,
+    inferred_activity: &'static str,
+    mode: &'static str,
+}
+
 /// **Recompute-and-persist.** Run inference once: compute morning state, meds status, prep window;
 /// build canonical current context; persist inferred_state and current_context; append to context_timeline on material change.
 /// Returns count of state records written. Only call from evaluate orchestration.
@@ -98,37 +104,19 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     let first_event = select_next_event(&calendar_events, now_ts);
     let temporal_windows = derive_temporal_windows(first_event, now_ts);
 
-    let morning_started = has_workstation_activity || meds_done_today;
-    let state_name = if temporal_windows.prep_window_active && !morning_started {
-        "at_risk"
-    } else if morning_started {
-        "engaged"
-    } else if first_event.is_some() && !morning_started {
-        "awake_unstarted"
-    } else {
-        "inactive"
-    };
-
     let recent_git_summary = latest_git_activity
         .and_then(build_git_activity_summary)
         .filter(|summary| now_ts - summary.timestamp <= RECENT_GIT_ACTIVITY_WINDOW_SECS);
     let git_activity_summary = latest_git_activity.and_then(build_git_activity_summary);
-    let inferred_activity = if recent_git_summary.is_some() {
-        "coding"
-    } else if has_workstation_activity {
-        "computer_active"
-    } else {
-        "unknown"
-    };
     let message_summary = derive_message_summary(&message_threads);
-
-    let mode = if temporal_windows.prep_window_active {
-        "meeting_mode"
-    } else if temporal_windows.commute_window_active {
-        "commute_mode"
-    } else {
-        "morning_mode"
-    };
+    let inference_state = derive_inference_state(
+        has_workstation_activity,
+        meds_done_today,
+        first_event.is_some(),
+        temporal_windows.prep_window_active,
+        temporal_windows.commute_window_active,
+        recent_git_summary.is_some(),
+    );
 
     let next_commitment = select_next_commitment(&open_commitments, &risk_snapshots, now_ts);
     let next_commitment_id = next_commitment.map(|c| c.id.as_ref().to_string());
@@ -175,16 +163,16 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         .collect();
 
     let attention = derive_attention_state(
-        state_name,
+        inference_state.morning_state,
         temporal_windows.prep_window_active,
         meds_pending,
     );
 
     let context = build_current_context(
         now_ts,
-        mode,
-        state_name,
-        inferred_activity,
+        inference_state.mode,
+        inference_state.morning_state,
+        inference_state.inferred_activity,
         next_commitment_id,
         next_commitment_due_at,
         meds_status,
@@ -200,9 +188,51 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         &temporal_windows,
     );
 
-    persist_inference_outputs(storage, now_ts, state_name, &context).await?;
+    persist_inference_outputs(storage, now_ts, inference_state.morning_state, &context).await?;
 
     Ok(1)
+}
+
+fn derive_inference_state(
+    has_workstation_activity: bool,
+    meds_done_today: bool,
+    has_calendar_event: bool,
+    prep_window_active: bool,
+    commute_window_active: bool,
+    recent_git_activity: bool,
+) -> InferenceState {
+    let morning_started = has_workstation_activity || meds_done_today;
+    let morning_state = if prep_window_active && !morning_started {
+        "at_risk"
+    } else if morning_started {
+        "engaged"
+    } else if has_calendar_event && !morning_started {
+        "awake_unstarted"
+    } else {
+        "inactive"
+    };
+
+    let inferred_activity = if recent_git_activity {
+        "coding"
+    } else if has_workstation_activity {
+        "computer_active"
+    } else {
+        "unknown"
+    };
+
+    let mode = if prep_window_active {
+        "meeting_mode"
+    } else if commute_window_active {
+        "commute_mode"
+    } else {
+        "morning_mode"
+    };
+
+    InferenceState {
+        morning_state,
+        inferred_activity,
+        mode,
+    }
 }
 
 async fn collect_inputs(
@@ -898,6 +928,8 @@ mod tests {
                 consequence: 0.9,
                 proximity: 0.9,
                 dependency_pressure: 0.0,
+                external_anchor: 1.0,
+                stale_open_age: 0.0,
                 reasons: vec![],
                 dependency_ids: vec![],
             },
@@ -973,5 +1005,14 @@ mod tests {
         assert_eq!(summary.level, "unknown");
         assert_eq!(summary.score, None);
         assert!(summary.missing);
+    }
+
+    #[test]
+    fn derive_inference_state_prefers_at_risk_when_prep_window_is_active_and_morning_not_started() {
+        let state = derive_inference_state(false, false, true, true, false, false);
+
+        assert_eq!(state.morning_state, "at_risk");
+        assert_eq!(state.mode, "meeting_mode");
+        assert_eq!(state.inferred_activity, "unknown");
     }
 }
