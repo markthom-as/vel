@@ -3,10 +3,8 @@ use axum::{
     Json,
 };
 use time::OffsetDateTime;
-use uuid::Uuid;
 use vel_api_types::{ApiResponse, NudgeData, NudgeSnoozeRequest};
-
-use crate::{errors::AppError, state::AppState};
+use crate::{errors::AppError, routes::response, state::AppState};
 
 fn nudge_record_to_data(r: vel_storage::NudgeRecord) -> NudgeData {
     NudgeData {
@@ -36,8 +34,7 @@ pub async fn list_nudges(
     data.extend(snoozed.into_iter().map(nudge_record_to_data));
     data.extend(resolved.into_iter().map(nudge_record_to_data));
     data.extend(dismissed.into_iter().map(nudge_record_to_data));
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    Ok(response::success(data))
 }
 
 pub async fn get_nudge(
@@ -49,11 +46,7 @@ pub async fn get_nudge(
         .get_nudge(id.trim())
         .await?
         .ok_or_else(|| AppError::not_found("nudge not found"))?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        nudge_record_to_data(nudge),
-        request_id,
-    )))
+    Ok(response::success(nudge_record_to_data(nudge)))
 }
 
 pub async fn nudge_done(
@@ -95,11 +88,7 @@ pub async fn nudge_done(
             )
             .await;
     }
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        nudge_record_to_data(nudge),
-        request_id,
-    )))
+    Ok(response::success(nudge_record_to_data(nudge)))
 }
 
 pub async fn nudge_snooze(
@@ -129,11 +118,7 @@ pub async fn nudge_snooze(
         .get_nudge(id.trim())
         .await?
         .ok_or_else(|| AppError::not_found("nudge not found"))?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        nudge_record_to_data(nudge),
-        request_id,
-    )))
+    Ok(response::success(nudge_record_to_data(nudge)))
 }
 
 pub async fn nudge_dismiss(
@@ -161,9 +146,5 @@ pub async fn nudge_dismiss(
         .get_nudge(id.trim())
         .await?
         .ok_or_else(|| AppError::not_found("nudge not found"))?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        nudge_record_to_data(nudge),
-        request_id,
-    )))
+    Ok(response::success(nudge_record_to_data(nudge)))
 }

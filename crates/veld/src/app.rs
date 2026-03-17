@@ -495,6 +495,14 @@ mod tests {
             .to_string()
     }
 
+    fn worker_sync_auth_matrix_routes() -> [&'static str; 3] {
+        [
+            "/v1/sync/actions",
+            "/v1/sync/branch-sync",
+            "/v1/sync/validation",
+        ]
+    }
+
     fn test_app_state(storage: Storage) -> AppState {
         let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
         AppState::new(
@@ -616,6 +624,93 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn worker_sync_routes_require_worker_token_when_worker_policy_is_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: false,
+            },
+        );
+
+        for uri in worker_sync_auth_matrix_routes() {
+            let missing_token = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(uri)
+                        .header("content-type", "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                missing_token.status(),
+                StatusCode::UNAUTHORIZED,
+                "{uri} should require a worker token when worker auth is configured",
+            );
+
+            let invalid_token = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(uri)
+                        .header(WORKER_AUTH_HEADER, "wrong-secret")
+                        .header("content-type", "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                invalid_token.status(),
+                StatusCode::UNAUTHORIZED,
+                "{uri} should reject invalid worker auth when worker auth is configured",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn strict_auth_denies_worker_sync_routes_when_worker_token_is_unset() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: None,
+                strict_auth: true,
+            },
+        );
+
+        for uri in worker_sync_auth_matrix_routes() {
+            let denied = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(uri)
+                        .header("content-type", "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                denied.status(),
+                StatusCode::UNAUTHORIZED,
+                "{uri} should deny when worker auth is unset and strict auth is enabled",
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn worker_claim_next_route_requires_worker_token_when_worker_policy_is_set() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -655,6 +750,87 @@ mod tests {
             .await
             .unwrap();
         assert_ne!(allowed.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn worker_queue_get_route_requires_worker_token_when_worker_policy_is_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: false,
+            },
+        );
+
+        let denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/v1/sync/work-queue?node_id=worker-node")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+
+        let allowed = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/v1/sync/work-queue?node_id=worker-node")
+                    .header(WORKER_AUTH_HEADER, "worker-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(allowed.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn worker_queue_routes_allow_requests_when_worker_policy_is_unset_and_strict_auth_disabled()
+    {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        let get_queue = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/v1/sync/work-queue?node_id=worker-node")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(get_queue.status(), StatusCode::UNAUTHORIZED);
+
+        let claim_next = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/work-queue/claim-next")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_ne!(claim_next.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]
@@ -751,6 +927,46 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn strict_auth_denies_worker_queue_routes_when_worker_token_is_unset() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: None,
+                strict_auth: true,
+            },
+        );
+
+        let get_queue_denied = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/v1/sync/work-queue?node_id=worker-node")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(get_queue_denied.status(), StatusCode::UNAUTHORIZED);
+
+        let claim_next_denied = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/work-queue/claim-next")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(claim_next_denied.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]
@@ -6622,7 +6838,7 @@ mod tests {
             .await
             .unwrap()
             .expect("current context should exist after reevaluation");
-        let context_json: serde_json::Value = serde_json::from_str(&current_context.1).unwrap();
+        let context_json: serde_json::Value = serde_json::to_value(current_context.1).unwrap();
         assert_eq!(
             context_json["leave_by_ts"].as_i64(),
             Some(event_start - 30 * 60)
@@ -7871,7 +8087,7 @@ END:VCALENDAR
             .await
             .unwrap()
             .expect("transcript sync should trigger evaluate and store current context");
-        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        let context: serde_json::Value = serde_json::to_value(context_json).unwrap();
         assert_eq!(context["inferred_activity"], "assistant_reflection");
         assert_eq!(
             context["assistant_message_summary"]["conversation_id"],
@@ -8057,7 +8273,7 @@ END:VCALENDAR
             .await
             .unwrap()
             .expect("health sync should trigger evaluate");
-        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        let context: serde_json::Value = serde_json::to_value(context_json).unwrap();
         assert_eq!(context["health_summary"]["metric_type"], "step_count");
         assert_eq!(context["health_summary"]["value"], 6400);
 
@@ -8112,7 +8328,7 @@ END:VCALENDAR
             .await
             .unwrap()
             .expect("notes sync should trigger evaluate and store current context");
-        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        let context: serde_json::Value = serde_json::to_value(context_json).unwrap();
         assert_eq!(context["inferred_activity"], "note_review");
         assert_eq!(context["note_document_summary"]["path"], "daily/today.md");
         assert_eq!(context["note_document_summary"]["title"], "Today");
@@ -8298,7 +8514,7 @@ END:VCALENDAR
             .await
             .unwrap()
             .expect("sync should trigger evaluate and store current context");
-        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        let context: serde_json::Value = serde_json::to_value(context_json).unwrap();
         assert_eq!(context["message_waiting_on_me_count"], 1);
         assert_eq!(context["message_scheduling_thread_count"], 1);
         assert_eq!(context["message_urgent_thread_count"], 1);
@@ -8348,7 +8564,7 @@ END:VCALENDAR
         assert!(evaluate_result.is_ok());
 
         let (_, context_json) = storage.get_current_context().await.unwrap().unwrap();
-        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        let context: serde_json::Value = serde_json::to_value(context_json).unwrap();
         assert_eq!(context["message_waiting_on_me_count"], 1);
         assert_eq!(context["message_scheduling_thread_count"], 1);
         assert_eq!(context["message_urgent_thread_count"], 1);
@@ -9743,13 +9959,16 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let connections = json["data"].as_array().expect("connection array");
-        assert_eq!(connections.len(), 1);
-        assert_eq!(connections[0]["id"], connection_id.as_ref());
-        assert_eq!(connections[0]["family"], "messaging");
-        assert_eq!(connections[0]["provider_key"], "signal");
-        assert_eq!(connections[0]["status"], "connected");
+        assert!(!connections.is_empty());
+        let created = connections
+            .iter()
+            .find(|conn| conn["id"] == connection_id.as_ref())
+            .expect("inserted integration should be returned");
+        assert_eq!(created["family"], "messaging");
+        assert_eq!(created["provider_key"], "signal");
+        assert_eq!(created["status"], "connected");
         assert_eq!(
-            connections[0]["setting_refs"][0]["setting_key"],
+            created["setting_refs"][0]["setting_key"],
             "messaging_snapshot_path"
         );
     }

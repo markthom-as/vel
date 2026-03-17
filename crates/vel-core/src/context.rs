@@ -37,7 +37,7 @@ pub struct OrientationSnapshot {
 
 /// Versioned typed representation for current context state.
 /// Unknown fields are preserved in `extra` for forward compatibility.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct CurrentContextV1 {
     #[serde(default)]
     pub computed_at: i64,

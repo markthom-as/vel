@@ -5,7 +5,7 @@
 //! orchestration (e.g. [crate::services::evaluate::run]). Never call from explain or read routes.
 
 use time::OffsetDateTime;
-use vel_core::{CommitmentStatus, RiskSnapshot};
+use vel_core::{CommitmentStatus, CurrentContextV1, RiskSnapshot};
 use vel_storage::{InferredStateInsert, Storage};
 
 const RECENT_GIT_ACTIVITY_WINDOW_SECS: i64 = 90 * 60;
@@ -771,36 +771,35 @@ fn build_current_context(
     assistant_message_summary: Option<&AssistantMessageSummary>,
     message_summary: &MessageSummary,
     temporal_windows: &TemporalWindows,
-) -> serde_json::Value {
-    let attention_reasons_json: Vec<String> = attention
-        .reasons
-        .iter()
-        .map(|reason| (*reason).to_string())
-        .collect();
-    serde_json::json!({
-        "computed_at": now_ts,
-        "mode": mode,
-        "morning_state": state_name,
-        "inferred_activity": inferred_activity,
-        "next_commitment_id": next_commitment_id,
-        "next_commitment_due_at": next_commitment_due_at,
-        "prep_window_active": temporal_windows.prep_window_active,
-        "commute_window_active": temporal_windows.commute_window_active,
-        "meds_status": meds_status,
-        "active_nudge_ids": active_nudge_ids,
-        "top_risk_commitment_ids": top_risk_commitment_ids,
-        "global_risk_level": global_risk.level,
-        "global_risk_score": global_risk.score,
-        "global_risk_missing": global_risk.missing,
-        "signals_used": signals_used,
-        "commitments_used": commitments_used,
-        "risk_used": risk_used,
-        "attention_state": attention.attention_state,
-        "drift_type": attention.drift_type,
-        "drift_severity": attention.drift_severity,
-        "attention_confidence": attention.confidence,
-        "attention_reasons": attention_reasons_json,
-        "health_summary": health_summary.map(|summary| serde_json::json!({
+) -> CurrentContextV1 {
+    CurrentContextV1 {
+        computed_at: now_ts,
+        mode: mode.to_string(),
+        morning_state: state_name.to_string(),
+        inferred_activity: inferred_activity.to_string(),
+        next_commitment_id,
+        next_commitment_due_at,
+        prep_window_active: temporal_windows.prep_window_active,
+        commute_window_active: temporal_windows.commute_window_active,
+        meds_status: meds_status.to_string(),
+        active_nudge_ids: active_nudge_ids.to_vec(),
+        top_risk_commitment_ids: top_risk_commitment_ids.to_vec(),
+        global_risk_level: global_risk.level.to_string(),
+        global_risk_score: global_risk.score,
+        global_risk_missing: global_risk.missing,
+        signals_used: signals_used.to_vec(),
+        commitments_used: commitments_used.to_vec(),
+        risk_used: risk_used.to_vec(),
+        attention_state: attention.attention_state.to_string(),
+        drift_type: attention.drift_type.map(ToString::to_string),
+        drift_severity: attention.drift_severity.map(ToString::to_string),
+        attention_confidence: Some(attention.confidence),
+        attention_reasons: attention
+            .reasons
+            .iter()
+            .map(|reason| (*reason).to_string())
+            .collect(),
+        health_summary: health_summary.map(|summary| serde_json::json!({
             "timestamp": summary.timestamp,
             "metric_type": summary.metric_type,
             "value": summary.value,
@@ -808,7 +807,7 @@ fn build_current_context(
             "source_app": summary.source_app,
             "device": summary.device,
         })),
-        "git_activity_summary": git_activity_summary.map(|summary| serde_json::json!({
+        git_activity_summary: git_activity_summary.map(|summary| serde_json::json!({
             "timestamp": summary.timestamp,
             "repo": summary.repo,
             "branch": summary.branch,
@@ -818,55 +817,59 @@ fn build_current_context(
             "insertions": summary.insertions,
             "deletions": summary.deletions,
         })),
-        "mood_summary": mood_summary.map(|summary| serde_json::json!({
+        mood_summary: mood_summary.map(|summary| serde_json::json!({
             "timestamp": summary.timestamp,
             "score": summary.score,
             "label": summary.label,
             "note": summary.note,
         })),
-        "pain_summary": pain_summary.map(|summary| serde_json::json!({
+        pain_summary: pain_summary.map(|summary| serde_json::json!({
             "timestamp": summary.timestamp,
             "severity": summary.severity,
             "location": summary.location,
             "note": summary.note,
         })),
-        "note_document_summary": note_document_summary.map(|summary| serde_json::json!({
+        note_document_summary: note_document_summary.map(|summary| serde_json::json!({
             "timestamp": summary.timestamp,
             "title": summary.title,
             "path": summary.path,
         })),
-        "assistant_message_summary": assistant_message_summary.map(|summary| serde_json::json!({
+        assistant_message_summary: assistant_message_summary.map(|summary| serde_json::json!({
             "timestamp": summary.timestamp,
             "conversation_id": summary.conversation_id,
             "role": summary.role,
             "source": summary.source,
         })),
-        "message_waiting_on_me_count": message_summary.waiting_on_me_count,
-        "message_waiting_on_others_count": message_summary.waiting_on_others_count,
-        "message_scheduling_thread_count": message_summary.scheduling_thread_count,
-        "message_urgent_thread_count": message_summary.urgent_thread_count,
-        "message_summary": {
+        message_waiting_on_me_count: Some(message_summary.waiting_on_me_count as u64),
+        message_waiting_on_others_count: Some(message_summary.waiting_on_others_count as u64),
+        message_scheduling_thread_count: Some(message_summary.scheduling_thread_count as u64),
+        message_urgent_thread_count: Some(message_summary.urgent_thread_count as u64),
+        message_summary: Some(serde_json::json!({
             "waiting_on_me_count": message_summary.waiting_on_me_count,
             "waiting_on_others_count": message_summary.waiting_on_others_count,
             "scheduling_thread_count": message_summary.scheduling_thread_count,
             "urgent_thread_count": message_summary.urgent_thread_count,
             "top_threads": message_summary.top_threads,
-        },
-        "leave_by_ts": temporal_windows.leave_by_ts,
-        "next_event_start_ts": temporal_windows.next_event_start_ts,
-    })
+        })),
+        leave_by_ts: temporal_windows.leave_by_ts,
+        next_event_start_ts: temporal_windows.next_event_start_ts,
+        ..CurrentContextV1::default()
+    }
 }
 
 async fn persist_inference_outputs(
     storage: &Storage,
     now_ts: i64,
     state_name: &str,
-    context: &serde_json::Value,
+    context: &CurrentContextV1,
 ) -> Result<(), crate::errors::AppError> {
-    let context_str = context.to_string();
+    let context_json = serde_json::to_value(context).map_err(|error| {
+        crate::errors::AppError::internal(format!("serialize current context: {error}"))
+    })?;
+    let context_str = context_json.to_string();
     let prev = storage.get_current_context().await?;
-    let material =
-        is_material_context_change(prev.as_ref().map(|(_, json)| json.as_str()), &context_str);
+
+    let material = is_material_context_change(prev.as_ref().map(|(_, ctx)| ctx), context);
     if material {
         if let Err(error) = storage
             .insert_context_timeline(now_ts, &context_str, None)
@@ -881,7 +884,7 @@ async fn persist_inference_outputs(
             state_name: state_name.to_string(),
             confidence: Some("medium".to_string()),
             timestamp: now_ts,
-            context_json: Some(context.clone()),
+            context_json: Some(context_json),
         })
         .await
         .map_err(crate::errors::AppError::from)?;
@@ -1181,27 +1184,31 @@ fn repo_basename(path: &str) -> Option<String> {
 }
 
 /// Returns true if the new context represents a material change vs previous (for timeline append).
-fn is_material_context_change(prev_json: Option<&str>, new_json: &str) -> bool {
-    let Some(prev) = prev_json else { return true };
-    let Ok(prev_val) = serde_json::from_str::<serde_json::Value>(prev) else {
+fn is_material_context_change(prev: Option<&CurrentContextV1>, new: &CurrentContextV1) -> bool {
+    let Some(prev) = prev else { return true };
+    if prev.morning_state != new.morning_state {
         return true;
-    };
-    let Ok(new_val) = serde_json::from_str::<serde_json::Value>(new_json) else {
-        return false;
-    };
-    for key in [
-        "morning_state",
-        "mode",
-        "next_commitment_id",
-        "prep_window_active",
-        "commute_window_active",
-        "meds_status",
-        "global_risk_level",
-        "active_nudge_ids",
-    ] {
-        if prev_val.get(key) != new_val.get(key) {
-            return true;
-        }
+    }
+    if prev.mode != new.mode {
+        return true;
+    }
+    if prev.next_commitment_id != new.next_commitment_id {
+        return true;
+    }
+    if prev.prep_window_active != new.prep_window_active {
+        return true;
+    }
+    if prev.commute_window_active != new.commute_window_active {
+        return true;
+    }
+    if prev.meds_status != new.meds_status {
+        return true;
+    }
+    if prev.global_risk_level != new.global_risk_level {
+        return true;
+    }
+    if prev.active_nudge_ids != new.active_nudge_ids {
+        return true;
     }
     false
 }
@@ -1268,23 +1275,29 @@ mod tests {
         }
     }
 
+    fn parse_context(raw: &str) -> vel_core::CurrentContextV1 {
+        serde_json::from_str(raw).expect("test context fixture should parse as CurrentContextV1")
+    }
+
     #[test]
     fn material_change_identical_returns_false() {
-        let ctx =
-            r#"{"morning_state":"underway","mode":"morning_mode","prep_window_active":false}"#;
-        assert!(!is_material_context_change(Some(ctx), ctx));
+        let ctx = parse_context(
+            r#"{"morning_state":"underway","mode":"morning_mode","prep_window_active":false}"#,
+        );
+        assert!(!is_material_context_change(Some(&ctx), &ctx));
     }
 
     #[test]
     fn material_change_different_state_returns_true() {
-        let prev = r#"{"morning_state":"inactive"}"#;
-        let new = r#"{"morning_state":"underway"}"#;
-        assert!(is_material_context_change(Some(prev), new));
+        let prev = parse_context(r#"{"morning_state":"inactive"}"#);
+        let new = parse_context(r#"{"morning_state":"underway"}"#);
+        assert!(is_material_context_change(Some(&prev), &new));
     }
 
     #[test]
     fn material_change_no_prev_returns_true() {
-        assert!(is_material_context_change(None, r#"{}"#));
+        let next = parse_context(r#"{}"#);
+        assert!(is_material_context_change(None, &next));
     }
 
     #[test]
@@ -1406,11 +1419,14 @@ mod tests {
             },
         );
 
-        let typed =
-            ContextMigrator::from_json_value(context).expect("inference context should parse");
+        let context_json =
+            serde_json::to_value(&context).expect("typed inference context should serialize");
+        let typed = ContextMigrator::from_json_value(context_json.clone())
+            .expect("inference context should parse");
         assert_eq!(typed.mode, "morning_mode");
         assert_eq!(typed.morning_state, "awake_unstarted");
         assert_eq!(typed.attention_confidence, Some(0.8));
+        assert_eq!(context_json["message_waiting_on_me_count"], 1);
     }
 
     #[test]

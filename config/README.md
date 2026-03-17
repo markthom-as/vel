@@ -32,6 +32,9 @@ Use it to answer four questions quickly:
   - `schemas/connector-manifest.schema.json`
   - `schemas/self-model-envelope.schema.json`
 - Examples and manifests:
+  - `examples/app-config.example.toml`
+  - `examples/agent-specs.example.yaml`
+  - `examples/policies.example.yaml`
   - `examples/model-profile.example.toml`
   - `examples/model-routing.example.toml`
   - `examples/connector-manifest.example.json`

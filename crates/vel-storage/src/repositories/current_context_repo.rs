@@ -1,16 +1,25 @@
 use sqlx::{Sqlite, SqlitePool, Transaction};
+use vel_core::context::{ContextMigrator, CurrentContextV1};
 
 use crate::db::StorageError;
 
 pub(crate) async fn get_current_context(
     pool: &SqlitePool,
-) -> Result<Option<(i64, String)>, StorageError> {
+) -> Result<Option<(i64, CurrentContextV1)>, StorageError> {
     let row = sqlx::query_as::<_, (i64, String)>(
         r#"SELECT computed_at, context_json FROM current_context WHERE id = 1"#,
     )
     .fetch_optional(pool)
     .await?;
-    Ok(row)
+
+    match row {
+        Some((computed_at, context_json)) => {
+            let context = ContextMigrator::from_json_str(&context_json)
+                .map_err(|e| StorageError::Validation(e.to_string()))?;
+            Ok(Some((computed_at, context)))
+        }
+        None => Ok(None),
+    }
 }
 
 pub(crate) async fn set_current_context(
@@ -60,10 +69,9 @@ mod tests {
             .unwrap();
 
         let row = get_current_context(&pool).await.unwrap();
-        assert_eq!(
-            row,
-            Some((1_700_000_123, r#"{"mode":"morning"}"#.to_string()))
-        );
+        let (computed_at, context) = row.expect("should have context");
+        assert_eq!(computed_at, 1_700_000_123);
+        assert_eq!(context.mode, "morning");
     }
 
     #[tokio::test]

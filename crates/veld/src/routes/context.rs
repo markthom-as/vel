@@ -8,7 +8,6 @@ use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, ContextTimelineEntry, CurrentContextData, EndOfDayData, MorningData, TodayData,
 };
-use vel_core::ContextMigrator;
 
 use crate::services::context_generation::{
     EndOfDayContextData, MorningContextData, TodayContextData,
@@ -158,13 +157,9 @@ pub async fn current(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<Option<CurrentContextData>>>, AppError> {
     let row = state.storage.get_current_context().await?;
-    let data = row.map(|(computed_at, context_str)| {
-        let context = serde_json::from_str(&context_str).unwrap_or(serde_json::json!({}));
-        let _ = ContextMigrator::from_json_value(context.clone());
-        CurrentContextData {
-            computed_at,
-            context,
-        }
+    let data = row.map(|(computed_at, context)| CurrentContextData {
+        computed_at,
+        context: context.into_json(),
     });
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))

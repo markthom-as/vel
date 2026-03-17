@@ -6,7 +6,7 @@ use vel_core::{Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
 
 use crate::{
     db::{RetryReadyRun, StorageError},
-    run_refs::{map_ref_row, map_run_event_row, map_run_row},
+    repositories::run_refs_repo::{map_ref_row, map_run_event_row, map_run_row},
 };
 
 pub(crate) async fn create_run(

@@ -5,7 +5,7 @@ use std::cmp::Reverse;
 
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
-use vel_core::{ConfidenceBand, ContextMigrator, CurrentContextV1, SuggestionType};
+use vel_core::{ConfidenceBand, SuggestionType};
 use vel_storage::{NudgeRecord, Storage, SuggestionRecord};
 
 use crate::policy_config::{PolicyConfig, SuggestionPolicies};
@@ -574,23 +574,10 @@ async fn persist_candidates(
 }
 
 async fn current_global_risk_score(storage: &Storage) -> Result<f64, crate::errors::AppError> {
-    let Some((_, context_json)) = storage.get_current_context().await? else {
+    let Some((_, context)) = storage.get_current_context().await? else {
         return Ok(0.0);
     };
-    let context: CurrentContextV1 = ContextMigrator::from_json_str(&context_json)
-        .unwrap_or_else(|_| CurrentContextV1::default());
-    if let Some(score) = context.global_risk_score {
-        return Ok(score);
-    }
-
-    // Preserve legacy behavior for malformed rows that cannot be migrated yet:
-    // attempt direct field extraction from raw JSON before defaulting.
-    let legacy_context: JsonValue =
-        serde_json::from_str(&context_json).unwrap_or_else(|_| serde_json::json!({}));
-    Ok(legacy_context
-        .get("global_risk_score")
-        .and_then(JsonValue::as_f64)
-        .unwrap_or(0.0))
+    Ok(context.global_risk_score.unwrap_or(0.0))
 }
 
 fn current_commute_minutes(policy_config: &PolicyConfig) -> i64 {

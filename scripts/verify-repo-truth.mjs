@@ -38,11 +38,6 @@ const retiredDocumentationPaths = new Set([
   'docs/architecture.md',
 ]);
 
-const fallbackJsonFixtureSchemaMap = new Map([
-  ['config/examples/connector-manifest.example.json', 'config/schemas/connector-manifest.schema.json'],
-  ['config/examples/self-model-envelope.example.json', 'config/schemas/self-model-envelope.schema.json'],
-]);
-
 function describeValueType(value) {
   if (Array.isArray(value)) {
     return 'array';
@@ -55,6 +50,301 @@ function describeValueType(value) {
 
 function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stripInlineComment(line) {
+  let inDoubleQuotes = false;
+  let escaped = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      inDoubleQuotes = !inDoubleQuotes;
+      continue;
+    }
+    if (!inDoubleQuotes && character === '#') {
+      return line.slice(0, index).trimEnd();
+    }
+  }
+  return line.trimEnd();
+}
+
+function parseScalarToken(token) {
+  const trimmed = token.trim();
+  if (trimmed === '') {
+    return '';
+  }
+  if (trimmed === 'true') {
+    return true;
+  }
+  if (trimmed === 'false') {
+    return false;
+  }
+  if (trimmed === 'null' || trimmed === '~') {
+    return null;
+  }
+  if (/^-?\d+$/.test(trimmed)) {
+    return Number.parseInt(trimmed, 10);
+  }
+  if (/^-?(?:\d+\.\d*|\d*\.\d+)$/.test(trimmed)) {
+    return Number.parseFloat(trimmed);
+  }
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      throw new Error(`Invalid quoted string ${trimmed}: ${error.message}`);
+    }
+  }
+  return trimmed;
+}
+
+function splitTopLevelCommaList(input) {
+  const values = [];
+  let current = '';
+  let depth = 0;
+  let inDoubleQuotes = false;
+  let escaped = false;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const character = input[index];
+    if (escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (character === '\\') {
+      current += character;
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      inDoubleQuotes = !inDoubleQuotes;
+      current += character;
+      continue;
+    }
+    if (!inDoubleQuotes) {
+      if (character === '[' || character === '{') {
+        depth += 1;
+      } else if (character === ']' || character === '}') {
+        depth -= 1;
+      } else if (character === ',' && depth === 0) {
+        values.push(current.trim());
+        current = '';
+        continue;
+      }
+    }
+    current += character;
+  }
+
+  if (current.trim() !== '') {
+    values.push(current.trim());
+  }
+
+  return values;
+}
+
+function parseTomlValue(rawValue) {
+  const trimmed = rawValue.trim();
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    const inner = trimmed.slice(1, -1).trim();
+    if (inner === '') {
+      return [];
+    }
+    return splitTopLevelCommaList(inner).map((entry) => parseTomlValue(entry));
+  }
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    const inner = trimmed.slice(1, -1).trim();
+    if (inner === '') {
+      return {};
+    }
+    const object = {};
+    for (const entry of splitTopLevelCommaList(inner)) {
+      const match = entry.match(/^([^=]+?)\s*=\s*(.+)$/);
+      if (!match) {
+        throw new Error(`Unsupported inline TOML table entry: ${entry}`);
+      }
+      object[match[1].trim()] = parseTomlValue(match[2]);
+    }
+    return object;
+  }
+  return parseScalarToken(trimmed);
+}
+
+function parseTomlDocument(content) {
+  const root = {};
+  let currentPath = [];
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = stripInlineComment(rawLine);
+    if (!line.trim()) {
+      continue;
+    }
+    const sectionMatch = line.trim().match(/^\[([^\]]+)\]$/);
+    if (sectionMatch) {
+      currentPath = sectionMatch[1]
+        .split('.')
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+      if (currentPath.length === 0) {
+        throw new Error(`Invalid TOML section header: ${line.trim()}`);
+      }
+      let cursor = root;
+      for (const segment of currentPath) {
+        if (!(segment in cursor)) {
+          cursor[segment] = {};
+        }
+        if (!isPlainObject(cursor[segment])) {
+          throw new Error(`TOML section ${sectionMatch[1]} collides with a non-object value`);
+        }
+        cursor = cursor[segment];
+      }
+      continue;
+    }
+
+    const kvMatch = line.match(/^([^=]+?)\s*=\s*(.+)$/);
+    if (!kvMatch) {
+      throw new Error(`Unsupported TOML line: ${line.trim()}`);
+    }
+    const key = kvMatch[1].trim();
+    const value = parseTomlValue(kvMatch[2]);
+    const target = currentPath.length > 0
+      ? currentPath.reduce((cursor, segment) => cursor[segment], root)
+      : root;
+    target[key] = value;
+  }
+
+  return root;
+}
+
+function tokenizeYaml(content) {
+  const lines = [];
+  for (const rawLine of content.split(/\r?\n/)) {
+    const withoutComment = stripInlineComment(rawLine);
+    if (!withoutComment.trim()) {
+      continue;
+    }
+    const indentMatch = withoutComment.match(/^(\s*)(.*)$/);
+    if (!indentMatch) {
+      continue;
+    }
+    lines.push({
+      indent: indentMatch[1].replace(/\t/g, '  ').length,
+      text: indentMatch[2],
+    });
+  }
+  return lines;
+}
+
+function parseYamlBlock(lines, startIndex, expectedIndent) {
+  if (startIndex >= lines.length) {
+    return { value: undefined, nextIndex: startIndex };
+  }
+
+  const firstLine = lines[startIndex];
+  if (firstLine.indent < expectedIndent) {
+    return { value: undefined, nextIndex: startIndex };
+  }
+
+  const isSequence = firstLine.indent === expectedIndent && firstLine.text.startsWith('- ');
+  if (isSequence) {
+    const items = [];
+    let index = startIndex;
+    while (index < lines.length) {
+      const line = lines[index];
+      if (line.indent !== expectedIndent || !line.text.startsWith('- ')) {
+        break;
+      }
+      const entry = line.text.slice(2).trim();
+      index += 1;
+      if (entry === '') {
+        const child = parseYamlBlock(lines, index, expectedIndent + 2);
+        items.push(child.value);
+        index = child.nextIndex;
+        continue;
+      }
+
+      const keyValueMatch = entry.match(/^([^:]+?):(?:\s*(.*))?$/);
+      if (keyValueMatch && keyValueMatch[1].trim() && (keyValueMatch[2] !== undefined || entry.endsWith(':'))) {
+        const item = {};
+        item[keyValueMatch[1].trim()] = keyValueMatch[2] === undefined || keyValueMatch[2] === ''
+          ? ''
+          : parseScalarToken(keyValueMatch[2]);
+        const child = parseYamlBlock(lines, index, expectedIndent + 2);
+        if (child.value !== undefined) {
+          if (!isPlainObject(child.value)) {
+            throw new Error('Expected YAML sequence item continuation to be a mapping');
+          }
+          Object.assign(item, child.value);
+          index = child.nextIndex;
+        } else {
+          index = child.nextIndex;
+        }
+        items.push(item);
+        continue;
+      }
+
+      items.push(parseScalarToken(entry));
+    }
+    return { value: items, nextIndex: index };
+  }
+
+  const object = {};
+  let index = startIndex;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (line.indent < expectedIndent) {
+      break;
+    }
+    if (line.indent > expectedIndent) {
+      break;
+    }
+    const kvMatch = line.text.match(/^([^:]+?):(?:\s*(.*))?$/);
+    if (!kvMatch) {
+      throw new Error(`Unsupported YAML line: ${line.text}`);
+    }
+    const key = kvMatch[1].trim();
+    const valuePart = kvMatch[2];
+    index += 1;
+    if (valuePart === undefined || valuePart === '') {
+      const child = parseYamlBlock(lines, index, expectedIndent + 2);
+      if (child.value === undefined) {
+        object[key] = {};
+      } else {
+        object[key] = child.value;
+        index = child.nextIndex;
+      }
+      continue;
+    }
+    object[key] = parseScalarToken(valuePart);
+  }
+  return { value: object, nextIndex: index };
+}
+
+function parseYamlDocument(content) {
+  const lines = tokenizeYaml(content);
+  const parsed = parseYamlBlock(lines, 0, 0);
+  return parsed.value ?? {};
+}
+
+function parseFixtureContent(relativePath, content) {
+  if (relativePath.endsWith('.json')) {
+    return JSON.parse(content);
+  }
+  if (relativePath.endsWith('.toml')) {
+    return parseTomlDocument(content);
+  }
+  if (relativePath.endsWith('.yaml') || relativePath.endsWith('.yml')) {
+    return parseYamlDocument(content);
+  }
+  throw new Error(`Unsupported fixture extension for ${relativePath}`);
 }
 
 function escapeJsonPointer(segment) {
@@ -251,54 +541,66 @@ function validateAgainstSchema({
   }
 }
 
-function collectJsonFixtureSchemaMappings(manifest) {
+function collectFixtureSchemaMappings(manifest) {
   const mappings = [];
   if (Array.isArray(manifest?.contract_examples)) {
     for (const entry of manifest.contract_examples) {
-      if (!entry || typeof entry.path !== 'string' || typeof entry.schema !== 'string') {
-        ensure(false, 'config/contracts-manifest.json has contract_examples entry missing path/schema');
+      if (
+        !entry
+        || typeof entry.id !== 'string'
+        || typeof entry.kind !== 'string'
+        || typeof entry.path !== 'string'
+        || typeof entry.schema !== 'string'
+      ) {
+        ensure(
+          false,
+          'config/contracts-manifest.json has contract_examples entry missing id/kind/path/schema',
+        );
         continue;
       }
-      if (entry.path.endsWith('.json')) {
-        mappings.push({ path: entry.path, schema: entry.schema, source: 'contract_examples' });
-      }
+      mappings.push({
+        id: entry.id,
+        kind: entry.kind,
+        path: entry.path,
+        schema: entry.schema,
+        source: 'contract_examples',
+      });
     }
-  }
-
-  if (mappings.length > 0) {
-    return mappings;
-  }
-
-  for (const [fixturePath, schemaPath] of fallbackJsonFixtureSchemaMap.entries()) {
-    mappings.push({ path: fixturePath, schema: schemaPath, source: 'fallback-map' });
   }
   return mappings;
 }
 
 function validateManifestJsonFixtures(manifest) {
-  const mappings = collectJsonFixtureSchemaMappings(manifest);
-  ensure(mappings.length > 0, 'No JSON fixture/schema mappings found in config/contracts-manifest.json');
+  const mappings = collectFixtureSchemaMappings(manifest);
+  ensure(mappings.length > 0, 'No contract fixture/schema mappings found in config/contracts-manifest.json');
 
   for (const mapping of mappings) {
-    const fixture = readJson(mapping.path);
+    const fixtureContent = readFile(mapping.path);
     const schema = readJson(mapping.schema);
-    if (!fixture || !schema) {
+    if (!fixtureContent || !schema) {
       continue;
     }
+    try {
+      const fixture = parseFixtureContent(mapping.path, fixtureContent);
+      const validationErrors = [];
+      validateAgainstSchema({
+        schemaNode: schema,
+        rootSchema: schema,
+        value: fixture,
+        pointer: '$',
+        errors: validationErrors,
+      });
 
-    const validationErrors = [];
-    validateAgainstSchema({
-      schemaNode: schema,
-      rootSchema: schema,
-      value: fixture,
-      pointer: '$',
-      errors: validationErrors,
-    });
-
-    ensure(
-      validationErrors.length === 0,
-      `Fixture schema validation failed (${mapping.source}): ${mapping.path} against ${mapping.schema}\n  ${validationErrors.join('\n  ')}`,
-    );
+      ensure(
+        validationErrors.length === 0,
+        `Fixture schema validation failed (${mapping.source}): ${mapping.path} against ${mapping.schema}\n  ${validationErrors.join('\n  ')}`,
+      );
+    } catch (error) {
+      ensure(
+        false,
+        `Fixture parsing failed (${mapping.source}): ${mapping.path} -> ${error.message}`,
+      );
+    }
   }
 }
 
@@ -310,6 +612,9 @@ const requiredFiles = [
   'docs/documentation-catalog.json',
   'config/README.md',
   'config/contracts-manifest.json',
+  'config/examples/app-config.example.toml',
+  'config/examples/agent-specs.example.yaml',
+  'config/examples/policies.example.yaml',
   'config/examples/model-profile.example.toml',
   'config/examples/model-routing.example.toml',
   'config/examples/connector-manifest.example.json',
@@ -778,6 +1083,33 @@ ensure(
     'docs/tickets/phase-1/025-config-and-contract-fixture-parity.md',
   ),
   'config/contracts-manifest.json is missing downstream publication/parity ticket references',
+);
+ensure(
+  (contractManifest?.contract_examples ?? []).some(
+    (entry) =>
+      entry?.kind === 'runtime_config'
+      && entry?.path === 'config/examples/app-config.example.toml'
+      && entry?.schema === 'config/schemas/app-config.schema.json',
+  ),
+  'config/contracts-manifest.json is missing canonical runtime_config fixture parity entry',
+);
+ensure(
+  (contractManifest?.contract_examples ?? []).some(
+    (entry) =>
+      entry?.kind === 'agent_specs'
+      && entry?.path === 'config/examples/agent-specs.example.yaml'
+      && entry?.schema === 'config/schemas/agent-specs.schema.json',
+  ),
+  'config/contracts-manifest.json is missing canonical agent_specs fixture parity entry',
+);
+ensure(
+  (contractManifest?.contract_examples ?? []).some(
+    (entry) =>
+      entry?.kind === 'policy_config'
+      && entry?.path === 'config/examples/policies.example.yaml'
+      && entry?.schema === 'config/schemas/policies.schema.json',
+  ),
+  'config/contracts-manifest.json is missing canonical policy_config fixture parity entry',
 );
 ensure(
   (contractManifest?.contract_examples ?? []).some(

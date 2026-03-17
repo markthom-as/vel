@@ -72,6 +72,24 @@
   ],
   "contract_examples": [
     {
+      "id": "app_config_example",
+      "path": "config/examples/app-config.example.toml",
+      "kind": "runtime_config",
+      "schema": "config/schemas/app-config.schema.json"
+    },
+    {
+      "id": "agent_specs_example",
+      "path": "config/examples/agent-specs.example.yaml",
+      "kind": "agent_specs",
+      "schema": "config/schemas/agent-specs.schema.json"
+    },
+    {
+      "id": "policy_config_example",
+      "path": "config/examples/policies.example.yaml",
+      "kind": "policy_config",
+      "schema": "config/schemas/policies.schema.json"
+    },
+    {
       "id": "model_profile_example",
       "path": "config/examples/model-profile.example.toml",
       "kind": "model_profile",

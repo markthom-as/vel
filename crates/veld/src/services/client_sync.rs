@@ -523,15 +523,6 @@ pub struct SwarmClientData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SwarmClientsData {
-    pub generated_at: i64,
-    pub active_authority_node_id: String,
-    pub active_authority_epoch: i64,
-    #[serde(default)]
-    pub clients: Vec<SwarmClientData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CurrentContextData {
     pub computed_at: i64,
     pub context: serde_json::Value,
@@ -609,13 +600,9 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData,
             .storage
             .get_current_context()
             .await?
-            .map(|(computed_at, context_str)| {
-                let context =
-                    serde_json::from_str(&context_str).unwrap_or_else(|_| serde_json::json!({}));
-                CurrentContextData {
-                    computed_at,
-                    context,
-                }
+            .map(|(computed_at, context)| CurrentContextData {
+                computed_at,
+                context: context.into_json(),
             });
 
     let active = state.storage.list_nudges(Some("active"), 50).await?;
@@ -726,18 +713,6 @@ pub async fn build_sync_cluster_state(state: &AppState) -> Result<SyncClusterSta
                 }
             })
             .collect(),
-        clients,
-    })
-}
-
-#[allow(dead_code)]
-pub async fn swarm_clients_data(state: &AppState) -> Result<SwarmClientsData, AppError> {
-    let workers = cluster_workers_data(state).await?;
-    let clients = swarm_clients_from_workers(state, &workers).await?;
-    Ok(SwarmClientsData {
-        generated_at: workers.generated_at,
-        active_authority_node_id: workers.active_authority_node_id,
-        active_authority_epoch: workers.active_authority_epoch,
         clients,
     })
 }

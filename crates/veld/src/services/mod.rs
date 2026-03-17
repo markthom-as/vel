@@ -8,7 +8,6 @@ pub mod chat;
 pub mod client_sync;
 pub mod command_lang;
 pub mod components;
-pub mod connect;
 pub mod context_generation;
 pub mod context_runs;
 pub mod doctor;

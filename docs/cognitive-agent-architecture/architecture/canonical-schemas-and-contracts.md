@@ -70,9 +70,9 @@ Today the contract surface is partially explicit but not yet unified.
 
 | Contract | Owner | Primary File(s) | Boundary | Versioning Rule | Current State |
 | --- | --- | --- | --- | --- | --- |
-| App runtime config | `vel-config` | `crates/vel-config/src/lib.rs`, `vel.toml`, `config/templates/vel.toml.template`, `config/schemas/app-config.schema.json` | runtime config | additive fields, documented defaults | template and schema present; machine-readable publication now needs consumer rollout |
-| Agent spec config | `vel-config` | `crates/vel-config/src/lib.rs`, `config/agent-specs.yaml`, `config/templates/agent-specs.template.yaml`, `config/schemas/agent-specs.schema.json` | supervised-agent config | validate-on-load, explicit field rules | template and schema present; broader fixture use is tracked separately |
-| Policy config | `veld` | `crates/veld/src/policy_config.rs`, `config/policies.yaml`, `config/templates/policies.template.yaml`, `config/schemas/policies.schema.json` | runtime policy config | validate-on-load, explicit defaults | template and schema present; runtime enforcement remains the code owner |
+| App runtime config | `vel-config` | `crates/vel-config/src/lib.rs`, `vel.toml`, `config/templates/vel.toml.template`, `config/examples/app-config.example.toml`, `config/schemas/app-config.schema.json` | runtime config | additive fields, documented defaults | template, schema, and canonical example are present; machine-readable publication now needs consumer rollout |
+| Agent spec config | `vel-config` | `crates/vel-config/src/lib.rs`, `config/agent-specs.yaml`, `config/templates/agent-specs.template.yaml`, `config/examples/agent-specs.example.yaml`, `config/schemas/agent-specs.schema.json` | supervised-agent config | validate-on-load, explicit field rules | template, schema, and canonical example are present; broader fixture use is tracked separately |
+| Policy config | `veld` | `crates/veld/src/policy_config.rs`, `config/policies.yaml`, `config/templates/policies.template.yaml`, `config/examples/policies.example.yaml`, `config/schemas/policies.schema.json` | runtime policy config | validate-on-load, explicit defaults | template, schema, and canonical example are present; runtime enforcement remains the code owner |
 | Model profile config | `vel-config` | `crates/vel-config/src/models.rs`, `configs/models/*.toml`, `configs/models/templates/profile.template.toml`, `config/schemas/model-profile.schema.json` | model backend config | per-file profile contracts | template and schema present; client/tooling consumption is still narrow |
 | Routing config | `vel-config` | `crates/vel-config/src/models.rs`, `configs/models/routing.toml`, `configs/models/templates/routing.template.toml`, `config/schemas/model-routing.schema.json` | task-to-profile routing | additive task classes | template and schema present; effective-config inspection is still future work |
 | Current context | target `vel-core` | `docs/tickets/phase-1/002-typed-context-transition.md`, `docs/cognitive-agent-architecture/cognition/context-model.md` | cognition state | explicit `CurrentContextVn` structs | still partially JSON-backed in runtime code |
@@ -108,6 +108,9 @@ The repo keeps checked-in templates and examples for human-authored and shared c
 - `config/templates/vel.toml.template`
 - `config/templates/agent-specs.template.yaml`
 - `config/templates/policies.template.yaml`
+- `config/examples/app-config.example.toml`
+- `config/examples/agent-specs.example.yaml`
+- `config/examples/policies.example.yaml`
 - `configs/models/templates/profile.template.toml`
 - `configs/models/templates/routing.template.toml`
 - `config/examples/model-profile.example.toml`

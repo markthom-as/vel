@@ -35,8 +35,8 @@ fn map_context_source_summary(
 fn map_context_explain(value: services::explain::ContextExplain) -> ContextExplainData {
     ContextExplainData {
         computed_at: value.computed_at,
-        mode: value.mode,
-        morning_state: value.morning_state,
+        mode: Some(value.mode),
+        morning_state: Some(value.morning_state),
         context: value.context,
         source_summaries: vel_api_types::ContextSourceSummariesData {
             git_activity: value
@@ -92,7 +92,7 @@ fn map_commitment_explain(value: services::explain::CommitmentExplain) -> Commit
 
 fn map_drift_explain(value: services::explain::DriftExplain) -> DriftExplainData {
     DriftExplainData {
-        attention_state: value.attention_state,
+        attention_state: Some(value.attention_state),
         drift_type: value.drift_type,
         drift_severity: value.drift_severity,
         confidence: value.confidence,

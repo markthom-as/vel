@@ -111,6 +111,56 @@ pub(crate) async fn claim_next_pending_job_in_tx(
     }))
 }
 
+pub(crate) async fn insert_processing_job(
+    pool: &SqlitePool,
+    job_id: &JobId,
+    job_type: &str,
+    status: JobStatus,
+    payload_json: &str,
+) -> Result<(), StorageError> {
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    sqlx::query(
+        r#"
+        INSERT INTO processing_jobs (
+            job_id, job_type, status, created_at, started_at, finished_at, payload_json, error_text
+        ) VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL)
+        "#,
+    )
+    .bind(job_id.to_string())
+    .bind(job_type)
+    .bind(status.to_string())
+    .bind(now)
+    .bind(payload_json)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub(crate) async fn insert_processing_job_in_tx(
+    tx: &mut Transaction<'_, Sqlite>,
+    job_id: &JobId,
+    job_type: &str,
+    status: JobStatus,
+    payload_json: &str,
+) -> Result<(), StorageError> {
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    sqlx::query(
+        r#"
+        INSERT INTO processing_jobs (
+            job_id, job_type, status, created_at, started_at, finished_at, payload_json, error_text
+        ) VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL)
+        "#,
+    )
+    .bind(job_id.to_string())
+    .bind(job_type)
+    .bind(status.to_string())
+    .bind(now)
+    .bind(payload_json)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
+}
+
 pub(crate) async fn mark_job_succeeded(
     pool: &SqlitePool,
     job_id: &str,

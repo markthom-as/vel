@@ -1350,7 +1350,6 @@ mod tests {
     use serde_json::json;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
-    use vel_core::ContextMigrator;
 
     fn unique_sqlite_path(prefix: &str) -> PathBuf {
         let nanos = SystemTime::now()
@@ -1570,14 +1569,12 @@ mod tests {
             .await
             .expect("evaluate should succeed after bootstrap");
 
-        let (_, context_json) = state
+        let (_, context) = state
             .storage
             .get_current_context()
             .await
             .unwrap()
             .expect("bootstrap + evaluate should persist current context");
-        let context = ContextMigrator::from_json_str(&context_json)
-            .expect("bootstrap + evaluate context should parse with typed migrator");
         assert_eq!(context.message_waiting_on_me_count, Some(1));
     }
 

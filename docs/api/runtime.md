@@ -31,7 +31,7 @@ Current mounted inventory by class:
   - `POST /v1/sync/actions`
   - `POST /v1/sync/branch-sync`
   - `POST /v1/sync/validation`
-  - auth expectation for mounted write surfaces: requests such as `POST /v1/sync/work-queue/claim-next` return `401` when worker token policy is configured and credentials are missing/invalid
+  - fail-closed auth expectation for `/v1/sync/work-queue*`: `GET /v1/sync/work-queue` and `POST /v1/sync/work-queue/claim-next` return `401` when worker token policy is configured and credentials are missing/invalid
 - `future_external` (fail-closed reservation)
   - `/v1/connect`
   - `/v1/connect/*`

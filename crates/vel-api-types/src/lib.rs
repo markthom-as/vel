@@ -1134,6 +1134,60 @@ pub struct ConnectInstanceData {
     pub metadata: JsonValue,
 }
 
+impl From<vel_core::ConnectRuntimeCapability> for ConnectRuntimeCapabilityData {
+    fn from(capability: vel_core::ConnectRuntimeCapability) -> Self {
+        Self {
+            runtime_id: capability.runtime_id,
+            display_name: capability.display_name,
+            supports_launch: capability.supports_launch,
+            supports_interactive_followup: capability.supports_interactive_followup,
+            supports_native_open: capability.supports_native_open,
+            supports_host_agent_control: capability.supports_host_agent_control,
+        }
+    }
+}
+
+impl From<vel_core::ConnectInstanceCapabilityManifest> for ConnectInstanceCapabilityManifestData {
+    fn from(manifest: vel_core::ConnectInstanceCapabilityManifest) -> Self {
+        Self {
+            worker_classes: manifest.worker_classes,
+            capabilities: manifest.capabilities,
+            launchable_runtimes: manifest
+                .launchable_runtimes
+                .into_iter()
+                .map(ConnectRuntimeCapabilityData::from)
+                .collect(),
+            supports_agent_launch: manifest.supports_agent_launch,
+            supports_interactive_followup: manifest.supports_interactive_followup,
+            supports_native_open: manifest.supports_native_open,
+            supports_host_agent_control: manifest.supports_host_agent_control,
+        }
+    }
+}
+
+impl From<vel_core::ConnectInstance> for ConnectInstanceData {
+    fn from(instance: vel_core::ConnectInstance) -> Self {
+        Self {
+            id: instance.id,
+            node_id: instance.node_id,
+            display_name: instance.display_name,
+            connection_id: instance.connection_id,
+            status: instance.status.to_string(),
+            reachability: instance.reachability,
+            sync_base_url: instance.sync_base_url,
+            sync_transport: instance.sync_transport,
+            tailscale_base_url: instance.tailscale_base_url,
+            lan_base_url: instance.lan_base_url,
+            localhost_base_url: instance.localhost_base_url,
+            worker_ids: instance.worker_ids,
+            worker_classes: instance.worker_classes,
+            last_seen_at: instance.last_seen_at.map(|seen_at| seen_at.unix_timestamp()),
+            manifest: instance.manifest.into(),
+            metadata: instance.metadata_json,
+        }
+    }
+}
+
 // --- Chat / Web surfaces ---
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

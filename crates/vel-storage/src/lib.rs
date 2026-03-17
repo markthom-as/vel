@@ -1,14 +1,10 @@
-mod chat;
+
 mod db;
 mod infra;
-mod integrations;
 mod mapping;
 mod repositories;
-mod run_refs;
-mod runs;
 mod runtime_cluster;
 mod runtime_loops;
-mod threads;
 
 pub use db::{
     ArtifactInsert, ArtifactRecord, AssistantTranscriptInsert, AssistantTranscriptRecord,

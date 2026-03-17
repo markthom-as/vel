@@ -1,6 +1,6 @@
 //! Read-only explain helpers shared by API routes and command execution.
 
-use vel_core::{ContextMigrator, CurrentContextV1};
+use vel_core::{CurrentContextV1};
 use vel_storage::SignalRecord;
 
 use crate::{errors::AppError, services::risk::snapshot_from_row, state::AppState};
@@ -42,8 +42,8 @@ pub struct ContextSourceSummaries {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ContextExplain {
     pub computed_at: i64,
-    pub mode: Option<String>,
-    pub morning_state: Option<String>,
+    pub mode: String,
+    pub morning_state: String,
     pub context: serde_json::Value,
     pub source_summaries: ContextSourceSummaries,
     pub adaptive_policy_overrides: Vec<AdaptivePolicyOverride>,
@@ -64,7 +64,7 @@ pub struct CommitmentExplain {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct DriftExplain {
-    pub attention_state: Option<String>,
+    pub attention_state: String,
     pub drift_type: Option<String>,
     pub drift_severity: Option<String>,
     pub confidence: Option<f64>,
@@ -74,134 +74,27 @@ pub struct DriftExplain {
     pub commitments_used: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
-struct LoadedCurrentContext {
-    raw: serde_json::Value,
-    typed: Option<CurrentContextV1>,
-}
-
-fn load_current_context(context_json: &str) -> LoadedCurrentContext {
-    let raw: serde_json::Value =
-        serde_json::from_str(context_json).unwrap_or_else(|_| serde_json::json!({}));
-    let typed = ContextMigrator::from_json_value(raw.clone()).ok();
-    LoadedCurrentContext { raw, typed }
-}
-
-fn context_string_array(
-    raw: &serde_json::Value,
-    key: &str,
-    typed: Option<&[String]>,
-) -> Vec<String> {
-    if let Some(values) = typed {
-        return values.to_vec();
-    }
-    raw.get(key)
-        .and_then(|value| serde_json::from_value(value.clone()).ok())
-        .unwrap_or_default()
-}
-
-fn context_optional_string(
-    raw: &serde_json::Value,
-    key: &str,
-    typed: Option<&str>,
-) -> Option<String> {
-    if let Some(value) = typed.filter(|value| !value.is_empty()) {
-        return Some(value.to_string());
-    }
-    raw.get(key)
-        .and_then(|value| value.as_str())
-        .map(String::from)
-}
-
-fn context_bool(raw: &serde_json::Value, key: &str, typed: Option<bool>) -> bool {
-    typed.unwrap_or_else(|| {
-        raw.get(key)
-            .and_then(|value| value.as_bool())
-            .unwrap_or(false)
-    })
-}
-
-fn context_optional_f64(raw: &serde_json::Value, key: &str, typed: Option<f64>) -> Option<f64> {
-    typed.or_else(|| raw.get(key).and_then(|value| value.as_f64()))
-}
-
-fn context_reasons(raw: &serde_json::Value, typed: Option<&[String]>) -> Vec<String> {
-    if let Some(reasons) = typed {
-        return reasons.to_vec();
-    }
-    raw.get("attention_reasons")
-        .and_then(|value| value.as_array())
-        .map(|array| {
-            array
-                .iter()
-                .filter_map(|value| value.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 pub async fn explain_context_data(state: &AppState) -> Result<ContextExplain, AppError> {
     let row = state.storage.get_current_context().await?;
-    let (computed_at, context_json) = row.unwrap_or((0, "{}".to_string()));
-    let loaded = load_current_context(&context_json);
-    let typed = loaded.typed.as_ref();
-    let signals_used = context_string_array(
-        &loaded.raw,
-        "signals_used",
-        typed.map(|context| context.signals_used.as_slice()),
-    );
-    let commitments_used = context_string_array(
-        &loaded.raw,
-        "commitments_used",
-        typed.map(|context| context.commitments_used.as_slice()),
-    );
-    let risk_used = context_string_array(
-        &loaded.raw,
-        "risk_used",
-        typed.map(|context| context.risk_used.as_slice()),
-    );
-    let mode = context_optional_string(
-        &loaded.raw,
-        "mode",
-        typed.map(|context| context.mode.as_str()),
-    );
-    let morning_state = context_optional_string(
-        &loaded.raw,
-        "morning_state",
-        typed.map(|context| context.morning_state.as_str()),
-    );
-    let meds_status = context_optional_string(
-        &loaded.raw,
-        "meds_status",
-        typed.map(|context| context.meds_status.as_str()),
-    );
-    let next_commitment_id = context_optional_string(
-        &loaded.raw,
-        "next_commitment_id",
-        typed.and_then(|context| context.next_commitment_id.as_deref()),
-    );
+    let (computed_at, context) = row.unwrap_or((0, CurrentContextV1::default()));
+    let signals_used = context.signals_used.clone();
+    let commitments_used = context.commitments_used.clone();
+    let risk_used = context.risk_used.clone();
+    
     let mut reasons: Vec<String> = Vec::new();
-    if let Some(ref m) = mode {
-        reasons.push(format!("mode: {}", m));
+    if !context.mode.is_empty() {
+        reasons.push(format!("mode: {}", context.mode));
     }
-    if let Some(ref s) = morning_state {
-        reasons.push(format!("morning_state: {}", s));
+    if !context.morning_state.is_empty() {
+        reasons.push(format!("morning_state: {}", context.morning_state));
     }
-    if context_bool(
-        &loaded.raw,
-        "prep_window_active",
-        typed.map(|context| context.prep_window_active),
-    ) {
+    if context.prep_window_active {
         reasons.push("prep window active".to_string());
     }
-    if next_commitment_id
-        .as_deref()
-        .filter(|value| !value.is_empty())
-        .is_some()
-    {
+    if context.next_commitment_id.is_some() {
         reasons.push("upcoming commitment".to_string());
     }
-    if meds_status.as_deref() == Some("pending") {
+    if context.meds_status == "pending" {
         reasons.push("meds commitment still open".to_string());
     }
     if reasons.is_empty() {
@@ -213,10 +106,10 @@ pub async fn explain_context_data(state: &AppState) -> Result<ContextExplain, Ap
 
     Ok(ContextExplain {
         computed_at,
-        mode,
-        morning_state,
-        context: loaded.raw.clone(),
-        source_summaries: context_source_summaries(&loaded.raw, typed),
+        mode: context.mode.clone(),
+        morning_state: context.morning_state.clone(),
+        context: context.clone().into_json(),
+        source_summaries: context_source_summaries(&context),
         adaptive_policy_overrides: adaptive_policy_overrides(state).await?,
         signals_used: signals_used.clone(),
         signal_summaries: hydrate_signal_summaries(state, &signals_used).await?,
@@ -266,19 +159,11 @@ pub async fn explain_commitment_data(
     };
     let has_risk = !risk_rows.is_empty();
     let row = state.storage.get_current_context().await?;
-    let context_json = row.map(|(_, s)| s).unwrap_or_else(|| "{}".to_string());
-    let loaded = load_current_context(&context_json);
-    let typed = loaded.typed.as_ref();
-    let commitments_used = context_string_array(
-        &loaded.raw,
-        "commitments_used",
-        typed.map(|context| context.commitments_used.as_slice()),
-    );
-    let top_risk = context_string_array(
-        &loaded.raw,
-        "top_risk_commitment_ids",
-        typed.map(|context| context.top_risk_commitment_ids.as_slice()),
-    );
+    let context = row.map(|(_, c)| c).unwrap_or_else(CurrentContextV1::default);
+    
+    let commitments_used = context.commitments_used.clone();
+    let top_risk = context.top_risk_commitment_ids.clone();
+    
     let mut in_context_reasons: Vec<String> = Vec::new();
     if commitments_used.iter().any(|c| c == id) {
         in_context_reasons.push("In commitments_used for current context.".to_string());
@@ -309,50 +194,17 @@ pub async fn explain_commitment_data(
 
 pub async fn explain_drift_data(state: &AppState) -> Result<DriftExplain, AppError> {
     let row = state.storage.get_current_context().await?;
-    let (_, context_json) = row.unwrap_or((0, "{}".to_string()));
-    let loaded = load_current_context(&context_json);
-    let typed = loaded.typed.as_ref();
-    let attention_state = context_optional_string(
-        &loaded.raw,
-        "attention_state",
-        typed.map(|context| context.attention_state.as_str()),
-    );
-    let drift_type = context_optional_string(
-        &loaded.raw,
-        "drift_type",
-        typed.and_then(|context| context.drift_type.as_deref()),
-    );
-    let drift_severity = context_optional_string(
-        &loaded.raw,
-        "drift_severity",
-        typed.and_then(|context| context.drift_severity.as_deref()),
-    );
-    let attention_confidence = context_optional_f64(
-        &loaded.raw,
-        "attention_confidence",
-        typed.and_then(|context| context.attention_confidence),
-    );
-    let reasons = context_reasons(
-        &loaded.raw,
-        typed.map(|context| context.attention_reasons.as_slice()),
-    );
-    let signals_used = context_string_array(
-        &loaded.raw,
-        "signals_used",
-        typed.map(|context| context.signals_used.as_slice()),
-    );
-    let commitments_used = context_string_array(
-        &loaded.raw,
-        "commitments_used",
-        typed.map(|context| context.commitments_used.as_slice()),
-    );
+    let (_, context) = row.unwrap_or((0, CurrentContextV1::default()));
+    
+    let signals_used = context.signals_used.clone();
+    let commitments_used = context.commitments_used.clone();
 
     Ok(DriftExplain {
-        attention_state,
-        drift_type,
-        drift_severity,
-        confidence: attention_confidence,
-        reasons,
+        attention_state: context.attention_state.clone(),
+        drift_type: context.drift_type.clone(),
+        drift_severity: context.drift_severity.clone(),
+        confidence: context.attention_confidence,
+        reasons: context.attention_reasons.clone(),
         signals_used: signals_used.clone(),
         signal_summaries: hydrate_signal_summaries(state, &signals_used).await?,
         commitments_used,
@@ -368,39 +220,38 @@ async fn hydrate_signal_summaries(
 }
 
 fn context_source_summaries(
-    context: &serde_json::Value,
-    typed: Option<&CurrentContextV1>,
+    context: &CurrentContextV1,
 ) -> ContextSourceSummaries {
     ContextSourceSummaries {
         git_activity: context_source_summary(
             context,
             "git_activity_summary",
-            typed.and_then(|context| context.git_activity_summary.clone()),
+            context.git_activity_summary.clone(),
         ),
         health: context_source_summary(
             context,
             "health_summary",
-            typed.and_then(|context| context.health_summary.clone()),
+            context.health_summary.clone(),
         ),
         mood: context_source_summary(
             context,
             "mood_summary",
-            typed.and_then(|context| context.mood_summary.clone()),
+            context.mood_summary.clone(),
         ),
         pain: context_source_summary(
             context,
             "pain_summary",
-            typed.and_then(|context| context.pain_summary.clone()),
+            context.pain_summary.clone(),
         ),
         note_document: context_source_summary(
             context,
             "note_document_summary",
-            typed.and_then(|context| context.note_document_summary.clone()),
+            context.note_document_summary.clone(),
         ),
         assistant_message: context_source_summary(
             context,
             "assistant_message_summary",
-            typed.and_then(|context| context.assistant_message_summary.clone()),
+            context.assistant_message_summary.clone(),
         ),
     }
 }
@@ -432,12 +283,12 @@ async fn adaptive_policy_overrides(
 }
 
 fn context_source_summary(
-    context: &serde_json::Value,
+    context: &CurrentContextV1,
     key: &str,
     typed_summary: Option<serde_json::Value>,
 ) -> Option<ContextSourceSummary> {
-    let summary = typed_summary.or_else(|| context.get(key).cloned())?;
-    let timestamp = summary.get("timestamp").and_then(|value| value.as_i64())?;
+    let summary = typed_summary.or_else(|| context.extra.get(key).cloned())?;
+    let timestamp = summary.get("timestamp").and_then(|value| value.as_i64()).unwrap_or(context.computed_at);
     Some(ContextSourceSummary { timestamp, summary })
 }
 

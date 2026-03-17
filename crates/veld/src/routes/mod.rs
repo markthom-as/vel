@@ -5,7 +5,6 @@ pub mod cluster;
 pub mod command_lang;
 pub mod commitments;
 pub mod components;
-pub mod connect;
 pub mod context;
 pub mod doctor;
 pub mod evaluate;

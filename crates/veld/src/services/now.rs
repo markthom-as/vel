@@ -2,7 +2,7 @@ use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{
-    normalize_risk_level, Commitment, CommitmentStatus, ContextMigrator, CurrentContextV1,
+    normalize_risk_level, Commitment, CommitmentStatus, CurrentContextV1,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -159,35 +159,17 @@ struct IntegrationSnapshotOutput {
     messaging: SyncStatusOutput,
 }
 
-#[derive(Debug, Clone)]
-struct LoadedCurrentContext {
-    raw: JsonValue,
-    typed: Option<CurrentContextV1>,
-}
-
-fn load_current_context(context_json: &str) -> LoadedCurrentContext {
-    let raw: JsonValue = serde_json::from_str(context_json).unwrap_or_else(|_| json!({}));
-    let typed = ContextMigrator::from_json_value(raw.clone()).ok();
-    LoadedCurrentContext { raw, typed }
-}
-
 pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput, AppError> {
     let now_ts = OffsetDateTime::now_utc().unix_timestamp();
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
-    let Some((computed_at, context_json)) = storage.get_current_context().await? else {
+    let Some((computed_at, context)) = storage.get_current_context().await? else {
         return Ok(empty_now(now_ts, &timezone.name));
     };
-    let loaded_context = load_current_context(&context_json);
-    let typed_context = loaded_context.typed.as_ref();
 
     let commitments = storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
         .await?;
-    let next_commitment_id = context_optional_string(
-        &loaded_context.raw,
-        "next_commitment_id",
-        typed_context.and_then(|context| context.next_commitment_id.as_deref()),
-    );
+    let next_commitment_id = context.next_commitment_id.clone();
     let next_commitment = next_commitment_id
         .as_ref()
         .and_then(|id| {
@@ -209,11 +191,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         }
     }
 
-    let signal_ids = context_string_array(
-        &loaded_context.raw,
-        "signals_used",
-        typed_context.map(|context| context.signals_used.as_slice()),
-    );
+    let signal_ids = context.signals_used.clone();
     let calendar_selection = integrations::google_calendar_selection_filter(storage).await?;
     let mut events = storage
         .list_signals_by_ids(&signal_ids)
@@ -296,56 +274,19 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
     };
     let freshness = build_freshness(now_ts, computed_at, &integrations, &calendar_selection);
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
-    let attention_reasons = context_reasons(
-        &loaded_context.raw,
-        typed_context.map(|context| context.attention_reasons.as_slice()),
-    );
-    let reasons = build_reasons(&loaded_context, &attention_reasons);
+    let attention_reasons = context.attention_reasons.clone();
+    let reasons = build_reasons_typed(&context, &attention_reasons);
 
     Ok(NowOutput {
         computed_at,
         timezone: timezone.name,
         summary: NowSummaryOutput {
-            mode: label_for_mode(
-                context_optional_string(
-                    &loaded_context.raw,
-                    "mode",
-                    typed_context.map(|context| context.mode.as_str()),
-                )
-                .as_deref()
-                .unwrap_or("unknown"),
-            ),
-            phase: label_for_phase(
-                context_optional_string(
-                    &loaded_context.raw,
-                    "morning_state",
-                    typed_context.map(|context| context.morning_state.as_str()),
-                )
-                .as_deref()
-                .unwrap_or("unknown"),
-            ),
-            meds: label_for_meds(
-                context_optional_string(
-                    &loaded_context.raw,
-                    "meds_status",
-                    typed_context.map(|context| context.meds_status.as_str()),
-                )
-                .as_deref()
-                .unwrap_or("unknown"),
-            ),
+            mode: label_for_mode(context.mode.as_str()),
+            phase: label_for_phase(context.morning_state.as_str()),
+            meds: label_for_meds(context.meds_status.as_str()),
             risk: risk_summary(
-                context_optional_string(
-                    &loaded_context.raw,
-                    "global_risk_level",
-                    typed_context.map(|context| context.global_risk_level.as_str()),
-                )
-                .as_deref()
-                .unwrap_or("unknown"),
-                context_optional_f64(
-                    &loaded_context.raw,
-                    "global_risk_score",
-                    typed_context.and_then(|context| context.global_risk_score),
-                ),
+                context.global_risk_level.as_str(),
+                context.global_risk_score,
             ),
         },
         schedule: NowScheduleOutput {
@@ -359,94 +300,92 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
             next_commitment,
         },
         attention: NowAttentionOutput {
-            state: label_for_attention(
-                context_optional_string(
-                    &loaded_context.raw,
-                    "attention_state",
-                    typed_context.map(|context| context.attention_state.as_str()),
-                )
-                .as_deref()
-                .unwrap_or("unknown"),
-            ),
-            drift: label_for_drift(
-                context_optional_string(
-                    &loaded_context.raw,
-                    "drift_type",
-                    typed_context.and_then(|context| context.drift_type.as_deref()),
-                )
-                .as_deref()
-                .unwrap_or("none"),
-            ),
-            severity: label_for_severity(
-                context_optional_string(
-                    &loaded_context.raw,
-                    "drift_severity",
-                    typed_context.and_then(|context| context.drift_severity.as_deref()),
-                )
-                .as_deref()
-                .unwrap_or("none"),
-            ),
-            confidence: context_optional_f64(
-                &loaded_context.raw,
-                "attention_confidence",
-                typed_context.and_then(|context| context.attention_confidence),
-            ),
+            state: label_for_attention(context.attention_state.as_str()),
+            drift: label_for_drift(context.drift_type.as_deref().unwrap_or("none")),
+            severity: label_for_severity(context.drift_severity.as_deref().unwrap_or("none")),
+            confidence: context.attention_confidence,
             reasons: attention_reasons,
         },
         sources: NowSourcesOutput {
-            git_activity: context_source_activity(
-                &loaded_context.raw,
+            git_activity: context_source_activity_typed(
+                &context,
                 "git_activity_summary",
                 "Git activity",
-                typed_context.and_then(|context| context.git_activity_summary.clone()),
+                context.git_activity_summary.clone(),
             ),
-            health: context_source_activity(
-                &loaded_context.raw,
+            health: context_source_activity_typed(
+                &context,
                 "health_summary",
                 "Health",
-                typed_context.and_then(|context| context.health_summary.clone()),
+                context.health_summary.clone(),
             ),
-            mood: context_source_activity(
-                &loaded_context.raw,
+            mood: context_source_activity_typed(
+                &context,
                 "mood_summary",
                 "Mood",
-                typed_context.and_then(|context| context.mood_summary.clone()),
+                context.mood_summary.clone(),
             ),
-            pain: context_source_activity(
-                &loaded_context.raw,
+            pain: context_source_activity_typed(
+                &context,
                 "pain_summary",
                 "Pain",
-                typed_context.and_then(|context| context.pain_summary.clone()),
+                context.pain_summary.clone(),
             ),
-            note_document: context_source_activity(
-                &loaded_context.raw,
+            note_document: context_source_activity_typed(
+                &context,
                 "note_document_summary",
                 "Recent note",
-                typed_context.and_then(|context| context.note_document_summary.clone()),
+                context.note_document_summary.clone(),
             ),
-            assistant_message: context_source_activity(
-                &loaded_context.raw,
+            assistant_message: context_source_activity_typed(
+                &context,
                 "assistant_message_summary",
                 "Recent transcript",
-                typed_context.and_then(|context| context.assistant_message_summary.clone()),
+                context.assistant_message_summary.clone(),
             ),
         },
         freshness,
         reasons,
         debug: NowDebugOutput {
-            raw_context: loaded_context.raw.clone(),
-            signals_used: signal_ids,
-            commitments_used: context_string_array(
-                &loaded_context.raw,
-                "commitments_used",
-                typed_context.map(|context| context.commitments_used.as_slice()),
-            ),
-            risk_used: context_string_array(
-                &loaded_context.raw,
-                "risk_used",
-                typed_context.map(|context| context.risk_used.as_slice()),
-            ),
+            raw_context: context.clone().into_json(),
+            signals_used: context.signals_used.clone(),
+            commitments_used: context.commitments_used.clone(),
+            risk_used: context.risk_used.clone(),
         },
+    })
+}
+
+fn build_reasons_typed(context: &CurrentContextV1, attention_reasons: &[String]) -> Vec<String> {
+    let mut reasons = Vec::new();
+    if !context.mode.is_empty() {
+        reasons.push(format!("Mode: {}", label_for_mode(&context.mode).label));
+    }
+    if context.prep_window_active {
+        reasons.push("Prep window active".to_string());
+    }
+    if context.commute_window_active {
+        reasons.push("Commute window active".to_string());
+    }
+    if context.meds_status == "pending" {
+        reasons.push("Medication task is still pending".to_string());
+    }
+    reasons.extend(attention_reasons.iter().cloned());
+    reasons.truncate(8);
+    reasons
+}
+
+fn context_source_activity_typed(
+    context: &CurrentContextV1,
+    key: &str,
+    label: &str,
+    typed_summary: Option<JsonValue>,
+) -> Option<NowSourceActivityOutput> {
+    let summary = typed_summary.or_else(|| context.extra.get(key).cloned())?;
+    let timestamp = summary.get("timestamp").and_then(JsonValue::as_i64).unwrap_or(context.computed_at);
+    Some(NowSourceActivityOutput {
+        label: label.to_string(),
+        timestamp,
+        summary,
     })
 }
 
@@ -508,21 +447,6 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowOutput {
     }
 }
 
-fn context_source_activity(
-    context: &JsonValue,
-    key: &str,
-    label: &str,
-    typed_summary: Option<JsonValue>,
-) -> Option<NowSourceActivityOutput> {
-    let summary = typed_summary.or_else(|| context.get(key).cloned())?;
-    let timestamp = summary.get("timestamp").and_then(JsonValue::as_i64)?;
-    Some(NowSourceActivityOutput {
-        label: label.to_string(),
-        timestamp,
-        summary,
-    })
-}
-
 fn schedule_empty_message(
     integrations: &IntegrationSnapshotOutput,
     no_upcoming_events: bool,
@@ -540,52 +464,6 @@ fn schedule_empty_message(
     }
 
     Some("No upcoming calendar events in the current stream.".to_string())
-}
-
-fn build_reasons(context: &LoadedCurrentContext, attention_reasons: &[String]) -> Vec<String> {
-    let mut reasons = Vec::new();
-    if let Some(mode) = context_optional_string(
-        &context.raw,
-        "mode",
-        context.typed.as_ref().map(|typed| typed.mode.as_str()),
-    ) {
-        reasons.push(format!("Mode: {}", label_for_mode(&mode).label));
-    }
-    if context_optional_bool(
-        &context.raw,
-        "prep_window_active",
-        context.typed.as_ref().map(|typed| typed.prep_window_active),
-    ) == Some(true)
-    {
-        reasons.push("Prep window active".to_string());
-    }
-    if context_optional_bool(
-        &context.raw,
-        "commute_window_active",
-        context
-            .typed
-            .as_ref()
-            .map(|typed| typed.commute_window_active),
-    ) == Some(true)
-    {
-        reasons.push("Commute window active".to_string());
-    }
-    if context_optional_string(
-        &context.raw,
-        "meds_status",
-        context
-            .typed
-            .as_ref()
-            .map(|typed| typed.meds_status.as_str()),
-    )
-    .as_deref()
-        == Some("pending")
-    {
-        reasons.push("Medication task is still pending".to_string());
-    }
-    reasons.extend(attention_reasons.iter().cloned());
-    reasons.truncate(8);
-    reasons
 }
 
 fn build_freshness(
@@ -1045,37 +923,3 @@ fn risk_summary(level: &str, score: Option<f64>) -> NowRiskSummaryOutput {
     }
 }
 
-fn context_optional_string(value: &JsonValue, key: &str, typed: Option<&str>) -> Option<String> {
-    if let Some(entry) = typed.filter(|entry| !entry.is_empty()) {
-        return Some(entry.to_string());
-    }
-    value.get(key)?.as_str().map(str::to_string)
-}
-
-fn context_optional_f64(value: &JsonValue, key: &str, typed: Option<f64>) -> Option<f64> {
-    typed.or_else(|| value.get(key)?.as_f64())
-}
-
-fn context_optional_bool(value: &JsonValue, key: &str, typed: Option<bool>) -> Option<bool> {
-    typed.or_else(|| value.get(key)?.as_bool())
-}
-
-fn context_string_array(value: &JsonValue, key: &str, typed: Option<&[String]>) -> Vec<String> {
-    if let Some(values) = typed {
-        return values.to_vec();
-    }
-    value
-        .get(key)
-        .and_then(|entry| entry.as_array())
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| item.as_str().map(str::to_string))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-fn context_reasons(value: &JsonValue, typed: Option<&[String]>) -> Vec<String> {
-    context_string_array(value, "attention_reasons", typed)
-}

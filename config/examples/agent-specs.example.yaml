@@ -1,0 +1,19 @@
+id: review_worker
+kind: specialist
+mission: review a bounded implementation slice and return concrete findings with file references
+ttl_seconds: 240
+allowed_tools:
+  - rg
+  - cargo_test
+  - repo_read
+memory_scope:
+  constitution: true
+  topic_pads:
+    - architecture
+    - verification
+  event_query: recent_runs
+return_contract: review_findings_v1
+budgets:
+  max_tool_calls: 16
+  max_tokens: 32000
+  max_memory_queries: 4

@@ -1,14 +1,16 @@
 use crate::{
-    chat, infra, integrations,
+    infra,
     mapping::{parse_json_value, timestamp_to_datetime},
     repositories::{
-        artifacts_repo, assistant_transcripts_repo, commitment_risk_repo, context_timeline_repo,
-        current_context_repo, inferred_state_repo, processing_jobs_repo, signals_repo,
-        suggestion_feedback_repo, suggestions_repo, uncertainty_records_repo,
+        artifacts_repo, assistant_transcripts_repo, captures_repo, chat_repo, commitment_risk_repo,
+        commitments_repo, context_timeline_repo, current_context_repo, inferred_state_repo,
+        integration_connections_repo, nudges_repo, processing_jobs_repo, runs_repo,
+        signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
+        uncertainty_records_repo,
     },
-    runs, runtime_cluster, runtime_loops, threads,
+    runtime_cluster, runtime_loops,
 };
-use serde_json::{json, Value as JsonValue};
+use serde_json::Value as JsonValue;
 use sqlx::{migrate::Migrator, QueryBuilder, Row, Sqlite, SqlitePool};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -640,10 +642,7 @@ impl Storage {
     }
 
     pub async fn insert_capture(&self, input: CaptureInsert) -> Result<CaptureId, StorageError> {
-        let capture_id = CaptureId::new();
-        self.insert_capture_with_id(capture_id.clone(), input)
-            .await?;
-        Ok(capture_id)
+        captures_repo::insert_capture(&self.pool, input).await
     }
 
     pub async fn insert_capture_with_id(
@@ -651,90 +650,18 @@ impl Storage {
         capture_id: CaptureId,
         input: CaptureInsert,
     ) -> Result<bool, StorageError> {
-        let job_id = JobId::new();
-        let now = OffsetDateTime::now_utc();
-        let metadata = json!({});
-
-        let result = sqlx::query(
-            r#"
-            INSERT OR IGNORE INTO captures (
-                capture_id,
-                capture_type,
-                content_text,
-                occurred_at,
-                created_at,
-                source_device,
-                privacy_class,
-                metadata_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(capture_id.to_string())
-        .bind(&input.capture_type)
-        .bind(&input.content_text)
-        .bind(now.unix_timestamp())
-        .bind(now.unix_timestamp())
-        .bind(input.source_device)
-        .bind(input.privacy_class.to_string())
-        .bind(metadata.to_string())
-        .execute(&self.pool)
-        .await?;
-
-        if result.rows_affected() == 0 {
-            return Ok(false);
-        }
-
-        sqlx::query(
-            r#"
-            INSERT INTO processing_jobs (
-                job_id,
-                job_type,
-                status,
-                created_at,
-                started_at,
-                finished_at,
-                payload_json,
-                error_text
-            ) VALUES (?, ?, ?, ?, NULL, NULL, ?, NULL)
-            "#,
-        )
-        .bind(job_id.to_string())
-        .bind("capture_ingest")
-        .bind(JobStatus::Pending.to_string())
-        .bind(now.unix_timestamp())
-        .bind(json!({ "capture_id": capture_id.to_string() }).to_string())
-        .execute(&self.pool)
-        .await?;
-
-        Ok(true)
+        captures_repo::insert_capture_with_id(&self.pool, capture_id, input).await
     }
 
     pub async fn capture_count(&self) -> Result<i64, StorageError> {
-        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM captures")
-            .fetch_one(&self.pool)
-            .await?;
-        Ok(count)
+        captures_repo::capture_count(&self.pool).await
     }
 
     pub async fn get_capture_by_id(
         &self,
         capture_id: &str,
     ) -> Result<Option<ContextCapture>, StorageError> {
-        let row = sqlx::query(
-            r#"
-            SELECT capture_id, capture_type, content_text, occurred_at, source_device
-            FROM captures
-            WHERE capture_id = ?
-            "#,
-        )
-        .bind(capture_id)
-        .fetch_optional(&self.pool)
-        .await?;
-
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        Ok(Some(map_context_capture_row(row)?))
+        captures_repo::get_capture_by_id(&self.pool, capture_id).await
     }
 
     /// List captures most recent first. If today_only, restrict to since start of current day (UTC).
@@ -743,88 +670,18 @@ impl Storage {
         limit: u32,
         today_only: bool,
     ) -> Result<Vec<ContextCapture>, StorageError> {
-        let limit = limit.min(500) as i64;
-        let rows = if today_only {
-            let now = OffsetDateTime::now_utc();
-            let start_of_day = now
-                .date()
-                .with_hms(0, 0, 0)
-                .map_err(|e| StorageError::InvalidTimestamp(e.to_string()))?
-                .assume_utc()
-                .unix_timestamp();
-            sqlx::query(
-                r#"
-                SELECT capture_id, capture_type, content_text, occurred_at, source_device
-                FROM captures
-                WHERE created_at >= ?
-                ORDER BY created_at DESC
-                LIMIT ?
-                "#,
-            )
-            .bind(start_of_day)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await?
-        } else {
-            sqlx::query(
-                r#"
-                SELECT capture_id, capture_type, content_text, occurred_at, source_device
-                FROM captures
-                ORDER BY created_at DESC
-                LIMIT ?
-                "#,
-            )
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await?
-        };
-        rows.into_iter()
-            .map(|row| map_context_capture_row(row))
-            .collect::<Result<Vec<_>, _>>()
+        captures_repo::list_captures_recent(&self.pool, limit, today_only).await
     }
 
     pub async fn insert_commitment(
         &self,
         input: CommitmentInsert,
     ) -> Result<CommitmentId, StorageError> {
-        let id = CommitmentId::new();
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let metadata_str =
-            serde_json::to_string(input.metadata_json.as_ref().unwrap_or(&json!({})))
-                .map_err(|e| StorageError::Validation(e.to_string()))?;
-        let due_ts = input.due_at.map(|t| t.unix_timestamp());
-        sqlx::query(
-            r#"
-            INSERT INTO commitments (id, text, source_type, source_id, status, due_at, project, commitment_kind, created_at, resolved_at, metadata_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
-            "#,
-        )
-        .bind(id.as_ref())
-        .bind(&input.text)
-        .bind(&input.source_type)
-        .bind(&input.source_id)
-        .bind(input.status.to_string())
-        .bind(due_ts)
-        .bind(&input.project)
-        .bind(&input.commitment_kind)
-        .bind(now)
-        .bind(&metadata_str)
-        .execute(&self.pool)
-        .await?;
-        Ok(id)
+        commitments_repo::insert_commitment(&self.pool, input).await
     }
 
     pub async fn get_commitment_by_id(&self, id: &str) -> Result<Option<Commitment>, StorageError> {
-        let row = sqlx::query(
-            r#"SELECT id, text, source_type, source_id, status, due_at, project, commitment_kind, created_at, resolved_at, metadata_json FROM commitments WHERE id = ?"#,
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
-        let Some(row) = row else {
-            return Ok(None);
-        };
-        Ok(Some(map_commitment_row(&row)?))
+        commitments_repo::get_commitment_by_id(&self.pool, id).await
     }
 
     pub async fn list_commitments(
@@ -834,30 +691,7 @@ impl Storage {
         kind: Option<&str>,
         limit: u32,
     ) -> Result<Vec<Commitment>, StorageError> {
-        let limit = limit.min(200) as i64;
-        let rows = sqlx::query(
-            r#"
-            SELECT id, text, source_type, source_id, status, due_at, project, commitment_kind, created_at, resolved_at, metadata_json
-            FROM commitments
-            WHERE (? IS NULL OR status = ?)
-              AND (? IS NULL OR project = ?)
-              AND (? IS NULL OR commitment_kind = ?)
-            ORDER BY created_at DESC
-            LIMIT ?
-            "#,
-        )
-        .bind(status_filter.as_ref().map(|s| s.to_string()))
-        .bind(status_filter.as_ref().map(|s| s.to_string()))
-        .bind(project)
-        .bind(project)
-        .bind(kind)
-        .bind(kind)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter()
-            .map(|row| map_commitment_row(&row))
-            .collect::<Result<Vec<_>, _>>()
+        commitments_repo::list_commitments(&self.pool, status_filter, project, kind, limit).await
     }
 
     pub async fn update_commitment(
@@ -870,44 +704,17 @@ impl Storage {
         commitment_kind: Option<&str>,
         metadata_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let resolved = status.and_then(|s| {
-            (s == CommitmentStatus::Done || s == CommitmentStatus::Cancelled).then_some(now)
-        });
-        let current: Option<Commitment> = self.get_commitment_by_id(id).await?;
-        let Some(c) = current else {
-            return Err(StorageError::Validation("commitment not found".to_string()));
-        };
-        let new_text = text.map(String::from).unwrap_or(c.text);
-        let new_status = status.unwrap_or(c.status);
-        let new_due = due_at.unwrap_or(c.due_at).map(|t| t.unix_timestamp());
-        let new_project = project.map(String::from).or(c.project);
-        let new_kind = commitment_kind.map(String::from).or(c.commitment_kind);
-        let new_resolved = match status {
-            Some(CommitmentStatus::Open) => None,
-            Some(_) => resolved,
-            None => c.resolved_at.map(|t| t.unix_timestamp()),
-        };
-        let meta = metadata_json
-            .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string()))
-            .unwrap_or_else(|| c.metadata_json.to_string());
-        sqlx::query(
-            r#"
-            UPDATE commitments SET text = ?, status = ?, due_at = ?, project = ?, commitment_kind = ?, resolved_at = ?, metadata_json = ?
-            WHERE id = ?
-            "#,
+        commitments_repo::update_commitment(
+            &self.pool,
+            id,
+            text,
+            status,
+            due_at,
+            project,
+            commitment_kind,
+            metadata_json,
         )
-        .bind(&new_text)
-        .bind(new_status.to_string())
-        .bind(new_due)
-        .bind(&new_project)
-        .bind(&new_kind)
-        .bind(new_resolved)
-        .bind(&meta)
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        .await
     }
 
     // --- Commitment dependencies ---
@@ -918,56 +725,29 @@ impl Storage {
         child_commitment_id: &str,
         dependency_type: &str,
     ) -> Result<String, StorageError> {
-        let existing = sqlx::query_as::<_, (String,)>(
-            r#"SELECT id FROM commitment_dependencies WHERE parent_commitment_id = ? AND child_commitment_id = ? AND dependency_type = ?"#,
+        commitments_repo::insert_commitment_dependency(
+            &self.pool,
+            parent_commitment_id,
+            child_commitment_id,
+            dependency_type,
         )
-        .bind(parent_commitment_id)
-        .bind(child_commitment_id)
-        .bind(dependency_type)
-        .fetch_optional(&self.pool)
-        .await?;
-        if let Some((id,)) = existing {
-            return Ok(id);
-        }
-        let id = format!("cdep_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        sqlx::query(
-            r#"INSERT INTO commitment_dependencies (id, parent_commitment_id, child_commitment_id, dependency_type, created_at) VALUES (?, ?, ?, ?, ?)"#,
-        )
-        .bind(&id)
-        .bind(parent_commitment_id)
-        .bind(child_commitment_id)
-        .bind(dependency_type)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(id)
+        .await
     }
 
     pub async fn list_commitment_dependencies_by_parent(
         &self,
         parent_commitment_id: &str,
     ) -> Result<Vec<(String, String, String, i64)>, StorageError> {
-        let rows = sqlx::query_as::<_, (String, String, String, i64)>(
-            r#"SELECT id, child_commitment_id, dependency_type, created_at FROM commitment_dependencies WHERE parent_commitment_id = ? ORDER BY created_at ASC"#,
-        )
-        .bind(parent_commitment_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows)
+        commitments_repo::list_commitment_dependencies_by_parent(&self.pool, parent_commitment_id)
+            .await
     }
 
     pub async fn list_commitment_dependencies_by_child(
         &self,
         child_commitment_id: &str,
     ) -> Result<Vec<(String, String, String, i64)>, StorageError> {
-        let rows = sqlx::query_as::<_, (String, String, String, i64)>(
-            r#"SELECT id, parent_commitment_id, dependency_type, created_at FROM commitment_dependencies WHERE child_commitment_id = ? ORDER BY created_at ASC"#,
-        )
-        .bind(child_commitment_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows)
+        commitments_repo::list_commitment_dependencies_by_child(&self.pool, child_commitment_id)
+            .await
     }
 
     // --- Signals (Phase B) ---
@@ -1032,41 +812,11 @@ impl Storage {
     // --- Nudges (Phase D) ---
 
     pub async fn insert_nudge(&self, input: NudgeInsert) -> Result<String, StorageError> {
-        let nudge_id = format!("nud_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let meta_str = serde_json::to_string(input.metadata_json.as_ref().unwrap_or(&json!({})))
-            .map_err(|e| StorageError::Validation(e.to_string()))?;
-        sqlx::query(
-            r#"
-            INSERT INTO nudges (nudge_id, nudge_type, level, state, related_commitment_id, message, created_at, snoozed_until, resolved_at, signals_snapshot_json, inference_snapshot_json, metadata_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(&nudge_id)
-        .bind(&input.nudge_type)
-        .bind(&input.level)
-        .bind(&input.state)
-        .bind(&input.related_commitment_id)
-        .bind(&input.message)
-        .bind(now)
-        .bind(input.snoozed_until)
-        .bind(input.resolved_at)
-        .bind(&input.signals_snapshot_json)
-        .bind(&input.inference_snapshot_json)
-        .bind(&meta_str)
-        .execute(&self.pool)
-        .await?;
-        Ok(nudge_id)
+        nudges_repo::insert_nudge(&self.pool, input).await
     }
 
     pub async fn get_nudge(&self, id: &str) -> Result<Option<NudgeRecord>, StorageError> {
-        let row = sqlx::query(
-            r#"SELECT nudge_id, nudge_type, level, state, related_commitment_id, message, created_at, snoozed_until, resolved_at, signals_snapshot_json, inference_snapshot_json, metadata_json FROM nudges WHERE nudge_id = ?"#,
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
-        row.map(|r| map_nudge_row(&r)).transpose()
+        nudges_repo::get_nudge(&self.pool, id).await
     }
 
     pub async fn list_nudges(
@@ -1074,22 +824,7 @@ impl Storage {
         state_filter: Option<&str>,
         limit: u32,
     ) -> Result<Vec<NudgeRecord>, StorageError> {
-        let limit = limit.min(100) as i64;
-        let rows = sqlx::query(
-            r#"
-            SELECT nudge_id, nudge_type, level, state, related_commitment_id, message, created_at, snoozed_until, resolved_at, signals_snapshot_json, inference_snapshot_json, metadata_json
-            FROM nudges
-            WHERE (? IS NULL OR state = ?)
-            ORDER BY created_at DESC
-            LIMIT ?
-            "#,
-        )
-        .bind(state_filter)
-        .bind(state_filter)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter().map(|r| map_nudge_row(&r)).collect()
+        nudges_repo::list_nudges(&self.pool, state_filter, limit).await
     }
 
     pub async fn update_nudge_state(
@@ -1099,16 +834,8 @@ impl Storage {
         snoozed_until: Option<i64>,
         resolved_at: Option<i64>,
     ) -> Result<(), StorageError> {
-        sqlx::query(
-            r#"UPDATE nudges SET state = ?, snoozed_until = ?, resolved_at = ? WHERE nudge_id = ?"#,
-        )
-        .bind(state)
-        .bind(snoozed_until)
-        .bind(resolved_at)
-        .bind(nudge_id)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        nudges_repo::update_nudge_state(&self.pool, nudge_id, state, snoozed_until, resolved_at)
+            .await
     }
 
     pub async fn update_nudge_lifecycle(
@@ -1122,31 +849,23 @@ impl Storage {
         inference_snapshot_json: Option<&str>,
         metadata_json: &JsonValue,
     ) -> Result<(), StorageError> {
-        let metadata_json = serde_json::to_string(metadata_json)
-            .map_err(|e| StorageError::Validation(e.to_string()))?;
-        sqlx::query(
-            r#"
-            UPDATE nudges
-            SET level = ?, state = ?, message = ?, snoozed_until = ?, resolved_at = ?, inference_snapshot_json = ?, metadata_json = ?
-            WHERE nudge_id = ?
-            "#,
+        nudges_repo::update_nudge_lifecycle(
+            &self.pool,
+            nudge_id,
+            level,
+            state,
+            message,
+            snoozed_until,
+            resolved_at,
+            inference_snapshot_json,
+            metadata_json,
         )
-        .bind(level)
-        .bind(state)
-        .bind(message)
-        .bind(snoozed_until)
-        .bind(resolved_at)
-        .bind(inference_snapshot_json)
-        .bind(metadata_json)
-        .bind(nudge_id)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        .await
     }
 
     // --- Current context (singleton) ---
 
-    pub async fn get_current_context(&self) -> Result<Option<(i64, String)>, StorageError> {
+    pub async fn get_current_context(&self) -> Result<Option<(i64, vel_core::context::CurrentContextV1)>, StorageError> {
         current_context_repo::get_current_context(&self.pool).await
     }
 
@@ -1186,21 +905,21 @@ impl Storage {
         &self,
         input: IntegrationConnectionInsert,
     ) -> Result<IntegrationConnectionId, StorageError> {
-        integrations::insert_integration_connection(&self.pool, input).await
+        integration_connections_repo::insert_integration_connection(&self.pool, input).await
     }
 
     pub async fn get_integration_connection(
         &self,
         id: &str,
     ) -> Result<Option<IntegrationConnection>, StorageError> {
-        integrations::get_integration_connection(&self.pool, id).await
+        integration_connections_repo::get_integration_connection(&self.pool, id).await
     }
 
     pub async fn list_integration_connections(
         &self,
         filters: IntegrationConnectionFilters,
     ) -> Result<Vec<IntegrationConnection>, StorageError> {
-        integrations::list_integration_connections(&self.pool, filters).await
+        integration_connections_repo::list_integration_connections(&self.pool, filters).await
     }
 
     pub async fn update_integration_connection(
@@ -1211,7 +930,7 @@ impl Storage {
         account_ref: Option<Option<&str>>,
         metadata_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
-        integrations::update_integration_connection(
+        integration_connections_repo::update_integration_connection(
             &self.pool,
             id,
             status,
@@ -1228,7 +947,7 @@ impl Storage {
         setting_key: &str,
         setting_value: &str,
     ) -> Result<(), StorageError> {
-        integrations::upsert_integration_connection_setting_ref(
+        integration_connections_repo::upsert_integration_connection_setting_ref(
             &self.pool,
             connection_id,
             setting_key,
@@ -1241,7 +960,11 @@ impl Storage {
         &self,
         connection_id: &str,
     ) -> Result<Vec<IntegrationConnectionSettingRef>, StorageError> {
-        integrations::list_integration_connection_setting_refs(&self.pool, connection_id).await
+        integration_connections_repo::list_integration_connection_setting_refs(
+            &self.pool,
+            connection_id,
+        )
+        .await
     }
 
     pub async fn insert_integration_connection_event(
@@ -1251,7 +974,7 @@ impl Storage {
         payload_json: &JsonValue,
         timestamp: i64,
     ) -> Result<String, StorageError> {
-        integrations::insert_integration_connection_event(
+        integration_connections_repo::insert_integration_connection_event(
             &self.pool,
             connection_id,
             event_type,
@@ -1266,7 +989,12 @@ impl Storage {
         connection_id: &str,
         limit: u32,
     ) -> Result<Vec<IntegrationConnectionEvent>, StorageError> {
-        integrations::list_integration_connection_events(&self.pool, connection_id, limit).await
+        integration_connections_repo::list_integration_connection_events(
+            &self.pool,
+            connection_id,
+            limit,
+        )
+        .await
     }
 
     // --- Threads (thread graph) ---
@@ -1279,14 +1007,14 @@ impl Storage {
         status: &str,
         metadata_json: &str,
     ) -> Result<(), StorageError> {
-        threads::insert_thread(&self.pool, id, thread_type, title, status, metadata_json).await
+        threads_repo::insert_thread(&self.pool, id, thread_type, title, status, metadata_json).await
     }
 
     pub async fn get_thread_by_id(
         &self,
         id: &str,
     ) -> Result<Option<(String, String, String, String, String, i64, i64)>, StorageError> {
-        threads::get_thread_by_id(&self.pool, id).await
+        threads_repo::get_thread_by_id(&self.pool, id).await
     }
 
     pub async fn list_threads(
@@ -1294,11 +1022,11 @@ impl Storage {
         status_filter: Option<&str>,
         limit: u32,
     ) -> Result<Vec<(String, String, String, String, i64, i64)>, StorageError> {
-        threads::list_threads(&self.pool, status_filter, limit).await
+        threads_repo::list_threads(&self.pool, status_filter, limit).await
     }
 
     pub async fn update_thread_status(&self, id: &str, status: &str) -> Result<(), StorageError> {
-        threads::update_thread_status(&self.pool, id, status).await
+        threads_repo::update_thread_status(&self.pool, id, status).await
     }
 
     pub async fn insert_thread_link(
@@ -1308,7 +1036,7 @@ impl Storage {
         entity_id: &str,
         relation_type: &str,
     ) -> Result<String, StorageError> {
-        threads::insert_thread_link(&self.pool, thread_id, entity_type, entity_id, relation_type)
+        threads_repo::insert_thread_link(&self.pool, thread_id, entity_type, entity_id, relation_type)
             .await
     }
 
@@ -1316,7 +1044,7 @@ impl Storage {
         &self,
         thread_id: &str,
     ) -> Result<Vec<(String, String, String, String)>, StorageError> {
-        threads::list_thread_links(&self.pool, thread_id).await
+        threads_repo::list_thread_links(&self.pool, thread_id).await
     }
 
     // --- Suggestions (steering loop) ---
@@ -1347,48 +1075,7 @@ impl Storage {
         &self,
         input: SuggestionInsertV2,
     ) -> Result<String, StorageError> {
-        let id = format!("sug_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let payload_json = serde_json::to_string(&input.payload_json)
-            .map_err(|error| StorageError::Validation(error.to_string()))?;
-        let decision_context_json = input
-            .decision_context_json
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(|error| StorageError::Validation(error.to_string()))?;
-        sqlx::query(
-            r#"
-            INSERT INTO suggestions (
-                id,
-                suggestion_type,
-                state,
-                title,
-                summary,
-                priority,
-                confidence,
-                dedupe_key,
-                payload_json,
-                decision_context_json,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(&id)
-        .bind(&input.suggestion_type)
-        .bind(&input.state)
-        .bind(&input.title)
-        .bind(&input.summary)
-        .bind(input.priority)
-        .bind(&input.confidence)
-        .bind(&input.dedupe_key)
-        .bind(payload_json)
-        .bind(decision_context_json)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(id)
+        suggestions_repo::insert_suggestion_v2(&self.pool, input).await
     }
 
     pub async fn list_suggestions(
@@ -1396,153 +1083,28 @@ impl Storage {
         state_filter: Option<&str>,
         limit: u32,
     ) -> Result<Vec<SuggestionRecord>, StorageError> {
-        let limit = limit.min(100) as i64;
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                s.id,
-                s.suggestion_type,
-                s.state,
-                s.title,
-                s.summary,
-                s.priority,
-                s.confidence,
-                s.dedupe_key,
-                s.payload_json,
-                s.decision_context_json,
-                s.created_at,
-                s.resolved_at,
-                CAST(COUNT(se.id) AS INTEGER) AS evidence_count
-            FROM suggestions s
-            LEFT JOIN suggestion_evidence se ON se.suggestion_id = s.id
-            WHERE (? IS NULL OR s.state = ?)
-            GROUP BY
-                s.id,
-                s.suggestion_type,
-                s.state,
-                s.title,
-                s.summary,
-                s.priority,
-                s.confidence,
-                s.dedupe_key,
-                s.payload_json,
-                s.decision_context_json,
-                s.created_at,
-                s.resolved_at
-            ORDER BY s.created_at DESC, s.rowid DESC
-            LIMIT ?
-            "#,
-        )
-        .bind(state_filter)
-        .bind(state_filter)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter()
-            .map(|row| map_suggestion_row(&row))
-            .collect()
+        suggestions_repo::list_suggestions(&self.pool, state_filter, limit).await
     }
 
     pub async fn get_suggestion_by_id(
         &self,
         id: &str,
     ) -> Result<Option<SuggestionRecord>, StorageError> {
-        let row = sqlx::query(
-            r#"
-            SELECT
-                s.id,
-                s.suggestion_type,
-                s.state,
-                s.title,
-                s.summary,
-                s.priority,
-                s.confidence,
-                s.dedupe_key,
-                s.payload_json,
-                s.decision_context_json,
-                s.created_at,
-                s.resolved_at,
-                CAST(COUNT(se.id) AS INTEGER) AS evidence_count
-            FROM suggestions s
-            LEFT JOIN suggestion_evidence se ON se.suggestion_id = s.id
-            WHERE s.id = ?
-            GROUP BY
-                s.id,
-                s.suggestion_type,
-                s.state,
-                s.title,
-                s.summary,
-                s.priority,
-                s.confidence,
-                s.dedupe_key,
-                s.payload_json,
-                s.decision_context_json,
-                s.created_at,
-                s.resolved_at
-            "#,
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
-        row.map(|row| map_suggestion_row(&row)).transpose()
+        suggestions_repo::get_suggestion_by_id(&self.pool, id).await
     }
 
     pub async fn insert_suggestion_evidence(
         &self,
         input: SuggestionEvidenceInsert,
     ) -> Result<String, StorageError> {
-        let id = format!("sugev_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        let evidence_json = input
-            .evidence_json
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(|error| StorageError::Validation(error.to_string()))?;
-        sqlx::query(
-            r#"
-            INSERT INTO suggestion_evidence (
-                id,
-                suggestion_id,
-                evidence_type,
-                ref_id,
-                evidence_json,
-                weight,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            "#,
-        )
-        .bind(&id)
-        .bind(&input.suggestion_id)
-        .bind(&input.evidence_type)
-        .bind(&input.ref_id)
-        .bind(evidence_json)
-        .bind(input.weight)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(id)
+        suggestions_repo::insert_suggestion_evidence(&self.pool, input).await
     }
 
     pub async fn list_suggestion_evidence(
         &self,
         suggestion_id: &str,
     ) -> Result<Vec<SuggestionEvidenceRecord>, StorageError> {
-        let rows = sqlx::query(
-            r#"
-            SELECT id, suggestion_id, evidence_type, ref_id, evidence_json, weight, created_at
-            FROM suggestion_evidence
-            WHERE suggestion_id = ?
-            ORDER BY created_at DESC
-            "#,
-        )
-        .bind(suggestion_id)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter()
-            .map(|row| map_suggestion_evidence_row(&row))
-            .collect()
+        suggestions_repo::list_suggestion_evidence(&self.pool, suggestion_id).await
     }
 
     pub async fn insert_suggestion_feedback(
@@ -1706,10 +1268,7 @@ impl Storage {
 
     /// Count nudge_events rows (for read-boundary tests).
     pub async fn count_nudge_events(&self) -> Result<i64, StorageError> {
-        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM nudge_events")
-            .fetch_one(&self.pool)
-            .await?;
-        Ok(row.0)
+        nudges_repo::count_nudge_events(&self.pool).await
     }
 
     // --- Nudge events (append-only log) ---
@@ -1721,20 +1280,8 @@ impl Storage {
         payload_json: &str,
         timestamp: i64,
     ) -> Result<(), StorageError> {
-        let id = format!("nve_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        sqlx::query(
-            r#"INSERT INTO nudge_events (id, nudge_id, event_type, payload_json, timestamp, created_at) VALUES (?, ?, ?, ?, ?, ?)"#,
-        )
-        .bind(&id)
-        .bind(nudge_id)
-        .bind(event_type)
-        .bind(payload_json)
-        .bind(timestamp)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        nudges_repo::insert_nudge_event(&self.pool, nudge_id, event_type, payload_json, timestamp)
+            .await
     }
 
     pub async fn list_nudge_events(
@@ -1742,23 +1289,7 @@ impl Storage {
         nudge_id: &str,
         limit: u32,
     ) -> Result<Vec<NudgeEventRecord>, StorageError> {
-        let limit = limit.min(100) as i64;
-        let rows = sqlx::query(
-            r#"
-            SELECT id, nudge_id, event_type, payload_json, timestamp, created_at
-            FROM nudge_events
-            WHERE nudge_id = ?
-            ORDER BY rowid ASC
-            LIMIT ?
-            "#,
-        )
-        .bind(nudge_id)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-        rows.into_iter()
-            .map(|row| map_nudge_event_row(&row))
-            .collect()
+        nudges_repo::list_nudge_events(&self.pool, nudge_id, limit).await
     }
 
     pub async fn search_captures(
@@ -1799,6 +1330,17 @@ impl Storage {
 
         let rows = builder.build().fetch_all(&self.pool).await?;
         rows.into_iter().map(map_search_row).collect()
+    }
+
+    pub async fn insert_processing_job(
+        &self,
+        job_id: &JobId,
+        job_type: &str,
+        status: JobStatus,
+        payload_json: &str,
+    ) -> Result<(), StorageError> {
+        processing_jobs_repo::insert_processing_job(&self.pool, job_id, job_type, status, payload_json)
+            .await
     }
 
     /// Claims the next pending job of the given type. Returns `None` if no pending job exists.
@@ -1848,11 +1390,11 @@ impl Storage {
         kind: RunKind,
         input_json: &JsonValue,
     ) -> Result<(), StorageError> {
-        runs::create_run(&self.pool, id, kind, input_json).await
+        runs_repo::create_run(&self.pool, id, kind, input_json).await
     }
 
     pub async fn get_run_by_id(&self, run_id: &str) -> Result<Option<Run>, StorageError> {
-        runs::get_run_by_id(&self.pool, run_id).await
+        runs_repo::get_run_by_id(&self.pool, run_id).await
     }
 
     pub async fn list_runs(
@@ -1861,7 +1403,7 @@ impl Storage {
         kind_filter: Option<&str>,
         since_ts: Option<i64>,
     ) -> Result<Vec<Run>, StorageError> {
-        runs::list_runs(&self.pool, limit, kind_filter, since_ts).await
+        runs_repo::list_runs(&self.pool, limit, kind_filter, since_ts).await
     }
 
     pub async fn update_run_status(
@@ -1873,7 +1415,7 @@ impl Storage {
         output_json: Option<&JsonValue>,
         error_json: Option<&JsonValue>,
     ) -> Result<(), StorageError> {
-        runs::update_run_status(
+        runs_repo::update_run_status(
             &self.pool,
             run_id,
             status,
@@ -1886,7 +1428,7 @@ impl Storage {
     }
 
     pub async fn reset_run_for_retry(&self, run_id: &str) -> Result<(), StorageError> {
-        runs::reset_run_for_retry(&self.pool, run_id).await
+        runs_repo::reset_run_for_retry(&self.pool, run_id).await
     }
 
     pub async fn append_run_event(
@@ -1896,11 +1438,11 @@ impl Storage {
         event_type: RunEventType,
         payload_json: &JsonValue,
     ) -> Result<(), StorageError> {
-        runs::append_run_event(&self.pool, run_id, seq, event_type, payload_json).await
+        runs_repo::append_run_event(&self.pool, run_id, seq, event_type, payload_json).await
     }
 
     pub async fn next_run_event_seq(&self, run_id: &str) -> Result<u32, StorageError> {
-        runs::next_run_event_seq(&self.pool, run_id).await
+        runs_repo::next_run_event_seq(&self.pool, run_id).await
     }
 
     pub async fn append_run_event_auto(
@@ -1909,7 +1451,7 @@ impl Storage {
         event_type: RunEventType,
         payload_json: &JsonValue,
     ) -> Result<u32, StorageError> {
-        runs::append_run_event_auto(&self.pool, run_id, event_type, payload_json).await
+        runs_repo::append_run_event_auto(&self.pool, run_id, event_type, payload_json).await
     }
 
     pub async fn list_retry_ready_runs(
@@ -1917,15 +1459,15 @@ impl Storage {
         now_ts: i64,
         limit: u32,
     ) -> Result<Vec<RetryReadyRun>, StorageError> {
-        runs::list_retry_ready_runs(&self.pool, now_ts, limit).await
+        runs_repo::list_retry_ready_runs(&self.pool, now_ts, limit).await
     }
 
     pub async fn list_run_events(&self, run_id: &str) -> Result<Vec<RunEvent>, StorageError> {
-        runs::list_run_events(&self.pool, run_id).await
+        runs_repo::list_run_events(&self.pool, run_id).await
     }
 
     pub async fn create_ref(&self, ref_: &Ref) -> Result<(), StorageError> {
-        runs::create_ref(&self.pool, ref_).await
+        runs_repo::create_ref(&self.pool, ref_).await
     }
 
     pub async fn list_refs_from(
@@ -1933,11 +1475,11 @@ impl Storage {
         from_type: &str,
         from_id: &str,
     ) -> Result<Vec<Ref>, StorageError> {
-        runs::list_refs_from(&self.pool, from_type, from_id).await
+        runs_repo::list_refs_from(&self.pool, from_type, from_id).await
     }
 
     pub async fn list_refs_to(&self, to_type: &str, to_id: &str) -> Result<Vec<Ref>, StorageError> {
-        runs::list_refs_to(&self.pool, to_type, to_id).await
+        runs_repo::list_refs_to(&self.pool, to_type, to_id).await
     }
 
     // --- Conversations (chat) ---
@@ -1946,7 +1488,7 @@ impl Storage {
         &self,
         input: ConversationInsert,
     ) -> Result<ConversationId, StorageError> {
-        chat::create_conversation(&self.pool, input).await
+        chat_repo::create_conversation(&self.pool, input).await
     }
 
     pub async fn list_conversations(
@@ -1954,32 +1496,32 @@ impl Storage {
         archived: Option<bool>,
         limit: u32,
     ) -> Result<Vec<ConversationRecord>, StorageError> {
-        chat::list_conversations(&self.pool, archived, limit).await
+        chat_repo::list_conversations(&self.pool, archived, limit).await
     }
 
     pub async fn get_conversation(
         &self,
         id: &str,
     ) -> Result<Option<ConversationRecord>, StorageError> {
-        chat::get_conversation(&self.pool, id).await
+        chat_repo::get_conversation(&self.pool, id).await
     }
 
     pub async fn rename_conversation(&self, id: &str, title: &str) -> Result<(), StorageError> {
-        chat::rename_conversation(&self.pool, id, title).await
+        chat_repo::rename_conversation(&self.pool, id, title).await
     }
 
     pub async fn pin_conversation(&self, id: &str, pinned: bool) -> Result<(), StorageError> {
-        chat::pin_conversation(&self.pool, id, pinned).await
+        chat_repo::pin_conversation(&self.pool, id, pinned).await
     }
 
     pub async fn archive_conversation(&self, id: &str, archived: bool) -> Result<(), StorageError> {
-        chat::archive_conversation(&self.pool, id, archived).await
+        chat_repo::archive_conversation(&self.pool, id, archived).await
     }
 
     // --- Messages (chat) ---
 
     pub async fn create_message(&self, input: MessageInsert) -> Result<MessageId, StorageError> {
-        chat::create_message(&self.pool, input).await
+        chat_repo::create_message(&self.pool, input).await
     }
 
     /// List messages in a conversation, ordered by created_at ASC for stable thread display.
@@ -1988,15 +1530,15 @@ impl Storage {
         conversation_id: &str,
         limit: u32,
     ) -> Result<Vec<MessageRecord>, StorageError> {
-        chat::list_messages_by_conversation(&self.pool, conversation_id, limit).await
+        chat_repo::list_messages_by_conversation(&self.pool, conversation_id, limit).await
     }
 
     pub async fn get_message(&self, id: &str) -> Result<Option<MessageRecord>, StorageError> {
-        chat::get_message(&self.pool, id).await
+        chat_repo::get_message(&self.pool, id).await
     }
 
     pub async fn update_message_status(&self, id: &str, status: &str) -> Result<(), StorageError> {
-        chat::update_message_status(&self.pool, id, status).await
+        chat_repo::update_message_status(&self.pool, id, status).await
     }
 
     // --- Interventions (chat) ---
@@ -2005,35 +1547,35 @@ impl Storage {
         &self,
         input: InterventionInsert,
     ) -> Result<InterventionId, StorageError> {
-        chat::create_intervention(&self.pool, input).await
+        chat_repo::create_intervention(&self.pool, input).await
     }
 
     pub async fn list_interventions_active(
         &self,
         limit: u32,
     ) -> Result<Vec<InterventionRecord>, StorageError> {
-        chat::list_interventions_active(&self.pool, limit).await
+        chat_repo::list_interventions_active(&self.pool, limit).await
     }
 
     pub async fn get_interventions_by_message(
         &self,
         message_id: &str,
     ) -> Result<Vec<InterventionRecord>, StorageError> {
-        chat::get_interventions_by_message(&self.pool, message_id).await
+        chat_repo::get_interventions_by_message(&self.pool, message_id).await
     }
 
     pub async fn get_interventions_by_conversation(
         &self,
         conversation_id: &str,
     ) -> Result<Vec<InterventionRecord>, StorageError> {
-        chat::get_interventions_by_conversation(&self.pool, conversation_id).await
+        chat_repo::get_interventions_by_conversation(&self.pool, conversation_id).await
     }
 
     pub async fn get_intervention(
         &self,
         id: &str,
     ) -> Result<Option<InterventionRecord>, StorageError> {
-        chat::get_intervention(&self.pool, id).await
+        chat_repo::get_intervention(&self.pool, id).await
     }
 
     pub async fn snooze_intervention(
@@ -2041,28 +1583,28 @@ impl Storage {
         id: &str,
         snoozed_until_ts: i64,
     ) -> Result<(), StorageError> {
-        chat::snooze_intervention(&self.pool, id, snoozed_until_ts).await
+        chat_repo::snooze_intervention(&self.pool, id, snoozed_until_ts).await
     }
 
     pub async fn resolve_intervention(&self, id: &str) -> Result<(), StorageError> {
-        chat::resolve_intervention(&self.pool, id).await
+        chat_repo::resolve_intervention(&self.pool, id).await
     }
 
     pub async fn dismiss_intervention(&self, id: &str) -> Result<(), StorageError> {
-        chat::dismiss_intervention(&self.pool, id).await
+        chat_repo::dismiss_intervention(&self.pool, id).await
     }
 
     // --- Event log (chat) ---
 
     pub async fn append_event(&self, input: EventLogInsert) -> Result<EventId, StorageError> {
-        chat::append_event(&self.pool, input).await
+        chat_repo::append_event(&self.pool, input).await
     }
 
     pub async fn list_events_recent(
         &self,
         limit: u32,
     ) -> Result<Vec<EventLogRecord>, StorageError> {
-        chat::list_events_recent(&self.pool, limit).await
+        chat_repo::list_events_recent(&self.pool, limit).await
     }
 
     pub async fn list_events_by_aggregate(
@@ -2071,7 +1613,7 @@ impl Storage {
         aggregate_id: &str,
         limit: u32,
     ) -> Result<Vec<EventLogRecord>, StorageError> {
-        chat::list_events_by_aggregate(&self.pool, aggregate_type, aggregate_id, limit).await
+        chat_repo::list_events_by_aggregate(&self.pool, aggregate_type, aggregate_id, limit).await
     }
 
     // --- Settings (chat/client) ---
@@ -2199,173 +1741,13 @@ impl Storage {
     }
 
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
-        let now = OffsetDateTime::now_utc();
-        let start_of_day = now
-            .date()
-            .with_hms(0, 0, 0)
-            .map_err(|error| StorageError::InvalidTimestamp(error.to_string()))?
-            .assume_utc()
-            .unix_timestamp();
-        let seven_days_ago = now - time::Duration::days(7);
-
-        let recent_today = sqlx::query(
-            r#"
-            SELECT capture_id, capture_type, content_text, occurred_at, source_device
-            FROM captures
-            WHERE occurred_at >= ?
-            ORDER BY occurred_at DESC, created_at DESC
-            LIMIT 10
-            "#,
-        )
-        .bind(start_of_day)
-        .fetch_all(&self.pool)
-        .await?
-        .into_iter()
-        .map(map_context_capture_row)
-        .collect::<Result<Vec<_>, _>>()?;
-
-        let recent_week = sqlx::query(
-            r#"
-            SELECT capture_id, capture_type, content_text, occurred_at, source_device
-            FROM captures
-            WHERE occurred_at >= ?
-            ORDER BY occurred_at DESC, created_at DESC
-            LIMIT 50
-            "#,
-        )
-        .bind(seven_days_ago.unix_timestamp())
-        .fetch_all(&self.pool)
-        .await?
-        .into_iter()
-        .map(map_context_capture_row)
-        .collect::<Result<Vec<_>, _>>()?;
-
-        let recent_signal_summaries = self
-            .list_signals(None, Some(seven_days_ago.unix_timestamp()), 100)
-            .await?
-            .into_iter()
-            .filter_map(|signal| summarize_signal_for_orientation(&signal))
-            .take(25)
-            .collect();
-
-        Ok(OrientationSnapshot {
-            recent_today,
-            recent_week,
-            recent_signal_summaries,
-        })
+        captures_repo::orientation_snapshot(&self.pool).await
     }
-}
-
-fn summarize_signal_for_orientation(signal: &SignalRecord) -> Option<String> {
-    let payload = &signal.payload_json;
-    match signal.signal_type.as_str() {
-        "calendar_event" => payload
-            .get("title")
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(|title| format!("event {}", title.trim())),
-        "external_task" => payload
-            .get("text")
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(|text| format!("todo {}", text.trim())),
-        "git_activity" => {
-            let summary = payload
-                .get("summary")
-                .and_then(serde_json::Value::as_str)
-                .or_else(|| payload.get("operation").and_then(serde_json::Value::as_str))
-                .filter(|value| !value.trim().is_empty())?;
-            let repo = payload
-                .get("repo_name")
-                .or_else(|| payload.get("repo"))
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("repo");
-            Some(format!("git {} {}", repo, summary.trim()))
-        }
-        "message_thread" => {
-            let summary = payload
-                .get("summary")
-                .or_else(|| payload.get("snippet"))
-                .and_then(serde_json::Value::as_str)
-                .filter(|value| !value.trim().is_empty())?;
-            let waiting_state = payload
-                .get("waiting_state")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("message");
-            Some(format!(
-                "{} {}",
-                waiting_state.replace('_', " "),
-                summary.trim()
-            ))
-        }
-        "health_metric" => {
-            let metric = payload
-                .get("metric")
-                .or_else(|| payload.get("summary"))
-                .and_then(serde_json::Value::as_str)
-                .filter(|value| !value.trim().is_empty())?;
-            Some(format!("health {}", metric.trim()))
-        }
-        "mood_log" => payload
-            .get("score")
-            .and_then(serde_json::Value::as_u64)
-            .map(|score| {
-                let mut summary = format!("mood {score}/10");
-                if let Some(label) = payload
-                    .get("label")
-                    .and_then(serde_json::Value::as_str)
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                {
-                    summary.push(' ');
-                    summary.push_str(label);
-                }
-                summary
-            }),
-        "pain_log" => payload
-            .get("severity")
-            .and_then(serde_json::Value::as_u64)
-            .map(|severity| {
-                let mut summary = format!("pain {severity}/10");
-                if let Some(location) = payload
-                    .get("location")
-                    .and_then(serde_json::Value::as_str)
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty())
-                {
-                    summary.push_str(" in ");
-                    summary.push_str(location);
-                }
-                summary
-            }),
-        "assistant_message" => payload
-            .get("content")
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(|content| format!("assistant {}", truncate_summary(content.trim(), 96))),
-        "note_document" => payload
-            .get("title")
-            .or_else(|| payload.get("path"))
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(|title| format!("note {}", title.trim())),
-        _ => None,
     }
-}
 
-fn truncate_summary(value: &str, max_chars: usize) -> String {
-    if value.chars().count() <= max_chars {
-        return value.to_string();
-    }
-    let mut truncated = value
-        .chars()
-        .take(max_chars.saturating_sub(1))
-        .collect::<String>();
-    truncated.push('…');
-    truncated
-}
 
-fn map_search_row(row: sqlx::sqlite::SqliteRow) -> Result<SearchResult, StorageError> {
+    fn map_search_row(row: sqlx::sqlite::SqliteRow) -> Result<SearchResult, StorageError> {
+
     let occurred_at = timestamp_to_datetime(row.try_get("occurred_at")?)?;
     let created_at = timestamp_to_datetime(row.try_get("created_at")?)?;
 
@@ -2376,112 +1758,6 @@ fn map_search_row(row: sqlx::sqlite::SqliteRow) -> Result<SearchResult, StorageE
         occurred_at,
         created_at,
         source_device: row.try_get("source_device")?,
-    })
-}
-
-fn map_context_capture_row(row: sqlx::sqlite::SqliteRow) -> Result<ContextCapture, StorageError> {
-    Ok(ContextCapture {
-        capture_id: CaptureId::from(row.try_get::<String, _>("capture_id")?),
-        capture_type: row.try_get("capture_type")?,
-        content_text: row.try_get("content_text")?,
-        occurred_at: timestamp_to_datetime(row.try_get("occurred_at")?)?,
-        source_device: row.try_get("source_device")?,
-    })
-}
-
-fn map_commitment_row(row: &sqlx::sqlite::SqliteRow) -> Result<Commitment, StorageError> {
-    let status: String = row.try_get("status")?;
-    let created_at: i64 = row.try_get("created_at")?;
-    let metadata_str: String = row.try_get("metadata_json")?;
-    let metadata_json = serde_json::from_str(&metadata_str).unwrap_or_else(|_| json!({}));
-    Ok(Commitment {
-        id: CommitmentId::from(row.try_get::<String, _>("id")?),
-        text: row.try_get("text")?,
-        source_type: row.try_get("source_type")?,
-        source_id: row.try_get("source_id")?,
-        status: status
-            .parse()
-            .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?,
-        due_at: row
-            .try_get::<Option<i64>, _>("due_at")?
-            .and_then(|t| timestamp_to_datetime(t).ok()),
-        project: row.try_get("project")?,
-        commitment_kind: row.try_get("commitment_kind")?,
-        created_at: timestamp_to_datetime(created_at)?,
-        resolved_at: row
-            .try_get::<Option<i64>, _>("resolved_at")?
-            .and_then(|t| timestamp_to_datetime(t).ok()),
-        metadata_json,
-    })
-}
-
-fn map_nudge_row(row: &sqlx::sqlite::SqliteRow) -> Result<NudgeRecord, StorageError> {
-    let meta_str: String = row.try_get("metadata_json")?;
-    Ok(NudgeRecord {
-        nudge_id: row.try_get("nudge_id")?,
-        nudge_type: row.try_get("nudge_type")?,
-        level: row.try_get("level")?,
-        state: row.try_get("state")?,
-        related_commitment_id: row.try_get("related_commitment_id")?,
-        message: row.try_get("message")?,
-        created_at: row.try_get("created_at")?,
-        snoozed_until: row.try_get("snoozed_until")?,
-        resolved_at: row.try_get("resolved_at")?,
-        signals_snapshot_json: row.try_get("signals_snapshot_json")?,
-        inference_snapshot_json: row.try_get("inference_snapshot_json")?,
-        metadata_json: serde_json::from_str(&meta_str).unwrap_or_else(|_| json!({})),
-    })
-}
-
-fn map_nudge_event_row(row: &sqlx::sqlite::SqliteRow) -> Result<NudgeEventRecord, StorageError> {
-    let payload_json = row.try_get::<String, _>("payload_json")?;
-    Ok(NudgeEventRecord {
-        id: row.try_get("id")?,
-        nudge_id: row.try_get("nudge_id")?,
-        event_type: row.try_get("event_type")?,
-        payload_json: serde_json::from_str(&payload_json)
-            .unwrap_or(JsonValue::Object(Default::default())),
-        timestamp: row.try_get("timestamp")?,
-        created_at: row.try_get("created_at")?,
-    })
-}
-
-fn map_suggestion_row(row: &sqlx::sqlite::SqliteRow) -> Result<SuggestionRecord, StorageError> {
-    let payload_json = row.try_get::<String, _>("payload_json")?;
-    let decision_context_json = row.try_get::<Option<String>, _>("decision_context_json")?;
-    let evidence_count = row.try_get::<i64, _>("evidence_count")?;
-    Ok(SuggestionRecord {
-        id: row.try_get("id")?,
-        suggestion_type: row.try_get("suggestion_type")?,
-        state: row.try_get("state")?,
-        title: row.try_get("title")?,
-        summary: row.try_get("summary")?,
-        priority: row.try_get("priority")?,
-        confidence: row.try_get("confidence")?,
-        dedupe_key: row.try_get("dedupe_key")?,
-        payload_json: parse_json_value(&payload_json)?,
-        decision_context_json: decision_context_json
-            .as_deref()
-            .map(parse_json_value)
-            .transpose()?,
-        created_at: row.try_get("created_at")?,
-        resolved_at: row.try_get("resolved_at")?,
-        evidence_count: evidence_count.max(0) as u32,
-    })
-}
-
-fn map_suggestion_evidence_row(
-    row: &sqlx::sqlite::SqliteRow,
-) -> Result<SuggestionEvidenceRecord, StorageError> {
-    let evidence_json = row.try_get::<Option<String>, _>("evidence_json")?;
-    Ok(SuggestionEvidenceRecord {
-        id: row.try_get("id")?,
-        suggestion_id: row.try_get("suggestion_id")?,
-        evidence_type: row.try_get("evidence_type")?,
-        ref_id: row.try_get("ref_id")?,
-        evidence_json: evidence_json.as_deref().map(parse_json_value).transpose()?,
-        weight: row.try_get("weight")?,
-        created_at: row.try_get("created_at")?,
     })
 }
 
@@ -2548,6 +1824,83 @@ mod tests {
 
         let count = storage.count_commitment_risk().await.unwrap();
         assert_eq!(count, 3);
+    }
+
+    #[tokio::test]
+    async fn nudge_and_nudge_events_round_trip_via_storage_facade() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let nudge_id = storage
+            .insert_nudge(NudgeInsert {
+                nudge_type: "focus".to_string(),
+                level: "warning".to_string(),
+                state: "open".to_string(),
+                related_commitment_id: Some("com_1".to_string()),
+                message: "Take a short planning pass".to_string(),
+                snoozed_until: None,
+                resolved_at: None,
+                signals_snapshot_json: Some(r#"{"signals":1}"#.to_string()),
+                inference_snapshot_json: Some(r#"{"reason":"drift"}"#.to_string()),
+                metadata_json: Some(json!({"source":"db-test"})),
+            })
+            .await
+            .unwrap();
+
+        let fetched = storage.get_nudge(&nudge_id).await.unwrap().unwrap();
+        assert_eq!(fetched.state, "open");
+        assert_eq!(fetched.metadata_json["source"], "db-test");
+
+        let listed_open = storage.list_nudges(Some("open"), 10).await.unwrap();
+        assert_eq!(listed_open.len(), 1);
+        assert_eq!(listed_open[0].nudge_id, nudge_id);
+
+        storage
+            .update_nudge_state(&nudge_id, "snoozed", Some(1_700_000_300), None)
+            .await
+            .unwrap();
+        storage
+            .update_nudge_lifecycle(
+                &nudge_id,
+                "danger",
+                "resolved",
+                "Handled",
+                None,
+                Some(1_700_000_400),
+                Some(r#"{"reason":"completed"}"#),
+                &json!({"source":"db-test","final":"yes"}),
+            )
+            .await
+            .unwrap();
+
+        let resolved = storage.get_nudge(&nudge_id).await.unwrap().unwrap();
+        assert_eq!(resolved.level, "danger");
+        assert_eq!(resolved.state, "resolved");
+        assert_eq!(resolved.message, "Handled");
+        assert_eq!(resolved.resolved_at, Some(1_700_000_400));
+        assert_eq!(
+            resolved.inference_snapshot_json.as_deref(),
+            Some(r#"{"reason":"completed"}"#)
+        );
+        assert_eq!(resolved.metadata_json["final"], "yes");
+
+        storage
+            .insert_nudge_event(&nudge_id, "nudge_created", r#"{"channel":"local"}"#, 1_700_000_100)
+            .await
+            .unwrap();
+        storage
+            .insert_nudge_event(&nudge_id, "nudge_resolved", r#"{"outcome":"done"}"#, 1_700_000_200)
+            .await
+            .unwrap();
+
+        let events = storage.list_nudge_events(&nudge_id, 10).await.unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].event_type, "nudge_created");
+        assert_eq!(events[1].event_type, "nudge_resolved");
+        assert_eq!(events[1].payload_json["outcome"], "done");
+
+        let event_count = storage.count_nudge_events().await.unwrap();
+        assert_eq!(event_count, 2);
     }
 
     #[tokio::test]

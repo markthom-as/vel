@@ -245,7 +245,7 @@ async fn sync_loop_can_trigger_evaluate_follow_up() {
         .await
         .unwrap()
         .expect("sync loop should trigger evaluate follow-up");
-    let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+    let context: serde_json::Value = serde_json::to_value(context_json).unwrap();
     assert_eq!(context["message_waiting_on_me_count"], 1);
     assert_eq!(context["message_scheduling_thread_count"], 1);
     assert_eq!(context["message_urgent_thread_count"], 1);
@@ -295,7 +295,7 @@ async fn git_sync_loop_can_trigger_evaluate_follow_up() {
         .await
         .unwrap()
         .expect("git sync loop should trigger evaluate follow-up");
-    let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+    let context: serde_json::Value = serde_json::to_value(context_json).unwrap();
     assert_eq!(context["git_activity_summary"]["repo"], "vel");
     assert_eq!(context["git_activity_summary"]["branch"], "main");
     assert_eq!(context["git_activity_summary"]["operation"], "commit");

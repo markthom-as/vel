@@ -4,7 +4,7 @@
 //! **Boundary: recompute-and-persist.** [evaluate] creates/updates nudges and nudge_events. Only call from evaluate orchestration.
 
 use time::OffsetDateTime;
-use vel_core::{CommitmentStatus, ContextMigrator};
+use vel_core::{CommitmentStatus, CurrentContextV1};
 use vel_storage::{NudgeInsert, Storage};
 
 use crate::policy_config::{PolicyCommuteLeaveTime, PolicyConfig};
@@ -235,11 +235,10 @@ pub async fn evaluate(
 ) -> Result<u32, crate::errors::AppError> {
     let now_ts = OffsetDateTime::now_utc().unix_timestamp();
 
-    let (_, context_json) = storage
+    let (_, context) = storage
         .get_current_context()
         .await?
-        .unwrap_or((0, "{}".to_string()));
-    let context = ContextMigrator::from_json_str(&context_json).unwrap_or_default();
+        .unwrap_or((0, CurrentContextV1::default()));
 
     let meds_status = if context.meds_status.is_empty() {
         "none"
