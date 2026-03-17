@@ -12,7 +12,7 @@ use uuid::Uuid;
 use vel_api_types::{
     ArtifactData, CaptureCreateResponse, CommandReviewSummaryData, CommitmentData,
     CommitmentExplainData, ContextExplainData, DriftExplainData, PlanningArtifactCreatedData,
-    ThreadData,
+    SynthesisWeekData, ThreadData,
 };
 use vel_core::{
     ArtifactStorageKind, CommitmentStatus, DomainKind, DomainOperation, PrivacyClass,
@@ -111,6 +111,7 @@ pub enum CommandExecutionPayload {
     SpecDraftCreated(PlanningArtifactCreatedData),
     ExecutionPlanCreated(PlanningArtifactCreatedData),
     DelegationPlanCreated(PlanningArtifactCreatedData),
+    SynthesisCreated(SynthesisWeekData),
     ContextExplained(ContextExplainData),
     CommitmentExplained(CommitmentExplainData),
     DriftExplained(DriftExplainData),
@@ -202,6 +203,9 @@ pub async fn execute_command(
         }
         (DomainOperation::Execute, Some(DomainKind::Context)) => {
             execute_review_context(state, command).await
+        }
+        (DomainOperation::Execute, Some(DomainKind::Artifact)) => {
+            execute_synthesis(state, command).await
         }
         (DomainOperation::Explain, Some(DomainKind::Context)) => {
             execute_explain_context(state, command).await
@@ -681,6 +685,43 @@ async fn execute_explain_commitment(
         result: CommandExecutionPayload::CommitmentExplained(
             crate::services::explain::explain_commitment_data(state, commitment_id).await?,
         ),
+        warnings: Vec::new(),
+    })
+}
+
+async fn execute_synthesis(
+    state: &AppState,
+    command: &ResolvedCommand,
+) -> Result<CommandExecutionResult, AppError> {
+    let scope = command
+        .targets
+        .first()
+        .and_then(|target| target.selector.as_ref())
+        .and_then(|selector| match selector {
+            TargetSelector::Custom(value) => Some(value.as_str()),
+            _ => None,
+        })
+        .unwrap_or("week");
+
+    let result = match scope {
+        "week" => {
+            let (run_id, artifact_id) =
+                crate::services::synthesis::run_week_synthesis(state).await?;
+            CommandExecutionPayload::SynthesisCreated(SynthesisWeekData {
+                run_id: run_id.to_string(),
+                artifact_id: artifact_id.to_string(),
+            })
+        }
+        other => {
+            return Err(AppError::bad_request(format!(
+                "unsupported synthesis scope `{}`",
+                other
+            )))
+        }
+    };
+
+    Ok(CommandExecutionResult {
+        result,
         warnings: Vec::new(),
     })
 }
@@ -1302,6 +1343,33 @@ mod tests {
         match result.result {
             CommandExecutionPayload::CommitmentExplained(payload) => {
                 assert_eq!(payload.commitment_id, commitment_id.to_string());
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_synthesize_week_returns_synthesis_payload() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Execute,
+            targets: vec![TypedTarget {
+                kind: DomainKind::Artifact,
+                id: None,
+                selector: Some(TargetSelector::Custom("week".to_string())),
+                attributes: json!({ "scope": "week" }),
+            }],
+            inferred: json!({
+                "synthesis_scope": "week"
+            }),
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        match result.result {
+            CommandExecutionPayload::SynthesisCreated(payload) => {
+                assert!(payload.run_id.starts_with("run_"));
+                assert!(payload.artifact_id.starts_with("art_"));
             }
             other => panic!("unexpected result payload: {other:?}"),
         }

@@ -2252,6 +2252,79 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn command_execute_endpoint_runs_weekly_synthesis() {
+        let db_path = format!(
+            "/tmp/vel_command_synthesize_week_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/execute")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "execute",
+                                "targets": [
+                                    {
+                                        "kind": "artifact",
+                                        "selector": {
+                                            "type": "custom",
+                                            "value": "week"
+                                        },
+                                        "attributes": {
+                                            "scope": "week"
+                                        }
+                                    }
+                                ],
+                                "inferred": {
+                                    "synthesis_scope": "week"
+                                },
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["result"]["result_kind"].as_str(),
+            Some("synthesis_created")
+        );
+        assert!(json["data"]["result"]["data"]["run_id"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("run_")));
+        assert!(json["data"]["result"]["data"]["artifact_id"]
+            .as_str()
+            .is_some_and(|value| value.starts_with("art_")));
+    }
+
+    #[tokio::test]
     async fn command_execute_endpoint_creates_spec_draft_artifact() {
         let db_path = format!("/tmp/vel_command_spec_{}.db", uuid::Uuid::new_v4().simple());
         let storage = Storage::connect(&db_path).await.unwrap();

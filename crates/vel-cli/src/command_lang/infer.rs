@@ -91,6 +91,28 @@ fn resolve(parsed: &ParsedCommand, intent: &mut IntentResolution) -> ResolvedCom
                     band: CommandConfidenceBand::Medium,
                 }],
             ),
+            (PhraseFamily::Should, Verb::Synthesize) => (
+                DomainOperation::Execute,
+                vec![TypedTarget {
+                    kind: DomainKind::Artifact,
+                    id: None,
+                    selector: Some(TargetSelector::Custom("week".to_string())),
+                    attributes: json!({
+                        "scope": "week"
+                    }),
+                }],
+                json!({
+                    "synthesis_scope": "week"
+                }),
+                vec![
+                    "synthesize commands currently resolve to the weekly synthesis flow"
+                        .to_string(),
+                ],
+                vec![ResolutionConfidence {
+                    field: "synthesis_scope".to_string(),
+                    band: CommandConfidenceBand::High,
+                }],
+            ),
             (PhraseFamily::Should, Verb::Spec) => (
                 DomainOperation::Create,
                 vec![TypedTarget {
@@ -457,5 +479,18 @@ mod tests {
             Some("cmt_123")
         );
         assert_eq!(resolution.resolved.inferred["explain_target"], "commitment");
+    }
+
+    #[test]
+    fn resolves_synthesize_to_weekly_synthesis_intent() {
+        let input = vec![
+            "should".to_string(),
+            "synthesize".to_string(),
+            "week".to_string(),
+        ];
+        let resolution = parse_and_resolve(&input).expect("resolve");
+        assert_eq!(resolution.resolved.operation, DomainOperation::Execute);
+        assert_eq!(resolution.resolved.targets[0].kind, DomainKind::Artifact);
+        assert_eq!(resolution.resolved.inferred["synthesis_scope"], "week");
     }
 }

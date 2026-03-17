@@ -11,6 +11,7 @@ pub fn next_tokens(input: &[String]) -> Vec<&'static str> {
         [head, verb] if head == "should" && verb == "explain" => {
             vec!["context", "drift", "commitment <id>"]
         }
+        [head, verb] if head == "should" && verb == "synthesize" => vec!["week"],
         [head, verb] if head == "should" && verb == "spec" => {
             vec!["<topic>", "for", "with"]
         }

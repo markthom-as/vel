@@ -57,6 +57,9 @@ fn payload_to_data(
         services::command_lang::CommandExecutionPayload::DelegationPlanCreated(payload) => {
             CommandExecutionPayloadData::DelegationPlanCreated(payload)
         }
+        services::command_lang::CommandExecutionPayload::SynthesisCreated(payload) => {
+            CommandExecutionPayloadData::SynthesisCreated(payload)
+        }
         services::command_lang::CommandExecutionPayload::ContextExplained(payload) => {
             CommandExecutionPayloadData::ContextExplained(payload)
         }

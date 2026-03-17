@@ -156,6 +156,7 @@ pub enum CommandExecutionPayloadData {
     SpecDraftCreated(PlanningArtifactCreatedData),
     ExecutionPlanCreated(PlanningArtifactCreatedData),
     DelegationPlanCreated(PlanningArtifactCreatedData),
+    SynthesisCreated(SynthesisWeekData),
     ContextExplained(ContextExplainData),
     CommitmentExplained(CommitmentExplainData),
     DriftExplained(DriftExplainData),

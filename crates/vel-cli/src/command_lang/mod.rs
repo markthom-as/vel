@@ -78,6 +78,9 @@ pub async fn run(
         | (PhraseFamily::Should, Verb::Review) => {
             execute_via_service(client, &resolution.resolved, json_output).await
         }
+        (PhraseFamily::Should, Verb::Synthesize) => {
+            execute_via_service(client, &resolution.resolved, json_output).await
+        }
         (PhraseFamily::Should, Verb::Spec) => {
             execute_via_service(client, &resolution.resolved, json_output).await
         }
@@ -145,6 +148,11 @@ async fn execute_via_service(
                 if let Some(title) = &result.artifact.title {
                     println!("title: {}", title);
                 }
+            }
+            CommandExecutionPayloadData::SynthesisCreated(result) => {
+                println!("result_kind: synthesis_created");
+                println!("run_id: {}", result.run_id);
+                println!("artifact_id: {}", result.artifact_id);
             }
             CommandExecutionPayloadData::ContextExplained(result) => {
                 println!("result_kind: context_explained");
