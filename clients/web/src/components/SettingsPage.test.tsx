@@ -468,6 +468,15 @@ describe('SettingsPage', () => {
       expect(within(todoistCard as HTMLElement).getByText('todoist sync failed: upstream 500')).toBeInTheDocument()
     })
     expect(within(todoistCard as HTMLElement).getByText('Error: upstream 500')).toBeInTheDocument()
+
+    fireEvent.click(within(notesCard as HTMLElement).getByRole('checkbox', { name: /failures only/i }))
+    await waitFor(() => {
+      expect(within(notesCard as HTMLElement).getByText('No failed syncs in recent history.')).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(todoistCard as HTMLElement).getByRole('checkbox', { name: /failures only/i }))
+    expect(within(todoistCard as HTMLElement).queryByText('No failed syncs in recent history.')).toBeNull()
+    expect(within(todoistCard as HTMLElement).getByText('todoist sync failed: upstream 500')).toBeInTheDocument()
   })
 
   it('renders component cards in the components tab', async () => {

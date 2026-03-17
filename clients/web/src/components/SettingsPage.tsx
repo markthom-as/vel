@@ -1499,6 +1499,7 @@ function IntegrationLogPanel({
 }: {
   integrationId: IntegrationLogSource;
 }) {
+  const [showFailuresOnly, setShowFailuresOnly] = useState(false);
   const logsKey = useMemo(() => queryKeys.integrationLogs(integrationId), [integrationId]);
   const { loading: logsLoading, data: logs = [] } = useQuery<IntegrationLogEventData[]>(
     logsKey,
@@ -1507,17 +1508,33 @@ function IntegrationLogPanel({
       return response.ok && response.data ? response.data : [];
     },
   );
+  const visibleLogs = showFailuresOnly
+    ? logs.filter((entry) => entry.status === 'error')
+    : logs;
 
   return (
     <div className="mt-4 rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
-      <h4 className="text-sm font-medium text-zinc-300">Recent sync history</h4>
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-sm font-medium text-zinc-300">Recent sync history</h4>
+        <label className="flex items-center gap-2 text-xs text-zinc-400">
+          <input
+            type="checkbox"
+            checked={showFailuresOnly}
+            onChange={(event) => setShowFailuresOnly(event.target.checked)}
+            className="rounded border-zinc-600 bg-zinc-800 text-rose-500 focus:ring-rose-500"
+          />
+          Failures only
+        </label>
+      </div>
       {logsLoading ? (
         <p className="mt-2 text-sm text-zinc-500">Loading history…</p>
-      ) : logs.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-500">No sync history yet.</p>
+      ) : visibleLogs.length === 0 ? (
+        <p className="mt-2 text-sm text-zinc-500">
+          {showFailuresOnly ? 'No failed syncs in recent history.' : 'No sync history yet.'}
+        </p>
       ) : (
         <ul className="mt-2 space-y-2 text-sm text-zinc-300">
-          {logs.map((entry) => (
+          {visibleLogs.map((entry) => (
             <li key={entry.id} className="rounded border border-zinc-800 bg-zinc-900/70 p-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
