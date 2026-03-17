@@ -54,6 +54,33 @@ describe('MessageRenderer', () => {
     expect(screen.getByText(/high/)).toBeInTheDocument()
   })
 
+  it('renders canonical risk card payloads with score and dependencies', () => {
+    const message: MessageData = {
+      id: 'msg_3b',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'risk_card',
+      content: {
+        commitment_id: 'commit_42',
+        risk_level: 'danger',
+        risk_score: 0.82,
+        factors: {
+          reasons: ['long-stale open commitment', 'externally anchored commitment'],
+          dependency_ids: ['dep_1', 'dep_2'],
+        },
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+    render(<MessageRenderer message={message} />)
+    expect(screen.getByText('commit_42')).toBeInTheDocument()
+    expect(screen.getByText('Score: 0.82')).toBeInTheDocument()
+    expect(screen.getByText(/long-stale open commitment/)).toBeInTheDocument()
+    expect(screen.getByText('Dependencies: dep_1, dep_2')).toBeInTheDocument()
+  })
+
   it('calls onSnooze when Snooze is clicked', () => {
     const onSnooze = vi.fn()
     const message: MessageData = {
