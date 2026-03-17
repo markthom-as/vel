@@ -26,84 +26,172 @@ pub fn parse_and_resolve(input: &[String]) -> anyhow::Result<CommandResolution> 
 }
 
 fn resolve(parsed: &ParsedCommand, intent: &mut IntentResolution) -> ResolvedCommand {
-    let (operation, targets, inferred, assumptions, confidence) = match (&parsed.family, &parsed.verb)
-    {
-        (PhraseFamily::Should, Verb::Capture) => (
-            DomainOperation::Create,
-            vec![TypedTarget {
-                kind: DomainKind::Capture,
-                id: None,
-                selector: Some(TargetSelector::Custom("inline_text".to_string())),
-                attributes: json!({
-                    "text": parsed.joined_target(),
-                    "capture_type": "quick_note"
+    let (operation, targets, inferred, assumptions, confidence) =
+        match (&parsed.family, &parsed.verb) {
+            (PhraseFamily::Should, Verb::Capture) => (
+                DomainOperation::Create,
+                vec![TypedTarget {
+                    kind: DomainKind::Capture,
+                    id: None,
+                    selector: Some(TargetSelector::Custom("inline_text".to_string())),
+                    attributes: json!({
+                        "text": parsed.joined_target(),
+                        "capture_type": "quick_note"
+                    }),
+                }],
+                json!({
+                    "capture_type": "quick_note",
+                    "source_device": "vel-command"
                 }),
-            }],
-            json!({
-                "capture_type": "quick_note",
-                "source_device": "vel-command"
-            }),
-            vec!["capture commands default to capture_type=quick_note".to_string()],
-            vec![ResolutionConfidence {
-                field: "capture_type".to_string(),
-                band: CommandConfidenceBand::High,
-            }],
-        ),
-        (PhraseFamily::Should, Verb::Feature) => (
-            DomainOperation::Create,
-            vec![TypedTarget {
-                kind: DomainKind::Capture,
-                id: None,
-                selector: Some(TargetSelector::Custom("inline_text".to_string())),
-                attributes: json!({
-                    "text": parsed.joined_target(),
-                    "capture_type": "feature_request"
+                vec!["capture commands default to capture_type=quick_note".to_string()],
+                vec![ResolutionConfidence {
+                    field: "capture_type".to_string(),
+                    band: CommandConfidenceBand::High,
+                }],
+            ),
+            (PhraseFamily::Should, Verb::Feature) => (
+                DomainOperation::Create,
+                vec![TypedTarget {
+                    kind: DomainKind::Capture,
+                    id: None,
+                    selector: Some(TargetSelector::Custom("inline_text".to_string())),
+                    attributes: json!({
+                        "text": parsed.joined_target(),
+                        "capture_type": "feature_request"
+                    }),
+                }],
+                json!({
+                    "capture_type": "feature_request",
+                    "source_device": "vel-command"
                 }),
-            }],
-            json!({
-                "capture_type": "feature_request",
-                "source_device": "vel-command"
-            }),
-            vec!["feature commands currently compile to a typed capture".to_string()],
-            vec![ResolutionConfidence {
-                field: "capture_type".to_string(),
-                band: CommandConfidenceBand::High,
-            }],
-        ),
-        (PhraseFamily::Should, Verb::Review) => (
-            DomainOperation::Execute,
-            vec![TypedTarget {
-                kind: DomainKind::Context,
-                id: None,
-                selector: parsed
-                    .primary_target()
-                    .map(|target| TargetSelector::Custom(target.to_string())),
-                attributes: json!({
-                    "scope": parsed.primary_target()
+                vec!["feature commands currently compile to a typed capture".to_string()],
+                vec![ResolutionConfidence {
+                    field: "capture_type".to_string(),
+                    band: CommandConfidenceBand::High,
+                }],
+            ),
+            (PhraseFamily::Should, Verb::Review) => (
+                DomainOperation::Execute,
+                vec![TypedTarget {
+                    kind: DomainKind::Context,
+                    id: None,
+                    selector: parsed
+                        .primary_target()
+                        .map(|target| TargetSelector::Custom(target.to_string())),
+                    attributes: json!({
+                        "scope": parsed.primary_target()
+                    }),
+                }],
+                json!({
+                    "review_scope": parsed.primary_target()
                 }),
-            }],
-            json!({
-                "review_scope": parsed.primary_target()
-            }),
-            vec!["review commands compile to existing read-oriented review flows".to_string()],
-            vec![ResolutionConfidence {
-                field: "review_scope".to_string(),
-                band: CommandConfidenceBand::Medium,
-            }],
-        ),
-        _ => (
-            DomainOperation::Explain,
-            vec![TypedTarget::new(DomainKind::Context)],
-            json!({
-                "status": "planned_only"
-            }),
-            vec!["this verb is recognized but not executable yet in the CLI scaffold".to_string()],
-            vec![ResolutionConfidence {
-                field: "status".to_string(),
-                band: CommandConfidenceBand::Medium,
-            }],
-        ),
-    };
+                vec!["review commands compile to existing read-oriented review flows".to_string()],
+                vec![ResolutionConfidence {
+                    field: "review_scope".to_string(),
+                    band: CommandConfidenceBand::Medium,
+                }],
+            ),
+            (PhraseFamily::Should, Verb::Spec) => (
+                DomainOperation::Create,
+                vec![TypedTarget {
+                    kind: DomainKind::SpecDraft,
+                    id: None,
+                    selector: Some(TargetSelector::Custom("topic".to_string())),
+                    attributes: json!({
+                        "topic": parsed.joined_target(),
+                        "status": "planned"
+                    }),
+                }],
+                json!({
+                    "artifact_kind": "spec_draft",
+                    "planning_status": "planned",
+                    "topic": parsed.joined_target(),
+                    "suggested_path": suggest_spec_path(parsed),
+                }),
+                vec![
+                    "spec commands resolve to planned spec draft intents in this scaffold"
+                        .to_string(),
+                ],
+                vec![
+                    ResolutionConfidence {
+                        field: "artifact_kind".to_string(),
+                        band: CommandConfidenceBand::High,
+                    },
+                    ResolutionConfidence {
+                        field: "planning_status".to_string(),
+                        band: CommandConfidenceBand::High,
+                    },
+                ],
+            ),
+            (PhraseFamily::Should, Verb::Plan) => (
+                DomainOperation::Create,
+                vec![TypedTarget {
+                    kind: DomainKind::ExecutionPlan,
+                    id: None,
+                    selector: Some(TargetSelector::Custom("topic".to_string())),
+                    attributes: json!({
+                        "goal": parsed.joined_target(),
+                        "status": "planned"
+                    }),
+                }],
+                json!({
+                    "artifact_kind": "execution_plan",
+                    "planning_status": "planned",
+                    "goal": parsed.joined_target(),
+                    "suggested_title": parsed.joined_target(),
+                }),
+                vec![
+                    "plan commands resolve to planned execution-plan intents in this scaffold"
+                        .to_string(),
+                ],
+                vec![
+                    ResolutionConfidence {
+                        field: "artifact_kind".to_string(),
+                        band: CommandConfidenceBand::High,
+                    },
+                    ResolutionConfidence {
+                        field: "planning_status".to_string(),
+                        band: CommandConfidenceBand::High,
+                    },
+                ],
+            ),
+            (PhraseFamily::Should, Verb::Commit) => (
+                DomainOperation::Create,
+                vec![TypedTarget {
+                    kind: DomainKind::Commitment,
+                    id: None,
+                    selector: Some(TargetSelector::Custom("inline_text".to_string())),
+                    attributes: json!({
+                        "text": parsed.joined_target(),
+                        "status": "open"
+                    }),
+                }],
+                json!({
+                    "status": "open",
+                    "source": "vel-command"
+                }),
+                vec!["commit commands resolve to commitment-create intents".to_string()],
+                vec![ResolutionConfidence {
+                    field: "status".to_string(),
+                    band: CommandConfidenceBand::High,
+                }],
+            ),
+            _ => (
+                DomainOperation::Explain,
+                vec![TypedTarget::new(DomainKind::Context)],
+                json!({
+                    "status": "planned_only"
+                }),
+                vec![
+                    "this verb is recognized but not executable yet in the CLI scaffold"
+                        .to_string(),
+                ],
+                vec![ResolutionConfidence {
+                    field: "status".to_string(),
+                    band: CommandConfidenceBand::Medium,
+                }],
+            ),
+        };
 
     intent.explicit = json!({
         "family": parsed.family,
@@ -128,6 +216,35 @@ fn resolve(parsed: &ParsedCommand, intent: &mut IntentResolution) -> ResolvedCom
     }
 }
 
+fn suggest_spec_path(parsed: &ParsedCommand) -> String {
+    let slug = parsed
+        .target_tokens
+        .iter()
+        .map(|token| {
+            token.chars()
+                .map(|ch| {
+                    if ch.is_ascii_alphanumeric() {
+                        ch.to_ascii_lowercase()
+                    } else {
+                        '-'
+                    }
+                })
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("-")
+        .split('-')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+
+    if slug.is_empty() {
+        "docs/specs/vel-spec-draft-spec.md".to_string()
+    } else {
+        format!("docs/specs/vel-{}-spec.md", slug)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::parse_and_resolve;
@@ -135,9 +252,44 @@ mod tests {
 
     #[test]
     fn resolves_capture_to_create_capture() {
-        let input = vec!["should".to_string(), "capture".to_string(), "test".to_string()];
+        let input = vec![
+            "should".to_string(),
+            "capture".to_string(),
+            "test".to_string(),
+        ];
         let resolution = parse_and_resolve(&input).expect("resolve");
         assert_eq!(resolution.resolved.operation, DomainOperation::Create);
         assert_eq!(resolution.resolved.targets[0].kind, DomainKind::Capture);
+    }
+
+    #[test]
+    fn resolves_spec_to_spec_draft_intent() {
+        let input = vec![
+            "should".to_string(),
+            "spec".to_string(),
+            "cluster".to_string(),
+            "sync".to_string(),
+        ];
+        let resolution = parse_and_resolve(&input).expect("resolve");
+        assert_eq!(resolution.resolved.operation, DomainOperation::Create);
+        assert_eq!(resolution.resolved.targets[0].kind, DomainKind::SpecDraft);
+        assert_eq!(
+            resolution.resolved.inferred["suggested_path"],
+            "docs/specs/vel-cluster-sync-spec.md"
+        );
+    }
+
+    #[test]
+    fn resolves_plan_to_execution_plan_intent() {
+        let input = vec![
+            "should".to_string(),
+            "plan".to_string(),
+            "offline".to_string(),
+            "bootstrap".to_string(),
+        ];
+        let resolution = parse_and_resolve(&input).expect("resolve");
+        assert_eq!(resolution.resolved.operation, DomainOperation::Create);
+        assert_eq!(resolution.resolved.targets[0].kind, DomainKind::ExecutionPlan);
+        assert_eq!(resolution.resolved.inferred["suggested_title"], "offline bootstrap");
     }
 }

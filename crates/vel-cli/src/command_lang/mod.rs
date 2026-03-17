@@ -26,15 +26,18 @@ pub async fn run(
 
     if dry_run {
         if json_output {
-            println!("{}", serde_json::to_string_pretty(&json!({
-                "mode": "dry_run",
-                "parsed": resolution.parsed,
-                "resolved_command": resolution.resolved,
-                "preview": preview::render(&resolution),
-                "explanation": explain::render_explanation(&resolution),
-                "completion_hints": completion::next_tokens(&input),
-                "registry": registry::default_registry(),
-            }))?);
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&json!({
+                    "mode": "dry_run",
+                    "parsed": resolution.parsed,
+                    "resolved_command": resolution.resolved,
+                    "preview": preview::render(&resolution),
+                    "explanation": explain::render_explanation(&resolution),
+                    "completion_hints": completion::next_tokens(&input),
+                    "registry": registry::default_registry(),
+                }))?
+            );
         } else {
             println!("{}", preview::render(&resolution));
             println!();

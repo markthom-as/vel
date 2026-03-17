@@ -56,7 +56,11 @@ mod tests {
 
     #[test]
     fn parses_should_capture() {
-        let input = vec!["should".to_string(), "capture".to_string(), "remember".to_string()];
+        let input = vec![
+            "should".to_string(),
+            "capture".to_string(),
+            "remember".to_string(),
+        ];
         let parsed = parse(&input).expect("parse");
         assert_eq!(parsed.family, PhraseFamily::Should);
         assert_eq!(parsed.verb, Verb::Capture);
@@ -74,6 +78,32 @@ mod tests {
         let parsed = parse(&input).expect("parse");
         assert_eq!(parsed.verb, Verb::Feature);
         assert_eq!(parsed.target_tokens, vec!["message", "triage"]);
+    }
+
+    #[test]
+    fn parses_should_spec() {
+        let input = vec![
+            "should".to_string(),
+            "spec".to_string(),
+            "cluster".to_string(),
+            "sync".to_string(),
+        ];
+        let parsed = parse(&input).expect("parse");
+        assert_eq!(parsed.verb, Verb::Spec);
+        assert_eq!(parsed.target_tokens, vec!["cluster", "sync"]);
+    }
+
+    #[test]
+    fn parses_should_plan() {
+        let input = vec![
+            "should".to_string(),
+            "plan".to_string(),
+            "offline".to_string(),
+            "bootstrap".to_string(),
+        ];
+        let parsed = parse(&input).expect("parse");
+        assert_eq!(parsed.verb, Verb::Plan);
+        assert_eq!(parsed.target_tokens, vec!["offline", "bootstrap"]);
     }
 
     #[test]

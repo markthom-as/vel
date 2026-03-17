@@ -5,6 +5,7 @@
 
 pub mod adaptive_policies;
 pub mod client_sync;
+pub mod command_lang;
 pub mod components;
 pub mod context_generation;
 pub mod context_runs;
