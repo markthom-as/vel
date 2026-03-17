@@ -97,3 +97,20 @@ public struct CaptureData: Codable, Sendable {
     public let capture_id: String?
     public let accepted_at: String?
 }
+
+// MARK: - Sync
+
+public typealias SyncResponse = APIEnvelope<SyncResultData>
+public struct SyncResultData: Codable, Sendable {
+    public let source: String
+    public let signals_ingested: Int
+}
+
+public enum VelLocalSourceKind: String, Codable, Sendable, CaseIterable {
+    case activity
+    case health
+    case git
+    case messaging
+    case notes
+    case transcripts
+}

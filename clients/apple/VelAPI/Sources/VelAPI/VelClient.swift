@@ -83,6 +83,12 @@ public final class VelClient {
         return try await post("/v1/captures", body: body)
     }
 
+    // MARK: - Local source sync
+
+    public func syncLocalSource(_ source: VelLocalSourceKind) async throws -> SyncResultData {
+        try await post("/v1/sync/\(source.rawValue)", body: Optional<String>.none)
+    }
+
     // MARK: - Private
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
