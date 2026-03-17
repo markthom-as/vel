@@ -20,5 +20,28 @@ pub fn render_explanation(resolution: &CommandResolution) -> String {
     for assumption in &resolution.intent.assumptions {
         out.push(format!("Assumption: {}", assumption));
     }
+    if !resolution.intent.inferred.is_null() {
+        out.push(format!("Inferred: {}", resolution.intent.inferred));
+    }
     out.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::render_explanation;
+    use crate::command_lang::infer::parse_and_resolve;
+
+    #[test]
+    fn explanation_includes_inferred_delegate_fields() {
+        let resolution = parse_and_resolve(&[
+            "should".to_string(),
+            "delegate".to_string(),
+            "queue".to_string(),
+            "cleanup".to_string(),
+        ])
+        .expect("resolve");
+        let output = render_explanation(&resolution);
+        assert!(output.contains("delegation plan"));
+        assert!(output.contains("\"artifact_kind\":\"delegation_plan\""));
+    }
 }

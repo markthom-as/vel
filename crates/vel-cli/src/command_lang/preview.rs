@@ -38,5 +38,29 @@ pub fn render(resolution: &CommandResolution) -> String {
         }
     }
 
+    if !resolution.resolved.inferred.is_null() {
+        lines.push(format!("Inferred: {}", resolution.resolved.inferred));
+    }
+
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::render;
+    use crate::command_lang::infer::parse_and_resolve;
+
+    #[test]
+    fn preview_includes_inferred_delegate_fields() {
+        let resolution = parse_and_resolve(&[
+            "should".to_string(),
+            "delegate".to_string(),
+            "queue".to_string(),
+            "cleanup".to_string(),
+        ])
+        .expect("resolve");
+        let output = render(&resolution);
+        assert!(output.contains("kind=delegation_plan"));
+        assert!(output.contains("\"artifact_kind\":\"delegation_plan\""));
+    }
 }

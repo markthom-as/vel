@@ -11,6 +11,9 @@ pub fn next_tokens(input: &[String]) -> Vec<&'static str> {
         [head, verb] if head == "should" && verb == "plan" => {
             vec!["<goal>", "for", "with"]
         }
+        [head, verb] if head == "should" && verb == "delegate" => {
+            vec!["<goal>", "to", "with", "into"]
+        }
         [head, verb] if head == "should" && verb == "commit" => {
             vec!["<text>", "today", "tomorrow"]
         }
@@ -31,5 +34,12 @@ mod tests {
         assert!(spec.contains(&"<topic>"));
         let plan = next_tokens(&["should".to_string(), "plan".to_string()]);
         assert!(plan.contains(&"<goal>"));
+    }
+
+    #[test]
+    fn suggests_delegate_tails() {
+        let delegate = next_tokens(&["should".to_string(), "delegate".to_string()]);
+        assert!(delegate.contains(&"<goal>"));
+        assert!(delegate.contains(&"to"));
     }
 }
