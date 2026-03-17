@@ -25,6 +25,30 @@ struct ContentView: View {
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 }
+                Button("Refresh") {
+                    Task { await store.refresh() }
+                }
+            }
+            Section("Now") {
+                if let mode = store.mode, !mode.isEmpty {
+                    Text("Mode: \(mode)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Mode unavailable")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let next = store.nextCommitmentText, !next.isEmpty {
+                    Text(next)
+                        .font(.caption)
+                        .lineLimit(3)
+                } else {
+                    Text("No open commitment")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
             if store.activeNudgeID != nil {
                 Section("Actions") {

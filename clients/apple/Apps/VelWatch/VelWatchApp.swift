@@ -19,6 +19,8 @@ final class VelWatchStore: ObservableObject {
     @Published var transport: String?
     @Published var activeNudgeID: String?
     @Published var pendingActionCount: Int = 0
+    @Published var mode: String?
+    @Published var nextCommitmentText: String?
 
     init() {
         let initial = VelAPI.VelEndpointResolver.candidateBaseURLs().first
@@ -28,6 +30,8 @@ final class VelWatchStore: ObservableObject {
 
     func refresh() async {
         let cached = offlineStore.cachedNudgesApplyingPendingActions()
+        let cachedContext = offlineStore.cachedContext()
+        let cachedCommitments = offlineStore.cachedCommitmentsApplyingPendingActions()
         var hasCachedContent = false
         if !cached.isEmpty {
             hasCachedContent = true
@@ -38,6 +42,11 @@ final class VelWatchStore: ObservableObject {
                 transport = "cached"
                 activeNudgeID = active.first?.nudge_id
                 pendingActionCount = offlineStore.pendingActionCount()
+                mode = cachedContext?.context?.mode
+                nextCommitmentText = resolveNextCommitment(
+                    preferredID: cachedContext?.context?.next_commitment_id,
+                    commitments: cachedCommitments
+                )?.text
             }
         }
         for candidate in VelAPI.VelEndpointResolver.candidateBaseURLs() {
@@ -53,6 +62,11 @@ final class VelWatchStore: ObservableObject {
                     transport = bootstrap.cluster.sync_transport
                     activeNudgeID = active.first?.nudge_id
                     pendingActionCount = offlineStore.pendingActionCount()
+                    mode = bootstrap.current_context?.context?.mode
+                    nextCommitmentText = resolveNextCommitment(
+                        preferredID: bootstrap.current_context?.context?.next_commitment_id,
+                        commitments: bootstrap.commitments
+                    )?.text
                 }
                 return
             } catch {
@@ -66,6 +80,8 @@ final class VelWatchStore: ObservableObject {
             } else {
                 transport = nil
                 message = "Offline"
+                mode = nil
+                nextCommitmentText = nil
             }
             pendingActionCount = offlineStore.pendingActionCount()
         }
@@ -91,5 +107,27 @@ final class VelWatchStore: ObservableObject {
         }
         pendingActionCount = offlineStore.pendingActionCount()
         await refresh()
+    }
+
+    private func resolveNextCommitment(
+        preferredID: String?,
+        commitments: [VelAPI.CommitmentData]
+    ) -> VelAPI.CommitmentData? {
+        let open = commitments.filter { $0.status == "open" }
+        if let preferredID, let matched = open.first(where: { $0.id == preferredID }) {
+            return matched
+        }
+        return open.sorted { lhs, rhs in
+            switch (lhs.due_at, rhs.due_at) {
+            case let (l?, r?):
+                return l < r
+            case (.some, .none):
+                return true
+            case (.none, .some):
+                return false
+            case (.none, .none):
+                return lhs.text < rhs.text
+            }
+        }.first
     }
 }
