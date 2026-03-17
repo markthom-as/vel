@@ -1,10 +1,11 @@
 import SwiftUI
+import VelAPI
 
 struct ContentView: View {
     @EnvironmentObject var store: VelClientStore
-    @State private var nudges: [VelAPI.NudgeData] = []
-    @State private var commitments: [VelAPI.CommitmentData] = []
-    @State private var context: VelAPI.CurrentContextData?
+    @State private var nudges: [NudgeData] = []
+    @State private var commitments: [CommitmentData] = []
+    @State private var context: CurrentContextData?
     @State private var loading = false
     @State private var captureText = ""
     @State private var commitmentText = ""
@@ -147,7 +148,7 @@ struct DocumentationListView: View {
             Text("Core docs")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            ForEach(VelAPI.VelDocumentationCatalog.core) { doc in
+            ForEach(VelDocumentationCatalog.core) { doc in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(doc.title)
                     Text(doc.path)
@@ -162,7 +163,7 @@ struct DocumentationListView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
-            ForEach(VelAPI.VelDocumentationCatalog.user) { doc in
+            ForEach(VelDocumentationCatalog.user) { doc in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(doc.title)
                     Text(doc.path)
@@ -178,7 +179,7 @@ struct DocumentationListView: View {
 }
 
 struct NudgeRow: View {
-    let nudge: VelAPI.NudgeData
+    let nudge: NudgeData
     let store: VelClientStore
     let onAction: () async -> Void
     var body: some View {

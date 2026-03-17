@@ -118,8 +118,19 @@ public actor VelLocalSnapshotWriter {
     }
 
     private func applicationSupportRoot() throws -> URL {
+        #if os(macOS)
         let root = fileManager.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Vel", isDirectory: true)
+        #else
+        guard let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw NSError(
+                domain: "VelLocalSnapshotWriter",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to resolve application support directory"]
+            )
+        }
+        let root = base.appendingPathComponent("Vel", isDirectory: true)
+        #endif
         try fileManager.createDirectory(
             at: root,
             withIntermediateDirectories: true,
@@ -209,6 +220,7 @@ public actor VelMacLocalSourceExporter {
     public func exportActivityHeartbeat() async throws -> URL {
         let host = processInfo.hostName
         let timestamp = Int(Date().timeIntervalSince1970)
+        let appState = await MainActor.run { NSApp.isActive ? "active" : "background" }
         let snapshot = VelActivitySnapshot(
             source: "apple_local",
             events: [
@@ -220,7 +232,7 @@ public actor VelMacLocalSourceExporter {
                     details: [
                         "app": "VelMac",
                         "platform": "macOS",
-                        "state": NSApp.isActive ? "active" : "background"
+                        "state": appState
                     ]
                 )
             ]
@@ -388,7 +400,7 @@ public actor VelMacLocalSourceExporter {
 
     #if canImport(HealthKit)
     private func requestAuthorization(store: HKHealthStore, types: Set<HKObjectType>) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             store.requestAuthorization(toShare: [], read: types) { success, error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -413,7 +425,7 @@ public actor VelMacLocalSourceExporter {
     ) async throws -> Double? {
         guard let quantityType = HKObjectType.quantityType(forIdentifier: type) else { return nil }
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date())
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Double?, Error>) in
             let query = HKStatisticsQuery(
                 quantityType: quantityType,
                 quantitySamplePredicate: predicate,
