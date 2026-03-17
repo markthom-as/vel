@@ -58,30 +58,28 @@ public final class VelClient {
         project: String? = nil,
         commitmentKind: String? = nil
     ) async throws -> CommitmentData {
-        let body: [String: AnyEncodable] = [
-            "text": AnyEncodable(text),
-            "source_type": AnyEncodable(sourceType),
-            "project": AnyEncodable(project),
-            "commitment_kind": AnyEncodable(commitmentKind)
-        ]
+        let body = CommitmentCreateBody(
+            text: text,
+            source_type: sourceType,
+            project: project,
+            commitment_kind: commitmentKind
+        )
         return try await post("/v1/commitments", body: body)
     }
 
     public func markCommitmentDone(id: String) async throws -> CommitmentData {
-        let body: [String: AnyEncodable] = [
-            "status": AnyEncodable("done")
-        ]
+        let body = CommitmentPatchBody(status: "done")
         return try await patch("/v1/commitments/\(id)", body: body)
     }
 
     // MARK: - Captures
 
     public func createCapture(text: String, type: String = "note", source: String = "apple") async throws -> CaptureData {
-        let body: [String: AnyEncodable] = [
-            "content_text": AnyEncodable(text),
-            "capture_type": AnyEncodable(type),
-            "source_device": AnyEncodable(source)
-        ]
+        let body = CaptureCreateBody(
+            content_text: text,
+            capture_type: type,
+            source_device: source
+        )
         return try await post("/v1/captures", body: body)
     }
 
@@ -186,26 +184,24 @@ public enum VelClientError: Error, Sendable {
     case decoding(Error)
 }
 
-public struct AnyEncodable: Encodable, Sendable {
-    private let encodeImpl: @Sendable (Encoder) throws -> Void
-
-    public init<T: Encodable & Sendable>(_ value: T?) {
-        self.encodeImpl = { encoder in
-            var container = encoder.singleValueContainer()
-            if let value {
-                try container.encode(value)
-            } else {
-                try container.encodeNil()
-            }
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        try encodeImpl(encoder)
-    }
-}
-
 private struct APIErrorEnvelope: Decodable {
     let error: APIError
     struct APIError: Decodable { let message: String }
+}
+
+private struct CaptureCreateBody: Encodable {
+    let content_text: String
+    let capture_type: String
+    let source_device: String
+}
+
+private struct CommitmentCreateBody: Encodable {
+    let text: String
+    let source_type: String
+    let project: String?
+    let commitment_kind: String?
+}
+
+private struct CommitmentPatchBody: Encodable {
+    let status: String
 }

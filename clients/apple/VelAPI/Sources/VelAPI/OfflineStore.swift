@@ -215,7 +215,7 @@ public final class VelOfflineStore {
         }
     }
 
-    private func apply(_ action: QueuedAction, to commitments: [CommitmentData], now: Date) -> [CommitmentData] {
+    private func apply(_ action: QueuedAction, to commitments: [CommitmentData], now _: Date) -> [CommitmentData] {
         switch action.kind {
         case .commitmentDone:
             return commitments.map { commitment in
