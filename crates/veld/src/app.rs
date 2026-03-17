@@ -173,6 +173,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
                 .post(routes::sync::claim_work_assignment)
                 .patch(routes::sync::update_work_assignment),
         )
+        .route("/v1/sync/work-queue", get(routes::sync::list_worker_queue))
         .route("/v1/sync/actions", post(routes::sync::sync_actions))
         .route(
             "/v1/sync/branch-sync",
@@ -262,6 +263,18 @@ mod tests {
             .join("../..")
             .to_string_lossy()
             .to_string()
+    }
+
+    fn test_app_state(storage: Storage) -> AppState {
+        let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
+        AppState::new(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            broadcast_tx,
+            None,
+            None,
+        )
     }
 
     #[tokio::test]
@@ -822,6 +835,178 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn duplicate_queue_request_returns_in_progress_when_receipt_is_active() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_app_state(storage.clone());
+
+        let first = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-dup".to_string()),
+        )
+        .await
+        .unwrap();
+        let _claimed = crate::services::client_sync::claim_work_assignment(
+            &state,
+            vel_api_types::WorkAssignmentClaimRequestData {
+                work_request_id: "wrkreq-dup".to_string(),
+                worker_id: "vel-node".to_string(),
+                worker_class: Some("validation".to_string()),
+                capability: Some("build_test_profiles".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+
+        let second = crate::services::client_sync::queue_validation_request(
+            &state,
+            vel_api_types::ValidationRequestData {
+                repo_root: repo_root_for_tests(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("cli".to_string()),
+            },
+            "test",
+            Some("wrkreq-dup".to_string()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(first.work_request_id, second.work_request_id);
+        assert_eq!(second.status, "in_progress");
+    }
+
+    #[tokio::test]
+    async fn worker_queue_lists_pending_item_and_hides_completed_receipt() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let body = serde_json::json!({
+            "repo_root": repo_root_for_tests(),
+            "profile_id": "repo-verify",
+            "environment": "repo",
+            "requested_by": "cli"
+        })
+        .to_string();
+        let queue_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/validation")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let queue_bytes = axum::body::to_bytes(queue_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let queue_payload: vel_api_types::ApiResponse<vel_api_types::QueuedWorkRoutingData> =
+            serde_json::from_slice(&queue_bytes).unwrap();
+        let routed = queue_payload.data.unwrap();
+
+        let list_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/sync/work-queue?node_id=vel-node&worker_class=validation")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list_response.status(), StatusCode::OK);
+        let list_bytes = axum::body::to_bytes(list_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let list_payload: vel_api_types::ApiResponse<Vec<vel_api_types::QueuedWorkItemData>> =
+            serde_json::from_slice(&list_bytes).unwrap();
+        let items = list_payload.data.unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].work_request_id, routed.work_request_id);
+
+        let claim_body = serde_json::json!({
+            "work_request_id": routed.work_request_id,
+            "worker_id": "vel-node",
+            "worker_class": "validation",
+            "capability": "build_test_profiles"
+        })
+        .to_string();
+        let claim_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/work-assignments")
+                    .header("content-type", "application/json")
+                    .body(Body::from(claim_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let claim_bytes = axum::body::to_bytes(claim_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let claim_payload: vel_api_types::ApiResponse<vel_api_types::WorkAssignmentReceiptData> =
+            serde_json::from_slice(&claim_bytes).unwrap();
+        let claimed = claim_payload.data.unwrap();
+
+        let complete_body = serde_json::json!({
+            "receipt_id": claimed.receipt_id,
+            "status": "completed",
+            "completed_at": 300,
+            "result": "ok"
+        })
+        .to_string();
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/v1/sync/work-assignments")
+                    .header("content-type", "application/json")
+                    .body(Body::from(complete_body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let empty_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/sync/work-queue?node_id=vel-node&worker_class=validation")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let empty_bytes = axum::body::to_bytes(empty_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let empty_payload: vel_api_types::ApiResponse<Vec<vel_api_types::QueuedWorkItemData>> =
+            serde_json::from_slice(&empty_bytes).unwrap();
+        assert!(empty_payload.data.unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn loops_endpoint_lists_known_runtime_loops() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -1231,10 +1416,10 @@ mod tests {
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
-            json["data"]["result_kind"].as_str(),
+            json["data"]["result"]["result_kind"].as_str(),
             Some("capture_created")
         );
-        let capture_id = json["data"]["payload"]["capture_id"]
+        let capture_id = json["data"]["result"]["data"]["capture_id"]
             .as_str()
             .expect("capture_id in payload");
         let stored_capture = storage
@@ -1304,10 +1489,10 @@ mod tests {
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
-            json["data"]["result_kind"].as_str(),
+            json["data"]["result"]["result_kind"].as_str(),
             Some("commitment_created")
         );
-        let commitment_id = json["data"]["payload"]["id"]
+        let commitment_id = json["data"]["result"]["data"]["id"]
             .as_str()
             .expect("commitment id in payload");
         let stored = storage
@@ -1374,14 +1559,14 @@ mod tests {
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(
-            json["data"]["result_kind"].as_str(),
+            json["data"]["result"]["result_kind"].as_str(),
             Some("artifact_created")
         );
         assert_eq!(
-            json["data"]["payload"]["artifact_type"].as_str(),
+            json["data"]["result"]["data"]["artifact_type"].as_str(),
             Some("spec_draft")
         );
-        let artifact_id = json["data"]["payload"]["artifact_id"]
+        let artifact_id = json["data"]["result"]["data"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
         let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();

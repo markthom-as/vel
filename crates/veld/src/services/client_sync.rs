@@ -10,7 +10,7 @@ use vel_api_types::{
     BranchSyncCapabilityData, BranchSyncRequestData, ClientActionBatchRequest,
     ClientActionBatchResultData, ClientActionData, ClientActionKind, ClientActionResultData,
     ClusterBootstrapData, ClusterNodeStateData, ClusterWorkerStateData, CommitmentCreateRequest,
-    CommitmentData, CurrentContextData, NudgeData, QueuedWorkRoutingData,
+    CommitmentData, CurrentContextData, NudgeData, QueuedWorkItemData, QueuedWorkRoutingData,
     QueuedWorkRoutingKindData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
     SyncHeartbeatResponseData, ValidationProfileData, ValidationRequestData,
     WorkAssignmentClaimRequestData, WorkAssignmentReceiptData, WorkAssignmentStatusData,
@@ -19,12 +19,14 @@ use vel_api_types::{
 use vel_core::{CommitmentStatus, PrivacyClass};
 use vel_storage::{
     CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert, SignalInsert,
-    WorkAssignmentInsert, WorkAssignmentStatus, WorkAssignmentUpdate,
+    SignalRecord, WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentStatus,
+    WorkAssignmentUpdate,
 };
 
 use crate::{errors::AppError, state::AppState};
 
 const WORKER_HEARTBEAT_TTL_SECONDS: i64 = 90;
+const WORK_ASSIGNMENT_STALE_SECONDS: i64 = 300;
 
 pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData, AppError> {
     let current_context =
@@ -216,6 +218,39 @@ async fn queue_work_request(
     let work_request_id = source_ref
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| format!("wrkreq_{}", Uuid::new_v4().simple()));
+    if let Some(existing) = latest_work_assignment_for_request(state, &work_request_id).await? {
+        match existing.status {
+            WorkAssignmentStatus::Completed => {
+                return build_existing_routing_response(
+                    state,
+                    signal_type,
+                    request_type,
+                    &work_request_id,
+                    "completed",
+                    &bootstrap.active_authority_node_id,
+                    bootstrap.active_authority_epoch,
+                    request_payload,
+                )
+                .await;
+            }
+            WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started => {
+                if !is_stale_assignment(&existing, now) {
+                    return build_existing_routing_response(
+                        state,
+                        signal_type,
+                        request_type,
+                        &work_request_id,
+                        "in_progress",
+                        &bootstrap.active_authority_node_id,
+                        bootstrap.active_authority_epoch,
+                        request_payload,
+                    )
+                    .await;
+                }
+            }
+            WorkAssignmentStatus::Failed | WorkAssignmentStatus::Cancelled => {}
+        }
+    }
     let signal_payload = serde_json::json!({
         "request": request_payload.clone(),
         "queued_via": queued_via,
@@ -257,10 +292,63 @@ async fn queue_work_request(
     })
 }
 
+async fn build_existing_routing_response(
+    state: &AppState,
+    signal_type: &str,
+    request_type: QueuedWorkRoutingKindData,
+    work_request_id: &str,
+    status: &str,
+    authority_node_id: &str,
+    authority_epoch: i64,
+    request_payload: serde_json::Value,
+) -> Result<QueuedWorkRoutingData, AppError> {
+    let signal = find_latest_routing_signal(state, signal_type, work_request_id)
+        .await?
+        .ok_or_else(|| AppError::internal("routing signal missing for existing work request"))?;
+    let routing = signal
+        .payload_json
+        .get("routing")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    Ok(QueuedWorkRoutingData {
+        work_request_id: work_request_id.to_string(),
+        request_type,
+        status: status.to_string(),
+        queued_signal_id: signal.signal_id,
+        queued_signal_type: signal.signal_type,
+        queued_at: signal.timestamp,
+        queued_via: signal
+            .payload_json
+            .get("queued_via")
+            .and_then(|value| value.as_str())
+            .unwrap_or("cluster_work_router")
+            .to_string(),
+        authority_node_id: authority_node_id.to_string(),
+        authority_epoch,
+        target_node_id: routing
+            .get("target_node_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        target_worker_class: routing
+            .get("target_worker_class")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        requested_capability: routing
+            .get("requested_capability")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default()
+            .to_string(),
+        request_payload,
+    })
+}
+
 pub async fn claim_work_assignment(
     state: &AppState,
     request: WorkAssignmentClaimRequestData,
 ) -> Result<WorkAssignmentReceiptData, AppError> {
+    let now = OffsetDateTime::now_utc().unix_timestamp();
     let existing = state
         .storage
         .list_work_assignments(Some(&request.work_request_id), None)
@@ -268,13 +356,30 @@ pub async fn claim_work_assignment(
     if let Some(latest) = existing.first() {
         match latest.status {
             WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started => {
-                if latest.worker_id == request.worker_id {
+                if is_stale_assignment(latest, now) {
+                    let _ = state
+                        .storage
+                        .insert_signal(SignalInsert {
+                            signal_type: "work_assignment_reclaimed".to_string(),
+                            source: "cluster_work_router".to_string(),
+                            source_ref: Some(latest.receipt_id.clone()),
+                            timestamp: now,
+                            payload_json: Some(serde_json::json!({
+                                "receipt_id": latest.receipt_id,
+                                "work_request_id": latest.work_request_id,
+                                "previous_worker_id": latest.worker_id,
+                                "reclaimed_by": request.worker_id,
+                            })),
+                        })
+                        .await;
+                } else if latest.worker_id == request.worker_id {
                     return Ok(work_assignment_to_data(latest.clone()));
+                } else {
+                    return Err(AppError::bad_request(format!(
+                        "work request {} is already claimed by worker {}",
+                        request.work_request_id, latest.worker_id
+                    )));
                 }
-                return Err(AppError::bad_request(format!(
-                    "work request {} is already claimed by worker {}",
-                    request.work_request_id, latest.worker_id
-                )));
             }
             WorkAssignmentStatus::Completed => {
                 return Ok(work_assignment_to_data(latest.clone()));
@@ -283,7 +388,6 @@ pub async fn claim_work_assignment(
         }
     }
 
-    let now = OffsetDateTime::now_utc().unix_timestamp();
     let receipt_id = state
         .storage
         .insert_work_assignment(WorkAssignmentInsert {
@@ -381,6 +485,100 @@ pub async fn list_work_assignment_receipts(
         .into_iter()
         .map(work_assignment_to_data)
         .collect())
+}
+
+pub async fn list_worker_queue(
+    state: &AppState,
+    node_id: &str,
+    worker_class: Option<&str>,
+    capability: Option<&str>,
+) -> Result<Vec<QueuedWorkItemData>, AppError> {
+    let branch = state
+        .storage
+        .list_signals(Some("client_branch_sync_requested"), None, 200)
+        .await?;
+    let validation = state
+        .storage
+        .list_signals(Some("client_validation_requested"), None, 200)
+        .await?;
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+
+    let mut items = Vec::new();
+    for signal in branch.into_iter().chain(validation.into_iter()) {
+        let routing = signal
+            .payload_json
+            .get("routing")
+            .cloned()
+            .unwrap_or_else(|| serde_json::json!({}));
+        let target_node_id = routing
+            .get("target_node_id")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        let target_worker_class = routing
+            .get("target_worker_class")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        let requested_capability = routing
+            .get("requested_capability")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        if target_node_id != node_id {
+            continue;
+        }
+        if let Some(worker_class) = worker_class {
+            if target_worker_class != worker_class {
+                continue;
+            }
+        }
+        if let Some(capability) = capability {
+            if requested_capability != capability {
+                continue;
+            }
+        }
+
+        let work_request_id = routing
+            .get("work_request_id")
+            .and_then(|value| value.as_str())
+            .or(signal.source_ref.as_deref())
+            .unwrap_or_default()
+            .to_string();
+        let latest_receipt = latest_work_assignment_for_request(state, &work_request_id).await?;
+        if let Some(receipt) = latest_receipt.clone() {
+            if matches!(
+                receipt.status,
+                WorkAssignmentStatus::Completed | WorkAssignmentStatus::Cancelled
+            ) {
+                continue;
+            }
+        }
+        let is_stale = latest_receipt
+            .as_ref()
+            .map(|receipt| is_stale_assignment(receipt, now))
+            .unwrap_or(false);
+        let request_type = if signal.signal_type == "client_branch_sync_requested" {
+            QueuedWorkRoutingKindData::BranchSync
+        } else {
+            QueuedWorkRoutingKindData::Validation
+        };
+        items.push(QueuedWorkItemData {
+            work_request_id,
+            request_type,
+            queued_signal_id: signal.signal_id,
+            queued_signal_type: signal.signal_type,
+            queued_at: signal.timestamp,
+            target_node_id: target_node_id.to_string(),
+            target_worker_class: target_worker_class.to_string(),
+            requested_capability: requested_capability.to_string(),
+            request_payload: signal
+                .payload_json
+                .get("request")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({})),
+            latest_receipt: latest_receipt.map(work_assignment_to_data),
+            is_stale,
+        });
+    }
+    Ok(items)
 }
 
 pub async fn apply_client_actions(
@@ -666,6 +864,38 @@ fn work_assignment_to_data(record: vel_storage::WorkAssignmentRecord) -> WorkAss
         error_message: record.error_message,
         last_updated: record.last_updated,
     }
+}
+
+async fn latest_work_assignment_for_request(
+    state: &AppState,
+    work_request_id: &str,
+) -> Result<Option<WorkAssignmentRecord>, AppError> {
+    Ok(state
+        .storage
+        .list_work_assignments(Some(work_request_id), None)
+        .await?
+        .into_iter()
+        .next())
+}
+
+async fn find_latest_routing_signal(
+    state: &AppState,
+    signal_type: &str,
+    work_request_id: &str,
+) -> Result<Option<SignalRecord>, AppError> {
+    Ok(state
+        .storage
+        .list_signals(Some(signal_type), None, 200)
+        .await?
+        .into_iter()
+        .find(|signal| signal.source_ref.as_deref() == Some(work_request_id)))
+}
+
+fn is_stale_assignment(record: &WorkAssignmentRecord, now: i64) -> bool {
+    matches!(
+        record.status,
+        WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started
+    ) && record.last_updated + WORK_ASSIGNMENT_STALE_SECONDS < now
 }
 
 fn nudge_record_to_data(r: vel_storage::NudgeRecord) -> NudgeData {

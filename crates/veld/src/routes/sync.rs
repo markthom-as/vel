@@ -3,8 +3,8 @@ use axum::Json;
 use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, BranchSyncRequestData, ClientActionBatchRequest, ClientActionBatchResultData,
-    QueuedWorkRoutingData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
-    SyncHeartbeatResponseData, SyncResultData, ValidationRequestData,
+    QueuedWorkItemData, QueuedWorkRoutingData, SyncBootstrapData, SyncClusterStateData,
+    SyncHeartbeatRequestData, SyncHeartbeatResponseData, SyncResultData, ValidationRequestData,
     WorkAssignmentClaimRequestData, WorkAssignmentReceiptData, WorkAssignmentUpdateRequest,
 };
 
@@ -14,6 +14,13 @@ use crate::{errors::AppError, services, state::AppState};
 pub struct WorkAssignmentListQuery {
     pub work_request_id: Option<String>,
     pub worker_id: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct WorkerQueueQuery {
+    pub node_id: String,
+    pub worker_class: Option<String>,
+    pub capability: Option<String>,
 }
 
 async fn evaluate_and_broadcast_context(state: &AppState) {
@@ -112,6 +119,21 @@ pub async fn list_work_assignments(
         &state,
         query.work_request_id.as_deref(),
         query.worker_id.as_deref(),
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn list_worker_queue(
+    State(state): State<AppState>,
+    Query(query): Query<WorkerQueueQuery>,
+) -> Result<Json<ApiResponse<Vec<QueuedWorkItemData>>>, AppError> {
+    let data = services::client_sync::list_worker_queue(
+        &state,
+        &query.node_id,
+        query.worker_class.as_deref(),
+        query.capability.as_deref(),
     )
     .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());

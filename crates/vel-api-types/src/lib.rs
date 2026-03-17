@@ -93,10 +93,27 @@ pub struct CommandExecutionPlanData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandExecutionResultData {
-    pub result_kind: String,
-    pub payload: JsonValue,
+    pub result: CommandExecutionPayloadData,
     #[serde(default)]
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommandReviewSummaryData {
+    pub captures: Vec<ContextCapture>,
+    pub capture_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest_context_artifact: Option<ArtifactData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "result_kind", content = "data", rename_all = "snake_case")]
+pub enum CommandExecutionPayloadData {
+    CaptureCreated(CaptureCreateResponse),
+    CommitmentCreated(CommitmentData),
+    ArtifactCreated(ArtifactData),
+    ReviewToday(CommandReviewSummaryData),
+    ReviewWeek(CommandReviewSummaryData),
 }
 
 impl<T> ApiResponse<T> {
@@ -290,6 +307,22 @@ pub struct WorkAssignmentUpdateRequest {
     pub result: Option<String>,
     #[serde(default)]
     pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueuedWorkItemData {
+    pub work_request_id: String,
+    pub request_type: QueuedWorkRoutingKindData,
+    pub queued_signal_id: String,
+    pub queued_signal_type: String,
+    pub queued_at: UnixSeconds,
+    pub target_node_id: String,
+    pub target_worker_class: String,
+    pub requested_capability: String,
+    pub request_payload: JsonValue,
+    #[serde(default)]
+    pub latest_receipt: Option<WorkAssignmentReceiptData>,
+    pub is_stale: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -531,7 +564,7 @@ fn default_capture_type() -> String {
     "quick_note".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CaptureCreateResponse {
     pub capture_id: CaptureId,
     pub accepted_at: OffsetDateTime,
@@ -692,7 +725,7 @@ pub struct AgentReturnedArtifactData {
     pub metadata: Option<JsonValue>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContextCapture {
     pub capture_id: CaptureId,
     pub capture_type: String,
@@ -1001,7 +1034,7 @@ pub struct ArtifactCreateResponse {
     pub created_at: OffsetDateTime,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArtifactData {
     pub artifact_id: ArtifactId,
     pub artifact_type: String,
@@ -1121,7 +1154,7 @@ fn default_commitment_source_type() -> String {
     "manual".to_string()
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CommitmentData {
     pub id: CommitmentId,
     pub text: String,

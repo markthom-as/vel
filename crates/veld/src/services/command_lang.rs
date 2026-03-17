@@ -1,15 +1,17 @@
-//! Command-language service scaffolding.
+//! Command-language planning and execution service.
 //!
-//! This module intentionally provides a pure validation/planning layer over
-//! `vel_core::ResolvedCommand` and does not execute side effects yet.
+//! This module validates `vel_core::ResolvedCommand`, builds dry-run plans, and
+//! executes the low-risk command slice currently supported by the shared route.
 #![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use time::OffsetDateTime;
 use tracing::warn;
 use uuid::Uuid;
-use vel_api_types::CaptureCreateResponse;
+use vel_api_types::{
+    ArtifactData, CaptureCreateResponse, CommandReviewSummaryData, CommitmentData,
+};
 use vel_core::{
     ArtifactStorageKind, CommitmentStatus, DomainKind, DomainOperation, PrivacyClass,
     ResolvedCommand, SyncClass,
@@ -61,11 +63,20 @@ pub struct CommandExecutionPlan {
     pub validation: CommandValidation,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommandExecutionResult {
-    pub result_kind: String,
-    pub payload: Value,
+    pub result: CommandExecutionPayload,
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "result_kind", content = "data", rename_all = "snake_case")]
+pub enum CommandExecutionPayload {
+    CaptureCreated(CaptureCreateResponse),
+    CommitmentCreated(CommitmentData),
+    ArtifactCreated(ArtifactData),
+    ReviewToday(CommandReviewSummaryData),
+    ReviewWeek(CommandReviewSummaryData),
 }
 
 pub fn build_execution_plan(command: &ResolvedCommand) -> CommandExecutionPlan {
@@ -341,9 +352,7 @@ async fn execute_create_capture(
     };
 
     Ok(CommandExecutionResult {
-        result_kind: "capture_created".to_string(),
-        payload: serde_json::to_value(response)
-            .map_err(|error| AppError::internal(error.to_string()))?,
+        result: CommandExecutionPayload::CaptureCreated(response),
         warnings: Vec::new(),
     })
 }
@@ -358,9 +367,9 @@ async fn execute_review_context(
         .and_then(|target| target.attributes.get("scope"))
         .and_then(|value| value.as_str())
         .unwrap_or("today");
-    let (limit, today, result_kind) = match scope {
-        "today" => (20, true, "review_today"),
-        "week" => (50, false, "review_week"),
+    let (limit, today) = match scope {
+        "today" => (20, true),
+        "week" => (50, false),
         other => {
             return Err(AppError::bad_request(format!(
                 "unsupported review scope `{}`",
@@ -380,14 +389,18 @@ async fn execute_review_context(
         .await?
         .map(artifact_record_to_data)
         .transpose()?;
+    let review = CommandReviewSummaryData {
+        capture_count: captures.len(),
+        captures,
+        latest_context_artifact,
+    };
 
     Ok(CommandExecutionResult {
-        result_kind: result_kind.to_string(),
-        payload: json!({
-            "captures": captures,
-            "capture_count": captures.len(),
-            "latest_context_artifact": latest_context_artifact,
-        }),
+        result: match scope {
+            "today" => CommandExecutionPayload::ReviewToday(review),
+            "week" => CommandExecutionPayload::ReviewWeek(review),
+            _ => unreachable!("unsupported review scope already returned"),
+        },
         warnings: Vec::new(),
     })
 }
@@ -454,9 +467,7 @@ async fn execute_create_commitment(
         .ok_or_else(|| AppError::internal("commitment not found after insert"))?;
 
     Ok(CommandExecutionResult {
-        result_kind: "commitment_created".to_string(),
-        payload: serde_json::to_value(vel_api_types::CommitmentData::from(commitment))
-            .map_err(|error| AppError::internal(error.to_string()))?,
+        result: CommandExecutionPayload::CommitmentCreated(CommitmentData::from(commitment)),
         warnings: Vec::new(),
     })
 }
@@ -539,9 +550,7 @@ async fn execute_create_planning_artifact(
         .ok_or_else(|| AppError::internal("artifact not found after insert"))?;
 
     Ok(CommandExecutionResult {
-        result_kind: "artifact_created".to_string(),
-        payload: serde_json::to_value(artifact_record_to_data(artifact)?)
-            .map_err(|error| AppError::internal(error.to_string()))?,
+        result: CommandExecutionPayload::ArtifactCreated(artifact_record_to_data(artifact)?),
         warnings: Vec::new(),
     })
 }
@@ -660,8 +669,12 @@ mod tests {
         };
 
         let result = execute_command(&state, &command).await.expect("execute");
-        assert_eq!(result.result_kind, "capture_created");
-        assert!(result.payload.get("capture_id").is_some());
+        match result.result {
+            CommandExecutionPayload::CaptureCreated(payload) => {
+                assert!(!payload.capture_id.as_ref().is_empty());
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
     }
 
     #[tokio::test]
@@ -682,21 +695,13 @@ mod tests {
         };
 
         let result = execute_command(&state, &command).await.expect("execute");
-        assert_eq!(result.result_kind, "commitment_created");
-        assert_eq!(
-            result
-                .payload
-                .get("status")
-                .and_then(|value| value.as_str()),
-            Some("open")
-        );
-        assert_eq!(
-            result
-                .payload
-                .get("project")
-                .and_then(|value| value.as_str()),
-            Some("vel")
-        );
+        match result.result {
+            CommandExecutionPayload::CommitmentCreated(payload) => {
+                assert_eq!(payload.status, "open");
+                assert_eq!(payload.project.as_deref(), Some("vel"));
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
     }
 
     #[tokio::test]
@@ -719,13 +724,11 @@ mod tests {
         };
 
         let result = execute_command(&state, &command).await.expect("execute");
-        assert_eq!(result.result_kind, "artifact_created");
-        assert_eq!(
-            result
-                .payload
-                .get("artifact_type")
-                .and_then(|value| value.as_str()),
-            Some("spec_draft")
-        );
+        match result.result {
+            CommandExecutionPayload::ArtifactCreated(payload) => {
+                assert_eq!(payload.artifact_type, "spec_draft");
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
     }
 }

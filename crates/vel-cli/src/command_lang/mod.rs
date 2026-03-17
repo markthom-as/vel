@@ -70,8 +70,13 @@ pub async fn run(
 
     match (&resolution.parsed.family, &resolution.parsed.verb) {
         (PhraseFamily::Should, Verb::Capture)
+        | (PhraseFamily::Should, Verb::Commit)
         | (PhraseFamily::Should, Verb::Feature)
+        | (PhraseFamily::Should, Verb::Plan)
         | (PhraseFamily::Should, Verb::Review) => {
+            execute_via_service(client, &resolution.resolved, json_output).await
+        }
+        (PhraseFamily::Should, Verb::Spec) => {
             execute_via_service(client, &resolution.resolved, json_output).await
         }
         _ => bail!(

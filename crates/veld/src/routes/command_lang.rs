@@ -1,9 +1,9 @@
 use axum::{extract::State, Json};
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, CommandExecuteRequest, CommandExecutionPlanData, CommandExecutionResultData,
-    CommandPlanModeData, CommandPlanRequest, CommandPlanStepData, CommandValidationData,
-    CommandValidationIssueCodeData, CommandValidationIssueData,
+    ApiResponse, CommandExecuteRequest, CommandExecutionPayloadData, CommandExecutionPlanData,
+    CommandExecutionResultData, CommandPlanModeData, CommandPlanRequest, CommandPlanStepData,
+    CommandValidationData, CommandValidationIssueCodeData, CommandValidationIssueData,
 };
 
 use crate::{errors::AppError, services, state::AppState};
@@ -22,15 +22,37 @@ pub async fn execute_command(
     Json(body): Json<CommandExecuteRequest>,
 ) -> Result<Json<ApiResponse<CommandExecutionResultData>>, AppError> {
     let result = services::command_lang::execute_command(&state, &body.command).await?;
+    let services::command_lang::CommandExecutionResult { result, warnings } = result;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         CommandExecutionResultData {
-            result_kind: result.result_kind,
-            payload: result.payload,
-            warnings: result.warnings,
+            result: payload_to_data(result),
+            warnings,
         },
         request_id,
     )))
+}
+
+fn payload_to_data(
+    result: services::command_lang::CommandExecutionPayload,
+) -> CommandExecutionPayloadData {
+    match result {
+        services::command_lang::CommandExecutionPayload::CaptureCreated(payload) => {
+            CommandExecutionPayloadData::CaptureCreated(payload)
+        }
+        services::command_lang::CommandExecutionPayload::CommitmentCreated(payload) => {
+            CommandExecutionPayloadData::CommitmentCreated(payload)
+        }
+        services::command_lang::CommandExecutionPayload::ArtifactCreated(payload) => {
+            CommandExecutionPayloadData::ArtifactCreated(payload)
+        }
+        services::command_lang::CommandExecutionPayload::ReviewToday(payload) => {
+            CommandExecutionPayloadData::ReviewToday(payload)
+        }
+        services::command_lang::CommandExecutionPayload::ReviewWeek(payload) => {
+            CommandExecutionPayloadData::ReviewWeek(payload)
+        }
+    }
 }
 
 fn plan_to_data(plan: services::command_lang::CommandExecutionPlan) -> CommandExecutionPlanData {
