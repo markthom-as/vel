@@ -53,6 +53,17 @@ Related specs:
 - [vel-agent-runtime-spec.md](../../specs/vel-agent-runtime-spec.md)
 - [vel-rust-swift-boundary-spec.md](../../specs/vel-rust-swift-boundary-spec.md)
 
+## Cross-pack dependencies
+
+Extended by:
+
+- `connect-agent-launch/` when launched external runtimes need to be supervised as bounded workers by Vel's host agent
+
+Overlap rule:
+
+- this pack owns supervisor/worker authority, orchestration, and distributed execution semantics
+- it does not own the provider/connection capability substrate or the shared Projects session UI contract
+
 ## Tickets
 
 | ID | Title | Status |
@@ -82,7 +93,7 @@ The repo now has an initial shipped slice of the cluster/sync design:
 - `POST /v1/sync/work-queue/claim-next`
 - `POST /v1/sync/actions`
 
-These surfaces provide authority metadata, Tailscale-aware routing metadata, unified client cache hydration, low-risk action batching, a durable heartbeat-backed worker registry, receipt-aware work-unit assignment, queue inspection for pending worker-class work, queue-level retry/reclaim metadata, a `claim-next` scheduler primitive, and first-pass queued-work placement metadata. A background scheduler loop now polls `POST /v1/sync/work-queue/claim-next` via the runtime loops surface, keeps receipts in sync with retries/backoff, surfaces loop events for operators, and can execute queued branch-sync units when the worker advertises that capability while still following the receipt/authority policy.
+These surfaces provide authority metadata, Tailscale-aware routing metadata, unified client cache hydration, low-risk action batching, a durable heartbeat-backed worker registry, receipt-aware work-unit assignment, queue inspection for pending worker-class work, queue-level retry/reclaim metadata, a `claim-next` scheduler primitive, and first-pass queued-work placement metadata. A background scheduler loop now polls `POST /v1/sync/work-queue/claim-next` via the runtime loops surface, keeps receipts in sync with retries/backoff, surfaces loop events for operators, and can execute queued branch-sync units when the worker advertises that capability while still following the receipt/authority policy. The shipped local worker entry is also refreshed from live runtime state during queue reads and work transitions, so published `current_load` and `queue_depth` are usable placement signals rather than placeholders.
 
 Queue inspection now integrates the scheduler's retry/reclaim rules: stale `claimed` receipts (currently >300 s) are visible as reclaimable units, duplicate queue attempts check the latest receipt before enqueuing, failures surface retriable reasons instead of silently dropping the work, and retry timing/exhaustion is now driven by per-work-type policy config rather than hardcoded queue behavior.
 

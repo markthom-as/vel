@@ -1,6 +1,6 @@
 ---
 title: Vel repo audit hardening spec
-status: proposed
+status: active
 owner: platform
 created: 2026-03-17
 updated: 2026-03-17
@@ -154,3 +154,20 @@ Any major decomposition effort should use this sequence:
 - the repo has one explicit audit-hardening ticket pack with sequenced ownership,
 - the pack includes a dedicated architecture-map process before broad decomposition,
 - product/speculative ideas remain documented, but are no longer presented as current runtime truth.
+
+# Progress snapshot
+
+Completed outputs so far:
+
+- strict top-level doc repair for README and canonical chat API entrypoints
+- shared ticket-pack schema and normalization guidance
+- architecture inventory and future architecture map
+- chat route/service extraction planning plus initial service moves
+- `vel-storage` modularization planning plus initial `infra`, `run_refs`, `runs`, and `chat` slices
+- targeted repo-truth guardrails in `scripts/verify-repo-truth.mjs`
+
+Remaining hardening work:
+
+- finish hermeticity verification under the current repo compile state
+- complete the remaining `vel-storage` and frontend decomposition execution slices
+- finalize active-work overlap protocol and keep entrypoints current

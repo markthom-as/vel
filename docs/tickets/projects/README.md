@@ -25,6 +25,22 @@ Accordingly:
 - do **not** treat `assistant_transcripts` as the final session/operator model
 - do **not** make web and CLI invent separate workspace payloads
 
+## Cross-pack dependencies
+
+Depends on:
+
+- current commitments/task substrate already present in the repo
+- `integration-expansion/` when project workspace changes need provider/connection-aware integration metadata
+
+Extended by:
+
+- `connect-agent-launch/` for live launched-session metadata, instance/runtime-aware session fields, and launch-driven session controls
+
+Overlap rule:
+
+- this pack owns the shared project workspace contract and the base session/control-plane model
+- Connect-backed launch work should extend that substrate rather than invent a parallel session or message-control model
+
 ## Included
 - 01 — boundary + project registry foundation
 - 02 — storage, migrations, DTO contracts

@@ -56,13 +56,18 @@ Do not use this pack alone to answer "what is shipped now".
 
 - `001` docs truth repair and entrypoint alignment: done
 - `002` hermetic local-integration tests and loop behavior: in_progress
-- `003` pack schema and maturity normalization: in_progress
-- `004` architecture map and module-boundary audit: in_progress
-- `005` chat service-boundary extraction plan: in_progress
+- `003` pack schema and maturity normalization: done
+- `004` architecture map and module-boundary audit: done
+- `005` chat service-boundary extraction plan: done
 - `006` storage-layer modularization plan: in_progress
-- `007` frontend surface decomposition plan: in_progress
-- `008` doc drift guardrails expansion: in_progress
-- `009` active-work surfacing and overlap protocol: todo
+- `007` frontend surface decomposition plan: done
+- `008` doc drift guardrails expansion: done
+- `009` active-work surfacing and overlap protocol: done
+
+## Current focus
+
+- `002` finish hermeticity verification once the unrelated in-flight `veld` integration compile work settles
+- `006` continue internal `vel-storage` modularization with stable `Storage` facade boundaries
 
 ## Execution order
 

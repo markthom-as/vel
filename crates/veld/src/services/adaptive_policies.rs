@@ -96,48 +96,52 @@ mod tests {
         let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
 
-        assert!(apply_suggestion_acceptance(
-            &storage,
-            &vel_storage::SuggestionRecord {
-                id: "sug_commute".to_string(),
-                suggestion_type: "increase_commute_buffer".to_string(),
-                state: "pending".to_string(),
-                title: Some("Increase commute buffer".to_string()),
-                summary: None,
-                priority: 0,
-                confidence: None,
-                dedupe_key: None,
-                payload_json: serde_json::json!({ "suggested_minutes": 30 }),
-                decision_context_json: None,
-                evidence_count: 0,
-                created_at: 10,
-                resolved_at: None,
-            },
-            100,
-        )
-        .await
-        .unwrap());
-        assert!(apply_suggestion_acceptance(
-            &storage,
-            &vel_storage::SuggestionRecord {
-                id: "sug_prep".to_string(),
-                suggestion_type: "increase_prep_window".to_string(),
-                state: "pending".to_string(),
-                title: Some("Increase prep window".to_string()),
-                summary: None,
-                priority: 0,
-                confidence: None,
-                dedupe_key: None,
-                payload_json: serde_json::json!({ "suggested_minutes": 45 }),
-                decision_context_json: None,
-                evidence_count: 0,
-                created_at: 20,
-                resolved_at: None,
-            },
-            200,
-        )
-        .await
-        .unwrap());
+        assert!(
+            apply_suggestion_acceptance(
+                &storage,
+                &vel_storage::SuggestionRecord {
+                    id: "sug_commute".to_string(),
+                    suggestion_type: "increase_commute_buffer".to_string(),
+                    state: "pending".to_string(),
+                    title: Some("Increase commute buffer".to_string()),
+                    summary: None,
+                    priority: 0,
+                    confidence: None,
+                    dedupe_key: None,
+                    payload_json: serde_json::json!({ "suggested_minutes": 30 }),
+                    decision_context_json: None,
+                    evidence_count: 0,
+                    created_at: 10,
+                    resolved_at: None,
+                },
+                100,
+            )
+            .await
+            .unwrap()
+        );
+        assert!(
+            apply_suggestion_acceptance(
+                &storage,
+                &vel_storage::SuggestionRecord {
+                    id: "sug_prep".to_string(),
+                    suggestion_type: "increase_prep_window".to_string(),
+                    state: "pending".to_string(),
+                    title: Some("Increase prep window".to_string()),
+                    summary: None,
+                    priority: 0,
+                    confidence: None,
+                    dedupe_key: None,
+                    payload_json: serde_json::json!({ "suggested_minutes": 45 }),
+                    decision_context_json: None,
+                    evidence_count: 0,
+                    created_at: 20,
+                    resolved_at: None,
+                },
+                200,
+            )
+            .await
+            .unwrap()
+        );
 
         let overrides = load(&storage).await.unwrap();
         assert_eq!(overrides.commute_buffer_minutes, Some(30));

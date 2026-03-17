@@ -86,6 +86,27 @@ Do not use this pack alone when:
 - Connect instance capability discovery should build on the integration family/provider/connection substrate where possible.
 - Project workspace remains the primary operator surface for launched sessions.
 
+## Cross-pack dependencies
+
+Depends on:
+
+- `integration-expansion/` for family/provider/connection modeling and provider capability manifests, especially `INTG-001` and `INTG-003`
+- `projects/` for the base `agent_sessions` substrate and shared session control plane, especially tickets `06` and `07`
+- `multi-client-swarm/` for host-agent supervision and worker authority semantics when external launched sessions are treated as bounded workers
+
+Unlocks:
+
+- Connect-aware Projects launch UX
+- live launched-session representation in shared workspace projections
+- host-agent delegation into external runtimes on compatible instances
+
+Overlap rule:
+
+- if a question is about connection/provider ontology, prefer `integration-expansion/`
+- if a question is about shared session/operator UX contracts, prefer `projects/`
+- if a question is about supervisor/worker authority or distributed orchestration, prefer `multi-client-swarm/`
+- if a question is specifically about launching and interacting with external runtimes on compatible instances, prefer this pack
+
 ## Tickets
 
 | ID | Title | Status |

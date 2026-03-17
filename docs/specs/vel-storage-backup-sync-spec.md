@@ -1,6 +1,6 @@
 ---
 title: Vel storage, backup, and sync targets spec
-status: proposed
+status: active
 owner: platform
 created: 2026-03-17
 updated: 2026-03-17
@@ -520,3 +520,17 @@ Phase expectations:
 - the spec defines target, artifact-copy, manifest, verification, and restore-plan concepts
 - the spec keeps runtime-local config separate from backup-target config
 - the spec preserves CLI-first operator surfaces for the first implementation pass
+
+# Progress snapshot
+
+Completed foundation work so far:
+
+- provider-neutral backup model and boundary draft
+- ticket pack for `rsync`, `s3`, `icloud_drive`, `google_drive`, `dropbox`, restore, and verification work
+- first-pass core domain scaffolding for storage targets, manifests, copies, verification records, and restore plans
+
+Remaining work:
+
+- persist the model in storage schema and repository surfaces
+- evolve `vel backup` into manifest and verification commands
+- implement provider targets on top of the shared manifest substrate

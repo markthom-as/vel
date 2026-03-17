@@ -513,7 +513,16 @@ pub async fn list_work_assignment_receipts(
         .collect())
 }
 
-pub async fn list_worker_queue(
+async fn list_worker_queue_inner(
+    state: &AppState,
+    node_id: &str,
+    worker_class: Option<&str>,
+    capability: Option<&str>,
+) -> Result<Vec<QueuedWorkItemData>, AppError> {
+    list_worker_queue_snapshot(state, node_id, worker_class, capability).await
+}
+
+async fn list_worker_queue_snapshot(
     state: &AppState,
     node_id: &str,
     worker_class: Option<&str>,
@@ -607,6 +616,16 @@ pub async fn list_worker_queue(
     }
     items.sort_by_key(|item| (item.queued_at, item.work_request_id.clone()));
     Ok(items)
+}
+
+pub async fn list_worker_queue(
+    state: &AppState,
+    node_id: &str,
+    worker_class: Option<&str>,
+    capability: Option<&str>,
+) -> Result<Vec<QueuedWorkItemData>, AppError> {
+    refresh_local_worker_presence(state).await?;
+    list_worker_queue_inner(state, node_id, worker_class, capability).await
 }
 
 pub async fn claim_next_work_for_worker(
@@ -1419,11 +1438,14 @@ pub async fn ingest_worker_heartbeat(
     })
 }
 
-async fn refresh_local_worker_presence(state: &AppState) -> Result<(), AppError> {
+pub(crate) async fn refresh_local_worker_presence(state: &AppState) -> Result<(), AppError> {
     let bootstrap = cluster_bootstrap_data(state);
     let runtime = state.worker_runtime.snapshot();
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let current_load = runtime.current_load.min(runtime.max_concurrency);
+    let queue_depth = list_worker_queue_snapshot(state, &bootstrap.node_id, None, None)
+        .await?
+        .len() as u32;
     let tailscale_reachable = bootstrap
         .tailscale_base_url
         .as_ref()
@@ -1443,7 +1465,7 @@ async fn refresh_local_worker_presence(state: &AppState) -> Result<(), AppError>
             status: Some("ready".to_string()),
             max_concurrency: Some(runtime.max_concurrency),
             current_load: Some(current_load),
-            queue_depth: Some(0),
+            queue_depth: Some(queue_depth),
             reachability: Some("reachable".to_string()),
             latency_class: Some(latency_class_for_transport(&bootstrap.sync_transport)),
             compute_class: Some(compute_class_for_capacity(runtime.max_concurrency)),
@@ -1715,6 +1737,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cluster_workers_data_reports_local_queue_depth_without_recursing() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_state(storage.clone());
+
+        queue_validation_request(
+            &state,
+            ValidationRequestData {
+                repo_root: repo_root().to_string_lossy().to_string(),
+                profile_id: "repo-verify".to_string(),
+                branch: None,
+                environment: Some("repo".to_string()),
+                requested_by: Some("test".to_string()),
+            },
+            "sync_route",
+            Some("wrkreq_validation".to_string()),
+        )
+        .await
+        .unwrap();
+
+        let workers = cluster_workers_data(&state).await.unwrap();
+        let local_worker = workers
+            .workers
+            .iter()
+            .find(|worker| worker.worker_id == workers.active_authority_node_id)
+            .expect("local worker should be present");
+
+        assert_eq!(local_worker.queue_depth, 1);
+        assert_eq!(local_worker.capacity.current_load, 0);
+    }
+
+    #[tokio::test]
     async fn queue_validation_request_rejects_unknown_profile() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -1735,9 +1789,11 @@ mod tests {
         .await
         .unwrap_err();
 
-        assert!(error
-            .to_string()
-            .contains("validation profile unknown-profile is not available on this node"));
+        assert!(
+            error
+                .to_string()
+                .contains("validation profile unknown-profile is not available on this node")
+        );
     }
 
     #[test]
@@ -1747,11 +1803,15 @@ mod tests {
         let profiles = validation_profiles(&repo_root);
 
         assert!(capabilities.iter().any(|cap| cap == "build_test_profiles"));
-        assert!(profiles
-            .iter()
-            .any(|profile| profile.profile_id == "repo-verify"));
-        assert!(profiles
-            .iter()
-            .any(|profile| profile.profile_id == "api-test"));
+        assert!(
+            profiles
+                .iter()
+                .any(|profile| profile.profile_id == "repo-verify")
+        );
+        assert!(
+            profiles
+                .iter()
+                .any(|profile| profile.profile_id == "api-test")
+        );
     }
 }

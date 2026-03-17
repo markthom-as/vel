@@ -43,6 +43,7 @@ Implemented low-risk slices so far:
 - infrastructure/bootstrap helpers were moved behind `infra.rs`
 - run and ref row mappers were moved out of `db.rs` into `run_refs.rs`
 - run, run-event, retry-ready-run, and ref repository methods now delegate through `runs.rs`
+- conversation, message, intervention, and event-log persistence now delegate through `chat.rs`
 
 That is the intended first pattern:
 
@@ -131,6 +132,7 @@ Status:
 - `infra.rs` is already in place for bootstrap helpers
 - `run_refs.rs` now carries run and ref row mappers
 - `runs.rs` now owns the run/ref repository family while `Storage` stays a stable facade
+- `chat.rs` now owns the chat persistence family while `Storage` stays a stable facade
 - the next slice should keep following repository-family seams rather than creating a generic dumping-ground helpers module
 
 ### Rule 4. Extract low-fan-out domains before central ones

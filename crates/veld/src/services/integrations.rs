@@ -1,9 +1,14 @@
 use std::collections::HashSet;
 
-use reqwest::Url;
+use super::{
+    integration_runtime::{
+        canonical_integration_id, integration_log_limit, map_integration_log_event,
+    },
+    integrations_google, integrations_host, integrations_todoist,
+};
+use crate::{adapters, errors::AppError};
 use serde::{Deserialize, Serialize};
-use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
-use uuid::Uuid;
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use vel_api_types::{
     GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
     IntegrationConnectionData, IntegrationConnectionEventData, IntegrationConnectionSettingRefData,
@@ -11,31 +16,18 @@ use vel_api_types::{
 };
 use vel_config::AppConfig;
 use vel_core::IntegrationFamily;
-use vel_storage::{IntegrationConnectionFilters, SignalInsert, SignalRecord, Storage};
-
-use crate::{
-    adapters,
-    errors::AppError,
-    services::integration_runtime::{
-        canonical_integration_id, integration_log_limit, map_integration_log_event,
-    },
-    services::integrations_host,
-    services::integrations_todoist,
-};
+use vel_storage::{IntegrationConnectionFilters, SignalRecord, Storage};
 
 const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
 const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
+const TODOIST_SETTINGS_KEY: &str = "integration_todoist";
+const TODOIST_SECRETS_KEY: &str = "integration_todoist_secrets";
 const ACTIVITY_SETTINGS_KEY: &str = "integration_activity";
 const HEALTH_SETTINGS_KEY: &str = "integration_health";
 const GIT_SETTINGS_KEY: &str = "integration_git";
 const MESSAGING_SETTINGS_KEY: &str = "integration_messaging";
 const NOTES_SETTINGS_KEY: &str = "integration_notes";
 const TRANSCRIPTS_SETTINGS_KEY: &str = "integration_transcripts";
-const GOOGLE_AUTH_BASE: &str = "https://accounts.google.com/o/oauth2/v2/auth";
-const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
-const GOOGLE_CALENDAR_BASE: &str = "https://www.googleapis.com/calendar/v3";
-const GOOGLE_LOOKBACK_DAYS: i64 = 60;
-const GOOGLE_LOOKAHEAD_DAYS: i64 = 180;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarSettings {
@@ -139,7 +131,6 @@ impl GoogleCalendarSelectionFilter {
         self.all_calendars_selected || !self.selected_calendar_ids.is_empty()
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoogleCalendarSecrets {
@@ -299,7 +290,7 @@ pub async fn bootstrap_local_context_sources(
 
 pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, AppError> {
     let google = load_google_settings(storage).await?;
-    let todoist = load_todoist_settings(storage).await?;
+    let todoist = integrations_todoist::load_todoist_settings(storage).await?;
     let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
     let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
     let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
@@ -308,7 +299,7 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
     Ok(IntegrationsData {
         google_calendar: google_status(&google),
-        todoist: todoist_status(&todoist),
+        todoist: integrations_todoist::todoist_status(&todoist),
         activity: local_status(
             integrations_host::effective_local_source_path(
                 "activity",
@@ -361,7 +352,7 @@ pub async fn get_integrations_with_config(
     config: &AppConfig,
 ) -> Result<IntegrationsData, AppError> {
     let google = load_google_settings(storage).await?;
-    let todoist = load_todoist_settings(storage).await?;
+    let todoist = integrations_todoist::load_todoist_settings(storage).await?;
     let activity = load_local_settings(storage, ACTIVITY_SETTINGS_KEY).await?;
     let health = load_local_settings(storage, HEALTH_SETTINGS_KEY).await?;
     let git = load_local_settings(storage, GIT_SETTINGS_KEY).await?;
@@ -370,7 +361,7 @@ pub async fn get_integrations_with_config(
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
     Ok(IntegrationsData {
         google_calendar: google_status(&google),
-        todoist: todoist_status(&todoist),
+        todoist: integrations_todoist::todoist_status(&todoist),
         activity: local_status(
             integrations_host::effective_local_source_path(
                 "activity",
@@ -607,11 +598,7 @@ pub async fn update_todoist_settings(
     storage: &Storage,
     api_token: Option<String>,
 ) -> Result<IntegrationsData, AppError> {
-    let mut settings = load_todoist_settings(storage).await?;
-    if let Some(value) = api_token {
-        settings.api_token = normalize_optional(value);
-    }
-    save_todoist_settings(storage, &settings).await?;
+    integrations_todoist::update_todoist_settings(storage, api_token).await?;
     get_integrations(storage).await
 }
 
@@ -644,11 +631,7 @@ pub async fn disconnect_google_calendar(storage: &Storage) -> Result<Integration
 }
 
 pub async fn disconnect_todoist(storage: &Storage) -> Result<IntegrationsData, AppError> {
-    let mut settings = load_todoist_settings(storage).await?;
-    settings.api_token = None;
-    settings.last_sync_status = Some("disconnected".to_string());
-    settings.last_error = None;
-    save_todoist_settings(storage, &settings).await?;
+    integrations_todoist::disconnect_todoist(storage).await?;
     get_integrations(storage).await
 }
 
@@ -657,39 +640,9 @@ pub async fn start_google_auth(
     config: &AppConfig,
 ) -> Result<GoogleCalendarAuthStartData, AppError> {
     let mut settings = load_google_settings(storage).await?;
-    let client_id = settings
-        .client_id
-        .as_deref()
-        .ok_or_else(|| AppError::bad_request("google calendar client_id is required"))?;
-
-    if settings.client_secret.as_deref().unwrap_or("").is_empty() {
-        return Err(AppError::bad_request(
-            "google calendar client_secret is required",
-        ));
-    }
-
-    let oauth_state = format!("gcal_{}", Uuid::new_v4().simple());
-    settings.pending_oauth_state = Some(oauth_state.clone());
+    let auth_start = integrations_google::start_google_auth(&mut settings, config).await?;
     save_google_settings(storage, &settings).await?;
-
-    let redirect_uri = google_redirect_uri(config)?;
-    let auth_url = Url::parse_with_params(
-        GOOGLE_AUTH_BASE,
-        [
-            ("client_id", client_id),
-            ("redirect_uri", redirect_uri.as_str()),
-            ("response_type", "code"),
-            ("access_type", "offline"),
-            ("prompt", "consent"),
-            ("scope", "https://www.googleapis.com/auth/calendar.readonly"),
-            ("state", oauth_state.as_str()),
-        ],
-    )
-    .map_err(|error| AppError::internal(format!("google auth url: {}", error)))?;
-
-    Ok(GoogleCalendarAuthStartData {
-        auth_url: auth_url.to_string(),
-    })
+    Ok(auth_start)
 }
 
 pub async fn complete_google_auth(
@@ -699,50 +652,7 @@ pub async fn complete_google_auth(
     code: &str,
 ) -> Result<(), AppError> {
     let mut settings = load_google_settings(storage).await?;
-    let pending_state = settings
-        .pending_oauth_state
-        .clone()
-        .ok_or_else(|| AppError::bad_request("no pending google oauth flow"))?;
-    if pending_state != state_param {
-        return Err(AppError::bad_request("google oauth state mismatch"));
-    }
-
-    let client_id = settings
-        .client_id
-        .clone()
-        .ok_or_else(|| AppError::bad_request("google calendar client_id is required"))?;
-    let client_secret = settings
-        .client_secret
-        .clone()
-        .ok_or_else(|| AppError::bad_request("google calendar client_secret is required"))?;
-    let redirect_uri = google_redirect_uri(config)?;
-
-    let token: GoogleTokenResponse = reqwest::Client::new()
-        .post(GOOGLE_TOKEN_URL)
-        .form(&[
-            ("code", code),
-            ("client_id", client_id.as_str()),
-            ("client_secret", client_secret.as_str()),
-            ("redirect_uri", redirect_uri.as_str()),
-            ("grant_type", "authorization_code"),
-        ])
-        .send()
-        .await
-        .map_err(|error| AppError::internal(format!("google token exchange: {}", error)))?
-        .error_for_status()
-        .map_err(|error| AppError::internal(format!("google token exchange: {}", error)))?
-        .json()
-        .await
-        .map_err(|error| AppError::internal(format!("google token decode: {}", error)))?;
-
-    settings.access_token = Some(token.access_token);
-    settings.refresh_token = token.refresh_token.or(settings.refresh_token);
-    settings.token_expires_at = Some(now_ts() + token.expires_in.unwrap_or(3600) - 60);
-    settings.pending_oauth_state = None;
-    settings.last_error = None;
-
-    let calendars = list_google_calendars(&settings).await?;
-    settings.calendars = merge_calendar_selection(settings.calendars, calendars);
+    integrations_google::complete_google_auth(&mut settings, config, state_param, code).await?;
     save_google_settings(storage, &settings).await?;
     Ok(())
 }
@@ -752,161 +662,22 @@ pub async fn sync_google_calendar(
     _config: &AppConfig,
 ) -> Result<Option<u32>, AppError> {
     let mut settings = load_google_settings(storage).await?;
-    let Some(client_id) = settings.client_id.clone() else {
-        return Ok(None);
-    };
-    let Some(client_secret) = settings.client_secret.clone() else {
-        return Ok(None);
-    };
-    if settings.refresh_token.as_deref().unwrap_or("").is_empty() {
-        return Ok(None);
+    let result = integrations_google::sync_google_calendar(storage, &mut settings).await?;
+    if result.is_some() {
+        save_google_settings(storage, &settings).await?;
     }
-
-    let access_token =
-        ensure_google_access_token(storage, &mut settings, &client_id, &client_secret).await?;
-    let calendars = list_google_calendars_with_token(&access_token).await?;
-    settings.calendars = merge_calendar_selection(settings.calendars, calendars);
-    let selected = selected_calendars(&settings);
-    let time_min = OffsetDateTime::now_utc() - Duration::days(GOOGLE_LOOKBACK_DAYS);
-    let time_max = OffsetDateTime::now_utc() + Duration::days(GOOGLE_LOOKAHEAD_DAYS);
-
-    let mut inserted = 0u32;
-    for calendar in &selected {
-        let events =
-            list_google_events_with_token(&access_token, &calendar.id, time_min, time_max).await?;
-        for event in events {
-            if event.status.as_deref() == Some("cancelled") {
-                continue;
-            }
-            let Some(start_ts) = google_event_start_ts(&event) else {
-                continue;
-            };
-            let source_ref = format!(
-                "google_calendar:{}:{}:{}",
-                calendar.id,
-                event.id,
-                event.updated.as_deref().unwrap_or("-"),
-            );
-            let payload = serde_json::json!({
-                "event_id": event.id,
-                "calendar_id": calendar.id,
-                "calendar_name": calendar.summary,
-                "title": event.summary.clone().unwrap_or_else(|| "(untitled event)".to_string()),
-                "start": start_ts,
-                "end": google_event_end_ts(&event),
-                "location": event.location.unwrap_or_default(),
-                "description": event.description.unwrap_or_default(),
-                "status": event.status.unwrap_or_default(),
-                "url": event.html_link.unwrap_or_default(),
-                "attendees": event.attendees.unwrap_or_default().into_iter().filter_map(|item| item.email.or(item.display_name)).collect::<Vec<_>>(),
-                "prep_minutes": 15,
-                "travel_minutes": 0
-            });
-            let signal_id = storage
-                .insert_signal(SignalInsert {
-                    signal_type: "calendar_event".to_string(),
-                    source: "google_calendar".to_string(),
-                    source_ref: Some(source_ref),
-                    timestamp: start_ts,
-                    payload_json: Some(payload),
-                })
-                .await?;
-            if signal_id.starts_with("sig_") {
-                inserted += 1;
-            }
-        }
+    if let Some(inserted) = result {
+        append_sync_event(storage, "google-calendar", "ok", inserted, None).await?;
     }
-
-    settings.last_sync_at = Some(now_ts());
-    settings.last_sync_status = Some("ok".to_string());
-    settings.last_error = None;
-    settings.last_item_count = Some(inserted);
-    save_google_settings(storage, &settings).await?;
-    append_sync_event(storage, "google-calendar", "ok", inserted, None).await?;
-    Ok(Some(inserted))
+    Ok(result)
 }
 
 pub async fn sync_todoist(storage: &Storage) -> Result<Option<u32>, AppError> {
-    let mut settings = load_todoist_settings(storage).await?;
-    let Some(api_token) = settings.api_token.clone() else {
-        return Ok(None);
-    };
-
-    let client = reqwest::Client::new();
-    let tasks = todoist_request_list::<TodoistTask>(&client, &api_token, "/tasks").await?;
-    let projects = todoist_request_list::<TodoistProject>(&client, &api_token, "/projects").await?;
-    let project_names = projects
-        .into_iter()
-        .map(|project| (project.id, project.name))
-        .collect::<HashMap<_, _>>();
-
-    let existing_commitments = storage.list_commitments(None, None, None, 2000).await?;
-    let now = now_ts();
-    let mut signals_count = 0u32;
-
-    for item in tasks
-        .into_iter()
-        .filter(|task| !task.content.trim().is_empty())
-    {
-        let completed = item.checked.unwrap_or(false);
-        let due_ts = item
-            .due
-            .as_ref()
-            .and_then(|due| due.datetime.as_deref().or(due.date.as_deref()))
-            .and_then(parse_iso_datetime);
-        let project = item
-            .project_id
-            .as_ref()
-            .and_then(|id| project_names.get(id))
-            .cloned()
-            .or(item.project_id.clone());
-        let commitment_kind = infer_todoist_kind(&item);
-        let source_id = format!("todoist_{}", item.id);
-        reconcile_commitment(
-            storage,
-            existing_commitments.iter().find(|commitment| {
-                commitment.source_type == "todoist"
-                    && commitment.source_id.as_deref() == Some(source_id.as_str())
-            }),
-            &item,
-            &source_id,
-            commitment_kind,
-            completed,
-            due_ts,
-            project.as_deref(),
-        )
-        .await?;
-
-        let payload = serde_json::json!({
-            "task_id": item.id,
-            "text": item.content,
-            "completed": completed,
-            "due_time": due_ts,
-            "labels": item.labels,
-            "project": project,
-            "priority": item.priority,
-        });
-        let signal_id = storage
-            .insert_signal(SignalInsert {
-                signal_type: "external_task".to_string(),
-                source: "todoist".to_string(),
-                source_ref: Some(todoist_signal_source_ref(&item, due_ts)),
-                timestamp: now,
-                payload_json: Some(payload),
-            })
-            .await?;
-        if signal_id.starts_with("sig_") {
-            signals_count += 1;
-        }
+    let result = integrations_todoist::sync_todoist(storage).await?;
+    if let Some(signals_count) = result {
+        append_sync_event(storage, "todoist", "ok", signals_count, None).await?;
     }
-
-    settings.last_sync_at = Some(now);
-    settings.last_sync_status = Some("ok".to_string());
-    settings.last_error = None;
-    settings.last_item_count = Some(signals_count);
-    save_todoist_settings(storage, &settings).await?;
-    append_sync_event(storage, "todoist", "ok", signals_count, None).await?;
-    Ok(Some(signals_count))
+    Ok(result)
 }
 
 pub async fn record_sync_error(
@@ -924,11 +695,7 @@ pub async fn record_sync_error(
             append_sync_event(storage, "google-calendar", "error", 0, Some(error)).await?;
         }
         "todoist" => {
-            let mut settings = load_todoist_settings(storage).await?;
-            settings.last_sync_at = Some(now_ts());
-            settings.last_sync_status = Some("error".to_string());
-            settings.last_error = Some(error.to_string());
-            save_todoist_settings(storage, &settings).await?;
+            integrations_todoist::record_sync_error(storage, error).await?;
             append_sync_event(storage, "todoist", "error", 0, Some(error)).await?;
         }
         "activity" | "health" | "git" | "messaging" | "notes" | "transcripts" => {
@@ -983,186 +750,6 @@ pub async fn record_sync_success(
     Ok(())
 }
 
-async fn list_google_calendars(
-    settings: &GoogleCalendarSettings,
-) -> Result<Vec<StoredCalendar>, AppError> {
-    let access_token = settings
-        .access_token
-        .as_deref()
-        .ok_or_else(|| AppError::bad_request("google access token missing"))?;
-    list_google_calendars_with_token(access_token).await
-}
-
-async fn list_google_calendars_with_token(
-    access_token: &str,
-) -> Result<Vec<StoredCalendar>, AppError> {
-    let client = reqwest::Client::new();
-    let mut calendars = Vec::new();
-    let mut page_token: Option<String> = None;
-
-    loop {
-        let mut url = Url::parse(&format!("{}/users/me/calendarList", GOOGLE_CALENDAR_BASE))
-            .map_err(|error| AppError::internal(format!("google calendar list url: {}", error)))?;
-        if let Some(token) = page_token.as_deref() {
-            url.query_pairs_mut().append_pair("pageToken", token);
-        }
-
-        let response: GoogleCalendarListResponse = client
-            .get(url)
-            .bearer_auth(access_token)
-            .send()
-            .await
-            .map_err(|error| AppError::internal(format!("google calendar list: {}", error)))?
-            .error_for_status()
-            .map_err(|error| AppError::internal(format!("google calendar list: {}", error)))?
-            .json()
-            .await
-            .map_err(|error| AppError::internal(format!("google calendar decode: {}", error)))?;
-
-        calendars.extend(response.items.into_iter().map(|item| StoredCalendar {
-            id: item.id,
-            summary: item.summary,
-            primary: item.primary.unwrap_or(false),
-            selected: true,
-        }));
-
-        match response.next_page_token {
-            Some(token) if !token.is_empty() => page_token = Some(token),
-            _ => break,
-        }
-    }
-
-    Ok(calendars)
-}
-
-async fn list_google_events_with_token(
-    access_token: &str,
-    calendar_id: &str,
-    time_min: OffsetDateTime,
-    time_max: OffsetDateTime,
-) -> Result<Vec<GoogleCalendarEvent>, AppError> {
-    let client = reqwest::Client::new();
-    let mut events = Vec::new();
-    let mut page_token: Option<String> = None;
-
-    loop {
-        let mut url = Url::parse(GOOGLE_CALENDAR_BASE)
-            .map_err(|error| AppError::internal(format!("google events url: {}", error)))?;
-        {
-            let mut segments = url
-                .path_segments_mut()
-                .map_err(|_| AppError::internal("google events url path"))?;
-            segments.push("calendars");
-            segments.push(calendar_id);
-            segments.push("events");
-        }
-        {
-            let mut query = url.query_pairs_mut();
-            query
-                .append_pair("singleEvents", "true")
-                .append_pair("orderBy", "startTime")
-                .append_pair("timeMin", &format_rfc3339(time_min)?)
-                .append_pair("timeMax", &format_rfc3339(time_max)?);
-            if let Some(token) = page_token.as_deref() {
-                query.append_pair("pageToken", token);
-            }
-        }
-
-        let response: GoogleEventListResponse = client
-            .get(url)
-            .bearer_auth(access_token)
-            .send()
-            .await
-            .map_err(|error| AppError::internal(format!("google event list: {}", error)))?
-            .error_for_status()
-            .map_err(|error| AppError::internal(format!("google event list: {}", error)))?
-            .json()
-            .await
-            .map_err(|error| AppError::internal(format!("google event decode: {}", error)))?;
-        events.extend(response.items);
-
-        match response.next_page_token {
-            Some(token) if !token.is_empty() => page_token = Some(token),
-            _ => break,
-        }
-    }
-
-    Ok(events)
-}
-
-async fn ensure_google_access_token(
-    storage: &Storage,
-    settings: &mut GoogleCalendarSettings,
-    client_id: &str,
-    client_secret: &str,
-) -> Result<String, AppError> {
-    if let (Some(access_token), Some(expires_at)) =
-        (settings.access_token.clone(), settings.token_expires_at)
-    {
-        if now_ts() < expires_at {
-            return Ok(access_token);
-        }
-    }
-
-    let refresh_token = settings
-        .refresh_token
-        .clone()
-        .ok_or_else(|| AppError::bad_request("google refresh token missing"))?;
-
-    let token: GoogleTokenResponse = reqwest::Client::new()
-        .post(GOOGLE_TOKEN_URL)
-        .form(&[
-            ("refresh_token", refresh_token.as_str()),
-            ("client_id", client_id),
-            ("client_secret", client_secret),
-            ("grant_type", "refresh_token"),
-        ])
-        .send()
-        .await
-        .map_err(|error| AppError::internal(format!("google token refresh: {}", error)))?
-        .error_for_status()
-        .map_err(|error| AppError::internal(format!("google token refresh: {}", error)))?
-        .json()
-        .await
-        .map_err(|error| AppError::internal(format!("google token refresh decode: {}", error)))?;
-
-    settings.access_token = Some(token.access_token.clone());
-    settings.token_expires_at = Some(now_ts() + token.expires_in.unwrap_or(3600) - 60);
-    save_google_settings(storage, settings).await?;
-    Ok(token.access_token)
-}
-
-fn merge_calendar_selection(
-    existing: Vec<StoredCalendar>,
-    latest: Vec<StoredCalendar>,
-) -> Vec<StoredCalendar> {
-    let selected_by_id = existing
-        .into_iter()
-        .map(|calendar| (calendar.id, calendar.selected))
-        .collect::<HashMap<_, _>>();
-    latest
-        .into_iter()
-        .map(|mut calendar| {
-            if let Some(selected) = selected_by_id.get(&calendar.id) {
-                calendar.selected = *selected;
-            }
-            calendar
-        })
-        .collect()
-}
-
-fn selected_calendars(settings: &GoogleCalendarSettings) -> Vec<StoredCalendar> {
-    if settings.all_calendars_selected {
-        return settings.calendars.clone();
-    }
-    settings
-        .calendars
-        .iter()
-        .filter(|calendar| calendar.selected)
-        .cloned()
-        .collect()
-}
-
 fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegrationData {
     GoogleCalendarIntegrationData {
         configured: settings.client_id.is_some() && settings.client_secret.is_some(),
@@ -1185,19 +772,6 @@ fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegration
         last_error: settings.last_error.clone(),
         last_item_count: settings.last_item_count,
         guidance: google_guidance(settings),
-    }
-}
-
-fn todoist_status(settings: &TodoistSettings) -> TodoistIntegrationData {
-    TodoistIntegrationData {
-        configured: settings.api_token.is_some(),
-        connected: settings.api_token.is_some(),
-        has_api_token: settings.api_token.is_some(),
-        last_sync_at: settings.last_sync_at,
-        last_sync_status: settings.last_sync_status.clone(),
-        last_error: settings.last_error.clone(),
-        last_item_count: settings.last_item_count,
-        guidance: todoist_guidance(settings),
     }
 }
 
@@ -1254,34 +828,6 @@ fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuida
         return Some(guidance(
             "Calendar has not synced yet",
             "Run a calendar sync to populate upcoming events and prep/commute context.".to_string(),
-            "Sync now",
-        ));
-    }
-    None
-}
-
-fn todoist_guidance(settings: &TodoistSettings) -> Option<IntegrationGuidanceData> {
-    if settings.api_token.is_none() {
-        return Some(guidance(
-            "Todoist token missing",
-            "Save a Todoist API token before attempting sync.".to_string(),
-            "Save token",
-        ));
-    }
-    if settings.last_sync_status.as_deref() == Some("error") {
-        return Some(guidance(
-            "Todoist sync failed",
-            settings
-                .last_error
-                .clone()
-                .unwrap_or_else(|| "Todoist sync last failed.".to_string()),
-            "Inspect history and retry sync",
-        ));
-    }
-    if settings.last_sync_at.is_none() {
-        return Some(guidance(
-            "Todoist has not synced yet",
-            "Run a Todoist sync to load open commitments and due tasks.".to_string(),
             "Sync now",
         ));
     }
@@ -1361,36 +907,6 @@ async fn save_google_settings(
     };
     save_settings(storage, GOOGLE_SETTINGS_KEY, &public_settings).await?;
     save_settings(storage, GOOGLE_SECRETS_KEY, &secrets).await
-}
-
-async fn load_todoist_settings(storage: &Storage) -> Result<TodoistSettings, AppError> {
-    let public_settings: TodoistPublicSettings =
-        load_settings(storage, TODOIST_SETTINGS_KEY).await?;
-    let secrets: TodoistSecrets = load_settings(storage, TODOIST_SECRETS_KEY).await?;
-    Ok(TodoistSettings {
-        api_token: secrets.api_token,
-        last_sync_at: public_settings.last_sync_at,
-        last_sync_status: public_settings.last_sync_status,
-        last_error: public_settings.last_error,
-        last_item_count: public_settings.last_item_count,
-    })
-}
-
-async fn save_todoist_settings(
-    storage: &Storage,
-    settings: &TodoistSettings,
-) -> Result<(), AppError> {
-    let public_settings = TodoistPublicSettings {
-        last_sync_at: settings.last_sync_at,
-        last_sync_status: settings.last_sync_status.clone(),
-        last_error: settings.last_error.clone(),
-        last_item_count: settings.last_item_count,
-    };
-    let secrets = TodoistSecrets {
-        api_token: settings.api_token.clone(),
-    };
-    save_settings(storage, TODOIST_SETTINGS_KEY, &public_settings).await?;
-    save_settings(storage, TODOIST_SECRETS_KEY, &secrets).await
 }
 
 async fn load_local_settings(
@@ -1537,17 +1053,6 @@ async fn runtime_local_config(
     Ok(runtime)
 }
 
-fn google_redirect_uri(config: &AppConfig) -> Result<String, AppError> {
-    let base = config.base_url.trim_end_matches('/');
-    if base.is_empty() {
-        return Err(AppError::internal("base_url is required for google oauth"));
-    }
-    Ok(format!(
-        "{}/api/integrations/google-calendar/oauth/callback",
-        base
-    ))
-}
-
 fn normalize_optional(value: String) -> Option<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -1561,296 +1066,20 @@ fn now_ts() -> i64 {
     OffsetDateTime::now_utc().unix_timestamp()
 }
 
-fn format_rfc3339(value: OffsetDateTime) -> Result<String, AppError> {
-    value
-        .format(&Rfc3339)
-        .map_err(|error| AppError::internal(format!("format rfc3339: {}", error)))
-}
-
-fn google_event_start_ts(event: &GoogleCalendarEvent) -> Option<i64> {
-    google_event_time_to_ts(event.start.as_ref())
-}
-
-fn google_event_end_ts(event: &GoogleCalendarEvent) -> Option<i64> {
-    google_event_time_to_ts(event.end.as_ref())
-}
-
-fn google_event_time_to_ts(value: Option<&GoogleEventDateTime>) -> Option<i64> {
-    let value = value?;
-    if let Some(date_time) = value.date_time.as_deref() {
-        return parse_rfc3339(date_time);
-    }
-    value
-        .date
-        .as_deref()
-        .and_then(|date| parse_iso_datetime(&format!("{}T00:00:00Z", date)))
-}
-
-fn parse_rfc3339(value: &str) -> Option<i64> {
+fn parse_iso_datetime(value: &str) -> Option<i64> {
     OffsetDateTime::parse(value, &Rfc3339)
         .ok()
         .map(|date_time| date_time.unix_timestamp())
-}
-
-fn parse_iso_datetime(value: &str) -> Option<i64> {
-    parse_rfc3339(value).or_else(|| {
-        let normalized = if value.ends_with('Z') {
-            value.to_string()
-        } else {
-            format!("{}Z", value)
-        };
-        parse_rfc3339(&normalized)
-    })
-}
-
-async fn todoist_request_json(
-    client: &reqwest::Client,
-    api_token: &str,
-    endpoint: &str,
-    cursor: Option<&str>,
-) -> Result<serde_json::Value, AppError> {
-    let mut url = Url::parse(&format!("https://api.todoist.com/api/v1{}", endpoint))
-        .map_err(|error| AppError::internal(format!("todoist url: {}", error)))?;
-    if let Some(cursor) = cursor {
-        url.query_pairs_mut().append_pair("cursor", cursor);
-    }
-
-    client
-        .get(url)
-        .bearer_auth(api_token)
-        .send()
-        .await
-        .map_err(|error| AppError::internal(format!("todoist request: {}", error)))?
-        .error_for_status()
-        .map_err(|error| AppError::internal(format!("todoist request: {}", error)))?
-        .json()
-        .await
-        .map_err(|error| AppError::internal(format!("todoist decode: {}", error)))
-}
-
-async fn todoist_request_list<T>(
-    client: &reqwest::Client,
-    api_token: &str,
-    endpoint: &str,
-) -> Result<Vec<T>, AppError>
-where
-    T: for<'de> Deserialize<'de>,
-{
-    let mut all_items = Vec::new();
-    let mut cursor: Option<String> = None;
-
-    loop {
-        let value = todoist_request_json(client, api_token, endpoint, cursor.as_deref()).await?;
-        if let Ok(items) = serde_json::from_value::<Vec<T>>(value.clone()) {
-            all_items.extend(items);
-            break;
-        }
-
-        let page: TodoistPage<T> = serde_json::from_value(value)
-            .map_err(|error| AppError::internal(format!("todoist decode results: {}", error)))?;
-        all_items.extend(page.results);
-
-        match page.next_cursor {
-            Some(next_cursor) if !next_cursor.is_empty() => {
-                cursor = Some(next_cursor);
-            }
-            _ => break,
-        }
-    }
-
-    Ok(all_items)
-}
-
-async fn reconcile_commitment(
-    storage: &Storage,
-    existing: Option<&Commitment>,
-    item: &TodoistTask,
-    source_id: &str,
-    commitment_kind: &'static str,
-    completed: bool,
-    due_ts: Option<i64>,
-    project: Option<&str>,
-) -> Result<(), AppError> {
-    let due_at = due_ts.and_then(|timestamp| OffsetDateTime::from_unix_timestamp(timestamp).ok());
-    let metadata = serde_json::json!({
-        "todoist_id": item.id,
-        "labels": item.labels,
-    });
-    let status = if completed {
-        CommitmentStatus::Done
-    } else {
-        CommitmentStatus::Open
-    };
-
-    if let Some(commitment) = existing {
-        storage
-            .update_commitment(
-                commitment.id.as_ref(),
-                Some(item.content.trim()),
-                Some(status),
-                Some(due_at),
-                project,
-                Some(commitment_kind),
-                Some(&metadata),
-            )
-            .await?;
-    } else {
-        storage
-            .insert_commitment(CommitmentInsert {
-                text: item.content.clone(),
-                source_type: "todoist".to_string(),
-                source_id: Some(source_id.to_string()),
-                status,
-                due_at,
-                project: project.map(|value| value.to_string()),
-                commitment_kind: Some(commitment_kind.to_string()),
-                metadata_json: Some(metadata),
-            })
-            .await?;
-    }
-
-    Ok(())
-}
-
-fn infer_todoist_kind(task: &TodoistTask) -> &'static str {
-    let content_lower = task.content.to_lowercase();
-    let labels: Vec<String> = task
-        .labels
-        .iter()
-        .map(|label| label.to_lowercase())
-        .collect();
-    if labels.iter().any(|label| label == "health")
-        || content_lower.contains("meds")
-        || content_lower.contains("medication")
-    {
-        "medication"
-    } else {
-        "todo"
-    }
-}
-
-fn todoist_signal_source_ref(task: &TodoistTask, due_ts: Option<i64>) -> String {
-    let state = if task.checked.unwrap_or(false) {
-        "done"
-    } else {
-        "open"
-    };
-    format!(
-        "todoist:{}:{}:{}:{}",
-        task.id,
-        state,
-        task.content.trim(),
-        due_ts
-            .map(|timestamp| timestamp.to_string())
-            .unwrap_or_else(|| "-".to_string())
-    )
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleTokenResponse {
-    access_token: String,
-    #[serde(default)]
-    refresh_token: Option<String>,
-    #[serde(default)]
-    expires_in: Option<i64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleCalendarListResponse {
-    #[serde(default)]
-    items: Vec<GoogleCalendarListItem>,
-    #[serde(default, rename = "nextPageToken")]
-    next_page_token: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleCalendarListItem {
-    id: String,
-    summary: String,
-    #[serde(default)]
-    primary: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleEventListResponse {
-    #[serde(default)]
-    items: Vec<GoogleCalendarEvent>,
-    #[serde(default, rename = "nextPageToken")]
-    next_page_token: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleCalendarEvent {
-    id: String,
-    #[serde(default)]
-    summary: Option<String>,
-    #[serde(default)]
-    description: Option<String>,
-    #[serde(default)]
-    location: Option<String>,
-    #[serde(default)]
-    status: Option<String>,
-    #[serde(default)]
-    updated: Option<String>,
-    #[serde(default)]
-    html_link: Option<String>,
-    #[serde(default)]
-    attendees: Option<Vec<GoogleEventAttendee>>,
-    start: Option<GoogleEventDateTime>,
-    end: Option<GoogleEventDateTime>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleEventDateTime {
-    #[serde(default, rename = "dateTime")]
-    date_time: Option<String>,
-    #[serde(default)]
-    date: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GoogleEventAttendee {
-    #[serde(default)]
-    email: Option<String>,
-    #[serde(default, rename = "displayName")]
-    display_name: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct TodoistTask {
-    id: String,
-    content: String,
-    #[serde(default)]
-    labels: Vec<String>,
-    #[serde(default)]
-    project_id: Option<String>,
-    #[serde(default)]
-    priority: Option<u8>,
-    #[serde(default)]
-    checked: Option<bool>,
-    #[serde(default)]
-    due: Option<TodoistDue>,
-}
-
-#[derive(Debug, Deserialize)]
-struct TodoistDue {
-    #[serde(default)]
-    date: Option<String>,
-    #[serde(default)]
-    datetime: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct TodoistProject {
-    id: String,
-    name: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct TodoistPage<T> {
-    results: Vec<T>,
-    #[serde(default)]
-    next_cursor: Option<String>,
+        .or_else(|| {
+            let normalized = if value.ends_with('Z') {
+                value.to_string()
+            } else {
+                format!("{}Z", value)
+            };
+            OffsetDateTime::parse(&normalized, &Rfc3339)
+                .ok()
+                .map(|date_time| date_time.unix_timestamp())
+        })
 }
 
 #[cfg(test)]

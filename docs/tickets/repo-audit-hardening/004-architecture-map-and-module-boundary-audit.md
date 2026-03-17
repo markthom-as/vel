@@ -1,6 +1,6 @@
 ---
 title: Architecture map and module-boundary audit
-status: in_progress
+status: done
 owner: agent
 type: architecture
 priority: high
@@ -60,3 +60,9 @@ After the inventory is stable:
 1. use ticket `005` for route/service extraction planning, starting with chat and explain surfaces
 2. use ticket `006` for storage modularization planning around `vel-storage`
 3. use ticket `007` for frontend decomposition planning around settings and client contract concentration
+
+## Completed outputs
+
+- current-state architecture inventory in [docs/architecture-inventory.md](../../architecture-inventory.md)
+- future-state synthesis in [docs/future-architecture-map.md](../../future-architecture-map.md)
+- explicit extraction seams for chat, storage, and frontend concentration hotspots

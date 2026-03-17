@@ -15,6 +15,7 @@ pub mod evaluate;
 pub mod inference;
 pub(crate) mod integration_runtime;
 pub mod integrations;
+pub(crate) mod integrations_google;
 pub(crate) mod integrations_host;
 pub(crate) mod integrations_todoist;
 pub mod now;

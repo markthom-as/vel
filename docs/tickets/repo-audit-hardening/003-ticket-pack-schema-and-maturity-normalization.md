@@ -1,6 +1,6 @@
 ---
 title: Ticket-pack schema and maturity normalization
-status: in_progress
+status: done
 owner: agent
 type: documentation
 priority: high
@@ -39,3 +39,9 @@ Initial normalization target set:
 - [docs/tickets/multi-client-swarm/README.md](../multi-client-swarm/README.md)
 - [docs/tickets/agent-runtime/README.md](../agent-runtime/README.md)
 - [docs/tickets/full-spec-pack/README.md](../full-spec-pack/README.md)
+
+## Completed outputs
+
+- shared schema and enforcement guidance now live in [docs/tickets/pack-schema.md](../pack-schema.md)
+- the ticket-pack index classifies packs against that shared schema
+- representative active and near-term packs were normalized to the shared metadata and maturity framing

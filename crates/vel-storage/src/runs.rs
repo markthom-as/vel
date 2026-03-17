@@ -16,8 +16,8 @@ pub(crate) async fn create_run(
     input_json: &JsonValue,
 ) -> Result<(), StorageError> {
     let now = OffsetDateTime::now_utc().unix_timestamp();
-    let input_str = serde_json::to_string(input_json)
-        .map_err(|e| StorageError::Validation(e.to_string()))?;
+    let input_str =
+        serde_json::to_string(input_json).map_err(|e| StorageError::Validation(e.to_string()))?;
     let run_created_payload = json!({ "kind": kind.to_string() });
     let payload_str = serde_json::to_string(&run_created_payload)
         .map_err(|e| StorageError::Validation(e.to_string()))?;
@@ -180,8 +180,8 @@ pub(crate) async fn append_run_event(
 ) -> Result<(), StorageError> {
     let event_id = format!("evt_{}", Uuid::new_v4().simple());
     let now = OffsetDateTime::now_utc().unix_timestamp();
-    let payload_str = serde_json::to_string(payload_json)
-        .map_err(|e| StorageError::Validation(e.to_string()))?;
+    let payload_str =
+        serde_json::to_string(payload_json).map_err(|e| StorageError::Validation(e.to_string()))?;
     sqlx::query(
         r#"
         INSERT INTO run_events (event_id, run_id, seq, event_type, payload_json, created_at)

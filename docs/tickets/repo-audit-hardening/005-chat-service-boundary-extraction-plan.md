@@ -1,6 +1,6 @@
 ---
 title: Chat service-boundary extraction plan
-status: in_progress
+status: done
 owner: agent
 type: architecture
 priority: medium
@@ -55,6 +55,12 @@ The important boundary judgment is:
 
 - this file should stop being the truth owner for chat orchestration,
 - but the first pass should not redesign chat semantics or force an immediate transport-type purge.
+
+## Completed outputs
+
+- the target service split is now explicit in this ticket and in the architecture inventory
+- initial chat extractions landed under `services/chat/*`, including assistant, interventions, provenance, settings, events, and message-write orchestration helpers
+- the plan boundary is now stable enough for implementation to continue as code work rather than planning work
 
 ## Target split
 

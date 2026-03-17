@@ -60,7 +60,7 @@ Do not use this pack to imply that remote backup is already shipped.
 
 ## Ticket list
 
-- `STOR-001-foundation-storage-target-and-backup-manifest-model.md` - `in_progress`
+- `STOR-001-foundation-storage-target-and-backup-manifest-model.md` - `done`
 - `STOR-002-local-manifest-and-verification-cli.md` - `in_progress`
 - `STOR-003-rsync-backup-target.md`
 - `STOR-004-s3-and-s3-compatible-backup-target.md`
@@ -89,5 +89,5 @@ Do not use this pack to imply that remote backup is already shipped.
 
 ## Current focus
 
-- `STOR-001` is defining the provider-neutral model boundary around targets, artifact copies, manifests, verification, and restore planning.
-- `STOR-002` is defining the first real operator flow: local manifest generation and verification using the current `artifact_root` reality.
+- `STOR-001` is complete as the model and boundary definition lane.
+- `STOR-002` is the active implementation lane for local manifests and verification.

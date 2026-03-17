@@ -28,6 +28,7 @@ These files describe the current implementation sequence and near-term convergen
 
 - [tickets/README.md](tickets/README.md): ticket-pack inventory, maturity index, and triage entry point
 - [tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md): current audit-derived hardening and modularization sequence
+- [tickets/storage-backup-sync/README.md](tickets/storage-backup-sync/README.md): active backup, manifest, verification, and restore planning lane
 - [architecture-inventory.md](architecture-inventory.md): current architecture inventory, drift map, and extraction-seam audit
 - [future-architecture-map.md](future-architecture-map.md): planned future architecture synthesis paired with the current inventory; not shipped-behavior authority
 - [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md): one active convergence packet for architecture and cleanup work
@@ -55,5 +56,6 @@ For a coding agent or new contributor, start here:
 
 - If a ticket or spec conflicts with [status.md](status.md), trust `status.md` for current behavior.
 - Use [tickets/README.md](tickets/README.md) to choose the right active plan or ticket pack for the task at hand.
+- Use pack `README.md` files for in-flight status and overlap guidance instead of treating `status.md` as a worklog.
 - Treat [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md) as one convergence-oriented packet, not as the only possible active plan.
 - Treat files under [reviews/](reviews/) as historical input, not current requirements.

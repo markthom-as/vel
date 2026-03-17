@@ -6,6 +6,10 @@ Primary spec:
 
 - [docs/specs/vel-multi-vendor-integration-and-person-identity-spec.md](../../specs/vel-multi-vendor-integration-and-person-identity-spec.md)
 
+## Purpose
+
+Provide the provider-, connection-, and identity-aware substrate that newer operator and orchestration surfaces can build on without hardcoding vendor assumptions.
+
 ## Why this pack exists
 
 Current Vel integration support proves out adapter ingestion, but the next expansion step needs a stronger substrate:
@@ -17,6 +21,18 @@ Current Vel integration support proves out adapter ingestion, but the next expan
 - Apple-compatible bridge patterns
 - Steam and workspace-style activity/document sources
 - standards-aware import/export surfaces
+
+## Cross-pack dependencies
+
+Unlocks:
+
+- `connect-agent-launch/` instance and capability discovery for external runtimes
+- `projects/` workspace views that need provider/connection-aware status and provenance
+
+Overlap rule:
+
+- this pack owns family/provider/connection ontology and capability-manifest direction
+- it does not own project-session UX or host-agent supervision semantics
 
 ## Execution order
 

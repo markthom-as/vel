@@ -455,7 +455,7 @@ async fn process_claimed_validation_work(
     state: &AppState,
     claim: vel_api_types::WorkAssignmentClaimedWorkData,
 ) -> Result<(), crate::errors::AppError> {
-    let _load = state.worker_runtime.begin_work();
+    let load = state.worker_runtime.begin_work();
     let started_at = time::OffsetDateTime::now_utc().unix_timestamp();
     crate::services::client_sync::update_work_assignment_receipt(
         state,
@@ -480,6 +480,8 @@ async fn process_claimed_validation_work(
                     format!("invalid queued validation payload: {error}"),
                 )
                 .await?;
+                drop(load);
+                crate::services::client_sync::refresh_local_worker_presence(state).await?;
                 return Ok(());
             }
         };
@@ -495,6 +497,8 @@ async fn process_claimed_validation_work(
                 ),
             )
             .await?;
+            drop(load);
+            crate::services::client_sync::refresh_local_worker_presence(state).await?;
             return Ok(());
         }
     };
@@ -531,6 +535,8 @@ async fn process_claimed_validation_work(
         }
     }
 
+    drop(load);
+    crate::services::client_sync::refresh_local_worker_presence(state).await?;
     Ok(())
 }
 
@@ -538,7 +544,7 @@ async fn process_claimed_branch_sync_work(
     state: &AppState,
     claim: vel_api_types::WorkAssignmentClaimedWorkData,
 ) -> Result<(), crate::errors::AppError> {
-    let _load = state.worker_runtime.begin_work();
+    let load = state.worker_runtime.begin_work();
     let started_at = time::OffsetDateTime::now_utc().unix_timestamp();
     crate::services::client_sync::update_work_assignment_receipt(
         state,
@@ -563,6 +569,8 @@ async fn process_claimed_branch_sync_work(
                     format!("invalid queued branch sync payload: {error}"),
                 )
                 .await?;
+                drop(load);
+                crate::services::client_sync::refresh_local_worker_presence(state).await?;
                 return Ok(());
             }
         };
@@ -576,6 +584,8 @@ async fn process_claimed_branch_sync_work(
                 "branch sync capability is not available on this node".to_string(),
             )
             .await?;
+            drop(load);
+            crate::services::client_sync::refresh_local_worker_presence(state).await?;
             return Ok(());
         }
     };
@@ -612,6 +622,8 @@ async fn process_claimed_branch_sync_work(
         }
     }
 
+    drop(load);
+    crate::services::client_sync::refresh_local_worker_presence(state).await?;
     Ok(())
 }
 

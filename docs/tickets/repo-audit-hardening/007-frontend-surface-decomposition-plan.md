@@ -1,6 +1,6 @@
 ---
 title: Frontend surface decomposition plan
-status: in_progress
+status: done
 owner: agent
 type: architecture
 priority: medium
@@ -78,3 +78,8 @@ Current boundary judgment:
 - `types.ts` no longer acts as one global decoder choke point for unrelated surfaces
 - transport decoding and resource ownership are aligned by domain
 - the first decomposition slices reduce real ownership overlap instead of only moving JSX around
+
+## Completed planning outputs
+
+- stable extraction seams are defined for settings shell, integrations, runs, loops, shared panels, decoder core, and domain decoders
+- sequencing and guardrails are explicit enough for later implementation slices without reopening the architecture audit

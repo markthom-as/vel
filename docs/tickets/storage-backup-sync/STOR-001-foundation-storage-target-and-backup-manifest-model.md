@@ -1,6 +1,6 @@
 ---
 title: Foundation storage target and backup manifest model
-status: in_progress
+status: done
 owner: agent
 type: architecture
 priority: high
@@ -107,6 +107,12 @@ The first concrete draft should define:
 - evolve `vel backup` into manifest and verification subcommands
 - keep target inspection and verification summary compatible with later `doctor` or API surfaces
 - do not treat `vel export` as the primary recovery system
+
+## Completed outputs
+
+- provider-neutral backup model and boundary draft in [docs/specs/vel-storage-backup-sync-spec.md](../../specs/vel-storage-backup-sync-spec.md)
+- explicit storage-layer table plan for targets, copies, manifests, verification, and restore planning
+- first-pass core domain scaffolding for those concepts in `vel-core`
 
 ## Acceptance criteria
 

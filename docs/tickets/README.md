@@ -57,6 +57,13 @@ Entry criteria:
 - use this file to compare pack maturity and authority,
 - use this file when multiple packs appear to overlap.
 
+Overlap protocol:
+
+- start from the pack `README.md` before drilling into ticket files
+- prefer packs with explicit `Current status` or `Current focus` sections when multiple packs are adjacent
+- use [repo-audit-hardening/README.md](repo-audit-hardening/README.md) for current repo-convergence work
+- use caution notes in this index to avoid duplicating overlapping architecture lanes
+
 Exit criteria:
 
 - every actively used pack is classified by maturity and authority,
