@@ -1,4 +1,6 @@
 //! vel context — show persistent current context (written by inference engine).
+//! Read-only CLI surface: uses GET /v1/context/current and GET /v1/context/timeline only.
+//! Recompute happens via `vel evaluate`, not here.
 
 use crate::client::ApiClient;
 use anyhow::Context;

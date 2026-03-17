@@ -1,3 +1,5 @@
+//! vel evaluate — explicit recompute-and-persist entrypoint.
+
 use crate::client::ApiClient;
 use anyhow::Context;
 

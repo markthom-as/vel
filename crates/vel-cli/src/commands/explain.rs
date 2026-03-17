@@ -1,4 +1,5 @@
 //! vel explain — show why a nudge was generated, what shaped context, commitment risk, or drift.
+//! Read-only CLI surface: uses GET explain endpoints only and never recomputes persisted state.
 
 use crate::client::ApiClient;
 use anyhow::Context;
