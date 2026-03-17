@@ -5,7 +5,7 @@ import FoundationNetworking
 
 /// HTTP client for the Vel daemon (veld) API. All clients talk to the same core.
 /// Configure baseURL (default http://localhost:4130) before use.
-public final class VelClient: Sendable {
+public final class VelClient {
     public var baseURL: URL
     private let session: URLSession
 
@@ -52,10 +52,37 @@ public final class VelClient: Sendable {
         return try await get(path)
     }
 
+    public func createCommitment(
+        text: String,
+        sourceType: String = "apple",
+        project: String? = nil,
+        commitmentKind: String? = nil
+    ) async throws -> CommitmentData {
+        let body: [String: AnyEncodable] = [
+            "text": AnyEncodable(text),
+            "source_type": AnyEncodable(sourceType),
+            "project": AnyEncodable(project),
+            "commitment_kind": AnyEncodable(commitmentKind)
+        ]
+        return try await post("/v1/commitments", body: body)
+    }
+
+    public func markCommitmentDone(id: String) async throws -> CommitmentData {
+        let body: [String: AnyEncodable] = [
+            "status": AnyEncodable("done")
+        ]
+        return try await patch("/v1/commitments/\(id)", body: body)
+    }
+
     // MARK: - Captures
 
     public func createCapture(text: String, type: String = "note", source: String = "apple") async throws -> CaptureData {
-        try await post("/v1/captures", body: ["text": text, "capture_type": type, "source": source])
+        let body: [String: AnyEncodable] = [
+            "content_text": AnyEncodable(text),
+            "capture_type": AnyEncodable(type),
+            "source_device": AnyEncodable(source)
+        ]
+        return try await post("/v1/captures", body: body)
     }
 
     // MARK: - Private
@@ -79,12 +106,22 @@ public final class VelClient: Sendable {
         return value
     }
 
+    private func patch<T: Decodable, B: Encodable>(_ path: String, body: B?) async throws -> T {
+        let bodyData = body.flatMap { try? JSONEncoder().encode($0) }
+        let data = try await request(path: path, method: "PATCH", body: bodyData)
+        let envelope = try JSONDecoder().decode(APIEnvelope<T>.self, from: data)
+        guard envelope.ok, let value = envelope.data else {
+            throw VelClientError.apiError(envelope.error?.message ?? "No data")
+        }
+        return value
+    }
+
     private func request(path: String, method: String, body: Data?) async throws -> Data {
         let url = baseURL.appendingPathComponent(String(path.dropFirst()))
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if method == "POST" {
+        if method == "POST" || method == "PATCH" {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
         }
@@ -147,6 +184,25 @@ public enum VelClientError: Error, Sendable {
     case http(statusCode: Int, message: String)
     case apiError(String)
     case decoding(Error)
+}
+
+public struct AnyEncodable: Encodable, Sendable {
+    private let encodeImpl: @Sendable (Encoder) throws -> Void
+
+    public init<T: Encodable & Sendable>(_ value: T?) {
+        self.encodeImpl = { encoder in
+            var container = encoder.singleValueContainer()
+            if let value {
+                try container.encode(value)
+            } else {
+                try container.encodeNil()
+            }
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        try encodeImpl(encoder)
+    }
 }
 
 private struct APIErrorEnvelope: Decodable {
