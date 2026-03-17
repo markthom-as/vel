@@ -98,6 +98,43 @@ pub async fn run_week_synthesis(state: &AppState) -> Result<(RunId, ArtifactId),
     }
 }
 
+pub async fn run_week_synthesis_if_due(
+    state: &AppState,
+) -> Result<Option<(RunId, ArtifactId)>, AppError> {
+    let now = OffsetDateTime::now_utc();
+    let week_start = start_of_week(now)?;
+
+    if let Some(latest) = state
+        .storage
+        .get_latest_artifact_by_type("weekly_synthesis")
+        .await?
+    {
+        if latest.created_at >= week_start.unix_timestamp() {
+            return Ok(None);
+        }
+    }
+
+    let recent_signals = state
+        .storage
+        .list_signals(None, Some(week_start.unix_timestamp()), 500)
+        .await?;
+    let recent_captures = state.storage.list_captures_recent(200, false).await?;
+    let all_commitments = state
+        .storage
+        .list_commitments(None, None, None, 500)
+        .await?;
+    let recent_commitments = all_commitments
+        .iter()
+        .filter(|commitment| commitment.created_at >= week_start)
+        .count();
+
+    if recent_signals.len() + recent_captures.len() + recent_commitments < 3 {
+        return Ok(None);
+    }
+
+    run_week_synthesis(state).await.map(Some)
+}
+
 /// Run project-scoped synthesis: filter by project slug, produce project_synthesis artifact.
 pub async fn run_project_synthesis(
     state: &AppState,
@@ -538,4 +575,13 @@ async fn fail_run(state: &AppState, run_id: &RunId, error: &AppError) {
             &serde_json::json!({ "error": error.to_string() }),
         )
         .await;
+}
+
+fn start_of_week(now: OffsetDateTime) -> Result<OffsetDateTime, AppError> {
+    let days_since_monday = i64::from(now.weekday().number_days_from_monday());
+    let week_start_date = now.date() - time::Duration::days(days_since_monday);
+    let midnight = week_start_date
+        .with_hms(0, 0, 0)
+        .map_err(|error| AppError::internal(format!("week start timestamp: {error}")))?;
+    Ok(midnight.assume_utc())
 }

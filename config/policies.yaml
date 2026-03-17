@@ -16,6 +16,12 @@ loops:
   sync_messaging:
     enabled: true
     interval_seconds: 300
+  weekly_synthesis:
+    enabled: true
+    interval_seconds: 86400
+  stale_nudge_reconciliation:
+    enabled: true
+    interval_seconds: 1800
 
 policies:
   meds_not_logged:

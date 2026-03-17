@@ -70,6 +70,8 @@ pub struct LoopPolicies {
     pub sync_todoist: Option<LoopPolicy>,
     pub sync_activity: Option<LoopPolicy>,
     pub sync_messaging: Option<LoopPolicy>,
+    pub weekly_synthesis: Option<LoopPolicy>,
+    pub stale_nudge_reconciliation: Option<LoopPolicy>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -159,6 +161,14 @@ impl Default for LoopPolicies {
                 enabled: true,
                 interval_seconds: 300,
             }),
+            weekly_synthesis: Some(LoopPolicy {
+                enabled: true,
+                interval_seconds: 86_400,
+            }),
+            stale_nudge_reconciliation: Some(LoopPolicy {
+                enabled: true,
+                interval_seconds: 1_800,
+            }),
         }
     }
 }
@@ -211,6 +221,12 @@ impl PolicyConfig {
     pub fn sync_messaging_loop(&self) -> Option<&LoopPolicy> {
         self.loops.sync_messaging.as_ref()
     }
+    pub fn weekly_synthesis_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.weekly_synthesis.as_ref()
+    }
+    pub fn stale_nudge_reconciliation_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.stale_nudge_reconciliation.as_ref()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -237,6 +253,8 @@ mod tests {
         assert!(config.sync_todoist_loop().is_some());
         assert!(config.sync_activity_loop().is_some());
         assert!(config.sync_messaging_loop().is_some());
+        assert!(config.weekly_synthesis_loop().is_some());
+        assert!(config.stale_nudge_reconciliation_loop().is_some());
         assert!(config.meeting_prep_window().unwrap().default_prep_minutes == 30);
         assert!(config.commute_leave_time().unwrap().require_travel_minutes);
         assert_eq!(
@@ -250,6 +268,17 @@ mod tests {
         assert_eq!(config.sync_todoist_loop().unwrap().interval_seconds, 600);
         assert!(!config.sync_activity_loop().unwrap().enabled);
         assert_eq!(config.sync_messaging_loop().unwrap().interval_seconds, 300);
+        assert_eq!(
+            config.weekly_synthesis_loop().unwrap().interval_seconds,
+            86_400
+        );
+        assert_eq!(
+            config
+                .stale_nudge_reconciliation_loop()
+                .unwrap()
+                .interval_seconds,
+            1_800
+        );
     }
 
     #[test]

@@ -68,6 +68,14 @@ fn registered_loops_with_policy(
         .sync_messaging_loop()
         .cloned()
         .unwrap_or_default();
+    let weekly_synthesis_loop = policy_config
+        .weekly_synthesis_loop()
+        .cloned()
+        .unwrap_or_default();
+    let stale_nudge_reconciliation_loop = policy_config
+        .stale_nudge_reconciliation_loop()
+        .cloned()
+        .unwrap_or_default();
 
     vec![
         LoopDefinition {
@@ -111,6 +119,18 @@ fn registered_loops_with_policy(
             interval: Duration::from_secs(sync_messaging_loop.interval_seconds),
             enabled: sync_messaging_loop.enabled,
             runner: run_sync_messaging_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::WeeklySynthesis,
+            interval: Duration::from_secs(weekly_synthesis_loop.interval_seconds),
+            enabled: weekly_synthesis_loop.enabled,
+            runner: run_weekly_synthesis_loop_once,
+        },
+        LoopDefinition {
+            kind: LoopKind::StaleNudgeReconciliation,
+            interval: Duration::from_secs(stale_nudge_reconciliation_loop.interval_seconds),
+            enabled: stale_nudge_reconciliation_loop.enabled,
+            runner: run_stale_nudge_reconciliation_loop_once,
         },
     ]
 }
@@ -268,6 +288,21 @@ fn run_sync_messaging_loop_once(state: &AppState) -> LoopFuture<'_> {
     })
 }
 
+fn run_weekly_synthesis_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let _ = crate::services::synthesis::run_week_synthesis_if_due(state).await?;
+        Ok(())
+    })
+}
+
+fn run_stale_nudge_reconciliation_loop_once(state: &AppState) -> LoopFuture<'_> {
+    Box::pin(async move {
+        let _ = crate::services::nudge_engine::evaluate(&state.storage, &state.policy_config, 0)
+            .await?;
+        Ok(())
+    })
+}
+
 #[cfg(test)]
 async fn poll_once(state: &AppState) -> Result<(), crate::errors::AppError> {
     run_registered_loops_once(state).await
@@ -379,7 +414,7 @@ mod tests {
     #[test]
     fn registered_loops_are_explicit_and_enabled() {
         let loops = registered_loops_with_policy(&crate::policy_config::PolicyConfig::default());
-        assert_eq!(loops.len(), 7);
+        assert_eq!(loops.len(), 9);
         assert_eq!(loops[0].kind, LoopKind::CaptureIngest);
         assert_eq!(loops[1].kind, LoopKind::RetryDueRuns);
         assert_eq!(loops[2].kind, LoopKind::EvaluateCurrentState);
@@ -387,6 +422,8 @@ mod tests {
         assert_eq!(loops[4].kind, LoopKind::SyncTodoist);
         assert_eq!(loops[5].kind, LoopKind::SyncActivity);
         assert_eq!(loops[6].kind, LoopKind::SyncMessaging);
+        assert_eq!(loops[7].kind, LoopKind::WeeklySynthesis);
+        assert_eq!(loops[8].kind, LoopKind::StaleNudgeReconciliation);
         assert!(loops[0].enabled);
         assert!(loops[1].enabled);
         assert!(loops[2].enabled);
@@ -394,6 +431,8 @@ mod tests {
         assert!(loops[4].enabled);
         assert!(!loops[5].enabled);
         assert!(loops[6].enabled);
+        assert!(loops[7].enabled);
+        assert!(loops[8].enabled);
     }
 
     #[tokio::test]
@@ -414,7 +453,7 @@ mod tests {
         poll_once(&state).await.unwrap();
 
         let loops = storage.list_runtime_loops().await.unwrap();
-        assert_eq!(loops.len(), 6);
+        assert_eq!(loops.len(), 8);
         assert!(loops
             .iter()
             .all(|loop_record| loop_record.last_started_at.is_some()));
@@ -439,6 +478,12 @@ mod tests {
         assert!(loops
             .iter()
             .any(|loop_record| loop_record.loop_kind == "sync_messaging"));
+        assert!(loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "weekly_synthesis"));
+        assert!(loops
+            .iter()
+            .any(|loop_record| loop_record.loop_kind == "stale_nudge_reconciliation"));
     }
 
     #[tokio::test]
