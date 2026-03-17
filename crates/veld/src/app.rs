@@ -124,6 +124,12 @@ pub fn build_app_with_state(state: AppState) -> Router {
             "/v1/nudges/:id/dismiss",
             post(routes::nudges::nudge_dismiss),
         )
+        .route("/v1/uncertainty", get(routes::uncertainty::list_uncertainty))
+        .route("/v1/uncertainty/:id", get(routes::uncertainty::get_uncertainty))
+        .route(
+            "/v1/uncertainty/:id/resolve",
+            post(routes::uncertainty::resolve_uncertainty),
+        )
         .route("/v1/loops", get(routes::loops::list_loops))
         .route(
             "/v1/loops/:kind",
@@ -451,6 +457,101 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn uncertainty_endpoints_list_inspect_and_resolve_records() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let uncertainty_id = storage
+            .insert_uncertainty_record(vel_storage::UncertaintyRecordInsert {
+                subject_type: "suggestion_candidate".to_string(),
+                subject_id: Some("increase_commute_buffer".to_string()),
+                decision_kind: "suggestion_generation".to_string(),
+                confidence_band: "low".to_string(),
+                confidence_score: Some(0.42),
+                reasons_json: serde_json::json!({
+                    "summary": "Borderline commute evidence."
+                }),
+                missing_evidence_json: Some(serde_json::json!({
+                    "more_events_needed": 1
+                })),
+                resolution_mode: "defer".to_string(),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let list_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/uncertainty")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list_resp.status(), StatusCode::OK);
+        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
+        assert_eq!(list_json["data"].as_array().map(|items| items.len()), Some(1));
+        assert_eq!(list_json["data"][0]["id"].as_str(), Some(uncertainty_id.as_str()));
+        assert_eq!(list_json["data"][0]["status"].as_str(), Some("open"));
+
+        let inspect_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/uncertainty/{}", uncertainty_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(inspect_resp.status(), StatusCode::OK);
+        let inspect_body = axum::body::to_bytes(inspect_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let inspect_json: serde_json::Value = serde_json::from_slice(&inspect_body).unwrap();
+        assert_eq!(
+            inspect_json["data"]["subject_id"].as_str(),
+            Some("increase_commute_buffer")
+        );
+        assert_eq!(inspect_json["data"]["resolution_mode"].as_str(), Some("defer"));
+
+        let resolve_resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/uncertainty/{}/resolve", uncertainty_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resolve_resp.status(), StatusCode::OK);
+        let resolve_body = axum::body::to_bytes(resolve_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let resolve_json: serde_json::Value = serde_json::from_slice(&resolve_body).unwrap();
+        assert_eq!(resolve_json["data"]["status"].as_str(), Some("resolved"));
+
+        let stored = storage
+            .get_uncertainty_record(&uncertainty_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(stored.status, "resolved");
+        assert!(stored.resolved_at.is_some());
     }
 
     #[tokio::test]

@@ -140,6 +140,10 @@ enum Command {
         #[command(subcommand)]
         command: NudgeCommand,
     },
+    Uncertainty {
+        #[command(subcommand)]
+        command: UncertaintyCommand,
+    },
     Evaluate {},
     Context {
         #[command(subcommand)]
@@ -188,6 +192,22 @@ enum SuggestionCommand {
         id: String,
         #[arg(long)]
         payload: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum UncertaintyCommand {
+    List {
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Inspect {
+        id: String,
+    },
+    Resolve {
+        id: String,
     },
 }
 
@@ -594,6 +614,17 @@ async fn main() -> anyhow::Result<()> {
             }
             NudgeCommand::Inspect { id } => commands::nudges::run_inspect(&client, &id).await,
         },
+        Command::Uncertainty { command } => match command {
+            UncertaintyCommand::List { status, json } => {
+                commands::uncertainty::run_list(&client, status.as_deref(), json).await
+            }
+            UncertaintyCommand::Inspect { id } => {
+                commands::uncertainty::run_inspect(&client, &id).await
+            }
+            UncertaintyCommand::Resolve { id } => {
+                commands::uncertainty::run_resolve(&client, &id).await
+            }
+        },
         Command::Evaluate {} => commands::evaluate::run(&client).await,
         Command::Context { command } => match command {
             ContextCommand::Show { json } => commands::context::run_current(&client, json).await,
@@ -733,6 +764,37 @@ mod tests {
                 command: LoopCommand::Disable { kind },
             } => assert_eq!(kind, "sync_messaging"),
             _ => panic!("expected loop disable command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_uncertainty_commands() {
+        let list = Cli::try_parse_from(["vel", "uncertainty", "list", "--status", "resolved"])
+            .unwrap();
+        match list.command {
+            Command::Uncertainty {
+                command: UncertaintyCommand::List { status, json },
+            } => {
+                assert_eq!(status.as_deref(), Some("resolved"));
+                assert!(!json);
+            }
+            _ => panic!("expected uncertainty list command"),
+        }
+
+        let inspect = Cli::try_parse_from(["vel", "uncertainty", "inspect", "unc_123"]).unwrap();
+        match inspect.command {
+            Command::Uncertainty {
+                command: UncertaintyCommand::Inspect { id },
+            } => assert_eq!(id, "unc_123"),
+            _ => panic!("expected uncertainty inspect command"),
+        }
+
+        let resolve = Cli::try_parse_from(["vel", "uncertainty", "resolve", "unc_456"]).unwrap();
+        match resolve.command {
+            Command::Uncertainty {
+                command: UncertaintyCommand::Resolve { id },
+            } => assert_eq!(id, "unc_456"),
+            _ => panic!("expected uncertainty resolve command"),
         }
     }
 

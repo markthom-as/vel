@@ -20,4 +20,5 @@ pub mod suggestions;
 pub mod sync;
 pub mod synthesis;
 pub mod threads;
+pub mod uncertainty;
 pub mod ws;

@@ -806,6 +806,22 @@ pub struct LoopUpdateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UncertaintyData {
+    pub id: String,
+    pub subject_type: String,
+    pub subject_id: Option<String>,
+    pub decision_kind: String,
+    pub confidence_band: String,
+    pub confidence_score: Option<f64>,
+    pub reasons: JsonValue,
+    pub missing_evidence: Option<JsonValue>,
+    pub resolution_mode: String,
+    pub status: String,
+    pub created_at: UnixSeconds,
+    pub resolved_at: Option<UnixSeconds>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComponentData {
     pub id: String,
     pub name: String,

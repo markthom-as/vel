@@ -6,6 +6,7 @@ use vel_api_types::{
     CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData,
     HealthData, LoopData, LoopUpdateRequest, MorningData, NudgeData, NudgeSnoozeRequest,
     RunUpdateRequest, SearchQuery, SearchResults, SyncResultData, SynthesisWeekData, TodayData,
+    UncertaintyData,
 };
 
 #[derive(Clone)]
@@ -260,6 +261,46 @@ impl ApiClient {
             .send()
             .await
             .context("sending update loop request")?;
+        decode_response(response).await
+    }
+
+    pub async fn list_uncertainty(
+        &self,
+        status: Option<&str>,
+        limit: Option<u32>,
+    ) -> anyhow::Result<ApiResponse<Vec<UncertaintyData>>> {
+        let mut path = "/v1/uncertainty".to_string();
+        let mut params = Vec::new();
+        if let Some(status) = status.filter(|value| !value.is_empty()) {
+            params.push(format!("status={}", status));
+        }
+        if let Some(limit) = limit {
+            params.push(format!("limit={}", limit));
+        }
+        if !params.is_empty() {
+            path.push('?');
+            path.push_str(&params.join("&"));
+        }
+        self.get(&path).await
+    }
+
+    pub async fn get_uncertainty(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<UncertaintyData>> {
+        self.get(&format!("/v1/uncertainty/{}", id)).await
+    }
+
+    pub async fn resolve_uncertainty(
+        &self,
+        id: &str,
+    ) -> anyhow::Result<ApiResponse<UncertaintyData>> {
+        let response = self
+            .http
+            .post(format!("{}/v1/uncertainty/{}/resolve", self.base_url, id))
+            .send()
+            .await
+            .context("resolve uncertainty")?;
         decode_response(response).await
     }
 
