@@ -26,6 +26,7 @@ Implement the swarm scheduler that can fan out independent work units in paralle
 - Budget violations are rejected before runaway execution.
 - Receipts capture each work-unit claim/start/completion so retries only reissue units whose previous receipt shows failure or expiry, and `GET /v1/sync/work-queue` now reports pending batches after terminal receipts are filtered.
 - Scheduler state is durable enough to survive restart or replay, and the receipt lane exposes TTL/reclaim semantics so dangling `claimed` receipts older than the stale window can be reassigned without duplicating side effects.
+- A background scheduler loop pulls `POST /v1/sync/work-queue/claim-next` through the loops runtime, publishes loop events, and keeps receipt transitions in lockstep with worker self-polling so retries obey backoff without manual operator intervention.
 
 # Spec reference
 

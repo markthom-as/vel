@@ -26,6 +26,7 @@ Implement the supervisor-side integration path that validates work-unit results,
 - Conflicts produce deterministic outcomes and structured metadata.
 - Every receipt (claim, start, complete, fail) is archived so integration can replay or audit what each worker actually did before merging results, and aborted or stale receipts surface in the queue view so the supervisor can trigger a retry or clarification request instead of silently dropping work.
 - High-risk ambiguity routes to clarification rather than silent guessing.
+- The supervisor observes the background scheduler loop so it can detect when retries are blocked by backoff, when stale receipts are reclaimed, and when loop events suggest the queue is empty before accepting new leaf work.
 
 # Spec reference
 

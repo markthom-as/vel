@@ -488,6 +488,8 @@ Failure receipts should carry reason metadata so the scheduler can escalate, rer
 
 These scheduler-friendly receipts are the bridge between simple queue routing and full-fledged DAG scheduling. They let the swarm layer keep per-unit bookkeeping durable, survive restarts, and compose retry/reclaim policies while the supervisory code still owns the final integration step.
 
+The runtime exposes this behavior through a dedicated scheduler loop (visible via `GET /v1/loops` and `vel loops`), which regularly calls `POST /v1/sync/work-queue/claim-next`, updates receipts via `POST /v1/sync/work-assignments` / `PATCH /v1/sync/work-assignments`, and publishes loop events so operators can see when the queue drains or when retries are blocked by backoff.
+
 ---
 
 ## Temporary Authority Handoff
