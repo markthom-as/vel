@@ -10,6 +10,7 @@ import {
   decodeComponentData,
   decodeComponentLogEventData,
   decodeGoogleCalendarAuthStartData,
+  decodeIntegrationLogEventData,
   decodeIntegrationsData,
   decodeInboxItemData,
   decodeMessageData,
@@ -26,6 +27,7 @@ import {
   type ComponentData,
   type ComponentLogEventData,
   type GoogleCalendarAuthStartData,
+  type IntegrationLogEventData,
   type InboxItemData,
   type IntegrationsData,
   type MessageData,
@@ -47,6 +49,7 @@ export const queryKeys = {
   integrations: () => ['integrations'] as const,
   components: () => ['components'] as const,
   componentLogs: (componentId: string) => ['components', componentId, 'logs'] as const,
+  integrationLogs: (integrationId: string) => ['integrations', integrationId, 'logs'] as const,
   commitments: (limit: number) => ['commitments', limit] as const,
   runs: (limit: number) => ['runs', limit] as const,
   provenance: (messageId: string | null) => ['messages', messageId, 'provenance'] as const,
@@ -136,6 +139,16 @@ export function loadComponentLogs(
   return apiGet<ApiResponse<ComponentLogEventData[]>>(
     `/api/components/${encodeURIComponent(componentId.trim())}/logs?limit=${limit}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeComponentLogEventData)),
+  );
+}
+
+export function loadIntegrationLogs(
+  integrationId: string,
+  limit = 10,
+): Promise<ApiResponse<IntegrationLogEventData[]>> {
+  return apiGet<ApiResponse<IntegrationLogEventData[]>>(
+    `/api/integrations/${encodeURIComponent(integrationId.trim())}/logs?limit=${limit}`,
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeIntegrationLogEventData)),
   );
 }
 

@@ -129,6 +129,10 @@ pub fn build_app_with_state(state: AppState) -> Router {
             get(routes::integrations::get_integrations),
         )
         .route(
+            "/api/integrations/:id/logs",
+            get(routes::integrations::list_integration_logs),
+        )
+        .route(
             "/api/integrations/google-calendar",
             axum::routing::patch(routes::integrations::patch_google_calendar),
         )
@@ -4150,6 +4154,60 @@ END:VCALENDAR
             .is_some());
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn integrations_logs_endpoint_lists_recent_sync_history() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        crate::services::integrations::record_sync_success(&storage, "notes", 2)
+            .await
+            .unwrap();
+        crate::services::integrations::record_sync_error(
+            &storage,
+            "notes",
+            "notes snapshot missing",
+        )
+        .await
+        .unwrap();
+        let app = build_app(
+            storage,
+            AppConfig {
+                notes_path: Some("/tmp/notes".to_string()),
+                ..Default::default()
+            },
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/integrations/notes/logs?limit=5")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let entries = json["data"].as_array().expect("integration logs array");
+        assert_eq!(entries.len(), 2);
+        assert!(entries
+            .iter()
+            .any(|entry| entry["integration_id"] == "notes"
+                && entry["status"] == "error"
+                && entry["message"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains("notes snapshot missing")));
+        assert!(entries
+            .iter()
+            .any(|entry| entry["status"] == "ok" && entry["payload"]["item_count"] == 2));
     }
 
     #[tokio::test]

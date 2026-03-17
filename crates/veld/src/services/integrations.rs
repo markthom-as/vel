@@ -6,7 +6,7 @@ use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 use vel_api_types::{
     GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
-    IntegrationsData, LocalIntegrationData, TodoistIntegrationData,
+    IntegrationLogEventData, IntegrationsData, LocalIntegrationData, TodoistIntegrationData,
 };
 use vel_config::AppConfig;
 use vel_core::{Commitment, CommitmentStatus};
@@ -28,6 +28,7 @@ const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const GOOGLE_CALENDAR_BASE: &str = "https://www.googleapis.com/calendar/v3";
 const GOOGLE_LOOKBACK_DAYS: i64 = 60;
 const GOOGLE_LOOKAHEAD_DAYS: i64 = 180;
+const INTEGRATION_LOG_LIMIT_DEFAULT: u32 = 10;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoogleCalendarSettings {
@@ -113,6 +114,51 @@ fn default_true() -> bool {
     true
 }
 
+fn integration_log_status(event_name: &str) -> &'static str {
+    match event_name {
+        "integration.sync.succeeded" => "ok",
+        "integration.sync.failed" => "error",
+        _ => "info",
+    }
+}
+
+fn integration_log_message(event_name: &str, payload: &serde_json::Value) -> String {
+    let item_count = payload
+        .get("item_count")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let integration_id = payload
+        .get("integration_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("integration");
+    match event_name {
+        "integration.sync.succeeded" => {
+            format!("{integration_id} sync completed with {item_count} items.")
+        }
+        "integration.sync.failed" => {
+            let error = payload
+                .get("error")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown error");
+            format!("{integration_id} sync failed: {error}")
+        }
+        _ => event_name.to_string(),
+    }
+}
+
+fn canonical_integration_id(integration_id: &str) -> Option<&'static str> {
+    match integration_id {
+        "google-calendar" | "calendar" | "google_calendar" => Some("google-calendar"),
+        "todoist" => Some("todoist"),
+        "activity" => Some("activity"),
+        "git" => Some("git"),
+        "messaging" => Some("messaging"),
+        "notes" => Some("notes"),
+        "transcripts" => Some("transcripts"),
+        _ => None,
+    }
+}
+
 pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, AppError> {
     let google = load_google_settings(storage).await?;
     let todoist = load_todoist_settings(storage).await?;
@@ -167,6 +213,47 @@ pub async fn get_integrations_with_config(
             &transcripts,
         ),
     })
+}
+
+pub async fn list_integration_logs(
+    storage: &Storage,
+    integration_id: &str,
+    limit: Option<u32>,
+) -> Result<Vec<IntegrationLogEventData>, AppError> {
+    let integration_id = canonical_integration_id(integration_id)
+        .ok_or_else(|| AppError::not_found("integration not found"))?;
+    let events = storage
+        .list_events_by_aggregate(
+            "integration",
+            integration_id,
+            limit.unwrap_or(INTEGRATION_LOG_LIMIT_DEFAULT),
+        )
+        .await?;
+
+    Ok(events
+        .into_iter()
+        .map(|event| {
+            let payload =
+                serde_json::from_str(&event.payload_json).unwrap_or_else(|_| serde_json::json!({}));
+            let event_name = event.event_name;
+            let status = payload
+                .get("status")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_else(|| integration_log_status(&event_name))
+                .to_string();
+            IntegrationLogEventData {
+                id: event.id.to_string(),
+                integration_id: event
+                    .aggregate_id
+                    .unwrap_or_else(|| integration_id.to_string()),
+                event_name: event_name.clone(),
+                status: status.clone(),
+                message: integration_log_message(&event_name, &payload),
+                payload,
+                created_at: event.created_at,
+            }
+        })
+        .collect())
 }
 
 pub async fn update_google_settings(
@@ -407,6 +494,7 @@ pub async fn sync_google_calendar(
     settings.last_error = None;
     settings.last_item_count = Some(inserted);
     save_google_settings(storage, &settings).await?;
+    append_sync_event(storage, "google-calendar", "ok", inserted, None).await?;
     Ok(Some(inserted))
 }
 
@@ -489,6 +577,7 @@ pub async fn sync_todoist(storage: &Storage) -> Result<Option<u32>, AppError> {
     settings.last_error = None;
     settings.last_item_count = Some(signals_count);
     save_todoist_settings(storage, &settings).await?;
+    append_sync_event(storage, "todoist", "ok", signals_count, None).await?;
     Ok(Some(signals_count))
 }
 
@@ -504,6 +593,7 @@ pub async fn record_sync_error(
             settings.last_sync_status = Some("error".to_string());
             settings.last_error = Some(error.to_string());
             save_google_settings(storage, &settings).await?;
+            append_sync_event(storage, "google-calendar", "error", 0, Some(error)).await?;
         }
         "todoist" => {
             let mut settings = load_todoist_settings(storage).await?;
@@ -511,6 +601,7 @@ pub async fn record_sync_error(
             settings.last_sync_status = Some("error".to_string());
             settings.last_error = Some(error.to_string());
             save_todoist_settings(storage, &settings).await?;
+            append_sync_event(storage, "todoist", "error", 0, Some(error)).await?;
         }
         "activity" | "git" | "messaging" | "notes" | "transcripts" => {
             update_local_sync_settings(
@@ -519,6 +610,14 @@ pub async fn record_sync_error(
                 "error",
                 Some(error.to_string()),
                 None,
+            )
+            .await?;
+            append_sync_event(
+                storage,
+                local_integration_id(source),
+                "error",
+                0,
+                Some(error),
             )
             .await?;
         }
@@ -540,6 +639,14 @@ pub async fn record_sync_success(
                 "ok",
                 None,
                 Some(item_count),
+            )
+            .await?;
+            append_sync_event(
+                storage,
+                local_integration_id(source),
+                "ok",
+                item_count,
+                None,
             )
             .await?;
         }
@@ -823,7 +930,8 @@ async fn save_google_settings(
 }
 
 async fn load_todoist_settings(storage: &Storage) -> Result<TodoistSettings, AppError> {
-    let public_settings: TodoistPublicSettings = load_settings(storage, TODOIST_SETTINGS_KEY).await?;
+    let public_settings: TodoistPublicSettings =
+        load_settings(storage, TODOIST_SETTINGS_KEY).await?;
     let secrets: TodoistSecrets = load_settings(storage, TODOIST_SECRETS_KEY).await?;
     Ok(TodoistSettings {
         api_token: secrets.api_token,
@@ -896,6 +1004,35 @@ async fn update_local_sync_settings(
     save_settings(storage, key, &settings).await
 }
 
+async fn append_sync_event(
+    storage: &Storage,
+    integration_id: &str,
+    status: &str,
+    item_count: u32,
+    error: Option<&str>,
+) -> Result<(), AppError> {
+    storage
+        .append_event(vel_storage::EventLogInsert {
+            id: None,
+            event_name: match status {
+                "ok" => "integration.sync.succeeded".to_string(),
+                "error" => "integration.sync.failed".to_string(),
+                other => format!("integration.sync.{other}"),
+            },
+            aggregate_type: Some("integration".to_string()),
+            aggregate_id: Some(integration_id.to_string()),
+            payload_json: serde_json::json!({
+                "integration_id": integration_id,
+                "status": status,
+                "item_count": item_count,
+                "error": error,
+            })
+            .to_string(),
+        })
+        .await?;
+    Ok(())
+}
+
 fn local_settings_key(source: &str) -> &'static str {
     match source {
         "activity" => ACTIVITY_SETTINGS_KEY,
@@ -903,6 +1040,17 @@ fn local_settings_key(source: &str) -> &'static str {
         "messaging" => MESSAGING_SETTINGS_KEY,
         "notes" => NOTES_SETTINGS_KEY,
         "transcripts" => TRANSCRIPTS_SETTINGS_KEY,
+        _ => "",
+    }
+}
+
+fn local_integration_id(source: &str) -> &'static str {
+    match source {
+        "activity" => "activity",
+        "git" => "git",
+        "messaging" => "messaging",
+        "notes" => "notes",
+        "transcripts" => "transcripts",
         _ => "",
     }
 }

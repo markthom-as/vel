@@ -1,11 +1,13 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     response::Html,
     Json,
 };
 use serde::Deserialize;
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, GoogleCalendarAuthStartData, IntegrationsData};
+use vel_api_types::{
+    ApiResponse, GoogleCalendarAuthStartData, IntegrationLogEventData, IntegrationsData,
+};
 
 use crate::{errors::AppError, services::integrations, state::AppState};
 
@@ -13,6 +15,23 @@ pub async fn get_integrations(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<IntegrationsData>>, AppError> {
     let data = integrations::get_integrations_with_config(&state.storage, &state.config).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct IntegrationLogsQuery {
+    pub limit: Option<u32>,
+}
+
+pub async fn list_integration_logs(
+    Path(integration_id): Path<String>,
+    Query(query): Query<IntegrationLogsQuery>,
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<IntegrationLogEventData>>>, AppError> {
+    let data =
+        integrations::list_integration_logs(&state.storage, integration_id.trim(), query.limit)
+            .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

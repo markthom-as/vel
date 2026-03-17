@@ -4,6 +4,7 @@ import { subscribeWs } from '../realtime/ws';
 import type {
   ComponentData,
   ComponentLogEventData,
+  IntegrationLogEventData,
   IntegrationsData,
   LocalIntegrationData,
   RunSummaryData,
@@ -16,6 +17,7 @@ import {
   loadComponentLogs,
   loadComponents,
   loadIntegrations,
+  loadIntegrationLogs,
   restartComponent,
   loadRecentRuns,
   loadSettings,
@@ -56,6 +58,7 @@ type IntegrationSectionKey =
   | 'notes'
   | 'transcripts';
 type LocalIntegrationSource = 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
+type IntegrationLogSource = 'google-calendar' | 'todoist' | LocalIntegrationSource;
 
 interface RunActionState {
   action: RunActionKind;
@@ -248,6 +251,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [integrationFeedback, setIntegrationFeedback] = useState<Record<string, IntegrationFeedbackState>>({});
   const [componentActions, setComponentActions] = useState<Record<string, ComponentActionState>>({});
   const [expandedComponentLogs, setExpandedComponentLogs] = useState<Record<string, true>>({});
+  const [expandedIntegrationLogs, setExpandedIntegrationLogs] = useState<Record<string, true>>({});
   const [actingRuns, setActingRuns] = useState<Record<string, true>>({});
   const [pendingOverrideRunId, setPendingOverrideRunId] = useState<string | null>(null);
   const [retryDrafts, setRetryDrafts] = useState<Record<string, RetryDraft>>({});
@@ -369,6 +373,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const refreshIntegrationViews = () => {
     invalidateQuery(integrationsKey, { refetch: true });
     invalidateQuery(currentContextKey, { refetch: true });
+    Object.keys(expandedIntegrationLogs).forEach((integrationId) => {
+      invalidateQuery(queryKeys.integrationLogs(integrationId), { refetch: true });
+    });
   };
 
   const refreshComponentViews = () => {
@@ -388,6 +395,20 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       }
       const next = { ...current };
       delete next[componentId];
+      return next;
+    });
+  };
+
+  const updateIntegrationLogsVisibility = (integrationId: IntegrationLogSource, nextVisible: boolean) => {
+    setExpandedIntegrationLogs((current) => {
+      if (nextVisible) {
+        return {
+          ...current,
+          [integrationId]: true,
+        };
+      }
+      const next = { ...current };
+      delete next[integrationId];
       return next;
     });
   };
@@ -930,6 +951,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               >
                 {pendingIntegrationActions['google-disconnect'] ? 'Disconnecting…' : 'Disconnect'}
               </button>
+              <button
+                type="button"
+                onClick={() => updateIntegrationLogsVisibility('google-calendar', !expandedIntegrationLogs['google-calendar'])}
+                className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+              >
+                {expandedIntegrationLogs['google-calendar'] ? 'Hide history' : 'Show history'}
+              </button>
             </div>
             <IntegrationMeta
               lastSyncAt={integrations.google_calendar.last_sync_at}
@@ -937,6 +965,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               lastItemCount={integrations.google_calendar.last_item_count}
               lastError={integrations.google_calendar.last_error}
             />
+            {expandedIntegrationLogs['google-calendar'] ? (
+              <IntegrationLogPanel integrationId="google-calendar" />
+            ) : null}
             <div className="mt-5 rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
               <label className="flex items-center gap-3 text-sm text-zinc-200">
                 <input
@@ -1034,6 +1065,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               >
                 {pendingIntegrationActions['todoist-disconnect'] ? 'Disconnecting…' : 'Disconnect'}
               </button>
+              <button
+                type="button"
+                onClick={() => updateIntegrationLogsVisibility('todoist', !expandedIntegrationLogs.todoist)}
+                className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+              >
+                {expandedIntegrationLogs.todoist ? 'Hide history' : 'Show history'}
+              </button>
             </div>
             <IntegrationMeta
               lastSyncAt={integrations.todoist.last_sync_at}
@@ -1041,6 +1079,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               lastItemCount={integrations.todoist.last_item_count}
               lastError={integrations.todoist.last_error}
             />
+            {expandedIntegrationLogs.todoist ? <IntegrationLogPanel integrationId="todoist" /> : null}
             {todoistFeedback.length > 0 ? (
               <div className="mt-4 space-y-1">
                 {todoistFeedback.map((entry) => (
@@ -1086,6 +1125,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   >
                     {pendingIntegrationActions[actionKey] ? 'Syncing…' : 'Sync now'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => updateIntegrationLogsVisibility(spec.key, !expandedIntegrationLogs[spec.key])}
+                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+                  >
+                    {expandedIntegrationLogs[spec.key] ? 'Hide history' : 'Show history'}
+                  </button>
                 </div>
                 <IntegrationMeta
                   sourcePath={integration.source_path}
@@ -1094,6 +1140,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
                   lastItemCount={integration.last_item_count}
                   lastError={integration.last_error}
                 />
+                {expandedIntegrationLogs[spec.key] ? <IntegrationLogPanel integrationId={spec.key} /> : null}
                 {feedback.length > 0 ? (
                   <div className="mt-4 space-y-1">
                     {feedback.map((entry) => (
@@ -1444,6 +1491,48 @@ function ComponentCard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function IntegrationLogPanel({
+  integrationId,
+}: {
+  integrationId: IntegrationLogSource;
+}) {
+  const logsKey = useMemo(() => queryKeys.integrationLogs(integrationId), [integrationId]);
+  const { loading: logsLoading, data: logs = [] } = useQuery<IntegrationLogEventData[]>(
+    logsKey,
+    async () => {
+      const response = await loadIntegrationLogs(integrationId);
+      return response.ok && response.data ? response.data : [];
+    },
+  );
+
+  return (
+    <div className="mt-4 rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+      <h4 className="text-sm font-medium text-zinc-300">Recent sync history</h4>
+      {logsLoading ? (
+        <p className="mt-2 text-sm text-zinc-500">Loading history…</p>
+      ) : logs.length === 0 ? (
+        <p className="mt-2 text-sm text-zinc-500">No sync history yet.</p>
+      ) : (
+        <ul className="mt-2 space-y-2 text-sm text-zinc-300">
+          {logs.map((entry) => (
+            <li key={entry.id} className="rounded border border-zinc-800 bg-zinc-900/70 p-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className={entry.status === 'error' ? 'text-rose-300' : 'text-zinc-200'}>
+                    {entry.message}
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">{entry.event_name}</p>
+                </div>
+                <p className="font-mono text-xs text-zinc-500">{formatTimestampMs(entry.created_at)}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

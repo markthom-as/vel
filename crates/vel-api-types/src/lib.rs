@@ -727,6 +727,17 @@ pub struct ComponentLogEventData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationLogEventData {
+    pub id: String,
+    pub integration_id: String,
+    pub event_name: String,
+    pub status: String,
+    pub message: String,
+    pub payload: JsonValue,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluateResultData {
     pub inferred_states: u32,
     pub nudges_created_or_updated: u32,

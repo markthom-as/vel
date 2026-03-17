@@ -144,6 +144,16 @@ export interface ComponentLogEventData {
   created_at: number;
 }
 
+export interface IntegrationLogEventData {
+  id: string;
+  integration_id: string;
+  event_name: string;
+  status: string;
+  message: string;
+  payload: JsonValue;
+  created_at: number;
+}
+
 export interface GoogleCalendarAuthStartData {
   auth_url: string;
 }
@@ -572,6 +582,19 @@ export function decodeComponentLogEventData(value: unknown): ComponentLogEventDa
     message: expectString(record.message, 'component log event.message'),
     payload: decodeJsonValue(record.payload ?? null),
     created_at: expectNumber(record.created_at, 'component log event.created_at'),
+  };
+}
+
+export function decodeIntegrationLogEventData(value: unknown): IntegrationLogEventData {
+  const record = expectRecord(value, 'integration log event');
+  return {
+    id: expectString(record.id, 'integration log event.id'),
+    integration_id: expectString(record.integration_id, 'integration log event.integration_id'),
+    event_name: expectString(record.event_name, 'integration log event.event_name'),
+    status: expectString(record.status, 'integration log event.status'),
+    message: expectString(record.message, 'integration log event.message'),
+    payload: decodeJsonValue(record.payload ?? null),
+    created_at: expectNumber(record.created_at, 'integration log event.created_at'),
   };
 }
 

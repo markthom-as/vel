@@ -253,6 +253,40 @@ describe('SettingsPage', () => {
           meta: { request_id: 'req_component_logs' },
         } as never
       }
+      if (path === '/api/integrations/notes/logs?limit=10') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'int_notes_1',
+              integration_id: 'notes',
+              event_name: 'integration.sync.succeeded',
+              status: 'ok',
+              message: 'notes sync completed with 4 items.',
+              payload: { item_count: 4 },
+              created_at: 1_700_000_400,
+            },
+          ],
+          meta: { request_id: 'req_notes_logs' },
+        } as never
+      }
+      if (path === '/api/integrations/todoist/logs?limit=10') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'int_todoist_1',
+              integration_id: 'todoist',
+              event_name: 'integration.sync.failed',
+              status: 'error',
+              message: 'todoist sync failed: upstream 500',
+              payload: { error: 'upstream 500' },
+              created_at: 1_700_000_500,
+            },
+          ],
+          meta: { request_id: 'req_todoist_logs' },
+        } as never
+      }
       throw new Error(`unexpected apiGet path: ${path}`)
     })
     vi.mocked(client.apiPatch).mockResolvedValue({} as never)
@@ -409,6 +443,29 @@ describe('SettingsPage', () => {
       expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/notes', {})
     })
     expect(within(root).getByText('Notes synced.')).toBeInTheDocument()
+  })
+
+  it('shows integration sync history for the selected card', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+
+    const notesCard = within(root).getByRole('heading', { name: /^notes$/i }).closest('.rounded-lg')
+    expect(notesCard).not.toBeNull()
+    fireEvent.click(within(notesCard as HTMLElement).getByRole('button', { name: /show history/i }))
+
+    await waitFor(() => {
+      expect(within(notesCard as HTMLElement).getByText('Recent sync history')).toBeInTheDocument()
+    })
+    expect(within(notesCard as HTMLElement).getByText('notes sync completed with 4 items.')).toBeInTheDocument()
+    expect(within(notesCard as HTMLElement).getByText('integration.sync.succeeded')).toBeInTheDocument()
+
+    const todoistCard = within(root).getByRole('heading', { name: /todoist/i }).closest('.rounded-lg')
+    expect(todoistCard).not.toBeNull()
+    fireEvent.click(within(todoistCard as HTMLElement).getByRole('button', { name: /show history/i }))
+
+    await waitFor(() => {
+      expect(within(todoistCard as HTMLElement).getByText('todoist sync failed: upstream 500')).toBeInTheDocument()
+    })
   })
 
   it('renders component cards in the components tab', async () => {
