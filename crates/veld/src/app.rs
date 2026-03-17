@@ -933,18 +933,10 @@ mod tests {
         .await
         .unwrap();
         storage
-            .update_work_assignment(vel_storage::WorkAssignmentUpdate {
-                receipt_id: claimed.receipt_id,
-                status: None,
-                started_at: None,
-                completed_at: None,
-                result: None,
-                error_message: None,
-                worker_id: None,
-                worker_class: None,
-                capability: None,
-                last_updated: Some(time::OffsetDateTime::now_utc().unix_timestamp() - 600),
-            })
+            .set_work_assignment_last_updated(
+                &claimed.receipt_id,
+                time::OffsetDateTime::now_utc().unix_timestamp() - 600,
+            )
             .await
             .unwrap();
 
@@ -1130,18 +1122,10 @@ mod tests {
         .await
         .unwrap();
         storage
-            .update_work_assignment(vel_storage::WorkAssignmentUpdate {
-                receipt_id: claimed.receipt_id,
-                status: None,
-                started_at: None,
-                completed_at: None,
-                result: None,
-                error_message: None,
-                worker_id: None,
-                worker_class: None,
-                capability: None,
-                last_updated: Some(time::OffsetDateTime::now_utc().unix_timestamp() - 600),
-            })
+            .set_work_assignment_last_updated(
+                &claimed.receipt_id,
+                time::OffsetDateTime::now_utc().unix_timestamp() - 600,
+            )
             .await
             .unwrap();
 
@@ -8487,6 +8471,158 @@ END:VCALENDAR
         assert!(entries
             .iter()
             .any(|entry| entry["status"] == "ok" && entry["payload"]["item_count"] == 2));
+    }
+
+    #[tokio::test]
+    async fn integration_connections_endpoint_lists_canonical_connection_records() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let provider =
+            vel_core::IntegrationProvider::new(vel_core::IntegrationFamily::Messaging, "signal")
+                .unwrap();
+        let connection_id = storage
+            .insert_integration_connection(vel_storage::IntegrationConnectionInsert {
+                family: vel_core::IntegrationFamily::Messaging,
+                provider,
+                status: vel_core::IntegrationConnectionStatus::Connected,
+                display_name: "Signal personal".to_string(),
+                account_ref: Some("+15555550123".to_string()),
+                metadata_json: serde_json::json!({ "scope": "personal" }),
+            })
+            .await
+            .unwrap();
+        storage
+            .upsert_integration_connection_setting_ref(
+                connection_id.as_ref(),
+                "messaging_snapshot_path",
+                "/tmp/signal.json",
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/integrations/connections?family=messaging")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let connections = json["data"].as_array().expect("connection array");
+        assert_eq!(connections.len(), 1);
+        assert_eq!(connections[0]["id"], connection_id.as_ref());
+        assert_eq!(connections[0]["family"], "messaging");
+        assert_eq!(connections[0]["provider_key"], "signal");
+        assert_eq!(connections[0]["status"], "connected");
+        assert_eq!(
+            connections[0]["setting_refs"][0]["setting_key"],
+            "messaging_snapshot_path"
+        );
+    }
+
+    #[tokio::test]
+    async fn integration_connection_detail_and_events_endpoints_return_foundation_data() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let connection_id = storage
+            .insert_integration_connection(vel_storage::IntegrationConnectionInsert {
+                family: vel_core::IntegrationFamily::Calendar,
+                provider: vel_core::IntegrationProvider::new(
+                    vel_core::IntegrationFamily::Calendar,
+                    "google",
+                )
+                .unwrap(),
+                status: vel_core::IntegrationConnectionStatus::Connected,
+                display_name: "Google workspace".to_string(),
+                account_ref: Some("me@example.com".to_string()),
+                metadata_json: serde_json::json!({ "workspace": true }),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_integration_connection_event(
+                connection_id.as_ref(),
+                vel_core::IntegrationConnectionEventType::SyncStarted,
+                &serde_json::json!({ "job": "manual" }),
+                1_700_000_100,
+            )
+            .await
+            .unwrap();
+        storage
+            .insert_integration_connection_event(
+                connection_id.as_ref(),
+                vel_core::IntegrationConnectionEventType::SyncSucceeded,
+                &serde_json::json!({ "items": 42 }),
+                1_700_000_200,
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let detail_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/integrations/connections/{}", connection_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(detail_response.status(), StatusCode::OK);
+        let detail_body = axum::body::to_bytes(detail_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let detail_json: serde_json::Value = serde_json::from_slice(&detail_body).unwrap();
+        assert_eq!(detail_json["data"]["provider_key"], "google");
+        assert_eq!(detail_json["data"]["metadata"]["workspace"], true);
+
+        let events_response = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!(
+                        "/api/integrations/connections/{}/events?limit=5",
+                        connection_id
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(events_response.status(), StatusCode::OK);
+        let events_body = axum::body::to_bytes(events_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let events_json: serde_json::Value = serde_json::from_slice(&events_body).unwrap();
+        let events = events_json["data"].as_array().expect("event array");
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0]["event_type"], "sync_succeeded");
+        assert_eq!(events[0]["payload"]["items"], 42);
+        assert_eq!(events[1]["event_type"], "sync_started");
     }
 
     #[tokio::test]

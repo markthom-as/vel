@@ -231,19 +231,22 @@ async fn queue_work_request(
                 .await;
             }
             WorkAssignmentStatus::Assigned | WorkAssignmentStatus::Started => {
-                if !is_stale_assignment(existing, now) {
-                    return build_existing_routing_response(
-                        state,
-                        signal_type,
-                        request_type,
-                        &work_request_id,
-                        "in_progress",
-                        &bootstrap.active_authority_node_id,
-                        bootstrap.active_authority_epoch,
-                        request_payload,
-                    )
-                    .await;
-                }
+                let status = if is_stale_assignment(existing, now) {
+                    "stale_reclaim"
+                } else {
+                    "in_progress"
+                };
+                return build_existing_routing_response(
+                    state,
+                    signal_type,
+                    request_type,
+                    &work_request_id,
+                    status,
+                    &bootstrap.active_authority_node_id,
+                    bootstrap.active_authority_epoch,
+                    request_payload,
+                )
+                .await;
             }
             WorkAssignmentStatus::Failed => {
                 let schedule = evaluate_queue_schedule(&history, now, retry_policy);

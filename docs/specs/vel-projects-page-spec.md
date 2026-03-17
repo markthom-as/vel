@@ -15,6 +15,7 @@ The page should:
 - provide a Todoist-backed project/task view
 - allow creating, tagging, and updating tasks from Vel
 - show active agent/chat sessions for the project across Vel, Codex, Claude, OpenCode, and future sources
+- allow launching supported agent runtimes on compatible Connect instances from the project workspace
 - allow queueing messages, steering work, recording feedback, and changing per-session or per-project settings
 - render in both a rich web surface and a CLI workspace mode using the same underlying contracts
 
@@ -315,6 +316,20 @@ The `/tasks` naming is a surface affordance; backend ownership remains commitmen
 - `POST /v1/projects/:slug/sessions/:id/feedback`
 - `POST /v1/projects/:slug/sessions/:id/settings`
 
+### Connect-backed launch integration
+Projects should also expose a launch path for live external agent runtimes on compatible Connect instances.
+
+Minimum launch flow:
+- choose project
+- choose Connect instance
+- choose supported runtime (`codex`, `copilot_agent`, `cursor_agent`, `claude_code`, `opencode`, `gemini_cli`, future runtimes)
+- provide prompt / task / repo context
+- create linked session record immediately, then reconcile live runtime state
+
+The Projects page must not treat launched sessions as opaque external tabs. They should come back into the same session list, outbox, steering, and activity model.
+
+See [vel-connect-agent-launch-spec.md](vel-connect-agent-launch-spec.md).
+
 ### Web transport equivalents if needed
 If chat surfaces remain under `/api`, mirror the necessary routes there or keep the web client using `/v1` for this feature. Pick one convention and document it.
 
@@ -347,6 +362,7 @@ If exact round-trip is not possible, keep both:
 ## Active chats / sessions UX
 Each session card should show:
 - source badge
+- connect instance badge when session is instance-backed
 - title
 - active/idle/blocked status
 - mode
@@ -354,6 +370,11 @@ Each session card should show:
 - last activity timestamp
 - latest summary or last message preview
 - controls: open, queue message, steer, feedback, settings
+
+For launchable sessions, add:
+- launch/open-native-surface affordance
+- instance/runtime metadata
+- explicit "host agent linked" state when the main Vel host agent is supervising the session
 
 ### Queue message
 Queueing is explicit. It does not imply immediate delivery unless the source adapter supports it.
@@ -428,6 +449,7 @@ vel project list
 vel project open vel
 vel project tasks vel
 vel project add-task vel "write project page spec" --tag docs --tag ui
+vel project launch-agent vel --instance laptop-west --runtime codex "refactor workspace projection service"
 vel project queue vel codex "refactor workspace projection service"
 vel project steer vel codex "keep transport DTOs in vel-api-types only"
 vel project feedback vel claude --type thumbs_down --note "too hand-wavy"

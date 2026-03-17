@@ -6,7 +6,8 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, GoogleCalendarAuthStartData, IntegrationLogEventData, IntegrationsData,
+    ApiResponse, GoogleCalendarAuthStartData, IntegrationConnectionData,
+    IntegrationConnectionEventData, IntegrationLogEventData, IntegrationsData,
 };
 
 use crate::{errors::AppError, services::integrations, state::AppState};
@@ -24,6 +25,13 @@ pub struct IntegrationLogsQuery {
     pub limit: Option<u32>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct IntegrationConnectionsQuery {
+    pub family: Option<String>,
+    pub provider_key: Option<String>,
+    pub include_disabled: Option<bool>,
+}
+
 pub async fn list_integration_logs(
     Path(integration_id): Path<String>,
     Query(query): Query<IntegrationLogsQuery>,
@@ -32,6 +40,46 @@ pub async fn list_integration_logs(
     let data =
         integrations::list_integration_logs(&state.storage, integration_id.trim(), query.limit)
             .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn list_integration_connections(
+    Query(query): Query<IntegrationConnectionsQuery>,
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<IntegrationConnectionData>>>, AppError> {
+    let data = integrations::list_integration_connections(
+        &state.storage,
+        query.family.as_deref(),
+        query.provider_key.as_deref(),
+        query.include_disabled.unwrap_or(false),
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn get_integration_connection(
+    Path(connection_id): Path<String>,
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<IntegrationConnectionData>>, AppError> {
+    let data =
+        integrations::get_integration_connection(&state.storage, connection_id.trim()).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn list_integration_connection_events(
+    Path(connection_id): Path<String>,
+    Query(query): Query<IntegrationLogsQuery>,
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<Vec<IntegrationConnectionEventData>>>, AppError> {
+    let data = integrations::list_integration_connection_events(
+        &state.storage,
+        connection_id.trim(),
+        query.limit,
+    )
+    .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

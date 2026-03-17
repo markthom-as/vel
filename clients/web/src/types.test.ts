@@ -7,6 +7,8 @@ import {
   decodeCurrentContextData,
   decodeComponentData,
   decodeComponentLogEventData,
+  decodeIntegrationConnectionData,
+  decodeIntegrationConnectionEventData,
   decodeIntegrationsData,
   decodeLoopData,
   decodeNowData,
@@ -181,6 +183,66 @@ describe('transport decoders', () => {
     expect(response.data?.health.source_path).toBe('/tmp/health.json')
     expect(response.data?.activity.last_item_count).toBe(4)
     expect(response.data?.google_calendar.guidance?.action).toBe('Save credentials')
+  })
+
+  it('decodes canonical integration connection data', () => {
+    expect(
+      decodeIntegrationConnectionData({
+        id: 'icn_1',
+        family: 'messaging',
+        provider_key: 'signal',
+        status: 'connected',
+        display_name: 'Signal personal',
+        account_ref: '+15555550123',
+        metadata: { scope: 'personal' },
+        created_at: 10,
+        updated_at: 11,
+        setting_refs: [
+          {
+            setting_key: 'messaging_snapshot_path',
+            setting_value: '/tmp/signal.json',
+            created_at: 12,
+          },
+        ],
+      }),
+    ).toEqual({
+      id: 'icn_1',
+      family: 'messaging',
+      provider_key: 'signal',
+      status: 'connected',
+      display_name: 'Signal personal',
+      account_ref: '+15555550123',
+      metadata: { scope: 'personal' },
+      created_at: 10,
+      updated_at: 11,
+      setting_refs: [
+        {
+          setting_key: 'messaging_snapshot_path',
+          setting_value: '/tmp/signal.json',
+          created_at: 12,
+        },
+      ],
+    })
+  })
+
+  it('decodes integration connection events', () => {
+    expect(
+      decodeIntegrationConnectionEventData({
+        id: 'icev_1',
+        connection_id: 'icn_1',
+        event_type: 'sync_succeeded',
+        payload: { items: 42 },
+        timestamp: 100,
+        created_at: 101,
+      }),
+    ).toEqual({
+      id: 'icev_1',
+      connection_id: 'icn_1',
+      event_type: 'sync_succeeded',
+      payload: { items: 42 },
+      timestamp: 100,
+      created_at: 101,
+    })
   })
 
   it('decodes context explain source summaries', () => {

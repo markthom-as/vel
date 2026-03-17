@@ -213,12 +213,28 @@ Vel should route work across:
 - phone-local models where feasible
 - workstation/NAS local models
 - remote/cloud models when needed
+- compatible Connect instances that can host external agent runtimes
 
 Rule of thumb:
 - capture / simple summaries / cached recall → local
 - complex synthesis / deep reasoning → remote fallback allowed
 
 Offline-first core features must remain usable.
+
+## Connect-Aware Agent Execution
+
+Vel should be able to treat compatible Connect instances as bounded execution targets for external agent runtimes.
+
+Examples:
+- Codex on a workstation
+- Claude Code on a laptop
+- Cursor or Copilot agent surfaces on a desktop machine
+- OpenCode or Gemini CLI on a remote executor
+
+Guardrails:
+- instance capabilities should be discovered through manifests, not hardcoded UI checks
+- launched sessions should flow back into Vel's session/operator surfaces
+- Vel's host agent remains the supervisor and canonical integrator
 
 ---
 

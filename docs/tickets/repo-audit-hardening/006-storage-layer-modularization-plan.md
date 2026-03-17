@@ -36,6 +36,20 @@ Current audit judgment:
 
 The crate boundary is still correct. The internal module boundary is not.
 
+## Progress snapshot
+
+Implemented low-risk slices so far:
+
+- infrastructure/bootstrap helpers were moved behind `infra.rs`
+- run and ref row mappers were moved out of `db.rs` into `run_refs.rs`
+- run, run-event, retry-ready-run, and ref repository methods now delegate through `runs.rs`
+
+That is the intended first pattern:
+
+- keep `Storage` stable
+- move focused helper families first
+- avoid schema churn while shrinking `db.rs`
+
 ## Scope
 
 - query-area inventory inside `vel-storage`
@@ -111,6 +125,13 @@ Move shared helpers and low-risk infra out first:
 - only the minimum common row-mapping utilities needed to unblock domain extraction
 
 This reduces clutter before touching higher-risk domains.
+
+Status:
+
+- `infra.rs` is already in place for bootstrap helpers
+- `run_refs.rs` now carries run and ref row mappers
+- `runs.rs` now owns the run/ref repository family while `Storage` stays a stable facade
+- the next slice should keep following repository-family seams rather than creating a generic dumping-ground helpers module
 
 ### Rule 4. Extract low-fan-out domains before central ones
 

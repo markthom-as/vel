@@ -152,6 +152,34 @@ export interface IntegrationsData {
   transcripts: LocalIntegrationData;
 }
 
+export interface IntegrationConnectionSettingRefData {
+  setting_key: string;
+  setting_value: string;
+  created_at: UnixSeconds;
+}
+
+export interface IntegrationConnectionData {
+  id: string;
+  family: string;
+  provider_key: string;
+  status: string;
+  display_name: string;
+  account_ref: string | null;
+  metadata: JsonValue;
+  created_at: UnixSeconds;
+  updated_at: UnixSeconds;
+  setting_refs: IntegrationConnectionSettingRefData[];
+}
+
+export interface IntegrationConnectionEventData {
+  id: string;
+  connection_id: string;
+  event_type: string;
+  payload: JsonValue;
+  timestamp: UnixSeconds;
+  created_at: UnixSeconds;
+}
+
 export interface ComponentData {
   id: string;
   name: string;
@@ -429,6 +457,14 @@ export interface DriftExplainData {
 
 export interface TextMessageContent {
   text: string;
+  actions?: MessageActionContent[];
+}
+
+export interface MessageActionContent {
+  action_type: string;
+  label: string;
+  value?: string;
+  url?: string;
 }
 
 export interface ReminderCardContent {
@@ -1026,6 +1062,88 @@ export function decodeIntegrationsData(value: unknown): IntegrationsData {
   };
 }
 
+export function decodeIntegrationConnectionSettingRefData(
+  value: unknown,
+): IntegrationConnectionSettingRefData {
+  const record = expectRecord(value, 'integration connection setting ref');
+  return {
+    setting_key: expectString(
+      record.setting_key,
+      'integration connection setting ref.setting_key',
+    ),
+    setting_value: expectString(
+      record.setting_value,
+      'integration connection setting ref.setting_value',
+    ),
+    created_at: expectUnixSeconds(
+      record.created_at,
+      'integration connection setting ref.created_at',
+    ),
+  };
+}
+
+export function decodeIntegrationConnectionData(
+  value: unknown,
+): IntegrationConnectionData {
+  const record = expectRecord(value, 'integration connection');
+  return {
+    id: expectString(record.id, 'integration connection.id'),
+    family: expectString(record.family, 'integration connection.family'),
+    provider_key: expectString(
+      record.provider_key,
+      'integration connection.provider_key',
+    ),
+    status: expectString(record.status, 'integration connection.status'),
+    display_name: expectString(
+      record.display_name,
+      'integration connection.display_name',
+    ),
+    account_ref: expectNullableString(
+      record.account_ref,
+      'integration connection.account_ref',
+    ),
+    metadata: decodeJsonValue(record.metadata ?? null),
+    created_at: expectUnixSeconds(
+      record.created_at,
+      'integration connection.created_at',
+    ),
+    updated_at: expectUnixSeconds(
+      record.updated_at,
+      'integration connection.updated_at',
+    ),
+    setting_refs: decodeArray(
+      record.setting_refs ?? [],
+      decodeIntegrationConnectionSettingRefData,
+    ),
+  };
+}
+
+export function decodeIntegrationConnectionEventData(
+  value: unknown,
+): IntegrationConnectionEventData {
+  const record = expectRecord(value, 'integration connection event');
+  return {
+    id: expectString(record.id, 'integration connection event.id'),
+    connection_id: expectString(
+      record.connection_id,
+      'integration connection event.connection_id',
+    ),
+    event_type: expectString(
+      record.event_type,
+      'integration connection event.event_type',
+    ),
+    payload: decodeJsonValue(record.payload ?? null),
+    timestamp: expectUnixSeconds(
+      record.timestamp,
+      'integration connection event.timestamp',
+    ),
+    created_at: expectUnixSeconds(
+      record.created_at,
+      'integration connection event.created_at',
+    ),
+  };
+}
+
 export function decodeComponentData(value: unknown): ComponentData {
   const record = expectRecord(value, 'component');
   return {
@@ -1313,7 +1431,34 @@ export function decodeTextMessageContent(value: JsonValue): TextMessageContent |
   if (!record || typeof record.text !== 'string') {
     return null;
   }
-  return { text: record.text };
+  return {
+    text: record.text,
+    actions: decodeMessageActions(record.actions),
+  };
+}
+
+function decodeMessageActions(value: JsonValue | undefined): MessageActionContent[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const actions: MessageActionContent[] = [];
+  value.forEach((item) => {
+      const record = asRecord(item);
+      const actionType = optionalString(record?.action_type);
+      const label = optionalString(record?.label);
+      if (!record || !actionType || !label) {
+        return;
+      }
+      actions.push({
+        action_type: actionType,
+        label,
+        value: optionalString(record.value),
+        url: optionalString(record.url),
+      });
+    });
+
+  return actions.length > 0 ? actions : undefined;
 }
 
 export function decodeReminderCardContent(value: JsonValue): ReminderCardContent | null {

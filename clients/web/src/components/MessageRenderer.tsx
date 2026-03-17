@@ -4,6 +4,7 @@ import {
   decodeSuggestionCardContent,
   decodeSummaryCardContent,
   decodeTextMessageContent,
+  type MessageActionContent,
   type MessageData,
 } from '../types';
 import {
@@ -13,6 +14,7 @@ import {
   SummaryCardView,
 } from './cards';
 import { MarkdownMessage } from './MarkdownMessage';
+import { useState } from 'react';
 
 interface MessageRendererProps {
   message: MessageData;
@@ -31,6 +33,7 @@ export function MessageRenderer({
   onDismiss,
   onShowWhy,
 }: MessageRendererProps) {
+  const [copiedAction, setCopiedAction] = useState<string | null>(null);
   const isUser = message.role === 'user';
   const textContent = decodeTextMessageContent(message.content);
   const reminderCardContent = decodeReminderCardContent(message.content);
@@ -43,13 +46,81 @@ export function MessageRenderer({
     || (message.kind === 'risk_card' && !riskCardContent)
     || (message.kind === 'suggestion_card' && !suggestionCardContent)
     || (message.kind === 'summary_card' && !summaryCardContent);
-  const hasActions =
+  const hasInterventionActions =
     interventionId && (onSnooze || onResolve || onDismiss || onShowWhy);
+
+  async function handleCopyAction(label: string, value: string) {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      return;
+    }
+    await navigator.clipboard.writeText(value);
+    setCopiedAction(label);
+    window.setTimeout(() => setCopiedAction((current) => (current === label ? null : current)), 1200);
+  }
+
+  function renderMessageActions(actions: MessageActionContent[] | undefined) {
+    if (!actions || actions.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-2 mt-3">
+        {actions.map((action, index) => {
+          const key = `${action.action_type}-${action.label}-${index}`;
+          if (action.action_type === 'open_url' && action.url) {
+            return (
+              <a
+                key={key}
+                href={action.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-100"
+              >
+                {action.label}
+              </a>
+            );
+          }
+
+          if (action.action_type === 'copy_text' && action.value) {
+            const label = copiedAction === action.label ? 'Copied' : action.label;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => void handleCopyAction(action.label, action.value!)}
+                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-100"
+              >
+                {label}
+              </button>
+            );
+          }
+
+          if (action.action_type === 'show_why' && onShowWhy) {
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onShowWhy(message.id)}
+                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-100"
+              >
+                {action.label}
+              </button>
+            );
+          }
+
+          return null;
+        })}
+      </div>
+    );
+  }
 
   const cardContent = (
     <>
       {message.kind === 'text' && textContent && (
-        <MarkdownMessage text={textContent.text} />
+        <>
+          <MarkdownMessage text={textContent.text} />
+          {renderMessageActions(textContent.actions)}
+        </>
       )}
       {message.kind === 'reminder_card' && reminderCardContent && (
         <ReminderCardView content={reminderCardContent} />
@@ -64,7 +135,10 @@ export function MessageRenderer({
         <SummaryCardView content={summaryCardContent} />
       )}
       {message.kind === 'system_notice' && textContent && (
-        <MarkdownMessage text={textContent.text} muted />
+        <>
+          <MarkdownMessage text={textContent.text} muted />
+          {renderMessageActions(textContent.actions)}
+        </>
       )}
       {(shouldShowRawFallback
         || !['text', 'reminder_card', 'risk_card', 'suggestion_card', 'summary_card', 'system_notice'].includes(message.kind)) && (
@@ -72,7 +146,7 @@ export function MessageRenderer({
           {JSON.stringify(message.content, null, 2)}
         </pre>
       )}
-      {hasActions && interventionId && (
+      {hasInterventionActions && interventionId && (
         <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-zinc-700">
           {onSnooze && (
             <button

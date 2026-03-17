@@ -306,10 +306,12 @@ Needs:
 Problem:
 
 - sync runners, integration state, local source resolution, provider logic, and DTO projection all live together
+- host-specific behavior can easily leak into integration semantics if this service keeps expanding without clearer seams
 
 Needs:
 
 - internal submodules by provider and responsibility
+- explicit capability-contract and host-adapter seams so platform integrations stay portable across client types
 
 #### [crates/veld/src/services/client_sync.rs](/home/jove/code/vel/crates/veld/src/services/client_sync.rs)
 
@@ -384,6 +386,12 @@ Highest-value split candidates, grouped by seam:
 - [crates/veld/src/services/integrations.rs](/home/jove/code/vel/crates/veld/src/services/integrations.rs)
 - [crates/veld/src/services/client_sync.rs](/home/jove/code/vel/crates/veld/src/services/client_sync.rs)
 - [crates/veld/src/services/inference.rs](/home/jove/code/vel/crates/veld/src/services/inference.rs)
+
+Integration portability guardrail:
+
+- platform integrations should be capability-based and host-agnostic
+- provider, family, and connection semantics should not be owned by any one client type
+- client-specific affordances such as auth handoff, notifications, background execution hooks, and device-native capture should sit behind host adapters
 
 #### Storage
 

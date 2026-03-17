@@ -114,6 +114,7 @@ Examples:
 - summarizing meetings
 - generating documents
 - running code agents
+- launching external coding agents on compatible Connect instances and supervising them through Vel
 - scheduling reminders
 
 Autonomy model:
@@ -240,3 +241,4 @@ Vel provides:
 - planning simulations
 - ambient capture
 - multi-agent automation
+- connect-aware launch and supervision of external agent runtimes (for example Codex, Copilot, Cursor, Claude Code, OpenCode, Gemini CLI) from Vel UI and host-agent surfaces

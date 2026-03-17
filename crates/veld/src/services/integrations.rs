@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    env,
-    path::{Path, PathBuf},
-};
+use std::collections::HashSet;
 
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -10,19 +6,25 @@ use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use uuid::Uuid;
 use vel_api_types::{
     GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
+    IntegrationConnectionData, IntegrationConnectionEventData, IntegrationConnectionSettingRefData,
     IntegrationGuidanceData, IntegrationLogEventData, IntegrationsData, LocalIntegrationData,
-    TodoistIntegrationData,
 };
 use vel_config::AppConfig;
-use vel_core::{Commitment, CommitmentStatus};
-use vel_storage::{CommitmentInsert, SignalInsert, SignalRecord, Storage};
+use vel_core::IntegrationFamily;
+use vel_storage::{IntegrationConnectionFilters, SignalInsert, SignalRecord, Storage};
 
-use crate::{adapters, errors::AppError};
+use crate::{
+    adapters,
+    errors::AppError,
+    services::integration_runtime::{
+        canonical_integration_id, integration_log_limit, map_integration_log_event,
+    },
+    services::integrations_host,
+    services::integrations_todoist,
+};
 
 const GOOGLE_SETTINGS_KEY: &str = "integration_google_calendar";
 const GOOGLE_SECRETS_KEY: &str = "integration_google_calendar_secrets";
-const TODOIST_SETTINGS_KEY: &str = "integration_todoist";
-const TODOIST_SECRETS_KEY: &str = "integration_todoist_secrets";
 const ACTIVITY_SETTINGS_KEY: &str = "integration_activity";
 const HEALTH_SETTINGS_KEY: &str = "integration_health";
 const GIT_SETTINGS_KEY: &str = "integration_git";
@@ -34,20 +36,6 @@ const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const GOOGLE_CALENDAR_BASE: &str = "https://www.googleapis.com/calendar/v3";
 const GOOGLE_LOOKBACK_DAYS: i64 = 60;
 const GOOGLE_LOOKAHEAD_DAYS: i64 = 180;
-const INTEGRATION_LOG_LIMIT_DEFAULT: u32 = 10;
-
-const LOCAL_INTEGRATION_IDS: &[&str] = &[
-    "activity",
-    "health",
-    "git",
-    "messaging",
-    "notes",
-    "transcripts",
-];
-const MACOS_SUPPORT_RELATIVE_DIRS: &[&str] = &[
-    "Library/Application Support/Vel/integrations",
-    "Library/Application Support/vel/integrations",
-];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleCalendarSettings {
@@ -152,22 +140,6 @@ impl GoogleCalendarSelectionFilter {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TodoistSettings {
-    pub api_token: Option<String>,
-    pub last_sync_at: Option<i64>,
-    pub last_sync_status: Option<String>,
-    pub last_error: Option<String>,
-    pub last_item_count: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TodoistPublicSettings {
-    pub last_sync_at: Option<i64>,
-    pub last_sync_status: Option<String>,
-    pub last_error: Option<String>,
-    pub last_item_count: Option<u32>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct GoogleCalendarSecrets {
@@ -175,11 +147,6 @@ pub struct GoogleCalendarSecrets {
     pub access_token: Option<String>,
     pub refresh_token: Option<String>,
     pub token_expires_at: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TodoistSecrets {
-    pub api_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -193,51 +160,6 @@ pub struct LocalIntegrationSettings {
 
 fn default_true() -> bool {
     true
-}
-
-fn integration_log_status(event_name: &str) -> &'static str {
-    match event_name {
-        "integration.sync.succeeded" => "ok",
-        "integration.sync.failed" => "error",
-        _ => "info",
-    }
-}
-
-fn integration_log_message(event_name: &str, payload: &serde_json::Value) -> String {
-    let item_count = payload
-        .get("item_count")
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(0);
-    let integration_id = payload
-        .get("integration_id")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("integration");
-    match event_name {
-        "integration.sync.succeeded" => {
-            format!("{integration_id} sync completed with {item_count} items.")
-        }
-        "integration.sync.failed" => {
-            let error = payload
-                .get("error")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("unknown error");
-            format!("{integration_id} sync failed: {error}")
-        }
-        _ => event_name.to_string(),
-    }
-}
-
-fn canonical_integration_id(integration_id: &str) -> Option<&'static str> {
-    match integration_id {
-        "google-calendar" | "calendar" | "google_calendar" => Some("google-calendar"),
-        "todoist" => Some("todoist"),
-        "activity" => Some("activity"),
-        "git" => Some("git"),
-        "messaging" => Some("messaging"),
-        "notes" => Some("notes"),
-        "transcripts" => Some("transcripts"),
-        _ => None,
-    }
 }
 
 pub async fn run_calendar_sync(storage: &Storage, config: &AppConfig) -> Result<u32, AppError> {
@@ -388,21 +310,47 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
         google_calendar: google_status(&google),
         todoist: todoist_status(&todoist),
         activity: local_status(
-            effective_local_source_path("activity", &activity, None),
+            integrations_host::effective_local_source_path(
+                "activity",
+                activity.source_path.as_deref(),
+                None,
+            ),
             &activity,
         ),
         health: local_status(
-            effective_local_source_path("health", &health, None),
+            integrations_host::effective_local_source_path(
+                "health",
+                health.source_path.as_deref(),
+                None,
+            ),
             &health,
         ),
-        git: local_status(effective_local_source_path("git", &git, None), &git),
+        git: local_status(
+            integrations_host::effective_local_source_path("git", git.source_path.as_deref(), None),
+            &git,
+        ),
         messaging: local_status(
-            effective_local_source_path("messaging", &messaging, None),
+            integrations_host::effective_local_source_path(
+                "messaging",
+                messaging.source_path.as_deref(),
+                None,
+            ),
             &messaging,
         ),
-        notes: local_status(effective_local_source_path("notes", &notes, None), &notes),
+        notes: local_status(
+            integrations_host::effective_local_source_path(
+                "notes",
+                notes.source_path.as_deref(),
+                None,
+            ),
+            &notes,
+        ),
         transcripts: local_status(
-            effective_local_source_path("transcripts", &transcripts, None),
+            integrations_host::effective_local_source_path(
+                "transcripts",
+                transcripts.source_path.as_deref(),
+                None,
+            ),
             &transcripts,
         ),
     })
@@ -424,37 +372,49 @@ pub async fn get_integrations_with_config(
         google_calendar: google_status(&google),
         todoist: todoist_status(&todoist),
         activity: local_status(
-            effective_local_source_path(
+            integrations_host::effective_local_source_path(
                 "activity",
-                &activity,
+                activity.source_path.as_deref(),
                 config.activity_snapshot_path.as_deref(),
             ),
             &activity,
         ),
         health: local_status(
-            effective_local_source_path("health", &health, config.health_snapshot_path.as_deref()),
+            integrations_host::effective_local_source_path(
+                "health",
+                health.source_path.as_deref(),
+                config.health_snapshot_path.as_deref(),
+            ),
             &health,
         ),
         git: local_status(
-            effective_local_source_path("git", &git, config.git_snapshot_path.as_deref()),
+            integrations_host::effective_local_source_path(
+                "git",
+                git.source_path.as_deref(),
+                config.git_snapshot_path.as_deref(),
+            ),
             &git,
         ),
         messaging: local_status(
-            effective_local_source_path(
+            integrations_host::effective_local_source_path(
                 "messaging",
-                &messaging,
+                messaging.source_path.as_deref(),
                 config.messaging_snapshot_path.as_deref(),
             ),
             &messaging,
         ),
         notes: local_status(
-            effective_local_source_path("notes", &notes, config.notes_path.as_deref()),
+            integrations_host::effective_local_source_path(
+                "notes",
+                notes.source_path.as_deref(),
+                config.notes_path.as_deref(),
+            ),
             &notes,
         ),
         transcripts: local_status(
-            effective_local_source_path(
+            integrations_host::effective_local_source_path(
                 "transcripts",
-                &transcripts,
+                transcripts.source_path.as_deref(),
                 config.transcript_snapshot_path.as_deref(),
             ),
             &transcripts,
@@ -485,35 +445,125 @@ pub async fn list_integration_logs(
     let integration_id = canonical_integration_id(integration_id)
         .ok_or_else(|| AppError::not_found("integration not found"))?;
     let events = storage
-        .list_events_by_aggregate(
-            "integration",
-            integration_id,
-            limit.unwrap_or(INTEGRATION_LOG_LIMIT_DEFAULT),
-        )
+        .list_events_by_aggregate("integration", integration_id, integration_log_limit(limit))
         .await?;
 
     Ok(events
         .into_iter()
-        .map(|event| {
-            let payload =
-                serde_json::from_str(&event.payload_json).unwrap_or_else(|_| serde_json::json!({}));
-            let event_name = event.event_name;
-            let status = payload
-                .get("status")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or_else(|| integration_log_status(&event_name))
-                .to_string();
-            IntegrationLogEventData {
-                id: event.id.to_string(),
-                integration_id: event
-                    .aggregate_id
-                    .unwrap_or_else(|| integration_id.to_string()),
-                event_name: event_name.clone(),
-                status: status.clone(),
-                message: integration_log_message(&event_name, &payload),
-                payload,
-                created_at: event.created_at,
-            }
+        .map(|event| map_integration_log_event(event, integration_id))
+        .collect())
+}
+
+pub async fn list_integration_connections(
+    storage: &Storage,
+    family: Option<&str>,
+    provider_key: Option<&str>,
+    include_disabled: bool,
+) -> Result<Vec<IntegrationConnectionData>, AppError> {
+    let family = family
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::parse::<IntegrationFamily>)
+        .transpose()
+        .map_err(|error| AppError::bad_request(error.to_string()))?;
+    let provider_key = provider_key
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+
+    let connections = storage
+        .list_integration_connections(IntegrationConnectionFilters {
+            family,
+            provider_key,
+            include_disabled,
+        })
+        .await?;
+
+    let mut data = Vec::with_capacity(connections.len());
+    for connection in connections {
+        let setting_refs = storage
+            .list_integration_connection_setting_refs(connection.id.as_ref())
+            .await?;
+        data.push(IntegrationConnectionData {
+            id: connection.id.to_string(),
+            family: connection.provider.family.to_string(),
+            provider_key: connection.provider.key,
+            status: connection.status.to_string(),
+            display_name: connection.display_name,
+            account_ref: connection.account_ref,
+            metadata: connection.metadata_json,
+            created_at: connection.created_at.unix_timestamp(),
+            updated_at: connection.updated_at.unix_timestamp(),
+            setting_refs: setting_refs
+                .into_iter()
+                .map(|setting_ref| IntegrationConnectionSettingRefData {
+                    setting_key: setting_ref.setting_key,
+                    setting_value: setting_ref.setting_value,
+                    created_at: setting_ref.created_at.unix_timestamp(),
+                })
+                .collect(),
+        });
+    }
+
+    Ok(data)
+}
+
+pub async fn get_integration_connection(
+    storage: &Storage,
+    connection_id: &str,
+) -> Result<IntegrationConnectionData, AppError> {
+    let connection = storage
+        .get_integration_connection(connection_id.trim())
+        .await?
+        .ok_or_else(|| AppError::not_found("integration connection not found"))?;
+    let setting_refs = storage
+        .list_integration_connection_setting_refs(connection.id.as_ref())
+        .await?;
+
+    Ok(IntegrationConnectionData {
+        id: connection.id.to_string(),
+        family: connection.provider.family.to_string(),
+        provider_key: connection.provider.key,
+        status: connection.status.to_string(),
+        display_name: connection.display_name,
+        account_ref: connection.account_ref,
+        metadata: connection.metadata_json,
+        created_at: connection.created_at.unix_timestamp(),
+        updated_at: connection.updated_at.unix_timestamp(),
+        setting_refs: setting_refs
+            .into_iter()
+            .map(|setting_ref| IntegrationConnectionSettingRefData {
+                setting_key: setting_ref.setting_key,
+                setting_value: setting_ref.setting_value,
+                created_at: setting_ref.created_at.unix_timestamp(),
+            })
+            .collect(),
+    })
+}
+
+pub async fn list_integration_connection_events(
+    storage: &Storage,
+    connection_id: &str,
+    limit: Option<u32>,
+) -> Result<Vec<IntegrationConnectionEventData>, AppError> {
+    let connection_id = connection_id.trim();
+    let _ = storage
+        .get_integration_connection(connection_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("integration connection not found"))?;
+    let events = storage
+        .list_integration_connection_events(connection_id, limit.unwrap_or(20))
+        .await?;
+
+    Ok(events
+        .into_iter()
+        .map(|event| IntegrationConnectionEventData {
+            id: event.id,
+            connection_id: event.connection_id.to_string(),
+            event_type: event.event_type.to_string(),
+            payload: event.payload_json,
+            timestamp: event.timestamp.unix_timestamp(),
+            created_at: event.created_at.unix_timestamp(),
         })
         .collect())
 }
@@ -1166,15 +1216,6 @@ fn local_status(
     }
 }
 
-fn effective_local_source_path(
-    integration_id: &str,
-    settings: &LocalIntegrationSettings,
-    config_source: Option<&str>,
-) -> Option<String> {
-    config_source_path(settings.source_path.as_deref(), config_source)
-        .or_else(|| auto_local_source_path(integration_id))
-}
-
 fn guidance(title: &str, detail: String, action: &str) -> IntegrationGuidanceData {
     IntegrationGuidanceData {
         title: title.to_string(),
@@ -1462,138 +1503,38 @@ async fn runtime_local_config(
     let transcripts = load_local_settings(storage, TRANSCRIPTS_SETTINGS_KEY).await?;
 
     let mut runtime = config.clone();
-    runtime.activity_snapshot_path = effective_local_source_path(
+    runtime.activity_snapshot_path = integrations_host::effective_local_source_path(
         "activity",
-        &activity,
+        activity.source_path.as_deref(),
         config.activity_snapshot_path.as_deref(),
     );
-    runtime.health_snapshot_path =
-        effective_local_source_path("health", &health, config.health_snapshot_path.as_deref());
-    runtime.git_snapshot_path =
-        effective_local_source_path("git", &git, config.git_snapshot_path.as_deref());
-    runtime.messaging_snapshot_path = effective_local_source_path(
+    runtime.health_snapshot_path = integrations_host::effective_local_source_path(
+        "health",
+        health.source_path.as_deref(),
+        config.health_snapshot_path.as_deref(),
+    );
+    runtime.git_snapshot_path = integrations_host::effective_local_source_path(
+        "git",
+        git.source_path.as_deref(),
+        config.git_snapshot_path.as_deref(),
+    );
+    runtime.messaging_snapshot_path = integrations_host::effective_local_source_path(
         "messaging",
-        &messaging,
+        messaging.source_path.as_deref(),
         config.messaging_snapshot_path.as_deref(),
     );
-    runtime.notes_path = effective_local_source_path("notes", &notes, config.notes_path.as_deref());
-    runtime.transcript_snapshot_path = effective_local_source_path(
+    runtime.notes_path = integrations_host::effective_local_source_path(
+        "notes",
+        notes.source_path.as_deref(),
+        config.notes_path.as_deref(),
+    );
+    runtime.transcript_snapshot_path = integrations_host::effective_local_source_path(
         "transcripts",
-        &transcripts,
+        transcripts.source_path.as_deref(),
         config.transcript_snapshot_path.as_deref(),
     );
-    sanitize_missing_default_local_sources(&mut runtime);
+    integrations_host::sanitize_missing_default_local_sources(&mut runtime);
     Ok(runtime)
-}
-
-fn sanitize_missing_default_local_sources(config: &mut AppConfig) {
-    sanitize_missing_default_local_path("activity", &mut config.activity_snapshot_path);
-    sanitize_missing_default_local_path("health", &mut config.health_snapshot_path);
-    sanitize_missing_default_local_path("git", &mut config.git_snapshot_path);
-    sanitize_missing_default_local_path("messaging", &mut config.messaging_snapshot_path);
-    sanitize_missing_default_local_path("notes", &mut config.notes_path);
-    sanitize_missing_default_local_path("transcripts", &mut config.transcript_snapshot_path);
-}
-
-fn sanitize_missing_default_local_path(kind: &str, path: &mut Option<String>) {
-    let should_clear = path.as_deref().is_some_and(|value| {
-        vel_config::is_default_local_source_path(kind, value) && !Path::new(value).exists()
-    });
-    if should_clear {
-        *path = None;
-    }
-}
-
-fn config_source_path(primary: Option<&str>, secondary: Option<&str>) -> Option<String> {
-    primary
-        .or(secondary)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-fn auto_local_source_path(integration_id: &str) -> Option<String> {
-    if !running_on_macos() {
-        return None;
-    }
-
-    if !LOCAL_INTEGRATION_IDS.contains(&integration_id) {
-        return None;
-    }
-
-    auto_local_source_path_for_integration(integration_id)
-}
-
-fn running_on_macos() -> bool {
-    cfg!(target_os = "macos")
-        || env::var("VEL_FORCE_MACOS_LOCAL_SOURCE_DISCOVERY")
-            .ok()
-            .as_deref()
-            == Some("1")
-}
-
-fn auto_local_source_path_for_integration(integration_id: &str) -> Option<String> {
-    let home = env::var_os("HOME").map(PathBuf::from)?;
-    auto_local_source_path_from_home(integration_id, &home)
-}
-
-fn auto_local_source_path_from_home(integration_id: &str, home: &Path) -> Option<String> {
-    let candidates = match integration_id {
-        "activity" => vec![
-            home.join("Library/Application Support/Vel/activity/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/activity/snapshot.json"),
-        ],
-        "health" => vec![
-            home.join("Library/Application Support/Vel/health/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/health/snapshot.json"),
-        ],
-        "git" => vec![
-            home.join("Library/Application Support/Vel/git/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/git/snapshot.json"),
-        ],
-        "messaging" => vec![
-            home.join("Library/Application Support/Vel/messages/snapshot.json"),
-            home.join("Library/Application Support/Vel/messaging/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/messages/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/messaging/snapshot.json"),
-        ],
-        "notes" => vec![
-            home.join("Library/Application Support/Vel/notes"),
-            home.join("Library/Application Support/Vel/integrations/notes"),
-        ],
-        "transcripts" => vec![
-            home.join("Library/Application Support/Vel/transcripts/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/transcripts/snapshot.json"),
-        ],
-        _ => Vec::new(),
-    };
-
-    candidates
-        .into_iter()
-        .find(|candidate| candidate.exists())
-        .map(|candidate| candidate.to_string_lossy().to_string())
-        .or_else(|| auto_local_source_path_from_support_roots(integration_id, home))
-}
-
-fn auto_local_source_path_from_support_roots(integration_id: &str, home: &Path) -> Option<String> {
-    let suffix = match integration_id {
-        "activity" | "health" | "git" | "messaging" | "transcripts" => "snapshot.json",
-        "notes" => "",
-        _ => return None,
-    };
-
-    MACOS_SUPPORT_RELATIVE_DIRS
-        .iter()
-        .map(|relative| home.join(relative).join(integration_id))
-        .map(|base| {
-            if suffix.is_empty() {
-                base
-            } else {
-                base.join(suffix)
-            }
-        })
-        .find(|candidate| candidate.exists())
-        .map(|candidate| candidate.to_string_lossy().to_string())
 }
 
 fn google_redirect_uri(config: &AppConfig) -> Result<String, AppError> {
@@ -2077,7 +2018,7 @@ mod tests {
         std::fs::create_dir_all(snapshot_path.parent().unwrap()).unwrap();
         std::fs::write(&snapshot_path, "{}").unwrap();
 
-        let discovered = auto_local_source_path_from_home("messaging", &home)
+        let discovered = integrations_host::auto_local_source_path_from_home("messaging", &home)
             .expect("messaging snapshot should be discovered");
         assert_eq!(discovered, snapshot_path.to_string_lossy());
     }
