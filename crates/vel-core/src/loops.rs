@@ -10,6 +10,7 @@ use std::fmt::{Display, Formatter};
 pub enum LoopKind {
     CaptureIngest,
     RetryDueRuns,
+    QueueWorkScheduler,
     EvaluateCurrentState,
     SyncCalendar,
     SyncTodoist,
@@ -19,6 +20,7 @@ pub enum LoopKind {
     SyncMessaging,
     SyncNotes,
     SyncTranscripts,
+    ProcessQueuedValidation,
     WeeklySynthesis,
     StaleNudgeReconciliation,
 }
@@ -28,6 +30,7 @@ impl Display for LoopKind {
         let value = match self {
             Self::CaptureIngest => "capture_ingest",
             Self::RetryDueRuns => "retry_due_runs",
+            Self::QueueWorkScheduler => "queue_work_scheduler",
             Self::EvaluateCurrentState => "evaluate_current_state",
             Self::SyncCalendar => "sync_calendar",
             Self::SyncTodoist => "sync_todoist",
@@ -37,6 +40,7 @@ impl Display for LoopKind {
             Self::SyncMessaging => "sync_messaging",
             Self::SyncNotes => "sync_notes",
             Self::SyncTranscripts => "sync_transcripts",
+            Self::ProcessQueuedValidation => "process_queued_validation",
             Self::WeeklySynthesis => "weekly_synthesis",
             Self::StaleNudgeReconciliation => "stale_nudge_reconciliation",
         };
@@ -51,6 +55,7 @@ impl std::str::FromStr for LoopKind {
         match value {
             "capture_ingest" => Ok(Self::CaptureIngest),
             "retry_due_runs" => Ok(Self::RetryDueRuns),
+            "queue_work_scheduler" => Ok(Self::QueueWorkScheduler),
             "evaluate_current_state" => Ok(Self::EvaluateCurrentState),
             "sync_calendar" => Ok(Self::SyncCalendar),
             "sync_todoist" => Ok(Self::SyncTodoist),
@@ -60,6 +65,7 @@ impl std::str::FromStr for LoopKind {
             "sync_messaging" => Ok(Self::SyncMessaging),
             "sync_notes" => Ok(Self::SyncNotes),
             "sync_transcripts" => Ok(Self::SyncTranscripts),
+            "process_queued_validation" => Ok(Self::ProcessQueuedValidation),
             "weekly_synthesis" => Ok(Self::WeeklySynthesis),
             "stale_nudge_reconciliation" => Ok(Self::StaleNudgeReconciliation),
             _ => Err(crate::VelCoreError::Validation(format!(

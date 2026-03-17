@@ -67,6 +67,7 @@ pub struct PolicyMorningDrift {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct LoopPolicies {
+    pub queue_work_scheduler: Option<LoopPolicy>,
     pub evaluate_current_state: Option<LoopPolicy>,
     pub sync_calendar: Option<LoopPolicy>,
     pub sync_todoist: Option<LoopPolicy>,
@@ -179,6 +180,10 @@ impl Default for PolicyMorningDrift {
 impl Default for LoopPolicies {
     fn default() -> Self {
         Self {
+            queue_work_scheduler: Some(LoopPolicy {
+                enabled: true,
+                interval_seconds: 30,
+            }),
             evaluate_current_state: Some(LoopPolicy::default()),
             sync_calendar: Some(LoopPolicy {
                 enabled: true,
@@ -280,6 +285,9 @@ impl PolicyConfig {
     #[allow(dead_code)]
     pub fn morning_drift(&self) -> Option<&PolicyMorningDrift> {
         self.policies.morning_drift.as_ref()
+    }
+    pub fn queue_work_scheduler_loop(&self) -> Option<&LoopPolicy> {
+        self.loops.queue_work_scheduler.as_ref()
     }
     pub fn evaluate_current_state_loop(&self) -> Option<&LoopPolicy> {
         self.loops.evaluate_current_state.as_ref()
