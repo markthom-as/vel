@@ -7,12 +7,12 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{errors::AppError, state::AppState};
+use vel_core::{Commitment, CommitmentStatus, PrivacyClass};
 use vel_storage::{
-    CommitmentInsert, CaptureInsert, ClusterWorkerUpsert, ClusterWorkerRecord, SignalInsert,
+    CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert, SignalInsert,
     SignalRecord, WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentStatus,
     WorkAssignmentUpdate,
 };
-use vel_core::{Commitment, CommitmentStatus, PrivacyClass};
 
 #[derive(Debug, Clone)]
 pub struct SyncBootstrap {
@@ -102,7 +102,6 @@ pub struct WorkerPresence {
     pub last_upstream_sync_at: Option<i64>,
     pub last_downstream_sync_at: Option<i64>,
     pub last_sync_error: Option<String>,
-    pub updated_at: i64,
     pub capacity: WorkerCapacity,
 }
 
@@ -322,17 +321,11 @@ pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkers, Ap
     })
 }
 
-pub async fn effective_cluster_bootstrap(
-    state: &AppState,
-) -> Result<ClusterBootstrap, AppError> {
+pub async fn effective_cluster_bootstrap(state: &AppState) -> Result<ClusterBootstrap, AppError> {
     let runtime_config =
         crate::services::operator_settings::runtime_sync_config(&state.storage, &state.config)
             .await?;
     Ok(cluster_bootstrap_from_config(&runtime_config))
-}
-
-pub fn cluster_bootstrap_from_app_config(config: &vel_config::AppConfig) -> ClusterBootstrap {
-    cluster_bootstrap_from_config(config)
 }
 
 fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBootstrap {
@@ -538,7 +531,6 @@ fn worker_presence_from_record(record: ClusterWorkerRecord) -> WorkerPresence {
         last_upstream_sync_at: record.last_upstream_sync_at,
         last_downstream_sync_at: record.last_downstream_sync_at,
         last_sync_error: record.last_sync_error,
-        updated_at: record.updated_at,
         capacity: WorkerCapacity {
             max_concurrency,
             current_load,
@@ -641,10 +633,7 @@ pub async fn update_work_assignment_receipt(
     state: &AppState,
     update: WorkAssignmentUpdate,
 ) -> Result<WorkAssignmentRecord, AppError> {
-    let updated = state
-        .storage
-        .update_work_assignment(update)
-        .await?;
+    let updated = state.storage.update_work_assignment(update).await?;
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let signal_type = match updated.status {
         WorkAssignmentStatus::Assigned => "work_assignment_claimed",
@@ -750,7 +739,10 @@ async fn list_worker_queue_snapshot(
             .or(signal.source_ref.as_deref())
             .unwrap_or_default()
             .to_string();
-        let history = state.storage.list_work_assignments(Some(&work_request_id), None).await?;
+        let history = state
+            .storage
+            .list_work_assignments(Some(&work_request_id), None)
+            .await?;
         let latest_receipt = history.first().cloned();
         let request_type = if signal.signal_type == "client_branch_sync_requested" {
             QueuedWorkRoutingKind::BranchSync
@@ -822,10 +814,8 @@ pub async fn claim_next_work_for_worker(
         state,
         queue_item.work_request_id.clone(),
         worker_id,
-        worker_class
-            .or_else(|| Some(queue_item.target_worker_class.clone())),
-        capability
-            .or_else(|| Some(queue_item.requested_capability.clone())),
+        worker_class.or_else(|| Some(queue_item.target_worker_class.clone())),
+        capability.or_else(|| Some(queue_item.requested_capability.clone())),
     )
     .await?;
 
@@ -862,7 +852,10 @@ pub async fn apply_client_actions(
         }
     }
 
-    Ok(ClientActionBatchResult { applied: applied_count, results })
+    Ok(ClientActionBatchResult {
+        applied: applied_count,
+        results,
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -1019,8 +1012,12 @@ async fn apply_single_action(
             Ok(applied(action, "capture created"))
         }
         ClientActionKind::BranchSyncRequest => {
-            let payload = action.payload.as_ref().ok_or_else(|| AppError::bad_request("branch sync payload is required"))?;
-            let request: BranchSyncRequest = serde_json::from_value(payload.clone()).map_err(|e| AppError::bad_request(format!("invalid branch sync payload: {e}")))?;
+            let payload = action
+                .payload
+                .as_ref()
+                .ok_or_else(|| AppError::bad_request("branch sync payload is required"))?;
+            let request: BranchSyncRequest = serde_json::from_value(payload.clone())
+                .map_err(|e| AppError::bad_request(format!("invalid branch sync payload: {e}")))?;
             queue_branch_sync_request(
                 state,
                 request,
@@ -1031,8 +1028,12 @@ async fn apply_single_action(
             Ok(applied(action, "branch sync request queued"))
         }
         ClientActionKind::ValidationRequest => {
-            let payload = action.payload.as_ref().ok_or_else(|| AppError::bad_request("validation payload is required"))?;
-            let request: ValidationRequest = serde_json::from_value(payload.clone()).map_err(|e| AppError::bad_request(format!("invalid validation payload: {e}")))?;
+            let payload = action
+                .payload
+                .as_ref()
+                .ok_or_else(|| AppError::bad_request("validation payload is required"))?;
+            let request: ValidationRequest = serde_json::from_value(payload.clone())
+                .map_err(|e| AppError::bad_request(format!("invalid validation payload: {e}")))?;
             queue_validation_request(
                 state,
                 request,
@@ -1152,7 +1153,8 @@ async fn queue_work_request(
     queued_via: &str,
     work_request_id: Option<String>,
 ) -> Result<QueuedWorkRouting, AppError> {
-    let work_request_id = work_request_id.unwrap_or_else(|| format!("wrkreq_{}", Uuid::new_v4().simple()));
+    let work_request_id =
+        work_request_id.unwrap_or_else(|| format!("wrkreq_{}", Uuid::new_v4().simple()));
     let bootstrap = effective_cluster_bootstrap(state).await?;
     let now = OffsetDateTime::now_utc().unix_timestamp();
 
@@ -1168,7 +1170,10 @@ async fn queue_work_request(
         .first()
         .ok_or_else(|| AppError::bad_request("no eligible workers available for request"))?;
 
-    let existing = state.storage.list_work_assignments(Some(&work_request_id), None).await?;
+    let existing = state
+        .storage
+        .list_work_assignments(Some(&work_request_id), None)
+        .await?;
     if let Some(latest) = existing.first() {
         let retry_policy = retry_policy_for_request_type(state, request_type);
         let schedule = evaluate_queue_schedule(&existing, now, retry_policy);
@@ -1196,7 +1201,8 @@ async fn queue_work_request(
 
         if let Some(claim_reason) = schedule.claim_reason.as_deref() {
             match claim_reason {
-                "in_progress" | "stale_reclaim" | "retry_ready" | "retry_backoff" | "retry_exhausted" => {
+                "in_progress" | "stale_reclaim" | "retry_ready" | "retry_backoff"
+                | "retry_exhausted" => {
                     return build_existing_routing_response(
                         state,
                         signal_type,
@@ -1667,12 +1673,8 @@ fn retry_policy_for_request_type(
     request_type: QueuedWorkRoutingKind,
 ) -> &crate::policy_config::QueuedWorkRetryPolicy {
     match request_type {
-        QueuedWorkRoutingKind::Validation => {
-            state.policy_config.queued_work_validation_policy()
-        }
-        QueuedWorkRoutingKind::BranchSync => {
-            state.policy_config.queued_work_branch_sync_policy()
-        }
+        QueuedWorkRoutingKind::Validation => state.policy_config.queued_work_validation_policy(),
+        QueuedWorkRoutingKind::BranchSync => state.policy_config.queued_work_branch_sync_policy(),
     }
 }
 

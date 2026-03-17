@@ -22,13 +22,15 @@ pub async fn bootstrap(
         lan_base_url: data.lan_base_url,
         localhost_base_url: data.localhost_base_url,
         capabilities: data.capabilities,
-        branch_sync: data.branch_sync.map(|branch_sync| vel_api_types::BranchSyncCapabilityData {
-            repo_root: branch_sync.repo_root,
-            default_remote: branch_sync.default_remote,
-            supports_fetch: branch_sync.supports_fetch,
-            supports_pull: branch_sync.supports_pull,
-            supports_push: branch_sync.supports_push,
-        }),
+        branch_sync: data
+            .branch_sync
+            .map(|branch_sync| vel_api_types::BranchSyncCapabilityData {
+                repo_root: branch_sync.repo_root,
+                default_remote: branch_sync.default_remote,
+                supports_fetch: branch_sync.supports_fetch,
+                supports_pull: branch_sync.supports_pull,
+                supports_push: branch_sync.supports_push,
+            }),
         validation_profiles: data
             .validation_profiles
             .into_iter()
@@ -120,7 +122,9 @@ pub async fn branch_sync_request(
     )
     .await?;
 
-    Ok(response::success(crate::routes::sync::queued_work_routing_to_api(data)))
+    Ok(response::success(
+        crate::routes::sync::queued_work_routing_to_api(data),
+    ))
 }
 
 pub async fn validation_request(
@@ -143,7 +147,9 @@ pub async fn validation_request(
     )
     .await?;
 
-    Ok(response::success(crate::routes::sync::queued_work_routing_to_api(data)))
+    Ok(response::success(
+        crate::routes::sync::queued_work_routing_to_api(data),
+    ))
 }
 
 #[cfg(test)]

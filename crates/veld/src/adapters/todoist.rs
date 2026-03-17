@@ -52,15 +52,18 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .and_then(parse_iso_datetime);
         let commitment_kind = infer_kind(&item);
         let source_id = format!("todoist_{}", task_id);
-    let existing_commitment = existing_commitments
-        .iter()
-        .find(|c| c.source_type == "todoist" && c.source_id.as_deref() == Some(source_id.as_str()))
-        .or_else(|| {
-            existing_commitments.iter().find(|c| {
-                c.source_type == "todoist"
-                        && todoist_id_from_metadata(&c.metadata_json).as_deref() == Some(task_id.as_str())
+        let existing_commitment = existing_commitments
+            .iter()
+            .find(|c| {
+                c.source_type == "todoist" && c.source_id.as_deref() == Some(source_id.as_str())
             })
-        });
+            .or_else(|| {
+                existing_commitments.iter().find(|c| {
+                    c.source_type == "todoist"
+                        && todoist_id_from_metadata(&c.metadata_json).as_deref()
+                            == Some(task_id.as_str())
+                })
+            });
 
         reconcile_commitment(
             storage,
@@ -164,11 +167,13 @@ async fn reconcile_commitment(
 }
 
 fn todoist_id_from_metadata(metadata_json: &serde_json::Value) -> Option<String> {
-    metadata_json.get("todoist_id").and_then(|value| match value {
-        serde_json::Value::String(value) => Some(value.clone()),
-        serde_json::Value::Number(value) => Some(value.to_string()),
-        _ => None,
-    })
+    metadata_json
+        .get("todoist_id")
+        .and_then(|value| match value {
+            serde_json::Value::String(value) => Some(value.clone()),
+            serde_json::Value::Number(value) => Some(value.to_string()),
+            _ => None,
+        })
 }
 
 fn infer_kind(item: &TodoistItem) -> &'static str {

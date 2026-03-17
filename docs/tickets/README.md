@@ -26,18 +26,20 @@ For active lane ownership and non-overlapping write scopes, use [phase-1/paralle
 
 ## Phase 1: Structural Foundations
 
+Execution evidence: [phase-1/phase-1-evidence-matrix.md](phase-1/phase-1-evidence-matrix.md)
+
 - [001-storage-modularization.md](phase-1/001-storage-modularization.md) `[in-progress]` Storage repository pattern and transaction lifecycles
-- [002-typed-context-transition.md](phase-1/002-typed-context-transition.md) `[planned]` Pure-core and typed-context transition
-- [003-service-dto-layering.md](phase-1/003-service-dto-layering.md) `[partial]` Service/DTO boundary and standardized error handling
+- [002-typed-context-transition.md](phase-1/002-typed-context-transition.md) `[in-progress]` Pure-core and typed-context transition
+- [003-service-dto-layering.md](phase-1/003-service-dto-layering.md) `[in-progress]` Service/DTO boundary and standardized error handling
 - [011-documentation-truth-repair.md](phase-1/011-documentation-truth-repair.md) `[in-progress]` Documentation truth repair and architecture mapping
-- [015-http-surface-auth-hardening.md](phase-1/015-http-surface-auth-hardening.md) `[planned]` Auth-by-default HTTP surfaces and deny-by-default routing
+- [015-http-surface-auth-hardening.md](phase-1/015-http-surface-auth-hardening.md) `[complete]` Auth-by-default HTTP surfaces and deny-by-default routing
 - [018-cross-cutting-system-traits-baseline.md](phase-1/018-cross-cutting-system-traits-baseline.md) `[in-progress]` Cross-cutting trait baseline and subsystem audit
-- [020-documentation-catalog-single-source.md](phase-1/020-documentation-catalog-single-source.md) `[planned]` Single-source documentation catalog and surfaced-doc parity
-- [021-canonical-schema-and-config-contracts.md](phase-1/021-canonical-schema-and-config-contracts.md) `[planned]` Canonical schema catalog, object definitions, and config templates
+- [020-documentation-catalog-single-source.md](phase-1/020-documentation-catalog-single-source.md) `[complete]` Single-source documentation catalog and surfaced-doc parity
+- [021-canonical-schema-and-config-contracts.md](phase-1/021-canonical-schema-and-config-contracts.md) `[in-progress]` Canonical schema catalog, object definitions, and config templates
 - [022-data-sources-and-connector-architecture.md](phase-1/022-data-sources-and-connector-architecture.md) `[planned]` Canonical data sources, integration families, and connector contracts
 - [023-self-awareness-and-supervised-self-modification.md](phase-1/023-self-awareness-and-supervised-self-modification.md) `[planned]` Vel self-awareness, repo visibility, and supervised self-modification
 - [024-machine-readable-schema-and-manifest-publication.md](phase-1/024-machine-readable-schema-and-manifest-publication.md) `[planned]` Publish machine-readable schema and manifest resources for shared contract surfaces
-- [025-config-and-contract-fixture-parity.md](phase-1/025-config-and-contract-fixture-parity.md) `[planned]` Ensure template and fixture parity for config and contract artifacts used by tests and docs
+- [025-config-and-contract-fixture-parity.md](phase-1/025-config-and-contract-fixture-parity.md) `[in-progress]` Ensure template and fixture parity for config and contract artifacts used by tests and docs
 
 ## Phase 2: Distributed State, Offline Clients & System-Of-Systems
 

@@ -6,14 +6,12 @@
 
 use std::time::Duration;
 
+use crate::services::client_sync;
 #[cfg(not(test))]
 use std::process::Command;
 use tracing::{debug, warn};
-use vel_core::{
-    LoopKind, RunEventType, RunKind, RunStatus, WorkAssignmentStatus,
-};
+use vel_core::{LoopKind, RunEventType, RunKind, RunStatus, WorkAssignmentStatus};
 use vel_storage::{PendingJob, RetryReadyRun, WorkAssignmentUpdate};
-use crate::services::client_sync;
 
 use crate::state::AppState;
 
@@ -676,7 +674,9 @@ async fn validation_command_hint(
     state: &AppState,
     request: &client_sync::ValidationRequest,
 ) -> Option<String> {
-    let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state).await.ok()?;
+    let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state)
+        .await
+        .ok()?;
     bootstrap
         .validation_profiles
         .into_iter()
@@ -688,7 +688,9 @@ async fn branch_sync_capability(
     state: &AppState,
     request: &client_sync::BranchSyncRequest,
 ) -> Option<client_sync::BranchSyncCapability> {
-    let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state).await.ok()?;
+    let bootstrap = crate::services::client_sync::cluster_bootstrap_data(state)
+        .await
+        .ok()?;
     bootstrap
         .branch_sync
         .filter(|capability| capability.repo_root == request.repo_root)
@@ -1255,7 +1257,9 @@ mod tests {
             None,
             None,
         );
-        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state).await.unwrap();
+        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state)
+            .await
+            .unwrap();
 
         insert_queued_signal(
             &storage,
@@ -1303,7 +1307,9 @@ mod tests {
             None,
             None,
         );
-        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state).await.unwrap();
+        let bootstrap = crate::services::client_sync::cluster_bootstrap_data(&state)
+            .await
+            .unwrap();
         let repo_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .to_string_lossy()

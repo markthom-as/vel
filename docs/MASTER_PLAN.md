@@ -54,13 +54,13 @@ Primary outcome:
 ## Phase 1: Structural Foundations & Monolith Decomposition
 **Current Status: [PARTIAL]**
 
-### 1.1 Storage Repository Pattern & Transaction Lifecycles **[COMPLETE]**
+### 1.1 Storage Repository Pattern & Transaction Lifecycles **[IN_PROGRESS]**
 *   *Ticket*: `001-storage-modularization.md`
 
-### 1.2 The "Pure Core" & Typed Context Mandate **[COMPLETE]**
+### 1.2 The "Pure Core" & Typed Context Mandate **[IN_PROGRESS]**
 *   *Ticket*: `002-typed-context-transition.md`
 
-### 1.3 Service/DTO Boundary & Standardized Error Handling **[COMPLETE]**
+### 1.3 Service/DTO Boundary & Standardized Error Handling **[IN_PROGRESS]**
 *   *Ticket*: `003-service-dto-layering.md`
 
 ### 1.4 Documentation Truth Repair & Architecture Mapping **[IN_PROGRESS]**
@@ -72,10 +72,10 @@ Primary outcome:
 ### 1.6 Cross-Cutting Trait Baseline & Subsystem Audit **[IN_PROGRESS]**
 *   *Ticket*: `018-cross-cutting-system-traits-baseline.md`
 
-### 1.7 Documentation Catalog Single Source & Surface Parity **[PLANNED]**
+### 1.7 Documentation Catalog Single Source & Surface Parity **[COMPLETE]**
 *   *Ticket*: `020-documentation-catalog-single-source.md`
 
-### 1.8 Canonical Schemas, Config Contracts & Templates **[PLANNED]**
+### 1.8 Canonical Schemas, Config Contracts & Templates **[IN_PROGRESS]**
 *   *Ticket*: `021-canonical-schema-and-config-contracts.md`
 
 ### 1.9 Canonical Data Sources, Integrations & Connector Contracts **[PLANNED]**
@@ -87,8 +87,12 @@ Primary outcome:
 ### 1.11 Machine-Readable Contract Manifest Publication **[PLANNED]**
 *   *Ticket*: `024-machine-readable-schema-and-manifest-publication.md`
 
-### 1.12 Config Template And Fixture Parity **[PLANNED]**
+### 1.12 Config Template And Fixture Parity **[IN_PROGRESS]**
 *   *Ticket*: `025-config-and-contract-fixture-parity.md`
+
+### Evidence Dashboard
+
+- See the consolidated evidence tracker for phase-1 status + proof: [docs/tickets/phase-1/phase-1-evidence-matrix.md](tickets/phase-1/phase-1-evidence-matrix.md)
 
 ---
 

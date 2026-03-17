@@ -1,6 +1,6 @@
 ---
 title: Typed CurrentContext & Schema-on-Write Transition
-status: planned
+status: in-progress
 owner: staff-eng
 type: architecture
 priority: high

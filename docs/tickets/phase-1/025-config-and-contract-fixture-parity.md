@@ -1,6 +1,6 @@
 ---
 title: Config And Contract Fixture Parity
-status: planned
+status: in-progress
 owner: staff-eng
 type: architecture
 priority: high

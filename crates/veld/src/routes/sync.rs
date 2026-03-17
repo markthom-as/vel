@@ -1,16 +1,16 @@
 use axum::extract::{Query, State};
 use axum::Json;
-use vel_core::WorkAssignmentStatus;
-use vel_storage::{NudgeRecord, WorkAssignmentRecord, WorkAssignmentUpdate};
 use vel_api_types::{
     ApiResponse, BranchSyncRequestData, ClientActionBatchRequest, ClientActionBatchResultData,
-    PlacementRecommendationData, QueuedWorkItemData, QueuedWorkRoutingData, SyncBootstrapData,
-    SyncClusterStateData, SyncHeartbeatRequestData, SyncHeartbeatResponseData, SyncResultData,
-    ValidationRequestData, WorkAssignmentClaimNextRequestData,
-    WorkAssignmentClaimNextResponseData, WorkAssignmentClaimRequestData,
-    WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData, WorkAssignmentUpdateRequest,
-    ClientActionData, ClientActionResultData,
+    ClientActionData, ClientActionResultData, PlacementRecommendationData, QueuedWorkItemData,
+    QueuedWorkRoutingData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
+    SyncHeartbeatResponseData, SyncResultData, ValidationRequestData,
+    WorkAssignmentClaimNextRequestData, WorkAssignmentClaimNextResponseData,
+    WorkAssignmentClaimRequestData, WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData,
+    WorkAssignmentUpdateRequest,
 };
+use vel_core::WorkAssignmentStatus;
+use vel_storage::{NudgeRecord, WorkAssignmentRecord, WorkAssignmentUpdate};
 
 use crate::{errors::AppError, routes::response, services, state::AppState};
 
@@ -28,7 +28,9 @@ fn nudge_record_to_api(data: NudgeRecord) -> vel_api_types::NudgeData {
     }
 }
 
-fn work_assignment_status_to_api(status: WorkAssignmentStatus) -> vel_api_types::WorkAssignmentStatusData {
+fn work_assignment_status_to_api(
+    status: WorkAssignmentStatus,
+) -> vel_api_types::WorkAssignmentStatusData {
     match status {
         WorkAssignmentStatus::Assigned => vel_api_types::WorkAssignmentStatusData::Assigned,
         WorkAssignmentStatus::Started => vel_api_types::WorkAssignmentStatusData::Started,
@@ -94,7 +96,9 @@ pub(crate) fn queued_work_routing_to_api(
     }
 }
 
-fn queued_work_item_to_api(item: crate::services::client_sync::QueuedWorkItem) -> QueuedWorkItemData {
+fn queued_work_item_to_api(
+    item: crate::services::client_sync::QueuedWorkItem,
+) -> QueuedWorkItemData {
     QueuedWorkItemData {
         work_request_id: item.work_request_id,
         request_type: match item.request_type {
@@ -151,13 +155,15 @@ fn sync_bootstrap_cluster_to_api(
         lan_base_url: cluster.lan_base_url,
         localhost_base_url: cluster.localhost_base_url,
         capabilities: cluster.capabilities,
-        branch_sync: cluster.branch_sync.map(|b| vel_api_types::BranchSyncCapabilityData {
-            repo_root: b.repo_root,
-            default_remote: b.default_remote,
-            supports_fetch: b.supports_fetch,
-            supports_pull: b.supports_pull,
-            supports_push: b.supports_push,
-        }),
+        branch_sync: cluster
+            .branch_sync
+            .map(|b| vel_api_types::BranchSyncCapabilityData {
+                repo_root: b.repo_root,
+                default_remote: b.default_remote,
+                supports_fetch: b.supports_fetch,
+                supports_pull: b.supports_pull,
+                supports_push: b.supports_push,
+            }),
         validation_profiles: cluster
             .validation_profiles
             .into_iter()
@@ -180,15 +186,15 @@ fn work_assignment_claimed_to_api(
     }
 }
 
-fn sync_bootstrap_to_api(
-    data: crate::services::client_sync::SyncBootstrap,
-) -> SyncBootstrapData {
+fn sync_bootstrap_to_api(data: crate::services::client_sync::SyncBootstrap) -> SyncBootstrapData {
     SyncBootstrapData {
         cluster: sync_bootstrap_cluster_to_api(data.cluster),
-        current_context: data.current_context.map(|c| vel_api_types::CurrentContextData {
-            computed_at: c.computed_at,
-            context: c.context,
-        }),
+        current_context: data
+            .current_context
+            .map(|c| vel_api_types::CurrentContextData {
+                computed_at: c.computed_at,
+                context: c.context,
+            }),
         nudges: data.nudges.into_iter().map(nudge_record_to_api).collect(),
         commitments: data
             .commitments
@@ -206,21 +212,35 @@ fn sync_claim_next_to_api(
     }
 }
 
-fn map_client_action_kind(kind: vel_api_types::ClientActionKind) -> crate::services::client_sync::ClientActionKind {
+fn map_client_action_kind(
+    kind: vel_api_types::ClientActionKind,
+) -> crate::services::client_sync::ClientActionKind {
     match kind {
-        vel_api_types::ClientActionKind::NudgeDone => crate::services::client_sync::ClientActionKind::NudgeDone,
-        vel_api_types::ClientActionKind::NudgeSnooze => crate::services::client_sync::ClientActionKind::NudgeSnooze,
-        vel_api_types::ClientActionKind::CommitmentDone => crate::services::client_sync::ClientActionKind::CommitmentDone,
-        vel_api_types::ClientActionKind::CommitmentCreate => crate::services::client_sync::ClientActionKind::CommitmentCreate,
-        vel_api_types::ClientActionKind::CaptureCreate => crate::services::client_sync::ClientActionKind::CaptureCreate,
-        vel_api_types::ClientActionKind::BranchSyncRequest => crate::services::client_sync::ClientActionKind::BranchSyncRequest,
-        vel_api_types::ClientActionKind::ValidationRequest => crate::services::client_sync::ClientActionKind::ValidationRequest,
+        vel_api_types::ClientActionKind::NudgeDone => {
+            crate::services::client_sync::ClientActionKind::NudgeDone
+        }
+        vel_api_types::ClientActionKind::NudgeSnooze => {
+            crate::services::client_sync::ClientActionKind::NudgeSnooze
+        }
+        vel_api_types::ClientActionKind::CommitmentDone => {
+            crate::services::client_sync::ClientActionKind::CommitmentDone
+        }
+        vel_api_types::ClientActionKind::CommitmentCreate => {
+            crate::services::client_sync::ClientActionKind::CommitmentCreate
+        }
+        vel_api_types::ClientActionKind::CaptureCreate => {
+            crate::services::client_sync::ClientActionKind::CaptureCreate
+        }
+        vel_api_types::ClientActionKind::BranchSyncRequest => {
+            crate::services::client_sync::ClientActionKind::BranchSyncRequest
+        }
+        vel_api_types::ClientActionKind::ValidationRequest => {
+            crate::services::client_sync::ClientActionKind::ValidationRequest
+        }
     }
 }
 
-fn map_client_action_kind_from_str(
-    kind: &str,
-) -> vel_api_types::ClientActionKind {
+fn map_client_action_kind_from_str(kind: &str) -> vel_api_types::ClientActionKind {
     match kind {
         "nudge_done" => vel_api_types::ClientActionKind::NudgeDone,
         "nudge_snooze" => vel_api_types::ClientActionKind::NudgeSnooze,
@@ -244,7 +264,9 @@ fn map_client_action(action: ClientActionData) -> crate::services::client_sync::
     }
 }
 
-fn api_client_action_result(data: crate::services::client_sync::ClientActionResult) -> ClientActionResultData {
+fn api_client_action_result(
+    data: crate::services::client_sync::ClientActionResult,
+) -> ClientActionResultData {
     ClientActionResultData {
         action_id: data.action_id,
         action_type: map_client_action_kind_from_str(&data.action_type),

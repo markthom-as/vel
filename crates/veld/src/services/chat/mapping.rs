@@ -1,5 +1,4 @@
 use crate::errors::AppError;
-use vel_api_types::{ConversationData, InboxItemData, MessageData};
 
 #[derive(Debug, Clone)]
 pub(crate) struct ConversationServiceData {
@@ -10,20 +9,6 @@ pub(crate) struct ConversationServiceData {
     pub archived: bool,
     pub created_at: i64,
     pub updated_at: i64,
-}
-
-impl From<ConversationServiceData> for ConversationData {
-    fn from(c: ConversationServiceData) -> Self {
-        Self {
-            id: c.id,
-            title: c.title,
-            kind: c.kind,
-            pinned: c.pinned,
-            archived: c.archived,
-            created_at: c.created_at,
-            updated_at: c.updated_at,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -39,22 +24,6 @@ pub(crate) struct MessageServiceData {
     pub updated_at: Option<i64>,
 }
 
-impl From<MessageServiceData> for MessageData {
-    fn from(m: MessageServiceData) -> Self {
-        Self {
-            id: m.id,
-            conversation_id: m.conversation_id,
-            role: m.role,
-            kind: m.kind,
-            content: m.content,
-            status: m.status,
-            importance: m.importance,
-            created_at: m.created_at,
-            updated_at: m.updated_at,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct InboxItemServiceData {
     pub id: String,
@@ -64,20 +33,6 @@ pub(crate) struct InboxItemServiceData {
     pub surfaced_at: i64,
     pub snoozed_until: Option<i64>,
     pub confidence: Option<f64>,
-}
-
-impl From<InboxItemServiceData> for InboxItemData {
-    fn from(i: InboxItemServiceData) -> Self {
-        Self {
-            id: i.id,
-            message_id: i.message_id,
-            kind: i.kind,
-            state: i.state,
-            surfaced_at: i.surfaced_at,
-            snoozed_until: i.snoozed_until,
-            confidence: i.confidence,
-        }
-    }
 }
 
 pub(crate) fn conversation_record_to_data(

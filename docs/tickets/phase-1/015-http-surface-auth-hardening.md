@@ -1,6 +1,6 @@
 ---
 title: Auth-By-Default HTTP Surfaces & Deny-By-Default Routing
-status: in-progress
+status: complete
 owner: staff-eng
 type: architecture
 priority: high

@@ -1,6 +1,6 @@
 ---
 title: Documentation Catalog Single Source & Surface Parity
-status: planned
+status: complete
 owner: staff-eng
 type: architecture
 priority: medium
