@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env,
     path::{Path, PathBuf},
 };
@@ -15,7 +15,7 @@ use vel_api_types::{
 };
 use vel_config::AppConfig;
 use vel_core::{Commitment, CommitmentStatus};
-use vel_storage::{CommitmentInsert, SignalInsert, Storage};
+use vel_storage::{CommitmentInsert, SignalInsert, SignalRecord, Storage};
 
 use crate::{adapters, errors::AppError};
 
@@ -89,6 +89,33 @@ pub struct StoredCalendar {
     pub primary: bool,
     #[serde(default = "default_true")]
     pub selected: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct GoogleCalendarSelectionFilter {
+    all_calendars_selected: bool,
+    selected_calendar_ids: HashSet<String>,
+}
+
+impl GoogleCalendarSelectionFilter {
+    pub fn includes_signal(&self, signal: &SignalRecord) -> bool {
+        if signal.signal_type != "calendar_event" || signal.source != "google_calendar" {
+            return true;
+        }
+        if self.all_calendars_selected {
+            return true;
+        }
+        signal
+            .payload_json
+            .get("calendar_id")
+            .and_then(serde_json::Value::as_str)
+            .map(|calendar_id| self.selected_calendar_ids.contains(calendar_id))
+            .unwrap_or(false)
+    }
+
+    pub fn has_any_selected(&self) -> bool {
+        self.all_calendars_selected || !self.selected_calendar_ids.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -330,7 +357,10 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsData, App
             effective_local_source_path("activity", &activity, None),
             &activity,
         ),
-        health: local_status(effective_local_source_path("health", &health, None), &health),
+        health: local_status(
+            effective_local_source_path("health", &health, None),
+            &health,
+        ),
         git: local_status(effective_local_source_path("git", &git, None), &git),
         messaging: local_status(
             effective_local_source_path("messaging", &messaging, None),
@@ -395,6 +425,21 @@ pub async fn get_integrations_with_config(
             ),
             &transcripts,
         ),
+    })
+}
+
+pub async fn google_calendar_selection_filter(
+    storage: &Storage,
+) -> Result<GoogleCalendarSelectionFilter, AppError> {
+    let settings = load_google_settings(storage).await?;
+    Ok(GoogleCalendarSelectionFilter {
+        all_calendars_selected: settings.all_calendars_selected,
+        selected_calendar_ids: settings
+            .calendars
+            .into_iter()
+            .filter(|calendar| calendar.selected)
+            .map(|calendar| calendar.id)
+            .collect(),
     })
 }
 
@@ -1403,7 +1448,26 @@ async fn runtime_local_config(
         &transcripts,
         config.transcript_snapshot_path.as_deref(),
     );
+    sanitize_missing_default_local_sources(&mut runtime);
     Ok(runtime)
+}
+
+fn sanitize_missing_default_local_sources(config: &mut AppConfig) {
+    sanitize_missing_default_local_path("activity", &mut config.activity_snapshot_path);
+    sanitize_missing_default_local_path("health", &mut config.health_snapshot_path);
+    sanitize_missing_default_local_path("git", &mut config.git_snapshot_path);
+    sanitize_missing_default_local_path("messaging", &mut config.messaging_snapshot_path);
+    sanitize_missing_default_local_path("notes", &mut config.notes_path);
+    sanitize_missing_default_local_path("transcripts", &mut config.transcript_snapshot_path);
+}
+
+fn sanitize_missing_default_local_path(kind: &str, path: &mut Option<String>) {
+    let should_clear = path.as_deref().is_some_and(|value| {
+        vel_config::is_default_local_source_path(kind, value) && !Path::new(value).exists()
+    });
+    if should_clear {
+        *path = None;
+    }
 }
 
 fn config_source_path(primary: Option<&str>, secondary: Option<&str>) -> Option<String> {

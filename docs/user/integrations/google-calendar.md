@@ -33,6 +33,8 @@ Current behavior in Settings:
 
 - `Sync all calendars by default` is enabled by default.
 - If you disable that toggle, you can choose individual calendars.
+- Unchecked calendars are excluded from Vel context and `Now` schedule data by default.
+- If no calendars are checked, `Now` surfaces Calendar as `Unchecked` instead of treating it as live schedule input.
 - If no calendars are loaded yet, Settings will tell you to connect Google and run sync.
 
 This is a sync-scoping control, not a separate integration mode.

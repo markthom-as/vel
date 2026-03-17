@@ -237,6 +237,20 @@ impl Default for AppConfig {
     }
 }
 
+pub fn is_default_local_source_path(kind: &str, path: &str) -> bool {
+    match kind {
+        "calendar" => path == DEFAULT_CALENDAR_ICS_PATH,
+        "todoist" => path == DEFAULT_TODOIST_SNAPSHOT_PATH,
+        "activity" => path == DEFAULT_ACTIVITY_SNAPSHOT_PATH,
+        "health" => path == DEFAULT_HEALTH_SNAPSHOT_PATH,
+        "git" => path == DEFAULT_GIT_SNAPSHOT_PATH,
+        "messaging" => path == DEFAULT_MESSAGING_SNAPSHOT_PATH,
+        "notes" => path == DEFAULT_NOTES_PATH,
+        "transcripts" => path == DEFAULT_TRANSCRIPT_SNAPSHOT_PATH,
+        _ => false,
+    }
+}
+
 fn default_agent_spec_path() -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")

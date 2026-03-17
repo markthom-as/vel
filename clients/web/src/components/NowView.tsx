@@ -754,6 +754,8 @@ function freshnessClass(status: string): string {
       return 'bg-emerald-900/40 text-emerald-200';
     case 'aging':
       return 'bg-yellow-900/40 text-yellow-200';
+    case 'unchecked':
+      return 'bg-zinc-700/60 text-zinc-100';
     case 'error':
     case 'stale':
       return 'bg-rose-900/40 text-rose-200';
@@ -776,6 +778,8 @@ function labelFreshness(status: string): string {
       return 'Disconnected';
     case 'missing':
       return 'Missing';
+    case 'unchecked':
+      return 'Unchecked';
     default:
       return status;
   }

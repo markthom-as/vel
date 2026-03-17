@@ -115,11 +115,14 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     let InferenceInputs {
         open_commitments,
         medication_commitments,
-        signals_today,
+        mut signals_today,
         active_nudges,
         snoozed_nudges,
         risk_snapshots,
     } = inputs;
+    let calendar_selection =
+        crate::services::integrations::google_calendar_selection_filter(storage).await?;
+    signals_today.retain(|signal| calendar_selection.includes_signal(signal));
 
     let signal_inputs = collect_signal_inputs(&signals_today);
     let meds_status =

@@ -45,10 +45,12 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
     }
 
     let signal_ids = string_array_field(&context, "signals_used");
+    let calendar_selection = integrations::google_calendar_selection_filter(storage).await?;
     let mut events = storage
         .list_signals_by_ids(&signal_ids)
         .await?
         .into_iter()
+        .filter(|signal| calendar_selection.includes_signal(signal))
         .filter_map(calendar_event_from_signal)
         .collect::<Vec<_>>();
     if events.is_empty() {
@@ -56,6 +58,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
             .list_signals(Some("calendar_event"), Some(now_ts - 12 * 60 * 60), 32)
             .await?
             .into_iter()
+            .filter(|signal| calendar_selection.includes_signal(signal))
             .filter_map(calendar_event_from_signal)
             .collect();
     }
@@ -71,7 +74,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
         .collect();
 
     let integrations = integrations::get_integrations_with_config(storage, config).await?;
-    let freshness = build_freshness(now_ts, computed_at, &integrations);
+    let freshness = build_freshness(now_ts, computed_at, &integrations, &calendar_selection);
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
     let attention_reasons = string_array_field(&context, "attention_reasons");
     let reasons = build_reasons(&context, &attention_reasons);
@@ -270,6 +273,7 @@ fn build_freshness(
     now_ts: i64,
     computed_at: i64,
     integrations: &vel_api_types::IntegrationsData,
+    calendar_selection: &integrations::GoogleCalendarSelectionFilter,
 ) -> NowFreshnessData {
     let mut sources = vec![NowFreshnessEntryData {
         key: "context".to_string(),
@@ -290,6 +294,10 @@ fn build_freshness(
             .guidance
             .as_ref()
             .map(|guidance| format!("{}: {}", guidance.title, guidance.detail)),
+        (!calendar_selection.has_any_selected()).then_some(
+            "No calendars are selected in Settings. Unchecked calendars are excluded from Vel context by default."
+                .to_string(),
+        ),
     ));
     sources.push(sync_freshness(
         now_ts,
@@ -302,6 +310,7 @@ fn build_freshness(
             .guidance
             .as_ref()
             .map(|guidance| format!("{}: {}", guidance.title, guidance.detail)),
+        None,
     ));
     sources.push(sync_freshness(
         now_ts,
@@ -314,6 +323,7 @@ fn build_freshness(
             .guidance
             .as_ref()
             .map(|guidance| format!("{}: {}", guidance.title, guidance.detail)),
+        None,
     ));
     sources.push(sync_freshness(
         now_ts,
@@ -326,6 +336,7 @@ fn build_freshness(
             .guidance
             .as_ref()
             .map(|guidance| format!("{}: {}", guidance.title, guidance.detail)),
+        None,
     ));
     let overall_status = if sources
         .iter()
@@ -350,12 +361,17 @@ fn sync_freshness(
     last_sync_at: Option<i64>,
     last_sync_status: Option<&str>,
     guidance: Option<String>,
+    override_guidance: Option<String>,
 ) -> NowFreshnessEntryData {
     let age_seconds = last_sync_at.map(|timestamp| now_ts - timestamp);
-    let status = match last_sync_status {
-        Some("error") => "error",
-        Some("disconnected") => "disconnected",
-        _ => age_seconds.map(age_status).unwrap_or("missing"),
+    let status = if override_guidance.is_some() {
+        "unchecked"
+    } else {
+        match last_sync_status {
+            Some("error") => "error",
+            Some("disconnected") => "disconnected",
+            _ => age_seconds.map(age_status).unwrap_or("missing"),
+        }
     };
     NowFreshnessEntryData {
         key: key.to_string(),
@@ -363,7 +379,7 @@ fn sync_freshness(
         status: status.to_string(),
         last_sync_at,
         age_seconds,
-        guidance,
+        guidance: override_guidance.or(guidance),
     }
 }
 
