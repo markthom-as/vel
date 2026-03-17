@@ -9,7 +9,7 @@ import { Sidebar } from './components/Sidebar';
 import { invalidateQuery } from './data/query';
 import { queryKeys } from './data/resources';
 
-type MainView = 'now' | 'inbox' | 'threads';
+type MainView = 'now' | 'inbox' | 'suggestions' | 'threads';
 
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
@@ -61,6 +61,13 @@ function App() {
               className={`flex-1 px-3 py-2 text-sm ${mainView === 'threads' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               Threads
+            </button>
+            <button
+              type="button"
+              onClick={() => setMainView('suggestions')}
+              className={`flex-1 px-3 py-2 text-sm ${mainView === 'suggestions' ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Suggestions
             </button>
           </nav>
           <Sidebar

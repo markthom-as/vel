@@ -1,8 +1,9 @@
 import { InboxView } from './InboxView';
 import { NowView } from './NowView';
+import { SuggestionsView } from './SuggestionsView';
 import { ThreadView } from './ThreadView';
 
-type MainView = 'now' | 'inbox' | 'threads';
+type MainView = 'now' | 'inbox' | 'suggestions' | 'threads';
 
 interface MainPanelProps {
   conversationId: string | null;
@@ -16,6 +17,8 @@ export function MainPanel({ conversationId, mainView }: MainPanelProps) {
         <NowView />
       ) : mainView === 'inbox' ? (
         <InboxView />
+      ) : mainView === 'suggestions' ? (
+        <SuggestionsView />
       ) : (
         <ThreadView conversationId={conversationId} />
       )}

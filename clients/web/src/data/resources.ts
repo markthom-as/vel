@@ -20,6 +20,7 @@ import {
   decodeProvenanceData,
   decodeRunSummaryData,
   decodeSettingsData,
+  decodeSuggestionData,
   type ApiResponse,
   type ConversationData,
   type ContextExplainData,
@@ -38,6 +39,7 @@ import {
   type ProvenanceData,
   type RunSummaryData,
   type SettingsData,
+  type SuggestionData,
 } from '../types';
 
 interface SyncResultData {
@@ -63,6 +65,8 @@ export const queryKeys = {
   conversationMessages: (conversationId: string | null) => ['conversations', conversationId, 'messages'] as const,
   conversationInterventions: (conversationId: string | null) => ['conversations', conversationId, 'interventions'] as const,
   inbox: () => ['inbox'] as const,
+  suggestions: (state: string) => ['suggestions', state] as const,
+  suggestion: (suggestionId: string | null) => ['suggestions', suggestionId] as const,
   pendingInterventionActions: () => ['interventions', 'pending-actions'] as const,
   now: () => ['now'] as const,
   currentContext: () => ['context', 'current'] as const,
@@ -103,6 +107,20 @@ export function loadInbox(): Promise<ApiResponse<InboxItemData[]>> {
   return apiGet<ApiResponse<InboxItemData[]>>(
     '/api/inbox',
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeInboxItemData)),
+  );
+}
+
+export function loadSuggestions(state = 'pending'): Promise<ApiResponse<SuggestionData[]>> {
+  return apiGet<ApiResponse<SuggestionData[]>>(
+    `/v1/suggestions?state=${encodeURIComponent(state)}&limit=50`,
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeSuggestionData)),
+  );
+}
+
+export function loadSuggestion(suggestionId: string): Promise<ApiResponse<SuggestionData>> {
+  return apiGet<ApiResponse<SuggestionData>>(
+    `/v1/suggestions/${encodeURIComponent(suggestionId.trim())}`,
+    (value) => decodeApiResponse(value, decodeSuggestionData),
   );
 }
 
@@ -284,5 +302,16 @@ export function mutateIntervention(
     `/api/interventions/${interventionId}/${action}`,
     body,
     (value) => decodeApiResponse(value, decodeInterventionActionData),
+  );
+}
+
+export function updateSuggestion(
+  suggestionId: string,
+  patch: Record<string, unknown>,
+): Promise<ApiResponse<SuggestionData>> {
+  return apiPatch<ApiResponse<SuggestionData>>(
+    `/v1/suggestions/${encodeURIComponent(suggestionId.trim())}`,
+    patch,
+    (value) => decodeApiResponse(value, decodeSuggestionData),
   );
 }

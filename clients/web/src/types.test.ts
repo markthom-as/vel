@@ -12,6 +12,7 @@ import {
   decodeArray,
   decodeRiskCardContent,
   decodeRunSummaryData,
+  decodeSuggestionData,
   decodeWsEvent,
 } from './types'
 
@@ -246,6 +247,72 @@ describe('transport decoders', () => {
         commitments_used: ['commit_1'],
         risk_used: ['risk_1'],
       },
+    })
+  })
+
+  it('decodes suggestion detail payloads with evidence', () => {
+    expect(
+      decodeSuggestionData({
+        id: 'sug_1',
+        suggestion_type: 'increase_commute_buffer',
+        state: 'pending',
+        title: 'Increase commute buffer',
+        summary: 'Leave earlier for repeated commute danger.',
+        priority: 55,
+        confidence: 'medium',
+        evidence_count: 2,
+        decision_context_summary: 'Repeated commute danger nudges.',
+        decision_context: {
+          trigger: 'resolved_commute_danger',
+        },
+        evidence: [
+          {
+            id: 'sugev_1',
+            evidence_type: 'nudge',
+            ref_id: 'nud_1',
+            evidence: { level: 'danger' },
+            weight: 1,
+            created_at: 1710000000,
+          },
+        ],
+        payload: {
+          type: 'increase_commute_buffer',
+          current_minutes: 20,
+          suggested_minutes: 30,
+        },
+        created_at: 1710000000,
+        resolved_at: null,
+      }),
+    ).toEqual({
+      id: 'sug_1',
+      suggestion_type: 'increase_commute_buffer',
+      state: 'pending',
+      title: 'Increase commute buffer',
+      summary: 'Leave earlier for repeated commute danger.',
+      priority: 55,
+      confidence: 'medium',
+      evidence_count: 2,
+      decision_context_summary: 'Repeated commute danger nudges.',
+      decision_context: {
+        trigger: 'resolved_commute_danger',
+      },
+      evidence: [
+        {
+          id: 'sugev_1',
+          evidence_type: 'nudge',
+          ref_id: 'nud_1',
+          evidence: { level: 'danger' },
+          weight: 1,
+          created_at: 1710000000,
+        },
+      ],
+      payload: {
+        type: 'increase_commute_buffer',
+        current_minutes: 20,
+        suggested_minutes: 30,
+      },
+      created_at: 1710000000,
+      resolved_at: null,
     })
   })
 

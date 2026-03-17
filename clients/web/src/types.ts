@@ -183,6 +183,32 @@ export interface RunSummaryData {
   blocked_reason: string | null;
 }
 
+export interface SuggestionEvidenceData {
+  id: string;
+  evidence_type: string;
+  ref_id: string;
+  evidence: JsonValue | null;
+  weight: number | null;
+  created_at: UnixSeconds;
+}
+
+export interface SuggestionData {
+  id: string;
+  suggestion_type: string;
+  state: string;
+  title: string | null;
+  summary: string | null;
+  priority: number;
+  confidence: string | null;
+  evidence_count: number;
+  decision_context_summary: string | null;
+  decision_context: JsonValue | null;
+  evidence: SuggestionEvidenceData[] | null;
+  payload: JsonValue;
+  created_at: UnixSeconds;
+  resolved_at: UnixSeconds | null;
+}
+
 export interface CurrentContextData {
   computed_at: UnixSeconds;
   context: JsonValue;
@@ -854,6 +880,41 @@ export function decodeRunSummaryData(value: unknown): RunSummaryData {
     ),
     retry_reason: expectNullableString(record.retry_reason, 'run summary.retry_reason'),
     blocked_reason: expectNullableString(record.blocked_reason, 'run summary.blocked_reason'),
+  };
+}
+
+export function decodeSuggestionEvidenceData(value: unknown): SuggestionEvidenceData {
+  const record = expectRecord(value, 'suggestion evidence');
+  return {
+    id: expectString(record.id, 'suggestion evidence.id'),
+    evidence_type: expectString(record.evidence_type, 'suggestion evidence.evidence_type'),
+    ref_id: expectString(record.ref_id, 'suggestion evidence.ref_id'),
+    evidence: decodeNullable(record.evidence, decodeJsonValue),
+    weight: expectNullableNumber(record.weight, 'suggestion evidence.weight'),
+    created_at: expectUnixSeconds(record.created_at, 'suggestion evidence.created_at'),
+  };
+}
+
+export function decodeSuggestionData(value: unknown): SuggestionData {
+  const record = expectRecord(value, 'suggestion');
+  return {
+    id: expectString(record.id, 'suggestion.id'),
+    suggestion_type: expectString(record.suggestion_type, 'suggestion.suggestion_type'),
+    state: expectString(record.state, 'suggestion.state'),
+    title: expectNullableString(record.title, 'suggestion.title'),
+    summary: expectNullableString(record.summary, 'suggestion.summary'),
+    priority: expectNumber(record.priority, 'suggestion.priority'),
+    confidence: expectNullableString(record.confidence, 'suggestion.confidence'),
+    evidence_count: expectNumber(record.evidence_count, 'suggestion.evidence_count'),
+    decision_context_summary: expectNullableString(
+      record.decision_context_summary,
+      'suggestion.decision_context_summary',
+    ),
+    decision_context: decodeNullable(record.decision_context, decodeJsonValue),
+    evidence: decodeNullable(record.evidence, (items) => decodeArray(items, decodeSuggestionEvidenceData)),
+    payload: decodeJsonValue(record.payload),
+    created_at: expectUnixSeconds(record.created_at, 'suggestion.created_at'),
+    resolved_at: expectNullableUnixSeconds(record.resolved_at, 'suggestion.resolved_at'),
   };
 }
 

@@ -16,6 +16,10 @@ vi.mock('./ThreadView', () => ({
   ),
 }))
 
+vi.mock('./SuggestionsView', () => ({
+  SuggestionsView: () => <div>Suggestions view</div>,
+}))
+
 describe('MainPanel', () => {
   it('shows the Now view when mainView is now', () => {
     render(<MainPanel conversationId={null} mainView="now" />)
@@ -32,5 +36,10 @@ describe('MainPanel', () => {
   it('shows the thread view when mainView is threads', () => {
     render(<MainPanel conversationId="conv_1" mainView="threads" />)
     expect(screen.getByText('Thread conv_1')).toBeInTheDocument()
+  })
+
+  it('shows the Suggestions view when mainView is suggestions', () => {
+    render(<MainPanel conversationId={null} mainView="suggestions" />)
+    expect(screen.getByText('Suggestions view')).toBeInTheDocument()
   })
 })
