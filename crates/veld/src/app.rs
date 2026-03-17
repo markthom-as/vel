@@ -1726,6 +1726,71 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn command_plan_endpoint_includes_delegation_hints() {
+        let db_path = format!(
+            "/tmp/vel_command_delegate_plan_{}.db",
+            uuid::Uuid::new_v4().simple()
+        );
+        let storage = Storage::connect(&db_path).await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/command/plan")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "command": {
+                                "operation": "create",
+                                "targets": [
+                                    {
+                                        "kind": "delegation_plan",
+                                        "attributes": {
+                                            "goal": "queue cleanup"
+                                        }
+                                    }
+                                ],
+                                "inferred": {},
+                                "assumptions": [],
+                                "resolution": {
+                                    "parser": "deterministic",
+                                    "model_assisted": false,
+                                    "confirmation_required": false
+                                }
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["delegation_hints"]["coordination"].as_str(),
+            Some("review_gated")
+        );
+        assert_eq!(
+            json["data"]["delegation_hints"]["linked_record_strategy"].as_str(),
+            Some("artifact_plus_thread")
+        );
+    }
+
+    #[tokio::test]
     async fn command_execute_endpoint_creates_capture() {
         let db_path = format!(
             "/tmp/vel_command_execute_{}.db",
@@ -1932,10 +1997,14 @@ mod tests {
             Some("spec_draft_created")
         );
         assert_eq!(
-            json["data"]["result"]["data"]["artifact_type"].as_str(),
+            json["data"]["result"]["data"]["artifact"]["artifact_type"].as_str(),
             Some("spec_draft")
         );
-        let artifact_id = json["data"]["result"]["data"]["artifact_id"]
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["thread_type"].as_str(),
+            Some("spec")
+        );
+        let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
         let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();
@@ -2001,10 +2070,14 @@ mod tests {
             Some("execution_plan_created")
         );
         assert_eq!(
-            json["data"]["result"]["data"]["artifact_type"].as_str(),
+            json["data"]["result"]["data"]["artifact"]["artifact_type"].as_str(),
             Some("execution_plan")
         );
-        let artifact_id = json["data"]["result"]["data"]["artifact_id"]
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["thread_type"].as_str(),
+            Some("plan")
+        );
+        let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
         let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();
@@ -2073,10 +2146,14 @@ mod tests {
             Some("delegation_plan_created")
         );
         assert_eq!(
-            json["data"]["result"]["data"]["artifact_type"].as_str(),
+            json["data"]["result"]["data"]["artifact"]["artifact_type"].as_str(),
             Some("delegation_plan")
         );
-        let artifact_id = json["data"]["result"]["data"]["artifact_id"]
+        assert_eq!(
+            json["data"]["result"]["data"]["thread"]["thread_type"].as_str(),
+            Some("delegation")
+        );
+        let artifact_id = json["data"]["result"]["data"]["artifact"]["artifact_id"]
             .as_str()
             .expect("artifact id in payload");
         let stored = storage.get_artifact_by_id(artifact_id).await.unwrap();
