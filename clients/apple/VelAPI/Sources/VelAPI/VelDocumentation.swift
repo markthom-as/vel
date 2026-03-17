@@ -32,18 +32,25 @@ public enum VelDocumentationCatalog {
             summary: "Top-level documentation authority and navigation guide."
         ),
         .init(
-            id: "core-status",
+            id: "core-master-plan",
             category: "core",
-            title: "Status",
-            path: "docs/status.md",
-            summary: "Canonical implementation truth for shipped behavior."
+            title: "Master Plan",
+            path: "docs/MASTER_PLAN.md",
+            summary: "Canonical implementation truth and phase roadmap."
         ),
         .init(
-            id: "core-architecture",
+            id: "core-concept-spec",
             category: "core",
-            title: "Architecture",
-            path: "docs/architecture.md",
-            summary: "System structure and core boundaries."
+            title: "Concept Spec",
+            path: "docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md",
+            summary: "Durable architecture and agentic design principles."
+        ),
+        .init(
+            id: "core-traits",
+            category: "core",
+            title: "Cross-Cutting Traits",
+            path: "docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md",
+            summary: "Repo-wide system traits and subsystem expectations."
         ),
     ]
 

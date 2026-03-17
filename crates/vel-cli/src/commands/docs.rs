@@ -95,3 +95,23 @@ pub fn run(json: bool) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::DOCS;
+
+    #[test]
+    fn docs_catalog_points_at_current_authority_docs() {
+        let paths: Vec<&str> = DOCS.iter().map(|entry| entry.path).collect();
+        assert!(paths.contains(&"docs/README.md"));
+        assert!(paths.contains(&"docs/MASTER_PLAN.md"));
+        assert!(paths.contains(
+            &"docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md"
+        ));
+        assert!(paths.contains(
+            &"docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md"
+        ));
+        assert!(!paths.contains(&"docs/status.md"));
+        assert!(!paths.contains(&"docs/architecture.md"));
+    }
+}

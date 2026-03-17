@@ -38,10 +38,18 @@ Start here:
 
 1. [`00-overarching-architecture-and-concept-spec.md`](00-overarching-architecture-and-concept-spec.md)
 2. [`01-cross-cutting-system-traits.md`](01-cross-cutting-system-traits.md)
-3. [`agents/orchestrator.md`](agents/orchestrator.md)
-4. [`agents/tool-access.md`](agents/tool-access.md)
-5. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
-6. [`implementation/roadmap.md`](implementation/roadmap.md)
+3. [`architecture/README.md`](architecture/README.md)
+4. [`agents/orchestrator.md`](agents/orchestrator.md)
+5. [`agents/tool-access.md`](agents/tool-access.md)
+6. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
+7. [`implementation/roadmap.md`](implementation/roadmap.md)
+
+## Sub-Pack Entry Points
+
+- [`architecture/README.md`](architecture/README.md) for eventing, state graph, and cross-subsystem runtime architecture docs
+- [`agents/orchestrator.md`](agents/orchestrator.md) for orchestration and supervision
+- [`cognition/context-model.md`](cognition/context-model.md) for cognition-state shape and interpretation
+- [`devices/cross-device-architecture.md`](devices/cross-device-architecture.md) for multi-device sync and client topology
 
 ## Durable Principles
 

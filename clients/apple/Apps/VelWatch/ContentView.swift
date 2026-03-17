@@ -122,7 +122,7 @@ struct ContentView: View {
             }
 
             Section("Docs") {
-                Text("Core: docs/status.md")
+                Text("Core: docs/MASTER_PLAN.md")
                     .font(.caption2)
                 Text("User: docs/user/README.md")
                     .font(.caption2)

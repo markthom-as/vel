@@ -1,5 +1,5 @@
 -- Chat interface: conversations, messages, interventions, event_log.
--- See docs/tickets/vel-agent-ticket-pack and docs/specs/vel-chat-execution-plan.md
+-- See docs/api/chat.md and docs/MASTER_PLAN.md
 
 CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,

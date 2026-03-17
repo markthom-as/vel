@@ -1,5 +1,5 @@
 //! Nudge engine (policy layer): consumes current context + risk + nudges + policy. No duplicate signal/context logic.
-//! See docs/specs/vel-policy-engine-spec.md and vel-detailed-next-steps-and-ios-repo-guidance.md.
+//! See docs/cognitive-agent-architecture/policies/trust-and-safety.md and docs/MASTER_PLAN.md.
 //!
 //! **Boundary: recompute-and-persist.** [evaluate] creates/updates nudges and nudge_events. Only call from evaluate orchestration.
 

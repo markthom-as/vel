@@ -1,5 +1,5 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v1.0.2)
+**Status**: Canonical Truth (v1.0.3)
 **Last Updated**: 2026-03-17
 
 ---
@@ -50,6 +50,9 @@
 
 ### 1.6 Cross-Cutting Trait Baseline & Subsystem Audit **[PLANNED]**
 *   *Ticket*: `018-cross-cutting-system-traits-baseline.md`
+
+### 1.7 Documentation Catalog Single Source & Surface Parity **[PLANNED]**
+*   *Ticket*: `020-documentation-catalog-single-source.md`
 
 ---
 

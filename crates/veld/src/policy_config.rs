@@ -1,5 +1,5 @@
 //! Policy configuration loaded from config/policies.yaml at startup.
-//! See docs/specs/vel-agent-next-steps-policy-config-commute.md
+//! See docs/cognitive-agent-architecture/policies/trust-and-safety.md and docs/MASTER_PLAN.md.
 
 use serde::Deserialize;
 use std::path::Path;

@@ -24,6 +24,7 @@ These are the current authoritative entrypoints:
 
 These files drive ongoing implementation work:
 
+- [tickets/README.md](tickets/README.md): queue index and phase navigation
 - `docs/tickets/phase-1/*.md`
 - `docs/tickets/phase-2/*.md`
 - `docs/tickets/phase-3/*.md`

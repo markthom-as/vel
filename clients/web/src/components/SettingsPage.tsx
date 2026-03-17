@@ -1355,8 +1355,9 @@ export function SettingsPage({
                   title="Core documentation"
                   docs={[
                     ['Docs Guide', 'docs/README.md', 'Top-level docs authority and navigation.'],
-                    ['Status', 'docs/status.md', 'Canonical shipped behavior and implementation truth.'],
-                    ['Architecture', 'docs/architecture.md', 'System structure and runtime boundaries.'],
+                    ['Master Plan', 'docs/MASTER_PLAN.md', 'Canonical implementation truth and phase roadmap.'],
+                    ['Concept Spec', 'docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md', 'Durable architecture and agentic design principles.'],
+                    ['Cross-Cutting Traits', 'docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md', 'Repo-wide system traits and subsystem expectations.'],
                   ]}
                 />
                 <DocumentationCard

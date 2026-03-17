@@ -1,5 +1,5 @@
 //! Thread graph: list, inspect, create, update status, link entities.
-//! See docs/specs/vel-thread-graph-spec.md.
+//! See docs/api/runtime.md.
 
 use axum::{
     extract::{Path, Query, State},

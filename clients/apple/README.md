@@ -7,7 +7,7 @@ Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel da
 - **VelWatch** — Apple Watch: brief “what matters now” summary (mode + next commitment), nudge quick actions (done/snooze), quick capture/check-in/task entry, cached fallback.
 - **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages snapshot export into Vel’s Application Support tree.
 
-Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-client-spec.md), [vel-rust-swift-boundary-spec](../../docs/specs/vel-rust-swift-boundary-spec.md) (Rust = brain, Swift = body; API-first), [vel-apple-offline-mode-spec](../../docs/specs/vel-apple-offline-mode-spec.md) (cache + action queue + stale-aware offline mode). Repo guidance: [docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md](../../docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md) (Apple clients in same repo, under `clients/apple/`).
+Current architecture and planning references: [Master Plan](../../docs/MASTER_PLAN.md), [overarching concept spec](../../docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md), [HLC sync implementation ticket](../../docs/tickets/phase-2/005-hlc-sync-implementation.md), and [tester-readiness onboarding ticket](../../docs/tickets/phase-2/012-tester-readiness-onboarding.md).
 
 ## Prerequisites
 

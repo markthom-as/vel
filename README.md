@@ -19,7 +19,7 @@ Vel is currently transitioning from a prototype to a bulletproof distributed swa
 4.  **Phase 4: Autonomy** — Semantic Graph RAG, WASM sandboxing, and P2P sync. **[PLANNED]**
 
 **Full Roadmap & Status**: [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md)  
-**Active Tickets**: [docs/tickets/](docs/tickets/)
+**Active Tickets**: [docs/tickets/README.md](docs/tickets/README.md)
 
 ---
 
@@ -36,7 +36,9 @@ The **Vel v0 (MVP)** is 75% complete.
 
 ### 1. Developer Onboarding
 If you are contributing to the codebase, please review the following:
+- **Docs Guide**: [docs/README.md](docs/README.md)
 - **Canonical Architecture**: [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md)
+- **Ticket Queue**: [docs/tickets/README.md](docs/tickets/README.md)
 - **Concept Spec**: [docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md](docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md)
 - **Cross-Cutting Traits**: [docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md](docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md)
 - **Repo Hardening**: [docs/tickets/phase-1/001-storage-modularization.md](docs/tickets/phase-1/001-storage-modularization.md)
@@ -57,9 +59,13 @@ Vel uses Nix for a reproducible toolchain. Ensure you are in the `nix-shell` bef
 |--------|-------------|
 | `make build` | Build veld and the web client. |
 | `make dev` | Start **veld** and the **web dev server** (Vite UI at http://localhost:5173). |
+| `make dev-api` | Start only `veld` for runtime and API work. |
+| `make dev-web` | Start only the web dev server against an existing daemon. |
 | `make verify` | Run Rust fmt/clippy and full test suite. |
 | `make ci` | Run local CI verification (install, check, test, build). |
 | `make seed` | Populate local API with sample captures and commitments. |
+| `make smoke` | Run the daemon/API/CLI smoke path. |
+| `make bootstrap-demo-data` | Load demo-oriented local data and snapshots. |
 
 ### Example CLI Commands
 ```bash

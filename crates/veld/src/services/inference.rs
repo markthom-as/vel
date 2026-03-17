@@ -1,5 +1,5 @@
 //! Inference engine: signals + commitments + time -> inferred state and canonical current context (Phase C).
-//! See docs/specs/vel-current-context-spec.md for canonical shape and material-change rules.
+//! See docs/cognitive-agent-architecture/cognition/context-model.md and docs/tickets/phase-1/002-typed-context-transition.md for current context shape and migration direction.
 //!
 //! **Boundary: recompute-and-persist.** This module must only be called from the evaluate
 //! orchestration (e.g. [crate::services::evaluate::run]). Never call from explain or read routes.

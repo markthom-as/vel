@@ -20,23 +20,26 @@ function readFile(relativePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
-function normalizeRepoFeedbackStatus(statusValue) {
-  const normalized = statusValue.trim().toLowerCase().replaceAll(' ', '_');
-  if (normalized.includes('deferred')) return 'deferred';
-  if (normalized.includes('in_progress')) return 'in_progress';
-  if (normalized === 'done') return 'done';
-  return normalized;
-}
-
 const requiredFiles = [
   '.github/workflows/ci.yml',
   'Makefile',
   'README.md',
   'AGENTS.md',
   'docs/README.md',
-  'docs/reviews/README.md',
-  'docs/status.md',
-  'docs/tickets/repo-feedback/README.md',
+  'docs/MASTER_PLAN.md',
+  'docs/tickets/README.md',
+  'docs/api/README.md',
+  'docs/api/runtime.md',
+  'docs/api/chat.md',
+  'docs/user/README.md',
+  'docs/templates/README.md',
+  'docs/templates/spec-template.md',
+  'docs/templates/agent-implementation-protocol.md',
+  'docs/cognitive-agent-architecture/README.md',
+  'docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md',
+  'docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md',
+  'docs/cognitive-agent-architecture/architecture/README.md',
+  'docs/cognitive-agent-architecture/architecture/spec-draft.md',
   'scripts/ci-smoke.sh',
   'scripts/bootstrap-demo-data.sh',
 ];
@@ -50,17 +53,20 @@ for (const file of requiredFiles) {
 const readme = readFile('README.md');
 const agents = readFile('AGENTS.md');
 const docsReadme = readFile('docs/README.md');
-const reviewsReadme = readFile('docs/reviews/README.md');
-const makefile = readFile('Makefile');
-const status = readFile('docs/status.md');
-const repoFeedbackReadme = readFile('docs/tickets/repo-feedback/README.md');
+const masterPlan = readFile('docs/MASTER_PLAN.md');
 const ticketsReadme = readFile('docs/tickets/README.md');
-const apiChat = readFile('docs/api/chat.md');
-const repoFeedbackDir = path.join(repoRoot, 'docs', 'tickets', 'repo-feedback');
-const packSchema = readFile('docs/tickets/pack-schema.md');
-const archAuditPlan = readFile(
-  'docs/tickets/repo-audit-hardening/004-architecture-map-and-module-boundary-audit.md',
+const conceptSpec = readFile(
+  'docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md',
 );
+const traitsSpec = readFile(
+  'docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md',
+);
+const architecturePackReadme = readFile('docs/cognitive-agent-architecture/architecture/README.md');
+const templatesReadme = readFile('docs/templates/README.md');
+const specTemplate = readFile('docs/templates/spec-template.md');
+const apiRuntime = readFile('docs/api/runtime.md');
+const apiChat = readFile('docs/api/chat.md');
+const makefile = readFile('Makefile');
 
 const requiredReadmeCommands = [
   'make build',
@@ -113,160 +119,91 @@ for (const target of requiredMakeTargets) {
   ensure(makeTargets.has(target), `Makefile target missing: ${target}`);
 }
 
-ensure(
-  fs.existsSync(path.join(repoRoot, 'docs', 'status.md')),
-  'Missing docs/status.md',
-);
-ensure(readme.includes('docs/status.md'), 'README does not reference docs/status.md');
 ensure(readme.includes('docs/README.md'), 'README does not reference docs/README.md');
-ensure(agents.includes('docs/README.md'), 'AGENTS.md does not reference docs/README.md');
-ensure(agents.includes('docs/status.md'), 'AGENTS.md does not reference docs/status.md');
-ensure(status.includes('Chat interface'), 'docs/status.md does not mention chat interface status');
+ensure(readme.includes('docs/MASTER_PLAN.md'), 'README does not reference docs/MASTER_PLAN.md');
 ensure(
-  docsReadme.includes('## Doc Classes'),
-  'docs/README.md does not define documentation classes',
+  readme.includes('docs/tickets/README.md'),
+  'README does not reference docs/tickets/README.md',
 );
 ensure(
-  docsReadme.includes('[status.md](status.md)'),
-  'docs/README.md does not point to docs/status.md as current truth',
+  readme.includes('docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md'),
+  'README does not reference the concept spec',
+);
+ensure(agents.includes('docs/README.md'), 'AGENTS.md does not reference docs/README.md');
+ensure(
+  agents.includes('docs/MASTER_PLAN.md'),
+  'AGENTS.md does not reference docs/MASTER_PLAN.md',
+);
+ensure(
+  docsReadme.includes('[MASTER_PLAN.md](MASTER_PLAN.md)'),
+  'docs/README.md does not point to docs/MASTER_PLAN.md as current truth',
 );
 ensure(
   docsReadme.includes('[tickets/README.md](tickets/README.md)'),
-  'docs/README.md does not point to the ticket index as the active-plan entry point',
+  'docs/README.md does not point to docs/tickets/README.md as queue entrypoint',
 );
 ensure(
-  docsReadme.includes('[tickets/repo-feedback/README.md](tickets/repo-feedback/README.md)'),
-  'docs/README.md does not mention the repo-feedback packet',
+  docsReadme.includes('cognitive-agent-architecture/README.md'),
+  'docs/README.md does not point to the architecture pack',
 );
 ensure(
-  docsReadme.includes('[tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md)'),
-  'docs/README.md does not mention the repo-audit-hardening packet',
+  docsReadme.includes('docs/tickets/phase-1') || docsReadme.includes('docs/tickets/phase-1/*.md'),
+  'docs/README.md does not point to the phase ticket queues',
 );
 ensure(
-  ticketsReadme.includes('ticket inventory and triage index'),
-  'docs/tickets/README.md does not describe itself as the ticket inventory and triage index',
+  masterPlan.includes('Execution-Backed Verification'),
+  'docs/MASTER_PLAN.md is missing execution-backed verification guidance',
 );
 ensure(
-  ticketsReadme.includes('repo-audit-hardening/README.md'),
-  'docs/tickets/README.md does not list the repo-audit-hardening packet',
+  masterPlan.includes('Cross-Cutting Trait Discipline'),
+  'docs/MASTER_PLAN.md is missing cross-cutting trait discipline guidance',
 );
 ensure(
-  ticketsReadme.includes('037-chat-remote-fallback-for-assistant-generation.md'),
-  'docs/tickets/README.md does not include chat ticket 037 in the convenience list',
+  masterPlan.includes('020-documentation-catalog-single-source.md'),
+  'docs/MASTER_PLAN.md is missing the documentation catalog ticket',
 );
 ensure(
-  apiChat.includes('### `GET /ws`'),
-  'docs/api/chat.md does not document the live /ws websocket entrypoint',
+  ticketsReadme.includes('020-documentation-catalog-single-source.md'),
+  'docs/tickets/README.md is missing the documentation catalog ticket',
 );
 ensure(
-  ticketsReadme.includes('[docs/status.md](../status.md)'),
-  'docs/tickets/README.md does not defer implementation truth to docs/status.md',
+  conceptSpec.includes('Single Orchestrator By Default'),
+  'concept spec is missing the orchestrator-first principle',
 );
 ensure(
-  packSchema.includes('## Required pack metadata'),
-  'docs/tickets/pack-schema.md is missing the required metadata section',
+  conceptSpec.includes('Capability Mediation Over Raw Access'),
+  'concept spec is missing capability mediation guidance',
 );
 ensure(
-  packSchema.includes('## Pack classification guidance'),
-  'docs/tickets/pack-schema.md is missing the classification guidance',
+  traitsSpec.includes('modularity')
+    && traitsSpec.includes('accessibility')
+    && traitsSpec.includes('configurability')
+    && traitsSpec.includes('rewind/replay')
+    && traitsSpec.includes('composability'),
+  'cross-cutting traits spec is missing one or more required traits',
 );
 ensure(
-  packSchema.includes('## Enforcement rule'),
-  'docs/tickets/pack-schema.md is missing the enforcement rule',
+  architecturePackReadme.includes('spec-draft.md'),
+  'architecture sub-pack README does not point to the default spec draft file',
 );
 ensure(
-  archAuditPlan.includes('vel-architecture-audit-method.md'),
-  'Architecture map ticket does not highlight the required audit method document',
+  templatesReadme.includes('docs/cognitive-agent-architecture/')
+    && templatesReadme.includes('docs/tickets/phase-*/'),
+  'docs/templates/README.md does not describe current doc placement rules',
 );
 ensure(
-  /### 1\. Active convergence work|## Active convergence work/.test(ticketsReadme),
-  'docs/tickets/README.md does not expose maturity classes for active work',
+  specTemplate.includes('docs/MASTER_PLAN.md')
+    && specTemplate.includes('Cross-Cutting Traits'),
+  'docs/templates/spec-template.md is missing current authority or trait guidance',
 );
 ensure(
-  /### 2\. Near-term design \/ expansion|## Near-term design \/ expansion/.test(ticketsReadme),
-  'docs/tickets/README.md does not expose maturity classes for near-term expansion',
+  apiRuntime.includes('### `GET /v1/cluster/workers`')
+    && apiRuntime.includes('### `POST /v1/evaluate`'),
+  'docs/api/runtime.md does not document key mounted runtime routes',
 );
 ensure(
-  /### 3\. Speculative \/ future architecture|## Speculative \/ future architecture/.test(ticketsReadme),
-  'docs/tickets/README.md does not expose maturity classes for speculative architecture',
-);
-ensure(
-  /## Current truth|### Current truth/.test(docsReadme),
-  'docs/README.md does not mark a current truth section',
-);
-ensure(
-  /## Active plan|### Active plan/.test(docsReadme),
-  'docs/README.md does not mark an active plan section',
-);
-ensure(
-  /## Historical review|### Historical review/.test(docsReadme),
-  'docs/README.md does not mark a historical review section',
-);
-ensure(
-  repoFeedbackReadme.includes('finish convergence before adding breadth'),
-  'repo-feedback README lost the convergence priority statement',
-);
-if (fs.existsSync(repoFeedbackDir)) {
-  const repoFeedbackStatuses = new Map();
-  for (const entry of fs.readdirSync(repoFeedbackDir).filter((name) => name.endsWith('.md'))) {
-    if (entry === 'README.md') continue;
-    const content = readFile(path.join('docs/tickets/repo-feedback', entry));
-    const statusMatch = content.match(/^status:\s*([a-z_]+)$/m);
-    ensure(statusMatch, `repo-feedback ticket missing status frontmatter: ${entry}`);
-    if (!statusMatch) continue;
-    const statusValue = statusMatch[1];
-    ensure(
-      ['done', 'in_progress', 'deferred'].includes(statusValue),
-      `repo-feedback ticket has ambiguous status (${statusValue}): ${entry}`,
-    );
-    repoFeedbackStatuses.set(entry, statusValue);
-  }
-  const repoFeedbackSummaryStatuses = new Map();
-  for (const match of repoFeedbackReadme.matchAll(/^- `(\d{3})` [^:]+: ([a-z_ ]+)/gm)) {
-    repoFeedbackSummaryStatuses.set(match[1], normalizeRepoFeedbackStatus(match[2]));
-  }
-  for (const [entry, statusValue] of repoFeedbackStatuses.entries()) {
-    const ticketNumber = entry.match(/^(\d{3})-/)?.[1];
-    if (!ticketNumber) continue;
-    const summaryStatus = repoFeedbackSummaryStatuses.get(ticketNumber);
-    ensure(
-      summaryStatus,
-      `repo-feedback README missing convergence summary entry for ticket ${ticketNumber}`,
-    );
-    if (!summaryStatus) continue;
-    ensure(
-      summaryStatus === statusValue,
-      `repo-feedback README summary status (${summaryStatus}) disagrees with frontmatter (${statusValue}) for ticket ${ticketNumber}`,
-    );
-  }
-  ensure(
-    [...repoFeedbackStatuses.values()].some((statusValue) => statusValue === 'done'),
-    'repo-feedback packet does not record any completed tickets',
-  );
-  ensure(
-    [...repoFeedbackStatuses.values()].some((statusValue) => statusValue === 'in_progress'),
-    'repo-feedback packet does not record any in-progress tickets',
-  );
-}
-ensure(
-  status.includes('Repo-feedback follow-through'),
-  'docs/status.md does not record repo-feedback follow-through',
-);
-ensure(
-  reviewsReadme.includes('historical review'),
-  'docs/reviews/README.md does not mark the reviews directory as historical review',
-);
-ensure(
-  reviewsReadme.includes('../status.md'),
-  'docs/reviews/README.md does not point back to docs/status.md',
-);
-ensure(
-  reviewsReadme.includes('../tickets/README.md'),
-  'docs/reviews/README.md does not point to the ticket index for active planning context',
-);
-ensure(
-  reviewsReadme.includes('../README.md'),
-  'docs/reviews/README.md does not point back to the docs taxonomy guide',
+  apiChat.includes('### `GET /ws`') && apiChat.includes('/api/integrations'),
+  'docs/api/chat.md does not document websocket or integration operator surfaces',
 );
 
 if (missing.length > 0) {
