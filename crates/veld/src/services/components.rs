@@ -4,11 +4,7 @@ use vel_api_types::{ComponentData, ComponentLogEventData};
 use vel_config::AppConfig;
 use vel_storage::Storage;
 
-use crate::{
-    adapters,
-    errors::AppError,
-    policy_config::PolicyConfig,
-};
+use crate::{adapters, errors::AppError, policy_config::PolicyConfig};
 
 const COMPONENT_SETTINGS_PREFIX: &str = "component_state:";
 const COMPONENT_LOG_LIMIT_DEFAULT: u32 = 50;
@@ -148,22 +144,26 @@ async fn append_component_event(
             event_name: event_name.to_string(),
             aggregate_type: Some("component".to_string()),
             aggregate_id: Some(component_id.to_string()),
-            payload_json: payload_json(
-                serde_json::json!({
-                    "component_id": component_id,
-                    "status": status,
-                    "message": message,
-                    "details": details,
-                }),
-            ),
+            payload_json: payload_json(serde_json::json!({
+                "component_id": component_id,
+                "status": status,
+                "message": message,
+                "details": details,
+            })),
         })
         .await?;
     Ok(())
 }
 
-async fn load_component_state(storage: &Storage, component_id: &str) -> Result<StoredComponentState, AppError> {
+async fn load_component_state(
+    storage: &Storage,
+    component_id: &str,
+) -> Result<StoredComponentState, AppError> {
     let all_settings = storage.get_all_settings().await?;
-    let state = all_settings.get(&component_state_key(component_id)).cloned().unwrap_or_default();
+    let state = all_settings
+        .get(&component_state_key(component_id))
+        .cloned()
+        .unwrap_or_default();
     let state = serde_json::from_value(state).unwrap_or_default();
     Ok(state)
 }
@@ -219,9 +219,10 @@ pub async fn list_component_logs(
         .await?;
 
     Ok(events
-                .into_iter()
+        .into_iter()
         .map(|event| {
-            let payload = serde_json::from_str(&event.payload_json).unwrap_or_else(|_| serde_json::json!({}));
+            let payload =
+                serde_json::from_str(&event.payload_json).unwrap_or_else(|_| serde_json::json!({}));
             let event_name = event.event_name;
             let status = payload_status(&payload);
             let status = if status.is_empty() {
@@ -244,15 +245,16 @@ pub async fn list_component_logs(
         .collect())
 }
 
-async fn restart_google(
-    storage: &Storage,
-    config: &AppConfig,
-) -> Result<String, AppError> {
-    let signals = match crate::services::integrations::sync_google_calendar(storage, config).await? {
+async fn restart_google(storage: &Storage, config: &AppConfig) -> Result<String, AppError> {
+    let signals = match crate::services::integrations::sync_google_calendar(storage, config).await?
+    {
         Some(count) => count,
         None => adapters::calendar::ingest(storage, config).await?,
     };
-    Ok(format!("Google Calendar ingest complete: {} signals", signals))
+    Ok(format!(
+        "Google Calendar ingest complete: {} signals",
+        signals
+    ))
 }
 
 async fn restart_todoist(storage: &Storage, config: &AppConfig) -> Result<String, AppError> {
@@ -288,7 +290,10 @@ async fn restart_transcripts(storage: &Storage, config: &AppConfig) -> Result<St
     Ok(format!("Transcript ingest complete: {} signals", signals))
 }
 
-async fn restart_evaluate(storage: &Storage, policy_config: &PolicyConfig) -> Result<String, AppError> {
+async fn restart_evaluate(
+    storage: &Storage,
+    policy_config: &PolicyConfig,
+) -> Result<String, AppError> {
     let result = crate::services::evaluate::run(storage, policy_config).await?;
     Ok(format!(
         "Evaluate complete: {} states, {} nudges",
@@ -322,7 +327,8 @@ pub async fn restart_component(
     component_id: &str,
 ) -> Result<ComponentData, AppError> {
     let component_id = component_id.trim();
-    let spec = component_spec(component_id).ok_or_else(|| AppError::not_found("component not found"))?;
+    let spec =
+        component_spec(component_id).ok_or_else(|| AppError::not_found("component not found"))?;
 
     let requested_at = now_ts();
     let mut state = load_component_state(storage, component_id).await?;

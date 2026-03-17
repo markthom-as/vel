@@ -193,6 +193,18 @@ function updateRunsCache(
   });
 }
 
+function updateComponentsCache(componentsKey: QueryKey, component: ComponentData) {
+  setQueryData<ComponentData[]>(componentsKey, (current = []) => {
+    const next = [...current];
+    const index = next.findIndex((existing) => existing.id === component.id);
+    if (index >= 0) {
+      next[index] = component;
+      return next;
+    }
+    return [...next, component];
+  });
+}
+
 function extractRunSummaryData(value: unknown): RunSummaryData | null {
   if (!value || typeof value !== 'object') {
     return null;
@@ -300,9 +312,11 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     return subscribeWs((event) => {
       if (event.type === 'runs:updated') {
         updateRunsCache(runsKey, runLimit, event.payload);
+      } else if (event.type === 'components:updated') {
+        updateComponentsCache(componentsKey, event.payload);
       }
     });
-  }, [runLimit, runsKey]);
+  }, [componentsKey, runLimit, runsKey]);
 
   useEffect(() => {
     if (!pendingOverrideRunId) {

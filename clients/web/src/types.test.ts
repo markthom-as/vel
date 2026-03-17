@@ -262,6 +262,29 @@ describe('transport decoders', () => {
     }
   })
 
+  it('decodes websocket component update events', () => {
+    const event = decodeWsEvent({
+      type: 'components:updated',
+      timestamp: '2026-03-16T12:10:00Z',
+      payload: {
+        id: 'evaluate',
+        name: 'Evaluate',
+        description: 'Evaluate all pipelines',
+        status: 'running',
+        last_restarted_at: 1_700_000_300,
+        last_error: null,
+        restart_count: 4,
+      },
+    })
+
+    expect(event.type).toBe('components:updated')
+    if (event.type === 'components:updated') {
+      expect(event.payload.id).toBe('evaluate')
+      expect(event.payload.status).toBe('running')
+      expect(event.payload.restart_count).toBe(4)
+    }
+  })
+
   it('rejects malformed websocket payloads for known event types', () => {
     expect(() =>
       decodeWsEvent({

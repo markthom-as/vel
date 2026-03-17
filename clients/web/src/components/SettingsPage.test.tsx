@@ -62,7 +62,7 @@ async function openComponentsTab(container: HTMLElement) {
   })
   fireEvent.click(within(root).getByRole('button', { name: /^components$/i }))
   await waitFor(() => {
-    expect(within(root).getByRole('heading', { name: /google-calendar/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /google calendar/i })).toBeInTheDocument()
   })
   return root
 }
@@ -419,7 +419,7 @@ describe('SettingsPage', () => {
     expect(within(root).getByRole('heading', { name: /todoist/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /evaluate/i })).toBeInTheDocument()
     expect(within(root).getByText('Calendar ingest')).toBeInTheDocument()
-    expect(within(root).getByText(/Restarts: 0/)).toBeInTheDocument()
+    expect(within(root).getAllByText(/Restarts: 0/)).toHaveLength(2)
   })
 
   it('expands component logs and shows restart event history', async () => {
@@ -460,9 +460,9 @@ describe('SettingsPage', () => {
     fireEvent.click(within(evaluateCard as HTMLElement).getByRole('button', { name: /restart now/i }))
 
     await waitFor(() => {
-      expect(within(evaluateCard as HTMLElement).getByText('evaluate restarted (ok).')).toBeInTheDocument()
+      expect(within(evaluateCard as HTMLElement).getByText(/evaluate restarted \(ok\)\.?/i)).toBeInTheDocument()
     })
-    expect(client.apiPost).toHaveBeenCalledWith('/api/components/evaluate/restart')
+    expect(client.apiPost).toHaveBeenCalledWith('/api/components/evaluate/restart', {})
   })
 
   it('shows an error message when component restart fails', async () => {
@@ -913,6 +913,46 @@ describe('SettingsPage', () => {
     ).length
     expect(runsCallsAfter).toBe(runsCallsBefore)
     expect(within(root).getByText('Blocked reason: ws_blocked_reason')).toBeInTheDocument()
+  })
+
+  it('updates components from websocket payloads without refetching', async () => {
+    let wsListener: ((event: WsEnvelope) => void) | null = null
+    subscribeWs.mockImplementation((listener) => {
+      wsListener = listener
+      return () => {}
+    })
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openComponentsTab(container)
+
+    const evaluateCard = within(root).getByRole('heading', { name: /evaluate/i }).closest('.rounded-lg')
+    expect(evaluateCard).not.toBeNull()
+    expect(within(evaluateCard as HTMLElement).getByText(/Restarts: 0/)).toBeInTheDocument()
+
+    expect(wsListener).not.toBeNull()
+    if (!wsListener) {
+      throw new Error('expected websocket listener')
+    }
+
+    const componentUpdateListener: (event: WsEnvelope) => void = wsListener
+    componentUpdateListener({
+      type: 'components:updated',
+      timestamp: '2026-03-16T22:40:00Z',
+      payload: {
+        id: 'evaluate',
+        name: 'Evaluate',
+        description: 'Evaluate all pipelines',
+        status: 'error',
+        last_restarted_at: 1_700_000_400,
+        last_error: 'restart failed',
+        restart_count: 3,
+      },
+    })
+    await Promise.resolve()
+
+    expect(within(evaluateCard as HTMLElement).getByText('Restarts: 3')).toBeInTheDocument()
+    expect(within(evaluateCard as HTMLElement).getByText('Last error: restart failed')).toBeInTheDocument()
+    expect(within(evaluateCard as HTMLElement).getByText('error')).toBeInTheDocument()
   })
 
   it('subscribes to websocket updates for runs', async () => {

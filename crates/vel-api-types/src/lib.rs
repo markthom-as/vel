@@ -360,6 +360,8 @@ pub enum WsEventType {
     InterventionsUpdated,
     #[serde(rename = "runs:updated")]
     RunsUpdated,
+    #[serde(rename = "components:updated")]
+    ComponentsUpdated,
 }
 
 impl std::fmt::Display for WsEventType {
@@ -369,6 +371,7 @@ impl std::fmt::Display for WsEventType {
             Self::InterventionsNew => "interventions:new",
             Self::InterventionsUpdated => "interventions:updated",
             Self::RunsUpdated => "runs:updated",
+            Self::ComponentsUpdated => "components:updated",
         };
         f.write_str(s)
     }
@@ -383,6 +386,7 @@ impl std::str::FromStr for WsEventType {
             "interventions:new" => Ok(Self::InterventionsNew),
             "interventions:updated" => Ok(Self::InterventionsUpdated),
             "runs:updated" => Ok(Self::RunsUpdated),
+            "components:updated" => Ok(Self::ComponentsUpdated),
             other => Err(format!("unknown websocket event type: {}", other)),
         }
     }
@@ -390,7 +394,8 @@ impl std::str::FromStr for WsEventType {
 
 impl From<&str> for WsEventType {
     fn from(value: &str) -> Self {
-        value.parse()
+        value
+            .parse()
             .unwrap_or_else(|_| panic!("invalid websocket event type: {}", value))
     }
 }

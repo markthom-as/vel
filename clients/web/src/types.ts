@@ -272,11 +272,18 @@ export interface WsRunsUpdatedEvent {
   payload: RunUpdateEventData;
 }
 
+export interface WsComponentsUpdatedEvent {
+  type: 'components:updated';
+  timestamp: string;
+  payload: ComponentData;
+}
+
 export type WsEvent =
   | WsMessageNewEvent
   | WsInterventionsNewEvent
   | WsInterventionsUpdatedEvent
-  | WsRunsUpdatedEvent;
+  | WsRunsUpdatedEvent
+  | WsComponentsUpdatedEvent;
 
 export type WsEnvelope = WsEvent;
 export type InterventionEventData = InboxItemData;
@@ -712,6 +719,12 @@ export function decodeWsEvent(value: unknown): WsEvent {
         type,
         timestamp,
         payload: decodeRunUpdateEventData(record.payload),
+      };
+    case 'components:updated':
+      return {
+        type,
+        timestamp,
+        payload: decodeComponentData(record.payload),
       };
     default:
       throw new Error(`Unsupported websocket event type: ${type}`);
