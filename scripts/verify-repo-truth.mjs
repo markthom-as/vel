@@ -33,6 +33,275 @@ function readJson(relativePath) {
   }
 }
 
+const retiredDocumentationPaths = new Set([
+  'docs/status.md',
+  'docs/architecture.md',
+]);
+
+const fallbackJsonFixtureSchemaMap = new Map([
+  ['config/examples/connector-manifest.example.json', 'config/schemas/connector-manifest.schema.json'],
+  ['config/examples/self-model-envelope.example.json', 'config/schemas/self-model-envelope.schema.json'],
+]);
+
+function describeValueType(value) {
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+  if (value === null) {
+    return 'null';
+  }
+  return typeof value;
+}
+
+function isPlainObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function escapeJsonPointer(segment) {
+  return String(segment).replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+function joinJsonPointer(base, segment) {
+  if (base === '$') {
+    return `${base}/${escapeJsonPointer(segment)}`;
+  }
+  return `${base}/${escapeJsonPointer(segment)}`;
+}
+
+function resolveSchemaRef(rootSchema, ref) {
+  if (typeof ref !== 'string' || !ref.startsWith('#/')) {
+    throw new Error(`Unsupported schema reference: ${String(ref)}`);
+  }
+  const pathParts = ref.slice(2).split('/').map((part) => part.replace(/~1/g, '/').replace(/~0/g, '~'));
+  let current = rootSchema;
+  for (const part of pathParts) {
+    if (!isPlainObject(current) || !(part in current)) {
+      throw new Error(`Unresolvable schema reference: ${ref}`);
+    }
+    current = current[part];
+  }
+  return current;
+}
+
+function validateAgainstSchema({
+  schemaNode,
+  rootSchema,
+  value,
+  pointer,
+  errors,
+}) {
+  if (!isPlainObject(schemaNode)) {
+    return;
+  }
+
+  if (schemaNode.$ref) {
+    try {
+      const resolved = resolveSchemaRef(rootSchema, schemaNode.$ref);
+      validateAgainstSchema({ schemaNode: resolved, rootSchema, value, pointer, errors });
+    } catch (error) {
+      errors.push(`${pointer}: ${error.message}`);
+    }
+    return;
+  }
+
+  if (Array.isArray(schemaNode.oneOf)) {
+    const branchErrors = schemaNode.oneOf.map((branch) => {
+      const candidateErrors = [];
+      validateAgainstSchema({ schemaNode: branch, rootSchema, value, pointer, errors: candidateErrors });
+      return candidateErrors;
+    });
+    const matchCount = branchErrors.filter((candidateErrors) => candidateErrors.length === 0).length;
+    if (matchCount !== 1) {
+      errors.push(`${pointer}: expected exactly one schema match, matched ${matchCount}`);
+      if (matchCount === 0) {
+        for (const [index, candidateErrors] of branchErrors.entries()) {
+          for (const candidateError of candidateErrors) {
+            errors.push(`${pointer}: oneOf[${index}] ${candidateError.replace(`${pointer}: `, '')}`);
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  if (schemaNode.type) {
+    const allowedTypes = Array.isArray(schemaNode.type) ? schemaNode.type : [schemaNode.type];
+    const valueType = describeValueType(value);
+    const typeMatches = allowedTypes.some((type) => {
+      if (type === 'integer') {
+        return Number.isInteger(value);
+      }
+      if (type === 'number') {
+        return typeof value === 'number' && Number.isFinite(value);
+      }
+      if (type === 'object') {
+        return isPlainObject(value);
+      }
+      if (type === 'array') {
+        return Array.isArray(value);
+      }
+      if (type === 'null') {
+        return value === null;
+      }
+      return typeof value === type;
+    });
+    if (!typeMatches) {
+      errors.push(`${pointer}: expected type ${allowedTypes.join('|')}, got ${valueType}`);
+      return;
+    }
+  }
+
+  if (Array.isArray(schemaNode.enum) && !schemaNode.enum.some((entry) => Object.is(entry, value))) {
+    errors.push(`${pointer}: expected one of ${schemaNode.enum.map((entry) => JSON.stringify(entry)).join(', ')}`);
+  }
+
+  if (typeof schemaNode.pattern === 'string' && typeof value === 'string') {
+    const regex = new RegExp(schemaNode.pattern);
+    if (!regex.test(value)) {
+      errors.push(`${pointer}: "${value}" does not match pattern ${schemaNode.pattern}`);
+    }
+  }
+
+  if (typeof schemaNode.minLength === 'number' && typeof value === 'string' && value.length < schemaNode.minLength) {
+    errors.push(`${pointer}: expected minLength ${schemaNode.minLength}, got ${value.length}`);
+  }
+
+  if (typeof schemaNode.minimum === 'number' && typeof value === 'number' && value < schemaNode.minimum) {
+    errors.push(`${pointer}: expected >= ${schemaNode.minimum}, got ${value}`);
+  }
+
+  if (typeof schemaNode.maximum === 'number' && typeof value === 'number' && value > schemaNode.maximum) {
+    errors.push(`${pointer}: expected <= ${schemaNode.maximum}, got ${value}`);
+  }
+
+  if (typeof schemaNode.minItems === 'number' && Array.isArray(value) && value.length < schemaNode.minItems) {
+    errors.push(`${pointer}: expected minItems ${schemaNode.minItems}, got ${value.length}`);
+  }
+
+  if (Array.isArray(value) && schemaNode.items) {
+    for (const [index, item] of value.entries()) {
+      validateAgainstSchema({
+        schemaNode: schemaNode.items,
+        rootSchema,
+        value: item,
+        pointer: joinJsonPointer(pointer, index),
+        errors,
+      });
+    }
+  }
+
+  if (isPlainObject(value)) {
+    if (Array.isArray(schemaNode.required)) {
+      for (const key of schemaNode.required) {
+        if (!(key in value)) {
+          errors.push(`${pointer}: missing required property "${key}"`);
+        }
+      }
+    }
+
+    if (isPlainObject(schemaNode.properties)) {
+      for (const [key, propertySchema] of Object.entries(schemaNode.properties)) {
+        if (key in value) {
+          validateAgainstSchema({
+            schemaNode: propertySchema,
+            rootSchema,
+            value: value[key],
+            pointer: joinJsonPointer(pointer, key),
+            errors,
+          });
+        }
+      }
+    }
+
+    if (schemaNode.propertyNames) {
+      for (const key of Object.keys(value)) {
+        validateAgainstSchema({
+          schemaNode: schemaNode.propertyNames,
+          rootSchema,
+          value: key,
+          pointer: `${pointer} (property name "${key}")`,
+          errors,
+        });
+      }
+    }
+
+    if (schemaNode.additionalProperties !== undefined) {
+      const definedProperties = isPlainObject(schemaNode.properties)
+        ? new Set(Object.keys(schemaNode.properties))
+        : new Set();
+      for (const [key, propertyValue] of Object.entries(value)) {
+        if (definedProperties.has(key)) {
+          continue;
+        }
+        if (schemaNode.additionalProperties === false) {
+          errors.push(`${pointer}: unexpected property "${key}"`);
+          continue;
+        }
+        if (isPlainObject(schemaNode.additionalProperties)) {
+          validateAgainstSchema({
+            schemaNode: schemaNode.additionalProperties,
+            rootSchema,
+            value: propertyValue,
+            pointer: joinJsonPointer(pointer, key),
+            errors,
+          });
+        }
+      }
+    }
+  }
+}
+
+function collectJsonFixtureSchemaMappings(manifest) {
+  const mappings = [];
+  if (Array.isArray(manifest?.contract_examples)) {
+    for (const entry of manifest.contract_examples) {
+      if (!entry || typeof entry.path !== 'string' || typeof entry.schema !== 'string') {
+        ensure(false, 'config/contracts-manifest.json has contract_examples entry missing path/schema');
+        continue;
+      }
+      if (entry.path.endsWith('.json')) {
+        mappings.push({ path: entry.path, schema: entry.schema, source: 'contract_examples' });
+      }
+    }
+  }
+
+  if (mappings.length > 0) {
+    return mappings;
+  }
+
+  for (const [fixturePath, schemaPath] of fallbackJsonFixtureSchemaMap.entries()) {
+    mappings.push({ path: fixturePath, schema: schemaPath, source: 'fallback-map' });
+  }
+  return mappings;
+}
+
+function validateManifestJsonFixtures(manifest) {
+  const mappings = collectJsonFixtureSchemaMappings(manifest);
+  ensure(mappings.length > 0, 'No JSON fixture/schema mappings found in config/contracts-manifest.json');
+
+  for (const mapping of mappings) {
+    const fixture = readJson(mapping.path);
+    const schema = readJson(mapping.schema);
+    if (!fixture || !schema) {
+      continue;
+    }
+
+    const validationErrors = [];
+    validateAgainstSchema({
+      schemaNode: schema,
+      rootSchema: schema,
+      value: fixture,
+      pointer: '$',
+      errors: validationErrors,
+    });
+
+    ensure(
+      validationErrors.length === 0,
+      `Fixture schema validation failed (${mapping.source}): ${mapping.path} against ${mapping.schema}\n  ${validationErrors.join('\n  ')}`,
+    );
+  }
+}
+
 const requiredFiles = [
   '.github/workflows/ci.yml',
   'Makefile',
@@ -242,14 +511,41 @@ ensure(
   docsCatalog && Array.isArray(docsCatalog.entries),
   'docs/documentation-catalog.json is missing an entries array',
 );
+for (const entry of docsCatalog?.entries ?? []) {
+  ensure(
+    !retiredDocumentationPaths.has(entry.path),
+    `canonical documentation catalog contains retired path: ${entry.path}`,
+  );
+}
 const expectedDocsBySurface = (surface) =>
   (docsCatalog?.entries ?? [])
     .filter((entry) => Array.isArray(entry.surfaces) && entry.surfaces.includes(surface))
     .map(({ category, title, path, description }) => ({ category, title, path, description }));
+const expectedCatalogPaths = [
+  ...expectedDocsBySurface('cli').map((entry) => entry.path),
+  ...expectedDocsBySurface('web').map((entry) => entry.path),
+  ...expectedDocsBySurface('apple').map((entry) => entry.path),
+];
+for (const docPath of expectedCatalogPaths) {
+  ensure(
+    !retiredDocumentationPaths.has(docPath),
+    `surfaced documentation catalog contains retired path: ${docPath}`,
+  );
+}
+ensure(
+  expectedCatalogPaths.includes('docs/MASTER_PLAN.md'),
+  'surfaced documentation catalogs do not include docs/MASTER_PLAN.md',
+);
 ensure(
   JSON.stringify(cliDocsCatalog) === JSON.stringify(expectedDocsBySurface('cli')),
   'CLI documentation catalog is not synchronized with docs/documentation-catalog.json',
 );
+for (const retiredPath of retiredDocumentationPaths) {
+  ensure(
+    !JSON.stringify(cliDocsCatalog).includes(retiredPath),
+    `CLI documentation catalog contains retired path: ${retiredPath}`,
+  );
+}
 ensure(
   webDocsCatalog.includes('// GENERATED FILE. DO NOT EDIT.')
     && webDocsCatalog.includes('// Source: docs/documentation-catalog.json'),
@@ -261,6 +557,12 @@ for (const entry of expectedDocsBySurface('web')) {
     `web documentation catalog is missing path: ${entry.path}`,
   );
 }
+for (const retiredPath of retiredDocumentationPaths) {
+  ensure(
+    !webDocsCatalog.includes(retiredPath),
+    `web documentation catalog contains retired path: ${retiredPath}`,
+  );
+}
 ensure(
   appleDocsCatalog.includes('// GENERATED FILE. DO NOT EDIT.')
     && appleDocsCatalog.includes('// Source: docs/documentation-catalog.json'),
@@ -270,6 +572,12 @@ for (const entry of expectedDocsBySurface('apple')) {
   ensure(
     appleDocsCatalog.includes(entry.path),
     `Apple documentation catalog is missing path: ${entry.path}`,
+  );
+}
+for (const retiredPath of retiredDocumentationPaths) {
+  ensure(
+    !appleDocsCatalog.includes(retiredPath),
+    `Apple documentation catalog contains retired path: ${retiredPath}`,
   );
 }
 ensure(
@@ -454,6 +762,7 @@ ensure(
   ),
   'config/contracts-manifest.json is missing downstream publication/parity ticket references',
 );
+validateManifestJsonFixtures(contractManifest);
 ensure(
   connectorManifestExample?.source_mode === 'credential_api'
     && connectorManifestExample?.integration_family === 'calendar',

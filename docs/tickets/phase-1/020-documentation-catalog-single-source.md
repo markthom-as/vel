@@ -77,6 +77,12 @@ That duplication is already a DRY and consistency risk. This ticket creates one 
 - **Repo Check**: `node scripts/verify-repo-truth.mjs`
 - **Invariants**: surfaced catalogs must contain the Master Plan and must not contain retired authority files
 
+## Lane A Status Notes (2026-03-17)
+
+- [x] Added automated retired-authority rejection for documentation catalogs (`docs/status.md`, `docs/architecture.md`) in both `scripts/sync-documentation-catalog.mjs` and `scripts/verify-repo-truth.mjs`.
+- [x] Added automated invariant check that surfaced catalogs include `docs/MASTER_PLAN.md`.
+- [x] Verified with: `node scripts/sync-documentation-catalog.mjs --check` and `node scripts/verify-repo-truth.mjs`.
+
 # Agent Guardrails
 
 - **No New Shadow Catalogs**: Do not solve this by adding another hardcoded list in a different language.

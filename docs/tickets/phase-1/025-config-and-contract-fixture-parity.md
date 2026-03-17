@@ -67,6 +67,12 @@ This ticket makes checked-in templates and fixtures first-class artifacts consum
 - **Repo Check**: canonical templates and fixtures are discoverable from contract docs and queue references.
 - **Invariants**: no major config or contract surface remains example-less or test-uncovered.
 
+## Lane A Status Notes (2026-03-17)
+
+- [x] Added concrete automated validation in `scripts/verify-repo-truth.mjs` to validate manifest-mapped JSON fixtures from `config/contracts-manifest.json` `contract_examples` against their referenced JSON schemas.
+- [x] Added fallback fixture-schema mapping in the verifier for the current canonical JSON fixtures when `contract_examples` mappings are absent.
+- [x] Verified with: `node scripts/verify-repo-truth.mjs`.
+
 # Agent Guardrails
 
 - **No Inline-Only Contracts**: do not rely solely on inline test strings for shared contract examples.

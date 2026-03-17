@@ -7,6 +7,10 @@ const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..');
 
 const sourcePath = path.join(repoRoot, 'docs', 'documentation-catalog.json');
+const retiredDocumentationPaths = new Set([
+  'docs/status.md',
+  'docs/architecture.md',
+]);
 const cliOutputPath = path.join(
   repoRoot,
   'crates',
@@ -38,6 +42,14 @@ function readSource() {
   const parsed = JSON.parse(raw);
   if (!parsed || !Array.isArray(parsed.entries)) {
     throw new Error('docs/documentation-catalog.json is missing an entries array');
+  }
+  for (const entry of parsed.entries) {
+    if (!entry || typeof entry.path !== 'string') {
+      throw new Error('docs/documentation-catalog.json entry is missing required path');
+    }
+    if (retiredDocumentationPaths.has(entry.path)) {
+      throw new Error(`docs/documentation-catalog.json contains retired documentation path: ${entry.path}`);
+    }
   }
   return parsed.entries;
 }

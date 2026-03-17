@@ -1,3 +1,4 @@
+mod chat;
 mod db;
 mod infra;
 mod integrations;
