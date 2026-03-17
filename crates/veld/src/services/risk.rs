@@ -4,7 +4,7 @@
 //! **Boundary: recompute-and-persist.** [run] must only be called from the evaluate orchestration.
 //! Read routes (GET /v1/risk, GET /v1/explain/*) use storage only (list_commitment_risk_*).
 
-use vel_core::{Commitment, CommitmentStatus, RiskFactors, RiskSnapshot};
+use vel_core::{sort_snapshots_by_priority_desc, Commitment, CommitmentStatus, RiskFactors, RiskSnapshot};
 use vel_storage::Storage;
 
 /// Weights for risk score (consequence, proximity, dependency_pressure only).
@@ -141,7 +141,7 @@ pub async fn list_latest_snapshots(
     storage: &Storage,
 ) -> Result<Vec<RiskSnapshot>, crate::errors::AppError> {
     let rows = storage.list_commitment_risk_latest_all().await?;
-    Ok(rows
+    let mut snapshots: Vec<_> = rows
         .into_iter()
         .map(
             |(_, commitment_id, risk_score, risk_level, factors_json, computed_at)| {
@@ -154,7 +154,9 @@ pub async fn list_latest_snapshots(
                 )
             },
         )
-        .collect())
+        .collect();
+    sort_snapshots_by_priority_desc(&mut snapshots);
+    Ok(snapshots)
 }
 
 /// **Recompute-and-persist.** Compute risk for all open commitments and persist. Returns snapshots.
@@ -263,6 +265,7 @@ pub async fn run(
             Some(now_ts),
         ));
     }
+    sort_snapshots_by_priority_desc(&mut snapshots);
     Ok(snapshots)
 }
 
@@ -306,6 +309,41 @@ mod tests {
         assert_eq!(factors.stale_open_age, 0.0);
         assert!(factors.reasons.is_empty());
         assert!(factors.dependency_ids.is_empty());
+    }
+
+    #[test]
+    fn run_and_list_snapshots_use_canonical_priority_order() {
+        let mut snapshots = vec![
+            snapshot_from_row(
+                "com_low".to_string(),
+                0.95,
+                "low".to_string(),
+                r#"{"consequence":0.0,"proximity":0.0,"dependency_pressure":0.0,"external_anchor":0.0,"stale_open_age":0.0,"reasons":[],"dependency_ids":[]}"#,
+                Some(20),
+            ),
+            snapshot_from_row(
+                "com_high".to_string(),
+                0.60,
+                "high".to_string(),
+                r#"{"consequence":0.0,"proximity":0.0,"dependency_pressure":0.0,"external_anchor":0.0,"stale_open_age":0.0,"reasons":[],"dependency_ids":[]}"#,
+                Some(10),
+            ),
+            snapshot_from_row(
+                "com_critical".to_string(),
+                0.75,
+                "critical".to_string(),
+                r#"{"consequence":0.0,"proximity":0.0,"dependency_pressure":0.0,"external_anchor":0.0,"stale_open_age":0.0,"reasons":[],"dependency_ids":[]}"#,
+                Some(5),
+            ),
+        ];
+
+        sort_snapshots_by_priority_desc(&mut snapshots);
+
+        let ordered_ids: Vec<_> = snapshots
+            .iter()
+            .map(|snapshot| snapshot.commitment_id.as_str())
+            .collect();
+        assert_eq!(ordered_ids, vec!["com_critical", "com_high", "com_low"]);
     }
 
     fn test_commitment(

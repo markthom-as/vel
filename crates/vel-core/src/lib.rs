@@ -18,7 +18,7 @@ pub use message::{
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
 };
 pub use provenance::{Ref, RefRelationType};
-pub use risk::{RiskFactors, RiskSnapshot};
+pub use risk::{sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
 pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
 pub use types::{ConversationId, EventId, InterventionId, MessageId};
 pub use uncertainty::{ResolutionMode, UncertaintyStatus};
