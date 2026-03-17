@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import type { ConversationData, WsEvent } from '../types';
-import { invalidateQuery, useQuery } from '../data/query';
+import { setQueryData, useQuery } from '../data/query';
 import { loadConversationList, queryKeys } from '../data/resources';
+import { reconcileConversationFromMessage } from '../data/chat-state';
 import { subscribeWs } from '../realtime/ws';
 
 interface ConversationListProps {
@@ -22,7 +23,9 @@ export function ConversationList({ selectedId, onSelect }: ConversationListProps
   useEffect(() => {
     return subscribeWs((event: WsEvent) => {
       if (event.type === 'messages:new') {
-        invalidateQuery(conversationsKey, { refetch: true });
+        setQueryData<ConversationData[]>(conversationsKey, (prev = []) =>
+          reconcileConversationFromMessage(prev, event.payload),
+        );
       }
     });
   }, [conversationsKey]);

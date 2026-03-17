@@ -27,7 +27,7 @@ describe('ConversationList realtime sync', () => {
     vi.mocked(api.apiGet).mockReset()
   })
 
-  it('refetches conversations when a websocket message arrives', async () => {
+  it('updates conversation list cache when a websocket message arrives', async () => {
     let wsListener: ((event: WsEnvelope) => void) | null = null
     subscribeWs.mockImplementation((listener) => {
       wsListener = listener
@@ -50,41 +50,17 @@ describe('ConversationList realtime sync', () => {
         ],
         meta: { request_id: 'req_1' },
       })
-      .mockResolvedValueOnce({
-        ok: true,
-        data: [
-          {
-            id: 'conv_1',
-            title: 'First',
-            kind: 'general',
-            pinned: false,
-            archived: false,
-            created_at: 0,
-            updated_at: 0,
-          },
-          {
-            id: 'conv_2',
-            title: 'Second',
-            kind: 'general',
-            pinned: false,
-            archived: false,
-            created_at: 0,
-            updated_at: 0,
-          },
-        ],
-        meta: { request_id: 'req_2' },
-      })
 
     render(<ConversationList selectedId={null} onSelect={() => {}} />)
 
     await waitFor(() => {
       expect(screen.getByText('First')).toBeInTheDocument()
     })
-    expect(screen.queryByText('Second')).not.toBeInTheDocument()
+    expect(api.apiGet).toHaveBeenCalledTimes(1)
 
     requireWsListener(wsListener)({
       type: 'messages:new',
-      timestamp: '1',
+      timestamp: '2026-03-16T12:00:00Z',
       payload: {
         id: 'msg_1',
         conversation_id: 'conv_1',
@@ -99,7 +75,8 @@ describe('ConversationList realtime sync', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Second')).toBeInTheDocument()
+      expect(api.apiGet).toHaveBeenCalledTimes(1)
     })
+    expect(screen.queryByText('Second')).not.toBeInTheDocument()
   })
 })

@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiPost } from '../api/client';
-import type { InboxItemData, MessageData, WsEvent } from '../types';
+import type { ConversationData, InboxItemData, MessageData, WsEvent } from '../types';
 import { getQueryData, invalidateQuery, setQueryData, useQuery } from '../data/query';
+import {
+  appendUniqueMessages,
+  markPendingInterventionActionConfirmed,
+  prunePendingInterventionActions,
+  reconcileConfirmedSend,
+  reconcileConversationFromMessage,
+  reconcileIncomingMessage,
+  removeInterventionById,
+  setPendingInterventionAction,
+  type PendingInterventionAction,
+  upsertInboxItem,
+} from '../data/chat-state';
 import { loadConversationInterventions, loadConversationMessages, queryKeys } from '../data/resources';
 import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
@@ -10,11 +22,6 @@ import { subscribeWs } from '../realtime/ws';
 
 interface ThreadViewProps {
   conversationId: string | null;
-}
-
-interface PendingInterventionAction {
-  state: string;
-  confirmed: boolean;
 }
 
 export function ThreadView({ conversationId }: ThreadViewProps) {
@@ -92,7 +99,10 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
         setQueryData<MessageData[]>(messagesKey, (prev = []) =>
           reconcileIncomingMessage(prev, message),
         );
-        invalidateQuery(conversationsKey, { refetch: true });
+        setQueryData<ConversationData[]>(
+          conversationsKey,
+          (prev = []) => reconcileConversationFromMessage(prev, message),
+        );
         return;
       }
       if (event.type === 'interventions:new') {
@@ -110,20 +120,10 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
         return;
       }
       if (event.type === 'interventions:updated') {
-        setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => {
-          const pendingAction = prev[event.payload.id];
-          if (!pendingAction || pendingAction.state !== event.payload.state) {
-            return prev;
-          }
-
-          return {
-            ...prev,
-            [event.payload.id]: {
-              ...pendingAction,
-              confirmed: true,
-            },
-          };
-        });
+        setQueryData<Record<string, PendingInterventionAction>>(
+          pendingInterventionActionsKey,
+          (prev = {}) => markPendingInterventionActionConfirmed(prev, event.payload.id, event.payload.state),
+        );
         invalidateQuery(interventionsKey, { refetch: true });
         invalidateQuery(inboxKey, { refetch: true });
       }
@@ -140,20 +140,10 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   ]);
 
   useEffect(() => {
-    setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => {
-      let changed = false;
-      const next: Record<string, PendingInterventionAction> = {};
-
-      for (const [interventionId, pendingAction] of Object.entries(prev)) {
-        if (!pendingAction.confirmed || interventions.some((intervention) => intervention.id === interventionId)) {
-          next[interventionId] = pendingAction;
-        } else {
-          changed = true;
-        }
-      }
-
-      return changed ? next : prev;
-    });
+    setQueryData<Record<string, PendingInterventionAction>>(
+      pendingInterventionActionsKey,
+      (prev = {}) => prunePendingInterventionActions(prev, interventions),
+    );
   }, [interventions, pendingInterventionActionsKey]);
 
   useEffect(() => {
@@ -169,11 +159,11 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   const removeIntervention = useCallback((interventionId: string) => {
     setQueryData<InboxItemData[]>(
       interventionsKey,
-      (prev = []) => prev.filter((item) => item.id !== interventionId),
+      (prev = []) => removeInterventionById(prev, interventionId),
     );
     setQueryData<InboxItemData[]>(
       inboxKey,
-      (prev = []) => prev.filter((item) => item.id !== interventionId),
+      (prev = []) => removeInterventionById(prev, interventionId),
     );
   }, [inboxKey, interventionsKey]);
 
@@ -198,13 +188,9 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   );
 
   const startInterventionAction = useCallback((interventionId: string, state: string) => {
-    setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => ({
-      ...prev,
-      [interventionId]: {
-        state,
-        confirmed: false,
-      },
-    }));
+    setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) =>
+      setPendingInterventionAction(prev, interventionId, state),
+    );
   }, [pendingInterventionActionsKey]);
 
   const handleSnooze = useCallback(async (interventionId: string) => {
@@ -337,79 +323,4 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       />
     </>
   );
-}
-
-function appendUniqueMessages(existing: MessageData[], nextMessages: MessageData[]): MessageData[] {
-  if (nextMessages.length === 0) {
-    return existing;
-  }
-
-  const seen = new Set(existing.map((message) => message.id));
-  const additions = nextMessages.filter((message) => {
-    if (seen.has(message.id)) {
-      return false;
-    }
-    seen.add(message.id);
-    return true;
-  });
-
-  return additions.length > 0 ? [...existing, ...additions] : existing;
-}
-
-function reconcileIncomingMessage(existing: MessageData[], incoming: MessageData): MessageData[] {
-  const existingIndex = existing.findIndex((message) => message.id === incoming.id);
-  if (existingIndex !== -1) {
-    const next = [...existing];
-    next[existingIndex] = incoming;
-    return next;
-  }
-
-  const pendingIndex = existing.findIndex(
-    (message) =>
-      message.status === 'sending'
-      && message.conversation_id === incoming.conversation_id
-      && message.role === incoming.role
-      && message.kind === incoming.kind
-      && JSON.stringify(message.content) === JSON.stringify(incoming.content),
-  );
-  if (pendingIndex !== -1) {
-    const next = [...existing];
-    next[pendingIndex] = incoming;
-    return next;
-  }
-
-  return [...existing, incoming];
-}
-
-function reconcileConfirmedSend(
-  existing: MessageData[],
-  clientMessageId: string | undefined,
-  userMessage: MessageData,
-  assistantMessages: MessageData[],
-): MessageData[] {
-  let next = clientMessageId
-    ? existing.filter((message) => message.id !== clientMessageId)
-    : [...existing];
-  next = reconcileIncomingMessage(next, userMessage);
-  for (const assistantMessage of assistantMessages) {
-    next = reconcileIncomingMessage(next, assistantMessage);
-  }
-  return next;
-}
-
-function upsertInboxItem(
-  items: InboxItemData[],
-  nextItem: InboxItemData,
-  pendingInterventionActions: Record<string, PendingInterventionAction>,
-): InboxItemData[] {
-  if (pendingInterventionActions[nextItem.id]) {
-    return items;
-  }
-  const existingIndex = items.findIndex((item) => item.id === nextItem.id);
-  if (existingIndex === -1) {
-    return [nextItem, ...items];
-  }
-  const next = [...items];
-  next[existingIndex] = nextItem;
-  return next;
 }

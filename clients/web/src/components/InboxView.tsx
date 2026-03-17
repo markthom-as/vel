@@ -1,13 +1,14 @@
 import { useEffect, useMemo } from 'react';
 import type { InboxItemData, WsEvent } from '../types';
 import { invalidateQuery, setQueryData, useQuery } from '../data/query';
+import {
+  markPendingInterventionActionConfirmed,
+  prunePendingInterventionActions,
+  upsertInboxItem,
+  type PendingInterventionAction,
+} from '../data/chat-state';
 import { loadInbox, queryKeys } from '../data/resources';
 import { subscribeWs } from '../realtime/ws';
-
-interface PendingInterventionAction {
-  state: string;
-  confirmed: boolean;
-}
 
 export function InboxView() {
   const inboxKey = useMemo(() => queryKeys.inbox(), []);
@@ -39,40 +40,21 @@ export function InboxView() {
         return;
       }
       if (event.type === 'interventions:updated') {
-        setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => {
-          const pendingAction = prev[event.payload.id];
-          if (!pendingAction || pendingAction.state !== event.payload.state) {
-            return prev;
-          }
-
-          return {
-            ...prev,
-            [event.payload.id]: {
-              ...pendingAction,
-              confirmed: true,
-            },
-          };
-        });
+        setQueryData<Record<string, PendingInterventionAction>>(
+          pendingInterventionActionsKey,
+          (prev = {}) =>
+            markPendingInterventionActionConfirmed(prev, event.payload.id, event.payload.state),
+        );
         invalidateQuery(inboxKey, { refetch: true });
       }
     });
   }, [inboxKey, pendingInterventionActions, pendingInterventionActionsKey]);
 
   useEffect(() => {
-    setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => {
-      let changed = false;
-      const next: Record<string, PendingInterventionAction> = {};
-
-      for (const [interventionId, pendingAction] of Object.entries(prev)) {
-        if (!pendingAction.confirmed || items.some((item) => item.id === interventionId)) {
-          next[interventionId] = pendingAction;
-        } else {
-          changed = true;
-        }
-      }
-
-      return changed ? next : prev;
-    });
+    setQueryData<Record<string, PendingInterventionAction>>(
+      pendingInterventionActionsKey,
+      (prev = {}) => prunePendingInterventionActions(prev, items),
+    );
   }, [items, pendingInterventionActionsKey]);
 
   if (loading) return <div className="p-4 text-zinc-500 text-sm">Loading…</div>;
@@ -106,21 +88,4 @@ export function InboxView() {
 
 function formatTs(ts: number): string {
   return new Date(ts * 1000).toLocaleString();
-}
-
-function upsertInboxItem(
-  items: InboxItemData[],
-  nextItem: InboxItemData,
-  pendingInterventionActions: Record<string, PendingInterventionAction>,
-): InboxItemData[] {
-  if (pendingInterventionActions[nextItem.id]) {
-    return items;
-  }
-  const existingIndex = items.findIndex((item) => item.id === nextItem.id);
-  if (existingIndex === -1) {
-    return [nextItem, ...items];
-  }
-  const next = [...items];
-  next[existingIndex] = nextItem;
-  return next;
 }
