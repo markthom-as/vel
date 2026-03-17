@@ -3,9 +3,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
+use vel_api_types::{
+    BranchSyncCapabilityData, BranchSyncRequestData, ClientActionBatchRequest,
+    ClientActionBatchResultData, ClientActionData, ClientActionKind, ClientActionResultData,
+    ClusterBootstrapData, ClusterNodeStateData, ClusterWorkerStateData, ClusterWorkersData,
+    CommitmentCreateRequest, CommitmentData, CurrentContextData, NudgeData, QueuedWorkItemData,
+    QueuedWorkRoutingData, QueuedWorkRoutingKindData, SwarmClientActiveWorkData, SwarmClientData,
+    SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData, SyncHeartbeatResponseData,
+    ValidationProfileData, ValidationRequestData, WorkAssignmentClaimNextRequestData,
+    WorkAssignmentClaimNextResponseData, WorkAssignmentClaimRequestData,
+    WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData, WorkAssignmentStatusData,
+    WorkAssignmentUpdateRequest, WorkerCapacityData, WorkerPresenceData,
+};
 use vel_core::{CommitmentStatus, PrivacyClass};
 use vel_storage::{
     CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert, SignalInsert,
@@ -17,582 +28,6 @@ use crate::{errors::AppError, state::AppState};
 
 const WORKER_HEARTBEAT_TTL_SECONDS: i64 = 90;
 const WORK_ASSIGNMENT_STALE_SECONDS: i64 = 300;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClusterBootstrapData {
-    pub node_id: String,
-    pub node_display_name: String,
-    pub active_authority_node_id: String,
-    pub active_authority_epoch: i64,
-    pub sync_base_url: String,
-    pub sync_transport: String,
-    pub tailscale_base_url: Option<String>,
-    pub lan_base_url: Option<String>,
-    pub localhost_base_url: Option<String>,
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub branch_sync: Option<BranchSyncCapabilityData>,
-    #[serde(default)]
-    pub validation_profiles: Vec<ValidationProfileData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BranchSyncCapabilityData {
-    pub repo_root: String,
-    pub default_remote: String,
-    pub supports_fetch: bool,
-    pub supports_pull: bool,
-    pub supports_push: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationProfileData {
-    pub profile_id: String,
-    pub label: String,
-    pub command_hint: String,
-    pub environment: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BranchSyncRequestData {
-    pub repo_root: String,
-    pub branch: String,
-    #[serde(default)]
-    pub remote: Option<String>,
-    #[serde(default)]
-    pub base_branch: Option<String>,
-    #[serde(default)]
-    pub mode: Option<String>,
-    #[serde(default)]
-    pub requested_by: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationRequestData {
-    pub repo_root: String,
-    pub profile_id: String,
-    #[serde(default)]
-    pub branch: Option<String>,
-    #[serde(default)]
-    pub environment: Option<String>,
-    #[serde(default)]
-    pub requested_by: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum QueuedWorkRoutingKindData {
-    BranchSync,
-    Validation,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QueuedWorkRoutingData {
-    pub work_request_id: String,
-    pub request_type: QueuedWorkRoutingKindData,
-    pub status: String,
-    pub queued_signal_id: String,
-    pub queued_signal_type: String,
-    pub queued_at: i64,
-    pub queued_via: String,
-    pub authority_node_id: String,
-    pub authority_epoch: i64,
-    pub target_node_id: String,
-    pub target_worker_class: String,
-    pub requested_capability: String,
-    #[serde(default)]
-    pub request_payload: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WorkAssignmentStatusData {
-    Assigned,
-    Started,
-    Completed,
-    Failed,
-    Cancelled,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentReceiptData {
-    pub receipt_id: String,
-    pub work_request_id: String,
-    pub worker_id: String,
-    #[serde(default)]
-    pub worker_class: Option<String>,
-    #[serde(default)]
-    pub capability: Option<String>,
-    pub status: WorkAssignmentStatusData,
-    pub assigned_at: i64,
-    #[serde(default)]
-    pub started_at: Option<i64>,
-    #[serde(default)]
-    pub completed_at: Option<i64>,
-    #[serde(default)]
-    pub result: Option<String>,
-    #[serde(default)]
-    pub error_message: Option<String>,
-    pub last_updated: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentClaimRequestData {
-    pub work_request_id: String,
-    pub worker_id: String,
-    #[serde(default)]
-    pub worker_class: Option<String>,
-    #[serde(default)]
-    pub capability: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentUpdateRequest {
-    pub receipt_id: String,
-    pub status: WorkAssignmentStatusData,
-    #[serde(default)]
-    pub started_at: Option<i64>,
-    #[serde(default)]
-    pub completed_at: Option<i64>,
-    #[serde(default)]
-    pub result: Option<String>,
-    #[serde(default)]
-    pub error_message: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct QueuedWorkItemData {
-    pub work_request_id: String,
-    pub request_type: QueuedWorkRoutingKindData,
-    pub queued_signal_id: String,
-    pub queued_signal_type: String,
-    pub queued_at: i64,
-    pub target_node_id: String,
-    pub target_worker_class: String,
-    pub requested_capability: String,
-    pub request_payload: serde_json::Value,
-    #[serde(default)]
-    pub latest_receipt: Option<WorkAssignmentReceiptData>,
-    pub is_stale: bool,
-    pub attempt_count: u32,
-    pub claimable_now: bool,
-    #[serde(default)]
-    pub claim_reason: Option<String>,
-    #[serde(default)]
-    pub next_retry_at: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentClaimNextRequestData {
-    pub node_id: String,
-    pub worker_id: String,
-    #[serde(default)]
-    pub worker_class: Option<String>,
-    #[serde(default)]
-    pub capability: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentClaimedWorkData {
-    pub queue_item: QueuedWorkItemData,
-    pub receipt: WorkAssignmentReceiptData,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkAssignmentClaimNextResponseData {
-    #[serde(default)]
-    pub claim: Option<WorkAssignmentClaimedWorkData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlacementRecommendationData {
-    pub worker_id: String,
-    pub node_id: String,
-    pub capability: String,
-    pub reason: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncHeartbeatRequestData {
-    pub node_id: String,
-    #[serde(default)]
-    pub node_display_name: Option<String>,
-    #[serde(default)]
-    pub client_kind: Option<String>,
-    #[serde(default)]
-    pub client_version: Option<String>,
-    #[serde(default)]
-    pub protocol_version: Option<String>,
-    #[serde(default)]
-    pub build_id: Option<String>,
-    pub worker_id: String,
-    #[serde(default)]
-    pub worker_classes: Vec<String>,
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-    #[serde(default)]
-    pub status: Option<String>,
-    #[serde(default)]
-    pub max_concurrency: Option<u32>,
-    #[serde(default)]
-    pub current_load: Option<u32>,
-    #[serde(default)]
-    pub queue_depth: Option<u32>,
-    #[serde(default)]
-    pub reachability: Option<String>,
-    #[serde(default)]
-    pub latency_class: Option<String>,
-    #[serde(default)]
-    pub compute_class: Option<String>,
-    #[serde(default)]
-    pub power_class: Option<String>,
-    #[serde(default)]
-    pub recent_failure_rate: Option<f64>,
-    #[serde(default)]
-    pub tailscale_preferred: Option<bool>,
-    #[serde(default)]
-    pub sync_base_url: Option<String>,
-    #[serde(default)]
-    pub sync_transport: Option<String>,
-    #[serde(default)]
-    pub tailscale_base_url: Option<String>,
-    #[serde(default)]
-    pub preferred_tailnet_endpoint: Option<String>,
-    #[serde(default)]
-    pub tailscale_reachable: Option<bool>,
-    #[serde(default)]
-    pub lan_base_url: Option<String>,
-    #[serde(default)]
-    pub localhost_base_url: Option<String>,
-    #[serde(default)]
-    pub ping_ms: Option<u32>,
-    #[serde(default)]
-    pub sync_status: Option<String>,
-    #[serde(default)]
-    pub last_upstream_sync_at: Option<i64>,
-    #[serde(default)]
-    pub last_downstream_sync_at: Option<i64>,
-    #[serde(default)]
-    pub last_sync_error: Option<String>,
-    #[serde(default)]
-    pub last_heartbeat_at: Option<i64>,
-    #[serde(default)]
-    pub started_at: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncHeartbeatResponseData {
-    pub accepted: bool,
-    pub worker_id: String,
-    pub expires_at: i64,
-    pub cluster_view_version: i64,
-    #[serde(default)]
-    pub placement_hints: Vec<PlacementRecommendationData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ClientActionKind {
-    NudgeDone,
-    NudgeSnooze,
-    CommitmentDone,
-    CommitmentCreate,
-    CaptureCreate,
-    BranchSyncRequest,
-    ValidationRequest,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientActionData {
-    pub action_id: Option<String>,
-    pub action_type: ClientActionKind,
-    pub target_id: Option<String>,
-    pub text: Option<String>,
-    pub minutes: Option<u32>,
-    #[serde(default)]
-    pub payload: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientActionBatchRequest {
-    pub actions: Vec<ClientActionData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientActionResultData {
-    pub action_id: Option<String>,
-    pub action_type: ClientActionKind,
-    pub target_id: Option<String>,
-    pub status: String,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientActionBatchResultData {
-    pub applied: u32,
-    pub results: Vec<ClientActionResultData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClusterNodeStateData {
-    pub node_id: String,
-    #[serde(default, alias = "display_name")]
-    pub node_display_name: Option<String>,
-    #[serde(default)]
-    pub node_class: Option<String>,
-    #[serde(default)]
-    pub sync_base_url: Option<String>,
-    #[serde(default)]
-    pub sync_transport: Option<String>,
-    #[serde(default)]
-    pub tailscale_base_url: Option<String>,
-    #[serde(default)]
-    pub lan_base_url: Option<String>,
-    #[serde(default)]
-    pub localhost_base_url: Option<String>,
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-    #[serde(default)]
-    pub reachability: Option<String>,
-    #[serde(default)]
-    pub last_seen_at: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClusterWorkerStateData {
-    #[serde(alias = "id")]
-    pub worker_id: String,
-    #[serde(default)]
-    pub node_id: Option<String>,
-    #[serde(default)]
-    pub node_display_name: Option<String>,
-    #[serde(default)]
-    pub client_kind: Option<String>,
-    #[serde(default)]
-    pub client_version: Option<String>,
-    #[serde(default)]
-    pub protocol_version: Option<String>,
-    #[serde(default)]
-    pub build_id: Option<String>,
-    #[serde(default)]
-    pub worker_class: Option<String>,
-    #[serde(default)]
-    pub worker_classes: Vec<String>,
-    #[serde(default)]
-    pub status: Option<String>,
-    #[serde(default)]
-    pub max_concurrency: Option<u32>,
-    #[serde(default)]
-    pub current_load: Option<u32>,
-    #[serde(default)]
-    pub queue_depth: Option<u32>,
-    #[serde(default)]
-    pub reachability: Option<String>,
-    #[serde(default)]
-    pub latency_class: Option<String>,
-    #[serde(default)]
-    pub compute_class: Option<String>,
-    #[serde(default)]
-    pub power_class: Option<String>,
-    #[serde(default)]
-    pub recent_failure_rate: Option<f64>,
-    #[serde(default)]
-    pub tailscale_preferred: Option<bool>,
-    #[serde(default)]
-    pub sync_base_url: Option<String>,
-    #[serde(default)]
-    pub sync_transport: Option<String>,
-    #[serde(default)]
-    pub tailscale_base_url: Option<String>,
-    #[serde(default)]
-    pub preferred_tailnet_endpoint: Option<String>,
-    #[serde(default)]
-    pub tailscale_reachable: Option<bool>,
-    #[serde(default)]
-    pub lan_base_url: Option<String>,
-    #[serde(default)]
-    pub localhost_base_url: Option<String>,
-    #[serde(default)]
-    pub ping_ms: Option<u32>,
-    #[serde(default)]
-    pub heartbeat_age_seconds: Option<i64>,
-    #[serde(default)]
-    pub sync_status: Option<String>,
-    #[serde(default)]
-    pub last_upstream_sync_at: Option<i64>,
-    #[serde(default)]
-    pub last_downstream_sync_at: Option<i64>,
-    #[serde(default)]
-    pub last_sync_error: Option<String>,
-    #[serde(default)]
-    pub last_heartbeat_at: Option<i64>,
-    #[serde(default)]
-    pub started_at: Option<i64>,
-    #[serde(default)]
-    pub available_concurrency: Option<u32>,
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-    #[serde(default)]
-    pub active_work: Vec<SwarmClientActiveWorkData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncClusterStateData {
-    #[serde(default)]
-    pub cluster_view_version: Option<i64>,
-    #[serde(default)]
-    pub authority_node_id: Option<String>,
-    #[serde(default)]
-    pub authority_epoch: Option<i64>,
-    #[serde(default)]
-    pub sync_transport: Option<String>,
-    #[serde(default)]
-    pub cluster: Option<ClusterBootstrapData>,
-    #[serde(default)]
-    pub nodes: Vec<ClusterNodeStateData>,
-    #[serde(default)]
-    pub workers: Vec<ClusterWorkerStateData>,
-    #[serde(default)]
-    pub clients: Vec<SwarmClientData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SwarmClientActiveWorkData {
-    pub receipt_id: String,
-    pub work_request_id: String,
-    #[serde(default)]
-    pub worker_class: Option<String>,
-    #[serde(default)]
-    pub capability: Option<String>,
-    pub status: String,
-    pub assigned_at: i64,
-    #[serde(default)]
-    pub started_at: Option<i64>,
-    pub last_updated: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SwarmClientData {
-    pub client_id: String,
-    pub node_id: String,
-    #[serde(default)]
-    pub node_display_name: Option<String>,
-    #[serde(default)]
-    pub client_kind: Option<String>,
-    #[serde(default)]
-    pub client_version: Option<String>,
-    #[serde(default)]
-    pub protocol_version: Option<String>,
-    #[serde(default)]
-    pub build_id: Option<String>,
-    #[serde(default)]
-    pub status: Option<String>,
-    #[serde(default)]
-    pub reachability: Option<String>,
-    #[serde(default)]
-    pub sync_transport: Option<String>,
-    #[serde(default)]
-    pub sync_base_url: Option<String>,
-    #[serde(default)]
-    pub ping_ms: Option<u32>,
-    #[serde(default)]
-    pub heartbeat_age_seconds: Option<i64>,
-    #[serde(default)]
-    pub last_heartbeat_at: Option<i64>,
-    #[serde(default)]
-    pub last_upstream_sync_at: Option<i64>,
-    #[serde(default)]
-    pub last_downstream_sync_at: Option<i64>,
-    #[serde(default)]
-    pub sync_status: Option<String>,
-    #[serde(default)]
-    pub last_sync_error: Option<String>,
-    #[serde(default)]
-    pub worker_classes: Vec<String>,
-    #[serde(default)]
-    pub capabilities: Vec<String>,
-    #[serde(default)]
-    pub max_concurrency: Option<u32>,
-    #[serde(default)]
-    pub current_load: Option<u32>,
-    #[serde(default)]
-    pub queue_depth: Option<u32>,
-    #[serde(default)]
-    pub active_work: Vec<SwarmClientActiveWorkData>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurrentContextData {
-    pub computed_at: i64,
-    pub context: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NudgeData {
-    pub nudge_id: String,
-    pub nudge_type: String,
-    pub level: String,
-    pub state: String,
-    pub related_commitment_id: Option<String>,
-    pub message: String,
-    pub created_at: i64,
-    pub snoozed_until: Option<i64>,
-    pub resolved_at: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommitmentCreateRequest {
-    pub text: String,
-    pub source_type: String,
-    pub source_id: Option<String>,
-    pub due_at: Option<time::OffsetDateTime>,
-    pub project: Option<String>,
-    pub commitment_kind: Option<String>,
-    #[serde(default)]
-    pub metadata: serde_json::Value,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CommitmentData {
-    pub id: vel_core::CommitmentId,
-    pub text: String,
-    pub source_type: String,
-    pub source_id: Option<String>,
-    pub status: String,
-    pub due_at: Option<time::OffsetDateTime>,
-    pub project: Option<String>,
-    pub commitment_kind: Option<String>,
-    pub created_at: time::OffsetDateTime,
-    pub resolved_at: Option<time::OffsetDateTime>,
-    pub metadata: serde_json::Value,
-}
-
-impl From<vel_core::Commitment> for CommitmentData {
-    fn from(c: vel_core::Commitment) -> Self {
-        Self {
-            id: c.id,
-            text: c.text,
-            source_type: c.source_type,
-            source_id: c.source_id,
-            status: c.status.to_string(),
-            due_at: c.due_at,
-            project: c.project,
-            commitment_kind: c.commitment_kind,
-            created_at: c.created_at,
-            resolved_at: c.resolved_at,
-            metadata: c.metadata_json,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncBootstrapData {
-    pub cluster: ClusterBootstrapData,
-    pub current_context: Option<CurrentContextData>,
-    pub nudges: Vec<NudgeData>,
-    pub commitments: Vec<CommitmentData>,
-}
 
 pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData, AppError> {
     let current_context =
@@ -608,23 +43,20 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData,
     let active = state.storage.list_nudges(Some("active"), 50).await?;
     let pending = state.storage.list_nudges(Some("pending"), 50).await?;
     let snoozed = state.storage.list_nudges(Some("snoozed"), 50).await?;
-    let mut nudges: Vec<NudgeData> = active.into_iter().map(nudge_record_to_data).collect();
-    nudges.extend(pending.into_iter().map(nudge_record_to_data));
-    nudges.extend(snoozed.into_iter().map(nudge_record_to_data));
+    let mut nudges = active;
+    nudges.extend(pending);
+    nudges.extend(snoozed);
 
     let commitments = state
         .storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
-        .await?
-        .into_iter()
-        .map(CommitmentData::from)
-        .collect();
+        .await?;
 
     Ok(SyncBootstrapData {
         cluster: effective_cluster_bootstrap_data(state).await?,
         current_context,
-        nudges,
-        commitments,
+        nudges: nudges.into_iter().map(nudge_record_to_data).collect(),
+        commitments: commitments.into_iter().map(CommitmentData::from).collect(),
     })
 }
 
@@ -787,8 +219,8 @@ fn active_work_from_assignments(
         .map(|assignment| SwarmClientActiveWorkData {
             receipt_id: assignment.receipt_id.clone(),
             work_request_id: assignment.work_request_id.clone(),
-            worker_class: assignment.worker_class.clone(),
-            capability: assignment.capability.clone(),
+            worker_class: Some(assignment.worker_class.clone()),
+            capability: Some(assignment.capability.clone()),
             status: assignment.status.to_string(),
             assigned_at: assignment.assigned_at,
             started_at: assignment.started_at,
@@ -1031,7 +463,7 @@ async fn build_existing_routing_response(
 ) -> Result<QueuedWorkRoutingData, AppError> {
     let signal = find_latest_routing_signal(state, signal_type, work_request_id)
         .await?
-        .ok_or_else(|| AppError::internal("routing signal missing for existing work request"))?;
+        .ok_or_else(|| AppError::internal("routing_signal missing for existing work request"))?;
     let routing = signal
         .payload_json
         .get("routing")
@@ -1115,14 +547,17 @@ pub async fn claim_work_assignment(
         }
     }
 
+    let worker_class = request.worker_class.unwrap_or_else(|| "worker".to_string());
+    let capability = request.capability.unwrap_or_else(|| "any".to_string());
+
     let receipt_id = state
         .storage
         .insert_work_assignment(WorkAssignmentInsert {
             receipt_id: None,
             work_request_id: request.work_request_id.clone(),
             worker_id: request.worker_id.clone(),
-            worker_class: request.worker_class.clone(),
-            capability: request.capability.clone(),
+            worker_class: worker_class.clone(),
+            capability: capability.clone(),
             status: WorkAssignmentStatus::Assigned,
             assigned_at: now,
         })
@@ -1139,8 +574,8 @@ pub async fn claim_work_assignment(
                 "receipt_id": receipt_id,
                 "work_request_id": request.work_request_id,
                 "worker_id": request.worker_id,
-                "worker_class": request.worker_class,
-                "capability": request.capability,
+                "worker_class": worker_class,
+                "capability": capability,
             })),
         })
         .await;
@@ -1312,7 +747,7 @@ async fn list_worker_queue_snapshot(
             attempt_count: schedule.attempt_count,
             claimable_now: schedule.claimable_now,
             claim_reason: schedule.claim_reason,
-            next_retry_at: schedule.next_retry_at,
+            next_retry_at: Some(schedule.next_retry_at.unwrap_or(0)),
         });
     }
     items.sort_by_key(|item| (item.queued_at, item.work_request_id.clone()));
@@ -1491,7 +926,7 @@ async fn apply_single_action(
                 .insert_commitment(CommitmentInsert {
                     text: request.text,
                     source_type: request.source_type,
-                    source_id: request.source_id,
+                    source_id: request.source_id.unwrap_or_default(),
                     status: CommitmentStatus::Open,
                     due_at: request.due_at,
                     project: request.project,
@@ -1649,8 +1084,8 @@ fn work_assignment_to_data(record: vel_storage::WorkAssignmentRecord) -> WorkAss
         receipt_id: record.receipt_id,
         work_request_id: record.work_request_id,
         worker_id: record.worker_id,
-        worker_class: record.worker_class,
-        capability: record.capability,
+        worker_class: Some(record.worker_class),
+        capability: Some(record.capability),
         status: work_assignment_status_to_data(record.status),
         assigned_at: record.assigned_at,
         started_at: record.started_at,
@@ -1991,57 +1426,6 @@ fn validate_validation_request(request: &ValidationRequestData) -> Result<(), Ap
     Ok(())
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ClusterWorkersData {
-    pub active_authority_node_id: String,
-    pub active_authority_epoch: i64,
-    pub generated_at: i64,
-    pub workers: Vec<WorkerPresenceData>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct WorkerPresenceData {
-    pub worker_id: String,
-    pub node_id: String,
-    pub node_display_name: String,
-    pub client_kind: Option<String>,
-    pub client_version: Option<String>,
-    pub protocol_version: Option<String>,
-    pub build_id: Option<String>,
-    pub worker_classes: Vec<String>,
-    pub capabilities: Vec<String>,
-    pub status: String,
-    pub queue_depth: u32,
-    pub reachability: String,
-    pub latency_class: String,
-    pub compute_class: String,
-    pub power_class: String,
-    pub recent_failure_rate: f64,
-    pub tailscale_preferred: bool,
-    pub last_heartbeat_at: i64,
-    pub started_at: i64,
-    pub sync_base_url: String,
-    pub sync_transport: String,
-    pub tailscale_base_url: Option<String>,
-    pub preferred_tailnet_endpoint: Option<String>,
-    pub tailscale_reachable: bool,
-    pub lan_base_url: Option<String>,
-    pub localhost_base_url: Option<String>,
-    pub ping_ms: Option<u32>,
-    pub sync_status: Option<String>,
-    pub last_upstream_sync_at: Option<i64>,
-    pub last_downstream_sync_at: Option<i64>,
-    pub last_sync_error: Option<String>,
-    pub capacity: WorkerCapacityData,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct WorkerCapacityData {
-    pub max_concurrency: u32,
-    pub current_load: u32,
-    pub available_concurrency: u32,
-}
-
 pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkersData, AppError> {
     refresh_local_worker_presence(state).await?;
     let bootstrap = effective_cluster_bootstrap_data(state).await?;
@@ -2077,6 +1461,12 @@ pub async fn effective_cluster_bootstrap_data(
         crate::services::operator_settings::runtime_sync_config(&state.storage, &state.config)
             .await?;
     Ok(cluster_bootstrap_from_config(&runtime_config))
+}
+
+pub async fn effective_cluster_bootstrap(
+    state: &AppState,
+) -> Result<ClusterBootstrapData, AppError> {
+    effective_cluster_bootstrap_data(state).await
 }
 
 fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBootstrapData {
@@ -2144,17 +1534,12 @@ pub async fn ingest_worker_heartbeat(
             recent_failure_rate: request.recent_failure_rate,
             tailscale_preferred: request.tailscale_preferred.unwrap_or(false),
             sync_base_url: request.sync_base_url,
-            sync_transport: request.sync_transport,
+            sync_transport: request.sync_transport.map(Some),
             tailscale_base_url: request.tailscale_base_url,
             preferred_tailnet_endpoint: request.preferred_tailnet_endpoint,
             tailscale_reachable: request.tailscale_reachable.unwrap_or(false),
             lan_base_url: request.lan_base_url,
             localhost_base_url: request.localhost_base_url,
-            ping_ms: request.ping_ms,
-            sync_status: request.sync_status,
-            last_upstream_sync_at: request.last_upstream_sync_at,
-            last_downstream_sync_at: request.last_downstream_sync_at,
-            last_sync_error: request.last_sync_error,
             last_heartbeat_at,
             started_at: request.started_at,
         })
@@ -2190,10 +1575,10 @@ pub(crate) async fn refresh_local_worker_presence(state: &AppState) -> Result<()
             worker_id: bootstrap.node_id.clone(),
             node_id: bootstrap.node_id.clone(),
             node_display_name: Some(bootstrap.node_display_name.clone()),
-            client_kind: Some("veld".to_string()),
-            client_version: Some(env!("CARGO_PKG_VERSION").to_string()),
-            protocol_version: Some("v1".to_string()),
-            build_id: Some(format!("veld-{}", env!("CARGO_PKG_VERSION"))),
+            client_kind: None,
+            client_version: None,
+            protocol_version: None,
+            build_id: None,
             worker_class: worker_classes.first().cloned(),
             worker_classes,
             capabilities: bootstrap.capabilities.clone(),
@@ -2208,17 +1593,12 @@ pub(crate) async fn refresh_local_worker_presence(state: &AppState) -> Result<()
             recent_failure_rate: Some(0.0),
             tailscale_preferred: tailscale_reachable,
             sync_base_url: Some(bootstrap.sync_base_url),
-            sync_transport: Some(bootstrap.sync_transport),
+            sync_transport: Some(Some(bootstrap.sync_transport)),
             tailscale_base_url: bootstrap.tailscale_base_url.clone(),
             preferred_tailnet_endpoint: bootstrap.tailscale_base_url,
             tailscale_reachable,
             lan_base_url: bootstrap.lan_base_url,
             localhost_base_url: bootstrap.localhost_base_url,
-            ping_ms: Some(0),
-            sync_status: Some("idle".to_string()),
-            last_upstream_sync_at: None,
-            last_downstream_sync_at: None,
-            last_sync_error: None,
             last_heartbeat_at: now,
             started_at: Some(runtime.started_at),
         })
@@ -2234,40 +1614,32 @@ fn worker_presence_from_record(record: ClusterWorkerRecord) -> WorkerPresenceDat
     WorkerPresenceData {
         worker_id: record.worker_id,
         node_id: record.node_id,
-        node_display_name: record
-            .node_display_name
-            .unwrap_or_else(|| "Vel Node".to_string()),
+        node_display_name: record.node_display_name.unwrap_or_default(),
         client_kind: record.client_kind,
         client_version: record.client_version,
         protocol_version: record.protocol_version,
         build_id: record.build_id,
         worker_classes: record.worker_classes,
         capabilities: record.capabilities,
-        status: record.status.unwrap_or_else(|| "ready".to_string()),
+        status: record.status,
         queue_depth: record.queue_depth.unwrap_or(0),
-        reachability: record
-            .reachability
-            .unwrap_or_else(|| "reachable".to_string()),
-        latency_class: record.latency_class.unwrap_or_else(|| "medium".to_string()),
-        compute_class: record.compute_class.unwrap_or_else(|| "edge".to_string()),
-        power_class: record
-            .power_class
-            .unwrap_or_else(|| "ac_or_unknown".to_string()),
-        recent_failure_rate: record.recent_failure_rate.unwrap_or(0.0),
+        reachability: record.reachability,
+        latency_class: record.latency_class,
+        compute_class: record.compute_class,
+        power_class: record.power_class,
+        recent_failure_rate: record.recent_failure_rate,
         tailscale_preferred: record.tailscale_preferred,
         last_heartbeat_at: record.last_heartbeat_at,
-        started_at: record.started_at.unwrap_or(record.updated_at),
+        started_at: record.started_at,
         sync_base_url: record.sync_base_url.unwrap_or_default(),
-        sync_transport: record
-            .sync_transport
-            .unwrap_or_else(|| "configured".to_string()),
+        sync_transport: record.sync_transport,
         tailscale_base_url: record.tailscale_base_url,
         preferred_tailnet_endpoint: record.preferred_tailnet_endpoint,
         tailscale_reachable: record.tailscale_reachable,
         lan_base_url: record.lan_base_url,
         localhost_base_url: record.localhost_base_url,
         ping_ms: record.ping_ms,
-        sync_status: record.sync_status,
+        sync_status: Some(record.sync_status),
         last_upstream_sync_at: record.last_upstream_sync_at,
         last_downstream_sync_at: record.last_downstream_sync_at,
         last_sync_error: record.last_sync_error,

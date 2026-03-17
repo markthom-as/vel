@@ -1,6 +1,6 @@
 use sqlx::{Row, Sqlite, SqlitePool, Transaction};
 use time::OffsetDateTime;
-use vel_core::ArtifactId;
+use vel_core::{ArtifactId, PrivacyClass, SyncClass};
 
 use crate::db::{ArtifactInsert, ArtifactRecord, StorageError};
 
@@ -72,7 +72,7 @@ pub(crate) async fn get_artifact_by_id(
     let row = sqlx::query(
         r#"
         SELECT artifact_id, artifact_type, title, mime_type, storage_uri, storage_kind,
-               privacy_class, sync_class, content_hash, size_bytes, created_at, updated_at
+               privacy_class, sync_class, content_hash, size_bytes, metadata_json, created_at, updated_at
         FROM artifacts
         WHERE artifact_id = ?
         "#,
@@ -91,7 +91,7 @@ pub(crate) async fn get_latest_artifact_by_type(
     let row = sqlx::query(
         r#"
         SELECT artifact_id, artifact_type, title, mime_type, storage_uri, storage_kind,
-               privacy_class, sync_class, content_hash, size_bytes, created_at, updated_at
+               privacy_class, sync_class, content_hash, size_bytes, metadata_json, created_at, updated_at
         FROM artifacts
         WHERE artifact_type = ?
         ORDER BY created_at DESC
@@ -112,7 +112,7 @@ pub(crate) async fn list_artifacts(
     let rows = sqlx::query(
         r#"
         SELECT artifact_id, artifact_type, title, mime_type, storage_uri, storage_kind,
-               privacy_class, sync_class, content_hash, size_bytes, created_at, updated_at
+               privacy_class, sync_class, content_hash, size_bytes, metadata_json, created_at, updated_at
         FROM artifacts
         ORDER BY created_at DESC
         LIMIT ?
@@ -130,6 +130,11 @@ fn map_artifact_row(row: &sqlx::sqlite::SqliteRow) -> Result<ArtifactRecord, Sto
     let storage_kind = storage_kind_str
         .parse()
         .map_err(|e: vel_core::VelCoreError| StorageError::Validation(e.to_string()))?;
+    let privacy_class_str: String = row.try_get("privacy_class")?;
+    let privacy_class = parse_privacy_class(&privacy_class_str)?;
+    let sync_class_str: String = row.try_get("sync_class")?;
+    let sync_class = parse_sync_class(&sync_class_str)?;
+    let metadata_str: String = row.try_get("metadata_json")?;
 
     Ok(ArtifactRecord {
         artifact_id: ArtifactId::from(row.try_get::<String, _>("artifact_id")?),
@@ -138,13 +143,38 @@ fn map_artifact_row(row: &sqlx::sqlite::SqliteRow) -> Result<ArtifactRecord, Sto
         mime_type: row.try_get("mime_type")?,
         storage_uri: row.try_get("storage_uri")?,
         storage_kind,
-        privacy_class: row.try_get("privacy_class")?,
-        sync_class: row.try_get("sync_class")?,
+        privacy_class,
+        sync_class,
         content_hash: row.try_get("content_hash")?,
         size_bytes: row.try_get("size_bytes")?,
+        metadata_json: serde_json::from_str(&metadata_str)
+            .unwrap_or_else(|_| serde_json::json!({})),
         created_at: row.try_get("created_at")?,
         updated_at: row.try_get("updated_at")?,
     })
+}
+
+fn parse_privacy_class(value: &str) -> Result<PrivacyClass, StorageError> {
+    match value {
+        "private" => Ok(PrivacyClass::Private),
+        "work" => Ok(PrivacyClass::Work),
+        "sensitive" => Ok(PrivacyClass::Sensitive),
+        "do_not_record" => Ok(PrivacyClass::DoNotRecord),
+        other => Err(StorageError::Validation(format!(
+            "invalid privacy_class: {other}"
+        ))),
+    }
+}
+
+fn parse_sync_class(value: &str) -> Result<SyncClass, StorageError> {
+    match value {
+        "hot" => Ok(SyncClass::Hot),
+        "warm" => Ok(SyncClass::Warm),
+        "cold" => Ok(SyncClass::Cold),
+        other => Err(StorageError::Validation(format!(
+            "invalid sync_class: {other}"
+        ))),
+    }
 }
 
 #[cfg(test)]

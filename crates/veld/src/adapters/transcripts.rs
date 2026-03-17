@@ -65,6 +65,7 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
                 id: transcript_id.clone(),
                 source: source.clone(),
                 conversation_id: conversation_id.clone(),
+                message_id: None,
                 timestamp,
                 role: role.clone(),
                 content: content.clone(),

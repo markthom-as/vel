@@ -102,7 +102,7 @@ async fn rejected_recent_suggestion_suppresses_recreation() {
             title: Some("Increase prep window".to_string()),
             summary: None,
             priority: 60,
-            confidence: Some("medium".to_string()),
+            confidence: Some(0.66),
             dedupe_key: Some("increase_prep_window".to_string()),
             payload_json: serde_json::json!({
                 "type": "increase_prep_window",
@@ -138,7 +138,7 @@ async fn repeated_not_useful_feedback_suppresses_family_without_recent_rejection
                 title: Some("Increase prep window".to_string()),
                 summary: None,
                 priority: 60,
-                confidence: Some("medium".to_string()),
+                confidence: Some(0.66),
                 dedupe_key: Some("increase_prep_window".to_string()),
                 payload_json: serde_json::json!({
                     "type": "increase_prep_window",

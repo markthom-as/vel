@@ -79,7 +79,7 @@ pub async fn create_commitment(
         .insert_commitment(CommitmentInsert {
             text: payload.text.trim().to_string(),
             source_type: payload.source_type,
-            source_id: payload.source_id,
+            source_id: payload.source_id.unwrap_or_default(),
             status: CommitmentStatus::Open,
             due_at: payload.due_at,
             project: payload.project,

@@ -7,6 +7,7 @@ use crate::{
     },
     state::AppState,
 };
+use vel_api_types::{InboxItemData, ProvenanceData, ProvenanceEvent};
 
 #[derive(Debug, Clone)]
 pub(crate) struct InboxItem {
@@ -19,6 +20,20 @@ pub(crate) struct InboxItem {
     pub confidence: Option<f64>,
 }
 
+impl From<InboxItem> for InboxItemData {
+    fn from(i: InboxItem) -> Self {
+        Self {
+            id: i.id,
+            message_id: i.message_id,
+            kind: i.kind,
+            state: i.state,
+            surfaced_at: i.surfaced_at,
+            snoozed_until: i.snoozed_until,
+            confidence: i.confidence,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct MessageProvenance {
     pub message_id: String,
@@ -28,12 +43,35 @@ pub(crate) struct MessageProvenance {
     pub linked_objects: Vec<serde_json::Value>,
 }
 
+impl From<MessageProvenance> for ProvenanceData {
+    fn from(p: MessageProvenance) -> Self {
+        Self {
+            message_id: p.message_id,
+            events: p.events.into_iter().map(Into::into).collect(),
+            signals: p.signals,
+            policy_decisions: p.policy_decisions,
+            linked_objects: p.linked_objects,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct ProvenanceMessageEvent {
     pub id: String,
     pub event_name: String,
     pub created_at: i64,
     pub payload: serde_json::Value,
+}
+
+impl From<ProvenanceMessageEvent> for ProvenanceEvent {
+    fn from(e: ProvenanceMessageEvent) -> Self {
+        Self {
+            id: e.id,
+            event_name: e.event_name,
+            created_at: e.created_at,
+            payload: e.payload,
+        }
+    }
 }
 
 fn intervention_record_to_inbox_output(record: vel_storage::InterventionRecord) -> InboxItem {

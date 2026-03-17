@@ -11,7 +11,7 @@ use crate::db::{
 pub(crate) async fn create_conversation(
     pool: &SqlitePool,
     input: ConversationInsert,
-) -> Result<ConversationId, StorageError> {
+) -> Result<ConversationRecord, StorageError> {
     let now = OffsetDateTime::now_utc().unix_timestamp();
     sqlx::query(
         r#"INSERT INTO conversations (id, title, kind, pinned, archived, created_at, updated_at)
@@ -26,7 +26,16 @@ pub(crate) async fn create_conversation(
     .bind(now)
     .execute(pool)
     .await?;
-    Ok(ConversationId::from(input.id))
+
+    Ok(ConversationRecord {
+        id: ConversationId::from(input.id),
+        title: input.title,
+        kind: input.kind,
+        pinned: input.pinned,
+        archived: input.archived,
+        created_at: now,
+        updated_at: now,
+    })
 }
 
 pub(crate) async fn list_conversations(
@@ -381,8 +390,8 @@ pub(crate) async fn list_events_by_aggregate(
 }
 
 fn map_conversation_row(row: &sqlx::sqlite::SqliteRow) -> Result<ConversationRecord, StorageError> {
-    let pinned: i32 = row.try_get("pinned")?;
-    let archived: i32 = row.try_get("archived")?;
+    let pinned: i64 = row.try_get("pinned")?;
+    let archived: i64 = row.try_get("archived")?;
     Ok(ConversationRecord {
         id: ConversationId::from(row.try_get::<String, _>("id")?),
         title: row.try_get("title")?,
@@ -420,6 +429,7 @@ fn map_intervention_row(row: &sqlx::sqlite::SqliteRow) -> Result<InterventionRec
         confidence: row.try_get("confidence")?,
         source_json: row.try_get("source_json")?,
         provenance_json: row.try_get("provenance_json")?,
+        created_at: row.try_get("created_at")?,
     })
 }
 

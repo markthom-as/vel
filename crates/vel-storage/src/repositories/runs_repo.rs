@@ -2,11 +2,11 @@ use serde_json::{json, Value as JsonValue};
 use sqlx::{Row, SqlitePool};
 use time::OffsetDateTime;
 use uuid::Uuid;
-use vel_core::{Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
+use vel_core::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
 
 use crate::{
     db::{RetryReadyRun, StorageError},
-    repositories::run_refs_repo::{map_ref_row, map_run_event_row, map_run_row},
+    repositories::run_refs_repo::{map_run_event_row, map_run_row},
 };
 
 pub(crate) async fn create_run(
@@ -77,7 +77,7 @@ pub(crate) async fn list_runs(
     pool: &SqlitePool,
     limit: u32,
     kind_filter: Option<&str>,
-    since_ts: Option<i64>,
+    status_filter: Option<&str>,
 ) -> Result<Vec<Run>, StorageError> {
     let limit = limit.clamp(1, 100) as i64;
     let mut sql = r#"
@@ -90,8 +90,8 @@ pub(crate) async fn list_runs(
     if kind_filter.map(|s| !s.is_empty()).unwrap_or(false) {
         conditions.push("run_kind = ?");
     }
-    if since_ts.is_some() {
-        conditions.push("created_at >= ?");
+    if status_filter.map(|s| !s.is_empty()).unwrap_or(false) {
+        conditions.push("status = ?");
     }
     if !conditions.is_empty() {
         sql.push_str(" WHERE ");
@@ -103,8 +103,8 @@ pub(crate) async fn list_runs(
     if let Some(k) = kind_filter.filter(|s| !s.is_empty()) {
         q = q.bind(k);
     }
-    if let Some(ts) = since_ts {
-        q = q.bind(ts);
+    if let Some(status) = status_filter.filter(|s| !s.is_empty()) {
+        q = q.bind(status);
     }
     q = q.bind(limit);
 
@@ -177,7 +177,7 @@ pub(crate) async fn append_run_event(
     seq: u32,
     event_type: RunEventType,
     payload_json: &JsonValue,
-) -> Result<(), StorageError> {
+) -> Result<String, StorageError> {
     let event_id = format!("evt_{}", Uuid::new_v4().simple());
     let now = OffsetDateTime::now_utc().unix_timestamp();
     let payload_str =
@@ -196,7 +196,7 @@ pub(crate) async fn append_run_event(
     .bind(now)
     .execute(pool)
     .await?;
-    Ok(())
+    Ok(event_id)
 }
 
 pub(crate) async fn next_run_event_seq(
@@ -216,15 +216,15 @@ pub(crate) async fn append_run_event_auto(
     run_id: &str,
     event_type: RunEventType,
     payload_json: &JsonValue,
-) -> Result<u32, StorageError> {
+) -> Result<String, StorageError> {
     let seq = next_run_event_seq(pool, run_id).await?;
-    append_run_event(pool, run_id, seq, event_type, payload_json).await?;
-    Ok(seq)
+    append_run_event(pool, run_id, seq, event_type, payload_json).await
 }
 
 pub(crate) async fn list_retry_ready_runs(
     pool: &SqlitePool,
     now_ts: i64,
+    max_retries: i64,
     limit: u32,
 ) -> Result<Vec<RetryReadyRun>, StorageError> {
     let limit = limit.clamp(1, 100) as i64;
@@ -254,6 +254,7 @@ pub(crate) async fn list_retry_ready_runs(
           ON e.run_id = latest.run_id AND e.seq = latest.max_seq
         WHERE r.status = ?
           AND CAST(json_extract(e.payload_json, '$.retry_at') AS INTEGER) <= ?
+          AND CAST(json_extract(e.payload_json, '$.attempt_count') AS INTEGER) <= ?
         ORDER BY retry_at ASC, r.created_at ASC
         LIMIT ?
         "#,
@@ -261,6 +262,7 @@ pub(crate) async fn list_retry_ready_runs(
     .bind(RunEventType::RunRetryScheduled.to_string())
     .bind(RunStatus::RetryScheduled.to_string())
     .bind(now_ts)
+    .bind(max_retries)
     .bind(limit)
     .fetch_all(pool)
     .await?;
@@ -294,65 +296,5 @@ pub(crate) async fn list_run_events(
     .await?;
     rows.into_iter()
         .map(map_run_event_row)
-        .collect::<Result<Vec<_>, _>>()
-}
-
-pub(crate) async fn create_ref(pool: &SqlitePool, ref_: &Ref) -> Result<(), StorageError> {
-    let now = ref_.created_at.unix_timestamp();
-    sqlx::query(
-        r#"
-        INSERT INTO refs (ref_id, from_type, from_id, to_type, to_id, relation_type, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        "#,
-    )
-    .bind(&ref_.id)
-    .bind(&ref_.from_type)
-    .bind(&ref_.from_id)
-    .bind(&ref_.to_type)
-    .bind(&ref_.to_id)
-    .bind(ref_.relation_type.to_string())
-    .bind(now)
-    .execute(pool)
-    .await?;
-    Ok(())
-}
-
-pub(crate) async fn list_refs_from(
-    pool: &SqlitePool,
-    from_type: &str,
-    from_id: &str,
-) -> Result<Vec<Ref>, StorageError> {
-    let rows = sqlx::query(
-        r#"
-        SELECT ref_id, from_type, from_id, to_type, to_id, relation_type, created_at
-        FROM refs WHERE from_type = ? AND from_id = ? ORDER BY created_at ASC
-        "#,
-    )
-    .bind(from_type)
-    .bind(from_id)
-    .fetch_all(pool)
-    .await?;
-    rows.into_iter()
-        .map(map_ref_row)
-        .collect::<Result<Vec<_>, _>>()
-}
-
-pub(crate) async fn list_refs_to(
-    pool: &SqlitePool,
-    to_type: &str,
-    to_id: &str,
-) -> Result<Vec<Ref>, StorageError> {
-    let rows = sqlx::query(
-        r#"
-        SELECT ref_id, from_type, from_id, to_type, to_id, relation_type, created_at
-        FROM refs WHERE to_type = ? AND to_id = ? ORDER BY created_at ASC
-        "#,
-    )
-    .bind(to_type)
-    .bind(to_id)
-    .fetch_all(pool)
-    .await?;
-    rows.into_iter()
-        .map(map_ref_row)
         .collect::<Result<Vec<_>, _>>()
 }

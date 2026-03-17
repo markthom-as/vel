@@ -202,7 +202,11 @@ mod tests {
     #[test]
     fn maps_timeline_rows_to_empty_object_for_malformed_context_json() {
         let entries = map_timeline_entries(vec![
-            ("ctl_bad_json".to_string(), 1_710_000_001, "{not-json}".to_string()),
+            (
+                "ctl_bad_json".to_string(),
+                1_710_000_001,
+                "{not-json}".to_string(),
+            ),
             ("ctl_scalar".to_string(), 1_710_000_002, "true".to_string()),
         ]);
 

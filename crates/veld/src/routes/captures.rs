@@ -115,7 +115,7 @@ pub async fn create_capture(
             .insert_commitment(CommitmentInsert {
                 text: content,
                 source_type: "capture".to_string(),
-                source_id: Some(capture_id.to_string()),
+                source_id: capture_id.to_string(),
                 status: CommitmentStatus::Open,
                 due_at: None,
                 project: None,

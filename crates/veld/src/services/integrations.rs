@@ -660,6 +660,7 @@ async fn seed_foundation_integration_connections_if_empty(
         .list_integration_connections(IntegrationConnectionFilters {
             family: None,
             provider_key: None,
+            status: None,
             include_disabled: true,
         })
         .await?;
@@ -715,6 +716,7 @@ pub async fn list_integration_connections(
         .list_integration_connections(IntegrationConnectionFilters {
             family,
             provider_key,
+            status: None,
             include_disabled,
         })
         .await?;

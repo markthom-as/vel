@@ -19,8 +19,8 @@ fn map_suggestion(
         state: record.state,
         title: record.title,
         summary: record.summary,
-        priority: record.priority,
-        confidence: record.confidence,
+        priority: i64::from(record.priority),
+        confidence: record.confidence.map(|value| value.to_string()),
         evidence_count: record.evidence_count,
         decision_context_summary: record
             .decision_context_json

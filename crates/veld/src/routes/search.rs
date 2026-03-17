@@ -17,7 +17,7 @@ pub async fn search(
         return Err(AppError::bad_request("search query must not be empty"));
     }
 
-    let results = state
+    let results: Vec<vel_storage::SearchResult> = state
         .storage
         .search_captures(
             search_text,
@@ -32,7 +32,10 @@ pub async fn search(
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SearchResults {
-            results: results.into_iter().map(Into::into).collect(),
+            results: results
+                .into_iter()
+                .map(vel_api_types::SearchResult::from)
+                .collect(),
         },
         request_id,
     )))

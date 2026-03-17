@@ -387,7 +387,7 @@ async fn reconcile_commitment(
             .insert_commitment(CommitmentInsert {
                 text: item.content.clone(),
                 source_type: "todoist".to_string(),
-                source_id: Some(source_id.to_string()),
+                source_id: source_id.to_string(),
                 status,
                 due_at,
                 project: project.map(|value| value.to_string()),

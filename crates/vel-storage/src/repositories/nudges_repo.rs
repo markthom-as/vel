@@ -252,11 +252,12 @@ pub(crate) async fn insert_nudge_event(
     event_type: &str,
     payload_json: &str,
     timestamp: i64,
-) -> Result<(), StorageError> {
+) -> Result<String, StorageError> {
     let mut tx = pool.begin().await?;
-    insert_nudge_event_in_tx(&mut tx, nudge_id, event_type, payload_json, timestamp).await?;
+    let event_id =
+        insert_nudge_event_in_tx(&mut tx, nudge_id, event_type, payload_json, timestamp).await?;
     tx.commit().await?;
-    Ok(())
+    Ok(event_id)
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -266,7 +267,7 @@ pub(crate) async fn insert_nudge_event_in_tx(
     event_type: &str,
     payload_json: &str,
     timestamp: i64,
-) -> Result<(), StorageError> {
+) -> Result<String, StorageError> {
     let id = format!("nve_{}", Uuid::new_v4().simple());
     let now = OffsetDateTime::now_utc().unix_timestamp();
     sqlx::query(
@@ -280,7 +281,7 @@ pub(crate) async fn insert_nudge_event_in_tx(
     .bind(now)
     .execute(&mut **tx)
     .await?;
-    Ok(())
+    Ok(id)
 }
 
 pub(crate) async fn list_nudge_events(

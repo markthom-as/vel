@@ -1,4 +1,5 @@
 use uuid::Uuid;
+use vel_api_types::{CreateMessageResponse, MessageData};
 use vel_storage::MessageInsert;
 
 use crate::{
@@ -32,11 +33,37 @@ pub(crate) struct ChatMessage {
     pub updated_at: Option<i64>,
 }
 
+impl From<ChatMessage> for MessageData {
+    fn from(m: ChatMessage) -> Self {
+        Self {
+            id: m.id,
+            conversation_id: m.conversation_id,
+            role: m.role,
+            kind: m.kind,
+            content: m.content,
+            status: m.status,
+            importance: m.importance,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct ChatMessageCreateResult {
     pub user_message: ChatMessage,
     pub assistant_message: Option<ChatMessage>,
     pub assistant_error: Option<String>,
+}
+
+impl From<ChatMessageCreateResult> for CreateMessageResponse {
+    fn from(r: ChatMessageCreateResult) -> Self {
+        Self {
+            user_message: r.user_message.into(),
+            assistant_message: r.assistant_message.map(Into::into),
+            assistant_error: r.assistant_error,
+        }
+    }
 }
 
 impl From<MessageServiceData> for ChatMessage {

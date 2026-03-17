@@ -1,4 +1,5 @@
 use uuid::Uuid;
+use vel_api_types::{InboxItemData, InterventionActionData};
 use vel_storage::InterventionInsert;
 
 use crate::{
@@ -30,10 +31,33 @@ pub(crate) struct InterventionInboxItem {
     pub confidence: Option<f64>,
 }
 
+impl From<InterventionInboxItem> for InboxItemData {
+    fn from(i: InterventionInboxItem) -> Self {
+        Self {
+            id: i.id,
+            message_id: i.message_id,
+            kind: i.kind,
+            state: i.state,
+            surfaced_at: i.surfaced_at,
+            snoozed_until: i.snoozed_until,
+            confidence: i.confidence,
+        }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub(crate) struct InterventionAction {
     pub id: String,
     pub state: String,
+}
+
+impl From<InterventionAction> for InterventionActionData {
+    fn from(a: InterventionAction) -> Self {
+        Self {
+            id: a.id,
+            state: a.state,
+        }
+    }
 }
 
 fn intervention_kind_for_message(message: &InterventionMessageInput) -> Option<&'static str> {

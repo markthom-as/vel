@@ -860,7 +860,7 @@ async fn execute_create_capture(
                     .trim()
                     .to_string(),
                 source_type: "capture".to_string(),
-                source_id: Some(capture_id.to_string()),
+                source_id: capture_id.to_string(),
                 status: CommitmentStatus::Open,
                 due_at: None,
                 project: None,
@@ -1060,7 +1060,7 @@ async fn execute_create_commitment(
         .insert_commitment(CommitmentInsert {
             text,
             source_type: "vel-command".to_string(),
-            source_id: None,
+            source_id: String::new(),
             status: CommitmentStatus::Open,
             due_at: None,
             project,
@@ -1128,7 +1128,7 @@ async fn execute_create_planning_artifact(
 
     let artifact = state
         .storage
-        .get_artifact_by_id(artifact_id.as_ref())
+        .get_artifact_by_id(&ArtifactId::from(artifact_id.to_string()))
         .await?
         .ok_or_else(|| AppError::internal("artifact not found after insert"))?;
     let artifact = artifact_record_to_data(artifact)?;
@@ -1177,8 +1177,8 @@ fn artifact_record_to_data(record: ArtifactRecord) -> Result<ArtifactPayload, Ap
         mime_type: record.mime_type,
         storage_uri: record.storage_uri,
         storage_kind: record.storage_kind.to_string(),
-        privacy_class: record.privacy_class,
-        sync_class: record.sync_class,
+        privacy_class: record.privacy_class.to_string(),
+        sync_class: record.sync_class.to_string(),
         content_hash: record.content_hash,
         size_bytes: record.size_bytes,
         created_at: OffsetDateTime::from_unix_timestamp(record.created_at)
@@ -1609,7 +1609,7 @@ mod tests {
             .insert_commitment(CommitmentInsert {
                 text: "follow up".to_string(),
                 source_type: "vel-command".to_string(),
-                source_id: None,
+                source_id: String::new(),
                 status: CommitmentStatus::Open,
                 due_at: None,
                 project: Some("vel".to_string()),

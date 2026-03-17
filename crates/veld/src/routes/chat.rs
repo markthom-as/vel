@@ -20,109 +20,16 @@ use crate::services::chat::{
         update_conversation as update_conversation_data, ConversationCreateInput,
         ConversationUpdateInput,
     },
-    interventions::{
-        dismiss_intervention, resolve_intervention, snooze_intervention, InterventionAction,
-    },
-    mapping::{
-        conversation_record_to_data, message_record_to_data, ConversationServiceData,
-        MessageServiceData,
-    },
-    messages::{
-        create_message_response, ChatMessage, ChatMessageCreateInput, ChatMessageCreateResult,
-    },
+    interventions::{dismiss_intervention, resolve_intervention, snooze_intervention},
+    mapping::{conversation_record_to_data, message_record_to_data},
+    messages::{create_message_response, ChatMessageCreateInput},
     reads::{
         build_message_provenance_data, list_conversation_intervention_items, list_inbox_items,
-        list_message_intervention_items, InboxItem, MessageProvenance, ProvenanceMessageEvent,
+        list_message_intervention_items,
     },
     settings::settings_payload,
 };
 use crate::{errors::AppError, state::AppState};
-
-fn map_conversation(conversation: ConversationServiceData) -> ConversationData {
-    ConversationData {
-        id: conversation.id,
-        title: conversation.title,
-        kind: conversation.kind,
-        pinned: conversation.pinned,
-        archived: conversation.archived,
-        created_at: conversation.created_at,
-        updated_at: conversation.updated_at,
-    }
-}
-
-fn map_inbox_item(item: InboxItem) -> InboxItemData {
-    InboxItemData {
-        id: item.id,
-        message_id: item.message_id,
-        kind: item.kind,
-        state: item.state,
-        surfaced_at: item.surfaced_at,
-        snoozed_until: item.snoozed_until,
-        confidence: item.confidence,
-    }
-}
-
-fn map_service_message(message: MessageServiceData) -> MessageData {
-    MessageData {
-        id: message.id,
-        conversation_id: message.conversation_id,
-        role: message.role,
-        kind: message.kind,
-        content: message.content,
-        status: message.status,
-        importance: message.importance,
-        created_at: message.created_at,
-        updated_at: message.updated_at,
-    }
-}
-
-fn map_chat_message(message: ChatMessage) -> MessageData {
-    MessageData {
-        id: message.id,
-        conversation_id: message.conversation_id,
-        role: message.role,
-        kind: message.kind,
-        content: message.content,
-        status: message.status,
-        importance: message.importance,
-        created_at: message.created_at,
-        updated_at: message.updated_at,
-    }
-}
-
-fn map_message_create_result(data: ChatMessageCreateResult) -> CreateMessageResponse {
-    CreateMessageResponse {
-        user_message: map_chat_message(data.user_message),
-        assistant_message: data.assistant_message.map(map_chat_message),
-        assistant_error: data.assistant_error,
-    }
-}
-
-fn map_intervention_action(payload: InterventionAction) -> InterventionActionData {
-    InterventionActionData {
-        id: payload.id,
-        state: payload.state,
-    }
-}
-
-fn map_provenance_event(event: ProvenanceMessageEvent) -> vel_api_types::ProvenanceEvent {
-    vel_api_types::ProvenanceEvent {
-        id: event.id,
-        event_name: event.event_name,
-        created_at: event.created_at,
-        payload: event.payload,
-    }
-}
-
-fn map_message_provenance(data: MessageProvenance) -> ProvenanceData {
-    ProvenanceData {
-        message_id: data.message_id,
-        events: data.events.into_iter().map(map_provenance_event).collect(),
-        signals: data.signals,
-        policy_decisions: data.policy_decisions,
-        linked_objects: data.linked_objects,
-    }
-}
 
 // --- Conversation handlers ---
 
@@ -135,7 +42,7 @@ pub async fn list_conversations(
     let data: Vec<ConversationData> = list
         .into_iter()
         .map(conversation_record_to_data)
-        .map(map_conversation)
+        .map(Into::into)
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -161,7 +68,7 @@ pub async fn create_conversation(
     .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        map_conversation(conversation_record_to_data(conv)),
+        conversation_record_to_data(conv).into(),
         request_id,
     )))
 }
@@ -177,7 +84,7 @@ pub async fn get_conversation(
         .ok_or_else(|| AppError::not_found("conversation not found"))?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        map_conversation(conversation_record_to_data(conv)),
+        conversation_record_to_data(conv).into(),
         request_id,
     )))
 }
@@ -199,7 +106,7 @@ pub async fn update_conversation(
     .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        map_conversation(conversation_record_to_data(conv)),
+        conversation_record_to_data(conv).into(),
         request_id,
     )))
 }
@@ -218,7 +125,7 @@ pub async fn list_messages(
         .await?;
     let mut data = Vec::with_capacity(list.len());
     for r in list {
-        data.push(map_service_message(message_record_to_data(r)?));
+        data.push(message_record_to_data(r)?.into());
     }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -245,10 +152,7 @@ pub async fn create_message(
     )
     .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        map_message_create_result(response),
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(response.into(), request_id)))
 }
 
 // --- Inbox handler ---
@@ -261,7 +165,7 @@ pub async fn get_inbox(
     let data = list_inbox_items(&state, limit)
         .await?
         .into_iter()
-        .map(map_inbox_item)
+        .map(Into::into)
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -281,7 +185,7 @@ pub async fn list_conversation_interventions(
     let data = list_conversation_intervention_items(&state, conversation_id.trim())
         .await?
         .into_iter()
-        .map(map_inbox_item)
+        .map(Into::into)
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -294,7 +198,7 @@ pub async fn list_message_interventions(
     let data = list_message_intervention_items(&state, message_id.trim())
         .await?
         .into_iter()
-        .map(map_inbox_item)
+        .map(Into::into)
         .collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -304,10 +208,9 @@ pub async fn get_message_provenance(
     State(state): State<AppState>,
     Path(message_id): Path<String>,
 ) -> Result<Json<ApiResponse<ProvenanceData>>, AppError> {
-    let data =
-        map_message_provenance(build_message_provenance_data(&state, message_id.trim()).await?);
+    let data = build_message_provenance_data(&state, message_id.trim()).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(data, request_id)))
+    Ok(Json(ApiResponse::success(data.into(), request_id)))
 }
 
 // --- Settings (031) ---
@@ -442,12 +345,9 @@ pub async fn intervention_snooze(
             .minutes
             .map(|m| time::OffsetDateTime::now_utc().unix_timestamp() + (m as i64) * 60))
         .ok_or_else(|| AppError::bad_request("snoozed_until_ts or minutes required"))?;
-    let payload = snooze_intervention(&state, id.trim(), until_ts).await?;
+    let res = snooze_intervention(&state, id.trim(), until_ts).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        map_intervention_action(payload),
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(res.into(), request_id)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -460,24 +360,18 @@ pub async fn intervention_resolve(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
-    let payload = resolve_intervention(&state, id.trim()).await?;
+    let res = resolve_intervention(&state, id.trim()).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        map_intervention_action(payload),
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(res.into(), request_id)))
 }
 
 pub async fn intervention_dismiss(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
-    let payload = dismiss_intervention(&state, id.trim()).await?;
+    let res = dismiss_intervention(&state, id.trim()).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(
-        map_intervention_action(payload),
-        request_id,
-    )))
+    Ok(Json(ApiResponse::success(res.into(), request_id)))
 }
 
 pub fn chat_routes() -> Router<AppState> {

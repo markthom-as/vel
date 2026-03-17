@@ -6,6 +6,7 @@ use serde::Deserialize;
 use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_api_types::{ApiResponse, ArtifactCreateRequest, ArtifactCreateResponse, ArtifactData};
+use vel_core::ArtifactId;
 use vel_storage::{ArtifactInsert, ArtifactRecord};
 
 use crate::{errors::AppError, state::AppState};
@@ -18,8 +19,8 @@ fn artifact_record_to_data(r: ArtifactRecord) -> Result<ArtifactData, AppError> 
         mime_type: r.mime_type,
         storage_uri: r.storage_uri,
         storage_kind: r.storage_kind.to_string(),
-        privacy_class: r.privacy_class,
-        sync_class: r.sync_class,
+        privacy_class: r.privacy_class.to_string(),
+        sync_class: r.sync_class.to_string(),
         content_hash: r.content_hash,
         size_bytes: r.size_bytes,
         created_at: OffsetDateTime::from_unix_timestamp(r.created_at)
@@ -59,8 +60,8 @@ pub async fn list_artifacts(
             mime_type: r.mime_type,
             storage_uri: r.storage_uri,
             storage_kind: r.storage_kind.to_string(),
-            privacy_class: r.privacy_class,
-            sync_class: r.sync_class,
+            privacy_class: r.privacy_class.to_string(),
+            sync_class: r.sync_class.to_string(),
             content_hash: r.content_hash,
             size_bytes: r.size_bytes,
             created_at: OffsetDateTime::from_unix_timestamp(r.created_at)
@@ -126,7 +127,7 @@ pub async fn get_artifact(
 ) -> Result<Json<ApiResponse<ArtifactData>>, AppError> {
     let record = state
         .storage
-        .get_artifact_by_id(id.trim())
+        .get_artifact_by_id(&ArtifactId::from(id.trim().to_string()))
         .await?
         .ok_or_else(|| AppError::not_found("artifact not found"))?;
 
@@ -139,8 +140,8 @@ pub async fn get_artifact(
             mime_type: record.mime_type,
             storage_uri: record.storage_uri,
             storage_kind: record.storage_kind.to_string(),
-            privacy_class: record.privacy_class,
-            sync_class: record.sync_class,
+            privacy_class: record.privacy_class.to_string(),
+            sync_class: record.sync_class.to_string(),
             content_hash: record.content_hash,
             size_bytes: record.size_bytes,
             created_at: OffsetDateTime::from_unix_timestamp(record.created_at)

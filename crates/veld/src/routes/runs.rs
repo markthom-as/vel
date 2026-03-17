@@ -8,7 +8,8 @@ use vel_api_types::WsEventType;
 use vel_api_types::{
     ApiResponse, ArtifactSummaryData, RunDetailData, RunEventData, RunSummaryData, RunUpdateRequest,
 };
-use vel_core::{RunEventType, RunStatus};
+use vel_core::RunEventType;
+use vel_core::{RunKind, RunStatus};
 
 use crate::{broadcast::WsEnvelope, errors::AppError, state::AppState};
 
@@ -233,14 +234,23 @@ pub async fn list_runs(
     Query(q): Query<ListRunsQuery>,
 ) -> Result<Json<ApiResponse<Vec<RunSummaryData>>>, AppError> {
     let limit = q.limit.unwrap_or(20).clamp(1, 100);
-    let kind_filter = q.kind.as_deref().filter(|s| !s.is_empty());
+    let kind_filter = q
+        .kind
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            s.parse::<RunKind>()
+                .map_err(|_| AppError::bad_request("invalid run kind"))
+        })
+        .transpose()?;
     let since_ts = q.today.unwrap_or(false).then(start_of_today_utc);
-    let runs = state
-        .storage
-        .list_runs(limit, kind_filter, since_ts)
-        .await?;
+    let runs = state.storage.list_runs(kind_filter, None, limit).await?;
     let mut data = Vec::with_capacity(runs.len());
-    for r in runs {
+    let mut filtered_runs = runs;
+    if let Some(since_ts) = since_ts {
+        filtered_runs.retain(|run| run.created_at.unix_timestamp() >= since_ts);
+    }
+    for r in filtered_runs {
         data.push(run_summary_data(&state, r).await?);
     }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
@@ -273,7 +283,11 @@ pub async fn get_run(
     let mut artifacts = Vec::new();
     for ref_ in refs_from_run {
         if ref_.to_type == "artifact" {
-            if let Some(record) = state.storage.get_artifact_by_id(&ref_.to_id).await? {
+            if let Some(record) = state
+                .storage
+                .get_artifact_by_id(&vel_core::ArtifactId::from(ref_.to_id.clone()))
+                .await?
+            {
                 artifacts.push(ArtifactSummaryData {
                     artifact_id: record.artifact_id,
                     artifact_type: record.artifact_type,
