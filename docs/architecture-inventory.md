@@ -14,6 +14,8 @@ It is not the canonical shipped-behavior ledger. For shipped behavior, use [stat
 
 It is also not a speculative architecture spec. Future-shape design remains in [specs/](specs/) and product/spec packs.
 
+For the future-facing planned-system synthesis, use [docs/future-architecture-map.md](future-architecture-map.md).
+
 Use this document when the task is:
 
 - architecture cleanup

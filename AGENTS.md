@@ -77,6 +77,17 @@ Then:
 3. write or update tests where appropriate
 4. update documentation for any changed module, API contract, or workflow
 
+### Platform Ticket Preference
+
+When choosing specs or ticket packs, prefer work that matches the platform you are currently operating on or modifying:
+
+- prefer Apple/macOS/iOS/watch tickets when working in Apple clients or Apple bridge code
+- prefer Linux/daemon/runtime tickets when working in server, CLI, storage, or local runtime code on Linux-oriented surfaces
+- prefer web tickets when working in browser/operator UI code
+- cross-platform or shared-core work may use whichever ticket pack most directly governs the shared boundary
+
+If multiple ticket packs are relevant, bias toward the one closest to the active platform and only widen scope when the architecture clearly requires it.
+
 ## Priority Order
 
 1. capture system
