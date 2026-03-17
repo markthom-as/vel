@@ -595,6 +595,78 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn resolved_suggestion_uncertainty_suppresses_immediate_recreation() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        let recent = now_ts - 3600;
+
+        for _ in 0..2 {
+            storage
+                .insert_nudge(vel_storage::NudgeInsert {
+                    nudge_type: "commute_leave_time".to_string(),
+                    level: "danger".to_string(),
+                    state: "resolved".to_string(),
+                    related_commitment_id: None,
+                    message: "Leave now".to_string(),
+                    snoozed_until: None,
+                    resolved_at: Some(recent),
+                    signals_snapshot_json: None,
+                    inference_snapshot_json: None,
+                    metadata_json: None,
+                })
+                .await
+                .unwrap();
+        }
+
+        let created =
+            crate::services::suggestions::evaluate_after_nudges(&storage, &test_policy_config())
+                .await
+                .unwrap();
+        assert_eq!(
+            created, 0,
+            "borderline candidate should defer into uncertainty"
+        );
+
+        let uncertainty = storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .expect("expected deferred uncertainty");
+        assert_eq!(
+            uncertainty.subject_id.as_deref(),
+            Some("increase_commute_buffer")
+        );
+
+        storage
+            .resolve_uncertainty_record(&uncertainty.id)
+            .await
+            .unwrap()
+            .expect("uncertainty should resolve");
+
+        let created_again =
+            crate::services::suggestions::evaluate_after_nudges(&storage, &test_policy_config())
+                .await
+                .unwrap();
+        assert_eq!(
+            created_again, 0,
+            "resolved uncertainty should suppress immediate recreation of the same deferred candidate"
+        );
+        assert!(storage
+            .list_uncertainty_records(Some("open"), 10)
+            .await
+            .unwrap()
+            .is_empty());
+        assert!(storage
+            .list_suggestions(Some("pending"), 10)
+            .await
+            .unwrap()
+            .is_empty());
+    }
+
+    #[tokio::test]
     async fn search_endpoint_returns_ok_for_matching_capture() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
