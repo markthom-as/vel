@@ -136,7 +136,8 @@ Project workspace and multi-surface contract for project registry, commitments, 
 Documentation and source-code awareness: repo indexer, self-knowledge graph, evidence-backed claims, doc/code drift detection, navigation APIs, system map, change hotspots, maintenance loop.
 
 - **Spec:** [docs/specs/vel-self-knowledge-system-spec.md](../specs/vel-self-knowledge-system-spec.md)
-- **Tickets:** `SK-001-knowledge-indexer.md` … `SK-010-maintenance-automation-loop.md`
+- **Related spec:** [docs/specs/vel-github-issues-spec.md](../specs/vel-github-issues-spec.md)
+- **Tickets:** `SK-001-knowledge-indexer.md` … `SK-011-github-issue-awareness.md`
 
 #### 13. Multi-client swarm (`multi-client-swarm/`)
 
@@ -148,9 +149,19 @@ Parallel multi-client orchestration and cluster-aware sync: explicit swarm task/
 - **Use when:** implementing supervised parallel execution across clients/workers, or adding the cluster sync substrate needed for swarm scheduling and load balancing.
 - **Caution:** this pack is orchestration-heavy and should not outrank current core convergence work unless there is an explicit decision to prioritize runtime/swarm infrastructure.
 
+#### 14. Integration expansion (`integration-expansion/`)
+
+Provider- and connection-aware integration architecture: multi-vendor messaging/notes/transcripts/tasks, person identity, Apple bridge prep, Steam activity, Google Workspace convergence, and standards-aware ingest/export strategy.
+
+- **Index:** [integration-expansion/README.md](integration-expansion/README.md)
+- **Spec:** [docs/specs/vel-multi-vendor-integration-and-person-identity-spec.md](../specs/vel-multi-vendor-integration-and-person-identity-spec.md)
+- **Tickets:** `INTG-001-foundation-family-provider-connection-model.md` … `INTG-012-fixtures-tests-docs-and-rollout.md`
+- **Use when:** expanding Vel beyond single-provider-per-family assumptions or introducing person-native multi-source identity and provenance.
+- **Caution:** this pack should extend the existing adapter/runtime foundations, not bypass them with provider-specific core logic.
+
 ### Speculative / future architecture
 
-#### 14. Full spec pack (`full-spec-pack/`)
+#### 15. Full spec pack (`full-spec-pack/`)
 
 Imported workflow-first planning packet covering templates, workflows, media, integrations, policy, UI system, voice UX, and high-level architecture.
 
@@ -158,7 +169,7 @@ Imported workflow-first planning packet covering templates, workflows, media, in
 - **Tickets:** `ticket_templates.md` … `ticket_voice.md`
 - **Use with caution:** this pack is broad and partially overlaps current commitments/context/nudge architecture. Reconcile against [docs/status.md](../status.md) and existing specs before execution.
 
-#### 15. Context reasoning (`context-reasoning/`)
+#### 16. Context reasoning (`context-reasoning/`)
 
 Context/decision tickets: belief store, inference engine, inspector UI, decision trace logging, explanation UI, feedback learning loop, belief expiration, confidence calibration, introspection report.
 
@@ -166,7 +177,7 @@ Context/decision tickets: belief store, inference engine, inspector UI, decision
 - **Tickets:** `TICKET-001-context-belief-store.md` … `TICKET-010-introspection-report.md`
 - **Use with caution:** this pack is conceptually rich, but may overlap with already-implemented current-context and explainability systems. Validate boundaries against [docs/status.md](../status.md) before execution.
 
-#### 16. Task HUD (`task-hud/`)
+#### 17. Task HUD (`task-hud/`)
 
 Task HUD subsystem: task core crate, DB schema/migrations, actions engine, ranking engine, HUD policy, view model, desktop HUD UI, inference engine, ritual tasks, risk integration, voice bridge, glance API, ambient mode, AR protocol spec.
 
@@ -174,20 +185,20 @@ Task HUD subsystem: task core crate, DB schema/migrations, actions engine, ranki
 - **Tickets:** `01-task-core-crate.md` … `14-ar-hud-protocol-spec.md`
 - **Use with caution:** this pack introduces a new task-centric subsystem and should be reconciled carefully with existing commitments, nudges, threads, and risk semantics first.
 
-#### 17. Orchestration Navs (`orchestration/`)
+#### 18. Orchestration Navs (`orchestration/`)
 
 Core orchestration stack for Nav-based execution: task model, Nav trait, capability model, Nav registry, delegation engine, context scoping, result integration, persistent task store, trust profiles, reflection, observability, initial Nav implementations.
 
 - **Tickets:** `001_task_model.md` … `012_initial_navs.md`
 
-#### 18. Self-modification system (`vel-self-modification/`)
+#### 19. Self-modification system (`vel-self-modification/`)
 
 Governed self-modification pipeline: protected surface registry, patch proposal schema, self-improvement service skeleton, change ledger, validation orchestrator, sandbox execution, rollback control, autonomy budgets, rollout support, metrics, constitutional workflow.
 
 - **Index:** [vel-self-modification/_ticket-index.md](vel-self-modification/_ticket-index.md)
 - **Tickets:** `VSM-001-protected-surface-registry.md` … `VSM-020-constitutional-change-workflow.md`
 
-#### 19. iOS/watch standalone (`ios-watch/`)
+#### 20. iOS/watch standalone (`ios-watch/`)
 
 Tickets for iOS + watchOS as a separate repo/workspace (`vel-apple`): bootstrap, shared models/API, app shell, timeline/check-in/reminder flows, background refresh, widgets, voice, offline-first sync, privacy/observability, integration roadmap.
 
@@ -195,7 +206,7 @@ Tickets for iOS + watchOS as a separate repo/workspace (`vel-apple`): bootstrap,
 - **Tickets:** `TKT-001-apple-platform-bootstrap.md` … `TKT-013-apple-integration-roadmap.md`
 - **Use with caution:** this pack assumes a separate-repo stance that may diverge from current same-repo Apple bootstrap guidance.
 
-#### 20. Predicate system (`predicate-system/`)
+#### 21. Predicate system (`predicate-system/`)
 
 Predicate/rule-oriented architecture tickets for store, rule engine, and observation ingest.
 

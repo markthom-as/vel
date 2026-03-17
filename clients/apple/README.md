@@ -148,6 +148,7 @@ clients/apple/
 - `GET /v1/health` — reachability.
 - `GET /v1/cluster/bootstrap` — node/transport metadata.
 - `GET /v1/sync/bootstrap` — cache hydration for current context, nudges, and commitments.
+- `GET /v1/sync/cluster` — cluster/node/worker inspection metadata for transport and capacity-aware clients.
 - `POST /v1/sync/actions` — queued low-risk client actions (`nudge_done`, `nudge_snooze`, `commitment_done`, `commitment_create`, `capture_create`).
 
 VelAPI can be extended with more endpoints (commitments, captures, explain, risk, etc.) as needed.

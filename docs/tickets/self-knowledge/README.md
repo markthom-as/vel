@@ -23,4 +23,4 @@ This pack contains tickets for Vel's documentation and source-code awareness sub
 - SK-008 — self-awareness dashboard
 - SK-009 — git freshness + change intelligence
 - SK-010 — maintenance automation loop
-
+- SK-011 — GitHub issue awareness
