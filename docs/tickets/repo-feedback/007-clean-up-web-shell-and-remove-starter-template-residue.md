@@ -1,6 +1,6 @@
 ---
 title: "Clean up the web shell and remove starter-template residue"
-status: todo
+status: done
 owner: agent
 type: cleanup
 priority: medium

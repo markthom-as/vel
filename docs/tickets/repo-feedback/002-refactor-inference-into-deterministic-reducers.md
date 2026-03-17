@@ -1,6 +1,6 @@
 ---
 title: "Refactor inference into deterministic reducers and explicit selectors"
-status: todo
+status: in_progress
 owner: agent
 type: implementation
 priority: critical

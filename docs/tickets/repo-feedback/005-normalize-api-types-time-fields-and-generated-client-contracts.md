@@ -1,6 +1,6 @@
 ---
 title: "Normalize API types, time fields, and client contracts across backend and web"
-status: todo
+status: in_progress
 owner: agent
 type: implementation
 priority: high

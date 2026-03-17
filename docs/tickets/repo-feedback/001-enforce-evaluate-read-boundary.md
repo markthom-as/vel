@@ -1,6 +1,6 @@
 ---
 title: "Enforce evaluate/read boundary across inference, risk, nudges, and explain"
-status: todo
+status: done
 owner: agent
 type: architecture
 priority: critical

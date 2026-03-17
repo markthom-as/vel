@@ -1,6 +1,6 @@
 ---
 title: "Establish build, CI, and repo-truth checks for Rust, web, docs, and status"
-status: todo
+status: in_progress
 owner: agent
 type: infrastructure
 priority: high

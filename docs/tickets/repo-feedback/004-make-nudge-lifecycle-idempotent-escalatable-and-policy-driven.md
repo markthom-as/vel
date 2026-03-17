@@ -1,6 +1,6 @@
 ---
 title: "Make the nudge lifecycle idempotent, escalatable, and fully policy-driven"
-status: todo
+status: in_progress
 owner: agent
 type: implementation
 priority: high

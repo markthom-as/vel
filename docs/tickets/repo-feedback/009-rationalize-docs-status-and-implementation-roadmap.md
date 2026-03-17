@@ -1,6 +1,6 @@
 ---
 title: "Rationalize docs, status, and roadmap so the repo has one narrative"
-status: todo
+status: in_progress
 owner: agent
 type: documentation
 priority: medium

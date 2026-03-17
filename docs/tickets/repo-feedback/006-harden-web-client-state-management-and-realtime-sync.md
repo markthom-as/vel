@@ -1,6 +1,6 @@
 ---
 title: "Harden web client state management and realtime sync"
-status: todo
+status: deferred
 owner: agent
 type: implementation
 priority: medium

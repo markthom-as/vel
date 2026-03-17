@@ -24,13 +24,15 @@ Use [docs/status.md](../../status.md) as the canonical implementation ledger.
 
 Current practical state in this packet:
 
-- `001` read/evaluate boundary: materially implemented and covered by a non-mutation integration test
+- `001` read/evaluate boundary: done
 - `002` inference reducers: in progress; deterministic selectors and staged collect/derive/persist flow are underway
-- `003` risk authority: in progress; typed risk contracts are in place and consumers are moving onto them
-- `004` nudge lifecycle: in progress; reactivation and in-place escalation are implemented, broader policy cleanup remains
-- `005` API/time contract cleanup: in progress; websocket timestamps are now RFC3339 and typed risk factors are explicit
+- `003` risk authority: in progress; typed risk contracts are in place, consumers are moving onto them, and ticket-level coverage has expanded
+- `004` nudge lifecycle: in progress; reactivation, in-place escalation, dismissal, and lifecycle history are implemented, broader policy cleanup remains
+- `005` API/time contract cleanup: in progress; websocket timestamps are RFC3339, Unix-second DTO categories are more explicit, and web decoders are stricter
 - `006` web realtime/state management: intentionally deferred for now
-- `007` `008` `009`: next repo-feedback priority after current convergence work
+- `007` starter-template cleanup: done
+- `008` repo-truth/build checks: in progress
+- `009` docs/status rationalization: in progress
 
 ## Ticket order
 

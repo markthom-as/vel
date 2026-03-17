@@ -1,6 +1,6 @@
 ---
 title: "Complete the risk engine and make it the single authority for commitment risk"
-status: todo
+status: in_progress
 owner: agent
 type: implementation
 priority: high
