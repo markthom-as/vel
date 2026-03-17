@@ -23,6 +23,9 @@ related_files:
   - docs/templates/agent-implementation-protocol.md
   - docs/cognitive-agent-architecture/README.md
   - docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md
+  - docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md
+  - docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md
+  - docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md
 summary: Consolidated architectural and operational principles for how Vel should orchestrate agents, mediate capabilities, verify behavior, and evolve without sacrificing trust.
 ---
 
@@ -51,6 +54,8 @@ Without one explicit concept spec, the ticket queue can drift into disconnected 
 - use agents as supervised specialists, not ambient omnipotent actors
 - mediate external capabilities and secrets through narrow boundaries
 - require execution-backed verification instead of prompt-only confidence
+- define schemas, manifests, and templates before broad implementation drift can form around implicit contracts
+- make repo-aware introspection and bounded self-modification explicit, reviewable, and narrow
 - make architectural learning compound over time through docs, traces, and reusable patterns
 
 # Non-Goals
@@ -60,6 +65,7 @@ Without one explicit concept spec, the ticket queue can drift into disconnected 
 - building a sprawling distributed system before the local authority runtime is solid
 - assuming speculative multi-agent complexity is inherently better than a strong single orchestrator
 - treating LLM judgment alone as sufficient verification
+- allowing open-ended self-rewriting without explicit writable scope, review, and verification
 
 # Current State
 
@@ -160,6 +166,18 @@ Crossing trust domains requires an explicit contract, audit trail, and narrow ca
 - These traits should be accounted for explicitly in specs, tickets, and subsystem changes.
 - See [01-cross-cutting-system-traits.md](01-cross-cutting-system-traits.md) for the formal trait definitions and subsystem application matrix.
 
+### 10. Canonical Contracts Before Breadth
+
+- Core data shapes, manifests, config schemas, and policy templates should be explicitly defined before implementation fans out across clients, connectors, and workers.
+- Object definitions should name the owning crate, serialization boundary, versioning rule, and canonical example or template.
+- The queue should prioritize documentation, schema, contract, and architecture work before broadening implementation scope.
+
+### 11. Bounded Self-Awareness
+
+- Vel should be able to inspect its state, docs, config, tickets, and repository layout as part of supervised introspection.
+- Repo visibility is useful only when paired with explicit writable scopes, diff visibility, and verification gates.
+- Self-modification should be a supervised capability, not an ambient right of every agent or runtime.
+
 ## System Shape
 
 ### Authority Runtime
@@ -191,6 +209,30 @@ External integrations and future tools should be mediated through a capability l
 - resolves the narrow resource or host/path allowance,
 - injects credentials only at point of use,
 - logs the action with stable run or trace identifiers.
+
+### Contract And Schema Layer
+
+The authority runtime should keep a canonical contract layer for:
+
+- typed domain objects,
+- transport DTOs,
+- config schemas,
+- policy schemas,
+- handoff envelopes,
+- connector manifests,
+- repo-visible self-models.
+
+Those contracts should have named owners, versioning rules, and templates or examples.
+
+### Self-Model And Introspection Layer
+
+Vel should maintain a bounded self-model that can answer:
+
+- what code and docs exist,
+- what contracts and configs govern runtime behavior,
+- what writable scopes are currently allowed,
+- what tickets or plans constrain the active task,
+- what changes are safe to propose versus safe to apply.
 
 ### Delegated Agent Runtime
 
@@ -226,6 +268,8 @@ signal or operator trigger
 - `current_context` should be typed and versioned, not an unbounded JSON blob in business logic.
 - Run-backed operations must emit lifecycle events and persist terminal state.
 - Handoffs must carry objective, constraints, expected output shape, and trace linkage.
+- Configs, manifests, and policy files should have canonical schema docs and checked-in templates.
+- Integration families, providers, and source modes should come from one canonical connector model rather than ad hoc per-surface lists.
 
 ## Security And Secret Rules
 
@@ -234,6 +278,8 @@ signal or operator trigger
 - Raw secrets must not appear in prompts, logs, traces, fixtures, or snapshots.
 - Secret decryption should happen at the narrowest point of use.
 - Unsupported or unknown routes, actions, and request patterns should reject safely by default.
+- Repo-aware agents must not infer write permission from read permission; writable scope must be explicit.
+- Self-modification paths should require diff visibility, tests or execution evidence, and a review gate.
 
 ## Verification And Evaluation Rules
 

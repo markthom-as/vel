@@ -2,6 +2,8 @@
 
 Vel's introspection must improve policy, not mutate personality into mush.
 
+For repository visibility, self-model structure, and supervised code-change rules, see [self-awareness-and-supervised-self-modification.md](self-awareness-and-supervised-self-modification.md).
+
 ## Purpose
 
 Evaluate whether Vel is helping or harming.
@@ -38,6 +40,7 @@ Use bounded reflection cycles:
 - user-facing tone/personality must not drift automatically
 - reflection may propose changes, not self-authorize broad UX mutation
 - every policy change must be reversible
+- repo-aware introspection may inspect code, config, tickets, and docs, but write capability must remain explicitly scoped and supervised
 
 ## Example
 

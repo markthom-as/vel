@@ -1,5 +1,5 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v1.0.3)
+**Status**: Canonical Truth (v1.0.4)
 **Last Updated**: 2026-03-17
 
 ---
@@ -25,8 +25,9 @@
 4.  **Capability Mediation**: Agents should use scoped capabilities, brokered requests, and secret indirection instead of prompt-visible raw credentials.
 5.  **Execution Observability**: Agent runs, handoffs, external calls, and major workflow transitions should produce stable run IDs, traces, or equivalent event linkage.
 6.  **Cross-Cutting Trait Discipline**: New subsystem work should explicitly account for modularity, accessibility, configurability, logging, rewind/replay, and composability.
-7.  **Unified Agent SDK**: Provide a `vel-agent-sdk` for building new "Limbs" that can safely interact with the "Brain."
-8.  **Local LLM Eval Harness**: Automated verification of agent reasoning using a "Judge" model, paired with deterministic and execution-backed checks.
+7.  **Canonical Contracts First**: Schema docs, manifests, config templates, and architecture contracts should be defined before broad cross-layer implementation work.
+8.  **Unified Agent SDK**: Provide a `vel-agent-sdk` for building new "Limbs" that can safely interact with the "Brain."
+9.  **Local LLM Eval Harness**: Automated verification of agent reasoning using a "Judge" model, paired with deterministic and execution-backed checks.
 
 ---
 
@@ -53,6 +54,15 @@
 
 ### 1.7 Documentation Catalog Single Source & Surface Parity **[PLANNED]**
 *   *Ticket*: `020-documentation-catalog-single-source.md`
+
+### 1.8 Canonical Schemas, Config Contracts & Templates **[PLANNED]**
+*   *Ticket*: `021-canonical-schema-and-config-contracts.md`
+
+### 1.9 Canonical Data Sources, Integrations & Connector Contracts **[PLANNED]**
+*   *Ticket*: `022-data-sources-and-connector-architecture.md`
+
+### 1.10 Self-Awareness, Repo Visibility & Supervised Self-Modification **[PLANNED]**
+*   *Ticket*: `023-self-awareness-and-supervised-self-modification.md`
 
 ---
 

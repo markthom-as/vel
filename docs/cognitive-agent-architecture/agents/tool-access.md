@@ -38,6 +38,8 @@ Because "just give the model everything" is how you end up with a spooky little 
 - unknown tool requests fail closed
 - external access should be scoped by tool, action, host, path, or resource where possible
 - raw third-party secrets should stay behind capability brokers or boundary-time injection layers
+- repository visibility and code-modification capability are distinct scopes; read-all does not imply write-anywhere
+- code and doc writes should be limited to explicit writable scopes tied to a reviewed task or ticket
 
 ## Capability Boundary Pattern
 
@@ -50,4 +52,15 @@ agent intent
 -> point-of-use credential injection
 -> execution
 -> traced result
+```
+
+For repo-aware work, the equivalent pattern is:
+
+```text
+task scope
+-> read scope check
+-> writable scope check
+-> diff production
+-> tests / execution evidence
+-> review gate
 ```

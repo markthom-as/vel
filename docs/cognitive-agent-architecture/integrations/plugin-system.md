@@ -2,6 +2,8 @@
 
 Vel should expose a plugin layer for integrations.
 
+For the canonical source-family list and connector contract, see [canonical-data-sources-and-connectors.md](canonical-data-sources-and-connectors.md).
+
 ## Integration Classes
 
 - calendar
@@ -23,6 +25,8 @@ Each plugin should declare:
 - failure modes
 - write permissions
 - allowed hosts or resource scopes
+- source mode (`local_file`, `snapshot`, `oauth_api`, `brokered_tool`, `delegated_runtime`)
+- emitted entity and signal schemas
 
 ## Example Capability Declaration
 

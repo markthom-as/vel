@@ -19,6 +19,7 @@ It should start with one explicit orchestrator and only coordinate specialized a
 - notification broker
 - reflection analyst
 - integration worker
+- self-awareness analyst
 
 ## Orchestration Principles
 
@@ -30,6 +31,7 @@ It should start with one explicit orchestrator and only coordinate specialized a
 - execution leases and termination rules
 - observable execution traces
 - reviewable outputs
+- explicit repository read scope and narrower write scope when the task involves code or docs
 
 ## Workflow Pattern
 

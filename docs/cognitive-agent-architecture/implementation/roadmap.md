@@ -1,8 +1,12 @@
 # Recommended Implementation Sequence
 
 ## Phase 1
+- documentation truth repair and ticket queue indexing
+- canonical schemas, manifests, and config templates
+- canonical data sources and connector contracts
+- self-awareness and supervised self-modification spec
 - cross-cutting trait baseline across all subsystems
-- canonical schemas and typed context
+- typed context and schema-on-write transition
 - storage and service decomposition
 - auth-by-default and deny-by-default surface hardening
 - commitment service
@@ -27,6 +31,7 @@
 
 ## Phase 4
 - reflection subsystem
+- supervised self-modification tooling
 - bounded experimentation
 - policy review tooling
 - zero-trust sandboxing and explicit host ABI

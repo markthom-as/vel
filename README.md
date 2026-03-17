@@ -39,6 +39,7 @@ If you are contributing to the codebase, please review the following:
 - **Docs Guide**: [docs/README.md](docs/README.md)
 - **Canonical Architecture**: [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md)
 - **Ticket Queue**: [docs/tickets/README.md](docs/tickets/README.md)
+- **Architecture-First Queue**: [docs/tickets/architecture-first-parallel-queue.md](docs/tickets/architecture-first-parallel-queue.md)
 - **Concept Spec**: [docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md](docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md)
 - **Cross-Cutting Traits**: [docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md](docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md)
 - **Repo Hardening**: [docs/tickets/phase-1/001-storage-modularization.md](docs/tickets/phase-1/001-storage-modularization.md)

@@ -12,6 +12,7 @@ Vel's highest product constraint is trust.
 - never expose raw secrets to an agent when a mediated capability can do the job
 - reject unknown or unsupported actions safely by default
 - require evidence from execution, traces, or tests before claiming a system behavior is fixed
+- treat code modification as a high-impact action: require explicit writable scope, diff visibility, and verification before applying it
 
 ## User Control
 
@@ -22,6 +23,7 @@ The user must be able to:
 - tune or disable proactive behaviors
 - review recent system actions
 - understand what capabilities an agent had when it acted
+- understand what repository or config surfaces an agent could read or write
 - revoke or narrow future capability access
 
 ## Motto

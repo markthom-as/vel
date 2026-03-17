@@ -13,6 +13,8 @@ Agent handoffs must be structured.
   "objective": "Evaluate risk for upcoming commitments in next 2 hours",
   "inputs": {},
   "constraints": [],
+  "read_scopes": [],
+  "write_scopes": [],
   "allowed_tools": [],
   "capability_scope": {},
   "deadline": "ISO8601",
@@ -25,6 +27,7 @@ Agent handoffs must be structured.
 - every handoff has a declared objective
 - every handoff defines output schema
 - every handoff declares tool and capability scope
+- every handoff declares repository read/write scope when code, docs, or config may be inspected or changed
 - every handoff links to a trace or run identifier
 - every handoff is logged
 - no hidden scratch assumptions crossing boundaries

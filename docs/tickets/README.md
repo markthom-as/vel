@@ -13,9 +13,14 @@ Use it to find the right active or planned work item after you read [MASTER_PLAN
 ## How To Use The Queue
 
 1. Start with [MASTER_PLAN.md](../MASTER_PLAN.md).
-2. Pick the phase closest to the boundary you are changing.
-3. Open the specific ticket before editing code or docs.
-4. If you add a new ticket or change queue shape, update both this file and the Master Plan.
+2. Check [architecture-first-parallel-queue.md](architecture-first-parallel-queue.md) if the work touches docs, contracts, schemas, manifests, integrations, or self-awareness.
+3. Pick the phase closest to the boundary you are changing.
+4. Open the specific ticket before editing code or docs.
+5. If you add a new ticket or change queue shape, update both this file and the Master Plan.
+
+## Architecture-First Queue
+
+Use [architecture-first-parallel-queue.md](architecture-first-parallel-queue.md) when the work spans architecture docs, schemas, contracts, manifests, or queue sequencing. That queue is the canonical “do these first” lane before broader implementation breadth.
 
 ## Phase 1: Structural Foundations
 
@@ -26,6 +31,9 @@ Use it to find the right active or planned work item after you read [MASTER_PLAN
 - [015-http-surface-auth-hardening.md](phase-1/015-http-surface-auth-hardening.md) `[planned]` Auth-by-default HTTP surfaces and deny-by-default routing
 - [018-cross-cutting-system-traits-baseline.md](phase-1/018-cross-cutting-system-traits-baseline.md) `[planned]` Cross-cutting trait baseline and subsystem audit
 - [020-documentation-catalog-single-source.md](phase-1/020-documentation-catalog-single-source.md) `[planned]` Single-source documentation catalog and surfaced-doc parity
+- [021-canonical-schema-and-config-contracts.md](phase-1/021-canonical-schema-and-config-contracts.md) `[planned]` Canonical schema catalog, object definitions, and config templates
+- [022-data-sources-and-connector-architecture.md](phase-1/022-data-sources-and-connector-architecture.md) `[planned]` Canonical data sources, integration families, and connector contracts
+- [023-self-awareness-and-supervised-self-modification.md](phase-1/023-self-awareness-and-supervised-self-modification.md) `[planned]` Vel self-awareness, repo visibility, and supervised self-modification
 
 ## Phase 2: Distributed State, Offline Clients & System-Of-Systems
 
