@@ -4,7 +4,7 @@ Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel da
 
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), quick capture + push-to-talk voice capture, offline cache + queued actions.
-- **VelWatch** — Apple Watch: brief “what matters now” summary (mode + next commitment), nudge quick actions (done/snooze), cached fallback.
+- **VelWatch** — Apple Watch: brief “what matters now” summary (mode + next commitment), nudge quick actions (done/snooze), quick capture/check-in/task entry, cached fallback.
 - **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages snapshot export into Vel’s Application Support tree.
 
 Specs: [vel-apple-and-voice-client-spec](../../docs/specs/vel-apple-and-voice-client-spec.md), [vel-rust-swift-boundary-spec](../../docs/specs/vel-rust-swift-boundary-spec.md) (Rust = brain, Swift = body; API-first), [vel-apple-offline-mode-spec](../../docs/specs/vel-apple-offline-mode-spec.md) (cache + action queue + stale-aware offline mode). Repo guidance: [docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md](../../docs/specs/vel-detailed-next-steps-and-ios-repo-guidance.md) (Apple clients in same repo, under `clients/apple/`).
@@ -119,6 +119,12 @@ Current guardrails:
 - queued actions are replayed in insertion order
 - on first replay failure, remaining actions stay queued for next retry
 - cache is best-effort and can be overwritten by canonical server state after reconnect
+
+Watch quick-action notes:
+
+- quick presets for common check-ins (for example meds taken / prep started)
+- quick note capture and quick commitment add directly from watch
+- watch capture/task actions use the same queued sync lane when offline
 
 Voice capture notes:
 

@@ -12,6 +12,7 @@ struct VelWatchApp: App {
     }
 }
 
+@MainActor
 final class VelWatchStore: ObservableObject {
     let client: VelClient
     let offlineStore = VelOfflineStore()
@@ -22,6 +23,7 @@ final class VelWatchStore: ObservableObject {
     @Published var pendingActionCount: Int = 0
     @Published var mode: String?
     @Published var nextCommitmentText: String?
+    @Published var lastActionStatus: String?
 
     init() {
         let initial = VelEndpointResolver.candidateBaseURLs().first
@@ -67,6 +69,7 @@ final class VelWatchStore: ObservableObject {
                         preferredID: bootstrap.current_context?.context?.next_commitment_id,
                         commitments: bootstrap.commitments
                     )?.text
+                    lastActionStatus = nil
                 }
                 return
             } catch {
@@ -91,8 +94,10 @@ final class VelWatchStore: ObservableObject {
         guard let nudgeID = activeNudgeID else { return }
         do {
             _ = try await client.nudgeDone(id: nudgeID)
+            lastActionStatus = "Top nudge resolved."
         } catch {
             offlineStore.enqueueNudgeDone(id: nudgeID)
+            lastActionStatus = "Queued nudge resolution."
         }
         pendingActionCount = offlineStore.pendingActionCount()
         await refresh()
@@ -102,11 +107,65 @@ final class VelWatchStore: ObservableObject {
         guard let nudgeID = activeNudgeID else { return }
         do {
             _ = try await client.nudgeSnooze(id: nudgeID, minutes: minutes)
+            lastActionStatus = "Top nudge snoozed \(minutes)m."
         } catch {
             offlineStore.enqueueNudgeSnooze(id: nudgeID, minutes: minutes)
+            lastActionStatus = "Queued nudge snooze."
         }
         pendingActionCount = offlineStore.pendingActionCount()
         await refresh()
+    }
+
+    func createCapture(
+        text: String,
+        type: String = "watch_note",
+        source: String = "apple_watch"
+    ) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        do {
+            _ = try await client.createCapture(text: trimmed, type: type, source: source)
+            lastActionStatus = "Capture saved."
+        } catch {
+            offlineStore.enqueueCaptureCreate(text: queuedCaptureText(text: trimmed, type: type, source: source))
+            lastActionStatus = "Capture queued for sync."
+        }
+
+        pendingActionCount = offlineStore.pendingActionCount()
+        await refresh()
+    }
+
+    func createCommitment(text: String) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        do {
+            _ = try await client.createCommitment(text: trimmed)
+            lastActionStatus = "Task added."
+        } catch {
+            offlineStore.enqueueCommitmentCreate(text: trimmed)
+            lastActionStatus = "Task queued for sync."
+        }
+
+        pendingActionCount = offlineStore.pendingActionCount()
+        await refresh()
+    }
+
+    private func queuedCaptureText(text: String, type: String, source: String) -> String {
+        let cleanType = type.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanType != "note" || cleanSource != "apple" else {
+            return text
+        }
+
+        return [
+            "queued_capture_metadata:",
+            "requested_capture_type: \(cleanType)",
+            "requested_source_device: \(cleanSource)",
+            "",
+            text
+        ].joined(separator: "\n")
     }
 
     private func resolveNextCommitment(
