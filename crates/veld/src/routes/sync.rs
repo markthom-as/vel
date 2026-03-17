@@ -76,6 +76,7 @@ pub async fn sync_activity(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "activity", count).await;
+    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -102,6 +103,7 @@ pub async fn sync_git(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "git", count).await;
+    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -128,6 +130,7 @@ pub async fn sync_messaging(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "messaging", count).await;
+    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -154,6 +157,7 @@ pub async fn sync_notes(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "notes", count).await;
+    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {
@@ -180,6 +184,7 @@ pub async fn sync_transcripts(
         }
     };
     let _ = services::integrations::record_sync_success(&state.storage, "transcripts", count).await;
+    let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         SyncResultData {

@@ -3154,9 +3154,10 @@ END:VCALENDAR
     }
 
     #[tokio::test]
-    async fn sync_messaging_ingests_snapshot_and_suppresses_duplicates() {
+    async fn sync_messaging_ingests_snapshot_and_triggers_evaluation() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
 
         let dir = std::env::temp_dir();
         let file_path = dir.join(format!(
@@ -3175,7 +3176,7 @@ END:VCALENDAR
                         { "id": "me", "name": "Me", "is_me": true },
                         { "id": "+15551234567", "name": "Sam", "is_me": false }
                     ],
-                    "latest_timestamp": 1700003000,
+                    "latest_timestamp": now,
                     "waiting_state": "me",
                     "scheduling_related": true,
                     "urgent": true,
@@ -3211,11 +3212,12 @@ END:VCALENDAR
             .list_signals(Some("message_thread"), None, 10)
             .await
             .unwrap();
+        let expected_source_ref = format!("messaging:sms:local-default:thr_ops:{now}");
         assert_eq!(signals.len(), 1);
         assert_eq!(signals[0].source, "messaging");
         assert_eq!(
             signals[0].source_ref.as_deref(),
-            Some("messaging:sms:local-default:thr_ops:1700003000")
+            Some(expected_source_ref.as_str())
         );
         assert_eq!(signals[0].payload_json["platform"], "sms");
         assert_eq!(signals[0].payload_json["thread_id"], "thr_ops");
@@ -3226,6 +3228,24 @@ END:VCALENDAR
             signals[0].payload_json["snippet"],
             "Can we move the review to 3?"
         );
+
+        let (_, context_json) = storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("sync should trigger evaluate and store current context");
+        let context: serde_json::Value = serde_json::from_str(&context_json).unwrap();
+        assert_eq!(context["message_waiting_on_me_count"], 1);
+        assert_eq!(context["message_scheduling_thread_count"], 1);
+        assert_eq!(context["message_urgent_thread_count"], 1);
+
+        let nudges = storage.list_nudges(None, 20).await.unwrap();
+        let response_debt = nudges
+            .iter()
+            .find(|n| n.nudge_type == "response_debt")
+            .expect("sync-triggered evaluate should create response_debt nudge");
+        assert_eq!(response_debt.state, "active");
+        assert_eq!(response_debt.level, "warning");
 
         let _ = std::fs::remove_file(&file_path);
     }
