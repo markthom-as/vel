@@ -11,9 +11,9 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         return Ok(0);
     };
 
-    let content = tokio::fs::read_to_string(path)
-        .await
-        .map_err(|e| crate::errors::AppError::internal(format!("read git snapshot {}: {}", path, e)))?;
+    let content = tokio::fs::read_to_string(path).await.map_err(|e| {
+        crate::errors::AppError::internal(format!("read git snapshot {}: {}", path, e))
+    })?;
     let snapshot: GitSnapshot = serde_json::from_str(&content)
         .map_err(|e| crate::errors::AppError::internal(format!("parse git snapshot: {}", e)))?;
 
@@ -21,7 +21,10 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
     let mut count = 0u32;
     for event in snapshot.events {
         let payload = build_payload(&event);
-        let source = event.source.clone().unwrap_or_else(|| default_source.clone());
+        let source = event
+            .source
+            .clone()
+            .unwrap_or_else(|| default_source.clone());
         let signal_id = storage
             .insert_signal(SignalInsert {
                 signal_type: "git_activity".to_string(),
@@ -69,7 +72,10 @@ fn dedupe_key(event: &GitEvent) -> String {
         .as_deref()
         .or(event.head_oid.as_deref())
         .unwrap_or("-");
-    format!("{}|{}|{}|{}|{}", repo, branch, operation, commit, event.timestamp)
+    format!(
+        "{}|{}|{}|{}|{}",
+        repo, branch, operation, commit, event.timestamp
+    )
 }
 
 fn source_ref(event: &GitEvent) -> String {

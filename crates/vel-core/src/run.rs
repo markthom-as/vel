@@ -105,7 +105,9 @@ impl RunKind {
             },
             Self::Agent => RunRetryPolicy {
                 automatic_retry_supported: false,
-                automatic_retry_reason: Some("agent runs do not yet have a background retry executor"),
+                automatic_retry_reason: Some(
+                    "agent runs do not yet have a background retry executor",
+                ),
             },
         }
     }

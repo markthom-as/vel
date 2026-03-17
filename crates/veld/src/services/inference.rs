@@ -118,7 +118,8 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     let recent_git_summary = latest_git_activity
         .and_then(|signal| build_git_activity_summary(signal))
         .filter(|summary| now_ts - summary.timestamp <= RECENT_GIT_ACTIVITY_WINDOW_SECS);
-    let git_activity_summary = latest_git_activity.and_then(|signal| build_git_activity_summary(signal));
+    let git_activity_summary =
+        latest_git_activity.and_then(|signal| build_git_activity_summary(signal));
     let inferred_activity = if recent_git_summary.is_some() {
         "coding"
     } else if has_workstation_activity {

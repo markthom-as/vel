@@ -37,9 +37,9 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         let source_id = format!("todoist_{}", task_id);
         reconcile_commitment(
             storage,
-            existing_commitments
-                .iter()
-                .find(|c| c.source_type == "todoist" && c.source_id.as_deref() == Some(source_id.as_str())),
+            existing_commitments.iter().find(|c| {
+                c.source_type == "todoist" && c.source_id.as_deref() == Some(source_id.as_str())
+            }),
             &item,
             &source_id,
             commitment_kind,
@@ -182,7 +182,13 @@ fn todoist_signal_source_ref(item: &TodoistItem) -> String {
         .as_ref()
         .and_then(|due| due.date.as_deref())
         .unwrap_or("-");
-    format!("todoist:{}:{}:{}:{}", item.id, state, item.content.trim(), due)
+    format!(
+        "todoist:{}:{}:{}:{}",
+        item.id,
+        state,
+        item.content.trim(),
+        due
+    )
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -227,6 +233,9 @@ mod tests {
             checked: Some(true),
             ..open.clone()
         };
-        assert_ne!(todoist_signal_source_ref(&open), todoist_signal_source_ref(&done));
+        assert_ne!(
+            todoist_signal_source_ref(&open),
+            todoist_signal_source_ref(&done)
+        );
     }
 }

@@ -343,9 +343,9 @@ pub async fn evaluate(
         count += 1;
     }
 
-    let has_response_debt_nudge = existing_nudges.iter().any(|n| {
-        n.nudge_type == "response_debt" && (n.state == "active" || n.state == "snoozed")
-    });
+    let has_response_debt_nudge = existing_nudges
+        .iter()
+        .any(|n| n.nudge_type == "response_debt" && (n.state == "active" || n.state == "snoozed"));
     if message_waiting_on_me_count > 0 && !has_response_debt_nudge {
         let level = if message_urgent_thread_count > 0 || message_waiting_on_me_count >= 3 {
             "warning"

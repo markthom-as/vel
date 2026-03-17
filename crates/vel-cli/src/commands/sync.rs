@@ -65,10 +65,7 @@ pub async fn run_transcripts(client: &ApiClient) -> anyhow::Result<()> {
 }
 
 pub async fn run_messaging(client: &ApiClient) -> anyhow::Result<()> {
-    let resp = client
-        .sync_messaging()
-        .await
-        .context("sync messaging")?;
+    let resp = client.sync_messaging().await.context("sync messaging")?;
     let d = resp
         .data
         .as_ref()

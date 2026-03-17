@@ -83,7 +83,11 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
     println!("Status: {}", r.status);
     println!(
         "Automatic retry: {}",
-        if r.automatic_retry_supported { "supported" } else { "unsupported" }
+        if r.automatic_retry_supported {
+            "supported"
+        } else {
+            "unsupported"
+        }
     );
     if let Some(reason) = &r.automatic_retry_reason {
         println!("Automatic retry policy: {}", reason);

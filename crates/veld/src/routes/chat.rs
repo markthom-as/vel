@@ -798,12 +798,10 @@ pub async fn intervention_snooze(
         id: id.to_string(),
         state: "snoozed".to_string(),
     };
-    let _ = state
-        .broadcast_tx
-        .send(WsEnvelope::new(
-            WsEventType::InterventionsUpdated,
-            serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-        ));
+    let _ = state.broadcast_tx.send(WsEnvelope::new(
+        WsEventType::InterventionsUpdated,
+        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+    ));
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(payload, request_id)))
 }
@@ -837,12 +835,10 @@ pub async fn intervention_resolve(
         id: id.to_string(),
         state: "resolved".to_string(),
     };
-    let _ = state
-        .broadcast_tx
-        .send(WsEnvelope::new(
-            WsEventType::InterventionsUpdated,
-            serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-        ));
+    let _ = state.broadcast_tx.send(WsEnvelope::new(
+        WsEventType::InterventionsUpdated,
+        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+    ));
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(payload, request_id)))
 }
@@ -870,12 +866,10 @@ pub async fn intervention_dismiss(
         id: id.to_string(),
         state: "dismissed".to_string(),
     };
-    let _ = state
-        .broadcast_tx
-        .send(WsEnvelope::new(
-            WsEventType::InterventionsUpdated,
-            serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
-        ));
+    let _ = state.broadcast_tx.send(WsEnvelope::new(
+        WsEventType::InterventionsUpdated,
+        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+    ));
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(payload, request_id)))
 }

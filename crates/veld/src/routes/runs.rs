@@ -4,11 +4,11 @@ use axum::{
 };
 use serde::Deserialize;
 use uuid::Uuid;
+use vel_api_types::WsEventType;
 use vel_api_types::{
     ApiResponse, ArtifactSummaryData, RunDetailData, RunEventData, RunSummaryData, RunUpdateRequest,
 };
 use vel_core::{RunEventType, RunStatus};
-use vel_api_types::WsEventType;
 
 use crate::{broadcast::WsEnvelope, errors::AppError, state::AppState};
 
@@ -138,7 +138,12 @@ fn merge_output_metadata(
 
 fn retry_metadata_from_events(
     events: &[vel_core::RunEvent],
-) -> (Option<time::OffsetDateTime>, Option<String>, bool, Option<String>) {
+) -> (
+    Option<time::OffsetDateTime>,
+    Option<String>,
+    bool,
+    Option<String>,
+) {
     for event in events.iter().rev() {
         if event.event_type != RunEventType::RunRetryScheduled {
             continue;
@@ -436,8 +441,9 @@ pub async fn update_run(
 
 pub async fn broadcast_run_updated(state: &AppState, run_id: &str) -> Result<(), AppError> {
     if let Some(run) = state.storage.get_run_by_id(run_id).await? {
-        let payload = serde_json::to_value(run_summary_data(state, run).await?)
-            .map_err(|e| AppError::internal(format!("failed to serialize run update payload: {}", e)))?;
+        let payload = serde_json::to_value(run_summary_data(state, run).await?).map_err(|e| {
+            AppError::internal(format!("failed to serialize run update payload: {}", e))
+        })?;
         let _ = state
             .broadcast_tx
             .send(WsEnvelope::new(WsEventType::RunsUpdated, payload));

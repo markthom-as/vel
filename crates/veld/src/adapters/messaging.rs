@@ -55,7 +55,12 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             .insert_signal(SignalInsert {
                 signal_type: "message_thread".to_string(),
                 source: source.clone(),
-                source_ref: Some(thread_source_ref(platform, &account_id, thread_id, timestamp)),
+                source_ref: Some(thread_source_ref(
+                    platform,
+                    &account_id,
+                    thread_id,
+                    timestamp,
+                )),
                 timestamp,
                 payload_json: Some(payload),
             })
@@ -77,7 +82,12 @@ fn participant_ids(thread: &MessagingThread) -> Vec<String> {
         .collect()
 }
 
-fn thread_source_ref(platform: &str, account_id: &str, thread_id: &str, latest_timestamp: i64) -> String {
+fn thread_source_ref(
+    platform: &str,
+    account_id: &str,
+    thread_id: &str,
+    latest_timestamp: i64,
+) -> String {
     format!(
         "messaging:{}:{}:{}:{}",
         platform, account_id, thread_id, latest_timestamp

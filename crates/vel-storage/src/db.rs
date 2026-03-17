@@ -1810,12 +1810,11 @@ impl Storage {
     }
 
     pub async fn next_run_event_seq(&self, run_id: &str) -> Result<u32, StorageError> {
-        let (next_seq,): (i64,) = sqlx::query_as(
-            r#"SELECT COALESCE(MAX(seq), 0) + 1 FROM run_events WHERE run_id = ?"#,
-        )
-        .bind(run_id)
-        .fetch_one(&self.pool)
-        .await?;
+        let (next_seq,): (i64,) =
+            sqlx::query_as(r#"SELECT COALESCE(MAX(seq), 0) + 1 FROM run_events WHERE run_id = ?"#)
+                .bind(run_id)
+                .fetch_one(&self.pool)
+                .await?;
         Ok(next_seq as u32)
     }
 
@@ -2882,7 +2881,11 @@ mod tests {
         assert_eq!(ready[0].retry_reason.as_deref(), Some("transient_failure"));
 
         storage.reset_run_for_retry(run_id.as_ref()).await.unwrap();
-        let reset = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let reset = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(reset.status, vel_core::RunStatus::Queued);
         assert!(reset.started_at.is_none());
         assert!(reset.finished_at.is_none());

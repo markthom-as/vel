@@ -8,19 +8,20 @@ use crate::{adapters, errors::AppError, services, state::AppState};
 pub async fn sync_calendar(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
-    let count = match services::integrations::sync_google_calendar(&state.storage, &state.config).await {
-        Ok(Some(count)) => count,
-        Ok(None) => adapters::calendar::ingest(&state.storage, &state.config).await?,
-        Err(error) => {
-            let _ = services::integrations::record_sync_error(
-                &state.storage,
-                "google_calendar",
-                &error.to_string(),
-            )
-            .await;
-            return Err(error);
-        }
-    };
+    let count =
+        match services::integrations::sync_google_calendar(&state.storage, &state.config).await {
+            Ok(Some(count)) => count,
+            Ok(None) => adapters::calendar::ingest(&state.storage, &state.config).await?,
+            Err(error) => {
+                let _ = services::integrations::record_sync_error(
+                    &state.storage,
+                    "google_calendar",
+                    &error.to_string(),
+                )
+                .await;
+                return Err(error);
+            }
+        };
     let _ = services::evaluate::run(&state.storage, &state.policy_config).await;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(

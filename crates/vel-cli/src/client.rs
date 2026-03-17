@@ -4,8 +4,8 @@ use serde::de::DeserializeOwned;
 use vel_api_types::{
     ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest,
     CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData,
-    HealthData, MorningData, NudgeData, NudgeSnoozeRequest, SearchQuery, SearchResults,
-    RunUpdateRequest, SyncResultData, SynthesisWeekData, TodayData,
+    HealthData, MorningData, NudgeData, NudgeSnoozeRequest, RunUpdateRequest, SearchQuery,
+    SearchResults, SyncResultData, SynthesisWeekData, TodayData,
 };
 
 #[derive(Clone)]

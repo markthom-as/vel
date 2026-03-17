@@ -27,8 +27,14 @@ pub fn run(config: &AppConfig, json: bool) -> anyhow::Result<()> {
         "activity_snapshot_path: {}",
         config.activity_snapshot_path.as_deref().unwrap_or("-")
     );
-    println!("git_snapshot_path: {}", config.git_snapshot_path.as_deref().unwrap_or("-"));
-    println!("notes_path: {}", config.notes_path.as_deref().unwrap_or("-"));
+    println!(
+        "git_snapshot_path: {}",
+        config.git_snapshot_path.as_deref().unwrap_or("-")
+    );
+    println!(
+        "notes_path: {}",
+        config.notes_path.as_deref().unwrap_or("-")
+    );
     println!(
         "transcript_snapshot_path: {}",
         config.transcript_snapshot_path.as_deref().unwrap_or("-")

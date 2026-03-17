@@ -85,8 +85,12 @@ async fn process_retry_ready_run(
 
     match retry.run.kind {
         RunKind::ContextGeneration => {
-            crate::services::context_runs::retry_existing_run(state, &run_id, &retry.run.input_json)
-                .await?;
+            crate::services::context_runs::retry_existing_run(
+                state,
+                &run_id,
+                &retry.run.input_json,
+            )
+            .await?;
         }
         RunKind::Synthesis => {
             crate::services::synthesis::retry_existing_run(state, &run_id, &retry.run.input_json)
@@ -97,7 +101,12 @@ async fn process_retry_ready_run(
                 .retry_policy()
                 .automatic_retry_reason
                 .map(ToString::to_string)
-                .unwrap_or_else(|| format!("automatic retry unsupported for run kind {}", unsupported_kind));
+                .unwrap_or_else(|| {
+                    format!(
+                        "automatic retry unsupported for run kind {}",
+                        unsupported_kind
+                    )
+                });
             let error_json = serde_json::json!({
                 "message": blocked_reason,
             });
@@ -145,7 +154,14 @@ mod tests {
         config.artifact_root = artifact_root.to_string_lossy().to_string();
 
         let (broadcast_tx, _) = tokio::sync::broadcast::channel(8);
-        let state = AppState::new(storage.clone(), config, crate::policy_config::PolicyConfig::default(), broadcast_tx, None, None);
+        let state = AppState::new(
+            storage.clone(),
+            config,
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
 
         let run_id = RunId::new();
         storage
@@ -192,7 +208,11 @@ mod tests {
 
         assert!(poll_once(&state).await.is_ok());
 
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.status, RunStatus::Succeeded);
 
         let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
@@ -272,12 +292,22 @@ mod tests {
 
         assert!(poll_once(&state).await.is_ok());
 
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.status, RunStatus::Succeeded);
         assert!(run.output_json.is_some());
 
-        let refs = storage.list_refs_from("run", run_id.as_ref()).await.unwrap();
-        assert!(!refs.is_empty(), "retried synthesis run should relink an artifact");
+        let refs = storage
+            .list_refs_from("run", run_id.as_ref())
+            .await
+            .unwrap();
+        assert!(
+            !refs.is_empty(),
+            "retried synthesis run should relink an artifact"
+        );
 
         let events = storage.list_run_events(run_id.as_ref()).await.unwrap();
         assert!(events
@@ -351,7 +381,11 @@ mod tests {
 
         assert!(poll_once(&state).await.is_ok());
 
-        let run = storage.get_run_by_id(run_id.as_ref()).await.unwrap().unwrap();
+        let run = storage
+            .get_run_by_id(run_id.as_ref())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(run.status, RunStatus::Blocked);
         assert_eq!(
             run.error_json

@@ -136,9 +136,7 @@ fn parse_ics_events(content: &str) -> Vec<ParsedEvent> {
                 "ATTENDEE" => attendees.push(parse_attendee(raw_name, value)),
                 "X-VEL-PREP-MINUTES" => prep_minutes = value.parse::<i64>().ok(),
                 "X-VEL-TRAVEL-MINUTES" => travel_minutes = value.parse::<i64>().ok(),
-                "X-APPLE-TRAVEL-DURATION" => {
-                    travel_minutes = parse_travel_duration_minutes(value)
-                }
+                "X-APPLE-TRAVEL-DURATION" => travel_minutes = parse_travel_duration_minutes(value),
                 "X-APPLE-TRAVEL-START" => travel_start_ts = parse_ical_dt(raw_name, value),
                 _ => {}
             }
@@ -289,7 +287,10 @@ mod tests {
         assert_eq!(events[0].payload["travel_minutes"], 40);
         assert_eq!(events[0].payload["description"], "Prep review");
         assert_eq!(events[0].payload["status"], "CONFIRMED");
-        assert_eq!(events[0].payload["url"], "https://calendar.example/events/2");
+        assert_eq!(
+            events[0].payload["url"],
+            "https://calendar.example/events/2"
+        );
         assert_eq!(events[0].payload["attendees"][0], "Dimitri");
         assert_eq!(events[0].payload["attendees"][1], "ops@example.com");
     }

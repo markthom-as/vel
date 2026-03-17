@@ -5,9 +5,7 @@ use axum::{
 };
 use serde::Deserialize;
 use uuid::Uuid;
-use vel_api_types::{
-    ApiResponse, GoogleCalendarAuthStartData, IntegrationsData,
-};
+use vel_api_types::{ApiResponse, GoogleCalendarAuthStartData, IntegrationsData};
 
 use crate::{errors::AppError, services::integrations, state::AppState};
 

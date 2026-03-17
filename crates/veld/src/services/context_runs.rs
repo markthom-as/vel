@@ -256,7 +256,12 @@ where
         .await?;
 
     event_seq
-        .append(state, run_id, RunEventType::RunStarted, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RunStarted,
+            &serde_json::json!({}),
+        )
         .await?;
 
     let snapshot = state.storage.orientation_snapshot().await?;
@@ -357,7 +362,12 @@ where
         .await?;
 
     event_seq
-        .append(state, run_id, RunEventType::RefsCreated, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RefsCreated,
+            &serde_json::json!({}),
+        )
         .await?;
 
     let finished_at = OffsetDateTime::now_utc().unix_timestamp();
@@ -379,7 +389,12 @@ where
         .await?;
 
     event_seq
-        .append(state, run_id, RunEventType::RunSucceeded, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RunSucceeded,
+            &serde_json::json!({}),
+        )
         .await?;
 
     Ok((artifact_id, data))

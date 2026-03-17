@@ -166,7 +166,12 @@ async fn execute_week_synthesis(state: &AppState, run_id: &RunId) -> Result<Arti
         .await?;
     let mut event_seq = RunEventSequencer::for_run(state, run_id).await?;
     event_seq
-        .append(state, run_id, RunEventType::RunStarted, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RunStarted,
+            &serde_json::json!({}),
+        )
         .await?;
 
     let now = OffsetDateTime::now_utc();
@@ -300,7 +305,12 @@ async fn execute_week_synthesis(state: &AppState, run_id: &RunId) -> Result<Arti
     );
     state.storage.create_ref(&ref_).await?;
     event_seq
-        .append(state, run_id, RunEventType::RefsCreated, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RefsCreated,
+            &serde_json::json!({}),
+        )
         .await?;
 
     let _output_json =
@@ -318,7 +328,12 @@ async fn execute_week_synthesis(state: &AppState, run_id: &RunId) -> Result<Arti
         )
         .await?;
     event_seq
-        .append(state, run_id, RunEventType::RunSucceeded, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RunSucceeded,
+            &serde_json::json!({}),
+        )
         .await?;
 
     Ok(artifact_id)
@@ -343,7 +358,12 @@ async fn execute_project_synthesis(
         .await?;
     let mut event_seq = RunEventSequencer::for_run(state, run_id).await?;
     event_seq
-        .append(state, run_id, RunEventType::RunStarted, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RunStarted,
+            &serde_json::json!({}),
+        )
         .await?;
 
     let now = OffsetDateTime::now_utc();
@@ -459,7 +479,12 @@ async fn execute_project_synthesis(
     );
     state.storage.create_ref(&ref_).await?;
     event_seq
-        .append(state, run_id, RunEventType::RefsCreated, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RefsCreated,
+            &serde_json::json!({}),
+        )
         .await?;
 
     let finished_at = OffsetDateTime::now_utc().unix_timestamp();
@@ -475,7 +500,12 @@ async fn execute_project_synthesis(
         )
         .await?;
     event_seq
-        .append(state, run_id, RunEventType::RunSucceeded, &serde_json::json!({}))
+        .append(
+            state,
+            run_id,
+            RunEventType::RunSucceeded,
+            &serde_json::json!({}),
+        )
         .await?;
 
     Ok(artifact_id)
