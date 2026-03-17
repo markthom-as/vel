@@ -11,7 +11,7 @@ use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, ConversationCreateRequest, ConversationData, ConversationUpdateRequest,
     CreateMessageResponse, InboxItemData, InterventionActionData, MessageCreateRequest,
-    MessageData, ProvenanceData, ProvenanceEvent,
+    MessageData, ProvenanceData,
 };
 
 use crate::services::chat::{
@@ -20,11 +20,12 @@ use crate::services::chat::{
         update_conversation as update_conversation_data,
     },
     interventions::{dismiss_intervention, resolve_intervention, snooze_intervention},
-    mapping::{
-        conversation_record_to_data, intervention_record_to_inbox_item, message_record_to_data,
-    },
+    mapping::{conversation_record_to_data, message_record_to_data},
     messages::create_message_response,
-    provenance::{build_linked_objects, build_policy_decisions, build_provenance_signals},
+    reads::{
+        build_message_provenance_data, list_conversation_intervention_items, list_inbox_items,
+        list_message_intervention_items,
+    },
     settings::settings_payload,
 };
 use crate::{errors::AppError, state::AppState};
@@ -125,11 +126,7 @@ pub async fn get_inbox(
     Query(q): Query<InboxQuery>,
 ) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
     let limit = q.limit.unwrap_or(100).min(500);
-    let list = state.storage.list_interventions_active(limit).await?;
-    let data: Vec<InboxItemData> = list
-        .into_iter()
-        .map(intervention_record_to_inbox_item)
-        .collect();
+    let data = list_inbox_items(&state, limit).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -145,20 +142,7 @@ pub async fn list_conversation_interventions(
     State(state): State<AppState>,
     Path(conversation_id): Path<String>,
 ) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
-    let conversation_id = conversation_id.trim();
-    let _ = state
-        .storage
-        .get_conversation(conversation_id)
-        .await?
-        .ok_or_else(|| AppError::not_found("conversation not found"))?;
-    let list = state
-        .storage
-        .get_interventions_by_conversation(conversation_id)
-        .await?;
-    let data: Vec<InboxItemData> = list
-        .into_iter()
-        .map(intervention_record_to_inbox_item)
-        .collect();
+    let data = list_conversation_intervention_items(&state, conversation_id.trim()).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -167,14 +151,7 @@ pub async fn list_message_interventions(
     State(state): State<AppState>,
     Path(message_id): Path<String>,
 ) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
-    let list = state
-        .storage
-        .get_interventions_by_message(message_id.trim())
-        .await?;
-    let data: Vec<InboxItemData> = list
-        .into_iter()
-        .map(intervention_record_to_inbox_item)
-        .collect();
+    let data = list_message_intervention_items(&state, message_id.trim()).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -183,44 +160,7 @@ pub async fn get_message_provenance(
     State(state): State<AppState>,
     Path(message_id): Path<String>,
 ) -> Result<Json<ApiResponse<ProvenanceData>>, AppError> {
-    let message_id = message_id.trim();
-    let message = state
-        .storage
-        .get_message(message_id)
-        .await?
-        .ok_or_else(|| AppError::not_found("message not found"))?;
-    let message = message_record_to_data(message)?;
-    let interventions = state
-        .storage
-        .get_interventions_by_message(message_id)
-        .await?;
-    let events = state
-        .storage
-        .list_events_by_aggregate("message", message_id, 50)
-        .await?;
-    let events_data: Vec<ProvenanceEvent> = events
-        .into_iter()
-        .map(|r| {
-            let payload: serde_json::Value =
-                serde_json::from_str(&r.payload_json).unwrap_or_else(|_| serde_json::json!({}));
-            ProvenanceEvent {
-                id: r.id.as_ref().to_string(),
-                event_name: r.event_name,
-                created_at: r.created_at,
-                payload,
-            }
-        })
-        .collect();
-    let linked_objects = build_linked_objects(&message, &interventions);
-    let signals = build_provenance_signals(&message, &interventions);
-    let policy_decisions = build_policy_decisions(&message, &interventions);
-    let data = ProvenanceData {
-        message_id: message_id.to_string(),
-        events: events_data,
-        signals,
-        policy_decisions,
-        linked_objects,
-    };
+    let data = build_message_provenance_data(&state, message_id.trim()).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

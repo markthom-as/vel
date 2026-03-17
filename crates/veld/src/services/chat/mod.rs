@@ -5,4 +5,5 @@ pub mod interventions;
 pub mod mapping;
 pub mod messages;
 pub mod provenance;
+pub mod reads;
 pub mod settings;
