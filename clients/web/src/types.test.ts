@@ -165,6 +165,7 @@ describe('transport decoders', () => {
           risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
         },
         schedule: {
+          empty_message: null,
           next_event: null,
           upcoming_events: [],
         },
@@ -210,6 +211,7 @@ describe('transport decoders', () => {
         risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
       },
       schedule: {
+        empty_message: null,
         next_event: null,
         upcoming_events: [],
       },

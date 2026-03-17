@@ -226,6 +226,7 @@ export interface NowTaskData {
 }
 
 export interface NowScheduleData {
+  empty_message: string | null;
   next_event: NowEventData | null;
   upcoming_events: NowEventData[];
 }
@@ -591,6 +592,7 @@ export function decodeNowData(value: unknown): NowData {
       risk: decodeNowRiskSummaryData(summary.risk),
     },
     schedule: {
+      empty_message: expectNullableString(schedule.empty_message, 'now data.schedule.empty_message'),
       next_event: decodeNullable(schedule.next_event, decodeNowEventData),
       upcoming_events: decodeArray(schedule.upcoming_events ?? [], decodeNowEventData),
     },

@@ -45,7 +45,7 @@ export function NowView() {
             </span>
           </div>
           <p className="mt-2 text-sm text-zinc-400">
-            Updated {new Date(data.computed_at * 1000).toLocaleString()}
+            Updated {formatTimestamp(data.computed_at, data.timezone)}
           </p>
         </header>
 
@@ -72,7 +72,11 @@ export function NowView() {
                 }}
               />
               {data.schedule.upcoming_events.length === 0 ? (
-                <SurfaceState message="No upcoming calendar events in the current stream." />
+                <SurfaceState
+                  message={
+                    data.schedule.empty_message ?? 'No upcoming calendar events in the current stream.'
+                  }
+                />
               ) : (
                 <div className="space-y-3">
                   {data.schedule.upcoming_events.map((event) => (
@@ -85,6 +89,16 @@ export function NowView() {
                         <p className="text-sm text-zinc-400">
                           {formatTimestamp(event.start_ts, data.timezone)}
                         </p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
+                        {event.end_ts ? (
+                          <span>ends {formatTimestamp(event.end_ts, data.timezone)}</span>
+                        ) : null}
+                        {event.prep_minutes != null ? <span>prep {event.prep_minutes}m</span> : null}
+                        {event.travel_minutes != null ? <span>travel {event.travel_minutes}m</span> : null}
+                        {event.leave_by_ts ? (
+                          <span>leave by {formatTimestamp(event.leave_by_ts, data.timezone)}</span>
+                        ) : null}
                       </div>
                     </div>
                   ))}

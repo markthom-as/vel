@@ -63,7 +63,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
         .iter()
         .find(|event| event.end_ts.unwrap_or(event.start_ts) >= now_ts)
         .cloned();
-    let upcoming_events = events
+    let upcoming_events: Vec<NowEventData> = events
         .into_iter()
         .filter(|event| event.end_ts.unwrap_or(event.start_ts) >= now_ts)
         .take(5)
@@ -71,6 +71,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
 
     let integrations = integrations::get_integrations_with_config(storage, config).await?;
     let freshness = build_freshness(now_ts, computed_at, &integrations);
+    let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
     let attention_reasons = string_array_field(&context, "attention_reasons");
     let reasons = build_reasons(&context, &attention_reasons);
 
@@ -101,6 +102,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
             ),
         },
         schedule: NowScheduleData {
+            empty_message: schedule_empty_message,
             next_event,
             upcoming_events,
         },
@@ -150,6 +152,7 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowData {
             risk: risk_summary("unknown", None),
         },
         schedule: NowScheduleData {
+            empty_message: Some("No current context yet. Sync calendar sources or run evaluate.".to_string()),
             next_event: None,
             upcoming_events: Vec::new(),
         },
@@ -183,6 +186,25 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowData {
             risk_used: Vec::new(),
         },
     }
+}
+
+fn schedule_empty_message(
+    integrations: &vel_api_types::IntegrationsData,
+    no_upcoming_events: bool,
+) -> Option<String> {
+    if !no_upcoming_events {
+        return None;
+    }
+
+    let calendar = &integrations.google_calendar;
+    if !calendar.connected {
+        return Some("Google Calendar is disconnected. Reconnect it in Settings.".to_string());
+    }
+    if !calendar.all_calendars_selected && calendar.calendars.iter().all(|calendar| !calendar.selected) {
+        return Some("No calendars are selected in Settings.".to_string());
+    }
+
+    Some("No upcoming calendar events in the current stream.".to_string())
 }
 
 fn build_reasons(context: &JsonValue, attention_reasons: &[String]) -> Vec<String> {

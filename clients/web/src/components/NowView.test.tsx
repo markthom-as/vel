@@ -27,6 +27,7 @@ describe('NowView', () => {
               risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
             },
             schedule: {
+              empty_message: null,
               next_event: {
                 title: 'Design review',
                 start_ts: 1710003600,
@@ -125,6 +126,8 @@ describe('NowView', () => {
     expect(screen.getByText(/medium · 72%/i)).toBeInTheDocument()
     expect(screen.getByText('Design review')).toBeInTheDocument()
     expect(screen.getByText('Room 4B')).toBeInTheDocument()
+    expect(screen.getByText(/prep 15m/i)).toBeInTheDocument()
+    expect(screen.getByText(/travel 0m/i)).toBeInTheDocument()
     expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
     expect(screen.getByText('Prep window active')).toBeInTheDocument()
@@ -145,6 +148,7 @@ describe('NowView', () => {
           risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
         },
         schedule: {
+          empty_message: null,
           next_event: {
             title: 'Design review',
             start_ts: 1710003600,

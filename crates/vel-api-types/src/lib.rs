@@ -869,6 +869,7 @@ pub struct NowTaskData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowScheduleData {
+    pub empty_message: Option<String>,
     pub next_event: Option<NowEventData>,
     pub upcoming_events: Vec<NowEventData>,
 }

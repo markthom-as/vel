@@ -1,6 +1,6 @@
 ---
 id: NOW-010
-status: proposed
+status: implemented
 title: Make upcoming events actually upcoming and locally formatted
 owner: backend+web
 priority: P1

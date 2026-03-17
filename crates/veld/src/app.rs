@@ -5683,6 +5683,108 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn now_endpoint_filters_out_old_calendar_events_and_reports_selection_empty_state() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .set_setting(
+                "integration_google_calendar",
+                &serde_json::json!({
+                    "client_id": "client",
+                    "calendars": [
+                        {
+                            "id": "cal_1",
+                            "summary": "Personal",
+                            "primary": true,
+                            "selected": false
+                        }
+                    ],
+                    "all_calendars_selected": false,
+                    "last_sync_at": now,
+                    "last_sync_status": "ok",
+                    "last_error": null,
+                    "last_item_count": 1
+                }),
+            )
+            .await
+            .unwrap();
+        storage
+            .set_setting(
+                "integration_google_calendar_secrets",
+                &serde_json::json!({
+                    "client_secret": "secret",
+                    "access_token": "token",
+                    "refresh_token": "refresh",
+                    "token_expires_at": now + 3600
+                }),
+            )
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "google_calendar".to_string(),
+                source_ref: None,
+                timestamp: now - 86_400,
+                payload_json: Some(serde_json::json!({
+                    "title": "Old retro",
+                    "start": now - 86_400,
+                    "end": now - 85_800
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now,
+                &serde_json::json!({
+                    "mode": "day_mode",
+                    "morning_state": "engaged",
+                    "meds_status": "done",
+                    "global_risk_level": "low",
+                    "global_risk_score": 0.1,
+                    "attention_state": "on_task",
+                    "drift_type": "none",
+                    "drift_severity": "none",
+                    "attention_confidence": 0.9,
+                    "signals_used": []
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["schedule"]["upcoming_events"], serde_json::json!([]));
+        assert_eq!(
+            json["data"]["schedule"]["empty_message"],
+            "No calendars are selected in Settings."
+        );
+    }
+
+    #[tokio::test]
     async fn restart_evaluate_emits_context_updated_websocket_event() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
