@@ -79,6 +79,19 @@ pub struct HealthData {
     pub version: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterBootstrapData {
+    pub node_id: String,
+    pub node_display_name: String,
+    pub active_authority_node_id: String,
+    pub active_authority_epoch: i64,
+    pub sync_base_url: String,
+    pub sync_transport: String,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+}
+
 /// Status of a single diagnostic check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

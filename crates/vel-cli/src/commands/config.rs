@@ -7,6 +7,19 @@ pub fn run(config: &AppConfig, json: bool) -> anyhow::Result<()> {
     }
 
     println!("base_url: {}", config.base_url);
+    println!("node_id: {}", config.node_id.as_deref().unwrap_or("-"));
+    println!(
+        "node_display_name: {}",
+        config.node_display_name.as_deref().unwrap_or("-")
+    );
+    println!(
+        "tailscale_base_url: {}",
+        config.tailscale_base_url.as_deref().unwrap_or("-")
+    );
+    println!(
+        "lan_base_url: {}",
+        config.lan_base_url.as_deref().unwrap_or("-")
+    );
     println!("bind_addr: {}", config.bind_addr);
     println!("db_path: {}", config.db_path);
     println!("artifact_root: {}", config.artifact_root);

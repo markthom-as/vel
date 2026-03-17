@@ -26,6 +26,10 @@ pub struct AppConfig {
     pub artifact_root: String,
     pub log_level: String,
     pub base_url: String,
+    pub node_id: Option<String>,
+    pub node_display_name: Option<String>,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
     pub agent_spec_path: Option<String>,
     pub llm_model_path: String,
     pub llm_fast_model_path: String,
@@ -202,6 +206,10 @@ impl Default for AppConfig {
             artifact_root: DEFAULT_ARTIFACT_ROOT.to_string(),
             log_level: DEFAULT_LOG_LEVEL.to_string(),
             base_url: DEFAULT_BASE_URL.to_string(),
+            node_id: None,
+            node_display_name: None,
+            tailscale_base_url: None,
+            lan_base_url: None,
             agent_spec_path: None,
             llm_model_path: DEFAULT_LLM_MODEL_PATH.to_string(),
             llm_fast_model_path: DEFAULT_LLM_FAST_MODEL_PATH.to_string(),
@@ -224,6 +232,10 @@ struct FileConfig {
     artifact_root: Option<String>,
     log_level: Option<String>,
     base_url: Option<String>,
+    node_id: Option<String>,
+    node_display_name: Option<String>,
+    tailscale_base_url: Option<String>,
+    lan_base_url: Option<String>,
     agent_spec_path: Option<String>,
     llm_model_path: Option<String>,
     llm_fast_model_path: Option<String>,
@@ -305,6 +317,18 @@ impl AppConfig {
         if let Some(value) = file.base_url {
             self.base_url = value;
         }
+        if file.node_id.is_some() {
+            self.node_id = file.node_id;
+        }
+        if file.node_display_name.is_some() {
+            self.node_display_name = file.node_display_name;
+        }
+        if file.tailscale_base_url.is_some() {
+            self.tailscale_base_url = file.tailscale_base_url;
+        }
+        if file.lan_base_url.is_some() {
+            self.lan_base_url = file.lan_base_url;
+        }
         if file.agent_spec_path.is_some() {
             self.agent_spec_path = file.agent_spec_path;
         }
@@ -355,6 +379,18 @@ impl AppConfig {
         }
         if let Some(value) = env_map.get("VEL_BASE_URL") {
             self.base_url = value.clone();
+        }
+        if let Some(value) = env_map.get("VEL_NODE_ID") {
+            self.node_id = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_NODE_DISPLAY_NAME") {
+            self.node_display_name = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_TAILSCALE_BASE_URL") {
+            self.tailscale_base_url = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_LAN_BASE_URL") {
+            self.lan_base_url = Some(value.clone());
         }
         if let Some(value) = env_map.get("VEL_AGENT_SPEC_PATH") {
             self.agent_spec_path = Some(value.clone());
@@ -413,6 +449,11 @@ mod tests {
         let env_map = HashMap::from([
             ("VEL_BIND_ADDR".to_string(), "0.0.0.0:9999".to_string()),
             ("VEL_DB_PATH".to_string(), "/tmp/vel.sqlite".to_string()),
+            ("VEL_NODE_ID".to_string(), "vel-desktop".to_string()),
+            (
+                "VEL_TAILSCALE_BASE_URL".to_string(),
+                "http://vel-desktop.tailnet.ts.net:4130".to_string(),
+            ),
             (
                 "VEL_LLM_MODEL".to_string(),
                 "/tmp/qwen3-coder-30b.gguf".to_string(),
@@ -435,6 +476,11 @@ mod tests {
 
         assert_eq!(config.bind_addr, "0.0.0.0:9999");
         assert_eq!(config.db_path, "/tmp/vel.sqlite");
+        assert_eq!(config.node_id.as_deref(), Some("vel-desktop"));
+        assert_eq!(
+            config.tailscale_base_url.as_deref(),
+            Some("http://vel-desktop.tailnet.ts.net:4130")
+        );
         assert_eq!(config.llm_model_path, "/tmp/qwen3-coder-30b.gguf");
         assert_eq!(config.llm_fast_model_path, "/tmp/qwen25-fast-14b.gguf");
         assert_eq!(

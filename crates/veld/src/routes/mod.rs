@@ -1,6 +1,7 @@
 pub mod artifacts;
 pub mod captures;
 pub mod chat;
+pub mod cluster;
 pub mod commitments;
 pub mod components;
 pub mod context;
