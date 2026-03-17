@@ -17,7 +17,8 @@ index_terms:
   - likely operator lookup phrase
   - likely wiki lookup phrase
 related_files:
-  - docs/status.md
+  - docs/MASTER_PLAN.md
+  - docs/templates/agent-implementation-protocol.md
 summary: One or two sentences describing what this prompt or runbook is for, when to use it, and what output it should produce.
 ---
 

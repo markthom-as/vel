@@ -1,100 +1,181 @@
 # Vel Runtime API (`/v1`)
 
-This document describes the core runtime API exposed by `veld` under `/v1`.
+This document describes the currently mounted runtime API exposed by `veld` under `/v1`.
 
-For repo-wide implementation truth, see [`../status.md`](../status.md).
+For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md). For route-level authority, inspect `crates/veld/src/app.rs`.
 
-## Health
+## Health, diagnostics, and planning
 
 ### `GET /v1/health`
+### `GET /v1/doctor`
 
-- daemon status
-- DB status
-- version
-- degraded flag (if relevant)
+- daemon and storage health
+- effective runtime diagnostics
 
-## Connect
+### `POST /v1/command/plan`
+### `POST /v1/command/execute`
 
-### `GET /v1/connect/instances`
-### `GET /v1/connect/instances/:id`
+- command-language planning and execution scaffolding for structured operator intents
 
-- returns a Connect-oriented instance registry projection backed by the durable cluster worker registry.
-- exposes per-instance transport endpoints, worker ids/classes, status, and a capability manifest.
-- launchable runtimes are derived from advertised worker capabilities such as `agent_runtime:codex`.
-- this is inspection only; launch/control APIs are still planned.
+## Cluster and coordination
 
-## Cluster And Swarm
-
+### `GET /v1/cluster/bootstrap`
 ### `GET /v1/cluster/workers`
 
-- returns the heartbeat-backed worker registry used by cluster scheduling and operator views.
-- includes node and worker identity, reachability, transport endpoints, worker classes, capacity/load, and queue depth.
+- bootstrap metadata and worker-registry inspection
 
-### `GET /v1/cluster/clients`
+### `POST /v1/cluster/branch-sync`
+### `POST /v1/cluster/validation`
 
-- returns the operator-oriented swarm client view projected from the cluster worker registry and active work receipts.
-- includes client identity (`client_id`, `node_id`, `client_kind`), version/build metadata, protocol version, capabilities, worker classes, sync transport/base URL, heartbeat age, ping, sync timestamps/status, last sync error, and active work assignments.
-- this is the current inspection surface for client/swarm health; write/control actions still flow through the existing sync and work-assignment routes.
+- cluster coordination requests for branch-sync and validation flows
 
-## Captures
+Not currently shipped:
 
+- `/v1/connect/*`
+- `/v1/cluster/clients`
+
+Those remain planned architecture surfaces under the Phase 2 connect workstream.
+
+## Capture and journal
+
+### `GET /v1/captures`
 ### `POST /v1/captures`
+### `GET /v1/captures/:id`
 
-- create a capture from text (supports `capture_type`, `source`).
+- capture intake and listing
 
-## Context
+### `POST /v1/journal/mood`
+### `POST /v1/journal/pain`
+
+- typed journal event creation
+
+## Commitments, risk, and suggestions
+
+### `GET /v1/commitments`
+### `POST /v1/commitments`
+### `GET /v1/commitments/:id`
+### `PATCH /v1/commitments/:id`
+### `GET /v1/commitments/:id/dependencies`
+### `POST /v1/commitments/:id/dependencies`
+
+- commitment CRUD plus dependency management
+
+### `GET /v1/risk`
+### `GET /v1/risk/:id`
+
+- read-only risk views backed by persisted evaluation state
+
+### `GET /v1/suggestions`
+### `GET /v1/suggestions/:id`
+### `PATCH /v1/suggestions/:id`
+### `GET /v1/suggestions/:id/evidence`
+### `POST /v1/suggestions/:id/accept`
+### `POST /v1/suggestions/:id/reject`
+
+- suggestion review, evidence inspection, and operator decisions
+
+## Artifacts, runs, and context
+
+### `GET /v1/artifacts`
+### `POST /v1/artifacts`
+### `GET /v1/artifacts/latest`
+### `GET /v1/artifacts/:id`
+
+- persisted artifacts produced by runs or explicit creation
+
+### `GET /v1/runs`
+### `GET /v1/runs/:id`
+### `PATCH /v1/runs/:id`
+
+- run inspection and terminal-state updates
 
 ### `GET /v1/context/today`
 ### `GET /v1/context/morning`
 ### `GET /v1/context/end-of-day`
 
-- run-backed context endpoints (create a run, compute snapshot, write artifact, link run → artifact and refs).
+- run-backed context generation endpoints
 
 ### `GET /v1/context/current`
+### `GET /v1/context/timeline`
+### `GET /v1/now`
 
-- returns the latest inferred current context (mode, morning_state, meds_status, windows, risk fields, etc.).
+- persisted current-context and operator-facing "what matters now" projections
 
-## Commitments
-
-### `GET /v1/commitments`
-### `GET /v1/commitments/:id`
-### `POST /v1/commitments`
-### `PATCH /v1/commitments/:id`
-
-- see commitments section in `status.md` and `specs/vel-migrations-and-schema-spec.md`.
-
-## Nudges
-
-### `GET /v1/nudges`
-### `GET /v1/nudges/:id`
-### `POST /v1/nudges/:id/done`
-### `POST /v1/nudges/:id/snooze`
-
-- read and act on nudges; no generic `PATCH /v1/nudges/:id`.
-
-## Risk
-
-### `POST /v1/evaluate`
-
-- runs inference → risk → nudges and persists risk state.
-
-### `GET /v1/risk`
-### `GET /v1/risk/:id`
-
-- returns current risk state (read-only) from storage.
-
-## Explain
+## Explainability and search
 
 ### `GET /v1/explain/context`
 ### `GET /v1/explain/nudge/:id`
 ### `GET /v1/explain/commitment/:id`
 ### `GET /v1/explain/drift`
 
-- exposes explainability surfaces for context, nudges, commitments, and drift.
+- explainability views for context, nudges, commitments, and drift
 
-## Synthesis
+### `GET /v1/search`
+
+- local search across supported runtime entities
+
+## Threads, signals, nudges, uncertainty, and loops
+
+### `GET /v1/threads`
+### `POST /v1/threads`
+### `GET /v1/threads/:id`
+### `PATCH /v1/threads/:id`
+### `POST /v1/threads/:id/links`
+
+- thread graph inspection and mutation
+
+### `GET /v1/signals`
+### `POST /v1/signals`
+
+- signal listing and manual signal creation
+
+### `GET /v1/nudges`
+### `GET /v1/nudges/:id`
+### `POST /v1/nudges/:id/done`
+### `POST /v1/nudges/:id/snooze`
+### `POST /v1/nudges/:id/dismiss`
+
+- operator actions on generated nudges
+
+### `GET /v1/uncertainty`
+### `GET /v1/uncertainty/:id`
+### `POST /v1/uncertainty/:id/resolve`
+
+- uncertainty review and resolution
+
+### `GET /v1/loops`
+### `GET /v1/loops/:kind`
+### `PATCH /v1/loops/:kind`
+
+- loop configuration and inspection
+
+## Sync, evaluation, and synthesis
+
+### `POST /v1/sync/calendar`
+### `POST /v1/sync/todoist`
+### `POST /v1/sync/activity`
+### `POST /v1/sync/health`
+### `POST /v1/sync/git`
+### `POST /v1/sync/messaging`
+### `POST /v1/sync/notes`
+### `POST /v1/sync/transcripts`
+### `GET /v1/sync/bootstrap`
+### `GET /v1/sync/cluster`
+### `POST /v1/sync/heartbeat`
+### `GET|POST|PATCH /v1/sync/work-assignments`
+### `GET /v1/sync/work-queue`
+### `POST /v1/sync/work-queue/claim-next`
+### `POST /v1/sync/actions`
+### `POST /v1/sync/branch-sync`
+### `POST /v1/sync/validation`
+
+- local-source sync, distributed coordination, and worker assignment surfaces
+
+### `POST /v1/evaluate`
+
+- orchestrated recompute-and-persist path for context, risk, and downstream outputs
 
 ### `POST /v1/synthesis/week`
 ### `POST /v1/synthesis/project/:slug`
 
-- weekly and project synthesis; see `specs/vel-weekly-synthesis-spec.md` and `specs/vel-agent-next-implementation-steps.md`.
+- run-backed synthesis generation

@@ -39,4 +39,6 @@ That combination makes the files easier to find through:
 - Use `index_terms` for alternate spellings, abbreviations, aliases, and likely lookup phrases.
 - Do not stuff keywords with every possible word. High-signal terms are better than noisy lists.
 - Keep `status` truthful. Do not mark planning docs as implemented.
-- If the document affects shipped behavior, reconcile it with [status.md](../status.md).
+- For architecture docs and tickets, explicitly account for the cross-cutting system traits: modularity, accessibility, configurability, data logging, rewind/replay, and composability.
+- If the document affects shipped behavior, reconcile it with [MASTER_PLAN.md](../MASTER_PLAN.md).
+- Use `docs/cognitive-agent-architecture/` for durable concept or architecture docs, `docs/tickets/phase-*/` for execution work, and the `docs/user/` or `docs/api/` trees for operator-facing documentation.

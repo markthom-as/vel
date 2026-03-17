@@ -9,6 +9,8 @@ Vel needs boring reliability. Glamour is not a backup strategy.
 - retry queues for transient integration failures
 - idempotent task execution where possible
 - explicit degraded mode
+- run or trace identifiers across agent and integration boundaries
+- capability denial logs for rejected access requests
 
 ## Failure Classes
 
@@ -23,3 +25,5 @@ Vel needs boring reliability. Glamour is not a backup strategy.
 
 Every user-visible failure should leave a trace
 that can be inspected later.
+
+Every external call or delegated execution path should be attributable to a scoped capability decision.

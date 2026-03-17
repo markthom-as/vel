@@ -369,9 +369,9 @@ fn suggest_spec_path(parsed: &ParsedCommand) -> String {
         .join("-");
 
     if slug.is_empty() {
-        "docs/specs/vel-spec-draft-spec.md".to_string()
+        "docs/cognitive-agent-architecture/architecture/spec-draft.md".to_string()
     } else {
-        format!("docs/specs/vel-{}-spec.md", slug)
+        format!("docs/cognitive-agent-architecture/architecture/{}.md", slug)
     }
 }
 
@@ -405,7 +405,7 @@ mod tests {
         assert_eq!(resolution.resolved.targets[0].kind, DomainKind::SpecDraft);
         assert_eq!(
             resolution.resolved.inferred["suggested_path"],
-            "docs/specs/vel-cluster-sync-spec.md"
+            "docs/cognitive-agent-architecture/architecture/cluster-sync.md"
         );
     }
 

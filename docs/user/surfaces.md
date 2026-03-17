@@ -2,7 +2,7 @@
 
 This guide explains the main user-visible Vel surfaces and how to interpret them.
 
-These descriptions are intentionally tied to shipped behavior. For implementation truth, see [status.md](../status.md).
+These descriptions are intentionally tied to shipped behavior. For implementation truth, see [MASTER_PLAN.md](../MASTER_PLAN.md).
 
 ## `veld`
 

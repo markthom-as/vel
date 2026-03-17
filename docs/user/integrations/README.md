@@ -19,5 +19,5 @@ Start with:
 Important truth:
 
 - the repo has many integration specs, but only some integration paths are actually shipped
-- trust [status.md](../../status.md) for current implementation truth
+- trust [MASTER_PLAN.md](../../MASTER_PLAN.md) for current implementation truth
 - use the Settings surface or `vel config show` to verify effective configuration

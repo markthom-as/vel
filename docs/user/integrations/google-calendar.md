@@ -13,7 +13,7 @@ Google Calendar is handled through the web Settings integrations surface with:
 - sync history and guidance,
 - calendar selection controls.
 
-For shipped-truth authority, see [status.md](../../status.md).
+For shipped-truth authority, see [MASTER_PLAN.md](../../MASTER_PLAN.md).
 
 ## Setup flow
 

@@ -140,6 +140,6 @@ If trust matters:
 1. inspect the configured paths
 2. inspect the local snapshot or source file
 3. inspect the generated run or artifact
-4. check [status.md](../status.md) for the current shipped truth
+4. check [MASTER_PLAN.md](../MASTER_PLAN.md) for the current shipped truth
 
 That is the right trust posture for Vel today.

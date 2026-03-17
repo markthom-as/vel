@@ -2,7 +2,7 @@
 
 This guide covers the most likely real failures when running Vel locally.
 
-For implementation truth about what is and is not shipped, see [status.md](../status.md).
+For implementation truth about what is and is not shipped, see [MASTER_PLAN.md](../MASTER_PLAN.md).
 
 ## First checks
 

@@ -14,8 +14,9 @@ index_terms:
   - acronym
   - likely design lookup phrase
 related_files:
-  - docs/status.md
-  - docs/architecture.md
+  - docs/MASTER_PLAN.md
+  - docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md
+  - docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md
 summary: One or two sentences describing the system or behavior this spec defines.
 ---
 
@@ -42,9 +43,13 @@ Describe the current gap, inconsistency, or need.
 
 Describe the current shipped reality.
 
-Link to [status.md](../status.md) when rollout truth matters.
+Link to [MASTER_PLAN.md](../MASTER_PLAN.md) when rollout truth matters.
 
 # Proposed Design
+
+If this is a durable architecture or concept document, place it under `docs/cognitive-agent-architecture/`.
+
+If it is implementation work, prefer a ticket under `docs/tickets/phase-*/`.
 
 ## Concepts
 
@@ -61,6 +66,19 @@ Include fields, API shapes, event shapes, or storage rules as needed.
 ## Boundaries
 
 State what layer owns what.
+
+# Cross-Cutting Traits
+
+State how this proposal affects:
+
+- modularity
+- accessibility
+- configurability
+- data logging and observability
+- rewind/replay
+- composability
+
+Mark traits as required, affected, or not applicable with one short sentence each.
 
 # Operational Considerations
 

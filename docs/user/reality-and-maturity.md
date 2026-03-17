@@ -7,7 +7,7 @@ This guide exists to prevent confusion between:
 - what is partial,
 - what is still planned.
 
-For canonical implementation truth, always defer to [status.md](../status.md).
+For canonical implementation truth, always defer to [MASTER_PLAN.md](../MASTER_PLAN.md).
 
 ## What Vel is good at today
 
@@ -57,8 +57,8 @@ Those specs are valuable, but they are not automatic proof that the behavior alr
 
 When in doubt:
 
-- trust `docs/status.md`
-- treat `docs/specs/` as design and planning unless status says it shipped
+- trust `docs/MASTER_PLAN.md`
+- treat `docs/cognitive-agent-architecture/` and `docs/tickets/phase-*/` as design and planning unless the master plan or user docs say it shipped
 
 ## What to expect as a user today
 

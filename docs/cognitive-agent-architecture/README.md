@@ -31,3 +31,23 @@ If implementation is ambiguous, preserve:
 2. observability
 3. reversibility
 4. conceptual integrity
+
+## Reading Order
+
+Start here:
+
+1. [`00-overarching-architecture-and-concept-spec.md`](00-overarching-architecture-and-concept-spec.md)
+2. [`01-cross-cutting-system-traits.md`](01-cross-cutting-system-traits.md)
+3. [`agents/orchestrator.md`](agents/orchestrator.md)
+4. [`agents/tool-access.md`](agents/tool-access.md)
+5. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
+6. [`implementation/roadmap.md`](implementation/roadmap.md)
+
+## Durable Principles
+
+- prefer one orchestrator by default, then add bounded specialists only when the split is explicit and reviewable
+- mediate capabilities and secrets through narrow boundaries instead of handing raw access to agents
+- require execution-backed verification and traces for meaningful agent work
+- fail closed on unknown routes, tools, and external-access requests
+- treat modularity, accessibility, configurability, logging, replay, and composability as required cross-cutting traits
+- treat walkthroughs, fixtures, prompts, and verification recipes as reusable architecture assets

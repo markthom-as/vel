@@ -1,11 +1,8 @@
-# Vel Chat API (`/api`)
+# Vel Operator And Chat API (`/api`)
 
-This document describes the chat API exposed by `veld` under `/api`.
+This document describes the currently mounted operator and chat API exposed by `veld` under `/api`, plus the matching WebSocket endpoint.
 
-For the full chat spec, see:
-
-- `docs/specs/vel-chat-interface-implementation-brief.md`
-- `docs/specs/vel-chat-execution-plan.md`
+For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md). For route-level authority, inspect `crates/veld/src/app.rs`, `crates/veld/src/routes/chat.rs`, `crates/veld/src/routes/components.rs`, and `crates/veld/src/routes/integrations.rs`.
 
 ## Conversations
 
@@ -14,56 +11,80 @@ For the full chat spec, see:
 ### `GET /api/conversations/:id`
 ### `PATCH /api/conversations/:id`
 
-Conversations have:
+- list, create, inspect, and update conversations
+- conversation records include identifiers, title, kind, pinned/archive state, and timestamps
 
-- `id`
-- `title`
-- `kind`
-- `pinned`
-- `archived`
-- timestamps
-
-## Messages
+## Messages and interventions
 
 ### `GET /api/conversations/:id/messages`
-
-- list messages in a conversation (supports `limit`).
-
 ### `POST /api/conversations/:id/messages`
 
-Request:
+- list and create messages in a conversation
+- message creation uses `MessageCreateRequest`
+- responses use `CreateMessageResponse`, including the persisted user message and optional assistant reply or assistant error
 
-- `MessageCreateRequest` (`role`, `kind`, `content`).
+### `GET /api/conversations/:id/interventions`
+### `GET /api/messages/:id/interventions`
+### `GET /api/messages/:id/provenance`
 
-Response:
-
-- `CreateMessageResponse`:
-  - `user_message: MessageData`
-  - `assistant_message?: MessageData | null`
-  - `assistant_error?: string | null`
-
-## Inbox and interventions
+- inspect conversation-level interventions, message-level interventions, and message provenance
 
 ### `GET /api/inbox`
 
-- returns items of `InboxItemData` (id, message_id, kind, state, surfaced_at, snoozed_until, confidence).
+- operator inbox for surfaced interventions and related review items
 
-### `POST /api/interventions/:id/actions/:action_id`
+### `POST /api/interventions/:id/snooze`
+### `POST /api/interventions/:id/resolve`
+### `POST /api/interventions/:id/dismiss`
 
-- invoke inline actions on interventions (e.g. snooze/resolve/dismiss).
+- explicit operator actions for intervention lifecycle changes
 
 ## Settings
 
 ### `GET /api/settings`
 ### `PATCH /api/settings`
 
-- read and update chat UI settings (e.g. speech toggle).
+- read and update chat/operator UI settings
+
+## Components
+
+### `GET /api/components`
+### `GET /api/components/:id/logs`
+### `POST /api/components/:id/restart`
+
+- inspect background components, tail recent component logs, and request component restarts
+
+## Integrations
+
+### `GET /api/integrations`
+### `GET /api/integrations/connections`
+### `GET /api/integrations/connections/:id`
+### `GET /api/integrations/connections/:id/events`
+### `GET /api/integrations/:id/logs`
+
+- inspect integration health, connections, events, and logs
+
+### `PATCH /api/integrations/:id/source`
+
+- update local source paths for file-backed or snapshot-backed integrations
+
+### `PATCH /api/integrations/google-calendar`
+### `POST /api/integrations/google-calendar/disconnect`
+### `POST /api/integrations/google-calendar/auth/start`
+### `GET /api/integrations/google-calendar/oauth/callback`
+
+- save Google Calendar settings, start OAuth, complete the callback flow, or disconnect
+
+### `PATCH /api/integrations/todoist`
+### `POST /api/integrations/todoist/disconnect`
+
+- save Todoist credentials or disconnect the integration
 
 ## WebSocket
 
 ### `GET /ws`
 
-WebSocket events include (see `vel-chat-execution-plan` for full list):
+Current event types include:
 
 - `messages:new`
 - `interventions:new`
@@ -71,3 +92,5 @@ WebSocket events include (see `vel-chat-execution-plan` for full list):
 - `context:updated`
 - `runs:updated`
 - `components:updated`
+
+The WebSocket surface is for operator updates and broadcast notifications. Durable state still lives behind the HTTP API and persisted runtime records.

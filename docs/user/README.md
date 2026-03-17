@@ -21,7 +21,7 @@ Today, the strongest shipped paths are:
 - bootstrap Apple clients,
 - macOS local-source auto-discovery for several sources.
 
-Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, and some specs describe planned behavior rather than shipped behavior. For current implementation truth, see [status.md](../status.md).
+Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, and some architecture or ticket docs describe planned behavior rather than shipped behavior. For current implementation truth and phase status, see [MASTER_PLAN.md](../MASTER_PLAN.md).
 
 ## Start here
 
@@ -33,8 +33,7 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 6. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
 7. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
 8. [Privacy](privacy.md) for the current local-first trust model and data locations.
-9. [Vocabulary](../vocabulary.md) for the canonical meanings of Vel domain and command-language terms.
-10. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
+9. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
 
 ## What works now
 
@@ -53,6 +52,6 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 
 ## User truth rules
 
-- trust [status.md](../status.md) for what is actually shipped,
-- treat specs under `docs/specs/` as design/planning unless status says otherwise,
+- trust [MASTER_PLAN.md](../MASTER_PLAN.md) for what is actually shipped and what phase the repo is in,
+- treat architecture and ticket docs as target design unless the Master Plan or these user docs say the behavior is shipped,
 - use these user docs for setup and operation rather than inferring behavior from architecture docs.

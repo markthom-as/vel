@@ -123,4 +123,4 @@ Use:
 cargo run -p vel-cli -- doctor
 ```
 
-Then check [Setup](setup.md) and [status.md](../status.md).
+Then check [Setup](setup.md), [Reality And Maturity](reality-and-maturity.md), and [MASTER_PLAN.md](../MASTER_PLAN.md).

@@ -11,7 +11,7 @@ Todoist is handled through the web Settings integrations surface with:
 - `Disconnect`,
 - sync history and guidance.
 
-For shipped-truth authority, see [status.md](../../status.md).
+For shipped-truth authority, see [MASTER_PLAN.md](../../MASTER_PLAN.md).
 
 ## Setup flow
 

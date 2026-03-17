@@ -8,64 +8,53 @@ Use it to answer three questions quickly:
 2. what should be worked on next
 3. what is historical context rather than current authority
 
-## Doc Classes
+## Authority
 
-### Current truth
+These are the current authoritative entrypoints:
 
-These files describe the current implementation and operational reality.
+- [MASTER_PLAN.md](MASTER_PLAN.md): canonical implementation truth, phase status, and active ticket list.
+- [cognitive-agent-architecture/README.md](cognitive-agent-architecture/README.md): internal architecture pack entrypoint.
+- [cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md](cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md): overarching internal concept and system model.
+- [cognitive-agent-architecture/01-cross-cutting-system-traits.md](cognitive-agent-architecture/01-cross-cutting-system-traits.md): repo-wide traits for modularity, accessibility, configurability, logging, replay, and composability.
+- [user/README.md](user/README.md): canonical user-facing operating docs.
+- [api/README.md](api/README.md): current API docs for `/v1`, `/api`, and `/ws`.
+- [templates/README.md](templates/README.md): canonical templates for docs, specs, tickets, prompts, and runbooks.
 
-- [status.md](status.md): canonical implementation ledger
-- [api.md](api.md): HTTP/API surface overview
-- [vocabulary.md](vocabulary.md): canonical glossary, vocabulary index, and appendix for Vel terms; programmatic source lives in `vel-core`
-- [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md): coverage map for documented subsystems
-- [specs/vel-user-documentation-spec.md](specs/vel-user-documentation-spec.md): target shape for full-fat end-user documentation
-- [user/README.md](user/README.md): canonical user-facing docs entrypoint
-- [templates/README.md](templates/README.md): canonical indexed templates for docs, specs, tickets, and prompts
+## Planning Surfaces
 
-### Active plan
+These files drive ongoing implementation work:
 
-These files describe the current implementation sequence and near-term convergence work.
+- `docs/tickets/phase-1/*.md`
+- `docs/tickets/phase-2/*.md`
+- `docs/tickets/phase-3/*.md`
+- `docs/tickets/phase-4/*.md`
 
-- [tickets/README.md](tickets/README.md): ticket-pack inventory, maturity index, and triage entry point
-- [tickets/flat-execution/README.md](tickets/flat-execution/README.md): canonical near-term execution index organized around current code ownership and parallel write scopes
-- [tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md): current audit-derived hardening and modularization sequence
-- [tickets/storage-backup-sync/README.md](tickets/storage-backup-sync/README.md): active backup, manifest, verification, and restore planning lane
-- [tickets/projects/README.md](tickets/projects/README.md): active project workspace and project-operations substrate planning lane
-- [tickets/web-ui-convergence/README.md](tickets/web-ui-convergence/README.md): active web/operator UX execution lane
-- [tickets/client-connect-sync/README.md](tickets/client-connect-sync/README.md): immediate cross-pack execution lane for client connection, bootstrap, sync freshness, and operator visibility
-- [specs/vel-modular-cross-platform-architecture-convergence-spec.md](specs/vel-modular-cross-platform-architecture-convergence-spec.md): architecture convergence rules for modularity, shared contracts, cross-platform semantics, DRYness, and performance
-- [specs/vel-client-connection-and-sync-milestone-spec.md](specs/vel-client-connection-and-sync-milestone-spec.md): canonical milestone spec for getting clients connected and syncing
-- [specs/vel-tester-readiness-onboarding-spec.md](specs/vel-tester-readiness-onboarding-spec.md): planned path from contributor-oriented setup to tester-ready onboarding, discovery, and client linking
-- [reviews/vel-second-pass-architecture-audit-2026-03-17.md](reviews/vel-second-pass-architecture-audit-2026-03-17.md): second-pass architecture audit focused on modularity, cross-platform sharing, DRYness, and performance
-- [architecture-inventory.md](architecture-inventory.md): current architecture inventory, drift map, and extraction-seam audit
-- [future-architecture-map.md](future-architecture-map.md): planned future architecture synthesis paired with the current inventory; not shipped-behavior authority
-- [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md): one active convergence packet for architecture and cleanup work
-- [roadmap.md](roadmap.md): broader product direction, subordinate to `status.md` for shipped behavior
+Use the ticket closest to the boundary you are changing.
 
-### Historical review
+## Historical And Secondary Material
 
-These files are useful design or review history, but they are not authoritative for shipped behavior.
+These docs can still be useful, but they are subordinate to the authority chain above:
 
-- [reviews/README.md](reviews/README.md): historical review index for repo reviews and feedback rounds
-- [specs/](specs/): design specs and planned architecture; validate against `status.md` before treating as implemented
+- individual architecture leaf docs under `docs/cognitive-agent-architecture/`
+- user-facing troubleshooting and setup guides under `docs/user/`
+- API detail docs under `docs/api/`
 
 ## Minimum Reading Order
 
 For a coding agent or new contributor, start here:
 
-1. [status.md](status.md)
-2. [tickets/README.md](tickets/README.md)
-3. [README.md](../README.md)
-4. [product-spec.md](product-spec.md)
-5. [architecture.md](architecture.md)
-6. [data-model.md](data-model.md)
+1. [MASTER_PLAN.md](MASTER_PLAN.md)
+2. [README.md](../README.md)
+3. [cognitive-agent-architecture/README.md](cognitive-agent-architecture/README.md)
+4. [cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md](cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md)
+5. [cognitive-agent-architecture/01-cross-cutting-system-traits.md](cognitive-agent-architecture/01-cross-cutting-system-traits.md)
+6. the relevant phase ticket under `docs/tickets/`
+7. the closest subtree `README.md` or `AGENTS.md` for the surface you are touching
 
 ## Authority Rules
 
-- If a ticket or spec conflicts with [status.md](status.md), trust `status.md` for current behavior.
-- Use [tickets/README.md](tickets/README.md) to choose the right active plan or ticket pack for the task at hand.
-- Use pack `README.md` files for in-flight status and overlap guidance instead of treating `status.md` as a worklog.
-- Treat [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md) as one convergence-oriented packet, not as the only possible active plan.
-- Treat [tickets/projects/README.md](tickets/projects/README.md) as the canonical planning entrypoint for project registry, tag, dependency, and routine substrate work.
-- Treat [tickets/web-ui-convergence/README.md](tickets/web-ui-convergence/README.md) as the canonical execution entrypoint for global web/operator UX work.
-- Treat files under [reviews/](reviews/) as historical input, not current requirements.
+- If a ticket, user doc, or API doc conflicts with [MASTER_PLAN.md](MASTER_PLAN.md), trust `MASTER_PLAN.md` for current shipped behavior and phase status.
+- Treat the concept spec and cross-cutting traits spec as the target internal architecture unless the Master Plan says that work has not shipped yet.
+- Treat tickets as the source of truth for the next intended change, not proof that the change is already implemented.
+- Use user docs for operating the product and API docs for current interface shape; do not infer current implementation from stale historical material.
+- If a doc points to a missing file or dead authority chain, repair it instead of adding another parallel explanation.

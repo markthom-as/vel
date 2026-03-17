@@ -17,7 +17,8 @@ index_terms:
   - acronym
   - likely wiki lookup phrase
 related_files:
-  - docs/status.md
+  - docs/MASTER_PLAN.md
+  - docs/README.md
 summary: One or two sentences describing what this document explains and why someone would search for it.
 ---
 
@@ -51,6 +52,17 @@ Suggested patterns:
 - examples
 - troubleshooting
 
+## Cross-Cutting Notes
+
+If relevant, call out implications for:
+
+- modularity
+- accessibility
+- configurability
+- logging or inspection
+- replay or recovery
+- composability
+
 ## Related Terms
 
 - canonical name:
@@ -59,7 +71,7 @@ Suggested patterns:
 
 ## Related Documents
 
-- [status.md](../status.md)
+- [MASTER_PLAN.md](../MASTER_PLAN.md)
 - [replace-with-related-doc](../path/to/doc.md)
 
 ## Search Terms

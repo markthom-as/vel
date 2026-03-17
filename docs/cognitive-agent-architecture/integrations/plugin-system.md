@@ -18,9 +18,11 @@ Each plugin should declare:
 
 - capabilities
 - auth requirements
+- secret handling mode
 - data freshness expectations
 - failure modes
 - write permissions
+- allowed hosts or resource scopes
 
 ## Example Capability Declaration
 
@@ -28,8 +30,10 @@ Each plugin should declare:
 {
   "name": "calendar_google",
   "capabilities": ["read_events", "write_events"],
+  "secret_mode": "brokered_injection",
   "freshness_sla": "60s",
-  "write_requires_confirmation": true
+  "write_requires_confirmation": true,
+  "allowed_hosts": ["www.googleapis.com"]
 }
 ```
 
@@ -37,3 +41,5 @@ Each plugin should declare:
 
 Unavailable integrations degrade confidence.
 They should never be silently assumed healthy.
+
+Integration plugins should prefer mediated capability execution over handing raw credentials to the calling agent.

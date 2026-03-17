@@ -1,4 +1,4 @@
-//! vel thread — list, inspect, close, reopen threads. See docs/specs/vel-thread-graph-spec.md.
+//! vel thread — list, inspect, close, reopen threads. See docs/api/runtime.md.
 
 use crate::client::ApiClient;
 use anyhow::Context;

@@ -1,5 +1,5 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v1.0.1)
+**Status**: Canonical Truth (v1.0.2)
 **Last Updated**: 2026-03-17
 
 ---
@@ -21,8 +21,12 @@
 
 1.  **Standardized Ticket Implementation**: Every task is defined by a technical, "agent-optimized" ticket in `docs/tickets/`.
 2.  **Implementation Protocol**: Autonomous coding agents follow the **`docs/templates/agent-implementation-protocol.md`**.
-3.  **Unified Agent SDK**: Provide a `vel-agent-sdk` for building new "Limbs" that can safely interact with the "Brain."
-4.  **Local LLM Eval Harness**: Automated verification of agent reasoning using a "Judge" model.
+3.  **Execution-Backed Verification**: Agent output is not trusted until it has been tested, executed, or manually verified through a real surface.
+4.  **Capability Mediation**: Agents should use scoped capabilities, brokered requests, and secret indirection instead of prompt-visible raw credentials.
+5.  **Execution Observability**: Agent runs, handoffs, external calls, and major workflow transitions should produce stable run IDs, traces, or equivalent event linkage.
+6.  **Cross-Cutting Trait Discipline**: New subsystem work should explicitly account for modularity, accessibility, configurability, logging, rewind/replay, and composability.
+7.  **Unified Agent SDK**: Provide a `vel-agent-sdk` for building new "Limbs" that can safely interact with the "Brain."
+8.  **Local LLM Eval Harness**: Automated verification of agent reasoning using a "Judge" model, paired with deterministic and execution-backed checks.
 
 ---
 
@@ -41,6 +45,12 @@
 ### 1.4 Documentation Truth Repair & Architecture Mapping **[IN_PROGRESS]**
 *   *Ticket*: `011-documentation-truth-repair.md`
 
+### 1.5 Auth-By-Default HTTP Surfaces & Deny-By-Default Routing **[PLANNED]**
+*   *Ticket*: `015-http-surface-auth-hardening.md`
+
+### 1.6 Cross-Cutting Trait Baseline & Subsystem Audit **[PLANNED]**
+*   *Ticket*: `018-cross-cutting-system-traits-baseline.md`
+
 ---
 
 ## Phase 2: Distributed State, Offline Clients & System-of-Systems
@@ -58,6 +68,12 @@
 ### 2.4 Tester-Readiness Onboarding & Node Discovery **[PLANNED]**
 *   *Ticket*: `012-tester-readiness-onboarding.md`
 
+### 2.5 Capability Broker & Secret Mediation **[PLANNED]**
+*   *Ticket*: `016-capability-broker-secret-mediation.md`
+
+### 2.6 Operator Surface Accessibility & Effective Config Clarity **[PLANNED]**
+*   *Ticket*: `019-operator-accessibility-config-clarity.md`
+
 ---
 
 ## Phase 3: Deterministic Verification & Continuous Alignment
@@ -69,7 +85,10 @@
 ### 3.2 LLM-as-a-Judge Evaluation Pipeline (Evals) **[PLANNED]**
 *   *Ticket*: `008-llm-eval-pipeline.md`
 
-### 3.3 Comprehensive User Documentation & Support Wiki **[PLANNED]**
+### 3.3 Execution Tracing, Handoff Telemetry & Reviewability **[PLANNED]**
+*   *Ticket*: `017-execution-tracing-reviewability.md`
+
+### 3.4 Comprehensive User Documentation & Support Wiki **[PLANNED]**
 *   *Ticket*: `013-user-documentation-architecture.md`
 
 ---

@@ -3,7 +3,7 @@
 This directory contains canonical API documentation for both:
 
 - the **runtime API** (`/v1`) served by `veld`, and
-- the **chat API** (`/api`) used by the web chat client.
+- the **operator/chat API** (`/api`) plus the WebSocket stream (`/ws`) used by the web surfaces.
 
 ## Runtime API (`/v1`)
 
@@ -28,5 +28,6 @@ See [`chat.md`](chat.md) for:
 - inbox
 - interventions
 - settings
+- components
+- integrations
 - WebSocket events
-
