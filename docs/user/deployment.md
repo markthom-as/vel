@@ -162,7 +162,7 @@ Examples:
 
 - CLI from another machine: `VEL_BASE_URL=http://<host>:4130 cargo run -p vel-cli -- health`
 - web dev client: `VITE_API_URL=http://<host>:4130 npm run dev`
-- Apple clients: set `vel_base_url` or `vel_lan_base_url` to the same host
+- Apple clients: set `vel_tailscale_url` (preferred) or `vel_base_url`/`vel_lan_base_url` to the same host
 
 ## Optional local-source inputs
 

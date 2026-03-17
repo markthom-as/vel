@@ -1060,7 +1060,7 @@ private struct SettingsTab: View {
                 }
                 .buttonStyle(.bordered)
 
-                Text("Resolution order: vel_base_url, vel_tailscale_url, vel_lan_base_url, localhost.")
+                Text("Resolution order: vel_tailscale_url, vel_base_url, vel_lan_base_url, localhost.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }

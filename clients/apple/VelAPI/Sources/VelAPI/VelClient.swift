@@ -201,8 +201,8 @@ public enum VelEndpointResolver {
             candidates.append(explicitBaseURL)
         }
 
-        append(userDefaults.string(forKey: "vel_base_url"))
         append(userDefaults.string(forKey: "vel_tailscale_url"))
+        append(userDefaults.string(forKey: "vel_base_url"))
         append(userDefaults.string(forKey: "vel_lan_base_url"))
         append("http://127.0.0.1:4130")
         append("http://localhost:4130")

@@ -2008,4 +2008,30 @@ mod tests {
             .iter()
             .any(|profile| profile.profile_id == "api-test"));
     }
+
+    #[test]
+    fn preferred_sync_target_prioritizes_tailscale_when_configured() {
+        let (url, transport) = preferred_sync_target(
+            Some("https://vel.tailnet.ts.net"),
+            "https://vel.example.com",
+            Some("http://192.168.1.12:4130"),
+            Some("http://127.0.0.1:4130"),
+        );
+
+        assert_eq!(url, "https://vel.tailnet.ts.net");
+        assert_eq!(transport, "tailscale");
+    }
+
+    #[test]
+    fn preferred_sync_target_falls_back_when_tailscale_missing() {
+        let (url, transport) = preferred_sync_target(
+            Some("   "),
+            "http://127.0.0.1:4130",
+            Some("http://192.168.1.12:4130"),
+            Some("http://127.0.0.1:4130"),
+        );
+
+        assert_eq!(url, "http://127.0.0.1:4130");
+        assert_eq!(transport, "localhost");
+    }
 }

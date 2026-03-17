@@ -137,8 +137,8 @@ For the Apple client details, see [clients/apple/README.md](../../clients/apple/
 
 Apple clients currently try endpoints in this order:
 
-1. `vel_base_url`
-2. `vel_tailscale_url`
+1. `vel_tailscale_url`
+2. `vel_base_url`
 3. `vel_lan_base_url`
 4. `http://127.0.0.1:4130`
 5. `http://localhost:4130`
@@ -146,7 +146,7 @@ Apple clients currently try endpoints in this order:
 Use:
 
 - `vel_tailscale_url` for normal multi-device tailnet use
-- `vel_base_url` for explicit override
+- `vel_base_url` as a fallback or temporary direct host target
 - `vel_lan_base_url` as a local-network fallback
 
 The web Settings page now also exposes the daemon-side sync metadata that cluster/bootstrap surfaces use:

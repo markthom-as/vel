@@ -97,13 +97,13 @@ If device install fails on first attempt, open `clients/apple/Vel.xcodeproj` in 
 
 The Apple clients resolve endpoint candidates in this order:
 
-1. `vel_base_url` (manual override)
-2. `vel_tailscale_url` (tailnet endpoint, preferred for cross-device)
+1. `vel_tailscale_url` (tailnet endpoint, preferred for cross-device)
+2. `vel_base_url`
 3. `vel_lan_base_url` (local network fallback)
 4. `http://127.0.0.1:4130`
 5. `http://localhost:4130`
 
-Use `vel_tailscale_url` for day-to-day multi-device use. Keep `vel_base_url` for explicit temporary overrides.
+Use `vel_tailscale_url` for day-to-day multi-device use. Keep `vel_base_url` as a fallback target.
 
 ## Offline cache + queue behavior
 
