@@ -52,6 +52,7 @@ Start with [docs/README.md](README.md) if you need the shortest authoritative re
 - shipped implementation truth for user-facing maturity claims — [status](status.md)
 - current user-docs entrypoint — [docs/user/README.md](user/README.md)
 - planned web/operator UX convergence — [spec](specs/vel-web-operator-surface-spec.md), [tickets](tickets/web-ui-convergence/README.md)
+- current modular execution entrypoint — [tickets/flat-execution/README.md](tickets/flat-execution/README.md)
 
 ## Projects and Workspaces
 - projects surface and shared workspace contract — [spec](specs/vel-projects-page-spec.md), [tickets](tickets/projects/README.md)
@@ -62,6 +63,7 @@ Start with [docs/README.md](README.md) if you need the shortest authoritative re
 - integration tests — see [status](status.md) for current coverage
 
 ## Ticket packs and spec packs
+- **Canonical execution packs:** [docs/tickets/flat-execution/README.md](tickets/flat-execution/README.md) — [runtime-core-storage](tickets/runtime-core-storage/README.md), [daemon-api-runtime](tickets/daemon-api-runtime/README.md), [cli-operator-shell](tickets/cli-operator-shell/README.md), [web-operator-runtime](tickets/web-operator-runtime/README.md), [apple-client-bootstrap](tickets/apple-client-bootstrap/README.md), [docs-truth-and-planning](tickets/docs-truth-and-planning/README.md).
 - **Ticket packs:** [docs/tickets/README.md](tickets/README.md) — Chat (001–037), [repo-feedback](tickets/repo-feedback/), [vel-docs](tickets/vel-docs/), [repo-audit-hardening](tickets/repo-audit-hardening/), [web-ui-convergence](tickets/web-ui-convergence/), [agentic](tickets/agentic/), [agent-runtime](tickets/agent-runtime/), [ios-watch-monorepo](tickets/ios-watch-monorepo/), [visual-interface](tickets/visual-interface/), [uncertainty](tickets/uncertainty/), [adaptive-configuration](tickets/adaptive-configuration/), [metadata-enrichment](tickets/metadata-enrichment/), [projects](tickets/projects/), [self-knowledge](tickets/self-knowledge/), [multi-client-swarm](tickets/multi-client-swarm/), [integration-expansion](tickets/integration-expansion/), [ticket-object](tickets/ticket-object/), [storage-backup-sync](tickets/storage-backup-sync/), [connect-agent-launch](tickets/connect-agent-launch/).
 - **Product spec pack:** [docs/product-spec-pack/](product-spec-pack/) — architecture, surfaces, interaction, engines, design, flows, plus imported packets preserved under [docs/product-spec-pack/imported/](product-spec-pack/imported/).
 - **Visual interface:** [docs/visual-interface/](visual-interface/), [specs/visual-interface-README.md](specs/visual-interface-README.md), repo [packages/](../packages/) (vel-affect-core, vel-visual-morphology, vel-protocol, vel-render-web, vel-render-watch).

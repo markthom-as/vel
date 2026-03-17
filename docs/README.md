@@ -27,13 +27,16 @@ These files describe the current implementation and operational reality.
 These files describe the current implementation sequence and near-term convergence work.
 
 - [tickets/README.md](tickets/README.md): ticket-pack inventory, maturity index, and triage entry point
+- [tickets/flat-execution/README.md](tickets/flat-execution/README.md): canonical near-term execution index organized around current code ownership and parallel write scopes
 - [tickets/repo-audit-hardening/README.md](tickets/repo-audit-hardening/README.md): current audit-derived hardening and modularization sequence
 - [tickets/storage-backup-sync/README.md](tickets/storage-backup-sync/README.md): active backup, manifest, verification, and restore planning lane
 - [tickets/projects/README.md](tickets/projects/README.md): active project workspace and project-operations substrate planning lane
 - [tickets/web-ui-convergence/README.md](tickets/web-ui-convergence/README.md): active web/operator UX execution lane
 - [tickets/client-connect-sync/README.md](tickets/client-connect-sync/README.md): immediate cross-pack execution lane for client connection, bootstrap, sync freshness, and operator visibility
+- [specs/vel-modular-cross-platform-architecture-convergence-spec.md](specs/vel-modular-cross-platform-architecture-convergence-spec.md): architecture convergence rules for modularity, shared contracts, cross-platform semantics, DRYness, and performance
 - [specs/vel-client-connection-and-sync-milestone-spec.md](specs/vel-client-connection-and-sync-milestone-spec.md): canonical milestone spec for getting clients connected and syncing
 - [specs/vel-tester-readiness-onboarding-spec.md](specs/vel-tester-readiness-onboarding-spec.md): planned path from contributor-oriented setup to tester-ready onboarding, discovery, and client linking
+- [reviews/vel-second-pass-architecture-audit-2026-03-17.md](reviews/vel-second-pass-architecture-audit-2026-03-17.md): second-pass architecture audit focused on modularity, cross-platform sharing, DRYness, and performance
 - [architecture-inventory.md](architecture-inventory.md): current architecture inventory, drift map, and extraction-seam audit
 - [future-architecture-map.md](future-architecture-map.md): planned future architecture synthesis paired with the current inventory; not shipped-behavior authority
 - [tickets/repo-feedback/README.md](tickets/repo-feedback/README.md): one active convergence packet for architecture and cleanup work

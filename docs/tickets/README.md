@@ -88,15 +88,26 @@ These packs may contain good ideas, but they should not outrank current converge
 
 ### Active convergence work
 
-#### 1. Chat Interface (`001–037` in this directory)
+#### 1. Flat execution packs (`flat-execution/`)
+
+Canonical near-term execution index organized around the code that actually exists today: `vel-core`/`vel-storage`, `veld`, `vel-cli`, `clients/web`, `clients/apple`, and docs/truth surfaces.
+
+- **Index:** [flat-execution/README.md](flat-execution/README.md)
+- **Audit:** [docs/reviews/vel-second-pass-architecture-audit-2026-03-17.md](../reviews/vel-second-pass-architecture-audit-2026-03-17.md)
+- **Spec:** [docs/specs/vel-modular-cross-platform-architecture-convergence-spec.md](../specs/vel-modular-cross-platform-architecture-convergence-spec.md)
+- **Packs:** `runtime-core-storage/`, `daemon-api-runtime/`, `cli-operator-shell/`, `web-operator-runtime/`, `apple-client-bootstrap/`, `docs-truth-and-planning/`
+- **Use when:** choosing near-term implementation work based on current file/module ownership, shared-contract-first design, and parallel completion with minimal overlap.
+- **Caution:** this is the default convergence execution shape; older overlapping packs remain useful source material but should not be the default entrypoint.
+
+#### 2. Chat Interface (`001–037` in this directory)
 
 Sequenced tickets for the Vel chat interface: conversations, messages, interventions, inbox, provenance, settings, tests, and richer chat interactions.
 
 - **Files:** `001-initialize-monorepo.md` … `037-chat-remote-fallback-for-assistant-generation.md`
 - **Use when:** working on the current web/chat surface or reconciling the shipped chat stack with remaining polish.
-- **Caution:** implementation truth for chat lives in [docs/status.md](../status.md) and chat-specific detail docs, not in ticket completion vibes.
+- **Caution:** implementation truth for chat lives in [docs/status.md](../status.md) and chat-specific detail docs, not in ticket completion vibes. Treat this root sequence as a legacy execution packet rather than the default backlog shape.
 
-#### 2. Repo feedback (`repo-feedback/`)
+#### 3. Repo feedback (`repo-feedback/`)
 
 Architecture and convergence tickets derived from repo review: evaluate/read boundary, inference reducers, risk authority, nudge lifecycle, API contracts, web state management, CI, docs rationalization.
 
@@ -105,14 +116,14 @@ Architecture and convergence tickets derived from repo review: evaluate/read bou
 - **Use when:** tightening current architecture, reducing drift, or choosing the highest-value cleanup work.
 - **Caution:** some tickets may be partly implemented already; verify against [docs/status.md](../status.md).
 
-#### 3. Vel docs reconciliation (`vel-docs/`)
+#### 4. Vel docs reconciliation (`vel-docs/`)
 
 Documentation quality tickets: canonical status, API/doc alignment, README refresh, doc-drift guardrails.
 
 - **Tickets:** `VEL-DOC-001-canonical-status-ledger.md` … `VEL-DOC-007-doc-drift-guardrails.md`
 - **Use when:** improving repo truth, doc authority, and implementation/status consistency.
 
-#### 4. Repo audit hardening (`repo-audit-hardening/`)
+#### 5. Repo audit hardening (`repo-audit-hardening/`)
 
 Audit-derived convergence pack for repo truth, hermetic tests, ticket-pack normalization, and big-picture architecture decomposition planning.
 
@@ -125,7 +136,7 @@ Normalization note:
 
 - this is the current reference pack for the shared schema in [pack-schema.md](pack-schema.md)
 
-#### Web UI convergence (`web-ui-convergence/`)
+#### 6. Web UI convergence (`web-ui-convergence/`)
 
 Execution pack for the global web shell, shared operator UX rules, surface-specific read models, query/realtime architecture, and project workspace integration.
 
@@ -135,7 +146,7 @@ Execution pack for the global web shell, shared operator UX rules, surface-speci
 - **Use when:** changing the web shell, shared UI/state architecture, global operator UX, or the Projects web surface.
 - **Caution:** this pack consolidates older `ui-v4`, `now-page-fixes`, `projects`, and frontend-cleanup packets for execution; use [docs/status.md](../status.md) for shipped behavior.
 
-#### Client connect + sync milestone (`client-connect-sync/`)
+#### 7. Client connect + sync milestone (`client-connect-sync/`)
 
 Cross-pack execution index for the immediate milestone of getting clients connected to one authority node, bootstrapped, stale-aware, and operator-visible.
 
