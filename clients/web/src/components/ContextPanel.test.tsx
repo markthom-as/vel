@@ -34,6 +34,15 @@ describe('ContextPanel', () => {
                   operation: 'commit',
                 },
               },
+              health: {
+                timestamp: 1710000015,
+                summary: {
+                  metric_type: 'resting_heart_rate',
+                  value: 58,
+                  unit: 'bpm',
+                  source_app: 'Apple Health',
+                },
+              },
               note_document: {
                 timestamp: 1710000030,
                 summary: {
@@ -50,6 +59,15 @@ describe('ContextPanel', () => {
                 },
               },
             },
+            adaptive_policy_overrides: [
+              {
+                policy_key: 'commute_buffer',
+                value_minutes: 30,
+                source_suggestion_id: 'sug_commute',
+                source_title: 'Increase commute buffer',
+                source_accepted_at: 1710000100,
+              },
+            ],
             signals_used: ['sig_1'],
             signal_summaries: [
               {
@@ -106,6 +124,10 @@ describe('ContextPanel', () => {
     expect(screen.getByText('git_activity')).toBeInTheDocument()
     expect(screen.getAllByText(/repo: vel/i).length).toBeGreaterThan(0)
     expect(screen.getByText('Source summaries')).toBeInTheDocument()
+    expect(screen.getByText('Adaptive policy overrides')).toBeInTheDocument()
+    expect(screen.getByText(/Source:\s*Increase commute buffer/i)).toBeInTheDocument()
+    expect(screen.getByText('Health')).toBeInTheDocument()
+    expect(screen.getByText(/metric type: resting_heart_rate/i)).toBeInTheDocument()
     expect(screen.getByText('Recent note')).toBeInTheDocument()
     expect(screen.getByText(/path: daily\/today.md/i)).toBeInTheDocument()
     expect(screen.getByText('Recent transcript')).toBeInTheDocument()

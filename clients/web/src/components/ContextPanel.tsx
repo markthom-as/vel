@@ -129,6 +129,31 @@ export function ContextPanel() {
         </section>
       )}
 
+      {context.adaptive_policy_overrides.length > 0 && (
+        <section>
+          <SectionHeading title="Adaptive policy overrides" />
+          <div className="mt-2 space-y-2">
+            {context.adaptive_policy_overrides.map((override) => (
+              <div
+                key={override.policy_key}
+                className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-zinc-100">{override.policy_key}</p>
+                  <p className="text-xs text-zinc-500">{override.value_minutes} min</p>
+                </div>
+                {override.source_title || override.source_suggestion_id ? (
+                  <p className="mt-2 text-zinc-300 text-xs">
+                    Source:{' '}
+                    {override.source_title ?? override.source_suggestion_id}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {signalSummaries.length > 0 && (
         <section>
           <SectionHeading title="Signals used" />
@@ -220,6 +245,9 @@ function summarizeSourceSummaries(sourceSummaries: ContextExplainData['source_su
   const entries = [
     sourceSummaries.git_activity
       ? { label: 'Git activity', ...sourceSummaries.git_activity }
+      : null,
+    sourceSummaries.health
+      ? { label: 'Health', ...sourceSummaries.health }
       : null,
     sourceSummaries.note_document
       ? { label: 'Recent note', ...sourceSummaries.note_document }

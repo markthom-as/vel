@@ -256,6 +256,14 @@ export function NowView({ onOpenSettings }: NowViewProps) {
                       lines={sourceSummaryLines(data.sources.git_activity.summary, ['repo', 'branch', 'operation'])}
                     />
                   ) : null}
+                  {data.sources.health ? (
+                    <SourceActivityCard
+                      title={data.sources.health.label}
+                      timestamp={data.sources.health.timestamp}
+                      timezone={data.timezone}
+                      lines={sourceSummaryLines(data.sources.health.summary, ['metric_type', 'value', 'unit', 'source_app', 'device'])}
+                    />
+                  ) : null}
                   {data.sources.note_document ? (
                     <SourceActivityCard
                       title={data.sources.note_document.label}
@@ -274,7 +282,7 @@ export function NowView({ onOpenSettings }: NowViewProps) {
                   ) : null}
                 </div>
               ) : (
-                <SurfaceState message="No recent git, note, or transcript activity is attached to this snapshot." />
+                <SurfaceState message="No recent git, health, note, or transcript activity is attached to this snapshot." />
               )}
             </Panel>
           </div>
@@ -600,7 +608,10 @@ function findFreshnessSource(data: NowData, key: string) {
 
 function hasSourceActivity(data: NowData): boolean {
   return Boolean(
-    data.sources.git_activity || data.sources.note_document || data.sources.assistant_message,
+    data.sources.git_activity
+      || data.sources.health
+      || data.sources.note_document
+      || data.sources.assistant_message,
   );
 }
 
@@ -613,6 +624,9 @@ function sourceSummaryLines(summary: unknown, keys: string[]): string[] {
     .map((key) => {
       const value = record[key];
       if (typeof value === 'string' && value.length > 0) {
+        return `${key.replaceAll('_', ' ')}: ${value}`;
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') {
         return `${key.replaceAll('_', ' ')}: ${value}`;
       }
       return null;

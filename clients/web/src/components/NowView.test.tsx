@@ -99,6 +99,17 @@ describe('NowView', () => {
                   operation: 'commit',
                 },
               },
+              health: {
+                label: 'Health',
+                timestamp: 1710000030,
+                summary: {
+                  metric_type: 'resting_heart_rate',
+                  value: 58,
+                  unit: 'bpm',
+                  source_app: 'Apple Health',
+                  device: 'Apple Watch',
+                },
+              },
               note_document: {
                 label: 'Recent note',
                 timestamp: 1710000060,
@@ -219,6 +230,9 @@ describe('NowView', () => {
     expect(screen.getByText('recent git activity indicates active work')).toBeInTheDocument()
     expect(screen.getByText('Recent source activity')).toBeInTheDocument()
     expect(screen.getByText('repo: vel')).toBeInTheDocument()
+    expect(screen.getByText('metric type: resting_heart_rate')).toBeInTheDocument()
+    expect(screen.getByText('value: 58')).toBeInTheDocument()
+    expect(screen.getByText('source app: Apple Health')).toBeInTheDocument()
     expect(screen.getByText('path: daily/today.md')).toBeInTheDocument()
     expect(screen.getByText('conversation id: conv_external')).toBeInTheDocument()
     expect(screen.getAllByText('Fresh').length).toBeGreaterThan(0)
