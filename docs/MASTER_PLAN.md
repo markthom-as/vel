@@ -68,7 +68,7 @@ Primary outcome:
 ### 1.5 Auth-By-Default HTTP Surfaces & Deny-By-Default Routing **[PLANNED]**
 *   *Ticket*: `015-http-surface-auth-hardening.md`
 
-### 1.6 Cross-Cutting Trait Baseline & Subsystem Audit **[PLANNED]**
+### 1.6 Cross-Cutting Trait Baseline & Subsystem Audit **[IN_PROGRESS]**
 *   *Ticket*: `018-cross-cutting-system-traits-baseline.md`
 
 ### 1.7 Documentation Catalog Single Source & Surface Parity **[PLANNED]**

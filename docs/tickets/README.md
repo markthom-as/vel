@@ -29,7 +29,7 @@ Use [architecture-first-parallel-queue.md](architecture-first-parallel-queue.md)
 - [003-service-dto-layering.md](phase-1/003-service-dto-layering.md) `[partial]` Service/DTO boundary and standardized error handling
 - [011-documentation-truth-repair.md](phase-1/011-documentation-truth-repair.md) `[in-progress]` Documentation truth repair and architecture mapping
 - [015-http-surface-auth-hardening.md](phase-1/015-http-surface-auth-hardening.md) `[planned]` Auth-by-default HTTP surfaces and deny-by-default routing
-- [018-cross-cutting-system-traits-baseline.md](phase-1/018-cross-cutting-system-traits-baseline.md) `[planned]` Cross-cutting trait baseline and subsystem audit
+- [018-cross-cutting-system-traits-baseline.md](phase-1/018-cross-cutting-system-traits-baseline.md) `[in-progress]` Cross-cutting trait baseline and subsystem audit
 - [020-documentation-catalog-single-source.md](phase-1/020-documentation-catalog-single-source.md) `[planned]` Single-source documentation catalog and surfaced-doc parity
 - [021-canonical-schema-and-config-contracts.md](phase-1/021-canonical-schema-and-config-contracts.md) `[planned]` Canonical schema catalog, object definitions, and config templates
 - [022-data-sources-and-connector-architecture.md](phase-1/022-data-sources-and-connector-architecture.md) `[planned]` Canonical data sources, integration families, and connector contracts

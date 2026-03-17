@@ -24,6 +24,7 @@ Those belong in:
 ## Current Files
 
 - [canonical-schemas-and-contracts.md](canonical-schemas-and-contracts.md)
+- [cross-cutting-trait-audit.md](cross-cutting-trait-audit.md)
 - [event-bus.md](event-bus.md)
 - [state-graph.md](state-graph.md)
 - [spec-draft.md](spec-draft.md)

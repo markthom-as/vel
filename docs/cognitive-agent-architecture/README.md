@@ -39,18 +39,20 @@ Start here:
 1. [`00-overarching-architecture-and-concept-spec.md`](00-overarching-architecture-and-concept-spec.md)
 2. [`01-cross-cutting-system-traits.md`](01-cross-cutting-system-traits.md)
 3. [`architecture/README.md`](architecture/README.md)
-4. [`architecture/canonical-schemas-and-contracts.md`](architecture/canonical-schemas-and-contracts.md)
-5. [`integrations/canonical-data-sources-and-connectors.md`](integrations/canonical-data-sources-and-connectors.md)
-6. [`integrations/data-source-catalog.md`](integrations/data-source-catalog.md)
-7. [`cognition/self-awareness-and-supervised-self-modification.md`](cognition/self-awareness-and-supervised-self-modification.md)
-8. [`agents/orchestrator.md`](agents/orchestrator.md)
-9. [`agents/tool-access.md`](agents/tool-access.md)
-10. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
-11. [`implementation/roadmap.md`](implementation/roadmap.md)
+4. [`architecture/cross-cutting-trait-audit.md`](architecture/cross-cutting-trait-audit.md)
+5. [`architecture/canonical-schemas-and-contracts.md`](architecture/canonical-schemas-and-contracts.md)
+6. [`integrations/canonical-data-sources-and-connectors.md`](integrations/canonical-data-sources-and-connectors.md)
+7. [`integrations/data-source-catalog.md`](integrations/data-source-catalog.md)
+8. [`cognition/self-awareness-and-supervised-self-modification.md`](cognition/self-awareness-and-supervised-self-modification.md)
+9. [`agents/orchestrator.md`](agents/orchestrator.md)
+10. [`agents/tool-access.md`](agents/tool-access.md)
+11. [`policies/trust-and-safety.md`](policies/trust-and-safety.md)
+12. [`implementation/roadmap.md`](implementation/roadmap.md)
 
 ## Sub-Pack Entry Points
 
 - [`architecture/README.md`](architecture/README.md) for eventing, state graph, and cross-subsystem runtime architecture docs
+- [`architecture/cross-cutting-trait-audit.md`](architecture/cross-cutting-trait-audit.md) for subsystem-level trait coverage and gap classification
 - [`architecture/canonical-schemas-and-contracts.md`](architecture/canonical-schemas-and-contracts.md) for schema ownership, config contracts, manifests, and templates
 - [`agents/orchestrator.md`](agents/orchestrator.md) for orchestration and supervision
 - [`cognition/context-model.md`](cognition/context-model.md) for cognition-state shape and interpretation

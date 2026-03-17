@@ -20,6 +20,7 @@ index_terms:
   - observability baseline
 related_files:
   - docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md
+  - docs/cognitive-agent-architecture/architecture/cross-cutting-trait-audit.md
   - docs/MASTER_PLAN.md
   - docs/templates/spec-template.md
   - docs/templates/ticket-template.md
@@ -247,3 +248,7 @@ When adding or reviewing a subsystem change, explicitly ask:
 1. New architecture docs and tickets reference or apply these traits explicitly.
 2. Templates require authors to account for trait impact rather than assuming it.
 3. The ticket queue contains explicit coverage for currently missing trait work.
+
+# Current Baseline Audit
+
+Use [architecture/cross-cutting-trait-audit.md](architecture/cross-cutting-trait-audit.md) as the current subsystem-level baseline coverage and gap classification artifact for ticket `018`.

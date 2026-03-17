@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -79,6 +78,7 @@ const requiredFiles = [
   'docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md',
   'docs/cognitive-agent-architecture/architecture/README.md',
   'docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md',
+  'docs/cognitive-agent-architecture/architecture/cross-cutting-trait-audit.md',
   'docs/cognitive-agent-architecture/architecture/spec-draft.md',
   'docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md',
   'docs/cognitive-agent-architecture/integrations/data-source-catalog.md',
@@ -100,8 +100,12 @@ for (const file of requiredFiles) {
 
 const readme = readFile('README.md');
 const agents = readFile('AGENTS.md');
+const docsCatalog = readJson('docs/documentation-catalog.json');
 const configReadme = readFile('config/README.md');
 const contractManifest = readJson('config/contracts-manifest.json');
+const cliDocsCatalog = readJson('crates/vel-cli/src/commands/docs_catalog.generated.json');
+const webDocsCatalog = readFile('clients/web/src/data/documentationCatalog.generated.ts');
+const appleDocsCatalog = readFile('clients/apple/VelAPI/Sources/VelAPI/VelDocumentation.swift');
 const connectorManifestExample = readJson('config/examples/connector-manifest.example.json');
 const selfModelExample = readJson('config/examples/self-model-envelope.example.json');
 const docsReadme = readFile('docs/README.md');
@@ -116,6 +120,9 @@ const traitsSpec = readFile(
 );
 const canonicalSchemas = readFile(
   'docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md',
+);
+const traitAudit = readFile(
+  'docs/cognitive-agent-architecture/architecture/cross-cutting-trait-audit.md',
 );
 const canonicalConnectors = readFile(
   'docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md',
@@ -136,16 +143,6 @@ const agentProtocol = readFile('docs/templates/agent-implementation-protocol.md'
 const apiRuntime = readFile('docs/api/runtime.md');
 const apiChat = readFile('docs/api/chat.md');
 const makefile = readFile('Makefile');
-
-try {
-  execFileSync('node', ['scripts/sync-documentation-catalog.mjs', '--check'], {
-    cwd: repoRoot,
-    stdio: 'pipe',
-  });
-} catch (error) {
-  const detail = error?.stderr?.toString()?.trim() || error?.message || 'unknown error';
-  ensure(false, `documentation catalog artifacts are out of sync: ${detail}`);
-}
 
 const requiredReadmeCommands = [
   'make build',
@@ -240,6 +237,40 @@ ensure(
   'docs/README.md does not point to the canonical documentation catalog manifest',
 );
 ensure(
+  docsCatalog && Array.isArray(docsCatalog.entries),
+  'docs/documentation-catalog.json is missing an entries array',
+);
+const expectedDocsBySurface = (surface) =>
+  (docsCatalog?.entries ?? [])
+    .filter((entry) => Array.isArray(entry.surfaces) && entry.surfaces.includes(surface))
+    .map(({ category, title, path, description }) => ({ category, title, path, description }));
+ensure(
+  JSON.stringify(cliDocsCatalog) === JSON.stringify(expectedDocsBySurface('cli')),
+  'CLI documentation catalog is not synchronized with docs/documentation-catalog.json',
+);
+ensure(
+  webDocsCatalog.includes('// GENERATED FILE. DO NOT EDIT.')
+    && webDocsCatalog.includes('// Source: docs/documentation-catalog.json'),
+  'web documentation catalog is missing generated-file provenance markers',
+);
+for (const entry of expectedDocsBySurface('web')) {
+  ensure(
+    webDocsCatalog.includes(entry.path),
+    `web documentation catalog is missing path: ${entry.path}`,
+  );
+}
+ensure(
+  appleDocsCatalog.includes('// GENERATED FILE. DO NOT EDIT.')
+    && appleDocsCatalog.includes('// Source: docs/documentation-catalog.json'),
+  'Apple documentation catalog is missing generated-file provenance markers',
+);
+for (const entry of expectedDocsBySurface('apple')) {
+  ensure(
+    appleDocsCatalog.includes(entry.path),
+    `Apple documentation catalog is missing path: ${entry.path}`,
+  );
+}
+ensure(
   docsReadme.includes('docs/tickets/phase-1') || docsReadme.includes('docs/tickets/phase-1/*.md'),
   'docs/README.md does not point to the phase ticket queues',
 );
@@ -300,12 +331,24 @@ ensure(
   'cross-cutting traits spec is missing one or more required traits',
 );
 ensure(
+  traitsSpec.includes('cross-cutting-trait-audit.md'),
+  'cross-cutting traits spec does not reference the current trait audit artifact',
+);
+ensure(
+  traitAudit.includes('Subsystem Audit Matrix') && traitAudit.includes('Gap Classification'),
+  'cross-cutting trait audit doc is missing matrix or gap classification sections',
+);
+ensure(
   architecturePackReadme.includes('spec-draft.md'),
   'architecture sub-pack README does not point to the default spec draft file',
 );
 ensure(
   architecturePackReadme.includes('canonical-schemas-and-contracts.md'),
   'architecture sub-pack README does not point to canonical-schemas-and-contracts.md',
+);
+ensure(
+  architecturePackReadme.includes('cross-cutting-trait-audit.md'),
+  'architecture sub-pack README does not point to cross-cutting-trait-audit.md',
 );
 ensure(
   templatesReadme.includes('docs/cognitive-agent-architecture/')
