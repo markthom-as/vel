@@ -43,7 +43,7 @@ Without one canonical connector model, every new integration risks inventing its
 # Goals
 
 - define one canonical list of data-source families
-- define one connector contract that works for local files, snapshots, OAuth APIs, brokered tools, and delegated runtimes
+- define one connector contract that works for local files, snapshots, credential-backed APIs, brokered tools, device exports, and delegated runtimes
 - make source modes and trust boundaries explicit
 - tie connector work back to tickets and existing domain types
 
@@ -86,9 +86,10 @@ Every integration should declare one source mode:
 - `local_file`: a user-controlled file such as `.ics` or JSON
 - `local_directory`: a user-controlled directory tree such as notes
 - `local_snapshot`: a local snapshot export produced by another process
-- `oauth_api`: a provider-backed API connection
+- `credential_api`: a provider-backed API connection using OAuth, API tokens, or an equivalent mediated credential path
+- `device_export`: a device-produced export or adapter stream such as Apple-export oriented ingestion
 - `brokered_tool`: an action performed through a capability broker instead of direct raw credentials
-- `delegated_runtime`: a future worker or plugin runtime that still obeys connector contracts
+- `delegated_connector`: a future worker or plugin runtime that still obeys connector contracts
 
 `docs/user/integrations/local-sources.md` documents the local-source subset of these modes, not the full integration model.
 
@@ -100,18 +101,21 @@ Every connector should eventually declare:
 {
   "integration_family": "calendar",
   "provider_key": "google_calendar",
-  "source_mode": "oauth_api",
+  "source_mode": "credential_api",
+  "auth_mode": "brokered_oauth",
   "read_capabilities": ["read_events"],
   "write_capabilities": [],
   "secret_mode": "brokered_injection",
   "config_keys": ["google_client_id", "google_client_secret"],
-  "source_refs": ["IntegrationSourceRef"],
   "freshness_sla_seconds": 900,
   "emits": {
     "signals": ["calendar_event"],
     "entities": ["IntegrationConnection", "IntegrationConnectionEvent"]
   },
-  "allowed_hosts": ["www.googleapis.com"]
+  "allowed_hosts": ["www.googleapis.com"],
+  "output_entities": ["IntegrationConnection", "calendar_event"],
+  "provenance_fields": ["family", "provider_key", "connection_id", "external_id"],
+  "requires_review_for_writes": true
 }
 ```
 
@@ -126,8 +130,8 @@ Every connector should eventually declare:
 ### Trust Boundary
 
 - Local file and snapshot connectors should remain inspectable and user-controlled.
-- OAuth/API connectors should prefer mediated execution and scoped secrets.
-- Delegated runtimes must still surface stable manifests, traces, and denial behavior.
+- Credential-backed API connectors should prefer mediated execution and scoped secrets.
+- Delegated connectors must still surface stable manifests, traces, and denial behavior.
 
 ### Freshness And Health
 
@@ -166,6 +170,7 @@ Every connector should eventually declare:
 - keep local-first source modes as the preferred default for core loops
 - add new connector families only when they add real user value, not because a provider API exists
 - do not broaden capability scope just to make a connector convenient
+- keep catalog, example manifest, and machine-readable schema vocabulary synchronized
 
 # Acceptance Criteria
 

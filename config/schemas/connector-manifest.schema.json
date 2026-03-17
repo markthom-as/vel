@@ -30,10 +30,15 @@
         "local_file",
         "local_directory",
         "local_snapshot",
-        "oauth_api",
+        "credential_api",
+        "device_export",
         "brokered_tool",
-        "delegated_runtime"
+        "delegated_connector"
       ]
+    },
+    "auth_mode": {
+      "type": "string",
+      "minLength": 1
     },
     "read_capabilities": {
       "type": "array",
@@ -106,17 +111,42 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "output_entities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "provenance_fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "requires_review_for_writes": {
+      "type": "boolean"
     }
   },
   "required": [
     "integration_family",
     "provider_key",
     "source_mode",
+    "auth_mode",
     "read_capabilities",
     "write_capabilities",
     "secret_mode",
+    "config_keys",
     "freshness_sla_seconds",
-    "emits"
+    "emits",
+    "allowed_hosts",
+    "output_entities",
+    "provenance_fields",
+    "requires_review_for_writes"
   ],
   "additionalProperties": false
 }

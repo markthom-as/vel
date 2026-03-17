@@ -68,18 +68,18 @@ Today the contract surface is partially explicit but not yet unified.
 
 ## Contract Inventory
 
-| Contract | Owner | Primary File(s) | Boundary | Versioning Rule | Current Gap |
+| Contract | Owner | Primary File(s) | Boundary | Versioning Rule | Current State |
 | --- | --- | --- | --- | --- | --- |
-| App runtime config | `vel-config` | `crates/vel-config/src/lib.rs`, `vel.toml` | runtime config | additive fields, documented defaults | no canonical schema doc or template file |
-| Agent spec config | `vel-config` | `crates/vel-config/src/lib.rs`, `config/agent-specs.yaml` | supervised-agent config | validate-on-load, explicit field rules | no checked-in template separate from live config |
-| Policy config | `veld` | `crates/veld/src/policy_config.rs`, `config/policies.yaml` | runtime policy config | validate-on-load, explicit defaults | no checked-in template separate from live config |
-| Model profile config | `vel-config` | `crates/vel-config/src/models.rs`, `configs/models/*.toml` | model backend config | per-file profile contracts | no canonical schema catalog entry in docs |
-| Routing config | `vel-config` | `crates/vel-config/src/models.rs`, `configs/models/routing.toml` | task-to-profile routing | additive task classes | no template guidance beyond inline comments |
+| App runtime config | `vel-config` | `crates/vel-config/src/lib.rs`, `vel.toml`, `config/templates/vel.toml.template`, `config/schemas/app-config.schema.json` | runtime config | additive fields, documented defaults | template and schema present; machine-readable publication now needs consumer rollout |
+| Agent spec config | `vel-config` | `crates/vel-config/src/lib.rs`, `config/agent-specs.yaml`, `config/templates/agent-specs.template.yaml`, `config/schemas/agent-specs.schema.json` | supervised-agent config | validate-on-load, explicit field rules | template and schema present; broader fixture use is tracked separately |
+| Policy config | `veld` | `crates/veld/src/policy_config.rs`, `config/policies.yaml`, `config/templates/policies.template.yaml`, `config/schemas/policies.schema.json` | runtime policy config | validate-on-load, explicit defaults | template and schema present; runtime enforcement remains the code owner |
+| Model profile config | `vel-config` | `crates/vel-config/src/models.rs`, `configs/models/*.toml`, `configs/models/templates/profile.template.toml`, `config/schemas/model-profile.schema.json` | model backend config | per-file profile contracts | template and schema present; client/tooling consumption is still narrow |
+| Routing config | `vel-config` | `crates/vel-config/src/models.rs`, `configs/models/routing.toml`, `configs/models/templates/routing.template.toml`, `config/schemas/model-routing.schema.json` | task-to-profile routing | additive task classes | template and schema present; effective-config inspection is still future work |
 | Current context | target `vel-core` | `docs/tickets/phase-1/002-typed-context-transition.md`, `docs/cognitive-agent-architecture/cognition/context-model.md` | cognition state | explicit `CurrentContextVn` structs | still partially JSON-backed in runtime code |
-| Integration connection model | `vel-core` | `crates/vel-core/src/integration.rs` | domain + API/storage mapping | additive typed records | canonical contract exists; concrete provider inventory still needs ongoing maintenance |
-| Connect capability manifest | `vel-core` + `vel-api-types` | `crates/vel-core/src/connect.rs`, `crates/vel-api-types/src/lib.rs` | worker/connect capability boundary | explicit manifest shape | route coverage and docs are partial |
-| Handoff envelope | architecture pack | `docs/cognitive-agent-architecture/agents/handoffs.md` | agent-to-agent boundary | version by envelope schema, not vibes | not yet tied to repo/code write scopes explicitly everywhere |
-| Self-model | architecture pack | `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md` | repo/runtime introspection boundary | versioned self-model contract | newly specified, not implemented |
+| Integration connection model | `vel-core` | `crates/vel-core/src/integration.rs`, `docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md`, `docs/cognitive-agent-architecture/integrations/data-source-catalog.md`, `config/schemas/connector-manifest.schema.json` | domain + API/storage mapping | additive typed records | catalog, example, and schema exist; full runtime alignment is still queued |
+| Connect capability manifest | `vel-core` + `vel-api-types` | `crates/vel-core/src/connect.rs`, `crates/vel-api-types/src/lib.rs` | worker/connect capability boundary | explicit manifest shape | route coverage and consumer surfaces are still partial |
+| Handoff envelope | architecture pack | `docs/cognitive-agent-architecture/agents/handoffs.md` | agent-to-agent boundary | version by envelope schema, not vibes | still needs machine-readable publication and shared consumption |
+| Self-model | architecture pack | `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md`, `config/examples/self-model-envelope.example.json`, `config/schemas/self-model-envelope.schema.json` | repo/runtime introspection boundary | versioned self-model contract | doc, example, and schema exist; runtime enforcement is still future work |
 
 ## Schema Governance Rules
 
@@ -103,20 +103,33 @@ Today the contract surface is partially explicit but not yet unified.
 
 ### Templates And Fixtures
 
-The repo should keep checked-in templates for human-authored config surfaces:
+The repo keeps checked-in templates and examples for human-authored and shared contract surfaces:
 
-- runtime config template
-- agent spec template
-- policy config template
-- model profile and routing templates
+- `config/templates/vel.toml.template`
+- `config/templates/agent-specs.template.yaml`
+- `config/templates/policies.template.yaml`
+- `configs/models/templates/profile.template.toml`
+- `configs/models/templates/routing.template.toml`
+- `config/examples/connector-manifest.example.json`
+- `config/examples/self-model-envelope.example.json`
 
-Templates and fixtures are examples and scaffolds, not hidden sources of truth.
-They should be tracked by ticket `025-config-and-contract-fixture-parity.md`.
+Templates and fixtures are examples and scaffolds, not hidden sources of truth. They should stay parseable and aligned with ticket `025-config-and-contract-fixture-parity.md`.
 
 ### Machine-Readable Publication
 
 Contract surfaces should be publishable in machine-readable form for clients and tooling.
-This lane is tracked by ticket `024-machine-readable-schema-and-manifest-publication.md`.
+
+Current published artifacts live under `config/schemas/` and are indexed by `config/contracts-manifest.json`.
+Consumer rollout and versioned publication discipline are tracked by ticket `024-machine-readable-schema-and-manifest-publication.md`.
+
+### Scientific Substrate And Symbolic Layer
+
+Vel should separate objective, inspectable substrate from interpretive outputs:
+
+- scientific substrate: configs, templates, schemas, manifests, traces, persisted records, typed state
+- symbolic layer: syntheses, hypotheses, nudges, narratives, reflective proposals
+
+The symbolic layer may interpret the scientific substrate, but it must not silently replace or mutate it.
 
 ## Minimal Object Definitions
 
@@ -182,7 +195,7 @@ Every connector or integration-facing capability should eventually declare:
 
 # Operational Considerations
 
-- add parser/loader tests for checked-in templates
+- add parser/loader tests for checked-in templates and examples
 - keep templates valid and parseable
 - do not let templates become shadow configs with behavior not represented in code
 - publish machine-readable schema resources and a contract manifest for discoverability

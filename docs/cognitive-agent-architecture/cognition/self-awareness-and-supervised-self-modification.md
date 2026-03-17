@@ -130,6 +130,15 @@ Write classes that should always require explicit operator authorization:
 - sandbox or capability-boundary changes
 - wide-scope repo writes outside ticket-bounded modules
 
+## Scientific Substrate And Symbolic Proposals
+
+Vel's self-awareness should distinguish between:
+
+- scientific substrate: repo state, docs, config, manifests, traces, diffs, and verification evidence
+- symbolic proposals: diagnoses, improvement ideas, architectural suggestions, and patch plans
+
+Symbolic proposals may summarize or interpret the substrate, but they must not silently rewrite it without the supervised write path above.
+
 ## Self-Model Envelope
 
 Minimal conceptual shape:

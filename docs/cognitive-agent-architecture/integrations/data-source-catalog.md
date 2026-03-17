@@ -37,22 +37,22 @@ Provide one concrete inventory of currently known Vel source providers and modes
 | Family | Provider Key | Source Mode | Status | Notes |
 | --- | --- | --- | --- | --- |
 | `calendar` | `local_ics` | `local_file` | shipped | Local `.ics` pull/sync path. |
-| `calendar` | `google_calendar` | `oauth_api` | shipped | Credential-backed sync with calendar selection controls. |
+| `calendar` | `google_calendar` | `credential_api` | shipped | Credential-backed sync with calendar selection controls. |
 | `tasks` | `todoist_snapshot` | `local_snapshot` | shipped | Snapshot-backed local ingestion. |
-| `tasks` | `todoist` | `oauth_api` | shipped | API-backed task sync. |
+| `tasks` | `todoist` | `credential_api` | shipped | API-backed task sync. |
 | `activity` | `activity_snapshot` | `local_snapshot` | shipped | Workstation/activity snapshot ingestion. |
-| `activity` | `apple_export` | `local_snapshot` | planned | Apple-export oriented adapter lane. |
+| `activity` | `apple_export` | `device_export` | planned | Apple-export oriented adapter lane. |
 | `health` | `health_snapshot` | `local_snapshot` | shipped | Health snapshot ingestion. |
-| `health` | `apple_export` | `local_snapshot` | planned | Apple-export oriented adapter lane. |
+| `health` | `apple_export` | `device_export` | planned | Apple-export oriented adapter lane. |
 | `git` | `git_snapshot` | `local_snapshot` | shipped | Repository activity snapshot ingestion. |
 | `messaging` | `messaging_snapshot` | `local_snapshot` | shipped | Messaging snapshot ingestion. |
-| `messaging` | `apple_export` | `local_snapshot` | planned | Apple-export oriented adapter lane. |
+| `messaging` | `apple_export` | `device_export` | planned | Apple-export oriented adapter lane. |
 | `notes` | `notes_path` | `local_directory` | shipped | File or directory-backed notes ingestion. |
 | `transcripts` | `transcript_snapshot` | `local_snapshot` | shipped | Transcript snapshot ingestion. |
 | `documents` | `local_export` | `local_snapshot` | planned | Document-import lane. |
 | `gaming` | `local_export` | `local_snapshot` | planned | Personal-context signal lane. |
-| `calendar` | `delegated_connector_runtime` | `delegated_runtime` | planned | Connect/worker runtime integration path. |
-| `tasks` | `delegated_connector_runtime` | `delegated_runtime` | planned | Connect/worker runtime integration path. |
+| `calendar` | `delegated_connector_runtime` | `delegated_connector` | planned | Connect/worker runtime integration path. |
+| `tasks` | `delegated_connector_runtime` | `delegated_connector` | planned | Connect/worker runtime integration path. |
 
 # Operational Notes
 

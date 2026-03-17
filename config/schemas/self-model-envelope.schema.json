@@ -48,6 +48,13 @@
     "review_gate": {
       "type": "string",
       "minLength": 1
+    },
+    "approval_classes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "required": [

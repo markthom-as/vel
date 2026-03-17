@@ -72,6 +72,15 @@ If this proposal introduces or changes shared contracts, list:
 - versioning and migration policy
 - owning ticket(s) for publication and fixture parity
 
+## Scientific Substrate And Symbolic Layer
+
+If this proposal mixes measured state with agentic synthesis, distinguish:
+
+- scientific substrate: typed state, configs, manifests, traces, persisted inputs
+- symbolic layer: syntheses, narratives, hypotheses, or recommendations
+
+State clearly which layer owns truth and how symbolic outputs remain explainable from the substrate.
+
 ## Boundaries
 
 State what layer owns what.

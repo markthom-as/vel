@@ -38,9 +38,9 @@ labels:
 - **Composability**: required | affected | n/a — explain contract, manifest, reusable component, or service-composition impact.
 
 # Implementation Steps (The "How")
-1. **Research**: Locate symbols and verify current behavior with fast repo search and focused tests.
+1. **Research**: Locate symbols and verify current behavior with `rg`, focused file reads, and the narrowest relevant tests.
 2. **Strategy**: Outline the code motion or new logic in a plan.
-3. **Act**: Apply surgical changes with scoped patches.
+3. **Act**: Apply surgical changes with scoped `apply_patch` edits.
 4. **Clean**: Run `cargo fmt` and `cargo clippy`.
 
 # Acceptance Criteria
@@ -56,5 +56,6 @@ labels:
 
 # Agent Guardrails
 - **Secret Protection**: Do not log or print anything from `var/data/` or `.env`.
-- **Minimal Context**: Use `read_file` with line ranges for large files.
-- **Parallelism**: Run independent `grep_search` calls in parallel.
+- **Minimal Context**: Use `rg`, targeted `sed`, and narrow file reads for large files.
+- **Repo-Aware Scope**: If the ticket touches self-modification or repo-aware behavior, define read scope, write scope, and review gates explicitly.
+- **Parallelism**: Run independent search and read tasks in parallel when the write scopes stay disjoint.
