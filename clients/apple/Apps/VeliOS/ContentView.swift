@@ -395,6 +395,19 @@ private struct VoiceTab: View {
                     .foregroundStyle(.tertiary)
             }
 
+            Section("Quick commands") {
+                ForEach(VoiceCommandExample.defaults) { example in
+                    Button(example.label) {
+                        voiceModel.applyCommandExample(example.command)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Text(example.command)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("Response") {
                 if let response = voiceModel.latestResponse {
                     Text(response.summary)
@@ -631,6 +644,7 @@ private struct VoiceIntent: Codable, Equatable {
         case commitmentDone = "commitment_done"
         case nudgeDone = "nudge_done"
         case nudgeSnooze = "nudge_snooze"
+        case morningBriefing = "morning_briefing"
         case queryContext = "query_context"
         case queryNextCommitment = "query_next_commitment"
         case queryNudges = "query_nudges"
@@ -644,6 +658,7 @@ private struct VoiceIntent: Codable, Equatable {
     static let commitment = VoiceIntent(kind: .commitmentCreate, minutes: nil)
     static let commitmentDone = VoiceIntent(kind: .commitmentDone, minutes: nil)
     static let nudgeDone = VoiceIntent(kind: .nudgeDone, minutes: nil)
+    static let morningBriefing = VoiceIntent(kind: .morningBriefing, minutes: nil)
     static let queryContext = VoiceIntent(kind: .queryContext, minutes: nil)
     static let queryNextCommitment = VoiceIntent(kind: .queryNextCommitment, minutes: nil)
     static let queryNudges = VoiceIntent(kind: .queryNudges, minutes: nil)
@@ -664,6 +679,8 @@ private struct VoiceIntent: Codable, Equatable {
             return "Resolve top nudge"
         case .nudgeSnooze:
             return "Snooze top nudge (\(minutes ?? 10)m)"
+        case .morningBriefing:
+            return "Morning briefing"
         case .queryContext:
             return "Query current context"
         case .queryNextCommitment:
@@ -687,6 +704,8 @@ private struct VoiceIntent: Codable, Equatable {
             return "nudge_done"
         case .nudgeSnooze:
             return "nudge_snooze_\(minutes ?? 10)m"
+        case .morningBriefing:
+            return "morning_briefing"
         case .queryContext:
             return "query_context"
         case .queryNextCommitment:
@@ -708,7 +727,7 @@ private struct VoiceIntent: Codable, Equatable {
 
     var isQuery: Bool {
         switch kind {
-        case .queryContext, .queryNextCommitment, .queryNudges, .explainContext:
+        case .morningBriefing, .queryContext, .queryNextCommitment, .queryNudges, .explainContext:
             return true
         case .captureCreate, .commitmentCreate, .commitmentDone, .nudgeDone, .nudgeSnooze:
             return false
@@ -775,6 +794,10 @@ private enum VoiceIntentParser {
         }
 
         let normalized = clean.lowercased()
+
+        if isMorningBriefingQuery(normalized) {
+            return VoiceIntentSuggestion(intent: .morningBriefing, cleanedText: clean)
+        }
 
         if isContextQuery(normalized) {
             return VoiceIntentSuggestion(intent: .queryContext, cleanedText: clean)
@@ -882,14 +905,23 @@ private enum VoiceIntentParser {
         return value.trimmingCharacters(in: CharacterSet(charactersIn: ": -").union(.whitespacesAndNewlines))
     }
 
+    private static func isMorningBriefingQuery(_ text: String) -> Bool {
+        [
+            "good morning",
+            "morning briefing",
+            "start my day",
+            "morning plan",
+            "morning check"
+        ].contains(where: { text.contains($0) })
+    }
+
     private static func isContextQuery(_ text: String) -> Bool {
         [
             "what matters",
             "what do i need",
             "what should i do right now",
             "current context",
-            "status right now",
-            "good morning"
+            "status right now"
         ].contains(where: { text.contains($0) })
     }
 
@@ -1008,6 +1040,21 @@ private struct VoiceResponse {
     let detail: String?
 }
 
+private struct VoiceCommandExample: Identifiable {
+    let id: String
+    let label: String
+    let command: String
+
+    static let defaults: [VoiceCommandExample] = [
+        VoiceCommandExample(id: "morning", label: "Morning brief", command: "Good morning"),
+        VoiceCommandExample(id: "context", label: "What matters", command: "What matters right now?"),
+        VoiceCommandExample(id: "next", label: "What is next", command: "What's my next commitment?"),
+        VoiceCommandExample(id: "nudges", label: "Active nudges", command: "What are my active nudges?"),
+        VoiceCommandExample(id: "done", label: "Mark meds done", command: "Mark meds done"),
+        VoiceCommandExample(id: "snooze", label: "Snooze 10", command: "Snooze that 10 minutes")
+    ]
+}
+
 @MainActor
 private final class VoiceCaptureModel: NSObject, ObservableObject {
     @Published var speechPermission: VoicePermissionState = .unknown
@@ -1070,6 +1117,12 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         transcript = ""
         suggestedText = ""
         suggestedIntent = .capture
+        errorMessage = nil
+    }
+
+    func applyCommandExample(_ value: String) {
+        updateTranscript(value)
+        latestResponse = nil
         errorMessage = nil
     }
 
@@ -1240,6 +1293,10 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             ? text
             : suggestedText.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        if intent.isQuery, store.isReachable {
+            await store.refresh()
+        }
+
         let capturePayload = voiceCapturePayload(transcript: text, intent: intent)
         await store.createCapture(
             text: capturePayload,
@@ -1339,6 +1396,9 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                     detail: "Saved transcript as capture provenance only."
                 )
             }
+        case .morningBriefing:
+            committedIntent = .morningBriefing
+            setResponse(buildMorningBriefingResponse(from: store))
         case .queryContext:
             committedIntent = .queryContext
             setResponse(buildContextResponse(from: store))
@@ -1486,6 +1546,56 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 return lhs.text < rhs.text
             }
         }.first
+    }
+
+    private func buildMorningBriefingResponse(from store: VelClientStore) -> VoiceResponse {
+        let context = store.context?.context
+        let next = nextOpenCommitment(from: store, preferredID: context?.next_commitment_id)
+        let activeNudges = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+
+        var summaryParts: [String] = []
+        if let next {
+            if let due = next.due_at {
+                summaryParts.append("Next: \(next.text), due \(formatUnix(due)).")
+            } else {
+                summaryParts.append("Next: \(next.text).")
+            }
+        } else {
+            summaryParts.append("No open commitments are cached.")
+        }
+
+        if let top = activeNudges.first {
+            summaryParts.append("Top nudge: \(top.message).")
+        } else {
+            summaryParts.append("No active nudges right now.")
+        }
+
+        var requiredActions: [String] = []
+        if let meds = context?.meds_status?.lowercased(), meds != "taken", meds != "logged" {
+            requiredActions.append("log meds")
+        }
+        if context?.prep_window_active == true {
+            requiredActions.append("start prep")
+        }
+        if context?.commute_window_active == true {
+            if let leaveBy = context?.leave_by_ts {
+                requiredActions.append("leave by \(formatUnix(leaveBy))")
+            } else {
+                requiredActions.append("start commute")
+            }
+        }
+
+        let detail: String
+        if requiredActions.isEmpty {
+            detail = "No immediate required actions detected from current context."
+        } else {
+            detail = "Required now: \(requiredActions.joined(separator: ", "))."
+        }
+
+        return VoiceResponse(
+            summary: summaryParts.joined(separator: " "),
+            detail: detail
+        )
     }
 
     private func buildContextResponse(from store: VelClientStore) -> VoiceResponse {
