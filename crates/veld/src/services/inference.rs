@@ -118,7 +118,7 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         recent_git_summary.is_some(),
     );
 
-    let next_commitment = select_next_commitment(&open_commitments, &risk_snapshots, now_ts);
+    let next_commitment = select_next_commitment(&open_commitments, &risk_snapshots);
     let next_commitment_id = next_commitment.map(|c| c.id.as_ref().to_string());
     let next_commitment_due_at = next_commitment.and_then(|c| c.due_at.map(|t| t.unix_timestamp()));
 
@@ -642,17 +642,15 @@ fn select_next_event<'a>(
 fn select_next_commitment<'a>(
     open_commitments: &'a [vel_core::Commitment],
     risk_snapshots: &[RiskSnapshot],
-    now_ts: i64,
 ) -> Option<&'a vel_core::Commitment> {
     open_commitments
         .iter()
-        .min_by_key(|commitment| commitment_sort_key(commitment, risk_snapshots, now_ts))
+        .min_by_key(|commitment| commitment_sort_key(commitment, risk_snapshots))
 }
 
 fn commitment_sort_key(
     commitment: &vel_core::Commitment,
     risk_snapshots: &[RiskSnapshot],
-    now_ts: i64,
 ) -> (u8, i64, u8, u32, String) {
     let due_at = commitment.due_at.map(|value| value.unix_timestamp());
     let due_bucket = if due_at.is_some() { 0 } else { 1 };
@@ -662,7 +660,7 @@ fn commitment_sort_key(
     } else {
         1
     };
-    let risk_bucket = u32::MAX - commitment_risk_rank(commitment, risk_snapshots, now_ts);
+    let risk_bucket = u32::MAX - commitment_risk_rank(commitment, risk_snapshots);
     (
         due_bucket,
         due_sort,
@@ -680,37 +678,12 @@ fn is_externally_anchored(commitment: &vel_core::Commitment) -> bool {
 fn commitment_risk_rank(
     commitment: &vel_core::Commitment,
     risk_snapshots: &[RiskSnapshot],
-    now_ts: i64,
 ) -> u32 {
     risk_snapshots
         .iter()
         .find(|snapshot| snapshot.commitment_id == commitment.id.as_ref())
         .map(|snapshot| (snapshot.risk_score * 1000.0).round() as u32)
-        .unwrap_or_else(|| fallback_commitment_risk_rank(commitment, now_ts))
-}
-
-fn fallback_commitment_risk_rank(commitment: &vel_core::Commitment, now_ts: i64) -> u32 {
-    let due_rank = commitment
-        .due_at
-        .map(|value| value.unix_timestamp() - now_ts)
-        .map(|seconds_until_due| {
-            if seconds_until_due <= 0 {
-                950
-            } else if seconds_until_due <= 30 * 60 {
-                900
-            } else if seconds_until_due <= 2 * 60 * 60 {
-                700
-            } else {
-                350
-            }
-        })
-        .unwrap_or(200);
-    let anchor_bonus = if is_externally_anchored(commitment) {
-        100
-    } else {
-        0
-    };
-    (due_rank + anchor_bonus).min(1000)
+        .unwrap_or(0)
 }
 
 fn build_git_activity_summary(signal: &vel_storage::SignalRecord) -> Option<GitActivitySummary> {
@@ -908,7 +881,7 @@ mod tests {
         ];
 
         let selected =
-            select_next_commitment(&commitments, &[], now_ts).expect("expected a commitment");
+            select_next_commitment(&commitments, &[]).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_sooner");
     }
@@ -936,7 +909,7 @@ mod tests {
             computed_at: Some(now_ts),
         }];
 
-        let selected = select_next_commitment(&commitments, &risk_snapshots, now_ts)
+        let selected = select_next_commitment(&commitments, &risk_snapshots)
             .expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_meeting");
@@ -1005,6 +978,19 @@ mod tests {
         assert_eq!(summary.level, "unknown");
         assert_eq!(summary.score, None);
         assert!(summary.missing);
+    }
+
+    #[test]
+    fn select_next_commitment_without_risk_uses_due_and_anchor_ordering_only() {
+        let commitments = vec![
+            test_commitment("com_undated", None, Some("todo")),
+            test_commitment("com_anchored", None, Some("meeting")),
+        ];
+
+        let selected =
+            select_next_commitment(&commitments, &[]).expect("expected a commitment");
+
+        assert_eq!(selected.id.as_ref(), "com_anchored");
     }
 
     #[test]
