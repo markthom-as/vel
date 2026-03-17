@@ -34,10 +34,14 @@ These can run in parallel after Wave 0 is stable enough for contributors to navi
 - [021-canonical-schema-and-config-contracts.md](phase-1/021-canonical-schema-and-config-contracts.md)
 - [022-data-sources-and-connector-architecture.md](phase-1/022-data-sources-and-connector-architecture.md)
 - [023-self-awareness-and-supervised-self-modification.md](phase-1/023-self-awareness-and-supervised-self-modification.md)
+- [024-machine-readable-schema-and-manifest-publication.md](phase-1/024-machine-readable-schema-and-manifest-publication.md)
+- [025-config-and-contract-fixture-parity.md](phase-1/025-config-and-contract-fixture-parity.md)
 
 Primary outcome:
 
 - explicit object definitions, config contracts, policy schemas, connector contracts, and self-model boundaries
+- machine-readable schemas and manifests with shared publication semantics
+- parseable templates and canonical fixtures that stay in sync with contract docs
 
 ## Wave 2: Core Structural Hardening
 

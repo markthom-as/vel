@@ -16,9 +16,11 @@ These are the current authoritative entrypoints:
 - [cognitive-agent-architecture/README.md](cognitive-agent-architecture/README.md): internal architecture pack entrypoint.
 - [cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md](cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md): overarching internal concept and system model.
 - [cognitive-agent-architecture/01-cross-cutting-system-traits.md](cognitive-agent-architecture/01-cross-cutting-system-traits.md): repo-wide traits for modularity, accessibility, configurability, logging, replay, and composability.
+- [cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md](cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md): canonical object, schema, template, and manifest ownership.
 - [user/README.md](user/README.md): canonical user-facing operating docs.
 - [api/README.md](api/README.md): current API docs for `/v1`, `/api`, and `/ws`.
 - [templates/README.md](templates/README.md): canonical templates for docs, specs, tickets, prompts, and runbooks.
+- [../config/README.md](../config/README.md): canonical config, template, schema, and example asset map.
 
 ## Planning Surfaces
 
@@ -38,6 +40,7 @@ Use the ticket closest to the boundary you are changing.
 These docs can still be useful, but they are subordinate to the authority chain above:
 
 - individual architecture leaf docs under `docs/cognitive-agent-architecture/`
+- config templates, schemas, manifests, and examples under `config/` and `configs/models/`
 - user-facing troubleshooting and setup guides under `docs/user/`
 - API detail docs under `docs/api/`
 
@@ -50,8 +53,10 @@ For a coding agent or new contributor, start here:
 3. [cognitive-agent-architecture/README.md](cognitive-agent-architecture/README.md)
 4. [cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md](cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md)
 5. [cognitive-agent-architecture/01-cross-cutting-system-traits.md](cognitive-agent-architecture/01-cross-cutting-system-traits.md)
-6. the relevant phase ticket under `docs/tickets/`
-7. the closest subtree `README.md` or `AGENTS.md` for the surface you are touching
+6. [cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md](cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md) when the task touches shared contracts
+7. [../config/README.md](../config/README.md) when the task touches config, templates, schemas, or examples
+8. the relevant phase ticket under `docs/tickets/`
+9. the closest subtree `README.md` or `AGENTS.md` for the surface you are touching
 
 ## Authority Rules
 

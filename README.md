@@ -42,6 +42,8 @@ If you are contributing to the codebase, please review the following:
 - **Architecture-First Queue**: [docs/tickets/architecture-first-parallel-queue.md](docs/tickets/architecture-first-parallel-queue.md)
 - **Concept Spec**: [docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md](docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md)
 - **Cross-Cutting Traits**: [docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md](docs/cognitive-agent-architecture/01-cross-cutting-system-traits.md)
+- **Schemas & Contracts**: [docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md](docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md)
+- **Config Assets**: [config/README.md](config/README.md)
 - **Repo Hardening**: [docs/tickets/phase-1/001-storage-modularization.md](docs/tickets/phase-1/001-storage-modularization.md)
 - **Agent SDK**: [docs/tickets/phase-4/010-wasm-agent-sandboxing.md](docs/tickets/phase-4/010-wasm-agent-sandboxing.md)
 

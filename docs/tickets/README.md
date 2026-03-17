@@ -34,6 +34,8 @@ Use [architecture-first-parallel-queue.md](architecture-first-parallel-queue.md)
 - [021-canonical-schema-and-config-contracts.md](phase-1/021-canonical-schema-and-config-contracts.md) `[planned]` Canonical schema catalog, object definitions, and config templates
 - [022-data-sources-and-connector-architecture.md](phase-1/022-data-sources-and-connector-architecture.md) `[planned]` Canonical data sources, integration families, and connector contracts
 - [023-self-awareness-and-supervised-self-modification.md](phase-1/023-self-awareness-and-supervised-self-modification.md) `[planned]` Vel self-awareness, repo visibility, and supervised self-modification
+- [024-machine-readable-schema-and-manifest-publication.md](phase-1/024-machine-readable-schema-and-manifest-publication.md) `[planned]` Publish machine-readable schema and manifest resources for shared contract surfaces
+- [025-config-and-contract-fixture-parity.md](phase-1/025-config-and-contract-fixture-parity.md) `[planned]` Ensure template and fixture parity for config and contract artifacts used by tests and docs
 
 ## Phase 2: Distributed State, Offline Clients & System-Of-Systems
 

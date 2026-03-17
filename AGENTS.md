@@ -63,6 +63,9 @@ Product principles:
 
 - Docs must clearly distinguish implemented behavior from planned behavior.
 - When changing a wire contract, update the Rust DTOs and the affected client boundary code in the same change.
+- New schema-bearing or config-bearing surfaces should ship with four things together once the boundary is stable: owner documentation, a checked-in template or example, a machine-readable schema or manifest, and verification that the checked-in artifact still parses.
+- Integration and connector work should use the canonical family, provider, source-mode, and capability vocabulary instead of inventing per-provider terminology ad hoc.
+- Repo-aware or self-aware behavior must keep read scope separate from write scope. Observation and diagnosis may be broad; applied edits must stay task-bounded, traceable, and review-gated.
 - When adding a new module, contract, endpoint, table, security boundary, or message-flow seam, document it close to the code and in the relevant ticket or doc entrypoint.
 - If you encounter stale authority pointers while already touching the affected area, repair them instead of adding another shadow document.
 - Record reusable lessons. If a task reveals a better prompt pattern, verification trick, or architectural guardrail, capture it in repo docs instead of leaving it in chat history only.
@@ -87,7 +90,8 @@ Before substantial implementation work, read:
 2. the relevant phase ticket in `docs/tickets/phase-*/`
 3. `README.md`
 4. the closest subtree guide or README for the surface you are touching
-5. `docs/templates/agent-implementation-protocol.md` if the task needs process guidance
+5. `config/README.md` if the task touches config, schemas, manifests, integrations, or policy surfaces
+6. `docs/templates/agent-implementation-protocol.md` if the task needs process guidance
 
 Then:
 
@@ -98,6 +102,7 @@ Then:
 5. add or update focused tests for the touched behavior
 6. manually exercise the changed behavior as well as running automated checks
 7. update docs when the change alters a module boundary, API contract, workflow, or authority pointer
+8. if the change introduces or reshapes a durable contract, update the checked-in template/example and machine-readable schema/manifest in the same slice
 
 The workflow protocol is normative about sequencing and verification intent, not literal tool names. Use the equivalent search, edit, and test tools available in your agent runtime.
 

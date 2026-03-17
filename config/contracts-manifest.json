@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-03-17",
+  "contracts": [
+    {
+      "id": "app_config",
+      "kind": "config",
+      "schema": "config/schemas/app-config.schema.json",
+      "template": "config/templates/vel.toml.template",
+      "runtime_reference": "vel.toml"
+    },
+    {
+      "id": "agent_specs",
+      "kind": "config",
+      "schema": "config/schemas/agent-specs.schema.json",
+      "template": "config/templates/agent-specs.template.yaml",
+      "runtime_reference": "config/agent-specs.yaml"
+    },
+    {
+      "id": "policy_config",
+      "kind": "config",
+      "schema": "config/schemas/policies.schema.json",
+      "template": "config/templates/policies.template.yaml",
+      "runtime_reference": "config/policies.yaml"
+    },
+    {
+      "id": "model_profile",
+      "kind": "config",
+      "schema": "config/schemas/model-profile.schema.json",
+      "template": "configs/models/templates/profile.template.toml",
+      "runtime_reference": "configs/models/*.toml"
+    },
+    {
+      "id": "model_routing",
+      "kind": "config",
+      "schema": "config/schemas/model-routing.schema.json",
+      "template": "configs/models/templates/routing.template.toml",
+      "runtime_reference": "configs/models/routing.toml"
+    },
+    {
+      "id": "connector_manifest",
+      "kind": "envelope",
+      "schema": "config/schemas/connector-manifest.schema.json",
+      "example": "config/examples/connector-manifest.example.json"
+    },
+    {
+      "id": "self_model_envelope",
+      "kind": "envelope",
+      "schema": "config/schemas/self-model-envelope.schema.json",
+      "example": "config/examples/self-model-envelope.example.json"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/app-config.schema.json",
+  "title": "Vel App Config",
+  "description": "Runtime app config keys loaded by vel-config from vel.toml-compatible files.",
+  "type": "object",
+  "properties": {
+    "bind_addr": {
+      "type": "string",
+      "minLength": 1
+    },
+    "db_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifact_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "log_level": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "node_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "node_display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tailscale_base_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lan_base_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent_spec_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "llm_model_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "llm_fast_model_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "calendar_ics_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "calendar_ics_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "todoist_snapshot_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "activity_snapshot_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "health_snapshot_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "git_snapshot_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "messaging_snapshot_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "notes_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "transcript_snapshot_path": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}

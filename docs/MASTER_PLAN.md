@@ -1,5 +1,5 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v1.0.4)
+**Status**: Canonical Truth (v1.0.5)
 **Last Updated**: 2026-03-17
 
 ---
@@ -28,6 +28,25 @@
 7.  **Canonical Contracts First**: Schema docs, manifests, config templates, and architecture contracts should be defined before broad cross-layer implementation work.
 8.  **Unified Agent SDK**: Provide a `vel-agent-sdk` for building new "Limbs" that can safely interact with the "Brain."
 9.  **Local LLM Eval Harness**: Automated verification of agent reasoning using a "Judge" model, paired with deterministic and execution-backed checks.
+
+---
+## Architecture Lock-In Queue (Execute First, Parallelizable)
+
+Before broad implementation expansion, run the architecture-first queue in `docs/tickets/architecture-first-parallel-queue.md`.
+
+The minimum phase-1 architecture lock-in lane is:
+
+- `011-documentation-truth-repair.md`
+- `018-cross-cutting-system-traits-baseline.md`
+- `020-documentation-catalog-single-source.md`
+- `021-canonical-schema-and-config-contracts.md`
+- `022-data-sources-and-connector-architecture.md`
+- `023-self-awareness-and-supervised-self-modification.md`
+- `024-machine-readable-schema-and-manifest-publication.md`
+- `025-config-and-contract-fixture-parity.md`
+
+Primary outcome:
+- docs, schemas, manifests, templates, and self-awareness contracts are canonical before deeper runtime spread.
 
 ---
 
@@ -63,6 +82,12 @@
 
 ### 1.10 Self-Awareness, Repo Visibility & Supervised Self-Modification **[PLANNED]**
 *   *Ticket*: `023-self-awareness-and-supervised-self-modification.md`
+
+### 1.11 Machine-Readable Contract Manifest Publication **[PLANNED]**
+*   *Ticket*: `024-machine-readable-schema-and-manifest-publication.md`
+
+### 1.12 Config Template And Fixture Parity **[PLANNED]**
+*   *Ticket*: `025-config-and-contract-fixture-parity.md`
 
 ---
 
