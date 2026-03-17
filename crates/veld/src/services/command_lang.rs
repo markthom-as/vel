@@ -77,6 +77,7 @@ pub enum CommandExecutionPayload {
     ArtifactCreated(ArtifactData),
     SpecDraftCreated(ArtifactData),
     ExecutionPlanCreated(ArtifactData),
+    DelegationPlanCreated(ArtifactData),
     ReviewToday(CommandReviewSummaryData),
     ReviewWeek(CommandReviewSummaryData),
 }
@@ -145,6 +146,15 @@ pub async fn execute_command(
                 command,
                 "execution_plan",
                 CommandExecutionPayloadKind::ExecutionPlanCreated,
+            )
+            .await
+        }
+        (DomainOperation::Create, Some(DomainKind::DelegationPlan)) => {
+            execute_create_planning_artifact(
+                state,
+                command,
+                "delegation_plan",
+                CommandExecutionPayloadKind::DelegationPlanCreated,
             )
             .await
         }
@@ -576,6 +586,9 @@ async fn execute_create_planning_artifact(
             CommandExecutionPayloadKind::ExecutionPlanCreated => {
                 CommandExecutionPayload::ExecutionPlanCreated(artifact)
             }
+            CommandExecutionPayloadKind::DelegationPlanCreated => {
+                CommandExecutionPayload::DelegationPlanCreated(artifact)
+            }
         },
         warnings: Vec::new(),
     })
@@ -586,6 +599,7 @@ enum CommandExecutionPayloadKind {
     ArtifactCreated,
     SpecDraftCreated,
     ExecutionPlanCreated,
+    DelegationPlanCreated,
 }
 
 fn artifact_record_to_data(
@@ -788,6 +802,34 @@ mod tests {
         match result.result {
             CommandExecutionPayload::ExecutionPlanCreated(payload) => {
                 assert_eq!(payload.artifact_type, "execution_plan");
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn execute_create_delegation_plan_returns_delegation_plan_created_result() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget {
+                kind: DomainKind::DelegationPlan,
+                id: None,
+                selector: Some(TargetSelector::Custom("goal".to_string())),
+                attributes: serde_json::json!({
+                    "goal": "queue cleanup"
+                }),
+            }],
+            inferred: serde_json::json!({
+                "planning_status": "planned"
+            }),
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        match result.result {
+            CommandExecutionPayload::DelegationPlanCreated(payload) => {
+                assert_eq!(payload.artifact_type, "delegation_plan");
             }
             other => panic!("unexpected result payload: {other:?}"),
         }

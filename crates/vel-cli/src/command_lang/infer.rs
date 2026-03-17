@@ -155,6 +155,38 @@ fn resolve(parsed: &ParsedCommand, intent: &mut IntentResolution) -> ResolvedCom
                     },
                 ],
             ),
+            (PhraseFamily::Should, Verb::Delegate) => (
+                DomainOperation::Create,
+                vec![TypedTarget {
+                    kind: DomainKind::DelegationPlan,
+                    id: None,
+                    selector: Some(TargetSelector::Custom("goal".to_string())),
+                    attributes: json!({
+                        "goal": parsed.joined_target(),
+                        "status": "planned"
+                    }),
+                }],
+                json!({
+                    "artifact_kind": "delegation_plan",
+                    "planning_status": "planned",
+                    "goal": parsed.joined_target(),
+                    "suggested_title": parsed.joined_target(),
+                }),
+                vec![
+                    "delegate commands resolve to planned delegation-plan intents in this scaffold"
+                        .to_string(),
+                ],
+                vec![
+                    ResolutionConfidence {
+                        field: "artifact_kind".to_string(),
+                        band: CommandConfidenceBand::High,
+                    },
+                    ResolutionConfidence {
+                        field: "planning_status".to_string(),
+                        band: CommandConfidenceBand::High,
+                    },
+                ],
+            ),
             (PhraseFamily::Should, Verb::Commit) => (
                 DomainOperation::Create,
                 vec![TypedTarget {
@@ -297,6 +329,27 @@ mod tests {
         assert_eq!(
             resolution.resolved.inferred["suggested_title"],
             "offline bootstrap"
+        );
+    }
+
+    #[test]
+    fn resolves_delegate_to_delegation_plan_intent() {
+        let input = vec![
+            "should".to_string(),
+            "delegate".to_string(),
+            "review".to_string(),
+            "queue".to_string(),
+            "cleanup".to_string(),
+        ];
+        let resolution = parse_and_resolve(&input).expect("resolve");
+        assert_eq!(resolution.resolved.operation, DomainOperation::Create);
+        assert_eq!(
+            resolution.resolved.targets[0].kind,
+            DomainKind::DelegationPlan
+        );
+        assert_eq!(
+            resolution.resolved.inferred["artifact_kind"],
+            "delegation_plan"
         );
     }
 }

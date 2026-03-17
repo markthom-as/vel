@@ -124,6 +124,19 @@ mod tests {
     }
 
     #[test]
+    fn parses_should_delegate() {
+        let input = vec![
+            "should".to_string(),
+            "delegate".to_string(),
+            "queue".to_string(),
+            "cleanup".to_string(),
+        ];
+        let parsed = parse(&input).expect("parse");
+        assert_eq!(parsed.verb, Verb::Delegate);
+        assert_eq!(parsed.target_tokens, vec!["queue", "cleanup"]);
+    }
+
+    #[test]
     fn rejects_unknown_family() {
         let input = vec!["hello".to_string(), "world".to_string()];
         assert!(parse(&input).is_err());

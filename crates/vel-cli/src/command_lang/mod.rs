@@ -71,6 +71,7 @@ pub async fn run(
     match (&resolution.parsed.family, &resolution.parsed.verb) {
         (PhraseFamily::Should, Verb::Capture)
         | (PhraseFamily::Should, Verb::Commit)
+        | (PhraseFamily::Should, Verb::Delegate)
         | (PhraseFamily::Should, Verb::Feature)
         | (PhraseFamily::Should, Verb::Plan)
         | (PhraseFamily::Should, Verb::Review) => {
@@ -124,6 +125,14 @@ async fn execute_via_service(
             }
             CommandExecutionPayloadData::ExecutionPlanCreated(result) => {
                 println!("result_kind: execution_plan_created");
+                println!("artifact_id: {}", result.artifact_id);
+                println!("artifact_type: {}", result.artifact_type);
+                if let Some(title) = &result.title {
+                    println!("title: {}", title);
+                }
+            }
+            CommandExecutionPayloadData::DelegationPlanCreated(result) => {
+                println!("result_kind: delegation_plan_created");
                 println!("artifact_id: {}", result.artifact_id);
                 println!("artifact_type: {}", result.artifact_type);
                 if let Some(title) = &result.title {

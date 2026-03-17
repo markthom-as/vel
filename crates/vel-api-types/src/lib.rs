@@ -114,6 +114,7 @@ pub enum CommandExecutionPayloadData {
     ArtifactCreated(ArtifactData),
     SpecDraftCreated(ArtifactData),
     ExecutionPlanCreated(ArtifactData),
+    DelegationPlanCreated(ArtifactData),
     ReviewToday(CommandReviewSummaryData),
     ReviewWeek(CommandReviewSummaryData),
 }
