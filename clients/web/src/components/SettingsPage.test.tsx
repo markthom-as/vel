@@ -374,6 +374,43 @@ describe('SettingsPage', () => {
     googleSave.resolve({ ok: true })
   })
 
+  it('keeps unrelated integration feedback when actions finish out of order', async () => {
+    const googleSave = createDeferred<unknown>()
+    vi.mocked(client.apiPatch).mockImplementationOnce(() => googleSave.promise as never)
+    vi.mocked(client.apiPost).mockResolvedValueOnce({ ok: true } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+
+    fireEvent.click(within(root).getByRole('button', { name: /save credentials/i }))
+    await waitFor(() => {
+      expect(within(root).getByRole('button', { name: /saving…/i })).toBeInTheDocument()
+    })
+
+    const todoistSyncButton = within(root).getAllByRole('button', { name: /sync now/i }).find((button) =>
+      button.closest('.rounded-lg')?.textContent?.includes('Todoist'),
+    )
+    expect(todoistSyncButton).toBeDefined()
+    fireEvent.click(todoistSyncButton as HTMLElement)
+
+    await waitFor(() => {
+      expect(within(root).getByText('Todoist synced.')).toBeInTheDocument()
+    })
+
+    googleSave.resolve({ ok: true })
+
+    await waitFor(() => {
+      expect(within(root).getByText('Google Calendar credentials saved.')).toBeInTheDocument()
+    })
+
+    const googleCard = within(root).getByRole('heading', { name: /google calendar/i }).closest('.rounded-lg')
+    const todoistCard = within(root).getByRole('heading', { name: /todoist/i }).closest('.rounded-lg')
+    expect(googleCard).not.toBeNull()
+    expect(todoistCard).not.toBeNull()
+    expect(within(googleCard as HTMLElement).getByText('Google Calendar credentials saved.')).toBeInTheDocument()
+    expect(within(todoistCard as HTMLElement).getByText('Todoist synced.')).toBeInTheDocument()
+  })
+
   it('renders integration feedback on the matching integration card', async () => {
     vi.mocked(client.apiPatch).mockResolvedValueOnce({ ok: true } as never)
 

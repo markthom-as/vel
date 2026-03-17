@@ -257,7 +257,9 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const [retryDrafts, setRetryDrafts] = useState<Record<string, RetryDraft>>({});
   const [runActionState, setRunActionState] = useState<Record<string, RunActionState>>({});
   const nextIntegrationActionIdRef = useRef(0);
-  const latestIntegrationActionIdRef = useRef(0);
+  const latestIntegrationActionIdByKeyRef = useRef<Record<IntegrationActionKey, number>>(
+    {} as Record<IntegrationActionKey, number>,
+  );
   const nextRunActionIdRef = useRef(0);
   const nextComponentActionIdRef = useRef(0);
   const latestComponentActionIdRef = useRef(0);
@@ -476,7 +478,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const beginIntegrationAction = (key: IntegrationActionKey): number => {
     const actionId = nextIntegrationActionIdRef.current + 1;
     nextIntegrationActionIdRef.current = actionId;
-    latestIntegrationActionIdRef.current = actionId;
+    latestIntegrationActionIdByKeyRef.current[key] = actionId;
     setPendingIntegrationActions((current) => ({
       ...current,
       [key]: true,
@@ -503,7 +505,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       return next;
     });
 
-    if (latestIntegrationActionIdRef.current !== actionId || !nextFeedback) {
+    if (latestIntegrationActionIdByKeyRef.current[key] !== actionId || !nextFeedback) {
       return;
     }
 
