@@ -843,6 +843,7 @@ pub struct NowTaskData {
     pub id: String,
     pub text: String,
     pub source_type: String,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub due_at: Option<OffsetDateTime>,
     pub project: Option<String>,
     pub commitment_kind: Option<String>,
@@ -1021,4 +1022,40 @@ pub struct NudgeEventData {
     pub payload: JsonValue,
     pub timestamp: i64,
     pub created_at: i64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NowTaskData;
+    use time::macros::datetime;
+
+    #[test]
+    fn now_task_due_at_serializes_as_rfc3339_string() {
+        let task = NowTaskData {
+            id: "commit_1".to_string(),
+            text: "Reply to Dimitri".to_string(),
+            source_type: "todoist".to_string(),
+            due_at: Some(datetime!(2026-03-16 19:00:00 UTC)),
+            project: None,
+            commitment_kind: Some("todo".to_string()),
+        };
+
+        let value = serde_json::to_value(task).expect("now task should serialize");
+        assert_eq!(value["due_at"], "2026-03-16T19:00:00Z");
+    }
+
+    #[test]
+    fn now_task_none_due_at_serializes_as_null() {
+        let task = NowTaskData {
+            id: "commit_2".to_string(),
+            text: "Inbox zero".to_string(),
+            source_type: "manual".to_string(),
+            due_at: None,
+            project: None,
+            commitment_kind: None,
+        };
+
+        let value = serde_json::to_value(task).expect("now task should serialize");
+        assert!(value["due_at"].is_null());
+    }
 }
