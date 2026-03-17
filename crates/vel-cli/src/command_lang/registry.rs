@@ -40,6 +40,9 @@ mod tests {
         assert!(registry
             .iter()
             .any(|entry| entry.kind == DomainKind::Thread));
+        assert!(registry
+            .iter()
+            .any(|entry| entry.kind == DomainKind::DelegationPlan));
         assert!(registry.iter().all(|entry| !entry.operations.is_empty()));
         assert!(registry.iter().all(|entry| !entry.selectors.is_empty()));
     }
