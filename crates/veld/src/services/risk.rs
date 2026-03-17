@@ -295,6 +295,19 @@ mod tests {
         assert_eq!(snapshot.computed_at, Some(123));
     }
 
+    #[test]
+    fn decode_factors_json_falls_back_to_empty_typed_shape() {
+        let factors = decode_factors_json("{not valid json");
+
+        assert_eq!(factors.consequence, 0.0);
+        assert_eq!(factors.proximity, 0.0);
+        assert_eq!(factors.dependency_pressure, 0.0);
+        assert_eq!(factors.external_anchor, 0.0);
+        assert_eq!(factors.stale_open_age, 0.0);
+        assert!(factors.reasons.is_empty());
+        assert!(factors.dependency_ids.is_empty());
+    }
+
     fn test_commitment(
         id: &str,
         source_type: &str,
@@ -308,7 +321,8 @@ mod tests {
             source_type: source_type.to_string(),
             source_id: None,
             status: CommitmentStatus::Open,
-            due_at: due_at.and_then(|timestamp| time::OffsetDateTime::from_unix_timestamp(timestamp).ok()),
+            due_at: due_at
+                .and_then(|timestamp| time::OffsetDateTime::from_unix_timestamp(timestamp).ok()),
             project: None,
             commitment_kind: kind.map(ToString::to_string),
             created_at: time::OffsetDateTime::from_unix_timestamp(created_at).unwrap(),
@@ -319,8 +333,38 @@ mod tests {
 
     #[test]
     fn external_anchor_marks_calendar_linked_commitments() {
-        let commitment = test_commitment("com_calendar", "calendar", Some("meeting"), 1_700_000_000, None);
+        let commitment = test_commitment(
+            "com_calendar",
+            "calendar",
+            Some("meeting"),
+            1_700_000_000,
+            None,
+        );
         assert_eq!(external_anchor(&commitment), 1.0);
+    }
+
+    #[test]
+    fn proximity_marks_due_soon_and_overdue_commitments_as_high_risk() {
+        let now_ts = 1_700_000_000;
+
+        assert_eq!(proximity(Some(now_ts + 15 * 60), now_ts), 0.9);
+        assert_eq!(proximity(Some(now_ts - 60), now_ts), 1.0);
+        assert_eq!(proximity(Some(now_ts + 3 * 3600), now_ts), 0.2);
+    }
+
+    #[test]
+    fn dependency_pressure_raises_child_when_parent_is_high_risk() {
+        let parent_scores = vec![("com_parent".to_string(), 0.8)];
+        let deps_by_child = vec![("com_parent".to_string(), "com_child".to_string())];
+
+        assert_eq!(
+            dependency_pressure("com_child", &parent_scores, &deps_by_child),
+            0.8
+        );
+        assert_eq!(
+            dependency_pressure("com_other", &parent_scores, &deps_by_child),
+            0.0
+        );
     }
 
     #[test]

@@ -16,6 +16,11 @@ function CurrentContextProbe({ fetcher }: { fetcher: () => Promise<{ computed_at
   return <div data-testid="current-context">{data?.context.mode ?? 'missing'}</div>
 }
 
+function NowProbe({ fetcher }: { fetcher: () => Promise<{ summary: { mode: { label: string } } }> }) {
+  const { data } = useQuery(queryKeys.now(), fetcher)
+  return <div data-testid="now">{data?.summary.mode.label ?? 'missing'}</div>
+}
+
 function ContextExplainProbe({ fetcher }: { fetcher: () => Promise<{ reasons: string[] }> }) {
   const { data } = useQuery(queryKeys.contextExplain(), fetcher)
   return <div data-testid="context-explain">{data?.reasons.join(',') ?? 'missing'}</div>
@@ -53,6 +58,10 @@ describe('ws query sync', () => {
     const currentContextFetcher = vi
       .fn<() => Promise<{ computed_at: number; context: { mode: string } }>>()
       .mockResolvedValue({ computed_at: 1710000000, context: { mode: 'focus' } })
+    const nowFetcher = vi
+      .fn<() => Promise<{ summary: { mode: { label: string } } }>>()
+      .mockResolvedValueOnce({ summary: { mode: { label: 'Focus' } } })
+      .mockResolvedValueOnce({ summary: { mode: { label: 'Review' } } })
     const contextExplainFetcher = vi
       .fn<() => Promise<{ reasons: string[] }>>()
       .mockResolvedValueOnce({ reasons: ['prep window active'] })
@@ -71,6 +80,7 @@ describe('ws query sync', () => {
     render(
       <>
         <CurrentContextProbe fetcher={currentContextFetcher} />
+        <NowProbe fetcher={nowFetcher} />
         <ContextExplainProbe fetcher={contextExplainFetcher} />
         <DriftExplainProbe fetcher={driftExplainFetcher} />
         <CommitmentsProbe fetcher={commitmentsFetcher} />
@@ -79,6 +89,7 @@ describe('ws query sync', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('current-context')).toHaveTextContent('focus')
+      expect(screen.getByTestId('now')).toHaveTextContent('Focus')
       expect(screen.getByTestId('context-explain')).toHaveTextContent('prep window active')
       expect(screen.getByTestId('drift-explain')).toHaveTextContent('recent git activity')
       expect(screen.getByTestId('commitments')).toHaveTextContent('1')
@@ -97,12 +108,14 @@ describe('ws query sync', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('current-context')).toHaveTextContent('review')
+      expect(screen.getByTestId('now')).toHaveTextContent('Review')
       expect(screen.getByTestId('context-explain')).toHaveTextContent('context refreshed from evaluate')
       expect(screen.getByTestId('drift-explain')).toHaveTextContent('calendar pressure increased')
       expect(screen.getByTestId('commitments')).toHaveTextContent('2')
     })
 
     expect(currentContextFetcher).toHaveBeenCalledTimes(1)
+    expect(nowFetcher).toHaveBeenCalledTimes(2)
     expect(contextExplainFetcher).toHaveBeenCalledTimes(2)
     expect(driftExplainFetcher).toHaveBeenCalledTimes(2)
     expect(commitmentsFetcher).toHaveBeenCalledTimes(2)

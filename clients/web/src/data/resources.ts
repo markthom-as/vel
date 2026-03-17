@@ -15,6 +15,7 @@ import {
   decodeInboxItemData,
   decodeInterventionActionData,
   decodeMessageData,
+  decodeNowData,
   decodeNullable,
   decodeProvenanceData,
   decodeRunSummaryData,
@@ -33,6 +34,7 @@ import {
   type IntegrationsData,
   type InterventionActionData,
   type MessageData,
+  type NowData,
   type ProvenanceData,
   type RunSummaryData,
   type SettingsData,
@@ -62,6 +64,7 @@ export const queryKeys = {
   conversationInterventions: (conversationId: string | null) => ['conversations', conversationId, 'interventions'] as const,
   inbox: () => ['inbox'] as const,
   pendingInterventionActions: () => ['interventions', 'pending-actions'] as const,
+  now: () => ['now'] as const,
   currentContext: () => ['context', 'current'] as const,
   contextExplain: () => ['context', 'explain'] as const,
   driftExplain: () => ['context', 'drift-explain'] as const,
@@ -107,6 +110,13 @@ export function loadCurrentContext(): Promise<ApiResponse<CurrentContextData | n
   return apiGet<ApiResponse<CurrentContextData | null>>(
     '/v1/context/current',
     (value) => decodeApiResponse(value, (data) => decodeNullable(data, decodeCurrentContextData)),
+  );
+}
+
+export function loadNow(): Promise<ApiResponse<NowData>> {
+  return apiGet<ApiResponse<NowData>>(
+    '/v1/now',
+    (value) => decodeApiResponse(value, decodeNowData),
   );
 }
 

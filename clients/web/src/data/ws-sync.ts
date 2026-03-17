@@ -137,6 +137,7 @@ function applyInterventionUpdated(id: string, state: string) {
 
 function applyContextUpdated(currentContext: CurrentContextData) {
   setQueryData(queryKeys.currentContext(), currentContext);
+  invalidateQuery(queryKeys.now(), { refetch: true });
   invalidateQuery(queryKeys.contextExplain(), { refetch: true });
   invalidateQuery(queryKeys.driftExplain(), { refetch: true });
 

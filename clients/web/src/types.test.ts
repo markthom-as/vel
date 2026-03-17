@@ -7,6 +7,7 @@ import {
   decodeComponentData,
   decodeComponentLogEventData,
   decodeIntegrationsData,
+  decodeNowData,
   decodeNullable,
   decodeArray,
   decodeRiskCardContent,
@@ -149,6 +150,98 @@ describe('transport decoders', () => {
 
     expect(response.data?.activity.source_path).toBe('/tmp/activity.json')
     expect(response.data?.activity.last_item_count).toBe(4)
+  })
+
+  it('decodes consolidated now responses', () => {
+    expect(
+      decodeNowData({
+        computed_at: 1710000000,
+        summary: {
+          mode: { key: 'day_mode', label: 'Day' },
+          phase: { key: 'engaged', label: 'Engaged' },
+          meds: { key: 'pending', label: 'Pending' },
+          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+        },
+        schedule: {
+          next_event: null,
+          upcoming_events: [],
+        },
+        tasks: {
+          todoist: [],
+          other_open: [],
+          next_commitment: null,
+        },
+        attention: {
+          state: { key: 'on_task', label: 'On task' },
+          drift: { key: 'none', label: 'None' },
+          severity: { key: 'none', label: 'None' },
+          confidence: 0.8,
+          reasons: ['recent git activity'],
+        },
+        freshness: {
+          overall_status: 'fresh',
+          sources: [
+            {
+              key: 'context',
+              label: 'Context',
+              status: 'fresh',
+              last_sync_at: 1710000000,
+              age_seconds: 10,
+            },
+          ],
+        },
+        reasons: ['Prep window active'],
+        debug: {
+          raw_context: { mode: 'day_mode' },
+          signals_used: ['sig_1'],
+          commitments_used: ['commit_1'],
+          risk_used: ['risk_1'],
+        },
+      }),
+    ).toEqual({
+      computed_at: 1710000000,
+      summary: {
+        mode: { key: 'day_mode', label: 'Day' },
+        phase: { key: 'engaged', label: 'Engaged' },
+        meds: { key: 'pending', label: 'Pending' },
+        risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+      },
+      schedule: {
+        next_event: null,
+        upcoming_events: [],
+      },
+      tasks: {
+        todoist: [],
+        other_open: [],
+        next_commitment: null,
+      },
+      attention: {
+        state: { key: 'on_task', label: 'On task' },
+        drift: { key: 'none', label: 'None' },
+        severity: { key: 'none', label: 'None' },
+        confidence: 0.8,
+        reasons: ['recent git activity'],
+      },
+      freshness: {
+        overall_status: 'fresh',
+        sources: [
+          {
+            key: 'context',
+            label: 'Context',
+            status: 'fresh',
+            last_sync_at: 1710000000,
+            age_seconds: 10,
+          },
+        ],
+      },
+      reasons: ['Prep window active'],
+      debug: {
+        raw_context: { mode: 'day_mode' },
+        signals_used: ['sig_1'],
+        commitments_used: ['commit_1'],
+        risk_used: ['risk_1'],
+      },
+    })
   })
 
   it('decodes component arrays with restart metadata', () => {

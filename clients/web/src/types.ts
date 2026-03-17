@@ -1072,6 +1072,13 @@ function expectRfc3339Timestamp(value: unknown, label: string): Rfc3339Timestamp
   return timestamp;
 }
 
+function expectNullableRfc3339Timestamp(value: unknown, label: string): Rfc3339Timestamp | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return expectRfc3339Timestamp(value, label);
+}
+
 function expectNullableString(value: unknown, label: string): string | null {
   if (value === null || value === undefined) {
     return null;
