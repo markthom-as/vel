@@ -24,7 +24,7 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
     for item in snapshot
         .items
         .into_iter()
-        .filter(|i| i.content.trim().len() > 0)
+        .filter(|i| !i.content.trim().is_empty())
     {
         let task_id = item.id.clone();
         let completed = item.checked.unwrap_or(false);
@@ -157,7 +157,7 @@ fn parse_iso_datetime(s: &str) -> Option<i64> {
     let (hour, min, sec) = if time_part.len() >= 8 {
         let t: Vec<&str> = time_part.split(':').collect();
         (
-            t.get(0).and_then(|x| x.parse().ok()).unwrap_or(0),
+            t.first().and_then(|x| x.parse().ok()).unwrap_or(0),
             t.get(1).and_then(|x| x.parse().ok()).unwrap_or(0),
             t.get(2).and_then(|x| x.parse().ok()).unwrap_or(0),
         )

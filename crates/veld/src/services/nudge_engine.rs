@@ -88,7 +88,7 @@ pub async fn evaluate(
             "morning_drift" => morning_started,
             "response_debt" => message_waiting_on_me_count == 0,
             "commute_leave_time" => {
-                let related_resolved = n.related_commitment_id.as_deref().map_or(false, |cid| {
+                let related_resolved = n.related_commitment_id.as_deref().is_some_and(|cid| {
                     !open_commitments.iter().any(|c| c.id.as_ref() == cid)
                 });
                 event_started || related_resolved

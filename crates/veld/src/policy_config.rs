@@ -5,6 +5,7 @@ use serde::Deserialize;
 use std::path::Path;
 
 #[derive(Debug, Clone, Deserialize)]
+#[derive(Default)]
 pub struct PolicyConfig {
     pub policies: PoliciesMap,
 }
@@ -61,13 +62,6 @@ pub struct PolicyMorningDrift {
     pub default_snooze_minutes: u32,
 }
 
-impl Default for PolicyConfig {
-    fn default() -> Self {
-        Self {
-            policies: PoliciesMap::default(),
-        }
-    }
-}
 
 impl Default for PoliciesMap {
     fn default() -> Self {
@@ -136,7 +130,7 @@ impl PolicyConfig {
         let path = path.as_ref();
         let content = std::fs::read_to_string(path)
             .map_err(|e| PolicyConfigError::Read(path.display().to_string(), e))?;
-        serde_yaml::from_str(&content).map_err(|e| PolicyConfigError::Parse(e))
+        serde_yaml::from_str(&content).map_err(PolicyConfigError::Parse)
     }
 
     #[allow(dead_code)]

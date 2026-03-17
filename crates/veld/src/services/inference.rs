@@ -116,10 +116,10 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     };
 
     let recent_git_summary = latest_git_activity
-        .and_then(|signal| build_git_activity_summary(signal))
+        .and_then(build_git_activity_summary)
         .filter(|summary| now_ts - summary.timestamp <= RECENT_GIT_ACTIVITY_WINDOW_SECS);
     let git_activity_summary =
-        latest_git_activity.and_then(|signal| build_git_activity_summary(signal));
+        latest_git_activity.and_then(build_git_activity_summary);
     let inferred_activity = if recent_git_summary.is_some() {
         "coding"
     } else if has_workstation_activity {
@@ -188,8 +188,6 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         "meeting_mode"
     } else if commute_window_active {
         "commute_mode"
-    } else if state_name == "at_risk" || state_name == "awake_unstarted" {
-        "morning_mode"
     } else {
         "morning_mode"
     };

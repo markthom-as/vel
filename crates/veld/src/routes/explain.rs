@@ -18,7 +18,7 @@ pub async fn explain_context(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<ContextExplainData>>, AppError> {
     let row = state.storage.get_current_context().await?;
-    let (computed_at, context_json) = row.map(|(ts, s)| (ts, s)).unwrap_or((0, "{}".to_string()));
+    let (computed_at, context_json) = row.unwrap_or((0, "{}".to_string()));
     let context: serde_json::Value =
         serde_json::from_str(&context_json).unwrap_or(serde_json::json!({}));
     let signals_used: Vec<String> = context

@@ -28,7 +28,7 @@ async fn handle_socket(
         while let Ok(envelope) = rx.recv().await {
             if let Ok(json) = envelope.to_json() {
                 if sender
-                    .send(axum::extract::ws::Message::Text(json.into()))
+                    .send(axum::extract::ws::Message::Text(json))
                     .await
                     .is_err()
                 {

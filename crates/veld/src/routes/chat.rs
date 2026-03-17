@@ -354,7 +354,7 @@ pub async fn create_message(
         .broadcast_tx
         .send(WsEnvelope::new(WsEventType::MessagesNew, ws_payload));
 
-    let (assistant_message, assistant_error) = if let (Some(ref router), Some(ref profile_id)) =
+    let (assistant_message, assistant_error) = if let (Some(router), Some(profile_id)) =
         (state.llm_router.as_ref(), state.chat_profile_id.as_ref())
     {
         tracing::info!(conversation_id = %conversation_id, "calling LLM for assistant reply");
