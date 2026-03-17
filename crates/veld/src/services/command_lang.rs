@@ -333,36 +333,18 @@ fn build_planned_records(command: &ResolvedCommand) -> Vec<CommandPlannedRecord>
         return Vec::new();
     };
 
-    let planning_title = target
-        .attributes
-        .get("topic")
-        .and_then(|value| value.as_str())
-        .or_else(|| {
-            target
-                .attributes
-                .get("goal")
-                .and_then(|value| value.as_str())
-        })
-        .or_else(|| {
-            target
-                .attributes
-                .get("text")
-                .and_then(|value| value.as_str())
-        })
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or("planned command");
+    let (planning_title, _) = planning_title_for_target(command, target.kind);
 
     match target.kind {
         DomainKind::SpecDraft => vec![
             CommandPlannedRecord {
                 record_type: "artifact".to_string(),
-                title: format!("spec_draft: {planning_title}"),
+                title: format!("spec_draft: {}", planning_title),
                 links: vec![],
             },
             CommandPlannedRecord {
                 record_type: "thread".to_string(),
-                title: format!("spec thread: {planning_title}"),
+                title: format!("spec thread: {}", planning_title),
                 links: vec![CommandPlannedLink {
                     entity_type: "artifact".to_string(),
                     relation_type: "primary".to_string(),
@@ -372,12 +354,12 @@ fn build_planned_records(command: &ResolvedCommand) -> Vec<CommandPlannedRecord>
         DomainKind::ExecutionPlan => vec![
             CommandPlannedRecord {
                 record_type: "artifact".to_string(),
-                title: format!("execution_plan: {planning_title}"),
+                title: format!("execution_plan: {}", planning_title),
                 links: vec![],
             },
             CommandPlannedRecord {
                 record_type: "thread".to_string(),
-                title: format!("plan thread: {planning_title}"),
+                title: format!("plan thread: {}", planning_title),
                 links: vec![CommandPlannedLink {
                     entity_type: "artifact".to_string(),
                     relation_type: "primary".to_string(),
@@ -387,12 +369,12 @@ fn build_planned_records(command: &ResolvedCommand) -> Vec<CommandPlannedRecord>
         DomainKind::DelegationPlan => vec![
             CommandPlannedRecord {
                 record_type: "artifact".to_string(),
-                title: format!("delegation_plan: {planning_title}"),
+                title: format!("delegation_plan: {}", planning_title),
                 links: vec![],
             },
             CommandPlannedRecord {
                 record_type: "thread".to_string(),
-                title: format!("delegation thread: {planning_title}"),
+                title: format!("delegation thread: {}", planning_title),
                 links: vec![CommandPlannedLink {
                     entity_type: "artifact".to_string(),
                     relation_type: "primary".to_string(),
@@ -400,6 +382,48 @@ fn build_planned_records(command: &ResolvedCommand) -> Vec<CommandPlannedRecord>
             },
         ],
         _ => Vec::new(),
+    }
+}
+
+fn planning_title_for_target(command: &ResolvedCommand, target_kind: DomainKind) -> (String, bool) {
+    let explicit_title = command
+        .targets
+        .first()
+        .and_then(|target| {
+            target
+                .attributes
+                .get("topic")
+                .and_then(|value| value.as_str())
+                .or_else(|| target.attributes.get("goal").and_then(|value| value.as_str()))
+                .or_else(|| target.attributes.get("text").and_then(|value| value.as_str()))
+        })
+        .or_else(|| {
+            command
+                .inferred
+                .get("topic")
+                .and_then(|value| value.as_str())
+        })
+        .or_else(|| {
+            command
+                .inferred
+                .get("goal")
+                .and_then(|value| value.as_str())
+        })
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+
+    match explicit_title {
+        Some(title) => (title, false),
+        None => (
+            match target_kind {
+                DomainKind::SpecDraft => "spec draft".to_string(),
+                DomainKind::ExecutionPlan => "execution plan".to_string(),
+                DomainKind::DelegationPlan => "delegation plan".to_string(),
+                _ => "planned command".to_string(),
+            },
+            true,
+        ),
     }
 }
 
@@ -669,38 +693,7 @@ async fn execute_create_planning_artifact(
         .targets
         .first()
         .ok_or_else(|| AppError::bad_request("planning command requires a target"))?;
-    let title = target
-        .attributes
-        .get("topic")
-        .and_then(|value| value.as_str())
-        .or_else(|| {
-            target
-                .attributes
-                .get("goal")
-                .and_then(|value| value.as_str())
-        })
-        .or_else(|| {
-            target
-                .attributes
-                .get("text")
-                .and_then(|value| value.as_str())
-        })
-        .or_else(|| {
-            command
-                .inferred
-                .get("topic")
-                .and_then(|value| value.as_str())
-        })
-        .or_else(|| {
-            command
-                .inferred
-                .get("goal")
-                .and_then(|value| value.as_str())
-        })
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| format!("{} draft", artifact_type));
+    let (title, title_defaulted) = planning_title_for_target(command, target.kind);
 
     let storage_uri = format!(
         "vel://command/{}/{}",
@@ -755,7 +748,14 @@ async fn execute_create_planning_artifact(
                 CommandExecutionPayload::DelegationPlanCreated(planning)
             }
         },
-        warnings: Vec::new(),
+        warnings: if title_defaulted {
+            vec![format!(
+                "no topic, goal, or text was provided; defaulted {} title",
+                artifact_type
+            )]
+        } else {
+            Vec::new()
+        },
     })
 }
 
@@ -1111,6 +1111,53 @@ mod tests {
                     Some("delegation_plan")
                 );
                 assert_eq!(payload.thread.status, "planned");
+            }
+            other => panic!("unexpected result payload: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn planning_title_defaults_by_target_kind() {
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget::new(DomainKind::SpecDraft)],
+            ..ResolvedCommand::default()
+        };
+        let (spec_title, spec_defaulted) = planning_title_for_target(&command, DomainKind::SpecDraft);
+        assert_eq!(spec_title, "spec draft");
+        assert!(spec_defaulted);
+
+        let (plan_title, plan_defaulted) =
+            planning_title_for_target(&command, DomainKind::ExecutionPlan);
+        assert_eq!(plan_title, "execution plan");
+        assert!(plan_defaulted);
+
+        let (delegate_title, delegate_defaulted) =
+            planning_title_for_target(&command, DomainKind::DelegationPlan);
+        assert_eq!(delegate_title, "delegation plan");
+        assert!(delegate_defaulted);
+    }
+
+    #[tokio::test]
+    async fn execute_create_spec_draft_warns_when_title_is_defaulted() {
+        let state = test_state().await;
+        let command = ResolvedCommand {
+            operation: DomainOperation::Create,
+            targets: vec![TypedTarget::new(DomainKind::SpecDraft)],
+            inferred: serde_json::json!({
+                "planning_status": "planned"
+            }),
+            ..ResolvedCommand::default()
+        };
+
+        let result = execute_command(&state, &command).await.expect("execute");
+        assert_eq!(
+            result.warnings,
+            vec!["no topic, goal, or text was provided; defaulted spec_draft title".to_string()]
+        );
+        match result.result {
+            CommandExecutionPayload::SpecDraftCreated(payload) => {
+                assert_eq!(payload.artifact.title.as_deref(), Some("spec draft"));
             }
             other => panic!("unexpected result payload: {other:?}"),
         }
