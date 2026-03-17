@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ContextExplainData, DriftExplainData, JsonObject, JsonValue, SignalExplainSummary } from '../types';
 import { useQuery } from '../data/query';
 import { loadContextExplain, loadDriftExplain, queryKeys } from '../data/resources';
 import { SurfaceState } from './SurfaceState';
 
+type ContextMode = 'state' | 'why' | 'debug';
+
 export function ContextPanel() {
+  const [mode, setMode] = useState<ContextMode>('state');
   const contextExplainKey = useMemo(() => queryKeys.contextExplain(), []);
   const driftExplainKey = useMemo(() => queryKeys.driftExplain(), []);
   const {
@@ -32,11 +35,11 @@ export function ContextPanel() {
 
   const loading = contextLoading || driftLoading;
   const error = contextError ?? driftError;
-  const entries = context ? summarizeContext(context.context) : [];
-  const signalSummaries = mergeSignalSummaries(
+  const stateEntries = context ? summarizeContext(context.context) : [];
+  const signalSummaries = context ? mergeSignalSummaries(
     context?.signal_summaries ?? [],
     drift?.signal_summaries ?? [],
-  );
+  ) : [];
   const sourceSummaries = context ? summarizeSourceSummaries(context.source_summaries) : [];
 
   if (loading) return <SurfaceState message="Loading context…" title="Context" />;
@@ -47,136 +50,212 @@ export function ContextPanel() {
 
   return (
     <div className="p-4 text-sm overflow-y-auto space-y-4">
-      <div>
-        <h3 className="font-medium text-zinc-400 mb-2">Context</h3>
-        <p className="text-xs text-zinc-500">
-          computed at {new Date(context.computed_at * 1000).toLocaleString()}
-        </p>
+      <div className="space-y-3">
+        <div>
+          <h3 className="font-medium text-zinc-400 mb-2">Context</h3>
+          <p className="text-xs text-zinc-500">
+            computed at {new Date(context.computed_at * 1000).toLocaleString()}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <ModeButton
+            label="State"
+            active={mode === 'state'}
+            onClick={() => setMode('state')}
+          />
+          <ModeButton
+            label="Why"
+            active={mode === 'why'}
+            onClick={() => setMode('why')}
+          />
+          <ModeButton
+            label="Debug"
+            active={mode === 'debug'}
+            onClick={() => setMode('debug')}
+          />
+        </div>
       </div>
 
-      <section className="grid gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard label="Mode" value={context.mode ?? 'unknown'} />
-          <StatCard label="Morning state" value={context.morning_state ?? 'unknown'} />
-        </div>
-        {drift && hasDriftData(drift) && (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-3">
-            <p className="text-xs uppercase tracking-wide text-zinc-500">Attention</p>
-            <div className="mt-2 grid grid-cols-2 gap-3">
-              <StatCard label="State" value={drift.attention_state ?? 'unknown'} compact />
-              <StatCard label="Drift" value={drift.drift_type ?? 'none'} compact />
-              <StatCard label="Severity" value={drift.drift_severity ?? 'n/a'} compact />
-              <StatCard
-                label="Confidence"
-                value={drift.confidence == null ? 'n/a' : `${Math.round(drift.confidence * 100)}%`}
-                compact
-              />
+      {mode === 'state' ? (
+        <>
+          <section className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard label="Mode" value={context.mode ?? 'unknown'} />
+              <StatCard label="Morning state" value={context.morning_state ?? 'unknown'} />
             </div>
-          </div>
-        )}
-      </section>
-
-      {context.reasons.length > 0 && (
-        <section>
-          <SectionHeading title="Why this context" />
-          <ul className="mt-2 space-y-2">
-            {context.reasons.map((reason) => (
-              <li key={reason} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-zinc-200">
-                {reason}
-              </li>
-            ))}
-            {drift?.reasons.map((reason) => (
-              <li key={`drift-${reason}`} className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-300">
-                {reason}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {entries.length > 0 && (
-        <section>
-          <SectionHeading title="Current state" />
-          <dl className="mt-2 space-y-2">
-            {entries.map(([label, value]) => (
-              <div key={label} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                <dt className="text-zinc-500 text-xs">{label}</dt>
-                <dd className="mt-1 text-zinc-200 break-words">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
-
-      {sourceSummaries.length > 0 && (
-        <section>
-          <SectionHeading title="Source summaries" />
-          <div className="mt-2 space-y-2">
-            {sourceSummaries.map((source) => (
-              <div key={source.label} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-zinc-100">{source.label}</p>
-                  <p className="text-xs text-zinc-500">
-                    {new Date(source.timestamp * 1000).toLocaleString()}
-                  </p>
+            {drift && hasDriftData(drift) && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-3">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">Attention</p>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <StatCard label="State" value={drift.attention_state ?? 'unknown'} compact />
+                  <StatCard label="Drift" value={drift.drift_type ?? 'none'} compact />
+                  <StatCard label="Severity" value={drift.drift_severity ?? 'n/a'} compact />
+                  <StatCard
+                    label="Confidence"
+                    value={drift.confidence == null ? 'n/a' : `${Math.round(drift.confidence * 100)}%`}
+                    compact
+                  />
                 </div>
-                <p className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap break-words">
-                  {formatSummary(source.summary)}
-                </p>
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            )}
+          </section>
 
-      {context.adaptive_policy_overrides.length > 0 && (
-        <section>
-          <SectionHeading title="Adaptive policy overrides" />
-          <div className="mt-2 space-y-2">
-            {context.adaptive_policy_overrides.map((override) => (
-              <div
-                key={override.policy_key}
-                className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-zinc-100">{override.policy_key}</p>
-                  <p className="text-xs text-zinc-500">{override.value_minutes} min</p>
-                </div>
-                {override.source_title || override.source_suggestion_id ? (
-                  <p className="mt-2 text-zinc-300 text-xs">
-                    Source:{' '}
-                    {override.source_title ?? override.source_suggestion_id}
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {signalSummaries.length > 0 && (
-        <section>
-          <SectionHeading title="Signals used" />
-          <div className="mt-2 space-y-2">
-            {signalSummaries.map((signal) => (
-              <div key={signal.signal_id} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-zinc-100">{signal.signal_type}</p>
-                    <p className="text-xs text-zinc-500">{signal.source}</p>
+          {stateEntries.length > 0 ? (
+            <section>
+              <SectionHeading title="Current state" />
+              <dl className="mt-2 space-y-2">
+                {stateEntries.map(([label, value]) => (
+                  <div key={label} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                    <dt className="text-zinc-500 text-xs">{label}</dt>
+                    <dd className="mt-1 text-zinc-200 break-words">{value}</dd>
                   </div>
-                  <p className="text-xs text-zinc-500">
-                    {new Date(signal.timestamp * 1000).toLocaleString()}
-                  </p>
-                </div>
-                <p className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap break-words">
-                  {formatSummary(signal.summary)}
-                </p>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+        </>
+      ) : null}
+
+      {mode === 'why' ? (
+        <>
+          {(context.reasons.length > 0 || (drift?.reasons.length ?? 0) > 0) ? (
+            <section>
+              <SectionHeading title="Why this context" />
+              <ul className="mt-2 space-y-2">
+                {context.reasons.map((reason) => (
+                  <li key={reason} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-zinc-200">
+                    {reason}
+                  </li>
+                ))}
+                {drift?.reasons.map((reason) => (
+                  <li key={`drift-${reason}`} className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-300">
+                    {reason}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {sourceSummaries.length > 0 ? (
+            <section>
+              <SectionHeading title="Source summaries" />
+              <div className="mt-2 space-y-2">
+                {sourceSummaries.map((source) => (
+                  <div key={source.label} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-zinc-100">{source.label}</p>
+                      <p className="text-xs text-zinc-500">
+                        {new Date(source.timestamp * 1000).toLocaleString()}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap break-words">
+                      {formatSummary(source.summary)}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </section>
+          ) : null}
+
+          {context.adaptive_policy_overrides.length > 0 ? (
+            <section>
+              <SectionHeading title="Adaptive policy overrides" />
+              <div className="mt-2 space-y-2">
+                {context.adaptive_policy_overrides.map((override) => (
+                  <div
+                    key={override.policy_key}
+                    className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-zinc-100">{override.policy_key}</p>
+                      <p className="text-xs text-zinc-500">{override.value_minutes} min</p>
+                    </div>
+                    {override.source_title || override.source_suggestion_id ? (
+                      <p className="mt-2 text-zinc-300 text-xs">
+                        Source:{' '}
+                        {override.source_title ?? override.source_suggestion_id}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {signalSummaries.length > 0 ? (
+            <section>
+              <SectionHeading title="Signals used" />
+              <div className="mt-2 space-y-2">
+                {signalSummaries.map((signal) => (
+                  <div key={signal.signal_id} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-zinc-100">{signal.signal_type}</p>
+                        <p className="text-xs text-zinc-500">{signal.source}</p>
+                      </div>
+                      <p className="text-xs text-zinc-500">
+                        {new Date(signal.timestamp * 1000).toLocaleString()}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap break-words">
+                      {formatSummary(signal.summary)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </>
+      ) : null}
+
+      {mode === 'debug' ? (
+        <section className="space-y-3">
+          <SectionHeading title="Debug payloads" />
+          <DebugBlock title="Context JSON" value={context.context} />
+          <DebugBlock title="Drift summary" value={drift ?? null} />
+          <DebugBlock title="Source summaries JSON" value={context.source_summaries} />
+          <DebugBlock title="Signal summaries JSON" value={signalSummaries} />
+          <DebugBlock title="Signals used IDs" value={signalSummaries.map((signal) => signal.signal_id)} />
+          <DebugBlock title="Commitments used IDs" value={context.commitments_used} />
+          <DebugBlock title="Risk used IDs" value={context.risk_used} />
         </section>
-      )}
+      ) : null}
+    </div>
+  );
+}
+
+function ModeButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-md border px-2 py-1 text-xs transition ${
+        active
+          ? 'border-zinc-600 bg-zinc-800 text-zinc-100'
+          : 'border-zinc-800 bg-zinc-900/70 text-zinc-400 hover:text-zinc-200'
+      }`}
+      aria-pressed={active}
+    >
+      {label}
+    </button>
+  );
+}
+
+function DebugBlock({ title, value }: { title: string; value: unknown }) {
+  return (
+    <div className="rounded-md border border-zinc-800 bg-zinc-900/60 p-3">
+      <p className="text-zinc-400 text-xs mb-2">{title}</p>
+      <pre className="text-xs text-zinc-200 whitespace-pre-wrap break-words">
+        {JSON.stringify(value, null, 2)}
+      </pre>
     </div>
   );
 }

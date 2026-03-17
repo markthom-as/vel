@@ -80,6 +80,8 @@ struct SignalInputs<'a> {
     message_threads: Vec<&'a vel_storage::SignalRecord>,
     latest_health_signal: Option<&'a vel_storage::SignalRecord>,
     latest_git_activity: Option<&'a vel_storage::SignalRecord>,
+    latest_mood_log: Option<&'a vel_storage::SignalRecord>,
+    latest_pain_log: Option<&'a vel_storage::SignalRecord>,
     latest_note_document: Option<&'a vel_storage::SignalRecord>,
     latest_assistant_message: Option<&'a vel_storage::SignalRecord>,
 }
@@ -97,6 +99,8 @@ struct DerivedContextState {
     attention: AttentionState,
     health_summary: Option<HealthSummary>,
     git_activity_summary: Option<GitActivitySummary>,
+    mood_summary: Option<MoodSummary>,
+    pain_summary: Option<PainSummary>,
     note_document_summary: Option<NoteDocumentSummary>,
     assistant_message_summary: Option<AssistantMessageSummary>,
 }
@@ -162,6 +166,8 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         &derived.attention,
         derived.health_summary.as_ref(),
         derived.git_activity_summary.as_ref(),
+        derived.mood_summary.as_ref(),
+        derived.pain_summary.as_ref(),
         derived.note_document_summary.as_ref(),
         derived.assistant_message_summary.as_ref(),
         &derived.message_summary,
@@ -203,6 +209,14 @@ fn collect_signal_inputs(signals_today: &[vel_storage::SignalRecord]) -> SignalI
             .iter()
             .filter(|signal| signal.signal_type == "git_activity")
             .max_by_key(|signal| signal.timestamp),
+        latest_mood_log: signals_today
+            .iter()
+            .filter(|signal| signal.signal_type == "mood_log")
+            .max_by_key(|signal| signal.timestamp),
+        latest_pain_log: signals_today
+            .iter()
+            .filter(|signal| signal.signal_type == "pain_log")
+            .max_by_key(|signal| signal.timestamp),
         latest_note_document: signals_today
             .iter()
             .filter(|signal| signal.signal_type == "note_document")
@@ -235,6 +249,8 @@ fn derive_context_state(
         .latest_git_activity
         .and_then(build_git_activity_summary)
         .filter(|summary| now_ts - summary.timestamp <= RECENT_GIT_ACTIVITY_WINDOW_SECS);
+    let mood_summary = signal_inputs.latest_mood_log.and_then(build_mood_summary);
+    let pain_summary = signal_inputs.latest_pain_log.and_then(build_pain_summary);
     let recent_note_summary = signal_inputs
         .latest_note_document
         .and_then(build_note_document_summary);
@@ -280,6 +296,8 @@ fn derive_context_state(
         git_activity_summary: signal_inputs
             .latest_git_activity
             .and_then(build_git_activity_summary),
+        mood_summary,
+        pain_summary,
         note_document_summary: signal_inputs
             .latest_note_document
             .and_then(build_note_document_summary),
@@ -340,6 +358,8 @@ fn collect_signals_used(signals_today: &[vel_storage::SignalRecord]) -> Vec<Stri
                     | "health_metric"
                     | "git_activity"
                     | "message_thread"
+                    | "mood_log"
+                    | "pain_log"
             )
         })
         .take(50)
@@ -448,6 +468,22 @@ struct GitActivitySummary {
     files_changed: Option<u32>,
     insertions: Option<u32>,
     deletions: Option<u32>,
+}
+
+#[derive(Clone)]
+struct MoodSummary {
+    timestamp: i64,
+    score: u8,
+    label: Option<String>,
+    note: Option<String>,
+}
+
+#[derive(Clone)]
+struct PainSummary {
+    timestamp: i64,
+    severity: u8,
+    location: Option<String>,
+    note: Option<String>,
 }
 
 #[derive(Clone)]
@@ -729,6 +765,8 @@ fn build_current_context(
     attention: &AttentionState,
     health_summary: Option<&HealthSummary>,
     git_activity_summary: Option<&GitActivitySummary>,
+    mood_summary: Option<&MoodSummary>,
+    pain_summary: Option<&PainSummary>,
     note_document_summary: Option<&NoteDocumentSummary>,
     assistant_message_summary: Option<&AssistantMessageSummary>,
     message_summary: &MessageSummary,
@@ -779,6 +817,18 @@ fn build_current_context(
             "files_changed": summary.files_changed,
             "insertions": summary.insertions,
             "deletions": summary.deletions,
+        })),
+        "mood_summary": mood_summary.map(|summary| serde_json::json!({
+            "timestamp": summary.timestamp,
+            "score": summary.score,
+            "label": summary.label,
+            "note": summary.note,
+        })),
+        "pain_summary": pain_summary.map(|summary| serde_json::json!({
+            "timestamp": summary.timestamp,
+            "severity": summary.severity,
+            "location": summary.location,
+            "note": summary.note,
         })),
         "note_document_summary": note_document_summary.map(|summary| serde_json::json!({
             "timestamp": summary.timestamp,
@@ -1029,6 +1079,48 @@ fn build_health_summary(signal: &vel_storage::SignalRecord) -> Option<HealthSumm
         device: signal
             .payload_json
             .get("device")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+    })
+}
+
+fn build_mood_summary(signal: &vel_storage::SignalRecord) -> Option<MoodSummary> {
+    if signal.signal_type != "mood_log" {
+        return None;
+    }
+
+    Some(MoodSummary {
+        timestamp: signal.timestamp,
+        score: u8::try_from(signal.payload_json.get("score")?.as_u64()?).ok()?,
+        label: signal
+            .payload_json
+            .get("label")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        note: signal
+            .payload_json
+            .get("note")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+    })
+}
+
+fn build_pain_summary(signal: &vel_storage::SignalRecord) -> Option<PainSummary> {
+    if signal.signal_type != "pain_log" {
+        return None;
+    }
+
+    Some(PainSummary {
+        timestamp: signal.timestamp,
+        severity: u8::try_from(signal.payload_json.get("severity")?.as_u64()?).ok()?,
+        location: signal
+            .payload_json
+            .get("location")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        note: signal
+            .payload_json
+            .get("note")
             .and_then(serde_json::Value::as_str)
             .map(ToString::to_string),
     })

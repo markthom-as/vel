@@ -20,26 +20,62 @@ vi.mock('./SuggestionsView', () => ({
   SuggestionsView: () => <div>Suggestions view</div>,
 }))
 
+vi.mock('./StatsView', () => ({
+  StatsView: () => <div>Stats view</div>,
+}))
+
+vi.mock('./SettingsPage', () => ({
+  SettingsPage: ({ initialTab }: { initialTab: string }) => <div>Settings page {initialTab}</div>,
+}))
+
 describe('MainPanel', () => {
+  function renderMainPanel(mainView: 'now' | 'inbox' | 'threads' | 'suggestions' | 'projects' | 'stats' | 'settings') {
+    return render(
+      <MainPanel
+        conversationId={mainView === 'threads' ? 'conv_1' : null}
+        mainView={mainView}
+        onNavigate={() => {}}
+        onOpenSettings={() => {}}
+        settingsTarget={{ tab: 'general' }}
+      />,
+    )
+  }
+
   it('shows the Now view when mainView is now', () => {
-    render(<MainPanel conversationId={null} mainView="now" onOpenSettings={() => {}} />)
+    renderMainPanel('now')
     expect(screen.getByText('Now view')).toBeInTheDocument()
     expect(screen.queryByText('Inbox view')).toBeNull()
   })
 
   it('shows the Inbox view when mainView is inbox', () => {
-    render(<MainPanel conversationId={null} mainView="inbox" onOpenSettings={() => {}} />)
+    renderMainPanel('inbox')
     expect(screen.getByText('Inbox view')).toBeInTheDocument()
     expect(screen.queryByText('Thread empty')).toBeNull()
   })
 
   it('shows the thread view when mainView is threads', () => {
-    render(<MainPanel conversationId="conv_1" mainView="threads" onOpenSettings={() => {}} />)
+    renderMainPanel('threads')
     expect(screen.getByText('Thread conv_1')).toBeInTheDocument()
   })
 
   it('shows the Suggestions view when mainView is suggestions', () => {
-    render(<MainPanel conversationId={null} mainView="suggestions" onOpenSettings={() => {}} />)
+    renderMainPanel('suggestions')
     expect(screen.getByText('Suggestions view')).toBeInTheDocument()
+  })
+
+  it('shows the Projects placeholder when mainView is projects', () => {
+    renderMainPanel('projects')
+    expect(screen.getByText('Projects')).toBeInTheDocument()
+    expect(screen.getByText(/not wired in this web shell yet/i)).toBeInTheDocument()
+  })
+
+  it('shows the Stats surface when mainView is stats', () => {
+    renderMainPanel('stats')
+    expect(screen.getByText('Stats view')).toBeInTheDocument()
+  })
+
+  it('shows the Settings surface when mainView is settings', () => {
+    renderMainPanel('settings')
+    expect(screen.getByText('Settings page general')).toBeInTheDocument()
   })
 })

@@ -56,6 +56,14 @@ pub fn build_app_with_state(state: AppState) -> Router {
         )
         .route("/v1/captures/:id", get(routes::captures::get_capture))
         .route(
+            "/v1/journal/mood",
+            post(routes::journal::create_mood_journal),
+        )
+        .route(
+            "/v1/journal/pain",
+            post(routes::journal::create_pain_journal),
+        )
+        .route(
             "/v1/commitments",
             get(routes::commitments::list_commitments).post(routes::commitments::create_commitment),
         )
@@ -317,6 +325,217 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn journal_mood_endpoint_creates_capture_and_signal() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/journal/mood")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "score": 7,
+                            "label": "steady",
+                            "note": "good enough",
+                            "source_device": "test-cli"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let captures = storage.list_captures_recent(10, false).await.unwrap();
+        assert_eq!(captures.len(), 1);
+        assert_eq!(captures[0].capture_type, "mood_log");
+        assert_eq!(captures[0].content_text, "mood 7/10 steady - good enough");
+
+        let mood_signals = storage
+            .list_signals(Some("mood_log"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(mood_signals.len(), 1);
+        assert_eq!(mood_signals[0].payload_json["score"], 7);
+        assert_eq!(mood_signals[0].payload_json["label"], "steady");
+    }
+
+    #[tokio::test]
+    async fn journal_pain_endpoint_creates_capture_and_signal() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/journal/pain")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "severity": 4,
+                            "location": "lower back",
+                            "note": "after driving",
+                            "source_device": "test-watch"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let captures = storage.list_captures_recent(10, false).await.unwrap();
+        assert_eq!(captures.len(), 1);
+        assert_eq!(captures[0].capture_type, "pain_log");
+        assert_eq!(
+            captures[0].content_text,
+            "pain 4/10 in lower back - after driving"
+        );
+
+        let pain_signals = storage
+            .list_signals(Some("pain_log"), None, 10)
+            .await
+            .unwrap();
+        assert_eq!(pain_signals.len(), 1);
+        assert_eq!(pain_signals[0].payload_json["severity"], 4);
+        assert_eq!(pain_signals[0].payload_json["location"], "lower back");
+    }
+
+    #[tokio::test]
+    async fn journal_entries_appear_in_now_and_explain_context_after_evaluate() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        for (path, body) in [
+            (
+                "/v1/journal/mood",
+                serde_json::json!({
+                    "score": 6,
+                    "label": "flat",
+                    "note": "poor sleep"
+                })
+                .to_string(),
+            ),
+            (
+                "/v1/journal/pain",
+                serde_json::json!({
+                    "severity": 3,
+                    "location": "neck",
+                    "note": "desk posture"
+                })
+                .to_string(),
+            ),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(path)
+                        .header("content-type", "application/json")
+                        .body(Body::from(body))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+        }
+
+        let evaluate_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(evaluate_response.status(), StatusCode::OK);
+
+        let now_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(now_response.status(), StatusCode::OK);
+        let now_body = axum::body::to_bytes(now_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let now_payload: vel_api_types::ApiResponse<vel_api_types::NowData> =
+            serde_json::from_slice(&now_body).unwrap();
+        let now_data = now_payload.data.unwrap();
+        assert_eq!(
+            now_data.sources.mood.as_ref().unwrap().summary["label"],
+            "flat"
+        );
+        assert_eq!(
+            now_data.sources.pain.as_ref().unwrap().summary["location"],
+            "neck"
+        );
+
+        let explain_response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/explain/context")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(explain_response.status(), StatusCode::OK);
+        let explain_body = axum::body::to_bytes(explain_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let explain_payload: vel_api_types::ApiResponse<vel_api_types::ContextExplainData> =
+            serde_json::from_slice(&explain_body).unwrap();
+        let explain_data = explain_payload.data.unwrap();
+        assert_eq!(
+            explain_data.source_summaries.mood.as_ref().unwrap().summary["score"],
+            6
+        );
+        assert_eq!(
+            explain_data.source_summaries.pain.as_ref().unwrap().summary["severity"],
+            3
+        );
     }
 
     #[tokio::test]

@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 interface AppShellProps {
   sidebar: ReactNode;
   main: ReactNode;
-  contextPanel: ReactNode;
+  contextPanel?: ReactNode;
 }
 
 export function AppShell({ sidebar, main, contextPanel }: AppShellProps) {
@@ -15,9 +15,11 @@ export function AppShell({ sidebar, main, contextPanel }: AppShellProps) {
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {main}
       </main>
-      <aside className="w-80 shrink-0 border-l border-zinc-800 flex flex-col overflow-hidden">
-        {contextPanel}
-      </aside>
+      {contextPanel ? (
+        <aside className="w-80 shrink-0 border-l border-zinc-800 flex flex-col overflow-hidden">
+          {contextPanel}
+        </aside>
+      ) : null}
     </div>
   );
 }

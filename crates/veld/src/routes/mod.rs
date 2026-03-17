@@ -11,6 +11,7 @@ pub mod evaluate;
 pub mod explain;
 pub mod health;
 pub mod integrations;
+pub mod journal;
 pub mod loops;
 pub mod now;
 pub mod nudges;
