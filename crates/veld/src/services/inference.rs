@@ -62,6 +62,19 @@ struct NextCommitmentSummary {
     due_at: Option<i64>,
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct CommitmentPriority {
+    due_bucket: u8,
+    due_sort: i64,
+    anchor_bucket: u8,
+    dependency_bucket: u8,
+    risk_rank: u32,
+    recent_activity_bucket: u8,
+    recent_activity_sort: i64,
+    commitment_id: String,
+}
+
 struct SignalInputs<'a> {
     has_workstation_activity: bool,
     calendar_events: Vec<&'a vel_storage::SignalRecord>,
@@ -228,7 +241,7 @@ fn derive_context_state(
     );
 
     let message_summary = derive_message_summary(&signal_inputs.message_threads);
-    let next_commitment = summarize_next_commitment(open_commitments, risk_snapshots);
+    let next_commitment = summarize_next_commitment(open_commitments, risk_snapshots, now_ts);
     let active_nudge_ids = collect_active_nudge_ids(active_nudges, snoozed_nudges);
     let (top_risk_commitment_ids, risk_used) = summarize_risk_usage(risk_snapshots);
     let global_risk = derive_global_risk_summary(risk_snapshots);
@@ -266,8 +279,9 @@ fn derive_context_state(
 fn summarize_next_commitment(
     open_commitments: &[vel_core::Commitment],
     risk_snapshots: &[RiskSnapshot],
+    now_ts: i64,
 ) -> NextCommitmentSummary {
-    let next_commitment = select_next_commitment(open_commitments, risk_snapshots);
+    let next_commitment = select_next_commitment(open_commitments, risk_snapshots, now_ts);
     NextCommitmentSummary {
         id: next_commitment.map(|commitment| commitment.id.as_ref().to_string()),
         due_at: next_commitment
@@ -829,16 +843,18 @@ fn select_next_event<'a>(
 fn select_next_commitment<'a>(
     open_commitments: &'a [vel_core::Commitment],
     risk_snapshots: &[RiskSnapshot],
+    now_ts: i64,
 ) -> Option<&'a vel_core::Commitment> {
     open_commitments
         .iter()
-        .min_by_key(|commitment| commitment_sort_key(commitment, risk_snapshots))
+        .min_by_key(|commitment| commitment_priority(commitment, risk_snapshots, now_ts))
 }
 
-fn commitment_sort_key(
+fn commitment_priority(
     commitment: &vel_core::Commitment,
     risk_snapshots: &[RiskSnapshot],
-) -> (u8, i64, u8, u8, u32, u8, i64, String) {
+    now_ts: i64,
+) -> CommitmentPriority {
     let due_at = commitment.due_at.map(|value| value.unix_timestamp());
     let due_bucket = if due_at.is_some() { 0 } else { 1 };
     let due_sort = due_at.unwrap_or(i64::MAX);
@@ -859,26 +875,26 @@ fn commitment_sort_key(
     } else {
         1
     };
-    let risk_bucket = u32::MAX - snapshot_risk_rank(snapshot);
+    let risk_rank = u32::MAX - snapshot_risk_rank(snapshot);
     let updated_at = commitment_updated_at(commitment);
     let recent_activity_bucket = if updated_at
-        >= OffsetDateTime::now_utc().unix_timestamp() - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS
+        >= now_ts - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS
     {
         0
     } else {
         1
     };
     let recent_activity_sort = updated_at.saturating_neg();
-    (
+    CommitmentPriority {
         due_bucket,
         due_sort,
         anchor_bucket,
         dependency_bucket,
-        risk_bucket,
+        risk_rank,
         recent_activity_bucket,
         recent_activity_sort,
-        commitment.id.as_ref().to_string(),
-    )
+        commitment_id: commitment.id.as_ref().to_string(),
+    }
 }
 
 fn is_externally_anchored(commitment: &vel_core::Commitment) -> bool {
@@ -1192,7 +1208,8 @@ mod tests {
             test_commitment("com_sooner", Some(now_ts + 900), None),
         ];
 
-        let selected = select_next_commitment(&commitments, &[]).expect("expected a commitment");
+        let selected =
+            select_next_commitment(&commitments, &[], now_ts).expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_sooner");
     }
@@ -1220,8 +1237,8 @@ mod tests {
             computed_at: Some(now_ts),
         }];
 
-        let selected =
-            select_next_commitment(&commitments, &risk_snapshots).expect("expected a commitment");
+        let selected = select_next_commitment(&commitments, &risk_snapshots, now_ts)
+            .expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_meeting");
     }
@@ -1249,8 +1266,8 @@ mod tests {
             computed_at: Some(now_ts),
         }];
 
-        let selected =
-            select_next_commitment(&commitments, &risk_snapshots).expect("expected a commitment");
+        let selected = select_next_commitment(&commitments, &risk_snapshots, now_ts)
+            .expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_blocked");
     }
@@ -1354,7 +1371,8 @@ mod tests {
             test_commitment("com_anchored", None, Some("meeting")),
         ];
 
-        let selected = select_next_commitment(&commitments, &[]).expect("expected a commitment");
+        let selected = select_next_commitment(&commitments, &[], 1_700_000_000)
+            .expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_anchored");
     }
@@ -1372,7 +1390,27 @@ mod tests {
         });
         let commitments = [stale, recent];
 
-        let selected = select_next_commitment(&commitments, &[]).expect("expected a commitment");
+        let selected = select_next_commitment(&commitments, &[], now_ts)
+            .expect("expected a commitment");
+
+        assert_eq!(selected.id.as_ref(), "com_recent");
+    }
+
+    #[test]
+    fn select_next_commitment_uses_supplied_time_for_recent_activity_window() {
+        let ranking_now = 1_700_000_000;
+        let mut older = test_commitment("com_older", None, Some("todo"));
+        older.metadata_json = json!({
+            "updated_at": ranking_now - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS - 60
+        });
+        let mut recent = test_commitment("com_recent", None, Some("todo"));
+        recent.metadata_json = json!({
+            "updated_at": ranking_now - RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS + 60
+        });
+        let commitments = [older, recent];
+
+        let selected = select_next_commitment(&commitments, &[], ranking_now)
+            .expect("expected a commitment");
 
         assert_eq!(selected.id.as_ref(), "com_recent");
     }
@@ -1385,7 +1423,7 @@ mod tests {
             test_commitment("com_sooner", Some(now_ts + 900), None),
         ];
 
-        let summary = summarize_next_commitment(&commitments, &[]);
+        let summary = summarize_next_commitment(&commitments, &[], now_ts);
 
         assert_eq!(summary.id.as_deref(), Some("com_sooner"));
         assert_eq!(summary.due_at, Some(now_ts + 900));
