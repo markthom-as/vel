@@ -22,6 +22,8 @@ Use it to find the right active or planned work item after you read [MASTER_PLAN
 
 Use [architecture-first-parallel-queue.md](architecture-first-parallel-queue.md) when the work spans architecture docs, schemas, contracts, manifests, or queue sequencing. That queue is the canonical “do these first” lane before broader implementation breadth.
 
+For active lane ownership and non-overlapping write scopes, use [phase-1/parallel-execution-board.md](phase-1/parallel-execution-board.md).
+
 ## Phase 1: Structural Foundations
 
 - [001-storage-modularization.md](phase-1/001-storage-modularization.md) `[in-progress]` Storage repository pattern and transaction lifecycles

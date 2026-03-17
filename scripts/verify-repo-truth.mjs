@@ -59,6 +59,7 @@ const requiredFiles = [
   'docs/MASTER_PLAN.md',
   'docs/tickets/README.md',
   'docs/tickets/architecture-first-parallel-queue.md',
+  'docs/tickets/phase-1/parallel-execution-board.md',
   'docs/tickets/phase-1/021-canonical-schema-and-config-contracts.md',
   'docs/tickets/phase-1/022-data-sources-and-connector-architecture.md',
   'docs/tickets/phase-1/023-self-awareness-and-supervised-self-modification.md',
@@ -112,6 +113,7 @@ const docsReadme = readFile('docs/README.md');
 const masterPlan = readFile('docs/MASTER_PLAN.md');
 const ticketsReadme = readFile('docs/tickets/README.md');
 const architectureFirstQueue = readFile('docs/tickets/architecture-first-parallel-queue.md');
+const phaseOneParallelBoard = readFile('docs/tickets/phase-1/parallel-execution-board.md');
 const conceptSpec = readFile(
   'docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md',
 );
@@ -279,6 +281,10 @@ ensure(
   'docs/MASTER_PLAN.md is missing the architecture lock-in queue section',
 );
 ensure(
+  masterPlan.includes('parallel-execution-board.md'),
+  'docs/MASTER_PLAN.md is missing the phase-1 parallel execution board reference',
+);
+ensure(
   masterPlan.includes('Execution-Backed Verification'),
   'docs/MASTER_PLAN.md is missing execution-backed verification guidance',
 );
@@ -313,6 +319,18 @@ for (const ticket of [
 ensure(
   ticketsReadme.includes('020-documentation-catalog-single-source.md'),
   'docs/tickets/README.md is missing the documentation catalog ticket',
+);
+ensure(
+  ticketsReadme.includes('parallel-execution-board.md'),
+  'docs/tickets/README.md is missing the phase-1 parallel execution board reference',
+);
+ensure(
+  architectureFirstQueue.includes('parallel-execution-board.md'),
+  'architecture-first queue is missing the phase-1 parallel execution board reference',
+);
+ensure(
+  phaseOneParallelBoard.includes('Lane') && phaseOneParallelBoard.includes('Primary Write Scope'),
+  'phase-1 parallel execution board is missing lane or write-scope structure',
 );
 ensure(
   conceptSpec.includes('Single Orchestrator By Default'),

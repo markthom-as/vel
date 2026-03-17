@@ -2,6 +2,8 @@
 
 This file is the canonical sequencing guide for architecture, documentation, schema, and contract work that should happen before broad implementation expansion.
 
+For current lane ownership and write-scope boundaries while executing this queue, see `phase-1/parallel-execution-board.md`.
+
 Use this queue when a task spans multiple layers or when the repo needs clearer contracts before code should spread further.
 
 ## Operating Rule

@@ -33,6 +33,7 @@
 ## Architecture Lock-In Queue (Execute First, Parallelizable)
 
 Before broad implementation expansion, run the architecture-first queue in `docs/tickets/architecture-first-parallel-queue.md`.
+Use `docs/tickets/phase-1/parallel-execution-board.md` for active parallel lane ownership and write-scope boundaries.
 
 The minimum phase-1 architecture lock-in lane is:
 
