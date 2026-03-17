@@ -1,10 +1,10 @@
+use crate::{errors::AppError, routes::response, state::AppState};
 use axum::{
     extract::{Path, State},
     Json,
 };
 use time::OffsetDateTime;
 use vel_api_types::{ApiResponse, NudgeData, NudgeSnoozeRequest};
-use crate::{errors::AppError, routes::response, state::AppState};
 
 fn nudge_record_to_data(r: vel_storage::NudgeRecord) -> NudgeData {
     NudgeData {

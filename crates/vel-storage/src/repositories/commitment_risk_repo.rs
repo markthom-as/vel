@@ -104,16 +104,10 @@ mod tests {
     async fn insert_list_count_and_latest_commitment_risk() {
         let pool = test_pool().await;
 
-        let older = insert_commitment_risk(
-            &pool,
-            "com_1",
-            0.2,
-            "low",
-            r#"{"factors":["none"]}"#,
-            100,
-        )
-        .await
-        .unwrap();
+        let older =
+            insert_commitment_risk(&pool, "com_1", 0.2, "low", r#"{"factors":["none"]}"#, 100)
+                .await
+                .unwrap();
         let newer = insert_commitment_risk(
             &pool,
             "com_1",
@@ -135,7 +129,9 @@ mod tests {
         .await
         .unwrap();
 
-        let recent = list_commitment_risk_recent(&pool, "com_1", 10).await.unwrap();
+        let recent = list_commitment_risk_recent(&pool, "com_1", 10)
+            .await
+            .unwrap();
         assert_eq!(recent.len(), 2);
         assert_eq!(recent[0].0, newer);
         assert_eq!(recent[0].1, 0.8);

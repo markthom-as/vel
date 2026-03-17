@@ -1,6 +1,6 @@
 //! Read-only explain helpers shared by API routes and command execution.
 
-use vel_core::{CurrentContextV1};
+use vel_core::CurrentContextV1;
 use vel_storage::SignalRecord;
 
 use crate::{errors::AppError, services::risk::snapshot_from_row, state::AppState};
@@ -80,7 +80,7 @@ pub async fn explain_context_data(state: &AppState) -> Result<ContextExplain, Ap
     let signals_used = context.signals_used.clone();
     let commitments_used = context.commitments_used.clone();
     let risk_used = context.risk_used.clone();
-    
+
     let mut reasons: Vec<String> = Vec::new();
     if !context.mode.is_empty() {
         reasons.push(format!("mode: {}", context.mode));
@@ -159,11 +159,13 @@ pub async fn explain_commitment_data(
     };
     let has_risk = !risk_rows.is_empty();
     let row = state.storage.get_current_context().await?;
-    let context = row.map(|(_, c)| c).unwrap_or_else(CurrentContextV1::default);
-    
+    let context = row
+        .map(|(_, c)| c)
+        .unwrap_or_else(CurrentContextV1::default);
+
     let commitments_used = context.commitments_used.clone();
     let top_risk = context.top_risk_commitment_ids.clone();
-    
+
     let mut in_context_reasons: Vec<String> = Vec::new();
     if commitments_used.iter().any(|c| c == id) {
         in_context_reasons.push("In commitments_used for current context.".to_string());
@@ -195,7 +197,7 @@ pub async fn explain_commitment_data(
 pub async fn explain_drift_data(state: &AppState) -> Result<DriftExplain, AppError> {
     let row = state.storage.get_current_context().await?;
     let (_, context) = row.unwrap_or((0, CurrentContextV1::default()));
-    
+
     let signals_used = context.signals_used.clone();
     let commitments_used = context.commitments_used.clone();
 
@@ -219,30 +221,16 @@ async fn hydrate_signal_summaries(
     Ok(signals.iter().map(signal_summary).collect())
 }
 
-fn context_source_summaries(
-    context: &CurrentContextV1,
-) -> ContextSourceSummaries {
+fn context_source_summaries(context: &CurrentContextV1) -> ContextSourceSummaries {
     ContextSourceSummaries {
         git_activity: context_source_summary(
             context,
             "git_activity_summary",
             context.git_activity_summary.clone(),
         ),
-        health: context_source_summary(
-            context,
-            "health_summary",
-            context.health_summary.clone(),
-        ),
-        mood: context_source_summary(
-            context,
-            "mood_summary",
-            context.mood_summary.clone(),
-        ),
-        pain: context_source_summary(
-            context,
-            "pain_summary",
-            context.pain_summary.clone(),
-        ),
+        health: context_source_summary(context, "health_summary", context.health_summary.clone()),
+        mood: context_source_summary(context, "mood_summary", context.mood_summary.clone()),
+        pain: context_source_summary(context, "pain_summary", context.pain_summary.clone()),
         note_document: context_source_summary(
             context,
             "note_document_summary",
@@ -288,7 +276,10 @@ fn context_source_summary(
     typed_summary: Option<serde_json::Value>,
 ) -> Option<ContextSourceSummary> {
     let summary = typed_summary.or_else(|| context.extra.get(key).cloned())?;
-    let timestamp = summary.get("timestamp").and_then(|value| value.as_i64()).unwrap_or(context.computed_at);
+    let timestamp = summary
+        .get("timestamp")
+        .and_then(|value| value.as_i64())
+        .unwrap_or(context.computed_at);
     Some(ContextSourceSummary { timestamp, summary })
 }
 

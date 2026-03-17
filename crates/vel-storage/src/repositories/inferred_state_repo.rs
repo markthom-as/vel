@@ -62,6 +62,13 @@ pub(crate) async fn list_inferred_state_recent(
         .collect()
 }
 
+pub(crate) async fn count_inferred_state(pool: &SqlitePool) -> Result<i64, StorageError> {
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM inferred_state")
+        .fetch_one(pool)
+        .await?;
+    Ok(row.0)
+}
+
 fn map_inferred_state_row(
     row: &sqlx::sqlite::SqliteRow,
 ) -> Result<InferredStateRecord, StorageError> {
@@ -164,5 +171,25 @@ mod tests {
             .await
             .unwrap();
         assert!(rows.is_empty());
+    }
+
+    #[tokio::test]
+    async fn count_inferred_state_rows() {
+        let pool = test_pool().await;
+
+        let _ = insert_inferred_state(
+            &pool,
+            InferredStateInsert {
+                state_name: "morning".to_string(),
+                confidence: None,
+                timestamp: 1_700_000_001,
+                context_json: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let count = count_inferred_state(&pool).await.unwrap();
+        assert_eq!(count, 1);
     }
 }

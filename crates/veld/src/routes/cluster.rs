@@ -1,9 +1,9 @@
 use axum::{extract::State, Json};
+use serde::{Deserialize, Serialize};
 use vel_api_types::{
     ApiResponse, BranchSyncRequestData, ClusterBootstrapData, QueuedWorkRoutingData,
     ValidationRequestData,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{errors::AppError, routes::response, state::AppState};
 
@@ -88,7 +88,11 @@ impl From<crate::services::client_sync::ClusterWorkersData> for ClusterWorkersDa
             active_authority_node_id: data.active_authority_node_id,
             active_authority_epoch: data.active_authority_epoch,
             generated_at: data.generated_at,
-            workers: data.workers.into_iter().map(ClusterWorkerPresenceData::from).collect(),
+            workers: data
+                .workers
+                .into_iter()
+                .map(ClusterWorkerPresenceData::from)
+                .collect(),
         }
     }
 }

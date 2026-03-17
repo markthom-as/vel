@@ -1,9 +1,7 @@
 use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_config::AppConfig;
-use vel_core::{
-    normalize_risk_level, Commitment, CommitmentStatus, CurrentContextV1,
-};
+use vel_core::{normalize_risk_level, Commitment, CommitmentStatus, CurrentContextV1};
 use vel_storage::{SignalRecord, Storage};
 
 use crate::{errors::AppError, services::integrations};
@@ -381,7 +379,10 @@ fn context_source_activity_typed(
     typed_summary: Option<JsonValue>,
 ) -> Option<NowSourceActivityOutput> {
     let summary = typed_summary.or_else(|| context.extra.get(key).cloned())?;
-    let timestamp = summary.get("timestamp").and_then(JsonValue::as_i64).unwrap_or(context.computed_at);
+    let timestamp = summary
+        .get("timestamp")
+        .and_then(JsonValue::as_i64)
+        .unwrap_or(context.computed_at);
     Some(NowSourceActivityOutput {
         label: label.to_string(),
         timestamp,
@@ -922,4 +923,3 @@ fn risk_summary(level: &str, score: Option<f64>) -> NowRiskSummaryOutput {
         label,
     }
 }
-

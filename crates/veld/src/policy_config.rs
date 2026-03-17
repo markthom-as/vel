@@ -467,7 +467,8 @@ mod tests {
 
     #[test]
     fn repo_policy_example_loads() {
-        let config = PolicyConfig::load(repo_path("config/examples/policies.example.yaml")).unwrap();
+        let config =
+            PolicyConfig::load(repo_path("config/examples/policies.example.yaml")).unwrap();
         assert!(config.queue_work_scheduler_loop().is_some());
         assert!(config.sync_health_loop().is_some());
         assert!(config.commute_leave_time().is_some());

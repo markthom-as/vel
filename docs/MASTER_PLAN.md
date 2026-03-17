@@ -57,7 +57,7 @@ Primary outcome:
 ### 1.1 Storage Repository Pattern & Transaction Lifecycles **[IN_PROGRESS]**
 *   *Ticket*: `001-storage-modularization.md`
 
-### 1.2 The "Pure Core" & Typed Context Mandate **[PLANNED]**
+### 1.2 The "Pure Core" & Typed Context Mandate **[IN_PROGRESS]**
 *   *Ticket*: `002-typed-context-transition.md`
 
 ### 1.3 Service/DTO Boundary & Standardized Error Handling **[PARTIAL]**
@@ -66,7 +66,7 @@ Primary outcome:
 ### 1.4 Documentation Truth Repair & Architecture Mapping **[IN_PROGRESS]**
 *   *Ticket*: `011-documentation-truth-repair.md`
 
-### 1.5 Auth-By-Default HTTP Surfaces & Deny-By-Default Routing **[PLANNED]**
+### 1.5 Auth-By-Default HTTP Surfaces & Deny-By-Default Routing **[IN_PROGRESS]**
 *   *Ticket*: `015-http-surface-auth-hardening.md`
 
 ### 1.6 Cross-Cutting Trait Baseline & Subsystem Audit **[IN_PROGRESS]**

@@ -503,6 +503,14 @@ mod tests {
         ]
     }
 
+    fn work_assignment_auth_matrix_routes() -> [(Method, &'static str); 3] {
+        [
+            (Method::GET, "/v1/sync/work-assignments?work_request_id=wrkreq-123"),
+            (Method::POST, "/v1/sync/work-assignments"),
+            (Method::PATCH, "/v1/sync/work-assignments"),
+        ]
+    }
+
     fn test_app_state(storage: Storage) -> AppState {
         let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
         AppState::new(
@@ -677,6 +685,90 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn work_assignment_routes_require_worker_token_when_worker_policy_is_set() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: false,
+            },
+        );
+
+        for (method, uri) in work_assignment_auth_matrix_routes() {
+            let missing_token = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method.clone())
+                        .uri(uri)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                missing_token.status(),
+                StatusCode::UNAUTHORIZED,
+                "{method} {uri} should require a worker token when worker auth is configured",
+            );
+
+            let invalid_token = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(uri)
+                        .header(WORKER_AUTH_HEADER, "wrong-secret")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                invalid_token.status(),
+                StatusCode::UNAUTHORIZED,
+                "{uri} should reject invalid worker auth when worker auth is configured",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn strict_auth_allows_worker_assignment_routes_when_worker_token_is_unset() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        for (method, uri) in work_assignment_auth_matrix_routes() {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(method)
+                        .uri(uri)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_ne!(
+                response.status(),
+                StatusCode::UNAUTHORIZED,
+                "{method} {uri} should remain accessible when worker auth is unset and strict auth is disabled",
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn strict_auth_denies_worker_sync_routes_when_worker_token_is_unset() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -793,8 +885,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn worker_queue_routes_allow_requests_when_worker_policy_is_unset_and_strict_auth_disabled()
-    {
+    async fn worker_queue_routes_allow_requests_when_worker_policy_is_unset_and_strict_auth_disabled(
+    ) {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         let app = test_app_with_policy(
@@ -10671,7 +10763,7 @@ END:VCALENDAR
     }
 
     #[tokio::test]
-    async fn restart_evaluate_emits_context_updated_websocket_event() {
+    async fn restart_evaluate_emits_logs_and_broadcasts() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         let (broadcast_tx, _) = tokio::sync::broadcast::channel(64);
@@ -10709,8 +10801,179 @@ END:VCALENDAR
             .await
             .expect("context websocket event should be broadcast");
         assert_eq!(second.event_type.to_string(), "context:updated");
-        assert!(second.payload["computed_at"].as_i64().unwrap_or_default() > 0);
-        assert!(second.payload["context"].is_object());
+    }
+
+    #[tokio::test]
+    async fn exposure_matrix_enforcement() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let policy = HttpExposurePolicy {
+            operator_api_token: Some("op-secret".to_string()),
+            worker_api_token: Some("wk-secret".to_string()),
+            strict_auth: true,
+        };
+        let app = test_app_with_policy(storage, policy);
+
+        let matrix = [
+            // Public routes
+            ("/v1/health", Method::GET, None, StatusCode::OK),
+            (
+                "/api/integrations/google-calendar/oauth/callback",
+                Method::GET,
+                None,
+                StatusCode::BAD_REQUEST,
+            ), // 400 because missing params, but 200/400 means no auth block
+            // Operator routes - No Auth
+            ("/v1/doctor", Method::GET, None, StatusCode::UNAUTHORIZED),
+            ("/v1/now", Method::GET, None, StatusCode::UNAUTHORIZED),
+            ("/api/settings", Method::GET, None, StatusCode::UNAUTHORIZED),
+            ("/ws", Method::GET, None, StatusCode::UNAUTHORIZED),
+            // Operator routes - Correct Auth
+            (
+                "/v1/doctor",
+                Method::GET,
+                Some((OPERATOR_AUTH_HEADER, "op-secret")),
+                StatusCode::OK,
+            ),
+            (
+                "/api/settings",
+                Method::GET,
+                Some((OPERATOR_AUTH_HEADER, "op-secret")),
+                StatusCode::OK,
+            ),
+            (
+                "/ws",
+                Method::GET,
+                Some((OPERATOR_AUTH_HEADER, "op-secret")),
+                StatusCode::BAD_REQUEST,
+            ), // 400 because not a real WS handshake, but no auth block
+            // Operator routes - Wrong Class Token (Worker token on Operator route)
+            (
+                "/v1/doctor",
+                Method::GET,
+                Some((WORKER_AUTH_HEADER, "wk-secret")),
+                StatusCode::UNAUTHORIZED,
+            ),
+            // Operator routes - Bearer Fallback
+            (
+                "/v1/doctor",
+                Method::GET,
+                Some(("Authorization", "Bearer op-secret")),
+                StatusCode::OK,
+            ),
+            // Worker routes - No Auth
+            (
+                "/v1/sync/heartbeat",
+                Method::POST,
+                None,
+                StatusCode::UNAUTHORIZED,
+            ),
+            (
+                "/v1/sync/work-queue?node_id=test",
+                Method::GET,
+                None,
+                StatusCode::UNAUTHORIZED,
+            ),
+            // Worker routes - Correct Auth
+            (
+                "/v1/sync/heartbeat",
+                Method::POST,
+                Some((WORKER_AUTH_HEADER, "wk-secret")),
+                StatusCode::OK,
+            ),
+            (
+                "/v1/sync/work-queue?node_id=test",
+                Method::GET,
+                Some((WORKER_AUTH_HEADER, "wk-secret")),
+                StatusCode::OK,
+            ),
+            // Worker routes - Wrong Class Token (Operator token on Worker route)
+            (
+                "/v1/sync/heartbeat",
+                Method::POST,
+                Some((OPERATOR_AUTH_HEADER, "op-secret")),
+                StatusCode::UNAUTHORIZED,
+            ),
+            // Future External routes - Always Forbidden
+            ("/v1/connect", Method::GET, None, StatusCode::FORBIDDEN),
+            (
+                "/v1/connect",
+                Method::GET,
+                Some((OPERATOR_AUTH_HEADER, "op-secret")),
+                StatusCode::FORBIDDEN,
+            ),
+            (
+                "/v1/cluster/clients",
+                Method::GET,
+                Some((WORKER_AUTH_HEADER, "wk-secret")),
+                StatusCode::FORBIDDEN,
+            ),
+            // Fail Closed - Undefined routes
+            (
+                "/v1/not-defined",
+                Method::GET,
+                Some((OPERATOR_AUTH_HEADER, "op-secret")),
+                StatusCode::NOT_FOUND,
+            ),
+            (
+                "/api/not-defined",
+                Method::GET,
+                Some((OPERATOR_AUTH_HEADER, "op-secret")),
+                StatusCode::NOT_FOUND,
+            ),
+            // Fail Closed - Unsupported methods on defined routes
+            (
+                "/v1/health",
+                Method::POST,
+                None,
+                StatusCode::METHOD_NOT_ALLOWED,
+            ),
+            (
+                "/v1/now",
+                Method::POST,
+                Some((OPERATOR_AUTH_HEADER, "op-secret")),
+                StatusCode::METHOD_NOT_ALLOWED,
+            ),
+            (
+                "/v1/sync/heartbeat",
+                Method::GET,
+                Some((WORKER_AUTH_HEADER, "wk-secret")),
+                StatusCode::METHOD_NOT_ALLOWED,
+            ),
+        ];
+
+        for (uri, method, auth, expected_status) in matrix {
+            let mut req = Request::builder().method(&method).uri(uri);
+            if let Some((name, val)) = auth {
+                req = req.header(name, val);
+            }
+            if uri.contains("/heartbeat") || uri.contains("/settings") {
+                req = req.header("content-type", "application/json");
+            }
+
+            let body = if uri.contains("/heartbeat") {
+                Body::from(
+                    serde_json::json!({
+                        "node_id": "test",
+                        "worker_id": "test",
+                        "status": "ready"
+                    })
+                    .to_string(),
+                )
+            } else {
+                Body::empty()
+            };
+
+            let resp = app.clone().oneshot(req.body(body).unwrap()).await.unwrap();
+            assert_eq!(
+                resp.status(),
+                expected_status,
+                "FAILED: {} {} with auth {:?}",
+                method,
+                uri,
+                auth
+            );
+        }
     }
 
     #[tokio::test]

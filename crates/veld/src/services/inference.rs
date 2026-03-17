@@ -799,47 +799,59 @@ fn build_current_context(
             .iter()
             .map(|reason| (*reason).to_string())
             .collect(),
-        health_summary: health_summary.map(|summary| serde_json::json!({
-            "timestamp": summary.timestamp,
-            "metric_type": summary.metric_type,
-            "value": summary.value,
-            "unit": summary.unit,
-            "source_app": summary.source_app,
-            "device": summary.device,
-        })),
-        git_activity_summary: git_activity_summary.map(|summary| serde_json::json!({
-            "timestamp": summary.timestamp,
-            "repo": summary.repo,
-            "branch": summary.branch,
-            "operation": summary.operation,
-            "message": summary.message,
-            "files_changed": summary.files_changed,
-            "insertions": summary.insertions,
-            "deletions": summary.deletions,
-        })),
-        mood_summary: mood_summary.map(|summary| serde_json::json!({
-            "timestamp": summary.timestamp,
-            "score": summary.score,
-            "label": summary.label,
-            "note": summary.note,
-        })),
-        pain_summary: pain_summary.map(|summary| serde_json::json!({
-            "timestamp": summary.timestamp,
-            "severity": summary.severity,
-            "location": summary.location,
-            "note": summary.note,
-        })),
-        note_document_summary: note_document_summary.map(|summary| serde_json::json!({
-            "timestamp": summary.timestamp,
-            "title": summary.title,
-            "path": summary.path,
-        })),
-        assistant_message_summary: assistant_message_summary.map(|summary| serde_json::json!({
-            "timestamp": summary.timestamp,
-            "conversation_id": summary.conversation_id,
-            "role": summary.role,
-            "source": summary.source,
-        })),
+        health_summary: health_summary.map(|summary| {
+            serde_json::json!({
+                "timestamp": summary.timestamp,
+                "metric_type": summary.metric_type,
+                "value": summary.value,
+                "unit": summary.unit,
+                "source_app": summary.source_app,
+                "device": summary.device,
+            })
+        }),
+        git_activity_summary: git_activity_summary.map(|summary| {
+            serde_json::json!({
+                "timestamp": summary.timestamp,
+                "repo": summary.repo,
+                "branch": summary.branch,
+                "operation": summary.operation,
+                "message": summary.message,
+                "files_changed": summary.files_changed,
+                "insertions": summary.insertions,
+                "deletions": summary.deletions,
+            })
+        }),
+        mood_summary: mood_summary.map(|summary| {
+            serde_json::json!({
+                "timestamp": summary.timestamp,
+                "score": summary.score,
+                "label": summary.label,
+                "note": summary.note,
+            })
+        }),
+        pain_summary: pain_summary.map(|summary| {
+            serde_json::json!({
+                "timestamp": summary.timestamp,
+                "severity": summary.severity,
+                "location": summary.location,
+                "note": summary.note,
+            })
+        }),
+        note_document_summary: note_document_summary.map(|summary| {
+            serde_json::json!({
+                "timestamp": summary.timestamp,
+                "title": summary.title,
+                "path": summary.path,
+            })
+        }),
+        assistant_message_summary: assistant_message_summary.map(|summary| {
+            serde_json::json!({
+                "timestamp": summary.timestamp,
+                "conversation_id": summary.conversation_id,
+                "role": summary.role,
+                "source": summary.source,
+            })
+        }),
         message_waiting_on_me_count: Some(message_summary.waiting_on_me_count as u64),
         message_waiting_on_others_count: Some(message_summary.waiting_on_others_count as u64),
         message_scheduling_thread_count: Some(message_summary.scheduling_thread_count as u64),

@@ -14,6 +14,7 @@ use crate::services::context_generation::{
 };
 use crate::services::context_runs;
 use crate::{errors::AppError, state::AppState};
+use vel_core::ContextMigrator;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct ContextTimelineQuery {
@@ -81,9 +82,31 @@ fn map_end_of_day_data(data: EndOfDayContextData) -> EndOfDayData {
     }
 }
 
+fn map_timeline_context_json(context_json: &str) -> serde_json::Value {
+    if let Ok(context) = ContextMigrator::from_json_str(context_json) {
+        return context.into_json();
+    }
+
+    serde_json::from_str::<serde_json::Value>(context_json)
+        .ok()
+        .filter(|value| value.is_object())
+        .unwrap_or_else(|| serde_json::json!({}))
+}
+
+fn map_timeline_entries(rows: Vec<(String, i64, String)>) -> Vec<ContextTimelineEntry> {
+    rows.into_iter()
+        .map(|(id, timestamp, context_json)| ContextTimelineEntry {
+            id,
+            timestamp,
+            context: map_timeline_context_json(&context_json),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use time::OffsetDateTime;
     use vel_core::{CaptureId, ContextCapture};
 
@@ -150,6 +173,47 @@ mod tests {
         assert_eq!(dto.pending_commitments, vec!["follow up".to_string()]);
         assert_eq!(dto.suggested_focus.as_deref(), Some("forecast"));
     }
+
+    #[test]
+    fn maps_timeline_rows_using_typed_context_migration_first() {
+        let entries = map_timeline_entries(vec![(
+            "ctl_test".to_string(),
+            1_710_000_000,
+            r#"{
+              "mode": "morning_mode",
+              "morning_state": "awake_unstarted",
+              "meds_status": "pending",
+              "attention_state": "drifting",
+              "custom_future_field": { "ok": true }
+            }"#
+            .to_string(),
+        )]);
+
+        let context = &entries[0].context;
+        assert!(context.is_object());
+        assert_eq!(context["mode"], "morning_mode");
+        assert_eq!(context["morning_state"], "awake_unstarted");
+        assert_eq!(context["meds_status"], "pending");
+        assert_eq!(context["inferred_activity"], "");
+        assert_eq!(context["prep_window_active"], false);
+        assert_eq!(context["custom_future_field"], json!({ "ok": true }));
+    }
+
+    #[test]
+    fn maps_timeline_rows_to_empty_object_for_malformed_context_json() {
+        let entries = map_timeline_entries(vec![
+            ("ctl_bad_json".to_string(), 1_710_000_001, "{not-json}".to_string()),
+            ("ctl_scalar".to_string(), 1_710_000_002, "true".to_string()),
+        ]);
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].id, "ctl_bad_json");
+        assert_eq!(entries[0].timestamp, 1_710_000_001);
+        assert_eq!(entries[0].context, json!({}));
+        assert_eq!(entries[1].id, "ctl_scalar");
+        assert_eq!(entries[1].timestamp, 1_710_000_002);
+        assert_eq!(entries[1].context, json!({}));
+    }
 }
 
 /// GET /v1/context/current — persistent current context (singleton) written by inference engine.
@@ -172,17 +236,7 @@ pub async fn timeline(
 ) -> Result<Json<ApiResponse<Vec<ContextTimelineEntry>>>, AppError> {
     let limit = q.limit.unwrap_or(20);
     let rows = state.storage.list_context_timeline(limit).await?;
-    let entries: Vec<ContextTimelineEntry> = rows
-        .into_iter()
-        .filter_map(|(id, timestamp, context_json)| {
-            let context = serde_json::from_str(&context_json).ok()?;
-            Some(ContextTimelineEntry {
-                id,
-                timestamp,
-                context,
-            })
-        })
-        .collect();
+    let entries = map_timeline_entries(rows);
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(entries, request_id)))
 }

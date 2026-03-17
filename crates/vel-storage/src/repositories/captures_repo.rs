@@ -1,10 +1,10 @@
-use sqlx::{Row, SqlitePool};
-use time::OffsetDateTime;
-use serde_json::json;
-use vel_core::{CaptureId, ContextCapture, JobId, JobStatus, OrientationSnapshot};
-use crate::db::{CaptureInsert, SignalRecord, StorageError};
+use crate::db::{CaptureInsert, SearchFilters, SignalRecord, StorageError};
 use crate::mapping::timestamp_to_datetime;
 use crate::repositories::{processing_jobs_repo, signals_repo};
+use serde_json::json;
+use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
+use time::OffsetDateTime;
+use vel_core::{CaptureId, ContextCapture, JobId, JobStatus, OrientationSnapshot, SearchResult};
 
 pub(crate) async fn insert_capture(
     pool: &SqlitePool,
@@ -55,14 +55,15 @@ pub(crate) async fn insert_capture_with_id(
 
     let job_id = JobId::new();
     let payload = json!({ "capture_id": capture_id.to_string() }).to_string();
-    
+
     processing_jobs_repo::insert_processing_job_in_tx(
         &mut tx,
         &job_id,
         "capture_ingest",
         JobStatus::Pending,
         &payload,
-    ).await?;
+    )
+    .await?;
 
     tx.commit().await?;
     Ok(true)
@@ -141,7 +142,9 @@ pub(crate) async fn list_captures_recent(
         .collect::<Result<Vec<_>, _>>()
 }
 
-pub(crate) async fn orientation_snapshot(pool: &SqlitePool) -> Result<OrientationSnapshot, StorageError> {
+pub(crate) async fn orientation_snapshot(
+    pool: &SqlitePool,
+) -> Result<OrientationSnapshot, StorageError> {
     let now = OffsetDateTime::now_utc();
     let start_of_day = now
         .date()
@@ -183,18 +186,59 @@ pub(crate) async fn orientation_snapshot(pool: &SqlitePool) -> Result<Orientatio
     .map(map_context_capture_row)
     .collect::<Result<Vec<_>, _>>()?;
 
-    let recent_signal_summaries = signals_repo::list_signals(pool, None, Some(seven_days_ago.unix_timestamp()), 100)
-        .await?
-        .into_iter()
-        .filter_map(|signal| summarize_signal_for_orientation(&signal))
-        .take(25)
-        .collect();
+    let recent_signal_summaries =
+        signals_repo::list_signals(pool, None, Some(seven_days_ago.unix_timestamp()), 100)
+            .await?
+            .into_iter()
+            .filter_map(|signal| summarize_signal_for_orientation(&signal))
+            .take(25)
+            .collect();
 
     Ok(OrientationSnapshot {
         recent_today,
         recent_week,
         recent_signal_summaries,
     })
+}
+
+pub(crate) async fn search_captures(
+    pool: &SqlitePool,
+    query: &str,
+    filters: SearchFilters,
+) -> Result<Vec<SearchResult>, StorageError> {
+    let mut builder = QueryBuilder::<Sqlite>::new(
+        r#"
+        SELECT
+            c.capture_id,
+            c.capture_type,
+            snippet(captures_fts, 1, '[', ']', '...', 12) AS snippet,
+            c.occurred_at,
+            c.created_at,
+            c.source_device,
+            bm25(captures_fts) AS rank
+        FROM captures_fts
+        JOIN captures c ON c.capture_id = captures_fts.capture_id
+        WHERE captures_fts MATCH
+        "#,
+    );
+    builder.push_bind(query);
+
+    if let Some(capture_type) = filters.capture_type.as_deref() {
+        builder.push(" AND c.capture_type = ");
+        builder.push_bind(capture_type);
+    }
+
+    if let Some(source_device) = filters.source_device.as_deref() {
+        builder.push(" AND c.source_device = ");
+        builder.push_bind(source_device);
+    }
+
+    let limit = i64::from(filters.limit.unwrap_or(10).clamp(1, 50));
+    builder.push(" ORDER BY rank ASC, c.occurred_at DESC, c.created_at DESC LIMIT ");
+    builder.push_bind(limit);
+
+    let rows = builder.build().fetch_all(pool).await?;
+    rows.into_iter().map(map_search_row).collect()
 }
 
 fn summarize_signal_for_orientation(signal: &SignalRecord) -> Option<String> {
@@ -312,6 +356,20 @@ fn map_context_capture_row(row: sqlx::sqlite::SqliteRow) -> Result<ContextCaptur
         capture_type: row.try_get("capture_type")?,
         content_text: row.try_get("content_text")?,
         occurred_at: timestamp_to_datetime(row.try_get("occurred_at")?)?,
+        source_device: row.try_get("source_device")?,
+    })
+}
+
+fn map_search_row(row: sqlx::sqlite::SqliteRow) -> Result<SearchResult, StorageError> {
+    let occurred_at = timestamp_to_datetime(row.try_get("occurred_at")?)?;
+    let created_at = timestamp_to_datetime(row.try_get("created_at")?)?;
+
+    Ok(SearchResult {
+        capture_id: CaptureId::from(row.try_get::<String, _>("capture_id")?),
+        capture_type: row.try_get("capture_type")?,
+        snippet: row.try_get("snippet")?,
+        occurred_at,
+        created_at,
         source_device: row.try_get("source_device")?,
     })
 }

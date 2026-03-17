@@ -51,6 +51,13 @@ pub(crate) async fn list_context_timeline(
     Ok(rows)
 }
 
+pub(crate) async fn count_context_timeline(pool: &SqlitePool) -> Result<i64, StorageError> {
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM context_timeline")
+        .fetch_one(pool)
+        .await?;
+    Ok(row.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,5 +110,20 @@ mod tests {
 
         let after = list_context_timeline(&pool, 10).await.unwrap();
         assert_eq!(before, after);
+    }
+
+    #[tokio::test]
+    async fn count_context_timeline_rows() {
+        let pool = test_pool().await;
+
+        insert_context_timeline(&pool, 1_700_000_001, r#"{"state":"one"}"#, None)
+            .await
+            .unwrap();
+        insert_context_timeline(&pool, 1_700_000_002, r#"{"state":"two"}"#, None)
+            .await
+            .unwrap();
+
+        let count = count_context_timeline(&pool).await.unwrap();
+        assert_eq!(count, 2);
     }
 }

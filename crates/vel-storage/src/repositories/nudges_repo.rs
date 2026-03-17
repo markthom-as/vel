@@ -155,13 +155,15 @@ pub(crate) async fn update_nudge_state_in_tx(
     snoozed_until: Option<i64>,
     resolved_at: Option<i64>,
 ) -> Result<(), StorageError> {
-    sqlx::query(r#"UPDATE nudges SET state = ?, snoozed_until = ?, resolved_at = ? WHERE nudge_id = ?"#)
-        .bind(state)
-        .bind(snoozed_until)
-        .bind(resolved_at)
-        .bind(nudge_id)
-        .execute(&mut **tx)
-        .await?;
+    sqlx::query(
+        r#"UPDATE nudges SET state = ?, snoozed_until = ?, resolved_at = ? WHERE nudge_id = ?"#,
+    )
+    .bind(state)
+    .bind(snoozed_until)
+    .bind(resolved_at)
+    .bind(nudge_id)
+    .execute(&mut **tx)
+    .await?;
     Ok(())
 }
 
@@ -513,7 +515,9 @@ mod tests {
 
             let in_tx_count = count_nudge_events_in_tx(&mut tx).await.unwrap();
             assert_eq!(in_tx_count, 1);
-            let in_tx_events = list_nudge_events_in_tx(&mut tx, &nudge_id, 10).await.unwrap();
+            let in_tx_events = list_nudge_events_in_tx(&mut tx, &nudge_id, 10)
+                .await
+                .unwrap();
             assert_eq!(in_tx_events.len(), 1);
 
             tx.rollback().await.unwrap();

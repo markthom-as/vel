@@ -657,8 +657,9 @@ budgets:
 
     #[test]
     fn repo_runtime_config_example_parses() {
-        let config = AppConfig::load_from_path(repo_path("config/examples/app-config.example.toml"))
-            .unwrap();
+        let config =
+            AppConfig::load_from_path(repo_path("config/examples/app-config.example.toml"))
+                .unwrap();
         assert_eq!(config.node_id.as_deref(), Some("vel-local"));
         assert_eq!(
             config.agent_spec_path.as_deref(),
@@ -689,9 +690,10 @@ budgets:
 
     #[test]
     fn repo_agent_specs_example_parses() {
-        let specs =
-            AppConfig::load_agent_specs_from_path(repo_path("config/examples/agent-specs.example.yaml"))
-                .unwrap();
+        let specs = AppConfig::load_agent_specs_from_path(repo_path(
+            "config/examples/agent-specs.example.yaml",
+        ))
+        .unwrap();
         assert_eq!(specs.len(), 1);
         assert_eq!(specs[0].id, "review_worker");
         assert_eq!(specs[0].return_contract, "review_findings_v1");

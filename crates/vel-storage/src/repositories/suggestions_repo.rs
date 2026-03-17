@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     db::{
-        SuggestionEvidenceInsert, SuggestionEvidenceRecord, SuggestionInsertV2, StorageError,
+        StorageError, SuggestionEvidenceInsert, SuggestionEvidenceRecord, SuggestionInsertV2,
         SuggestionRecord,
     },
     mapping::parse_json_value,
@@ -290,13 +290,15 @@ pub(crate) async fn update_suggestion_state_in_tx(
     payload_json: Option<&str>,
 ) -> Result<(), StorageError> {
     if let Some(payload) = payload_json {
-        sqlx::query(r#"UPDATE suggestions SET state = ?, resolved_at = ?, payload_json = ? WHERE id = ?"#)
-            .bind(state)
-            .bind(resolved_at)
-            .bind(payload)
-            .bind(id)
-            .execute(&mut **tx)
-            .await?;
+        sqlx::query(
+            r#"UPDATE suggestions SET state = ?, resolved_at = ?, payload_json = ? WHERE id = ?"#,
+        )
+        .bind(state)
+        .bind(resolved_at)
+        .bind(payload)
+        .bind(id)
+        .execute(&mut **tx)
+        .await?;
     } else {
         sqlx::query(r#"UPDATE suggestions SET state = ?, resolved_at = ? WHERE id = ?"#)
             .bind(state)
@@ -308,7 +310,9 @@ pub(crate) async fn update_suggestion_state_in_tx(
     Ok(())
 }
 
-pub(crate) fn map_suggestion_row(row: &sqlx::sqlite::SqliteRow) -> Result<SuggestionRecord, StorageError> {
+pub(crate) fn map_suggestion_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<SuggestionRecord, StorageError> {
     let payload_json = row.try_get::<String, _>("payload_json")?;
     let decision_context_json = row.try_get::<Option<String>, _>("decision_context_json")?;
     let evidence_count = row.try_get::<i64, _>("evidence_count")?;

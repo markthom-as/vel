@@ -1,8 +1,8 @@
+use serde_json::Value as JsonValue;
 use sqlx::{Row, Sqlite, SqlitePool, Transaction};
 use time::OffsetDateTime;
-use vel_core::{Commitment, CommitmentId, CommitmentStatus};
-use serde_json::Value as JsonValue;
 use uuid::Uuid;
+use vel_core::{Commitment, CommitmentId, CommitmentStatus};
 
 use crate::db::{CommitmentInsert, StorageError};
 use crate::mapping::timestamp_to_datetime;
@@ -23,9 +23,13 @@ pub(crate) async fn insert_commitment_in_tx(
 ) -> Result<CommitmentId, StorageError> {
     let id = CommitmentId::new();
     let now = OffsetDateTime::now_utc().unix_timestamp();
-    let metadata_str =
-        serde_json::to_string(input.metadata_json.as_ref().unwrap_or(&serde_json::json!({})))
-            .map_err(|e| StorageError::Validation(e.to_string()))?;
+    let metadata_str = serde_json::to_string(
+        input
+            .metadata_json
+            .as_ref()
+            .unwrap_or(&serde_json::json!({})),
+    )
+    .map_err(|e| StorageError::Validation(e.to_string()))?;
     let due_ts = input.due_at.map(|t| t.unix_timestamp());
 
     sqlx::query(
@@ -170,11 +174,11 @@ pub(crate) async fn insert_commitment_dependency(
     .bind(dependency_type)
     .fetch_optional(pool)
     .await?;
-    
+
     if let Some((id,)) = existing {
         return Ok(id);
     }
-    
+
     let id = format!("cdep_{}", Uuid::new_v4().simple());
     let now = OffsetDateTime::now_utc().unix_timestamp();
     sqlx::query(
@@ -221,7 +225,8 @@ fn map_commitment_row(row: &sqlx::sqlite::SqliteRow) -> Result<Commitment, Stora
     let status: String = row.try_get("status")?;
     let created_at: i64 = row.try_get("created_at")?;
     let metadata_str: String = row.try_get("metadata_json")?;
-    let metadata_json = serde_json::from_str(&metadata_str).unwrap_or_else(|_| serde_json::json!({}));
+    let metadata_json =
+        serde_json::from_str(&metadata_str).unwrap_or_else(|_| serde_json::json!({}));
     Ok(Commitment {
         id: CommitmentId::from(row.try_get::<String, _>("id")?),
         text: row.try_get("text")?,

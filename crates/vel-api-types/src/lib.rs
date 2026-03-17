@@ -1181,7 +1181,9 @@ impl From<vel_core::ConnectInstance> for ConnectInstanceData {
             localhost_base_url: instance.localhost_base_url,
             worker_ids: instance.worker_ids,
             worker_classes: instance.worker_classes,
-            last_seen_at: instance.last_seen_at.map(|seen_at| seen_at.unix_timestamp()),
+            last_seen_at: instance
+                .last_seen_at
+                .map(|seen_at| seen_at.unix_timestamp()),
             manifest: instance.manifest.into(),
             metadata: instance.metadata_json,
         }

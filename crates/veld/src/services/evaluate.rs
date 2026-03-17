@@ -92,7 +92,8 @@ mod tests {
             "custom_field": { "ok": true }
         });
 
-        let typed = ContextMigrator::from_json_value(raw.clone()).expect("typed context should parse");
+        let typed =
+            ContextMigrator::from_json_value(raw.clone()).expect("typed context should parse");
         assert_eq!(typed.mode, "day_mode");
         assert_eq!(typed.morning_state, "engaged");
         assert_eq!(typed.meds_status, "pending");
@@ -101,7 +102,8 @@ mod tests {
 
     #[test]
     fn context_migrator_uses_defaults_for_missing_fields() {
-        let typed = ContextMigrator::from_json_value(json!({})).expect("empty context should parse");
+        let typed =
+            ContextMigrator::from_json_value(json!({})).expect("empty context should parse");
         assert_eq!(typed.mode, "");
         assert_eq!(typed.meds_status, "");
     }

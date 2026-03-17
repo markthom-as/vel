@@ -180,6 +180,88 @@ Crossing trust domains requires an explicit contract, audit trail, and narrow ca
 
 ## System Shape
 
+### Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph "Operator/Client Layer"
+        WebClient["Operator Dashboard (Web)"]
+        AppleClient["Limb Clients (Apple)"]
+        CliClient["Vel CLI"]
+    end
+
+    subgraph "Authority Runtime (veld)"
+        subgraph "Surface & Auth"
+            Routes["API Routes (/v1, /api)"]
+            AuthGate["Exposure Gate / Auth Middleware"]
+        end
+
+        subgraph "Application Layer"
+            Orchestrator["Agent Orchestrator"]
+            ServiceLayer["Domain Services (Inference, Risk, Sync)"]
+        end
+
+        subgraph "Cognition & State"
+            TypedContext["Typed Current Context"]
+            PolicyEngine["Policy Engine"]
+        end
+
+        subgraph "Capability & Sandbox"
+            Connect["Agent Connect Protocol"]
+            Broker["Capability Broker"]
+            WasmSandbox["WASM Sandbox (Future)"]
+        end
+    end
+
+    subgraph "Durable Storage (vel-storage)"
+        StorageFacade["Storage Facade"]
+        subgraph "Repositories"
+            RepoChat["Chat Repo"]
+            RepoRuns["Runs Repo"]
+            RepoCommit["Commitments Repo"]
+            RepoCapt["Captures Repo"]
+            RepoOther["Other Repos..."]
+        end
+        SQLite[("SQLite DB")]
+    end
+
+    subgraph "External World"
+        Integrations["External Integrations (Cal, Todoist, Git)"]
+        Models["LLM Providers (Local/Cloud)"]
+    end
+
+    %% Flow: Clients to Surface
+    WebClient --> Routes
+    AppleClient --> Routes
+    CliClient --> Routes
+    Routes --> AuthGate
+    AuthGate --> ServiceLayer
+    AuthGate --> Orchestrator
+
+    %% Internal Flows
+    Orchestrator --> ServiceLayer
+    ServiceLayer --> TypedContext
+    ServiceLayer --> PolicyEngine
+    Orchestrator --> Connect
+    Connect --> Broker
+    Broker --> Integrations
+    ServiceLayer --> Models
+
+    %% Storage Flows
+    ServiceLayer --> StorageFacade
+    Orchestrator --> StorageFacade
+    StorageFacade --> RepoChat
+    StorageFacade --> RepoRuns
+    StorageFacade --> RepoCommit
+    StorageFacade --> RepoCapt
+    StorageFacade --> RepoOther
+    RepoChat --> SQLite
+    RepoRuns --> SQLite
+    RepoCommit --> SQLite
+    RepoCapt --> SQLite
+    RepoOther --> SQLite
+```
+
 ### Authority Runtime
 
 The authority runtime should own:
