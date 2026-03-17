@@ -98,6 +98,10 @@ describe('SettingsPage', () => {
             toggle_risks: true,
             toggle_reminders: true,
             timezone: 'America/Denver',
+            adaptive_policy_overrides: {
+              commute_buffer_minutes: 30,
+              default_prep_minutes: 45,
+            },
           },
           meta: { request_id: 'req_1' },
         } as never
@@ -417,6 +421,19 @@ describe('SettingsPage', () => {
         expect.any(Function),
       )
     })
+  })
+
+  it('renders active adaptive policy overrides in general settings', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+
+    await waitFor(() => {
+      const root = getSettingsRoot(container)
+      expect(within(root).getByText(/adaptive policy overrides/i)).toBeInTheDocument()
+    })
+
+    const root = getSettingsRoot(container)
+    expect(within(root).getByText('30 min')).toBeInTheDocument()
+    expect(within(root).getByText('45 min')).toBeInTheDocument()
   })
 
   it('keeps todoist sync active while google credential save is pending', async () => {

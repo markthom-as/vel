@@ -75,7 +75,7 @@ type IntegrationSectionKey =
   | 'messaging'
   | 'notes'
   | 'transcripts';
-type LocalIntegrationSource = 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
+type LocalIntegrationSource = 'activity' | 'health' | 'git' | 'messaging' | 'notes' | 'transcripts';
 type IntegrationLogSource = 'google-calendar' | 'todoist' | LocalIntegrationSource;
 
 interface RunActionState {
@@ -150,6 +150,15 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
     last_item_count: null,
     guidance: null,
   },
+  health: {
+    configured: false,
+    source_path: null,
+    last_sync_at: null,
+    last_sync_status: null,
+    last_error: null,
+    last_item_count: null,
+    guidance: null,
+  },
   git: {
     configured: false,
     source_path: null,
@@ -197,6 +206,11 @@ const LOCAL_INTEGRATION_SPECS: Array<{
     key: 'activity',
     title: 'Computer Activity',
     description: 'Local workstation activity snapshots for attention and morning-state inference.',
+  },
+  {
+    key: 'health',
+    title: 'Health',
+    description: 'Local health/activity snapshots for wellness-aware context and daily orientation.',
   },
   {
     key: 'git',
@@ -1115,6 +1129,37 @@ export function SettingsPage({
               >
                 Save timezone
               </button>
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-zinc-200">Adaptive policy overrides</h3>
+              <p className="text-sm text-zinc-500">
+                Active runtime adjustments learned from accepted suggestions.
+              </p>
+              {settings.adaptive_policy_overrides?.commute_buffer_minutes == null
+                && settings.adaptive_policy_overrides?.default_prep_minutes == null ? (
+                  <p className="text-sm text-zinc-400">No adaptive overrides are active.</p>
+                ) : (
+                  <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2">
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                      <dt className="text-zinc-500">Commute buffer</dt>
+                      <dd className="mt-1 text-base text-zinc-100">
+                        {settings.adaptive_policy_overrides?.commute_buffer_minutes == null
+                          ? 'Default policy'
+                          : `${settings.adaptive_policy_overrides.commute_buffer_minutes} min`}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                      <dt className="text-zinc-500">Default prep window</dt>
+                      <dd className="mt-1 text-base text-zinc-100">
+                        {settings.adaptive_policy_overrides?.default_prep_minutes == null
+                          ? 'Default policy'
+                          : `${settings.adaptive_policy_overrides.default_prep_minutes} min`}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
             </div>
           </div>
         </div>

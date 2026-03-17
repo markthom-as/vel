@@ -14,6 +14,7 @@ import {
   decodeArray,
   decodeRiskCardContent,
   decodeRunSummaryData,
+  decodeSettingsData,
   decodeSuggestionData,
   decodeWsEvent,
 } from './types'
@@ -241,6 +242,30 @@ describe('transport decoders', () => {
       commitments_used: ['commit_1'],
       risk_used: ['risk_1'],
       reasons: ['mode: focus'],
+    })
+  })
+
+  it('decodes settings with adaptive policy overrides', () => {
+    expect(
+      decodeSettingsData({
+        disable_proactive: false,
+        toggle_risks: true,
+        toggle_reminders: true,
+        timezone: 'America/Denver',
+        adaptive_policy_overrides: {
+          commute_buffer_minutes: 30,
+          default_prep_minutes: 45,
+        },
+      }),
+    ).toEqual({
+      disable_proactive: false,
+      toggle_risks: true,
+      toggle_reminders: true,
+      timezone: 'America/Denver',
+      adaptive_policy_overrides: {
+        commute_buffer_minutes: 30,
+        default_prep_minutes: 45,
+      },
     })
   })
 

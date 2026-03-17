@@ -81,6 +81,10 @@ export interface SettingsData {
   toggle_risks?: boolean;
   toggle_reminders?: boolean;
   timezone?: string | null;
+  adaptive_policy_overrides?: {
+    default_prep_minutes?: number | null;
+    commute_buffer_minutes?: number | null;
+  };
 }
 
 export interface IntegrationCalendarData {
@@ -799,6 +803,10 @@ export function decodeDriftExplainData(value: unknown): DriftExplainData {
 
 export function decodeSettingsData(value: unknown): SettingsData {
   const record = expectRecord(value, 'settings');
+  const adaptiveOverrides =
+    record.adaptive_policy_overrides === undefined
+      ? undefined
+      : expectRecord(record.adaptive_policy_overrides, 'settings.adaptive_policy_overrides');
   return {
     quiet_hours:
       record.quiet_hours === undefined ? undefined : decodeJsonValue(record.quiet_hours),
@@ -818,6 +826,25 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.timezone === undefined
         ? undefined
         : expectNullableString(record.timezone, 'settings.timezone'),
+    adaptive_policy_overrides:
+      adaptiveOverrides === undefined
+        ? undefined
+        : {
+            default_prep_minutes:
+              adaptiveOverrides.default_prep_minutes === undefined
+                ? undefined
+                : expectNullableNumber(
+                    adaptiveOverrides.default_prep_minutes,
+                    'settings.adaptive_policy_overrides.default_prep_minutes',
+                  ),
+            commute_buffer_minutes:
+              adaptiveOverrides.commute_buffer_minutes === undefined
+                ? undefined
+                : expectNullableNumber(
+                    adaptiveOverrides.commute_buffer_minutes,
+                    'settings.adaptive_policy_overrides.commute_buffer_minutes',
+                  ),
+          },
   };
 }
 

@@ -150,6 +150,8 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/sync/messaging", post(routes::sync::sync_messaging))
         .route("/v1/sync/notes", post(routes::sync::sync_notes))
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
+        .route("/v1/sync/bootstrap", get(routes::sync::sync_bootstrap))
+        .route("/v1/sync/actions", post(routes::sync::sync_actions))
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
         .route("/api/components", get(routes::components::list_components))
         .route(
@@ -296,6 +298,90 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn sync_bootstrap_endpoint_returns_ok() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut config = AppConfig::default();
+        config.node_id = Some("vel-desktop".to_string());
+        config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/sync/bootstrap")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn sync_actions_endpoint_applies_nudge_snooze() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let nudge_id = storage
+            .insert_nudge(vel_storage::NudgeInsert {
+                nudge_type: "response_debt".to_string(),
+                level: "warning".to_string(),
+                state: "active".to_string(),
+                related_commitment_id: None,
+                message: "Follow up".to_string(),
+                snoozed_until: None,
+                resolved_at: None,
+                signals_snapshot_json: None,
+                inference_snapshot_json: None,
+                metadata_json: Some(serde_json::json!({})),
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let body = serde_json::json!({
+            "actions": [
+                {
+                    "action_id": "a1",
+                    "action_type": "nudge_snooze",
+                    "target_id": nudge_id,
+                    "minutes": 5
+                }
+            ]
+        })
+        .to_string();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/sync/actions")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::ClientActionBatchResultData> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        assert_eq!(data.applied, 1);
+        assert_eq!(data.results.len(), 1);
+        assert_eq!(data.results[0].status, "applied");
     }
 
     #[tokio::test]
@@ -5774,6 +5860,52 @@ END:VCALENDAR
             .await
             .unwrap();
         assert_eq!(patch_resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn chat_settings_include_adaptive_policy_overrides() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting(
+                "adaptive_policy_overrides",
+                &serde_json::json!({
+                    "commute_buffer_minutes": 30,
+                    "default_prep_minutes": 45
+                }),
+            )
+            .await
+            .unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/settings")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"]["adaptive_policy_overrides"]["commute_buffer_minutes"].as_u64(),
+            Some(30)
+        );
+        assert_eq!(
+            json["data"]["adaptive_policy_overrides"]["default_prep_minutes"].as_u64(),
+            Some(45)
+        );
     }
 
     #[tokio::test]

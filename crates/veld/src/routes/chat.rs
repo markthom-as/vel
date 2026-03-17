@@ -8,12 +8,12 @@ use axum::{
 };
 use serde::Deserialize;
 use uuid::Uuid;
-use vel_core::normalize_risk_level;
 use vel_api_types::{
     ApiResponse, ConversationCreateRequest, ConversationData, ConversationUpdateRequest,
     CreateMessageResponse, InboxItemData, InterventionActionData, MessageCreateRequest,
     MessageData, ProvenanceData, ProvenanceEvent, WsEventType,
 };
+use vel_core::normalize_risk_level;
 use vel_llm::{LlmError, LlmRequest, Message as LlmMessage, ProviderError};
 use vel_storage::{ConversationInsert, EventLogInsert, InterventionInsert, MessageInsert};
 
@@ -773,14 +773,23 @@ fn parse_optional_json_str(value: Option<&str>) -> Option<serde_json::Value> {
     value.and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
 }
 
+async fn settings_payload(storage: &vel_storage::Storage) -> Result<serde_json::Value, AppError> {
+    let mut map = storage.get_all_settings().await?;
+    let adaptive_overrides = crate::services::adaptive_policies::load(storage).await?;
+    map.insert(
+        "adaptive_policy_overrides".to_string(),
+        serde_json::to_value(adaptive_overrides)
+            .map_err(|error| AppError::internal(error.to_string()))?,
+    );
+    Ok(serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({})))
+}
+
 // --- Settings (031) ---
 
 pub async fn get_settings(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let map = state.storage.get_all_settings().await?;
-    let data: serde_json::Value =
-        serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({}));
+    let data = settings_payload(&state.storage).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -834,9 +843,7 @@ pub async fn patch_settings(
                 .await?;
         }
     }
-    let map = state.storage.get_all_settings().await?;
-    let data: serde_json::Value =
-        serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({}));
+    let data = settings_payload(&state.storage).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -981,7 +988,9 @@ pub fn chat_routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
-    use super::{message_policy_summary, message_signal_summary, should_fallback_for_assistant_error};
+    use super::{
+        message_policy_summary, message_signal_summary, should_fallback_for_assistant_error,
+    };
     use serde_json::json;
     use vel_api_types::MessageData;
     use vel_llm::{LlmError, ProviderError};
