@@ -4,6 +4,7 @@
 //! entry point for recompute-and-persist is [evaluate::run]. See docs/tickets/repo-feedback/001.
 
 pub mod adaptive_policies;
+pub mod client_sync;
 pub mod components;
 pub mod context_generation;
 pub mod context_runs;

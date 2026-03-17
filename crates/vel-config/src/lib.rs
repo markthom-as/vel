@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     env, fs,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 const DEFAULT_BIND_ADDR: &str = "127.0.0.1:4130";
@@ -14,10 +14,19 @@ const DEFAULT_DB_PATH: &str = "var/data/vel.sqlite";
 const DEFAULT_ARTIFACT_ROOT: &str = "var/artifacts";
 const DEFAULT_LOG_LEVEL: &str = "info";
 const DEFAULT_BASE_URL: &str = "http://127.0.0.1:4130";
+const DEFAULT_AGENT_SPEC_PATH: &str = "config/agent-specs.yaml";
 const DEFAULT_LLM_MODEL_PATH: &str =
     "configs/models/weights/qwen3-coder-30b-a3b-instruct-q4_k_m.gguf";
 const DEFAULT_LLM_FAST_MODEL_PATH: &str =
     "configs/models/weights/qwen2.5-coder-14b-instruct-q4_k_m.gguf";
+const DEFAULT_CALENDAR_ICS_PATH: &str = "var/integrations/calendar/local.ics";
+const DEFAULT_TODOIST_SNAPSHOT_PATH: &str = "var/integrations/todoist/snapshot.json";
+const DEFAULT_ACTIVITY_SNAPSHOT_PATH: &str = "var/integrations/activity/snapshot.json";
+const DEFAULT_HEALTH_SNAPSHOT_PATH: &str = "var/integrations/health/snapshot.json";
+const DEFAULT_GIT_SNAPSHOT_PATH: &str = "var/integrations/git/snapshot.json";
+const DEFAULT_MESSAGING_SNAPSHOT_PATH: &str = "var/integrations/messaging/snapshot.json";
+const DEFAULT_NOTES_PATH: &str = "var/integrations/notes";
+const DEFAULT_TRANSCRIPT_SNAPSHOT_PATH: &str = "var/integrations/transcripts/snapshot.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AppConfig {
@@ -212,20 +221,28 @@ impl Default for AppConfig {
             node_display_name: None,
             tailscale_base_url: None,
             lan_base_url: None,
-            agent_spec_path: None,
+            agent_spec_path: Some(default_agent_spec_path()),
             llm_model_path: DEFAULT_LLM_MODEL_PATH.to_string(),
             llm_fast_model_path: DEFAULT_LLM_FAST_MODEL_PATH.to_string(),
             calendar_ics_url: None,
-            calendar_ics_path: None,
-            todoist_snapshot_path: None,
-            activity_snapshot_path: None,
-            health_snapshot_path: None,
-            git_snapshot_path: None,
-            messaging_snapshot_path: None,
-            notes_path: None,
-            transcript_snapshot_path: None,
+            calendar_ics_path: Some(DEFAULT_CALENDAR_ICS_PATH.to_string()),
+            todoist_snapshot_path: Some(DEFAULT_TODOIST_SNAPSHOT_PATH.to_string()),
+            activity_snapshot_path: Some(DEFAULT_ACTIVITY_SNAPSHOT_PATH.to_string()),
+            health_snapshot_path: Some(DEFAULT_HEALTH_SNAPSHOT_PATH.to_string()),
+            git_snapshot_path: Some(DEFAULT_GIT_SNAPSHOT_PATH.to_string()),
+            messaging_snapshot_path: Some(DEFAULT_MESSAGING_SNAPSHOT_PATH.to_string()),
+            notes_path: Some(DEFAULT_NOTES_PATH.to_string()),
+            transcript_snapshot_path: Some(DEFAULT_TRANSCRIPT_SNAPSHOT_PATH.to_string()),
         }
     }
+}
+
+fn default_agent_spec_path() -> String {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(DEFAULT_AGENT_SPEC_PATH)
+        .to_string_lossy()
+        .to_string()
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -450,7 +467,39 @@ mod tests {
         assert_eq!(config.db_path, DEFAULT_DB_PATH);
         assert_eq!(config.llm_model_path, DEFAULT_LLM_MODEL_PATH);
         assert_eq!(config.llm_fast_model_path, DEFAULT_LLM_FAST_MODEL_PATH);
-        assert!(config.agent_spec_path.is_none());
+        assert_eq!(
+            config.agent_spec_path.as_deref(),
+            Some(default_agent_spec_path().as_str())
+        );
+        assert_eq!(
+            config.calendar_ics_path.as_deref(),
+            Some(DEFAULT_CALENDAR_ICS_PATH)
+        );
+        assert_eq!(
+            config.todoist_snapshot_path.as_deref(),
+            Some(DEFAULT_TODOIST_SNAPSHOT_PATH)
+        );
+        assert_eq!(
+            config.activity_snapshot_path.as_deref(),
+            Some(DEFAULT_ACTIVITY_SNAPSHOT_PATH)
+        );
+        assert_eq!(
+            config.health_snapshot_path.as_deref(),
+            Some(DEFAULT_HEALTH_SNAPSHOT_PATH)
+        );
+        assert_eq!(
+            config.git_snapshot_path.as_deref(),
+            Some(DEFAULT_GIT_SNAPSHOT_PATH)
+        );
+        assert_eq!(
+            config.messaging_snapshot_path.as_deref(),
+            Some(DEFAULT_MESSAGING_SNAPSHOT_PATH)
+        );
+        assert_eq!(config.notes_path.as_deref(), Some(DEFAULT_NOTES_PATH));
+        assert_eq!(
+            config.transcript_snapshot_path.as_deref(),
+            Some(DEFAULT_TRANSCRIPT_SNAPSHOT_PATH)
+        );
     }
 
     #[test]
@@ -540,10 +589,11 @@ budgets:
     }
 
     #[test]
-    fn load_agent_specs_without_path_is_empty() {
+    fn load_agent_specs_uses_default_repo_path() {
         let config = AppConfig::default();
         let specs = config.load_agent_specs().unwrap();
-        assert!(specs.is_empty());
+        assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].id, "research_agent");
     }
 
     #[test]

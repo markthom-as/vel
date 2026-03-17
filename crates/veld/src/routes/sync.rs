@@ -1,7 +1,10 @@
 use axum::extract::State;
 use axum::Json;
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, SyncResultData};
+use vel_api_types::{
+    ApiResponse, ClientActionBatchRequest, ClientActionBatchResultData, SyncBootstrapData,
+    SyncResultData,
+};
 
 use crate::{errors::AppError, services, state::AppState};
 
@@ -26,6 +29,33 @@ pub async fn sync_calendar(
         },
         request_id,
     )))
+}
+
+pub async fn sync_bootstrap(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<SyncBootstrapData>>, AppError> {
+    let data = services::client_sync::build_sync_bootstrap(&state).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn sync_actions(
+    State(state): State<AppState>,
+    Json(payload): Json<ClientActionBatchRequest>,
+) -> Result<Json<ApiResponse<ClientActionBatchResultData>>, AppError> {
+    if payload.actions.is_empty() {
+        return Err(AppError::bad_request("actions must not be empty"));
+    }
+    if payload.actions.len() > 200 {
+        return Err(AppError::bad_request("actions batch exceeds 200"));
+    }
+
+    let data = services::client_sync::apply_client_actions(&state, payload).await?;
+    if data.applied > 0 {
+        evaluate_and_broadcast_context(&state).await;
+    }
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
 }
 
 pub async fn sync_todoist(

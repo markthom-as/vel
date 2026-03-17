@@ -394,6 +394,7 @@ enum CommitmentCommand {
 
 #[derive(Debug, Subcommand)]
 enum SyncCommand {
+    Bootstrap,
     Calendar,
     Todoist,
     Activity,
@@ -599,6 +600,7 @@ async fn main() -> anyhow::Result<()> {
             }
         },
         Command::Sync { command } => match command {
+            SyncCommand::Bootstrap => commands::sync::run_bootstrap(&client).await,
             SyncCommand::Calendar => commands::sync::run_calendar(&client).await,
             SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
             SyncCommand::Activity => commands::sync::run_activity(&client).await,
@@ -721,6 +723,17 @@ mod tests {
                 command: SyncCommand::Messaging,
             } => {}
             _ => panic!("expected sync messaging command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_sync_bootstrap() {
+        let cli = Cli::try_parse_from(["vel", "sync", "bootstrap"]).unwrap();
+        match cli.command {
+            Command::Sync {
+                command: SyncCommand::Bootstrap,
+            } => {}
+            _ => panic!("expected sync bootstrap command"),
         }
     }
 

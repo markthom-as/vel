@@ -83,3 +83,28 @@ pub async fn run_messaging(client: &ApiClient) -> anyhow::Result<()> {
     println!("messaging: {} signals ingested", d.signals_ingested);
     Ok(())
 }
+
+pub async fn run_bootstrap(client: &ApiClient) -> anyhow::Result<()> {
+    let resp = client.sync_bootstrap().await.context("sync bootstrap")?;
+    let d = resp
+        .data
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!(
+        "authority: {} (epoch {})",
+        d.cluster.active_authority_node_id, d.cluster.active_authority_epoch
+    );
+    println!("transport: {}", d.cluster.sync_transport);
+    println!("sync_base_url: {}", d.cluster.sync_base_url);
+    println!("nudges: {}", d.nudges.len());
+    println!("commitments: {}", d.commitments.len());
+    println!(
+        "current_context: {}",
+        if d.current_context.is_some() {
+            "present"
+        } else {
+            "missing"
+        }
+    );
+    Ok(())
+}

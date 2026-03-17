@@ -5,8 +5,8 @@ use vel_api_types::{
     ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest,
     CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData,
     HealthData, LoopData, LoopUpdateRequest, MorningData, NudgeData, NudgeSnoozeRequest,
-    RunUpdateRequest, SearchQuery, SearchResults, SyncResultData, SynthesisWeekData, TodayData,
-    UncertaintyData,
+    RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData, SyncResultData,
+    SynthesisWeekData, TodayData, UncertaintyData,
 };
 
 #[derive(Clone)]
@@ -331,6 +331,10 @@ impl ApiClient {
 
     pub async fn sync_messaging(&self) -> anyhow::Result<ApiResponse<SyncResultData>> {
         self.post_empty("/v1/sync/messaging").await
+    }
+
+    pub async fn sync_bootstrap(&self) -> anyhow::Result<ApiResponse<SyncBootstrapData>> {
+        self.get("/v1/sync/bootstrap").await
     }
 
     pub async fn list_nudges(&self) -> anyhow::Result<ApiResponse<Vec<NudgeData>>> {

@@ -90,6 +90,98 @@ pub struct ClusterBootstrapData {
     pub tailscale_base_url: Option<String>,
     pub lan_base_url: Option<String>,
     pub localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch_sync: Option<BranchSyncCapabilityData>,
+    #[serde(default)]
+    pub validation_profiles: Vec<ValidationProfileData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchSyncCapabilityData {
+    pub repo_root: String,
+    pub default_remote: String,
+    pub supports_fetch: bool,
+    pub supports_pull: bool,
+    pub supports_push: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationProfileData {
+    pub profile_id: String,
+    pub label: String,
+    pub command_hint: String,
+    pub environment: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchSyncRequestData {
+    pub repo_root: String,
+    pub branch: String,
+    #[serde(default)]
+    pub remote: Option<String>,
+    #[serde(default)]
+    pub base_branch: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub requested_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationRequestData {
+    pub repo_root: String,
+    pub profile_id: String,
+    #[serde(default)]
+    pub branch: Option<String>,
+    #[serde(default)]
+    pub environment: Option<String>,
+    #[serde(default)]
+    pub requested_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientActionKind {
+    NudgeDone,
+    NudgeSnooze,
+    CommitmentDone,
+    CommitmentCreate,
+    CaptureCreate,
+    BranchSyncRequest,
+    ValidationRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientActionData {
+    pub action_id: Option<String>,
+    pub action_type: ClientActionKind,
+    pub target_id: Option<String>,
+    pub text: Option<String>,
+    pub minutes: Option<u32>,
+    #[serde(default)]
+    pub payload: Option<JsonValue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientActionBatchRequest {
+    pub actions: Vec<ClientActionData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientActionResultData {
+    pub action_id: Option<String>,
+    pub action_type: ClientActionKind,
+    pub target_id: Option<String>,
+    pub status: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientActionBatchResultData {
+    pub applied: u32,
+    pub results: Vec<ClientActionResultData>,
 }
 
 /// Status of a single diagnostic check.
@@ -1005,6 +1097,14 @@ pub struct SynthesisWeekData {
 pub struct CurrentContextData {
     pub computed_at: UnixSeconds,
     pub context: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncBootstrapData {
+    pub cluster: ClusterBootstrapData,
+    pub current_context: Option<CurrentContextData>,
+    pub nudges: Vec<NudgeData>,
+    pub commitments: Vec<CommitmentData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
