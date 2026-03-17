@@ -1,4 +1,5 @@
 mod client;
+mod command_lang;
 mod commands;
 
 use anyhow::Context;
@@ -61,6 +62,14 @@ enum Command {
         source_device: Option<String>,
         #[arg(long)]
         limit: Option<u32>,
+        #[arg(long)]
+        json: bool,
+    },
+    Command {
+        #[arg(required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        input: Vec<String>,
+        #[arg(long)]
+        dry_run: bool,
         #[arg(long)]
         json: bool,
     },
@@ -394,7 +403,18 @@ enum CommitmentCommand {
 
 #[derive(Debug, Subcommand)]
 enum SyncCommand {
-    Bootstrap,
+    Bootstrap {
+        #[arg(long)]
+        json: bool,
+    },
+    Cluster {
+        #[arg(long)]
+        json: bool,
+    },
+    Workers {
+        #[arg(long)]
+        json: bool,
+    },
     Calendar,
     Todoist,
     Activity,
@@ -463,6 +483,11 @@ async fn main() -> anyhow::Result<()> {
         } => {
             commands::capture::run(&client, text, stdin, capture_type.clone(), source.clone()).await
         }
+        Command::Command {
+            input,
+            dry_run,
+            json,
+        } => command_lang::run(&client, input, dry_run, json).await,
         Command::Recent { limit, today, json } => {
             commands::recent::run(&client, limit, today, json).await
         }
@@ -600,7 +625,9 @@ async fn main() -> anyhow::Result<()> {
             }
         },
         Command::Sync { command } => match command {
-            SyncCommand::Bootstrap => commands::sync::run_bootstrap(&client).await,
+            SyncCommand::Bootstrap { json } => commands::sync::run_bootstrap(&client, json).await,
+            SyncCommand::Cluster { json } => commands::sync::run_cluster(&client, json).await,
+            SyncCommand::Workers { json } => commands::sync::run_workers(&client, json).await,
             SyncCommand::Calendar => commands::sync::run_calendar(&client).await,
             SyncCommand::Todoist => commands::sync::run_todoist(&client).await,
             SyncCommand::Activity => commands::sync::run_activity(&client).await,
@@ -731,9 +758,31 @@ mod tests {
         let cli = Cli::try_parse_from(["vel", "sync", "bootstrap"]).unwrap();
         match cli.command {
             Command::Sync {
-                command: SyncCommand::Bootstrap,
-            } => {}
+                command: SyncCommand::Bootstrap { json },
+            } => assert!(!json),
             _ => panic!("expected sync bootstrap command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_sync_cluster() {
+        let cli = Cli::try_parse_from(["vel", "sync", "cluster", "--json"]).unwrap();
+        match cli.command {
+            Command::Sync {
+                command: SyncCommand::Cluster { json },
+            } => assert!(json),
+            _ => panic!("expected sync cluster command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_sync_workers() {
+        let cli = Cli::try_parse_from(["vel", "sync", "workers"]).unwrap();
+        match cli.command {
+            Command::Sync {
+                command: SyncCommand::Workers { json },
+            } => assert!(!json),
+            _ => panic!("expected sync workers command"),
         }
     }
 

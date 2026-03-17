@@ -152,6 +152,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/sync/notes", post(routes::sync::sync_notes))
         .route("/v1/sync/transcripts", post(routes::sync::sync_transcripts))
         .route("/v1/sync/bootstrap", get(routes::sync::sync_bootstrap))
+        .route("/v1/sync/cluster", get(routes::sync::sync_cluster))
         .route("/v1/sync/actions", post(routes::sync::sync_actions))
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
         .route("/api/components", get(routes::components::list_components))
@@ -355,6 +356,40 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn sync_cluster_endpoint_returns_nodes_and_workers() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut config = AppConfig::default();
+        config.node_id = Some("vel-desktop".to_string());
+        config.node_display_name = Some("Vel Desktop".to_string());
+        config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/sync/cluster")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::SyncClusterStateData> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        assert_eq!(data.nodes.len(), 1);
+        assert_eq!(data.workers.len(), 1);
+        assert_eq!(data.nodes[0].node_id, "vel-desktop");
+        assert_eq!(data.workers[0].worker_id, "vel-desktop");
+        assert_eq!(data.sync_transport.as_deref(), Some("tailscale"));
     }
 
     #[tokio::test]

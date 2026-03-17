@@ -24,6 +24,10 @@ pub fn run(config: &AppConfig, json: bool) -> anyhow::Result<()> {
     println!("db_path: {}", config.db_path);
     println!("artifact_root: {}", config.artifact_root);
     println!("log_level: {}", config.log_level);
+    println!(
+        "agent_spec_path: {}",
+        config.agent_spec_path.as_deref().unwrap_or("-")
+    );
     println!("llm_model_path: {}", config.llm_model_path);
     println!("llm_fast_model_path: {}", config.llm_fast_model_path);
     println!(

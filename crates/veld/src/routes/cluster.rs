@@ -14,6 +14,16 @@ pub async fn bootstrap(
     Ok(Json(ApiResponse::success(data, request_id)))
 }
 
+pub async fn workers(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<crate::services::client_sync::ClusterWorkersData>>, AppError> {
+    state.storage.healthcheck().await?;
+    let data = crate::services::client_sync::cluster_workers_data(&state);
+
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

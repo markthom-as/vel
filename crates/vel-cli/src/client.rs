@@ -2,11 +2,11 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use vel_api_types::{
-    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, CommitmentCreateRequest,
-    CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData,
-    HealthData, LoopData, LoopUpdateRequest, MorningData, NudgeData, NudgeSnoozeRequest,
-    RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData, SyncResultData,
-    SynthesisWeekData, TodayData, UncertaintyData,
+    ApiResponse, CaptureCreateRequest, CaptureCreateResponse, ClusterBootstrapData,
+    CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, DoctorData, EndOfDayData,
+    EvaluateResultData, HealthData, LoopData, LoopUpdateRequest, MorningData, NudgeData,
+    NudgeSnoozeRequest, RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData,
+    SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData, UncertaintyData,
 };
 
 #[derive(Clone)]
@@ -335,6 +335,14 @@ impl ApiClient {
 
     pub async fn sync_bootstrap(&self) -> anyhow::Result<ApiResponse<SyncBootstrapData>> {
         self.get("/v1/sync/bootstrap").await
+    }
+
+    pub async fn cluster_bootstrap(&self) -> anyhow::Result<ApiResponse<ClusterBootstrapData>> {
+        self.get("/v1/cluster/bootstrap").await
+    }
+
+    pub async fn sync_cluster_state(&self) -> anyhow::Result<ApiResponse<SyncClusterStateData>> {
+        self.get("/v1/sync/cluster").await
     }
 
     pub async fn list_nudges(&self) -> anyhow::Result<ApiResponse<Vec<NudgeData>>> {

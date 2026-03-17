@@ -3,7 +3,7 @@ use axum::Json;
 use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, ClientActionBatchRequest, ClientActionBatchResultData, SyncBootstrapData,
-    SyncResultData,
+    SyncClusterStateData, SyncResultData,
 };
 
 use crate::{errors::AppError, services, state::AppState};
@@ -35,6 +35,15 @@ pub async fn sync_bootstrap(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncBootstrapData>>, AppError> {
     let data = services::client_sync::build_sync_bootstrap(&state).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn sync_cluster(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<SyncClusterStateData>>, AppError> {
+    state.storage.healthcheck().await?;
+    let data = services::client_sync::build_sync_cluster_state(&state);
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

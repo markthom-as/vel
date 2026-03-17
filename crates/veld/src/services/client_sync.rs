@@ -1,11 +1,13 @@
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use time::OffsetDateTime;
 use vel_api_types::{
     BranchSyncCapabilityData, BranchSyncRequestData, ClientActionBatchRequest,
     ClientActionBatchResultData, ClientActionData, ClientActionKind, ClientActionResultData,
-    ClusterBootstrapData, CommitmentCreateRequest, CommitmentData, CurrentContextData, NudgeData,
-    SyncBootstrapData, ValidationProfileData, ValidationRequestData,
+    ClusterBootstrapData, ClusterNodeStateData, ClusterWorkerStateData, CommitmentCreateRequest,
+    CommitmentData, CurrentContextData, NudgeData, SyncBootstrapData, SyncClusterStateData,
+    ValidationProfileData, ValidationRequestData,
 };
 use vel_core::{CommitmentStatus, PrivacyClass};
 use vel_storage::{CaptureInsert, CommitmentInsert, SignalInsert};
@@ -48,6 +50,53 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrapData,
         nudges,
         commitments,
     })
+}
+
+pub fn build_sync_cluster_state(state: &AppState) -> SyncClusterStateData {
+    let cluster = cluster_bootstrap_data(state);
+    let workers = cluster_workers_data(state);
+
+    SyncClusterStateData {
+        cluster_view_version: Some(workers.generated_at),
+        authority_node_id: Some(cluster.active_authority_node_id.clone()),
+        authority_epoch: Some(cluster.active_authority_epoch),
+        sync_transport: Some(cluster.sync_transport.clone()),
+        cluster: Some(cluster.clone()),
+        nodes: vec![ClusterNodeStateData {
+            node_id: cluster.node_id.clone(),
+            node_display_name: Some(cluster.node_display_name.clone()),
+            node_class: Some("authority".to_string()),
+            sync_base_url: Some(cluster.sync_base_url.clone()),
+            sync_transport: Some(cluster.sync_transport.clone()),
+            tailscale_base_url: cluster.tailscale_base_url.clone(),
+            lan_base_url: cluster.lan_base_url.clone(),
+            localhost_base_url: cluster.localhost_base_url.clone(),
+            capabilities: cluster.capabilities.clone(),
+            reachability: Some("reachable".to_string()),
+            last_seen_at: Some(workers.generated_at),
+        }],
+        workers: workers
+            .workers
+            .into_iter()
+            .map(|worker| ClusterWorkerStateData {
+                worker_id: worker.node_id.clone(),
+                node_id: Some(worker.node_id),
+                worker_class: worker.worker_classes.first().cloned(),
+                status: Some("ready".to_string()),
+                max_concurrency: Some(worker.capacity.max_concurrency),
+                current_load: Some(worker.capacity.current_load),
+                queue_depth: Some(0),
+                reachability: Some(worker.reachability),
+                latency_class: Some(worker.latency_class),
+                compute_class: Some(worker.compute_class),
+                power_class: Some(worker.power_class),
+                recent_failure_rate: Some(0.0),
+                tailscale_preferred: Some(worker.tailscale_reachable),
+                last_heartbeat_at: Some(worker.last_heartbeat_at),
+                capabilities: worker.capabilities,
+            })
+            .collect(),
+    }
 }
 
 pub async fn apply_client_actions(
@@ -449,6 +498,85 @@ fn validate_validation_request(request: &ValidationRequestData) -> Result<(), Ap
     Ok(())
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct ClusterWorkersData {
+    pub active_authority_node_id: String,
+    pub active_authority_epoch: i64,
+    pub generated_at: i64,
+    pub workers: Vec<WorkerPresenceData>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkerPresenceData {
+    pub node_id: String,
+    pub node_display_name: String,
+    pub worker_classes: Vec<String>,
+    pub capabilities: Vec<String>,
+    pub reachability: String,
+    pub latency_class: String,
+    pub compute_class: String,
+    pub power_class: String,
+    pub last_heartbeat_at: i64,
+    pub started_at: i64,
+    pub sync_base_url: String,
+    pub sync_transport: String,
+    pub tailscale_base_url: Option<String>,
+    pub preferred_tailnet_endpoint: Option<String>,
+    pub tailscale_reachable: bool,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    pub capacity: WorkerCapacityData,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkerCapacityData {
+    pub max_concurrency: u32,
+    pub current_load: u32,
+    pub available_concurrency: u32,
+}
+
+pub fn cluster_workers_data(state: &AppState) -> ClusterWorkersData {
+    let bootstrap = cluster_bootstrap_data(state);
+    let runtime = state.worker_runtime.snapshot();
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    let current_load = runtime.current_load.min(runtime.max_concurrency);
+    let tailscale_reachable = bootstrap
+        .tailscale_base_url
+        .as_ref()
+        .map(|url| !url.trim().is_empty())
+        .unwrap_or(false);
+
+    ClusterWorkersData {
+        active_authority_node_id: bootstrap.active_authority_node_id.clone(),
+        active_authority_epoch: bootstrap.active_authority_epoch,
+        generated_at: now,
+        workers: vec![WorkerPresenceData {
+            node_id: bootstrap.node_id.clone(),
+            node_display_name: bootstrap.node_display_name.clone(),
+            worker_classes: worker_classes_for_capabilities(&bootstrap.capabilities),
+            capabilities: bootstrap.capabilities.clone(),
+            reachability: "reachable".to_string(),
+            latency_class: latency_class_for_transport(&bootstrap.sync_transport),
+            compute_class: compute_class_for_capacity(runtime.max_concurrency),
+            power_class: infer_power_class(&bootstrap.node_id),
+            last_heartbeat_at: now,
+            started_at: runtime.started_at,
+            sync_base_url: bootstrap.sync_base_url,
+            sync_transport: bootstrap.sync_transport,
+            preferred_tailnet_endpoint: bootstrap.tailscale_base_url.clone(),
+            tailscale_base_url: bootstrap.tailscale_base_url,
+            tailscale_reachable,
+            lan_base_url: bootstrap.lan_base_url,
+            localhost_base_url: bootstrap.localhost_base_url,
+            capacity: WorkerCapacityData {
+                max_concurrency: runtime.max_concurrency,
+                current_load,
+                available_concurrency: runtime.max_concurrency.saturating_sub(current_load),
+            },
+        }],
+    }
+}
+
 pub fn cluster_bootstrap_data(state: &AppState) -> ClusterBootstrapData {
     let node_id = state
         .config
@@ -508,6 +636,54 @@ pub fn preferred_sync_target(
         "configured"
     };
     (base_url.to_string(), transport.to_string())
+}
+
+fn worker_classes_for_capabilities(capabilities: &[String]) -> Vec<String> {
+    let mut worker_classes = vec!["authority".to_string(), "sync".to_string()];
+
+    if capabilities
+        .iter()
+        .any(|capability| capability == "branch_sync")
+    {
+        worker_classes.push("repo_sync".to_string());
+    }
+    if capabilities
+        .iter()
+        .any(|capability| capability == "build_test_profiles")
+    {
+        worker_classes.push("validation".to_string());
+    }
+
+    worker_classes
+}
+
+fn latency_class_for_transport(sync_transport: &str) -> String {
+    match sync_transport {
+        "localhost" => "ultra_low".to_string(),
+        "tailscale" | "lan" => "low".to_string(),
+        _ => "medium".to_string(),
+    }
+}
+
+fn compute_class_for_capacity(max_concurrency: u32) -> String {
+    match max_concurrency {
+        0..=2 => "edge".to_string(),
+        3..=8 => "standard".to_string(),
+        _ => "high".to_string(),
+    }
+}
+
+fn infer_power_class(node_id: &str) -> String {
+    let node_id = node_id.to_ascii_lowercase();
+    if node_id.contains("watch")
+        || node_id.contains("iphone")
+        || node_id.contains("ios")
+        || node_id.contains("phone")
+    {
+        "battery".to_string()
+    } else {
+        "ac_or_unknown".to_string()
+    }
 }
 
 fn localhost_base_url(bind_addr: &str) -> Option<String> {
