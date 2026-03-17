@@ -87,9 +87,12 @@
   "authority_docs": [
     "docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md",
     "docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md",
+    "docs/cognitive-agent-architecture/integrations/data-source-catalog.md",
     "docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md",
     "docs/tickets/phase-1/021-canonical-schema-and-config-contracts.md",
     "docs/tickets/phase-1/022-data-sources-and-connector-architecture.md",
-    "docs/tickets/phase-1/023-self-awareness-and-supervised-self-modification.md"
+    "docs/tickets/phase-1/023-self-awareness-and-supervised-self-modification.md",
+    "docs/tickets/phase-1/024-machine-readable-schema-and-manifest-publication.md",
+    "docs/tickets/phase-1/025-config-and-contract-fixture-parity.md"
   ]
 }

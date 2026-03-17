@@ -36,7 +36,7 @@ This ticket defines and operationalizes that contract so new integrations extend
 # Technical Requirements
 
 - **Canonical Family List**: Maintain one stable list of data-source families.
-- **Source Modes**: Every connector must declare how it gets data: file, directory, snapshot, OAuth API, brokered tool, or delegated runtime.
+- **Source Modes**: Every connector must declare how it gets data: file, directory, snapshot, credential-backed API, device export, brokered tool, or delegated connector runtime.
 - **Manifest Shape**: Connectors must declare capabilities, secret mode, freshness semantics, provenance, and write permissions.
 - **Provenance**: Connector outputs must attach stable source references where applicable.
 - **Trust Discipline**: Local-first source modes remain preferred for core loops; remote/brokered modes must stay scoped and inspectable.

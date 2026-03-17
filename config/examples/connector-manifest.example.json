@@ -13,6 +13,15 @@
     "google_calendar.client_id",
     "google_calendar.client_secret"
   ],
+  "emits": {
+    "signals": [
+      "calendar_event"
+    ],
+    "entities": [
+      "IntegrationConnection",
+      "IntegrationConnectionEvent"
+    ]
+  },
   "allowed_hosts": [
     "accounts.google.com",
     "www.googleapis.com"
