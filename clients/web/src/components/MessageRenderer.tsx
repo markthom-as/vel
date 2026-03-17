@@ -12,6 +12,7 @@ import {
   SuggestionCardView,
   SummaryCardView,
 } from './cards';
+import { MarkdownMessage } from './MarkdownMessage';
 
 interface MessageRendererProps {
   message: MessageData;
@@ -48,7 +49,7 @@ export function MessageRenderer({
   const cardContent = (
     <>
       {message.kind === 'text' && textContent && (
-        <p className="whitespace-pre-wrap text-zinc-200">{textContent.text}</p>
+        <MarkdownMessage text={textContent.text} />
       )}
       {message.kind === 'reminder_card' && reminderCardContent && (
         <ReminderCardView content={reminderCardContent} />
@@ -63,7 +64,7 @@ export function MessageRenderer({
         <SummaryCardView content={summaryCardContent} />
       )}
       {message.kind === 'system_notice' && textContent && (
-        <p className="text-zinc-400 italic">{textContent.text}</p>
+        <MarkdownMessage text={textContent.text} muted />
       )}
       {(shouldShowRawFallback
         || !['text', 'reminder_card', 'risk_card', 'suggestion_card', 'summary_card', 'system_notice'].includes(message.kind)) && (

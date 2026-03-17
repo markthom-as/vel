@@ -15,13 +15,13 @@
 | 029–033 | **Done** | Provenance API + drawer; settings API + UI; seed script; New conversation in sidebar |
 | 034     | **Done** | Backend tests: chat list/create/get 404, create message then list, inbox empty, settings get/patch, intervention snooze 404, WebSocket GET /ws |
 | 035     | **Done** | Frontend tests: MessageRenderer (text, cards, onSnooze/onShowWhy), MessageComposer (send, error), SettingsPage (load, Back, apiPatch on toggle, integrations actions, run controls) |
-| 036     | **Todo** | Rich markdown/code/action rendering remains open |
+| 036     | **Partial** | Markdown blocks, inline code/links/emphasis, and fenced code blocks with copy affordance are implemented for text/system messages; richer feedback/action rows remain open |
 | 037     | **Done** | Remote fallback and retry path for assistant generation |
 
 ## Alignment with docs
 
 - **Specs:** [vel-chat-interface-implementation-brief.md](specs/vel-chat-interface-implementation-brief.md), [vel-chat-execution-plan.md](specs/vel-chat-execution-plan.md) — API shape, domain model, WebSocket, React client match current implementation.
-- **Ticket pack:** [docs/tickets/](tickets/) — 001–037 tracked; 036 remains open, 037 is implemented.
+- **Ticket pack:** [docs/tickets/](tickets/) — 001–037 tracked; 036 is partial, 037 is implemented.
 - **Status / index:** repo-wide canonical ledger is [status.md](status.md); this file and [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md) defer to it for rollout truth.
 - **Realtime contract:** `/ws` carries `messages:new` for newly persisted chat messages, `interventions:new` for newly created interventions, and `interventions:updated` for snooze/resolve/dismiss actions.
 - **Transport contract cleanup:** chat/websocket DTOs now live in `crates/vel-api-types`, and the web client consumes them through a centralized runtime decoder layer instead of per-component ad hoc guards.

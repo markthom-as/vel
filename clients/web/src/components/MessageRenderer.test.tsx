@@ -128,4 +128,59 @@ describe('MessageRenderer', () => {
     fireEvent.click(screen.getByRole('button', { name: /show why/i }))
     expect(onShowWhy).toHaveBeenCalledWith('msg_5')
   })
+
+  it('renders markdown headings, lists, links, and inline code', () => {
+    const message: MessageData = {
+      id: 'msg_md',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'text',
+      content: {
+        text: '# Plan\n\n- Review `worker.rs`\n- Open [status](https://example.com/status)\n\nUse *careful* retries.',
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByRole('heading', { name: 'Plan' })).toBeInTheDocument()
+    expect(screen.getByText('Review')).toBeInTheDocument()
+    expect(screen.getByText('worker.rs')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'status' })).toHaveAttribute(
+      'href',
+      'https://example.com/status',
+    )
+    expect(screen.getByText('careful')).toBeInTheDocument()
+  })
+
+  it('renders fenced code blocks with copy affordance', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, {
+      clipboard: { writeText },
+    })
+
+    const message: MessageData = {
+      id: 'msg_code',
+      conversation_id: 'conv_1',
+      role: 'assistant',
+      kind: 'text',
+      content: {
+        text: '```bash\ncargo test -p veld\n```',
+      },
+      status: null,
+      importance: null,
+      created_at: 0,
+      updated_at: null,
+    }
+
+    render(<MessageRenderer message={message} />)
+
+    expect(screen.getByText('bash')).toBeInTheDocument()
+    expect(screen.getByText('cargo test -p veld')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /copy code/i }))
+    expect(writeText).toHaveBeenCalledWith('cargo test -p veld')
+  })
 })
