@@ -28,7 +28,9 @@ pub async fn run(
     let _ = crate::services::risk::run(storage, now_ts).await?;
     let states = crate::services::inference::run(storage).await?;
     let nudges = crate::services::nudge_engine::evaluate(storage, policy_config, states).await?;
-    if let Err(e) = crate::services::suggestions::evaluate_after_nudges(storage).await {
+    if let Err(e) =
+        crate::services::suggestions::evaluate_after_nudges(storage, policy_config).await
+    {
         tracing::warn!(error = %e, "suggestions evaluate_after_nudges");
     }
 

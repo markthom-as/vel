@@ -3207,7 +3207,12 @@ mod tests {
                 .unwrap();
         }
 
-        let created = crate::services::suggestions::evaluate_after_nudges(&storage)
+        let mut policy_config = test_policy_config();
+        policy_config.suggestions.max_new_per_evaluate = 4;
+        policy_config.suggestions.response_debt.threshold = 2;
+        policy_config.suggestions.morning_drift.threshold = 2;
+
+        let created = crate::services::suggestions::evaluate_after_nudges(&storage, &policy_config)
             .await
             .unwrap();
         assert_eq!(created, 4);
@@ -3306,8 +3311,12 @@ mod tests {
                 .unwrap();
         }
 
-        let created =
-            crate::services::suggestions::evaluate_after_nudges(&storage).await.unwrap();
+        let mut policy_config = test_policy_config();
+        policy_config.suggestions.max_new_per_evaluate = 2;
+
+        let created = crate::services::suggestions::evaluate_after_nudges(&storage, &policy_config)
+            .await
+            .unwrap();
         assert_eq!(created, 2);
 
         let suggestions = storage.list_suggestions(Some("pending"), 10).await.unwrap();

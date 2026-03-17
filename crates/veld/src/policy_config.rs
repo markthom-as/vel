@@ -8,6 +8,8 @@ use std::path::Path;
 pub struct PolicyConfig {
     #[serde(default)]
     pub loops: LoopPolicies,
+    #[serde(default)]
+    pub suggestions: SuggestionPolicies,
     pub policies: PoliciesMap,
 }
 
@@ -78,6 +80,35 @@ pub struct LoopPolicies {
 pub struct LoopPolicy {
     pub enabled: bool,
     pub interval_seconds: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SuggestionPolicies {
+    pub enabled: bool,
+    pub window_days: i64,
+    pub suppression_days: i64,
+    pub max_new_per_evaluate: usize,
+    pub commute: ThresholdSuggestionPolicy,
+    pub prep: ThresholdSuggestionPolicy,
+    pub response_debt: ResponseDebtSuggestionPolicy,
+    pub morning_drift: SimpleThresholdSuggestionPolicy,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ThresholdSuggestionPolicy {
+    pub threshold: usize,
+    pub increment_minutes: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResponseDebtSuggestionPolicy {
+    pub threshold: usize,
+    pub followup_block_minutes: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SimpleThresholdSuggestionPolicy {
+    pub threshold: usize,
 }
 
 impl Default for PoliciesMap {
@@ -182,6 +213,30 @@ impl Default for LoopPolicy {
     }
 }
 
+impl Default for SuggestionPolicies {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            window_days: 7,
+            suppression_days: 14,
+            max_new_per_evaluate: 3,
+            commute: ThresholdSuggestionPolicy {
+                threshold: 2,
+                increment_minutes: 10,
+            },
+            prep: ThresholdSuggestionPolicy {
+                threshold: 2,
+                increment_minutes: 15,
+            },
+            response_debt: ResponseDebtSuggestionPolicy {
+                threshold: 3,
+                followup_block_minutes: 20,
+            },
+            morning_drift: SimpleThresholdSuggestionPolicy { threshold: 3 },
+        }
+    }
+}
+
 impl PolicyConfig {
     /// Load policy config from path. Fails clearly if file is missing or malformed.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, PolicyConfigError> {
@@ -227,6 +282,9 @@ impl PolicyConfig {
     pub fn stale_nudge_reconciliation_loop(&self) -> Option<&LoopPolicy> {
         self.loops.stale_nudge_reconciliation.as_ref()
     }
+    pub fn suggestions(&self) -> &SuggestionPolicies {
+        &self.suggestions
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -255,6 +313,9 @@ mod tests {
         assert!(config.sync_messaging_loop().is_some());
         assert!(config.weekly_synthesis_loop().is_some());
         assert!(config.stale_nudge_reconciliation_loop().is_some());
+        assert!(config.suggestions().enabled);
+        assert_eq!(config.suggestions().window_days, 7);
+        assert_eq!(config.suggestions().response_debt.threshold, 3);
         assert!(config.meeting_prep_window().unwrap().default_prep_minutes == 30);
         assert!(config.commute_leave_time().unwrap().require_travel_minutes);
         assert_eq!(

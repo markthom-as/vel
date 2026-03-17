@@ -23,6 +23,23 @@ loops:
     enabled: true
     interval_seconds: 1800
 
+suggestions:
+  enabled: true
+  window_days: 7
+  suppression_days: 14
+  max_new_per_evaluate: 3
+  commute:
+    threshold: 2
+    increment_minutes: 10
+  prep:
+    threshold: 2
+    increment_minutes: 15
+  response_debt:
+    threshold: 3
+    followup_block_minutes: 20
+  morning_drift:
+    threshold: 3
+
 policies:
   meds_not_logged:
     enabled: true
