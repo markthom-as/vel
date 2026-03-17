@@ -113,6 +113,7 @@ The first concrete draft should define:
 - provider-neutral backup model and boundary draft in [docs/specs/vel-storage-backup-sync-spec.md](../../specs/vel-storage-backup-sync-spec.md)
 - explicit storage-layer table plan for targets, copies, manifests, verification, and restore planning
 - first-pass core domain scaffolding for those concepts in `vel-core`
+- first-pass storage migration scaffold for those tables under `migrations/0033_storage_backup_foundation.sql`
 
 ## Acceptance criteria
 

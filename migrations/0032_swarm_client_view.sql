@@ -1,0 +1,9 @@
+ALTER TABLE cluster_workers ADD COLUMN client_kind TEXT;
+ALTER TABLE cluster_workers ADD COLUMN client_version TEXT;
+ALTER TABLE cluster_workers ADD COLUMN protocol_version TEXT;
+ALTER TABLE cluster_workers ADD COLUMN build_id TEXT;
+ALTER TABLE cluster_workers ADD COLUMN ping_ms INTEGER;
+ALTER TABLE cluster_workers ADD COLUMN sync_status TEXT;
+ALTER TABLE cluster_workers ADD COLUMN last_upstream_sync_at INTEGER;
+ALTER TABLE cluster_workers ADD COLUMN last_downstream_sync_at INTEGER;
+ALTER TABLE cluster_workers ADD COLUMN last_sync_error TEXT;
