@@ -516,6 +516,14 @@ If a worker becomes slow, unreachable, or overloaded mid-run, the supervisor may
 
 In-flight side-effect units must not be blindly duplicated. They require receipt-aware retry handling.
 
+### Work Unit Receipts & Claims
+
+Each work unit must emit receipts for every lifecycle transition (`claimed`, `started`, `completed`, `failed`, `retriable`). Receipts include the `work_request_id`, worker identity, authority epoch, and timestamp so replay or retry logic can prove what happened. The receipt stream is authoritative for whether a given side effect ran, so planners can avoid duplicate side effects and integrate structured results deterministically.
+
+Workers must claim work before executing it; claims are reflected in the `cluster_workers` heartbeats along with the receipt state. A worker that fails or exits unexpectedly must leave a `failed` receipt plus failure metadata so the supervisor can triage or reassign. Before re-queueing a request, the supervisor examines the last receipt for that `work_request_id` and only retries if the last state is `failed`, `retriable`, or `expired`.
+
+Operator-inspection surfaces (API, CLI) surface the latest receipt states per `work_request_id`, including the last worker that handled it and whether it is still marked `in-flight`. This visibility helps detect stuck assignments, enact manual cancels, or reroute work to other tailnet workers without guessing at what already ran.
+
 ### Preferred Placement Order
 
 Default preference should be:

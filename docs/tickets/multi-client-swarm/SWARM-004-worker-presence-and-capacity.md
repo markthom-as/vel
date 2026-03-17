@@ -1,7 +1,7 @@
 ---
 id: SWARM-004
 title: Implement worker presence and capacity registry
-status: open
+status: in_progress
 owner: agent
 priority: p1
 area: swarm/registry
@@ -11,6 +11,20 @@ depends_on: [SWARM-002, SWARM-003]
 # Goal
 
 Create the cluster-visible registry for worker presence, capacity, and capabilities that the swarm scheduler will use for placement and load balancing.
+
+# Current implemented slice
+
+Partially landed:
+
+- read/write worker presence surfaces now exist at `GET /v1/cluster/workers`, `GET /v1/sync/cluster`, and `POST /v1/sync/heartbeat`
+- worker metadata is stored in a durable `cluster_workers` registry with bounded expiry
+- current worker metadata includes `worker_classes`, transport/reachability metadata, Tailscale preference fields, and max/current/available concurrency
+
+Still missing from this ticket:
+
+- multi-node registry rather than local-node-only reporting
+- persisted failure-rate and assignment-receipt history
+- scheduler consumption of these read models for actual placement
 
 # Tasks
 

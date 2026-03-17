@@ -24,6 +24,7 @@ Implement the swarm scheduler that can fan out independent work units in paralle
 - Independent work units run in parallel.
 - Dependency-unsafe or conflicting writes remain serialized.
 - Budget violations are rejected before runaway execution.
+- Receipts capture each work-unit claim/start/completion so retries only reissue units whose previous receipt shows failure or expiry.
 - Scheduler state is durable enough to survive restart or replay.
 
 # Spec reference

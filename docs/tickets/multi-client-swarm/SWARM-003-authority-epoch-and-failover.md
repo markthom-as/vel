@@ -1,7 +1,7 @@
 ---
 id: SWARM-003
 title: Add authority epoch and temporary authority handoff
-status: open
+status: in_progress
 owner: agent
 priority: p0
 area: cluster/authority
@@ -11,6 +11,20 @@ depends_on: [SWARM-002]
 # Goal
 
 Make cluster authority explicit so temporary failover and reconciliation can happen without hidden split-brain behavior.
+
+# Current implemented slice
+
+Partially landed:
+
+- bootstrap and sync-cluster payloads now publish `authority_node_id`, `authority_epoch`, and cluster-view metadata
+- clients have Tailscale-aware bootstrap routing metadata and operator inspection surfaces
+
+Still missing from this ticket:
+
+- temporary authority claim behavior
+- durable authority-change events
+- reconciliation from temporary authority back to preferred authority
+- stale-authority rejection and full rebinding flow
 
 # Tasks
 

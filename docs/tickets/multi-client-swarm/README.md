@@ -1,6 +1,6 @@
 ---
 title: Multi-Client Swarm Ticket Pack
-status: todo
+status: in_progress
 owner: agent
 labels:
   - planning
@@ -33,12 +33,35 @@ Related specs:
 |----|--------|--------|
 | SWARM-001 | Add Swarm Task and Work Unit domain model | open |
 | SWARM-002 | Build append-only cluster sync substrate | open |
-| SWARM-003 | Add authority epoch and temporary authority handoff | open |
-| SWARM-004 | Implement worker presence and capacity registry | open |
+| SWARM-003 | Add authority epoch and temporary authority handoff | in_progress |
+| SWARM-004 | Implement worker presence and capacity registry | in_progress |
 | SWARM-005 | Implement DAG scheduler and bounded parallel execution | open |
 | SWARM-006 | Implement supervisor integration and conflict handling | open |
 | SWARM-007 | Add cluster-aware load balancing and rebalancing | open |
 | SWARM-008 | Add observability, replay, and end-to-end failover tests | open |
+
+## Partial implementation note
+
+The repo now has an initial shipped slice of the cluster/sync design:
+
+- `GET /v1/cluster/bootstrap`
+- `GET /v1/cluster/workers`
+- `GET /v1/sync/bootstrap`
+- `GET /v1/sync/cluster`
+- `POST /v1/sync/heartbeat`
+- `GET /v1/sync/work-assignments`
+- `POST /v1/sync/work-assignments`
+- `PATCH /v1/sync/work-assignments`
+- `GET /v1/sync/work-queue`
+- `POST /v1/sync/actions`
+
+These surfaces provide authority metadata, Tailscale-aware routing metadata, unified client cache hydration, low-risk action batching, a durable heartbeat-backed worker registry, receipt-aware work-unit assignment, queue inspection for pending worker-class work, and first-pass queued-work placement metadata.
+
+They do not yet provide:
+
+- multi-node membership and replication
+- authority claim/handoff
+- scheduler-driven distributed work placement
 
 ## Intended execution order
 

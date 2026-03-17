@@ -443,6 +443,16 @@ Presence is advisory metadata, not a source of truth about user state.
 
 Heartbeats should be cheap and bounded.
 
+### Queued Work Assignment Lifecycle
+
+Every queued work item must carry a unique `work_request_id`, the target node, target worker class, requested capability, and authority epoch. This metadata is propagated through the existing `client_branch_sync_requested` / `client_validation_requested` signals, and it should remain attached until the work completes (success, failure, or cancel).
+
+Workers claim, start, and complete work via heartbeat/assignment-aware surfaces such as `POST /v1/sync/heartbeat` plus explicit receipt endpoints. Each heartbeat refreshes the worker registry and can include the optional `work_request_id` the worker is handling along with `component` (API/branch/validation) and a `receipt_state` (`claimed`, `started`, `completed`, `failed`). Receipts must be persisted (even temporarily) so replay, retry, and operator inspection can prove what ran, when, and whether it succeeded.
+
+Receipts also enable idempotent retries: before re-queuing a request, the authority checks the latest receipt for that `work_request_id`. Duplicate requests must install idempotency keys and reuse receipts rather than re-executing side effects. Workers should emit receipts for every attempt along with optional failure reasons or logs so the supervisor can decide when to escalate. Queue inspection should filter out requests whose latest receipt is already terminal (`completed`, `cancelled`) and expose only work that is still pending or reclaimable.
+
+Operator surfaces (`GET /v1/sync/cluster`, `GET /v1/cluster/workers`, CLI `vel sync workers`) expose placement history, current receipt state, and any outstanding `work_request_id` assignments. These inspection surfaces must show the last seen authority epoch, tailnet state, and whether the last receipt was `completed` or still `in-flight`. This helps detect stuck work units and ensures the planner can reassign stale receipts.
+
 ---
 
 ## Load-Balanced Placement Support
@@ -573,6 +583,42 @@ These are interface-level suggestions, not final API law.
 - `POST /v1/cluster/claim-temporary-authority`
 
 These endpoints may later collapse into fewer surfaces, but the responsibilities should remain distinct.
+
+### Currently shipped minimal surfaces
+
+As of the current repo state, the following read/write subset exists:
+
+- `GET /v1/cluster/bootstrap`
+- `GET /v1/cluster/workers`
+- `GET /v1/sync/bootstrap`
+- `GET /v1/sync/cluster`
+- `POST /v1/sync/heartbeat`
+- `GET /v1/sync/work-assignments`
+- `POST /v1/sync/work-assignments`
+- `PATCH /v1/sync/work-assignments`
+- `GET /v1/sync/work-queue`
+- `POST /v1/sync/actions`
+
+This is only a bootstrap slice of the full cluster-sync design.
+
+What is present now:
+
+- authority metadata in bootstrap and sync-cluster views
+- Tailscale-first endpoint selection metadata
+- cache hydration for current context, nudges, and commitments
+- heartbeat-backed worker presence registry with expiry
+- batched low-risk client action ingestion
+- worker-aware routing for queued validation and branch-sync requests
+- receipt-backed work claim/start/complete/fail lifecycle
+- queue inspection for pending node/worker-class work after receipt-state filtering
+
+What is not yet present:
+
+- durable multi-node membership registry
+- append-only downstream log replication
+- temporary authority claim/handoff
+- cross-node scheduler-assignment replication
+- richer retry policy beyond duplicate suppression and stale-receipt reclaim
 
 ---
 
