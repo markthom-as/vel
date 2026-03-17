@@ -1290,6 +1290,22 @@ impl Storage {
         Ok(row.0)
     }
 
+    /// Count inferred_state rows (for read-boundary tests).
+    pub async fn count_inferred_state(&self) -> Result<i64, StorageError> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM inferred_state")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0)
+    }
+
+    /// Count context_timeline rows (for read-boundary tests).
+    pub async fn count_context_timeline(&self) -> Result<i64, StorageError> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM context_timeline")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0)
+    }
+
     /// Count nudge_events rows (for read-boundary tests).
     pub async fn count_nudge_events(&self) -> Result<i64, StorageError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM nudge_events")

@@ -4,7 +4,7 @@
 //! **Boundary: recompute-and-persist.** [run] must only be called from the evaluate orchestration.
 //! Read routes (GET /v1/risk, GET /v1/explain/*) use storage only (list_commitment_risk_*).
 
-use vel_core::{Commitment, CommitmentStatus};
+use vel_core::{Commitment, CommitmentStatus, RiskFactors, RiskSnapshot};
 use vel_storage::Storage;
 
 /// Weights for risk score (consequence, proximity, dependency_pressure only).
@@ -16,16 +16,6 @@ const W_DEPENDENCY: f64 = 0.20;
 const LOW_MAX: f64 = 0.24;
 const MEDIUM_MAX: f64 = 0.49;
 const HIGH_MAX: f64 = 0.74;
-
-/// Snapshot of computed risk for a commitment. Returned by [run]; callers currently persist via storage and may ignore the vec.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct RiskSnapshot {
-    pub commitment_id: String,
-    pub risk_score: f64,
-    pub risk_level: String,
-    pub factors_json: String,
-}
 
 /// Consequence heuristic: 0.0..=1.0.
 fn consequence(commitment: &Commitment) -> f64 {
@@ -91,6 +81,52 @@ fn score_to_level(score: f64) -> &'static str {
     } else {
         "low"
     }
+}
+
+pub fn decode_factors_json(factors_json: &str) -> RiskFactors {
+    serde_json::from_str(factors_json).unwrap_or(RiskFactors {
+        consequence: 0.0,
+        proximity: 0.0,
+        dependency_pressure: 0.0,
+        reasons: Vec::new(),
+        dependency_ids: Vec::new(),
+    })
+}
+
+pub fn snapshot_from_row(
+    commitment_id: String,
+    risk_score: f64,
+    risk_level: String,
+    factors_json: &str,
+    computed_at: Option<i64>,
+) -> RiskSnapshot {
+    RiskSnapshot {
+        commitment_id,
+        risk_score,
+        risk_level,
+        factors: decode_factors_json(factors_json),
+        computed_at,
+    }
+}
+
+pub async fn list_latest_snapshots(
+    storage: &Storage,
+) -> Result<Vec<RiskSnapshot>, crate::errors::AppError> {
+    let rows = storage.list_commitment_risk_latest_all().await?;
+    Ok(rows
+        .into_iter()
+        .map(
+            |(_, commitment_id, risk_score, risk_level, factors_json, computed_at)| {
+                snapshot_from_row(
+                    commitment_id,
+                    risk_score,
+                    risk_level,
+                    &factors_json,
+                    Some(computed_at),
+                )
+            },
+        )
+        .collect())
 }
 
 /// **Recompute-and-persist.** Compute risk for all open commitments and persist. Returns snapshots.
@@ -162,23 +198,53 @@ pub async fn run(
         .into_iter()
         .flatten()
         .collect();
-        let factors = serde_json::json!({
-            "consequence": consequence_val,
-            "proximity": proximity_val,
-            "dependency_pressure": dep_val,
-            "reasons": reasons,
-            "dependency_ids": dependency_ids
-        });
-        let factors_str = factors.to_string();
+        let factors = RiskFactors {
+            consequence: *consequence_val,
+            proximity: *proximity_val,
+            dependency_pressure: dep_val,
+            reasons: reasons.iter().map(|reason| (*reason).to_string()).collect(),
+            dependency_ids,
+        };
+        let factors_str = serde_json::to_string(&factors)
+            .map_err(|error| crate::errors::AppError::internal(error.to_string()))?;
         storage
             .insert_commitment_risk(c.id.as_ref(), score, &level, &factors_str, now_ts)
             .await?;
-        snapshots.push(RiskSnapshot {
-            commitment_id: c.id.as_ref().to_string(),
-            risk_score: score,
-            risk_level: level,
-            factors_json: factors_str,
-        });
+        snapshots.push(snapshot_from_row(
+            c.id.as_ref().to_string(),
+            score,
+            level,
+            &factors_str,
+            Some(now_ts),
+        ));
     }
     Ok(snapshots)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_from_row_decodes_typed_factors() {
+        let snapshot = snapshot_from_row(
+            "com_1".to_string(),
+            0.91,
+            "critical".to_string(),
+            r#"{"consequence":0.9,"proximity":1.0,"dependency_pressure":0.8,"reasons":["due now"],"dependency_ids":["com_parent"]}"#,
+            Some(123),
+        );
+
+        assert_eq!(snapshot.commitment_id, "com_1");
+        assert_eq!(snapshot.risk_level, "critical");
+        assert_eq!(snapshot.factors.consequence, 0.9);
+        assert_eq!(snapshot.factors.proximity, 1.0);
+        assert_eq!(snapshot.factors.dependency_pressure, 0.8);
+        assert_eq!(snapshot.factors.reasons, vec!["due now".to_string()]);
+        assert_eq!(
+            snapshot.factors.dependency_ids,
+            vec!["com_parent".to_string()]
+        );
+        assert_eq!(snapshot.computed_at, Some(123));
+    }
 }

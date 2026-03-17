@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
-    ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass, RunId, SyncClass,
+    ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass, RiskFactors,
+    RiskSnapshot, RunId, SyncClass,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -630,8 +631,41 @@ pub struct RiskData {
     pub commitment_id: String,
     pub risk_score: f64,
     pub risk_level: String,
-    pub factors: JsonValue,
+    pub factors: RiskFactorsData,
     pub computed_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RiskFactorsData {
+    pub consequence: f64,
+    pub proximity: f64,
+    pub dependency_pressure: f64,
+    pub reasons: Vec<String>,
+    pub dependency_ids: Vec<String>,
+}
+
+impl From<RiskFactors> for RiskFactorsData {
+    fn from(value: RiskFactors) -> Self {
+        Self {
+            consequence: value.consequence,
+            proximity: value.proximity,
+            dependency_pressure: value.dependency_pressure,
+            reasons: value.reasons,
+            dependency_ids: value.dependency_ids,
+        }
+    }
+}
+
+impl From<RiskSnapshot> for RiskData {
+    fn from(snapshot: RiskSnapshot) -> Self {
+        Self {
+            commitment_id: snapshot.commitment_id,
+            risk_score: snapshot.risk_score,
+            risk_level: snapshot.risk_level,
+            factors: snapshot.factors.into(),
+            computed_at: snapshot.computed_at,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

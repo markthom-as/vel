@@ -3,6 +3,7 @@ pub mod context;
 pub mod intervention;
 pub mod message;
 pub mod provenance;
+pub mod risk;
 pub mod run;
 pub mod types;
 
@@ -14,6 +15,7 @@ pub use message::{
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
 };
 pub use provenance::{Ref, RefRelationType};
+pub use risk::{RiskFactors, RiskSnapshot};
 pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
 pub use types::{ConversationId, EventId, InterventionId, MessageId};
 

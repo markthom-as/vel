@@ -53,7 +53,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
             get(routes::commitments::list_commitment_dependencies)
                 .post(routes::commitments::add_commitment_dependency),
         )
-        .route("/v1/risk", get(routes::risk::compute_and_list))
+        .route("/v1/risk", get(routes::risk::list_risk))
         .route("/v1/risk/:id", get(routes::risk::get_commitment_risk))
         .route("/v1/suggestions", get(routes::suggestions::list))
         .route(
@@ -1248,6 +1248,21 @@ mod tests {
 
         let storage = Storage::connect(&path_str).await.unwrap();
         storage.migrate().await.unwrap();
+        let commitment_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Take meds".to_string(),
+                source_type: "test".to_string(),
+                source_id: None,
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("medication".to_string()),
+                metadata_json: None,
+            })
+            .await
+            .unwrap()
+            .as_ref()
+            .to_string();
         let app = build_app(
             storage,
             AppConfig::default(),
@@ -1268,10 +1283,21 @@ mod tests {
             .unwrap();
 
         let storage2 = Storage::connect(&path_str).await.unwrap();
+        let current_context_before = storage2.get_current_context().await.unwrap();
+        let inferred_state_before = storage2.count_inferred_state().await.unwrap();
+        let context_timeline_before = storage2.count_context_timeline().await.unwrap();
         let risk_before = storage2.count_commitment_risk().await.unwrap();
         let nudge_events_before = storage2.count_nudge_events().await.unwrap();
+        let nudge_id = storage2
+            .list_nudges(None, 10)
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .expect("evaluate should create at least one nudge")
+            .nudge_id;
 
-        let _ = app
+        let resp = app
             .clone()
             .oneshot(
                 Request::builder()
@@ -1281,7 +1307,8 @@ mod tests {
             )
             .await
             .unwrap();
-        let _ = app
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
             .clone()
             .oneshot(
                 Request::builder()
@@ -1291,17 +1318,77 @@ mod tests {
             )
             .await
             .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/explain/commitment/{}", commitment_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/explain/nudge/{}", nudge_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/current")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/context/timeline?limit=10")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
 
+        let current_context_after = storage2.get_current_context().await.unwrap();
+        let inferred_state_after = storage2.count_inferred_state().await.unwrap();
+        let context_timeline_after = storage2.count_context_timeline().await.unwrap();
         let risk_after = storage2.count_commitment_risk().await.unwrap();
         let nudge_events_after = storage2.count_nudge_events().await.unwrap();
 
         assert_eq!(
+            current_context_before, current_context_after,
+            "read-only explain/context routes must not mutate current_context"
+        );
+        assert_eq!(
+            inferred_state_before, inferred_state_after,
+            "read-only explain/context routes must not create inferred_state rows"
+        );
+        assert_eq!(
+            context_timeline_before, context_timeline_after,
+            "read-only explain/context routes must not create context_timeline rows"
+        );
+        assert_eq!(
             risk_before, risk_after,
-            "explain must not create commitment_risk rows"
+            "read-only explain/context routes must not create commitment_risk rows"
         );
         assert_eq!(
             nudge_events_before, nudge_events_after,
-            "explain must not create nudge_events rows"
+            "read-only explain/context routes must not create nudge_events rows"
         );
 
         let _ = std::fs::remove_file(&path);

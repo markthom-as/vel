@@ -11,6 +11,7 @@ use vel_api_types::{
 };
 use vel_storage::SignalRecord;
 
+use crate::services::risk::snapshot_from_row;
 use crate::{errors::AppError, state::AppState};
 
 /// GET /v1/explain/context — current context plus explanation (signals/commitments/risk that shaped it).
@@ -103,11 +104,14 @@ pub async fn explain_commitment(
     let risk_rows = state.storage.list_commitment_risk_recent(id, 1).await?;
     let risk_value = match risk_rows.first() {
         Some((_, risk_score, risk_level, factors_json, _)) => {
-            let mut factors: serde_json::Value =
-                serde_json::from_str(factors_json).unwrap_or(serde_json::json!({}));
-            factors["risk_score"] = serde_json::json!(risk_score);
-            factors["risk_level"] = serde_json::json!(risk_level);
-            factors
+            serde_json::to_value(snapshot_from_row(
+                id.to_string(),
+                *risk_score,
+                risk_level.clone(),
+                factors_json,
+                None,
+            ))
+            .unwrap_or_else(|_| serde_json::json!({}))
         }
         None => serde_json::json!({}),
     };
