@@ -194,7 +194,13 @@ mod tests {
         };
 
         let today = build_today(&snapshot);
-        assert!(today.reminders.iter().any(|item| item.contains("follow up")));
-        assert!(today.focus_candidates.iter().any(|item| item.contains("forecast")));
+        assert!(today
+            .reminders
+            .iter()
+            .any(|item| item.contains("follow up")));
+        assert!(today
+            .focus_candidates
+            .iter()
+            .any(|item| item.contains("forecast")));
     }
 }

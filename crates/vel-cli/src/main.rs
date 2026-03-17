@@ -38,6 +38,10 @@ enum Command {
         #[arg(long)]
         source: Option<String>,
     },
+    Journal {
+        #[command(subcommand)]
+        command: JournalCommand,
+    },
     Recent {
         #[arg(long, default_value = "20")]
         limit: u32,
@@ -213,6 +217,28 @@ enum SuggestionCommand {
         id: String,
         #[arg(long)]
         payload: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum JournalCommand {
+    Mood {
+        score: u8,
+        #[arg(long)]
+        label: Option<String>,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        source: Option<String>,
+    },
+    Pain {
+        severity: u8,
+        #[arg(long)]
+        location: Option<String>,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        source: Option<String>,
     },
 }
 
@@ -556,6 +582,20 @@ async fn main() -> anyhow::Result<()> {
         } => {
             commands::capture::run(&client, text, stdin, capture_type.clone(), source.clone()).await
         }
+        Command::Journal { command } => match command {
+            JournalCommand::Mood {
+                score,
+                label,
+                note,
+                source,
+            } => commands::journal::run_mood(&client, score, label, note, source).await,
+            JournalCommand::Pain {
+                severity,
+                location,
+                note,
+                source,
+            } => commands::journal::run_pain(&client, severity, location, note, source).await,
+        },
         Command::Command {
             input,
             dry_run,
@@ -873,6 +913,70 @@ mod tests {
                 assert_eq!(limit, Some(5));
             }
             _ => panic!("expected search command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_journal_mood() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "journal",
+            "mood",
+            "7",
+            "--label",
+            "steady",
+            "--note",
+            "good enough",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Journal {
+                command:
+                    JournalCommand::Mood {
+                        score,
+                        label,
+                        note,
+                        source,
+                    },
+            } => {
+                assert_eq!(score, 7);
+                assert_eq!(label.as_deref(), Some("steady"));
+                assert_eq!(note.as_deref(), Some("good enough"));
+                assert!(source.is_none());
+            }
+            _ => panic!("expected journal mood command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_journal_pain() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "journal",
+            "pain",
+            "4",
+            "--location",
+            "lower-back",
+            "--source",
+            "watch",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Journal {
+                command:
+                    JournalCommand::Pain {
+                        severity,
+                        location,
+                        note,
+                        source,
+                    },
+            } => {
+                assert_eq!(severity, 4);
+                assert_eq!(location.as_deref(), Some("lower-back"));
+                assert!(note.is_none());
+                assert_eq!(source.as_deref(), Some("watch"));
+            }
+            _ => panic!("expected journal pain command"),
         }
     }
 

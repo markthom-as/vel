@@ -189,6 +189,8 @@ Vel supports reflective journaling and personal logging.
 
 Diary entries integrate into the personal memory graph.
 
+The first concrete diary slice includes structured mood and pain check-ins: short private journal entries that can influence daily orientation without expanding into full medical tracking. See [docs/specs/vel-pain-and-mood-journaling-spec.md](specs/vel-pain-and-mood-journaling-spec.md).
+
 ---
 
 ## Containers

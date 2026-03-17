@@ -114,10 +114,10 @@ Use these as source material, not as the primary queue:
 
 | ID | Title | Status | Priority | Lane |
 |----|-------|--------|----------|------|
-| WUI-001 | Canonicalize shell IA and top-level route ownership | todo | P0 | A |
+| WUI-001 | Canonicalize shell IA and top-level route ownership | done | P0 | A |
 | WUI-002 | Decompose web transport decoders and resource/query boundaries by domain | todo | P0 | A |
 | WUI-003 | Harden websocket, optimistic mutations, and shared invalidation behavior | todo | P0 | A |
-| WUI-004 | Converge Now, context inspection, and Stats around purpose-built contracts | todo | P0 | B |
+| WUI-004 | Converge Now, context inspection, and Stats around purpose-built contracts | in_progress | P0 | B |
 | WUI-005 | Rework Settings and integrations into control-first IA | todo | P1 | B |
 | WUI-006 | Normalize global page-state, freshness, degraded-state, and recovery UX | todo | P1 | B |
 | WUI-007 | Realign Inbox, Threads, and Suggestions to distinct operator roles | todo | P1 | C |

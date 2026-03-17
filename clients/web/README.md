@@ -1,6 +1,6 @@
 # Vel Web Client
 
-React + TypeScript + Vite + Tailwind. Chat interface for the Vel agent console.
+React + TypeScript + Vite + Tailwind. Vel's web operator surface for `Now`, `Inbox`, `Threads`, `Suggestions`, `Stats`, and `Settings`, with a truthful `Projects` placeholder until the project workspace API exists.
 
 ## Run
 

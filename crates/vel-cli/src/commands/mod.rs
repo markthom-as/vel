@@ -14,6 +14,7 @@ pub mod health;
 pub mod import_;
 pub mod inspect;
 pub mod integrations;
+pub mod journal;
 pub mod loops;
 pub mod morning;
 pub mod nudges;

@@ -206,8 +206,8 @@ fn context_source_summaries(context: &serde_json::Value) -> ContextSourceSummari
     ContextSourceSummariesData {
         git_activity: context_source_summary(context, "git_activity_summary"),
         health: context_source_summary(context, "health_summary"),
-        mood: None,
-        pain: None,
+        mood: context_source_summary(context, "mood_summary"),
+        pain: context_source_summary(context, "pain_summary"),
         note_document: context_source_summary(context, "note_document_summary"),
         assistant_message: context_source_summary(context, "assistant_message_summary"),
     }
@@ -273,6 +273,16 @@ fn signal_summary(signal: &SignalRecord) -> SignalExplainSummary {
             "unit": payload.get("unit").and_then(|value| value.as_str()),
             "source_app": payload.get("source_app").and_then(|value| value.as_str()),
             "device": payload.get("device").and_then(|value| value.as_str()),
+        }),
+        "mood_log" => serde_json::json!({
+            "score": payload.get("score").and_then(|value| value.as_u64()),
+            "label": payload.get("label").and_then(|value| value.as_str()),
+            "note": payload.get("note").and_then(|value| value.as_str()),
+        }),
+        "pain_log" => serde_json::json!({
+            "severity": payload.get("severity").and_then(|value| value.as_u64()),
+            "location": payload.get("location").and_then(|value| value.as_str()),
+            "note": payload.get("note").and_then(|value| value.as_str()),
         }),
         "calendar_event" => serde_json::json!({
             "title": payload.get("title").and_then(|value| value.as_str()),

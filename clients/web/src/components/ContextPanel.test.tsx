@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../api/client'
 import { clearQueryCache } from '../data/query'
@@ -109,16 +109,25 @@ describe('ContextPanel', () => {
     })
   })
 
-  it('renders explain-backed context and drift details', async () => {
+  it('renders explain-backed context and drift details across State / Why / Debug modes', async () => {
     render(<ContextPanel />)
 
     await waitFor(() => {
-      expect(screen.getByText('Why this context')).toBeInTheDocument()
+      expect(screen.getByText('Current state')).toBeInTheDocument()
     })
 
     expect(screen.getByText('focus')).toBeInTheDocument()
     expect(screen.getByText('engaged')).toBeInTheDocument()
     expect(screen.getByText('on_task')).toBeInTheDocument()
+    expect(screen.getByText('commit_1')).toBeInTheDocument()
+    expect(screen.getByText('pending')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Why' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Why this context')).toBeInTheDocument()
+    })
+
     expect(screen.getByText('mode: focus')).toBeInTheDocument()
     expect(screen.getByText('Recent git activity indicates active work')).toBeInTheDocument()
     expect(screen.getByText('git_activity')).toBeInTheDocument()
@@ -132,7 +141,14 @@ describe('ContextPanel', () => {
     expect(screen.getByText(/path: daily\/today.md/i)).toBeInTheDocument()
     expect(screen.getByText('Recent transcript')).toBeInTheDocument()
     expect(screen.getByText(/conversation id: conv_context/i)).toBeInTheDocument()
-    expect(screen.getByText('commit_1')).toBeInTheDocument()
-    expect(screen.getByText('pending')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Debug' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Debug payloads')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Context JSON')).toBeInTheDocument()
+    expect(screen.getByText('Signals used IDs')).toBeInTheDocument()
   })
 })

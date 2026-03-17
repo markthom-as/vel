@@ -3444,7 +3444,11 @@ fn summarize_signal_for_orientation(signal: &SignalRecord) -> Option<String> {
                 .get("waiting_state")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("message");
-            Some(format!("{} {}", waiting_state.replace('_', " "), summary.trim()))
+            Some(format!(
+                "{} {}",
+                waiting_state.replace('_', " "),
+                summary.trim()
+            ))
         }
         "health_metric" => {
             let metric = payload
@@ -3454,6 +3458,38 @@ fn summarize_signal_for_orientation(signal: &SignalRecord) -> Option<String> {
                 .filter(|value| !value.trim().is_empty())?;
             Some(format!("health {}", metric.trim()))
         }
+        "mood_log" => payload
+            .get("score")
+            .and_then(serde_json::Value::as_u64)
+            .map(|score| {
+                let mut summary = format!("mood {score}/10");
+                if let Some(label) = payload
+                    .get("label")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                {
+                    summary.push(' ');
+                    summary.push_str(label);
+                }
+                summary
+            }),
+        "pain_log" => payload
+            .get("severity")
+            .and_then(serde_json::Value::as_u64)
+            .map(|severity| {
+                let mut summary = format!("pain {severity}/10");
+                if let Some(location) = payload
+                    .get("location")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                {
+                    summary.push_str(" in ");
+                    summary.push_str(location);
+                }
+                summary
+            }),
         "assistant_message" => payload
             .get("content")
             .and_then(serde_json::Value::as_str)
@@ -3473,7 +3509,10 @@ fn truncate_summary(value: &str, max_chars: usize) -> String {
     if value.chars().count() <= max_chars {
         return value.to_string();
     }
-    let mut truncated = value.chars().take(max_chars.saturating_sub(1)).collect::<String>();
+    let mut truncated = value
+        .chars()
+        .take(max_chars.saturating_sub(1))
+        .collect::<String>();
     truncated.push('…');
     truncated
 }

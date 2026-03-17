@@ -1,10 +1,11 @@
 ---
 title: Converge Now, context inspection, and Stats around purpose-built contracts
-status: todo
+status: in_progress
 owner: agent
 priority: P0
 area: web-ui
 created: 2026-03-17
+updated: 2026-03-17
 depends_on:
   - WUI-001-shell-ia-and-route-ownership.md
   - WUI-002-transport-decoder-and-query-boundaries.md

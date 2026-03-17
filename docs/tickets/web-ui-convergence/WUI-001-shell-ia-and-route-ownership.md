@@ -1,10 +1,11 @@
 ---
 title: Canonicalize shell IA and top-level route ownership
-status: todo
+status: done
 owner: agent
 priority: P0
 area: web-ui
 created: 2026-03-17
+updated: 2026-03-17
 depends_on: []
 labels:
   - web

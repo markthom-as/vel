@@ -137,8 +137,8 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
         sources: NowSourcesData {
             git_activity: context_source_activity(&context, "git_activity_summary", "Git activity"),
             health: context_source_activity(&context, "health_summary", "Health"),
-            mood: None,
-            pain: None,
+            mood: context_source_activity(&context, "mood_summary", "Mood"),
+            pain: context_source_activity(&context, "pain_summary", "Pain"),
             note_document: context_source_activity(
                 &context,
                 "note_document_summary",

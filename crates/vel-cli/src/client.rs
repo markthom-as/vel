@@ -7,9 +7,10 @@ use vel_api_types::{
     CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
     CommitmentUpdateRequest, DoctorData, EndOfDayData, EvaluateResultData, HealthData,
     IntegrationConnectionData, IntegrationConnectionEventData, LoopData, LoopUpdateRequest,
-    MorningData, NudgeData, NudgeSnoozeRequest, QueuedWorkRoutingData, RunUpdateRequest,
-    SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData, SyncResultData,
-    SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
+    MoodJournalCreateRequest, MorningData, NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest,
+    QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData,
+    SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData, UncertaintyData,
+    ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -126,15 +127,21 @@ impl ApiClient {
         &self,
         request: CaptureCreateRequest,
     ) -> anyhow::Result<ApiResponse<CaptureCreateResponse>> {
-        let response = self
-            .http
-            .post(format!("{}{}", self.base_url, "/v1/captures"))
-            .json(&request)
-            .send()
-            .await
-            .context("sending capture request")?;
+        self.post_json("/v1/captures", &request).await
+    }
 
-        decode_response(response).await
+    pub async fn journal_mood(
+        &self,
+        request: &MoodJournalCreateRequest,
+    ) -> anyhow::Result<ApiResponse<CaptureCreateResponse>> {
+        self.post_json("/v1/journal/mood", request).await
+    }
+
+    pub async fn journal_pain(
+        &self,
+        request: &PainJournalCreateRequest,
+    ) -> anyhow::Result<ApiResponse<CaptureCreateResponse>> {
+        self.post_json("/v1/journal/pain", request).await
     }
 
     pub async fn plan_command(
