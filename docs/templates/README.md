@@ -1,0 +1,42 @@
+# Vel Documentation Templates
+
+This directory contains canonical starting templates for repo documents that should be easy to index in local docs tooling, wiki search, and plain `rg`.
+
+Use these templates when creating new:
+
+- general documentation pages,
+- specs,
+- tickets,
+- prompts and runbooks.
+
+## Indexing rules
+
+Every template here includes:
+
+- YAML front matter for structured metadata,
+- a `keywords` list for exact search terms,
+- an `index_terms` list for alternate names and likely lookup phrases,
+- a short summary/purpose section near the top,
+- explicit links or placeholders for related files.
+
+That combination makes the files easier to find through:
+
+- grep/ripgrep,
+- static site or wiki indexing,
+- knowledge-graph or repo-index tooling,
+- simple full-text search on titles plus likely aliases.
+
+## Template set
+
+- [doc-template.md](doc-template.md) for general documentation pages
+- [spec-template.md](spec-template.md) for design and architecture specs
+- [ticket-template.md](ticket-template.md) for execution tickets
+- [prompt-template.md](prompt-template.md) for reusable prompts, runbooks, and operator prompt assets
+
+## Usage notes
+
+- Keep `keywords` concrete and short. Prefer nouns and exact subsystem names.
+- Use `index_terms` for alternate spellings, abbreviations, aliases, and likely lookup phrases.
+- Do not stuff keywords with every possible word. High-signal terms are better than noisy lists.
+- Keep `status` truthful. Do not mark planning docs as implemented.
+- If the document affects shipped behavior, reconcile it with [status.md](../status.md).

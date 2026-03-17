@@ -19,6 +19,7 @@ These files describe the current implementation and operational reality.
 - [vel-documentation-index-and-implementation-status.md](vel-documentation-index-and-implementation-status.md): coverage map for documented subsystems
 - [specs/vel-user-documentation-spec.md](specs/vel-user-documentation-spec.md): target shape for full-fat end-user documentation
 - [user/README.md](user/README.md): canonical user-facing docs entrypoint
+- [templates/README.md](templates/README.md): canonical indexed templates for docs, specs, tickets, and prompts
 
 ### Active plan
 
