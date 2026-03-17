@@ -51,13 +51,14 @@ Start with [docs/README.md](README.md) if you need the shortest authoritative re
 - full-fat end-user documentation target — [spec](specs/vel-user-documentation-spec.md)
 - shipped implementation truth for user-facing maturity claims — [status](status.md)
 - current user-docs entrypoint — [docs/user/README.md](user/README.md)
+- planned operator UI v4 redesign — [spec](specs/vel-ui-v4-spec.md), [tickets](tickets/ui-v4/README.md)
 
 ## Testing
 - canonical day fixture — [spec](specs/vel-canonical-day-fixture-spec.md)
 - integration tests — see [status](status.md) for current coverage
 
 ## Ticket packs and spec packs
-- **Ticket packs:** [docs/tickets/README.md](tickets/README.md) — Chat (001–035), [agentic](tickets/agentic/), [ios-watch-monorepo](tickets/ios-watch-monorepo/), [ios-watch](tickets/ios-watch/), [visual-interface](tickets/visual-interface/), [repo-feedback](tickets/repo-feedback/), [context-reasoning](tickets/context-reasoning/), [agent-runtime](tickets/agent-runtime/), [uncertainty](tickets/uncertainty/), [projects](tickets/projects/), [adaptive-configuration](tickets/adaptive-configuration/), [metadata-enrichment](tickets/metadata-enrichment/), [task-hud](tickets/task-hud/), [self-knowledge](tickets/self-knowledge/), [orchestration](tickets/orchestration/), [full-spec-pack](tickets/full-spec-pack/).
+- **Ticket packs:** [docs/tickets/README.md](tickets/README.md) — Chat (001–035), [agentic](tickets/agentic/), [ios-watch-monorepo](tickets/ios-watch-monorepo/), [ios-watch](tickets/ios-watch/), [visual-interface](tickets/visual-interface/), [repo-feedback](tickets/repo-feedback/), [context-reasoning](tickets/context-reasoning/), [agent-runtime](tickets/agent-runtime/), [uncertainty](tickets/uncertainty/), [projects](tickets/projects/), [adaptive-configuration](tickets/adaptive-configuration/), [metadata-enrichment](tickets/metadata-enrichment/), [task-hud](tickets/task-hud/), [self-knowledge](tickets/self-knowledge/), [orchestration](tickets/orchestration/), [ui-v4](tickets/ui-v4/), [full-spec-pack](tickets/full-spec-pack/).
 - **Product spec pack:** [docs/product-spec-pack/](product-spec-pack/) — architecture, surfaces, interaction, engines, design, flows, plus imported packets preserved under [docs/product-spec-pack/imported/](product-spec-pack/imported/).
 - **Visual interface:** [docs/visual-interface/](visual-interface/), [specs/visual-interface-README.md](specs/visual-interface-README.md), repo [packages/](../packages/) (vel-affect-core, vel-visual-morphology, vel-protocol, vel-render-web, vel-render-watch).
 - **Cognitive agent architecture:** [docs/cognitive-agent-architecture/](cognitive-agent-architecture/) — architecture (event-bus, state-graph), cognition (memory, context, introspection), agents, voice, devices, integrations, policies, metrics, implementation.
