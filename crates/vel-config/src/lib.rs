@@ -3,13 +3,21 @@ mod models;
 pub use models::{load_model_profiles, load_routing, ModelProfile, RoutingConfig};
 
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, env, fs, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    env, fs,
+    path::Path,
+};
 
 const DEFAULT_BIND_ADDR: &str = "127.0.0.1:4130";
 const DEFAULT_DB_PATH: &str = "var/data/vel.sqlite";
 const DEFAULT_ARTIFACT_ROOT: &str = "var/artifacts";
 const DEFAULT_LOG_LEVEL: &str = "info";
 const DEFAULT_BASE_URL: &str = "http://127.0.0.1:4130";
+const DEFAULT_LLM_MODEL_PATH: &str =
+    "configs/models/weights/qwen3-coder-30b-a3b-instruct-q4_k_m.gguf";
+const DEFAULT_LLM_FAST_MODEL_PATH: &str =
+    "configs/models/weights/qwen2.5-coder-14b-instruct-q4_k_m.gguf";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AppConfig {
@@ -18,6 +26,9 @@ pub struct AppConfig {
     pub artifact_root: String,
     pub log_level: String,
     pub base_url: String,
+    pub agent_spec_path: Option<String>,
+    pub llm_model_path: String,
+    pub llm_fast_model_path: String,
     /// Calendar: .ics URL for pull-based sync (optional).
     pub calendar_ics_url: Option<String>,
     /// Calendar: local .ics file path if URL not set (optional).
@@ -36,12 +47,149 @@ pub struct AppConfig {
     pub transcript_snapshot_path: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSpec {
+    pub id: String,
+    pub kind: AgentSpecKind,
+    pub mission: String,
+    pub ttl_seconds: u64,
+    pub allowed_tools: Vec<String>,
+    pub memory_scope: AgentMemoryScope,
+    pub return_contract: String,
+    #[serde(default)]
+    pub budgets: Option<AgentBudgets>,
+}
+
+impl AgentSpec {
+    fn validate(&self) -> Result<(), String> {
+        if self.id.trim().is_empty() {
+            return Err("agent spec id is required".to_string());
+        }
+        if self.mission.trim().is_empty() {
+            return Err(format!("agent spec {} mission is required", self.id));
+        }
+        if self.allowed_tools.is_empty() {
+            return Err(format!(
+                "agent spec {} requires at least one allowed tool",
+                self.id
+            ));
+        }
+        if self.return_contract.trim().is_empty() {
+            return Err(format!(
+                "agent spec {} return_contract is required",
+                self.id
+            ));
+        }
+        if self.ttl_seconds == 0 {
+            return Err(format!(
+                "agent spec {} ttl_seconds must be greater than zero",
+                self.id
+            ));
+        }
+        if self.allowed_tools.iter().any(|tool| tool.trim().is_empty()) {
+            return Err(format!(
+                "agent spec {} has empty allowed_tool entry",
+                self.id
+            ));
+        }
+        if self
+            .memory_scope
+            .topic_pads
+            .iter()
+            .any(|topic| topic.trim().is_empty())
+        {
+            return Err(format!("agent spec {} has empty topic_pad", self.id));
+        }
+        if let Some(budgets) = &self.budgets {
+            budgets.validate(&self.id)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentSpecKind {
+    Subagent,
+    Supervisor,
+    Specialist,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentMemoryScope {
+    pub constitution: bool,
+    #[serde(default)]
+    pub topic_pads: Vec<String>,
+    #[serde(default)]
+    pub event_query: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentBudgets {
+    #[serde(default)]
+    pub max_tool_calls: Option<u32>,
+    #[serde(default)]
+    pub max_tokens: Option<u32>,
+    #[serde(default)]
+    pub max_memory_queries: Option<u32>,
+    #[serde(default)]
+    pub max_side_effects: Option<u32>,
+}
+
+impl AgentBudgets {
+    fn validate(&self, spec_id: &str) -> Result<(), String> {
+        if let Some(max_tool_calls) = self.max_tool_calls {
+            if max_tool_calls == 0 {
+                return Err(format!(
+                    "agent spec {} max_tool_calls must be greater than zero",
+                    spec_id
+                ));
+            }
+        }
+        if let Some(max_tokens) = self.max_tokens {
+            if max_tokens == 0 {
+                return Err(format!(
+                    "agent spec {} max_tokens must be greater than zero",
+                    spec_id
+                ));
+            }
+        }
+        if let Some(max_memory_queries) = self.max_memory_queries {
+            if max_memory_queries == 0 {
+                return Err(format!(
+                    "agent spec {} max_memory_queries must be greater than zero",
+                    spec_id
+                ));
+            }
+        }
+        if let Some(max_side_effects) = self.max_side_effects {
+            if max_side_effects == 0 {
+                return Err(format!(
+                    "agent spec {} max_side_effects must be greater than zero",
+                    spec_id
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+enum AgentSpecDocument {
+    Single(AgentSpec),
+    List(Vec<AgentSpec>),
+    Wrapped { specs: Vec<AgentSpec> },
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("failed to read config file: {0}")]
     Read(#[from] std::io::Error),
     #[error("failed to parse config file: {0}")]
     Parse(#[from] toml::de::Error),
+    #[error("failed to parse agent spec file: {0}")]
+    AgentSpecParse(#[from] serde_yaml::Error),
     #[error("config validation: {0}")]
     Validation(String),
 }
@@ -54,6 +202,9 @@ impl Default for AppConfig {
             artifact_root: DEFAULT_ARTIFACT_ROOT.to_string(),
             log_level: DEFAULT_LOG_LEVEL.to_string(),
             base_url: DEFAULT_BASE_URL.to_string(),
+            agent_spec_path: None,
+            llm_model_path: DEFAULT_LLM_MODEL_PATH.to_string(),
+            llm_fast_model_path: DEFAULT_LLM_FAST_MODEL_PATH.to_string(),
             calendar_ics_url: None,
             calendar_ics_path: None,
             todoist_snapshot_path: None,
@@ -73,6 +224,9 @@ struct FileConfig {
     artifact_root: Option<String>,
     log_level: Option<String>,
     base_url: Option<String>,
+    agent_spec_path: Option<String>,
+    llm_model_path: Option<String>,
+    llm_fast_model_path: Option<String>,
     calendar_ics_url: Option<String>,
     calendar_ics_path: Option<String>,
     todoist_snapshot_path: Option<String>,
@@ -103,6 +257,38 @@ impl AppConfig {
         Ok(config)
     }
 
+    pub fn load_agent_specs(&self) -> Result<Vec<AgentSpec>, ConfigError> {
+        if let Some(path) = &self.agent_spec_path {
+            Self::load_agent_specs_from_path(path)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    pub fn load_agent_specs_from_path(
+        path: impl AsRef<Path>,
+    ) -> Result<Vec<AgentSpec>, ConfigError> {
+        let content = fs::read_to_string(path)?;
+        let spec_doc = serde_yaml::from_str::<AgentSpecDocument>(&content)?;
+        let specs = match spec_doc {
+            AgentSpecDocument::Single(spec) => vec![spec],
+            AgentSpecDocument::List(specs) => specs,
+            AgentSpecDocument::Wrapped { specs } => specs,
+        };
+
+        let mut seen_ids = HashSet::new();
+        for spec in &specs {
+            spec.validate().map_err(ConfigError::Validation)?;
+            if !seen_ids.insert(spec.id.clone()) {
+                return Err(ConfigError::Validation(format!(
+                    "duplicate agent spec id: {}",
+                    spec.id
+                )));
+            }
+        }
+        Ok(specs)
+    }
+
     fn apply_file(&mut self, file: FileConfig) {
         if let Some(value) = file.bind_addr {
             self.bind_addr = value;
@@ -118,6 +304,15 @@ impl AppConfig {
         }
         if let Some(value) = file.base_url {
             self.base_url = value;
+        }
+        if file.agent_spec_path.is_some() {
+            self.agent_spec_path = file.agent_spec_path;
+        }
+        if let Some(value) = file.llm_model_path {
+            self.llm_model_path = value;
+        }
+        if let Some(value) = file.llm_fast_model_path {
+            self.llm_fast_model_path = value;
         }
         if file.calendar_ics_url.is_some() {
             self.calendar_ics_url = file.calendar_ics_url;
@@ -161,6 +356,15 @@ impl AppConfig {
         if let Some(value) = env_map.get("VEL_BASE_URL") {
             self.base_url = value.clone();
         }
+        if let Some(value) = env_map.get("VEL_AGENT_SPEC_PATH") {
+            self.agent_spec_path = Some(value.clone());
+        }
+        if let Some(value) = env_map.get("VEL_LLM_MODEL") {
+            self.llm_model_path = value.clone();
+        }
+        if let Some(value) = env_map.get("VEL_LLM_FAST_MODEL") {
+            self.llm_fast_model_path = value.clone();
+        }
         if let Some(value) = env_map.get("VEL_CALENDAR_ICS_URL") {
             self.calendar_ics_url = Some(value.clone());
         }
@@ -198,6 +402,9 @@ mod tests {
         let config = AppConfig::default();
         assert_eq!(config.bind_addr, DEFAULT_BIND_ADDR);
         assert_eq!(config.db_path, DEFAULT_DB_PATH);
+        assert_eq!(config.llm_model_path, DEFAULT_LLM_MODEL_PATH);
+        assert_eq!(config.llm_fast_model_path, DEFAULT_LLM_FAST_MODEL_PATH);
+        assert!(config.agent_spec_path.is_none());
     }
 
     #[test]
@@ -207,8 +414,20 @@ mod tests {
             ("VEL_BIND_ADDR".to_string(), "0.0.0.0:9999".to_string()),
             ("VEL_DB_PATH".to_string(), "/tmp/vel.sqlite".to_string()),
             (
+                "VEL_LLM_MODEL".to_string(),
+                "/tmp/qwen3-coder-30b.gguf".to_string(),
+            ),
+            (
+                "VEL_LLM_FAST_MODEL".to_string(),
+                "/tmp/qwen25-fast-14b.gguf".to_string(),
+            ),
+            (
                 "VEL_MESSAGING_SNAPSHOT_PATH".to_string(),
                 "/tmp/messaging.json".to_string(),
+            ),
+            (
+                "VEL_AGENT_SPEC_PATH".to_string(),
+                "/tmp/agent-specs.yaml".to_string(),
             ),
         ]);
 
@@ -216,9 +435,81 @@ mod tests {
 
         assert_eq!(config.bind_addr, "0.0.0.0:9999");
         assert_eq!(config.db_path, "/tmp/vel.sqlite");
+        assert_eq!(config.llm_model_path, "/tmp/qwen3-coder-30b.gguf");
+        assert_eq!(config.llm_fast_model_path, "/tmp/qwen25-fast-14b.gguf");
         assert_eq!(
             config.messaging_snapshot_path.as_deref(),
             Some("/tmp/messaging.json")
         );
+        assert_eq!(
+            config.agent_spec_path.as_deref(),
+            Some("/tmp/agent-specs.yaml")
+        );
+    }
+
+    #[test]
+    fn load_agent_specs_reads_yaml_file() {
+        let temp = Path::new("/tmp").join("vel-agent-specs-runtime-skeleton.yaml");
+        let yaml = r#"
+id: research_agent
+kind: subagent
+mission: gather relevant information about a topic and return structured findings
+ttl_seconds: 180
+allowed_tools:
+  - web.search
+  - web.fetch
+memory_scope:
+  constitution: true
+  topic_pads:
+    - project_vel
+  event_query: limited
+return_contract: research_summary_v1
+budgets:
+  max_tool_calls: 12
+  max_tokens: 24000
+"#;
+        fs::write(&temp, yaml).unwrap();
+        let specs = AppConfig::load_agent_specs_from_path(&temp).unwrap();
+        assert_eq!(specs.len(), 1);
+        assert_eq!(specs[0].id, "research_agent");
+        let _ = fs::remove_file(&temp);
+    }
+
+    #[test]
+    fn load_agent_specs_without_path_is_empty() {
+        let config = AppConfig::default();
+        let specs = config.load_agent_specs().unwrap();
+        assert!(specs.is_empty());
+    }
+
+    #[test]
+    fn load_agent_specs_rejects_duplicate_ids() {
+        let temp = Path::new("/tmp").join("vel-agent-specs-runtime-skeleton-dup.yaml");
+        let yaml = r#"
+- id: research_agent
+  kind: subagent
+  mission: one
+  ttl_seconds: 180
+  allowed_tools:
+    - web.search
+  memory_scope:
+    constitution: true
+  return_contract: research_summary_v1
+- id: research_agent
+  kind: subagent
+  mission: two
+  ttl_seconds: 120
+  allowed_tools:
+    - web.search
+  memory_scope:
+    constitution: false
+    topic_pads:
+      - project_vel
+  return_contract: research_summary_v1
+"#;
+        fs::write(&temp, yaml).unwrap();
+        let result = AppConfig::load_agent_specs_from_path(&temp);
+        assert!(result.is_err());
+        let _ = fs::remove_file(&temp);
     }
 }

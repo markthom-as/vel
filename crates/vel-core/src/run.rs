@@ -1,7 +1,8 @@
 //! Run model: first-class execution records for context generation, synthesis, etc.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -47,6 +48,331 @@ pub enum RunKind {
     ArtifactExtraction,
     Synthesis,
     Agent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AgentKind {
+    Subagent,
+    Supervisor,
+    Specialist,
+    Custom(String),
+}
+
+impl Serialize for AgentKind {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = match self {
+            Self::Subagent => "subagent",
+            Self::Supervisor => "supervisor",
+            Self::Specialist => "specialist",
+            Self::Custom(value) => value.as_str(),
+        };
+        serializer.serialize_str(value)
+    }
+}
+
+impl<'de> Deserialize<'de> for AgentKind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Ok(match value.as_str() {
+            "subagent" => Self::Subagent,
+            "supervisor" => Self::Supervisor,
+            "specialist" => Self::Specialist,
+            _ => Self::Custom(value),
+        })
+    }
+}
+
+impl Display for AgentKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Subagent => "subagent",
+            Self::Supervisor => "supervisor",
+            Self::Specialist => "specialist",
+            Self::Custom(value) => value,
+        };
+        f.write_str(s)
+    }
+}
+
+impl std::str::FromStr for AgentKind {
+    type Err = crate::VelCoreError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let value = match s {
+            "subagent" => Self::Subagent,
+            "supervisor" => Self::Supervisor,
+            "specialist" => Self::Specialist,
+            _ => Self::Custom(s.to_string()),
+        };
+        Ok(value)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentMemoryScope {
+    pub constitution: bool,
+    #[serde(default)]
+    pub topic_pads: Vec<String>,
+    #[serde(default)]
+    pub event_query: Option<String>,
+}
+
+impl AgentMemoryScope {
+    pub fn validate(&self) -> Result<(), crate::VelCoreError> {
+        if !self.constitution && self.topic_pads.is_empty() && self.event_query.is_none() {
+            return Err(crate::VelCoreError::Validation(
+                "memory scope must include at least one access mode".to_string(),
+            ));
+        }
+        if self.topic_pads.iter().any(|topic| topic.trim().is_empty()) {
+            return Err(crate::VelCoreError::Validation(
+                "memory scope topic pad must not be empty".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentBudgets {
+    #[serde(default)]
+    pub max_tool_calls: Option<u32>,
+    #[serde(default)]
+    pub max_tokens: Option<u32>,
+    #[serde(default)]
+    pub max_memory_queries: Option<u32>,
+    #[serde(default)]
+    pub max_side_effects: Option<u32>,
+}
+
+impl AgentBudgets {
+    pub fn validate(&self) -> Result<(), crate::VelCoreError> {
+        if let Some(max_tool_calls) = self.max_tool_calls {
+            if max_tool_calls == 0 {
+                return Err(crate::VelCoreError::Validation(
+                    "max_tool_calls must be greater than zero".to_string(),
+                ));
+            }
+        }
+        if let Some(max_tokens) = self.max_tokens {
+            if max_tokens == 0 {
+                return Err(crate::VelCoreError::Validation(
+                    "max_tokens must be greater than zero".to_string(),
+                ));
+            }
+        }
+        if let Some(max_memory_queries) = self.max_memory_queries {
+            if max_memory_queries == 0 {
+                return Err(crate::VelCoreError::Validation(
+                    "max_memory_queries must be greater than zero".to_string(),
+                ));
+            }
+        }
+        if let Some(max_side_effects) = self.max_side_effects {
+            if max_side_effects == 0 {
+                return Err(crate::VelCoreError::Validation(
+                    "max_side_effects must be greater than zero".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSpec {
+    pub id: String,
+    pub kind: AgentKind,
+    pub mission: String,
+    pub allowed_tools: Vec<String>,
+    pub memory_scope: AgentMemoryScope,
+    pub return_contract: String,
+    pub ttl_seconds: u32,
+    #[serde(default)]
+    pub budgets: Option<AgentBudgets>,
+    #[serde(default)]
+    pub side_effect_policy: Option<String>,
+}
+
+impl AgentSpec {
+    pub fn validate(&self) -> Result<(), crate::VelCoreError> {
+        if self.id.trim().is_empty() {
+            return Err(crate::VelCoreError::Validation(
+                "agent spec id is required".to_string(),
+            ));
+        }
+        if self.mission.trim().is_empty() {
+            return Err(crate::VelCoreError::Validation(format!(
+                "agent spec {} mission is required",
+                self.id
+            )));
+        }
+        if self.allowed_tools.is_empty() {
+            return Err(crate::VelCoreError::Validation(format!(
+                "agent spec {} requires at least one allowed tool",
+                self.id
+            )));
+        }
+        if self.allowed_tools.iter().any(|tool| tool.trim().is_empty()) {
+            return Err(crate::VelCoreError::Validation(format!(
+                "agent spec {} has empty allowed_tool entry",
+                self.id
+            )));
+        }
+        if self.return_contract.trim().is_empty() {
+            return Err(crate::VelCoreError::Validation(format!(
+                "agent spec {} return_contract is required",
+                self.id
+            )));
+        }
+        if self.ttl_seconds == 0 {
+            return Err(crate::VelCoreError::Validation(format!(
+                "agent spec {} ttl_seconds must be greater than zero",
+                self.id
+            )));
+        }
+        if let Some(budgets) = &self.budgets {
+            budgets.validate()?;
+        }
+        self.memory_scope.validate()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AgentPriority {
+    Low,
+    Normal,
+    High,
+    Urgent,
+}
+
+impl Default for AgentPriority {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSpawnRequest {
+    pub agent_id: String,
+    pub mission_input: Value,
+    #[serde(default)]
+    pub parent_run_id: Option<RunId>,
+    #[serde(default)]
+    pub deadline: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub priority: AgentPriority,
+    #[serde(default)]
+    pub requested_tools: Option<Vec<String>>,
+    #[serde(default)]
+    pub budgets: Option<AgentBudgets>,
+}
+
+impl AgentSpawnRequest {
+    pub fn validate_for_spec(&self, spec: &AgentSpec) -> Result<(), crate::VelCoreError> {
+        if self.agent_id != spec.id {
+            return Err(crate::VelCoreError::Validation(format!(
+                "agent_id {} does not match spec {}",
+                self.agent_id, spec.id
+            )));
+        }
+        if !matches!(
+            self.mission_input,
+            Value::Object(_) | Value::Array(_) | Value::String(_)
+        ) {
+            return Err(crate::VelCoreError::Validation(
+                "mission_input must be structured JSON".to_string(),
+            ));
+        }
+        if let Some(requested_tools) = &self.requested_tools {
+            let allowed: HashSet<&str> = spec.allowed_tools.iter().map(String::as_str).collect();
+            for tool in requested_tools {
+                if !allowed.contains(tool.as_str()) {
+                    return Err(crate::VelCoreError::Validation(format!(
+                        "tool {} is not allowed by spec {}",
+                        tool, spec.id
+                    )));
+                }
+            }
+        }
+        if let Some(requested_budgets) = &self.budgets {
+            requested_budgets.validate()?;
+            if let Some(spec_budgets) = &spec.budgets {
+                if let (Some(max_tool_calls), Some(spec_max)) = (
+                    requested_budgets.max_tool_calls,
+                    spec_budgets.max_tool_calls,
+                ) {
+                    if max_tool_calls > spec_max {
+                        return Err(crate::VelCoreError::Validation(
+                            "requested max_tool_calls exceeds spec budget".to_string(),
+                        ));
+                    }
+                }
+                if let (Some(max_tokens), Some(spec_max)) =
+                    (requested_budgets.max_tokens, spec_budgets.max_tokens)
+                {
+                    if max_tokens > spec_max {
+                        return Err(crate::VelCoreError::Validation(
+                            "requested max_tokens exceeds spec budget".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentReturnStatus {
+    Completed,
+    Error,
+    Blocked,
+    Expired,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentReturnEvidence {
+    pub kind: String,
+    pub value: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSuggestedAction {
+    #[serde(rename = "type")]
+    pub action_type: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentReturnedArtifact {
+    pub artifact_type: String,
+    pub location: String,
+    #[serde(default)]
+    pub metadata: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentReturnContract {
+    pub status: AgentReturnStatus,
+    pub summary: String,
+    #[serde(default)]
+    pub evidence: Vec<AgentReturnEvidence>,
+    pub confidence: f64,
+    #[serde(default)]
+    pub suggested_actions: Vec<AgentSuggestedAction>,
+    #[serde(default)]
+    pub artifacts: Vec<AgentReturnedArtifact>,
+    #[serde(default)]
+    pub errors: Vec<Value>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -121,6 +447,10 @@ pub enum RunStatus {
     Succeeded,
     Failed,
     Cancelled,
+    /// Blocked waiting on tools, approvals, or external dependency.
+    Waiting,
+    /// Run exceeded ttl_seconds and timed out.
+    Expired,
     /// Reserved for future use (e.g. retry-after-failure workflows).
     RetryScheduled,
     /// Reserved for future use (e.g. blocked on dependency).
@@ -135,6 +465,8 @@ impl Display for RunStatus {
             Self::Succeeded => "succeeded",
             Self::Failed => "failed",
             Self::Cancelled => "cancelled",
+            Self::Waiting => "waiting",
+            Self::Expired => "expired",
             Self::RetryScheduled => "retry_scheduled",
             Self::Blocked => "blocked",
         };
@@ -152,6 +484,8 @@ impl std::str::FromStr for RunStatus {
             "succeeded" => Ok(Self::Succeeded),
             "failed" => Ok(Self::Failed),
             "cancelled" => Ok(Self::Cancelled),
+            "waiting" => Ok(Self::Waiting),
+            "expired" => Ok(Self::Expired),
             "retry_scheduled" => Ok(Self::RetryScheduled),
             "blocked" => Ok(Self::Blocked),
             _ => Err(crate::VelCoreError::Validation(format!(
@@ -191,6 +525,34 @@ impl Run {
         })
     }
 
+    /// Valid transition: Running -> Waiting.
+    pub fn wait(self) -> Result<Self, crate::VelCoreError> {
+        if self.status != RunStatus::Running {
+            return Err(crate::VelCoreError::InvalidTransition(format!(
+                "cannot set run to waiting from status {}",
+                self.status
+            )));
+        }
+        Ok(Run {
+            status: RunStatus::Waiting,
+            ..self
+        })
+    }
+
+    /// Valid transition: Waiting -> Running.
+    pub fn resume(self) -> Result<Self, crate::VelCoreError> {
+        if self.status != RunStatus::Waiting {
+            return Err(crate::VelCoreError::InvalidTransition(format!(
+                "cannot resume run from status {}",
+                self.status
+            )));
+        }
+        Ok(Run {
+            status: RunStatus::Running,
+            ..self
+        })
+    }
+
     /// Valid transition: Running -> Succeeded. Returns updated run.
     pub fn succeed(self, now: OffsetDateTime, output: Value) -> Result<Self, crate::VelCoreError> {
         if self.status != RunStatus::Running {
@@ -206,6 +568,11 @@ impl Run {
             status: RunStatus::Succeeded,
             ..self
         })
+    }
+
+    /// Alias for API-facing completed status.
+    pub fn complete(self, now: OffsetDateTime, output: Value) -> Result<Self, crate::VelCoreError> {
+        self.succeed(now, output)
     }
 
     /// Valid transition: Queued | Running -> Failed. Returns updated run.
@@ -236,6 +603,21 @@ impl Run {
         Ok(Run {
             finished_at: Some(now),
             status: RunStatus::Cancelled,
+            ..self
+        })
+    }
+
+    /// Valid transition: Running -> Expired.
+    pub fn expire(self, now: OffsetDateTime) -> Result<Self, crate::VelCoreError> {
+        if self.status != RunStatus::Running {
+            return Err(crate::VelCoreError::InvalidTransition(format!(
+                "cannot expire run in status {}",
+                self.status
+            )));
+        }
+        Ok(Run {
+            finished_at: Some(now),
+            status: RunStatus::Expired,
             ..self
         })
     }
