@@ -1035,6 +1035,19 @@ pub struct SignalExplainSummary {
     pub summary: JsonValue,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextSourceSummaryData {
+    pub timestamp: UnixSeconds,
+    pub summary: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextSourceSummariesData {
+    pub git_activity: Option<ContextSourceSummaryData>,
+    pub note_document: Option<ContextSourceSummaryData>,
+    pub assistant_message: Option<ContextSourceSummaryData>,
+}
+
 /// Explain payload for current context (context + reasons + entity ids used).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextExplainData {
@@ -1042,6 +1055,7 @@ pub struct ContextExplainData {
     pub mode: Option<String>,
     pub morning_state: Option<String>,
     pub context: JsonValue,
+    pub source_summaries: ContextSourceSummariesData,
     pub signals_used: Vec<String>,
     pub signal_summaries: Vec<SignalExplainSummary>,
     pub commitments_used: Vec<String>,

@@ -6,8 +6,8 @@ use axum::{
 };
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, CommitmentExplainData, ContextExplainData, DriftExplainData, NudgeEventData,
-    NudgeExplainData,
+    ApiResponse, CommitmentExplainData, ContextExplainData, ContextSourceSummariesData,
+    ContextSourceSummaryData, DriftExplainData, NudgeEventData, NudgeExplainData,
     SignalExplainSummary,
 };
 use vel_storage::SignalRecord;
@@ -74,12 +74,14 @@ pub async fn explain_context(
     reasons.push(
         "Run `vel evaluate` to recompute; run `vel context timeline` for history.".to_string(),
     );
+    let source_summaries = context_source_summaries(&context);
     let signal_summaries = hydrate_signal_summaries(&state, &signals_used).await?;
     let data = ContextExplainData {
         computed_at,
         mode,
         morning_state,
         context,
+        source_summaries,
         signals_used,
         signal_summaries,
         commitments_used,
@@ -217,6 +219,23 @@ async fn hydrate_signal_summaries(
 ) -> Result<Vec<SignalExplainSummary>, AppError> {
     let signals = state.storage.list_signals_by_ids(signal_ids).await?;
     Ok(signals.iter().map(signal_summary).collect())
+}
+
+fn context_source_summaries(context: &serde_json::Value) -> ContextSourceSummariesData {
+    ContextSourceSummariesData {
+        git_activity: context_source_summary(context, "git_activity_summary"),
+        note_document: context_source_summary(context, "note_document_summary"),
+        assistant_message: context_source_summary(context, "assistant_message_summary"),
+    }
+}
+
+fn context_source_summary(
+    context: &serde_json::Value,
+    key: &str,
+) -> Option<ContextSourceSummaryData> {
+    let summary = context.get(key)?.clone();
+    let timestamp = summary.get("timestamp").and_then(|value| value.as_i64())?;
+    Some(ContextSourceSummaryData { timestamp, summary })
 }
 
 fn signal_summary(signal: &SignalRecord) -> SignalExplainSummary {

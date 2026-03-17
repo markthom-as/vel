@@ -1635,6 +1635,34 @@ mod tests {
             })
             .await
             .unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "note_document".to_string(),
+                source: "notes".to_string(),
+                source_ref: Some("notes:cap_note_context".to_string()),
+                timestamp: now_ts - 30,
+                payload_json: Some(serde_json::json!({
+                    "path": "daily/today.md",
+                    "title": "Today",
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "assistant_message".to_string(),
+                source: "chatgpt".to_string(),
+                source_ref: Some("tr_context".to_string()),
+                timestamp: now_ts - 10,
+                payload_json: Some(serde_json::json!({
+                    "conversation_id": "conv_context",
+                    "role": "assistant",
+                    "source": "chatgpt",
+                })),
+            })
+            .await
+            .unwrap();
         let app = build_app(
             storage,
             AppConfig::default(),
@@ -1678,6 +1706,18 @@ mod tests {
         assert!(
             json["data"]["reasons"].is_array(),
             "reasons must be present"
+        );
+        assert_eq!(
+            json["data"]["source_summaries"]["git_activity"]["summary"]["branch"],
+            "main"
+        );
+        assert_eq!(
+            json["data"]["source_summaries"]["note_document"]["summary"]["path"],
+            "daily/today.md"
+        );
+        assert_eq!(
+            json["data"]["source_summaries"]["assistant_message"]["summary"]["conversation_id"],
+            "conv_context"
         );
         let summaries = json["data"]["signal_summaries"]
             .as_array()
