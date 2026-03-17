@@ -10,7 +10,11 @@ use vel_api_types::{
     IntegrationConnectionEventData, IntegrationLogEventData, IntegrationsData,
 };
 
-use crate::{errors::AppError, services::{integrations, integrations_google}, state::AppState};
+use crate::{
+    errors::AppError,
+    services::integrations,
+    state::AppState,
+};
 
 pub async fn get_integrations(
     State(state): State<AppState>,
@@ -121,8 +125,7 @@ pub async fn disconnect_google_calendar(
 pub async fn start_google_calendar_auth(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<GoogleCalendarAuthStartData>>, AppError> {
-    let auth_start =
-        integrations_google::start_google_auth_from_storage(&state.storage, &state.config).await?;
+    let auth_start = integrations::start_google_auth(&state.storage, &state.config).await?;
     let data = GoogleCalendarAuthStartData {
         auth_url: auth_start.auth_url,
     };
