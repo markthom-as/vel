@@ -241,7 +241,9 @@ export interface ReminderCardContent {
 export interface RiskCardContent {
   commitment_title: string;
   risk_level: string;
+  risk_score?: number;
   top_drivers?: string[];
+  dependency_ids?: string[];
   proposed_next_step?: string;
 }
 
@@ -779,13 +781,22 @@ export function decodeReminderCardContent(value: JsonValue): ReminderCardContent
 
 export function decodeRiskCardContent(value: JsonValue): RiskCardContent | null {
   const record = asRecord(value);
-  if (!record || typeof record.commitment_title !== 'string' || typeof record.risk_level !== 'string') {
+  const factors = asRecord(record?.factors as JsonValue);
+  const commitmentTitle = optionalString(record?.commitment_title) ?? optionalString(record?.commitment_id);
+  const riskLevel = optionalString(record?.risk_level);
+  if (!record || !commitmentTitle || !riskLevel) {
     return null;
   }
+  const topDrivers = optionalStringArray(record.top_drivers)
+    ?? optionalStringArray(factors?.reasons)
+    ?? undefined;
+  const dependencyIds = optionalStringArray(factors?.dependency_ids) ?? undefined;
   return {
-    commitment_title: record.commitment_title,
-    risk_level: record.risk_level,
-    top_drivers: optionalStringArray(record.top_drivers),
+    commitment_title: commitmentTitle,
+    risk_level: riskLevel,
+    risk_score: optionalNumber(record.risk_score),
+    top_drivers: topDrivers,
+    dependency_ids: dependencyIds,
     proposed_next_step: optionalString(record.proposed_next_step),
   };
 }

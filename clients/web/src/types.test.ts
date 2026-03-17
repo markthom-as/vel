@@ -8,6 +8,7 @@ import {
   decodeIntegrationsData,
   decodeNullable,
   decodeArray,
+  decodeRiskCardContent,
   decodeWsEvent,
 } from './types'
 
@@ -260,6 +261,27 @@ describe('transport decoders', () => {
         blocked_reason: 'waiting_on_dependency',
       })
     }
+  })
+
+  it('decodes canonical risk card payloads', () => {
+    expect(
+      decodeRiskCardContent({
+        commitment_id: 'commit_42',
+        risk_level: 'danger',
+        risk_score: 0.82,
+        factors: {
+          reasons: ['long-stale open commitment'],
+          dependency_ids: ['dep_1', 'dep_2'],
+        },
+      }),
+    ).toEqual({
+      commitment_title: 'commit_42',
+      risk_level: 'danger',
+      risk_score: 0.82,
+      top_drivers: ['long-stale open commitment'],
+      dependency_ids: ['dep_1', 'dep_2'],
+      proposed_next_step: undefined,
+    })
   })
 
   it('decodes websocket component update events', () => {
