@@ -255,6 +255,12 @@ describe('transport decoders', () => {
         adaptive_policy_overrides: {
           commute_buffer_minutes: 30,
           default_prep_minutes: 45,
+          commute_buffer_source_suggestion_id: 'sug_commute',
+          commute_buffer_source_title: 'Increase commute buffer',
+          commute_buffer_source_accepted_at: 1710000100,
+          default_prep_source_suggestion_id: 'sug_prep',
+          default_prep_source_title: 'Increase prep window',
+          default_prep_source_accepted_at: 1710000200,
         },
       }),
     ).toEqual({
@@ -265,6 +271,12 @@ describe('transport decoders', () => {
       adaptive_policy_overrides: {
         commute_buffer_minutes: 30,
         default_prep_minutes: 45,
+        commute_buffer_source_suggestion_id: 'sug_commute',
+        commute_buffer_source_title: 'Increase commute buffer',
+        commute_buffer_source_accepted_at: 1710000100,
+        default_prep_source_suggestion_id: 'sug_prep',
+        default_prep_source_title: 'Increase prep window',
+        default_prep_source_accepted_at: 1710000200,
       },
     })
   })

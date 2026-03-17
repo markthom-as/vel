@@ -101,6 +101,12 @@ describe('SettingsPage', () => {
             adaptive_policy_overrides: {
               commute_buffer_minutes: 30,
               default_prep_minutes: 45,
+              commute_buffer_source_suggestion_id: 'sug_commute',
+              commute_buffer_source_title: 'Increase commute buffer',
+              commute_buffer_source_accepted_at: 1_710_000_100,
+              default_prep_source_suggestion_id: 'sug_prep',
+              default_prep_source_title: 'Increase prep window',
+              default_prep_source_accepted_at: 1_710_000_200,
             },
           },
           meta: { request_id: 'req_1' },
@@ -140,6 +146,15 @@ describe('SettingsPage', () => {
             activity: {
               configured: true,
               source_path: '/tmp/activity.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+            health: {
+              configured: true,
+              source_path: '/tmp/health.json',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -434,6 +449,8 @@ describe('SettingsPage', () => {
     const root = getSettingsRoot(container)
     expect(within(root).getByText('30 min')).toBeInTheDocument()
     expect(within(root).getByText('45 min')).toBeInTheDocument()
+    expect(within(root).getByText(/from increase commute buffer/i)).toBeInTheDocument()
+    expect(within(root).getByText(/from increase prep window/i)).toBeInTheDocument()
   })
 
   it('keeps todoist sync active while google credential save is pending', async () => {
@@ -713,6 +730,15 @@ describe('SettingsPage', () => {
           last_item_count: null,
           guidance: null,
         },
+        health: {
+          configured: true,
+          source_path: '/tmp/health.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
         git: {
           configured: true,
           source_path: '/tmp/git.json',
@@ -829,6 +855,15 @@ describe('SettingsPage', () => {
                 action: 'Set source path',
               },
             },
+            health: {
+              configured: true,
+              source_path: '/tmp/health.json',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
             git: {
               configured: true,
               source_path: '/tmp/git.json',
@@ -903,6 +938,15 @@ describe('SettingsPage', () => {
         activity: {
           configured: true,
           source_path: '/tmp/activity.json',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        health: {
+          configured: true,
+          source_path: '/tmp/health.json',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,

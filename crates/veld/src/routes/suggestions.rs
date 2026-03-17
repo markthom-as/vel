@@ -208,8 +208,8 @@ async fn apply_state_transition(
     if new_state == "accepted" {
         let applied = crate::services::adaptive_policies::apply_suggestion_acceptance(
             &state.storage,
-            &existing.suggestion_type,
-            &existing.payload_json,
+            existing,
+            now_ts,
         )
         .await?;
         state

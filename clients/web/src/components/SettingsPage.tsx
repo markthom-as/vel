@@ -1155,6 +1155,14 @@ export function SettingsPage({
                           ? 'Default policy'
                           : `${settings.adaptive_policy_overrides.commute_buffer_minutes} min`}
                       </dd>
+                      {settings.adaptive_policy_overrides?.commute_buffer_source_title
+                        || settings.adaptive_policy_overrides?.commute_buffer_source_suggestion_id ? (
+                          <p className="mt-2 text-xs text-zinc-500">
+                            From{' '}
+                            {settings.adaptive_policy_overrides?.commute_buffer_source_title
+                              ?? settings.adaptive_policy_overrides?.commute_buffer_source_suggestion_id}
+                          </p>
+                        ) : null}
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                       <dt className="text-zinc-500">Default prep window</dt>
@@ -1163,6 +1171,14 @@ export function SettingsPage({
                           ? 'Default policy'
                           : `${settings.adaptive_policy_overrides.default_prep_minutes} min`}
                       </dd>
+                      {settings.adaptive_policy_overrides?.default_prep_source_title
+                        || settings.adaptive_policy_overrides?.default_prep_source_suggestion_id ? (
+                          <p className="mt-2 text-xs text-zinc-500">
+                            From{' '}
+                            {settings.adaptive_policy_overrides?.default_prep_source_title
+                              ?? settings.adaptive_policy_overrides?.default_prep_source_suggestion_id}
+                          </p>
+                        ) : null}
                     </div>
                   </dl>
                 )}

@@ -3642,6 +3642,14 @@ mod tests {
             .remove("adaptive_policy_overrides")
             .expect("adaptive overrides should be stored after accepting suggestion");
         assert_eq!(overrides["commute_buffer_minutes"].as_u64(), Some(30));
+        assert_eq!(
+            overrides["commute_buffer_source_suggestion_id"].as_str(),
+            Some(suggestion_id.as_ref())
+        );
+        assert_eq!(
+            overrides["commute_buffer_source_title"].as_str(),
+            Some("Increase commute buffer")
+        );
         let feedback = storage
             .list_suggestion_feedback(suggestion_id.as_ref())
             .await
@@ -6015,7 +6023,13 @@ END:VCALENDAR
                 "adaptive_policy_overrides",
                 &serde_json::json!({
                     "commute_buffer_minutes": 30,
-                    "default_prep_minutes": 45
+                    "default_prep_minutes": 45,
+                    "commute_buffer_source_suggestion_id": "sug_commute",
+                    "commute_buffer_source_title": "Increase commute buffer",
+                    "commute_buffer_source_accepted_at": 1710000100,
+                    "default_prep_source_suggestion_id": "sug_prep",
+                    "default_prep_source_title": "Increase prep window",
+                    "default_prep_source_accepted_at": 1710000200
                 }),
             )
             .await
@@ -6049,6 +6063,14 @@ END:VCALENDAR
         assert_eq!(
             json["data"]["adaptive_policy_overrides"]["default_prep_minutes"].as_u64(),
             Some(45)
+        );
+        assert_eq!(
+            json["data"]["adaptive_policy_overrides"]["commute_buffer_source_title"].as_str(),
+            Some("Increase commute buffer")
+        );
+        assert_eq!(
+            json["data"]["adaptive_policy_overrides"]["default_prep_source_title"].as_str(),
+            Some("Increase prep window")
         );
     }
 

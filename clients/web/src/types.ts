@@ -84,6 +84,12 @@ export interface SettingsData {
   adaptive_policy_overrides?: {
     default_prep_minutes?: number | null;
     commute_buffer_minutes?: number | null;
+    default_prep_source_suggestion_id?: string | null;
+    default_prep_source_title?: string | null;
+    default_prep_source_accepted_at?: UnixSeconds | null;
+    commute_buffer_source_suggestion_id?: string | null;
+    commute_buffer_source_title?: string | null;
+    commute_buffer_source_accepted_at?: UnixSeconds | null;
   };
 }
 
@@ -845,6 +851,48 @@ export function decodeSettingsData(value: unknown): SettingsData {
                 : expectNullableNumber(
                     adaptiveOverrides.commute_buffer_minutes,
                     'settings.adaptive_policy_overrides.commute_buffer_minutes',
+                  ),
+            default_prep_source_suggestion_id:
+              adaptiveOverrides.default_prep_source_suggestion_id === undefined
+                ? undefined
+                : expectNullableString(
+                    adaptiveOverrides.default_prep_source_suggestion_id,
+                    'settings.adaptive_policy_overrides.default_prep_source_suggestion_id',
+                  ),
+            default_prep_source_title:
+              adaptiveOverrides.default_prep_source_title === undefined
+                ? undefined
+                : expectNullableString(
+                    adaptiveOverrides.default_prep_source_title,
+                    'settings.adaptive_policy_overrides.default_prep_source_title',
+                  ),
+            default_prep_source_accepted_at:
+              adaptiveOverrides.default_prep_source_accepted_at === undefined
+                ? undefined
+                : expectNullableUnixSeconds(
+                    adaptiveOverrides.default_prep_source_accepted_at,
+                    'settings.adaptive_policy_overrides.default_prep_source_accepted_at',
+                  ),
+            commute_buffer_source_suggestion_id:
+              adaptiveOverrides.commute_buffer_source_suggestion_id === undefined
+                ? undefined
+                : expectNullableString(
+                    adaptiveOverrides.commute_buffer_source_suggestion_id,
+                    'settings.adaptive_policy_overrides.commute_buffer_source_suggestion_id',
+                  ),
+            commute_buffer_source_title:
+              adaptiveOverrides.commute_buffer_source_title === undefined
+                ? undefined
+                : expectNullableString(
+                    adaptiveOverrides.commute_buffer_source_title,
+                    'settings.adaptive_policy_overrides.commute_buffer_source_title',
+                  ),
+            commute_buffer_source_accepted_at:
+              adaptiveOverrides.commute_buffer_source_accepted_at === undefined
+                ? undefined
+                : expectNullableUnixSeconds(
+                    adaptiveOverrides.commute_buffer_source_accepted_at,
+                    'settings.adaptive_policy_overrides.commute_buffer_source_accepted_at',
                   ),
           },
   };
