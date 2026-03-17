@@ -108,6 +108,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/nudges/:id", get(routes::nudges::get_nudge))
         .route("/v1/nudges/:id/done", post(routes::nudges::nudge_done))
         .route("/v1/nudges/:id/snooze", post(routes::nudges::nudge_snooze))
+        .route("/v1/nudges/:id/dismiss", post(routes::nudges::nudge_dismiss))
         .route("/v1/sync/calendar", post(routes::sync::sync_calendar))
         .route("/v1/sync/todoist", post(routes::sync::sync_todoist))
         .route("/v1/sync/activity", post(routes::sync::sync_activity))
@@ -1747,6 +1748,113 @@ mod tests {
             Some("resolved"),
             "resolved nudge must stay resolved after second evaluate"
         );
+    }
+
+    #[tokio::test]
+    async fn dismissed_nudge_is_listed_with_dismiss_history() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Take meds".to_string(),
+                source_type: "test".to_string(),
+                source_id: None,
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: None,
+                commitment_kind: Some("medication".to_string()),
+                metadata_json: None,
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let eval_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(eval_resp.status(), StatusCode::OK);
+
+        let nudges_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = axum::body::to_bytes(nudges_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let nudge_id = json["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|n| n["nudge_type"].as_str() == Some("meds_not_logged"))
+            .and_then(|n| n["nudge_id"].as_str())
+            .expect("meds nudge should exist")
+            .to_string();
+
+        let dismiss_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/nudges/{}/dismiss", nudge_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(dismiss_resp.status(), StatusCode::OK);
+        let dismiss_body = axum::body::to_bytes(dismiss_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let dismiss_json: serde_json::Value = serde_json::from_slice(&dismiss_body).unwrap();
+        assert_eq!(dismiss_json["data"]["state"], "dismissed");
+
+        let list_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/nudges")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list_resp.status(), StatusCode::OK);
+        let list_body = axum::body::to_bytes(list_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
+        let dismissed = list_json["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|n| n["nudge_id"].as_str() == Some(nudge_id.as_str()))
+            .expect("dismissed nudge should remain visible in operator list");
+        assert_eq!(dismissed["state"], "dismissed");
+
+        let events = storage.list_nudge_events(&nudge_id, 10).await.unwrap();
+        let event_types: Vec<_> = events.into_iter().map(|event| event.event_type).collect();
+        assert_eq!(event_types, vec!["nudge_created", "nudge_dismissed"]);
     }
 
     #[tokio::test]
