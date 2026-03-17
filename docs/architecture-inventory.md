@@ -260,22 +260,36 @@ Measured local hotspots:
 
 Problem:
 
-- many unrelated persistence domains in one file
+- one `Storage` impl owns infrastructure, capture/commitment/signal persistence, context/suggestion state, integrations, runs/artifacts, chat, runtime loops, cluster work, projections, and row mappers
 
 Needs:
 
-- split by persistence domain, not by arbitrary chunk size
+- preserve the public `Storage` facade and split by repository family, not by CRUD verb or table name
+- prefer these internal seams:
+  - `runs_artifacts_repo`
+  - `chat_repo`
+  - `runtime_cluster_repo`
+  - `integration_threads_repo`
+  - `context_suggestions_repo`
+  - later `capture_commitments_repo`
+- keep transactional units intact, especially run creation plus run-event persistence
 
 #### [crates/veld/src/routes/chat.rs](/home/jove/code/vel/crates/veld/src/routes/chat.rs)
 
 Problem:
 
-- route does service work
-- includes persistence orchestration, intervention decisions, LLM usage, DTO mapping, and realtime emission
+- route module owns HTTP parsing, storage-to-DTO mapping, message write orchestration, intervention classification and mutation, assistant LLM orchestration, provenance projection, chat settings reads/writes, event-log append, and websocket fanout
 
 Needs:
 
-- chat service extraction
+- keep the route module as a thin adapter and extract these service seams:
+  - `services/chat/messages`
+  - `services/chat/assistant`
+  - `services/chat/interventions`
+  - `services/chat/provenance`
+  - `services/chat/settings`
+  - `services/chat/events`
+- extract helper and orchestration seams before deciding whether to purify transport return types
 
 #### [crates/veld/src/routes/explain.rs](/home/jove/code/vel/crates/veld/src/routes/explain.rs)
 
@@ -311,21 +325,27 @@ Needs:
 
 Problem:
 
-- one component owns too many domains: general settings, integrations, local adapters, loop controls, recovery guidance, and operator actions
+- one page owns shell/tab routing, query subscriptions, mutation orchestration, per-tab form state, integrations, runs, loops, and embedded operator panels
 
 Needs:
 
-- split by UI and state boundary
+- split by action/query ownership rather than visual chunks
+- start with:
+  - `settings-integrations`
+  - `settings-runs`
+  - `settings-loops`
+  - shared settings panels/components
 
 #### [clients/web/src/types.ts](/home/jove/code/vel/clients/web/src/types.ts)
 
 Problem:
 
-- too much client contract and domain typing concentrated in one file
+- one module owns both app-wide DTO shapes and the decoder runtime for chat, now/context, settings, integrations, runtime control, suggestions, provenance, and websocket events
 
 Needs:
 
-- per-surface typing modules
+- split decoder utilities from domain-specific transport modules
+- move resources and decoders in lockstep so transport ownership stays coherent
 
 ## 6. Systems To Augment, Simplify, Split, or Remove
 
@@ -404,18 +424,22 @@ Rationale:
 
 Split [crates/vel-storage/src/db.rs](/home/jove/code/vel/crates/vel-storage/src/db.rs) by persistence domain:
 
-1. runs, artifacts, refs
-2. context, risk, nudges, suggestions
-3. chat, messages, interventions
-4. integrations, settings
-5. cluster, workers, work assignments, loops
-6. shared row mappers and JSON/time helpers
+1. preserve one public `Storage` facade and extract `runs_artifacts_repo`
+2. extract `chat_repo`
+3. extract `runtime_cluster_repo`
+4. extract `integration_threads_repo`
+5. extract `context_suggestions_repo`
+6. extract `capture_commitments_repo`
+7. then split row mappers per domain rather than into one global mapper file
 
 ### 7.3 Web decomposition order
 
-1. settings UI sections and hooks
-2. per-surface web contract modules
-3. `types.ts` split by feature area
+1. decoder utility/core extraction from [clients/web/src/types.ts](/home/jove/code/vel/clients/web/src/types.ts)
+2. domain transport modules with matching `resources.ts` realignment
+3. `settings-integrations`
+4. `settings-runs`
+5. `settings-loops`
+6. shared settings panels/components
 
 ## 8. Recommended Next Slice
 

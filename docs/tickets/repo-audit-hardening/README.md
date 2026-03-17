@@ -53,10 +53,10 @@ Do not use this pack alone to answer "what is shipped now".
 - `002` hermetic local-integration tests and loop behavior: in_progress
 - `003` pack schema and maturity normalization: in_progress
 - `004` architecture map and module-boundary audit: in_progress
-- `005` chat service-boundary extraction plan: todo
-- `006` storage-layer modularization plan: todo
-- `007` frontend surface decomposition plan: todo
-- `008` doc drift guardrails expansion: todo
+- `005` chat service-boundary extraction plan: in_progress
+- `006` storage-layer modularization plan: in_progress
+- `007` frontend surface decomposition plan: in_progress
+- `008` doc drift guardrails expansion: in_progress
 - `009` active-work surfacing and overlap protocol: todo
 
 ## Execution order

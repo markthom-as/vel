@@ -40,6 +40,22 @@ That makes it a route module, application service, realtime fanout point, and qu
 - provenance assembly
 - settings orchestration boundaries
 
+## Current audit anchors
+
+Key mixed-responsibility zones in [crates/veld/src/routes/chat.rs](/home/jove/code/vel/crates/veld/src/routes/chat.rs):
+
+- helper and DTO mapping concentration around line 25 through line 111
+- `create_message` write orchestration at line 310
+- assistant reply orchestration at line 402
+- provenance assembly helpers at line 622
+- settings payload and patch behavior at line 776
+- intervention action flows at line 853
+
+The important boundary judgment is:
+
+- this file should stop being the truth owner for chat orchestration,
+- but the first pass should not redesign chat semantics or force an immediate transport-type purge.
+
 ## Target split
 
 Keep [crates/veld/src/routes/chat.rs](/home/jove/code/vel/crates/veld/src/routes/chat.rs) as a thin HTTP adapter and move behavior into `services/chat/*`.
@@ -83,6 +99,7 @@ Move pure helpers first without changing route signatures:
 - fallback classification helpers
 - provenance builders
 - settings payload builders
+- chat event-log helper(s)
 
 Goal:
 
@@ -98,6 +115,8 @@ Extract the first high-value write seam from `create_message`:
 - optional intervention creation
 - websocket fanout for created user messages
 
+Keep conversation CRUD in the route layer for this phase if needed. The main goal is to remove the write-path behavior concentration first.
+
 Goal:
 
 - separate write orchestration from route parsing
@@ -110,6 +129,10 @@ Goal:
 
 - isolate LLM-specific behavior
 - keep route returning a service result rather than directly orchestrating the model call
+
+Guardrail:
+
+- do not mix model-call extraction with changes to chat prompts, profiles, or fallback semantics in the same pass
 
 ### Phase 4. Intervention action service
 
@@ -173,5 +196,6 @@ Start with Phase 1 and Phase 2 only:
 
 1. extract helper modules
 2. extract user-message write orchestration
+3. leave conversation CRUD and read/query endpoints mostly untouched
 
 Do not redesign chat semantics in the same change. The point of this ticket is boundary repair, not chat product expansion.

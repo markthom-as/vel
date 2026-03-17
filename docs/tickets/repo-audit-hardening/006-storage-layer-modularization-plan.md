@@ -29,6 +29,11 @@ Primary files:
 - shared row-mapping and JSON/time helpers
 - storage tests
 
+Current audit judgment:
+
+- the next move is internal repository-family modularization, not a crate split
+- the public `Storage` facade should remain stable through the first pass
+
 The crate boundary is still correct. The internal module boundary is not.
 
 ## Scope
@@ -39,20 +44,16 @@ The crate boundary is still correct. The internal module boundary is not.
 
 ## Domain inventory
 
-The current `Storage` impl is logically split into these persistence domains:
+The current `Storage` impl is best grouped into these repository families:
 
-1. infrastructure
-2. captures and ingest jobs
-3. commitments and dependencies
-4. signals and transcripts
-5. context and inference outputs
-6. nudges, risk, suggestions, and uncertainty
-7. integration connections and events
-8. threads and links
-9. runs, artifacts, and refs
-10. chat persistence and settings
-11. runtime loops
-12. cluster workers and work assignments
+1. infrastructure and bootstrap
+2. capture, commitments, dependencies, signals, search, and ingest jobs
+3. context, timeline, nudges, suggestions, risk, and uncertainty
+4. integrations, integration events, threads, and links
+5. runs, artifacts, run events, and refs
+6. chat persistence and event log
+7. settings, runtime loops, work assignments, and cluster workers
+8. orientation projection and row mappers
 
 ## Target internal modules
 
@@ -60,30 +61,22 @@ Preserve one public `Storage` facade, but split implementation internally by dom
 
 - `infra.rs`
   - connect, migrate, healthcheck, schema_version, storage error, sqlite helpers
-- `captures.rs`
-  - capture CRUD, capture search, ingest jobs
-- `commitments.rs`
-  - commitments and commitment dependencies
-- `signals.rs`
-  - signals and assistant transcripts
-- `context.rs`
-  - inferred state, current context, context timeline, orientation snapshot
-- `guidance.rs`
-  - nudges, nudge events, risk snapshots, suggestions, uncertainty
-- `integrations.rs`
-  - integration connections, setting refs, integration events
-- `threads.rs`
-  - thread CRUD and links
+- `capture_commitments.rs`
+  - captures, commitments, dependencies, signals, search, ingest jobs
+- `context_suggestions.rs`
+  - current context, inferred state, context timeline, nudges, risk snapshots, suggestions, uncertainty
+- `integration_threads.rs`
+  - integration connections, integration events, threads, links
 - `runs.rs`
   - artifacts, runs, run events, refs
 - `chat.rs`
-  - conversations, messages, interventions, event log, settings
-- `runtime_loops.rs`
-  - loop claim, ensure, complete, list, get, update config
-- `cluster.rs`
-  - work assignments and cluster workers
-- `mapping.rs`
-  - row mappers and JSON/time helpers
+  - conversations, messages, interventions, event log
+- `runtime_cluster.rs`
+  - settings, runtime loops, work assignments, cluster workers
+- `orientation.rs`
+  - orientation snapshot only if its ownership stays explicit
+- per-domain `mapping/*`
+  - row mappers and JSON/time helpers colocated with their repository families where possible
 
 ## Extraction strategy
 
@@ -115,7 +108,7 @@ Move shared helpers and low-risk infra out first:
 - sqlite connect options
 - JSON parsing helpers
 - timestamp conversion helpers
-- common row-mapping utilities
+- only the minimum common row-mapping utilities needed to unblock domain extraction
 
 This reduces clutter before touching higher-risk domains.
 
@@ -123,22 +116,19 @@ This reduces clutter before touching higher-risk domains.
 
 Suggested order:
 
-1. `threads`
-2. `integrations`
-3. `runtime_loops`
-4. `cluster`
-5. `chat`
-6. `runs`
-7. `guidance`
-8. `captures`
-9. `signals`
-10. `context`
-11. `commitments`
+1. `runs`
+2. `chat`
+3. `runtime_cluster`
+4. `integration_threads`
+5. `context_suggestions`
+6. `capture_commitments`
+7. per-domain row mappers
 
 Rationale:
 
-- start with domains that have clearer boundaries and less fan-out
-- leave the most central runtime read/write surfaces until the extraction pattern is proven
+- start with the cleanest transactional and operational seams
+- preserve repo behavior by keeping central capture/commitment persistence until the extraction pattern is proven
+- avoid a fake low-risk start that only moves tiny helpers and leaves all real coupling untouched
 
 ### Rule 5. Keep one delegating `impl Storage` first
 
@@ -173,6 +163,8 @@ Important current coupling:
 Guardrail:
 
 - keep re-exports stable throughout the modularization pass
+- do not split runs from run-events or work assignments from queue/retry semantics
+- do not centralize all row mappers into one new omnibus mapper module
 
 ## Acceptance criteria
 
@@ -186,7 +178,8 @@ Guardrail:
 Start with:
 
 1. `infra.rs`
-2. `mapping.rs`
-3. one low-fan-out domain such as `threads.rs` or `runtime_loops.rs`
+2. `runs.rs`
+3. `chat.rs`
+4. `runtime_cluster.rs`
 
-Do not start by splitting commitments, signals, or current context. Those are too central for the first proof-of-pattern extraction.
+Do not start by splitting commitments, signals, or current context. Those are too central for the first proof-of-pattern extraction, and `capture` currently carries ingest-job side effects that make it a worse first seam than it looks.
