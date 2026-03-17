@@ -39,7 +39,7 @@ Coverage labels:
 | `clients/web` | partial | partial | partial | partial | n/a | partial | Operator accessibility and effective-config clarity are tracked by ticket `019`. |
 | `clients/apple` | partial | partial | partial | partial | n/a | partial | Shared documentation catalog is in place; broader parity remains planned. |
 | `packages/*` shared web packages | partial | partial | partial | partial | n/a | partial | Package contracts exist but subsystem trait docs are still thin. |
-| Integrations (`veld` services + docs pack) | partial | partial | baseline | partial | partial | baseline | Canonical vocabulary exists; runtime alignment is tracked by ticket `022`. |
+| Integrations (`veld` services + docs pack) | partial | partial | baseline | partial | partial | baseline | Canonical vocabulary and connector contract are complete; broader provider/runtime breadth remains planned follow-on work. |
 | Docs/templates/tickets surfaces | baseline | baseline | baseline | partial | partial | baseline | Authority chain and templates exist; command-backed walkthrough density still needs growth. |
 
 # Gap Classification
@@ -52,16 +52,13 @@ Coverage labels:
 ## Architecture/implementation gaps
 
 - operator-surface accessibility and effective-config clarity (`019-operator-accessibility-config-clarity.md`).
-- machine-readable contract publication and consumer rollout (`024-machine-readable-schema-and-manifest-publication.md`).
-- integration/runtime alignment for canonical connector vocabulary (`022-data-sources-and-connector-architecture.md`).
+- broader integration provider/runtime breadth beyond current canonical connector contract coverage.
 
 # Queue Coverage Check
 
 Current ticket coverage for material gaps:
 
 - `019-operator-accessibility-config-clarity.md`
-- `022-data-sources-and-connector-architecture.md`
-- `024-machine-readable-schema-and-manifest-publication.md`
 
 If a future gap is found without ticket coverage, add coverage in `docs/tickets/README.md` and `docs/MASTER_PLAN.md` in the same change.
 

@@ -1,6 +1,6 @@
 ---
 title: Canonical Data Sources And Connector Architecture
-status: planned
+status: complete
 owner: staff-eng
 type: architecture
 priority: high
@@ -59,10 +59,10 @@ This ticket defines and operationalizes that contract so new integrations extend
 
 # Acceptance Criteria
 
-1. [ ] The repo has one canonical list of integration families and source modes.
-2. [ ] New integration work references one connector contract instead of inventing new shape.
-3. [ ] Provenance and connector health expectations are explicit.
-4. [ ] Ticket coverage exists for later code alignment work.
+1. [x] The repo has one canonical list of integration families and source modes.
+2. [x] New integration work references one connector contract instead of inventing new shape.
+3. [x] Provenance and connector health expectations are explicit.
+4. [x] Ticket coverage exists for later code alignment work.
 
 # Verification & Regression
 

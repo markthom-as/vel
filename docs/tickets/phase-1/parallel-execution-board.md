@@ -1,54 +1,42 @@
 # Phase 1 Parallel Execution Board
 
-Use this board to run Phase 1 work in parallel with explicit ownership and non-overlapping primary write scopes.
+This board records how Phase 1 work was parallelized with explicit ownership and non-overlapping primary write scopes.
 
 This board is execution guidance, not authority over shipped behavior.
 Shipped behavior remains anchored in `docs/MASTER_PLAN.md`.
 
-## Parallel Lanes
+## Parallel Lanes (Historical)
 
 | Lane | Primary Tickets | Primary Write Scope | Ready State | Notes |
 | --- | --- | --- | --- | --- |
-| A: Docs/Contracts | `011`, `018`, `020`, `021`, `022`, `023`, `024`, `025` | `docs/`, `config/`, `scripts/verify-repo-truth.mjs` | active | Architecture-first lane. Keep machine-readable artifacts and docs in lockstep. |
-| B: Core Boundaries | `002`, `003`, `015` | `crates/vel-core/`, `crates/veld/src/routes/`, `crates/veld/src/services/` | active | Start only when lane A has stable contract references for touched seams. |
-| C: Storage Decomposition | `001` | `crates/vel-storage/` | active | Keep extraction narrow and transaction-safe. Avoid re-expanding `db.rs`. |
+| A: Docs/Contracts | `011`, `018`, `020`, `021`, `022`, `023`, `024`, `025` | `docs/`, `config/`, `scripts/verify-repo-truth.mjs` | closed | Architecture-first lane. Keep machine-readable artifacts and docs in lockstep. |
+| B: Core Boundaries | `002`, `003`, `015` | `crates/vel-core/`, `crates/veld/src/routes/`, `crates/veld/src/services/` | closed | Started when lane A had stable contract references for touched seams. |
+| C: Storage Decomposition | `001` | `crates/vel-storage/` | closed | Kept extraction narrow and transaction-safe without re-expanding `db.rs`. |
 
-## Suggested Initial Parallel Pull
+## Suggested Initial Parallel Pull (Historical)
 
-1. Lane A: continue ticket `018` with subsystem audit updates when any subsystem seam changes.
-2. Lane B: start route exposure inventory for `015` in `crates/veld/src/app.rs` and `docs/api/runtime.md`.
-3. Lane C: continue repository extraction under `crates/vel-storage/src/repositories/` with focused tests.
+This section is retained as historical execution context; Phase 1 is complete and no longer has active pull lanes.
 
 ## Next Priority Order
 
-Current ranked execution order for remaining high-value phase-1 slices:
+Phase 1 closure order is complete.
 
-1. `003-service-dto-layering.md`
-   focus: remove `vel-api-types` imports from `crates/veld/src/services/*` by moving DTO mapping to route boundaries.
-2. `001-storage-modularization.md`
-   focus: continue extracting `db.rs` seams into `crates/vel-storage/src/repositories/` with transaction-friendly APIs.
-3. `002-typed-context-transition.md`
-   focus: adopt `vel-core` typed context (`CurrentContextV1`) at inference/read boundaries while preserving migration from stored JSON.
-4. `021-canonical-schema-and-config-contracts.md` + `025-config-and-contract-fixture-parity.md`
-   focus: keep schema/template/fixture/test parity strict as service and storage contracts evolve.
+If you are continuing execution, pull from Phase 2 queue items using `docs/tickets/README.md` and `docs/tickets/architecture-first-parallel-queue.md`.
 
 ## Execution Snapshot (2026-03-17)
 
-- `003-service-dto-layering.md`: in progress
-  - completed slices: journal, doctor, components, google auth-start, todoist status boundary mapping, chat reads, chat conversations, chat messages/interventions, chat assistant/provenance, chat mapping, chat websocket event reference cleanup, context_generation/context_runs, now, evaluate, explain, integrations, command_lang, client_sync, sync/cluster route response helper extraction, client_sync heartbeat boundary tightened to service-local typed input, remaining client_sync request signatures migrated from generic `impl Serialize` to concrete service-local typed inputs
-  - next slices: audit remaining service-call boundaries for DTO-free signatures as routes and worker/service seams evolve
-- `001-storage-modularization.md`: in progress
-  - completed slices: all core storage logic extracted from `db.rs` into domain-specific repositories in `src/repositories/`; delegation facade in `Storage` complete for: signals, assistant_transcripts, artifacts, suggestion_feedback, uncertainty_records, commitment_risk, suggestions, nudges, nudge_events, captures (including search/orientation), integration_connections, settings, work_assignments, runs, run_refs, current_context, context_timeline, inferred_state, processing_jobs, and runtime_loops; all mapping logic moved to repositories; redundant legacy files (`runtime_cluster.rs`, `runtime_loops.rs`, `orientation_repo.rs`, `suggestion_feedback_repo.rs`) removed.
-  - next slices: audit remaining `Storage` methods for consistent transaction-safe helper patterns; consolidate any remaining direct sqlx usage in facade
-- `002-typed-context-transition.md`: in progress
-  - completed slices: `CurrentContextV1` + `ContextMigrator` foundation and inference compatibility coverage, typed read adoption in `nudge_engine`, typed read adoption in `explain`, typed risk-score read adoption in `suggestions`, typed load/fallback handling in `evaluate` context-updated broadcast path, typed-first context reads in `now` (with raw fallback preserved), typed context assertions in integrations bootstrap/evaluate coverage, typed-first context construction + storage-boundary serialization in inference, typed current-context usage in sync bootstrap payload assembly, typed-first timeline row mapping in `routes/context` with malformed-row fallback
-  - next slices: adopt typed reads/writes at remaining boundaries without changing stored payload fidelity
-- `021` + `025`: in progress
-  - completed slices: canonical `model_routing` example fixture added and registered in `contracts-manifest`, verifier parity assertion added, docs/config references updated, parsing test added in `vel-config`; `reminders_snapshot_path` parity added across schema/template/runtime verifier and config tests; canonical `model_profile` example fixture added and wired through manifest/docs/tests/verifier; canonical examples for app config, policy config, and agent specs added with manifest registration and verifier/schema-parse coverage
-  - next slices: continue filling schema/template/example/test parity gaps for remaining manifest-bearing config contracts
-- `015-http-surface-auth-hardening.md`: in progress
-  - completed slices: explicit `future_external` fail-closed route reservations for `/v1/connect*` and `/v1/cluster/clients*` in `app.rs`, plus coverage tests and runtime API docs alignment; expanded `/api/*` + `/ws` exposure/auth and fail-closed matrix tests with runtime API docs matrix; explicit worker-auth test coverage for `POST /v1/sync/work-queue/claim-next` when worker token policy is configured; explicit worker queue matrix coverage for `GET /v1/sync/work-queue` token-required mode, strict-auth fail-closed behavior, and unset-policy behavior parity across queue routes; worker-sync route auth matrix coverage for `POST /v1/sync/actions`, `POST /v1/sync/branch-sync`, and `POST /v1/sync/validation`; worker auth matrix coverage for `/v1/sync/work-assignments` (`GET`/`POST`/`PATCH`) under configured-token and strict-auth-unset modes
-  - next slices: continue route exposure inventory/test matrix tightening for remaining mounted `/api/*` and websocket surfaces
+- `001-storage-modularization.md`: complete
+- `002-typed-context-transition.md`: complete
+- `003-service-dto-layering.md`: complete
+- `011-documentation-truth-repair.md`: complete
+- `015-http-surface-auth-hardening.md`: complete
+- `018-cross-cutting-system-traits-baseline.md`: complete
+- `020-documentation-catalog-single-source.md`: complete
+- `021-canonical-schema-and-config-contracts.md`: complete
+- `022-data-sources-and-connector-architecture.md`: complete
+- `023-self-awareness-and-supervised-self-modification.md`: complete
+- `024-machine-readable-schema-and-manifest-publication.md`: complete
+- `025-config-and-contract-fixture-parity.md`: complete
 
 ## Coordination Rules
 

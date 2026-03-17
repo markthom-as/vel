@@ -70,6 +70,7 @@ Undefined routes are fail-closed with an explicit `404` fallback handler.
 
 - daemon and storage health
 - effective runtime diagnostics
+- published contract-manifest parse health (`contracts_manifest` check from `config/contracts-manifest.json`)
 
 Exposure:
 

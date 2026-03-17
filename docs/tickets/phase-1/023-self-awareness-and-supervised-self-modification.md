@@ -1,6 +1,6 @@
 ---
 title: Self-Awareness And Supervised Self-Modification
-status: planned
+status: complete
 owner: staff-eng
 type: architecture
 priority: high
@@ -60,10 +60,10 @@ This ticket defines that contract so repository visibility, writable scope, revi
 
 # Acceptance Criteria
 
-1. [ ] The repo has a clear self-awareness and supervised self-modification contract.
-2. [ ] Read scope and write scope are explicitly separated.
-3. [ ] Ticket and spec language no longer treats self-improvement as vague ambient behavior.
-4. [ ] Later implementation work can reference one canonical contract for repo-aware behavior.
+1. [x] The repo has a clear self-awareness and supervised self-modification contract.
+2. [x] Read scope and write scope are explicitly separated.
+3. [x] Ticket and spec language no longer treats self-improvement as vague ambient behavior.
+4. [x] Later implementation work can reference one canonical contract for repo-aware behavior.
 
 # Verification & Regression
 

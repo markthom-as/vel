@@ -1566,6 +1566,16 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let payload: vel_api_types::ApiResponse<vel_api_types::DoctorData> =
+            serde_json::from_slice(&body).unwrap();
+        let data = payload.data.unwrap();
+        assert!(data
+            .checks
+            .iter()
+            .any(|check| check.name == "contracts_manifest"));
     }
 
     #[tokio::test]

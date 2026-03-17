@@ -1,5 +1,7 @@
+mod contracts_manifest;
 mod models;
 
+pub use contracts_manifest::{ContractManifestEntry, ContractsManifest};
 pub use models::{load_model_profiles, load_routing, ModelProfile, RoutingConfig};
 
 use serde::{Deserialize, Serialize};
@@ -208,6 +210,8 @@ pub enum ConfigError {
     Parse(#[from] toml::de::Error),
     #[error("failed to parse agent spec file: {0}")]
     AgentSpecParse(#[from] serde_yaml::Error),
+    #[error("failed to parse contracts manifest file: {0}")]
+    ContractManifestParse(#[from] serde_json::Error),
     #[error("config validation: {0}")]
     Validation(String),
 }
@@ -254,6 +258,10 @@ pub fn is_default_local_source_path(kind: &str, path: &str) -> bool {
         "transcripts" => path == DEFAULT_TRANSCRIPT_SNAPSHOT_PATH,
         _ => false,
     }
+}
+
+pub fn load_repo_contracts_manifest() -> Result<ContractsManifest, ConfigError> {
+    ContractsManifest::load_repo()
 }
 
 fn default_agent_spec_path() -> String {
@@ -715,6 +723,35 @@ budgets:
             AppConfig::load_agent_specs_from_path(repo_path("config/agent-specs.yaml")).unwrap();
         assert!(!specs.is_empty());
         assert_eq!(specs[0].id, "research_agent");
+    }
+
+    #[test]
+    fn repo_contracts_manifest_parses() {
+        let manifest =
+            load_repo_contracts_manifest().expect("repo contracts manifest should parse");
+        assert!(manifest.version >= 1);
+        assert!(!manifest.live_configs.is_empty());
+        assert!(!manifest.templates.is_empty());
+        assert!(!manifest.contract_examples.is_empty());
+        assert!(manifest.authority_docs.contains(
+            &"docs/tickets/phase-1/024-machine-readable-schema-and-manifest-publication.md"
+                .to_string()
+        ));
+    }
+
+    #[test]
+    fn repo_contracts_manifest_includes_connector_and_self_model_examples() {
+        let manifest =
+            load_repo_contracts_manifest().expect("repo contracts manifest should parse");
+        assert!(manifest
+            .contract_examples
+            .iter()
+            .any(|entry| entry.kind == "connector_manifest"));
+        assert!(manifest
+            .contract_examples
+            .iter()
+            .any(|entry| entry.kind == "self_model_envelope"));
+        assert!(manifest.schema_count() >= 7);
     }
 
     #[test]

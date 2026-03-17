@@ -1,7 +1,7 @@
 ---
 title: Canonical Schemas And Contracts
 doc_type: spec
-status: proposed
+status: complete
 owner: staff-eng
 created: 2026-03-17
 updated: 2026-03-17
@@ -125,7 +125,7 @@ Templates and fixtures are examples and scaffolds, not hidden sources of truth. 
 Contract surfaces should be publishable in machine-readable form for clients and tooling.
 
 Current published artifacts live under `config/schemas/` and are indexed by `config/contracts-manifest.json`.
-Consumer rollout and versioned publication discipline are tracked by ticket `024-machine-readable-schema-and-manifest-publication.md`.
+Shared consumers now include `vel-cli` docs output and runtime doctor diagnostics through `vel-config`'s published-manifest loader; additional client surface adoption can extend the same registry.
 
 ### Scientific Substrate And Symbolic Layer
 

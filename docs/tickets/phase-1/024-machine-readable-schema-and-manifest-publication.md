@@ -1,6 +1,6 @@
 ---
 title: Machine-Readable Schema And Manifest Publication
-status: planned
+status: complete
 owner: staff-eng
 type: architecture
 priority: high
@@ -59,10 +59,10 @@ This ticket adds machine-readable schema and manifest publication so CLI, web, A
 
 # Acceptance Criteria
 
-1. [ ] A machine-readable schema/manifest publication mechanism exists and is documented.
-2. [ ] Published artifacts cover core config and envelope contracts.
-3. [ ] Consumers can discover schema resources from one canonical registry.
-4. [ ] Versioning and migration rules are explicit for breaking changes.
+1. [x] A machine-readable schema/manifest publication mechanism exists and is documented.
+2. [x] Published artifacts cover core config and envelope contracts.
+3. [x] Consumers can discover schema resources from one canonical registry.
+4. [x] Versioning and migration rules are explicit for breaking changes.
 
 # Verification & Regression
 

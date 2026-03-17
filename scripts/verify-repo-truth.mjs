@@ -724,6 +724,9 @@ const agentProtocol = readFile('docs/templates/agent-implementation-protocol.md'
 const apiRuntime = readFile('docs/api/runtime.md');
 const apiChat = readFile('docs/api/chat.md');
 const makefile = readFile('Makefile');
+const contractsManifestLoader = readFile('crates/vel-config/src/contracts_manifest.rs');
+const cliDocsCommand = readFile('crates/vel-cli/src/commands/docs.rs');
+const doctorService = readFile('crates/veld/src/services/doctor.rs');
 
 const requiredReadmeCommands = [
   'make build',
@@ -1075,6 +1078,20 @@ ensure(
     && Array.isArray(contractManifest.contract_examples)
     && Array.isArray(contractManifest.authority_docs),
   'config/contracts-manifest.json is missing one or more top-level manifest arrays',
+);
+ensure(
+  contractsManifestLoader.includes('ContractsManifest')
+    && contractsManifestLoader.includes('contracts-manifest.json'),
+  'vel-config contracts manifest loader is missing canonical manifest publication wiring',
+);
+ensure(
+  cliDocsCommand.includes('load_repo_contracts_manifest'),
+  'vel-cli docs command is not consuming the published contracts manifest',
+);
+ensure(
+  doctorService.includes('load_repo_contracts_manifest')
+    && doctorService.includes('contracts_manifest'),
+  'veld doctor service is not consuming the published contracts manifest',
 );
 ensure(
   contractManifest?.authority_docs?.includes(

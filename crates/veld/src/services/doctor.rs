@@ -1,6 +1,7 @@
 //! Doctor service: runs diagnostic checks and returns structured result.
 
 use std::path::Path;
+use vel_config::load_repo_contracts_manifest;
 
 use crate::state::AppState;
 
@@ -56,6 +57,7 @@ pub async fn run_diagnostics(state: &AppState) -> DoctorReport {
 
     let artifact_check = check_artifact_dir(&state.config.artifact_root);
     checks.push(artifact_check);
+    checks.push(check_contracts_manifest());
 
     DoctorReport {
         checks,
@@ -108,6 +110,28 @@ fn check_artifact_dir(root: &str) -> DoctorCheck {
             name: "artifact_dir".to_string(),
             status: DoctorCheckStatus::Fail,
             message: format!("not writable: {}", e),
+        },
+    }
+}
+
+fn check_contracts_manifest() -> DoctorCheck {
+    match load_repo_contracts_manifest() {
+        Ok(manifest) => DoctorCheck {
+            name: "contracts_manifest".to_string(),
+            status: DoctorCheckStatus::Ok,
+            message: format!(
+                "ok (version {}; live={}, templates={}, examples={}, schemas={})",
+                manifest.version,
+                manifest.live_configs.len(),
+                manifest.templates.len(),
+                manifest.contract_examples.len(),
+                manifest.schema_count()
+            ),
+        },
+        Err(error) => DoctorCheck {
+            name: "contracts_manifest".to_string(),
+            status: DoctorCheckStatus::Fail,
+            message: format!("cannot load published contracts manifest: {error}"),
         },
     }
 }

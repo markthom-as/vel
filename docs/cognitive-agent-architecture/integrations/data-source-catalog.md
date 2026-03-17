@@ -1,7 +1,7 @@
 ---
 title: Data Source Catalog
 doc_type: spec
-status: proposed
+status: complete
 owner: staff-eng
 created: 2026-03-17
 updated: 2026-03-17
