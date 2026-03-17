@@ -117,17 +117,12 @@ struct ContentView: View {
             store.pendingActionCount = store.offlineStore.pendingActionCount()
         }
         do {
-            async let n: [VelAPI.NudgeData] = store.client.nudges()
-            async let c: VelAPI.CurrentContextData = store.client.currentContext()
-            async let openCommitments: [VelAPI.CommitmentData] = store.client.commitments()
-            let (nudgeList, ctx, commitmentList) = try await (n, c, openCommitments)
-            store.offlineStore.saveCachedNudges(nudgeList)
-            store.offlineStore.saveCachedContext(ctx)
-            store.offlineStore.saveCachedCommitments(commitmentList)
+            let bootstrap = try await store.client.syncBootstrap()
+            store.offlineStore.hydrate(from: bootstrap)
             await MainActor.run {
-                nudges = nudgeList
-                commitments = commitmentList
-                context = ctx
+                nudges = bootstrap.nudges
+                commitments = bootstrap.commitments
+                context = bootstrap.current_context
                 store.pendingActionCount = store.offlineStore.pendingActionCount()
             }
         } catch {

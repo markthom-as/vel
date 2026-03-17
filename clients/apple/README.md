@@ -51,6 +51,36 @@ Current guardrails:
 - on first replay failure, remaining actions stay queued for next retry
 - cache is best-effort and can be overwritten by canonical server state after reconnect
 
+Bootstrap metadata now also advertises node execution capabilities:
+
+- `capabilities` for high-level node abilities
+- `branch_sync` for repo branch-sync support on that node
+- `validation_profiles` for environment-specific checks such as `api`, `web`, `apple`, `repo`, and `runtime`
+
+Current queued sync contracts can also carry structured `branch_sync_request` and `validation_request` payloads for richer clients that need to ask the authority node for repo work without embedding free-form command text.
+
+## VelMac local export
+
+`VelMac` now writes local snapshot files into `~/Library/Application Support/Vel/` during reachability/bootstrap checks so `veld` can auto-discover them on macOS and ingest them into cluster context immediately.
+
+Current snapshot outputs:
+
+- `activity/snapshot.json`
+- `health/snapshot.json`
+- `messages/snapshot.json`
+
+Current behavior:
+
+- activity writes a lightweight local heartbeat from the running app
+- health writes a same-day summary snapshot when HealthKit is available and authorization is granted
+- messages writes a recent-thread snapshot from the local Messages database, then asks `veld` to sync it when the daemon is reachable
+
+Current caveats:
+
+- Health export is snapshot-based through HealthKit, not a long-running background sync
+- Messages export reads `~/Library/Messages/chat.db` via `sqlite3`; on macOS this may require Full Disk Access depending on host policy
+- when `veld` is unreachable, `VelMac` still writes snapshots locally but cannot trigger daemon sync until a later reachability check
+
 ## 1. Open the project in Xcode
 
 From the repo root:
@@ -116,10 +146,9 @@ clients/apple/
 ## API surface used
 
 - `GET /v1/health` — reachability.
-- `GET /v1/context/current` — current context (mode, morning_state, meds_status, etc.).
-- `GET /v1/nudges` — list nudges.
-- `POST /v1/nudges/:id/done` — mark nudge done.
-- `POST /v1/nudges/:id/snooze` — snooze nudge (body: `{ "minutes": 10 }`).
+- `GET /v1/cluster/bootstrap` — node/transport metadata.
+- `GET /v1/sync/bootstrap` — cache hydration for current context, nudges, and commitments.
+- `POST /v1/sync/actions` — queued low-risk client actions (`nudge_done`, `nudge_snooze`, `commitment_done`, `commitment_create`, `capture_create`).
 
 VelAPI can be extended with more endpoints (commitments, captures, explain, risk, etc.) as needed.
 

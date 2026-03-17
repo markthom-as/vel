@@ -24,6 +24,10 @@ public final class VelClient {
         try await get("/v1/cluster/bootstrap")
     }
 
+    public func syncBootstrap() async throws -> SyncBootstrapData {
+        try await get("/v1/sync/bootstrap")
+    }
+
     // MARK: - Context
 
     public func currentContext() async throws -> CurrentContextData {
@@ -87,6 +91,10 @@ public final class VelClient {
 
     public func syncLocalSource(_ source: VelLocalSourceKind) async throws -> SyncResultData {
         try await post("/v1/sync/\(source.rawValue)", body: Optional<String>.none)
+    }
+
+    public func syncActions(_ request: SyncActionsRequestData) async throws -> SyncActionsResultData {
+        try await post("/v1/sync/actions", body: request)
     }
 
     // MARK: - Private

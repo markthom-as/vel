@@ -113,46 +113,46 @@ public final class VelOfflineStore {
         saveQueuedActions(actions)
     }
 
+    public func hydrate(from bootstrap: SyncBootstrapData) {
+        if let currentContext = bootstrap.current_context {
+            saveCachedContext(currentContext)
+        }
+        saveCachedNudges(bootstrap.nudges)
+        saveCachedCommitments(bootstrap.commitments)
+    }
+
+    public func queuedActionRequests() -> [SyncActionRequestData] {
+        queuedActions().map { action in
+            SyncActionRequestData(
+                action_id: action.id.uuidString,
+                action_type: action.kind.rawValue.replacingOccurrences(of: ".", with: "_"),
+                target_id: action.targetID,
+                text: action.text,
+                minutes: action.minutes
+            )
+        }
+    }
+
     @discardableResult
     public func drainQueuedActions(using client: VelClient) async -> Int {
         let actions = queuedActions()
         guard !actions.isEmpty else { return 0 }
-
-        var processed = 0
-
-        for (index, action) in actions.enumerated() {
-            do {
-                switch action.kind {
-                case .nudgeDone:
-                    if let id = action.targetID {
-                        _ = try await client.nudgeDone(id: id)
-                    }
-                case .nudgeSnooze:
-                    if let id = action.targetID {
-                        _ = try await client.nudgeSnooze(id: id, minutes: action.minutes ?? 10)
-                    }
-                case .commitmentDone:
-                    if let id = action.targetID {
-                        _ = try await client.markCommitmentDone(id: id)
-                    }
-                case .commitmentCreate:
-                    if let text = action.text {
-                        _ = try await client.createCommitment(text: text)
-                    }
-                case .captureCreate:
-                    if let text = action.text {
-                        _ = try await client.createCapture(text: text)
-                    }
-                }
-                processed += 1
-            } catch {
-                saveQueuedActions(Array(actions[index...]))
-                return processed
+        do {
+            let result = try await client.syncActions(SyncActionsRequestData(actions: queuedActionRequests()))
+            let remainingIDs = Set(
+                result.results
+                    .filter { $0.status != "applied" }
+                    .compactMap(\.action_id)
+            )
+            if remainingIDs.isEmpty {
+                saveQueuedActions([])
+            } else {
+                saveQueuedActions(actions.filter { remainingIDs.contains($0.id.uuidString) })
             }
+            return result.applied
+        } catch {
+            return 0
         }
-
-        saveQueuedActions([])
-        return processed
     }
 
     public func cachedNudgesApplyingPendingActions(now: Date = .now) -> [NudgeData] {

@@ -34,14 +34,15 @@ final class VelClientStore: ObservableObject {
             client.baseURL = candidate
             do {
                 _ = try await client.health()
-                let bootstrap = try await client.clusterBootstrap()
                 _ = await offlineStore.drainQueuedActions(using: client)
+                let bootstrap = try await client.syncBootstrap()
+                offlineStore.hydrate(from: bootstrap)
                 await MainActor.run {
                     isReachable = true
                     errorMessage = nil
                     activeBaseURL = candidate.absoluteString
-                    activeTransport = bootstrap.sync_transport
-                    authorityLabel = bootstrap.node_display_name
+                    activeTransport = bootstrap.cluster.sync_transport
+                    authorityLabel = bootstrap.cluster.node_display_name
                     pendingActionCount = offlineStore.pendingActionCount()
                 }
                 return

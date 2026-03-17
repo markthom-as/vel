@@ -38,15 +38,14 @@ final class VelWatchStore: ObservableObject {
         for candidate in VelAPI.VelEndpointResolver.candidateBaseURLs() {
             client.baseURL = candidate
             do {
-                let bootstrap = try await client.clusterBootstrap()
                 _ = await offlineStore.drainQueuedActions(using: client)
-                let nudges = try await client.nudges()
-                let active = nudges.filter { $0.state == "active" || $0.state == "snoozed" }
-                offlineStore.saveCachedNudges(nudges)
+                let bootstrap = try await client.syncBootstrap()
+                offlineStore.hydrate(from: bootstrap)
+                let active = bootstrap.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
                 await MainActor.run {
                     nudgeCount = active.count
                     message = active.first?.message ?? "No nudges"
-                    transport = bootstrap.sync_transport
+                    transport = bootstrap.cluster.sync_transport
                 }
                 return
             } catch {

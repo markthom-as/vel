@@ -38,16 +38,17 @@ final class VelClientStore: ObservableObject {
             do {
                 _ = try await client.health()
                 let exportReport = await localExporter.bootstrap(using: client)
-                let bootstrap = try await client.clusterBootstrap()
                 _ = await offlineStore.drainQueuedActions(using: client)
+                let bootstrap = try await client.syncBootstrap()
+                offlineStore.hydrate(from: bootstrap)
                 await MainActor.run {
                     isReachable = true
                     errorMessage = exportReport.errors.isEmpty
                         ? nil
                         : exportReport.errors.joined(separator: " | ")
                     activeBaseURL = candidate.absoluteString
-                    activeTransport = bootstrap.sync_transport
-                    authorityLabel = bootstrap.node_display_name
+                    activeTransport = bootstrap.cluster.sync_transport
+                    authorityLabel = bootstrap.cluster.node_display_name
                     pendingActionCount = offlineStore.pendingActionCount()
                 }
                 return

@@ -40,6 +40,61 @@ public struct ClusterBootstrapData: Codable, Sendable {
     public let tailscale_base_url: String?
     public let lan_base_url: String?
     public let localhost_base_url: String?
+    public let capabilities: [String]?
+    public let branch_sync: BranchSyncCapabilityData?
+    public let validation_profiles: [ValidationProfileData]?
+}
+
+public struct BranchSyncCapabilityData: Codable, Sendable {
+    public let repo_root: String
+    public let default_remote: String
+    public let supports_fetch: Bool
+    public let supports_pull: Bool
+    public let supports_push: Bool
+}
+
+public struct ValidationProfileData: Codable, Sendable, Identifiable {
+    public var id: String { profile_id }
+    public let profile_id: String
+    public let label: String
+    public let command_hint: String
+    public let environment: String
+}
+
+// MARK: - Sync bootstrap / action batch
+
+public typealias SyncBootstrapResponse = APIEnvelope<SyncBootstrapData>
+public struct SyncBootstrapData: Codable, Sendable {
+    public let cluster: ClusterBootstrapData
+    public let current_context: CurrentContextData?
+    public let nudges: [NudgeData]
+    public let commitments: [CommitmentData]
+}
+
+public typealias SyncActionsResponse = APIEnvelope<SyncActionsResultData>
+public struct SyncActionRequestData: Codable, Sendable {
+    public let action_id: String?
+    public let action_type: String
+    public let target_id: String?
+    public let text: String?
+    public let minutes: Int?
+}
+
+public struct SyncActionsRequestData: Codable, Sendable {
+    public let actions: [SyncActionRequestData]
+}
+
+public struct SyncActionResultData: Codable, Sendable {
+    public let action_id: String?
+    public let action_type: String
+    public let target_id: String?
+    public let status: String
+    public let message: String
+}
+
+public struct SyncActionsResultData: Codable, Sendable {
+    public let applied: Int
+    public let results: [SyncActionResultData]
 }
 
 // MARK: - Context
