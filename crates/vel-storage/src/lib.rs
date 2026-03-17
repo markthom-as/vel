@@ -2,6 +2,7 @@ mod db;
 mod infra;
 mod mapping;
 mod runtime_loops;
+mod threads;
 
 pub use db::{
     ArtifactInsert, ArtifactRecord, AssistantTranscriptInsert, AssistantTranscriptRecord,

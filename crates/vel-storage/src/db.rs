@@ -1,11 +1,10 @@
 use crate::{
-    infra::sqlite_connect_options,
+    infra,
     mapping::{parse_json_value, timestamp_to_datetime},
-    runtime_loops,
+    runtime_loops, threads,
 };
 use serde_json::{json, Value as JsonValue};
-use sqlx::{migrate::Migrator, sqlite::SqlitePoolOptions, QueryBuilder, Row, Sqlite, SqlitePool};
-use std::{fs, path::Path};
+use sqlx::{migrate::Migrator, QueryBuilder, Row, Sqlite, SqlitePool};
 use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
@@ -573,22 +572,12 @@ pub enum StorageError {
 
 impl Storage {
     pub async fn connect(db_path: &str) -> Result<Self, StorageError> {
-        if db_path != ":memory:" {
-            if let Some(parent) = Path::new(db_path).parent() {
-                fs::create_dir_all(parent)?;
-            }
-        }
-
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect_with(sqlite_connect_options(db_path)?)
-            .await?;
-
+        let pool = infra::connect_pool(db_path).await?;
         Ok(Self { pool })
     }
 
     pub async fn migrate(&self) -> Result<(), StorageError> {
-        MIGRATOR.run(&self.pool).await?;
+        infra::run_migrations(&self.pool, &MIGRATOR).await?;
         let version = self.schema_version().await?;
         let payload = serde_json::json!({ "schema_version": version }).to_string();
         if let Err(e) = self
@@ -601,16 +590,12 @@ impl Storage {
     }
 
     pub async fn healthcheck(&self) -> Result<(), StorageError> {
-        sqlx::query("SELECT 1").execute(&self.pool).await?;
-        Ok(())
+        infra::healthcheck(&self.pool).await
     }
 
     /// Returns the number of applied migrations (schema version). Used by doctor/diagnostics.
     pub async fn schema_version(&self) -> Result<u32, StorageError> {
-        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM _sqlx_migrations")
-            .fetch_one(&self.pool)
-            .await?;
-        Ok(row.0 as u32)
+        infra::schema_version(&self.pool).await
     }
 
     /// Appends a runtime event to the events table. Idempotent callers should generate event_id themselves if needed.
@@ -621,23 +606,14 @@ impl Storage {
         subject_id: Option<&str>,
         payload_json: &str,
     ) -> Result<(), StorageError> {
-        let event_id = format!("evt_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        sqlx::query(
-            r#"
-            INSERT INTO events (event_id, event_type, subject_type, subject_id, payload_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            "#,
+        infra::emit_event(
+            &self.pool,
+            event_type,
+            subject_type,
+            subject_id,
+            payload_json,
         )
-        .bind(&event_id)
-        .bind(event_type)
-        .bind(subject_type)
-        .bind(subject_id)
-        .bind(payload_json)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        .await
     }
 
     pub async fn insert_capture(&self, input: CaptureInsert) -> Result<CaptureId, StorageError> {
@@ -1584,33 +1560,14 @@ impl Storage {
         status: &str,
         metadata_json: &str,
     ) -> Result<(), StorageError> {
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        sqlx::query(
-            r#"INSERT INTO threads (id, thread_type, title, status, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"#,
-        )
-        .bind(id)
-        .bind(thread_type)
-        .bind(title)
-        .bind(status)
-        .bind(metadata_json)
-        .bind(now)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(())
+        threads::insert_thread(&self.pool, id, thread_type, title, status, metadata_json).await
     }
 
     pub async fn get_thread_by_id(
         &self,
         id: &str,
     ) -> Result<Option<(String, String, String, String, String, i64, i64)>, StorageError> {
-        let row = sqlx::query_as::<_, (String, String, String, String, String, i64, i64)>(
-            r#"SELECT id, thread_type, title, status, metadata_json, created_at, updated_at FROM threads WHERE id = ?"#,
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
-        Ok(row)
+        threads::get_thread_by_id(&self.pool, id).await
     }
 
     pub async fn list_threads(
@@ -1618,35 +1575,11 @@ impl Storage {
         status_filter: Option<&str>,
         limit: u32,
     ) -> Result<Vec<(String, String, String, String, i64, i64)>, StorageError> {
-        let limit = limit.min(100) as i64;
-        let rows = if let Some(s) = status_filter {
-            sqlx::query_as::<_, (String, String, String, String, i64, i64)>(
-                r#"SELECT id, thread_type, title, status, created_at, updated_at FROM threads WHERE status = ? ORDER BY updated_at DESC LIMIT ?"#,
-            )
-            .bind(s)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await?
-        } else {
-            sqlx::query_as::<_, (String, String, String, String, i64, i64)>(
-                r#"SELECT id, thread_type, title, status, created_at, updated_at FROM threads ORDER BY updated_at DESC LIMIT ?"#,
-            )
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await?
-        };
-        Ok(rows)
+        threads::list_threads(&self.pool, status_filter, limit).await
     }
 
     pub async fn update_thread_status(&self, id: &str, status: &str) -> Result<(), StorageError> {
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        sqlx::query(r#"UPDATE threads SET status = ?, updated_at = ? WHERE id = ?"#)
-            .bind(status)
-            .bind(now)
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
-        Ok(())
+        threads::update_thread_status(&self.pool, id, status).await
     }
 
     pub async fn insert_thread_link(
@@ -1656,33 +1589,15 @@ impl Storage {
         entity_id: &str,
         relation_type: &str,
     ) -> Result<String, StorageError> {
-        let id = format!("tl_{}", Uuid::new_v4().simple());
-        let now = OffsetDateTime::now_utc().unix_timestamp();
-        sqlx::query(
-            r#"INSERT OR IGNORE INTO thread_links (id, thread_id, entity_type, entity_id, relation_type, created_at) VALUES (?, ?, ?, ?, ?, ?)"#,
-        )
-        .bind(&id)
-        .bind(thread_id)
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(relation_type)
-        .bind(now)
-        .execute(&self.pool)
-        .await?;
-        Ok(id)
+        threads::insert_thread_link(&self.pool, thread_id, entity_type, entity_id, relation_type)
+            .await
     }
 
     pub async fn list_thread_links(
         &self,
         thread_id: &str,
     ) -> Result<Vec<(String, String, String, String)>, StorageError> {
-        let rows = sqlx::query_as::<_, (String, String, String, String)>(
-            r#"SELECT id, entity_type, entity_id, relation_type FROM thread_links WHERE thread_id = ? ORDER BY created_at ASC"#,
-        )
-        .bind(thread_id)
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(rows)
+        threads::list_thread_links(&self.pool, thread_id).await
     }
 
     // --- Suggestions (steering loop) ---
