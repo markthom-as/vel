@@ -63,11 +63,12 @@ Product principle:
 
 Before substantial implementation work, read:
 
-1. `docs/product-spec.md`
-2. `docs/architecture.md`
-3. `docs/data-model.md`
-4. `docs/mvp.md`
-5. `docs/status.md`
+1. `docs/README.md`
+2. `docs/status.md`
+3. `docs/product-spec.md`
+4. `docs/architecture.md`
+5. `docs/data-model.md`
+6. `docs/mvp.md`
 
 Then:
 

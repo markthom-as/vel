@@ -13,7 +13,7 @@ Vel is a **local-first cognition runtime** for capture, recall, and daily orient
 
 Context endpoints (today/morning/end-of-day) are **run-backed**: each request creates a run, writes a managed JSON artifact, and links run → artifact; inspect with `vel run inspect <id>`.
 
-See [docs/status.md](docs/status.md) for details. Canonical runtime concepts: [docs/runtime-concepts.md](docs/runtime-concepts.md).
+See [docs/status.md](docs/status.md) for details. Start doc navigation from [docs/README.md](docs/README.md). Canonical runtime concepts: [docs/runtime-concepts.md](docs/runtime-concepts.md).
 
 ## Build and run (dev)
 
@@ -26,6 +26,11 @@ From the repo root:
 | `make dev-api` | Run only veld (API at **http://127.0.0.1:4130** by default). Use in one terminal. |
 | `make dev-web` | Run only the web dev server. Use in a second terminal if you started veld with `make dev-api`. |
 | `make seed` | Seed sample chat data (requires veld running). |
+| `make verify` | Run repository truth check, Rust fmt/clippy checks, and Rust/web test/lint checks. |
+| `make ci` | Run the same command set as CI for local verification (`install-web`, checks, tests, and build). |
+| `make smoke` | Run a daemon/API/CLI smoke check (healthy startup, capture/search/recent today-flow). |
+| `make install-web` | Install web dependencies in `clients/web` (`npm ci`). |
+| `make bootstrap-demo-data` | Populate a local API with starter captures/commitments (`scripts/bootstrap-demo-data.sh`). |
 
 veld runs migrations on startup. The web client uses `VITE_API_URL` (default `http://localhost:4130`) to talk to veld.
 
@@ -36,6 +41,7 @@ Vel stores local development data under `var/` by default:
 - database: `var/data/vel.sqlite`
 - artifacts: `var/artifacts`
 - logs: `var/logs`
+- Use `scripts/bootstrap-demo-data.sh` to prefill a local database/API with demo captures and commitments.
 
 Example CLI commands (veld must be running for health/capture/search/context):
 
