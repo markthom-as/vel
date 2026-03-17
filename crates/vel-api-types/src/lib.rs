@@ -806,6 +806,105 @@ pub struct CurrentContextData {
     pub context: JsonValue,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowLabelData {
+    pub key: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowRiskSummaryData {
+    pub level: String,
+    pub score: Option<f64>,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowSummaryData {
+    pub mode: NowLabelData,
+    pub phase: NowLabelData,
+    pub meds: NowLabelData,
+    pub risk: NowRiskSummaryData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowEventData {
+    pub title: String,
+    pub start_ts: UnixSeconds,
+    pub end_ts: Option<UnixSeconds>,
+    pub location: Option<String>,
+    pub prep_minutes: Option<i64>,
+    pub travel_minutes: Option<i64>,
+    pub leave_by_ts: Option<UnixSeconds>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowTaskData {
+    pub id: String,
+    pub text: String,
+    pub source_type: String,
+    pub due_at: Option<OffsetDateTime>,
+    pub project: Option<String>,
+    pub commitment_kind: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowScheduleData {
+    pub next_event: Option<NowEventData>,
+    pub upcoming_events: Vec<NowEventData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowTasksData {
+    pub todoist: Vec<NowTaskData>,
+    pub other_open: Vec<NowTaskData>,
+    pub next_commitment: Option<NowTaskData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowAttentionData {
+    pub state: NowLabelData,
+    pub drift: NowLabelData,
+    pub severity: NowLabelData,
+    pub confidence: Option<f64>,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowFreshnessEntryData {
+    pub key: String,
+    pub label: String,
+    pub status: String,
+    pub last_sync_at: Option<UnixSeconds>,
+    pub age_seconds: Option<UnixSeconds>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowFreshnessData {
+    pub overall_status: String,
+    pub sources: Vec<NowFreshnessEntryData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowDebugData {
+    pub raw_context: JsonValue,
+    pub signals_used: Vec<String>,
+    pub commitments_used: Vec<String>,
+    pub risk_used: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowData {
+    pub computed_at: UnixSeconds,
+    pub summary: NowSummaryData,
+    pub schedule: NowScheduleData,
+    pub tasks: NowTasksData,
+    pub attention: NowAttentionData,
+    pub freshness: NowFreshnessData,
+    pub reasons: Vec<String>,
+    pub debug: NowDebugData,
+}
+
 /// One entry in the context timeline (material context transitions).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextTimelineEntry {

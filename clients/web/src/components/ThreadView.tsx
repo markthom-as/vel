@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiPost } from '../api/client';
 import type { InboxItemData, MessageData } from '../types';
 import { getQueryData, invalidateQuery, setQueryData, useQuery } from '../data/query';
 import {
@@ -10,7 +9,12 @@ import {
   setPendingInterventionAction,
   type PendingInterventionAction,
 } from '../data/chat-state';
-import { loadConversationInterventions, loadConversationMessages, queryKeys } from '../data/resources';
+import {
+  loadConversationInterventions,
+  loadConversationMessages,
+  mutateIntervention,
+  queryKeys,
+} from '../data/resources';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import { MessageRenderer } from './MessageRenderer';
 import { MessageComposer } from './MessageComposer';
@@ -146,7 +150,7 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     startInterventionAction(interventionId, 'snoozed');
     removeIntervention(interventionId);
     try {
-      await apiPost(`/api/interventions/${interventionId}/snooze`, { minutes: 15 });
+      await mutateIntervention(interventionId, 'snooze', { minutes: 15 });
       invalidateQuery(interventionsKey, { refetch: true });
       invalidateQuery(inboxKey, { refetch: true });
     } catch (_) {
@@ -160,7 +164,7 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     startInterventionAction(interventionId, 'resolved');
     removeIntervention(interventionId);
     try {
-      await apiPost(`/api/interventions/${interventionId}/resolve`, {});
+      await mutateIntervention(interventionId, 'resolve', {});
       invalidateQuery(interventionsKey, { refetch: true });
       invalidateQuery(inboxKey, { refetch: true });
     } catch (_) {
@@ -174,7 +178,7 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     startInterventionAction(interventionId, 'dismissed');
     removeIntervention(interventionId);
     try {
-      await apiPost(`/api/interventions/${interventionId}/dismiss`, {});
+      await mutateIntervention(interventionId, 'dismiss', {});
       invalidateQuery(interventionsKey, { refetch: true });
       invalidateQuery(inboxKey, { refetch: true });
     } catch (_) {

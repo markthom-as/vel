@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiPatch, apiPost } from '../api/client';
+import { apiPost } from '../api/client';
 import type {
   ComponentData,
   ComponentLogEventData,
@@ -13,15 +13,22 @@ import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type { QueryKey } from '../data/query';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import {
+  disconnectGoogleCalendar,
+  disconnectTodoist as disconnectTodoistIntegration,
   decodeGoogleCalendarAuthStartResponse,
   loadComponentLogs,
   loadComponents,
   loadIntegrations,
   loadIntegrationLogs,
-  restartComponent,
   loadRecentRuns,
   loadSettings,
   queryKeys,
+  restartComponent,
+  syncSource as syncSourceRequest,
+  updateGoogleCalendarIntegration,
+  updateRun,
+  updateSettings,
+  updateTodoistIntegration,
 } from '../data/resources';
 
 interface SettingsPageProps {
@@ -196,21 +203,6 @@ function updateRunsCache(
   });
 }
 
-function extractRunSummaryData(value: unknown): RunSummaryData | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-  const record = value as { ok?: unknown; data?: unknown };
-  if (record.ok !== true || !record.data || typeof record.data !== 'object') {
-    return null;
-  }
-  const data = record.data as Partial<RunSummaryData>;
-  if (typeof data.id !== 'string' || typeof data.kind !== 'string' || typeof data.status !== 'string') {
-    return null;
-  }
-  return data as RunSummaryData;
-}
-
 function integrationSectionForAction(key: IntegrationActionKey): IntegrationSectionKey {
   if (key.startsWith('google-')) {
     return 'google';
@@ -344,7 +336,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const update = async (key: keyof SettingsData, value: boolean | unknown) => {
     setSaving(true);
     try {
-      await apiPatch('/api/settings', { [key]: value });
+      await updateSettings({ [key]: value });
       setQueryData<SettingsData>(settingsKey, (prev = {}) => ({
         ...prev,
         [key]: value,
@@ -505,7 +497,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const saveGoogleCredentials = async () => {
     const actionId = beginIntegrationAction('google-save');
     try {
-      await apiPatch('/api/integrations/google-calendar', {
+      await updateGoogleCalendarIntegration({
         client_id: googleClientId,
         client_secret: googleClientSecret,
       });
@@ -551,7 +543,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const disconnectGoogle = async () => {
     const actionId = beginIntegrationAction('google-disconnect');
     try {
-      await apiPost('/api/integrations/google-calendar/disconnect', {});
+      await disconnectGoogleCalendar();
       refreshIntegrationViews();
       finishIntegrationAction('google-disconnect', actionId, {
         status: 'success',
@@ -568,7 +560,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const saveTodoistToken = async () => {
     const actionId = beginIntegrationAction('todoist-save');
     try {
-      await apiPatch('/api/integrations/todoist', {
+      await updateTodoistIntegration({
         api_token: todoistToken,
       });
       refreshIntegrationViews();
@@ -588,7 +580,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const disconnectTodoist = async () => {
     const actionId = beginIntegrationAction('todoist-disconnect');
     try {
-      await apiPost('/api/integrations/todoist/disconnect', {});
+      await disconnectTodoistIntegration();
       refreshIntegrationViews();
       finishIntegrationAction('todoist-disconnect', actionId, {
         status: 'success',
@@ -613,7 +605,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           : `${source}-sync`;
     const actionId = beginIntegrationAction(actionKey);
     try {
-      await apiPost(`/v1/sync/${source}`, {});
+      const response = await syncSourceRequest(source);
       refreshIntegrationViews();
       const label = source === 'calendar'
         ? 'Calendar'
@@ -622,7 +614,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
           : LOCAL_INTEGRATION_SPECS.find((spec) => spec.key === source)?.title ?? source;
       finishIntegrationAction(actionKey, actionId, {
         status: 'success',
-        message: `${label} synced.`,
+        message: `${label} synced (${response.data?.signals_ingested ?? 0} signals).`,
       });
     } catch (error) {
       finishIntegrationAction(actionKey, actionId, {
@@ -641,7 +633,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
       .map((calendar) => calendar.id);
     const actionId = beginIntegrationAction('google-calendars');
     try {
-      await apiPatch('/api/integrations/google-calendar', {
+      await updateGoogleCalendarIntegration({
         selected_calendar_ids: nextSelectedIds,
         all_calendars_selected: false,
       });
@@ -661,7 +653,7 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
   const setAllCalendarsSelected = async (selected: boolean) => {
     const actionId = beginIntegrationAction('google-calendars');
     try {
-      await apiPatch('/api/integrations/google-calendar', {
+      await updateGoogleCalendarIntegration({
         all_calendars_selected: selected,
       });
       refreshIntegrationViews();
@@ -730,13 +722,13 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     const retryAfterSeconds = parseRetryAfterSeconds(draft?.retryAfterSeconds);
     const actionId = beginRunAction(run.id);
     try {
-      const response = await apiPatch(`/v1/runs/${run.id}`, {
+      const response = await updateRun(run.id, {
         status: 'retry_scheduled',
         reason,
         retry_after_seconds: retryAfterSeconds,
         allow_unsupported_retry: allowUnsupportedRetry,
       });
-      const updatedRun = extractRunSummaryData(response);
+      const updatedRun = response.ok ? response.data ?? null : null;
       if (updatedRun) {
         updateRunsCache(runsKey, runLimit, updatedRun);
       }
@@ -774,11 +766,11 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
     setPendingOverrideRunId((current) => (current === run.id ? null : current));
     const actionId = beginRunAction(run.id);
     try {
-      const response = await apiPatch(`/v1/runs/${run.id}`, {
+      const response = await updateRun(run.id, {
         status: 'blocked',
         blocked_reason: blockedReason,
       });
-      const updatedRun = extractRunSummaryData(response);
+      const updatedRun = response.ok ? response.data ?? null : null;
       if (updatedRun) {
         updateRunsCache(runsKey, runLimit, updatedRun);
       }

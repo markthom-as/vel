@@ -16,6 +16,7 @@ vel-product-spec-pack/
   design/
   flows/
   architecture/
+  imported/
 ```
 
 ## Purpose
@@ -29,4 +30,8 @@ This spec ensures:
 
 Agents implementing Vel should treat these documents as **normative specifications**.
 
-If behavior conflicts with code, **the spec wins**.
+Authority note:
+
+- For shipped behavior, [docs/status.md](../status.md) remains canonical.
+- Treat this pack as design guidance and future-facing product structure unless `docs/status.md` says a behavior is implemented.
+- Imported packets under `imported/` preserve upstream design material and may conflict with current code or current repo authority.

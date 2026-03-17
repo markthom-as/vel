@@ -79,6 +79,7 @@ pub fn build_app_with_state(state: AppState) -> Router {
         .route("/v1/context/end-of-day", get(routes::context::end_of_day))
         .route("/v1/context/current", get(routes::context::current))
         .route("/v1/context/timeline", get(routes::context::timeline))
+        .route("/v1/now", get(routes::now::get_now))
         .route("/v1/explain/nudge/:id", get(routes::explain::explain_nudge))
         .route("/v1/explain/context", get(routes::explain::explain_context))
         .route(

@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '../api/client';
+import { apiGet, apiPatch, apiPost } from '../api/client';
 import {
   decodeApiResponse,
   decodeCommitmentData,
@@ -13,6 +13,7 @@ import {
   decodeIntegrationLogEventData,
   decodeIntegrationsData,
   decodeInboxItemData,
+  decodeInterventionActionData,
   decodeMessageData,
   decodeNullable,
   decodeProvenanceData,
@@ -30,11 +31,30 @@ import {
   type IntegrationLogEventData,
   type InboxItemData,
   type IntegrationsData,
+  type InterventionActionData,
   type MessageData,
   type ProvenanceData,
   type RunSummaryData,
   type SettingsData,
 } from '../types';
+
+interface SyncResultData {
+  source: string;
+  signals_ingested: number;
+}
+
+function decodeSyncResultData(value: unknown): SyncResultData {
+  return decodeApiResponse(value, (data) => {
+    const record = data as { source?: unknown; signals_ingested?: unknown };
+    if (typeof record?.source !== 'string' || typeof record?.signals_ingested !== 'number') {
+      throw new Error('Expected sync result payload with source and signals_ingested');
+    }
+    return {
+      source: record.source,
+      signals_ingested: record.signals_ingested,
+    };
+  }).data ?? { source: '', signals_ingested: 0 };
+}
 
 export const queryKeys = {
   conversations: () => ['conversations'] as const,
@@ -156,6 +176,7 @@ export function restartComponent(componentId: string): Promise<ApiResponse<Compo
   return apiPost<ApiResponse<ComponentData>>(
     `/api/components/${encodeURIComponent(componentId.trim())}/restart`,
     {},
+    (value) => decodeApiResponse(value, decodeComponentData),
   );
 }
 
@@ -174,5 +195,84 @@ export function loadProvenance(messageId: string): Promise<ApiResponse<Provenanc
   return apiGet<ApiResponse<ProvenanceData>>(
     `/api/messages/${messageId}/provenance`,
     (value) => decodeApiResponse(value, decodeProvenanceData),
+  );
+}
+
+export function updateSettings(
+  patch: Partial<SettingsData>,
+): Promise<ApiResponse<SettingsData>> {
+  return apiPatch<ApiResponse<SettingsData>>(
+    '/api/settings',
+    patch,
+    (value) => decodeApiResponse(value, decodeSettingsData),
+  );
+}
+
+export function updateGoogleCalendarIntegration(
+  patch: Record<string, unknown>,
+): Promise<ApiResponse<IntegrationsData>> {
+  return apiPatch<ApiResponse<IntegrationsData>>(
+    '/api/integrations/google-calendar',
+    patch,
+    (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function disconnectGoogleCalendar(): Promise<ApiResponse<IntegrationsData>> {
+  return apiPost<ApiResponse<IntegrationsData>>(
+    '/api/integrations/google-calendar/disconnect',
+    {},
+    (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function updateTodoistIntegration(
+  patch: Record<string, unknown>,
+): Promise<ApiResponse<IntegrationsData>> {
+  return apiPatch<ApiResponse<IntegrationsData>>(
+    '/api/integrations/todoist',
+    patch,
+    (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function disconnectTodoist(): Promise<ApiResponse<IntegrationsData>> {
+  return apiPost<ApiResponse<IntegrationsData>>(
+    '/api/integrations/todoist/disconnect',
+    {},
+    (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function syncSource(
+  source: string,
+): Promise<ApiResponse<SyncResultData>> {
+  return apiPost<ApiResponse<SyncResultData>>(
+    `/v1/sync/${source}`,
+    {},
+    (value) => decodeApiResponse(value, decodeSyncResultData),
+  );
+}
+
+export function updateRun(
+  runId: string,
+  patch: Record<string, unknown>,
+): Promise<ApiResponse<RunSummaryData>> {
+  return apiPatch<ApiResponse<RunSummaryData>>(
+    `/v1/runs/${runId}`,
+    patch,
+    (value) => decodeApiResponse(value, decodeRunSummaryData),
+  );
+}
+
+export function mutateIntervention(
+  interventionId: string,
+  action: 'snooze' | 'resolve' | 'dismiss',
+  body: Record<string, unknown>,
+): Promise<ApiResponse<InterventionActionData>> {
+  return apiPost<ApiResponse<InterventionActionData>>(
+    `/api/interventions/${interventionId}/${action}`,
+    body,
+    (value) => decodeApiResponse(value, decodeInterventionActionData),
   );
 }

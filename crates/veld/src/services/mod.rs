@@ -11,6 +11,7 @@ pub mod evaluate;
 pub mod inference;
 pub mod integrations;
 pub mod nudge_engine;
+pub mod now;
 pub mod risk;
 pub mod suggestions;
 pub mod synthesis;

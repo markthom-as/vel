@@ -339,14 +339,21 @@ describe('SettingsPage', () => {
     const risksCheckbox = within(root).getByRole('checkbox', { name: /show risks/i })
     fireEvent.click(risksCheckbox)
     await waitFor(() => {
-      expect(client.apiPatch).toHaveBeenCalledWith('/api/settings', { toggle_risks: false })
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/settings',
+        { toggle_risks: false },
+        expect.any(Function),
+      )
     })
   })
 
   it('keeps todoist sync active while google credential save is pending', async () => {
     const googleSave = createDeferred<unknown>()
     vi.mocked(client.apiPatch).mockImplementationOnce(() => googleSave.promise as never)
-    vi.mocked(client.apiPost).mockResolvedValueOnce({ ok: true } as never)
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: { source: 'todoist', signals_ingested: 0 },
+    } as never)
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openIntegrationsTab(container)
@@ -370,7 +377,7 @@ describe('SettingsPage', () => {
 
     fireEvent.click(todoistSyncButton as HTMLElement)
     await waitFor(() => {
-      expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/todoist', {})
+      expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/todoist', {}, expect.any(Function))
     })
 
     googleSave.resolve({ ok: true })
@@ -379,7 +386,10 @@ describe('SettingsPage', () => {
   it('keeps unrelated integration feedback when actions finish out of order', async () => {
     const googleSave = createDeferred<unknown>()
     vi.mocked(client.apiPatch).mockImplementationOnce(() => googleSave.promise as never)
-    vi.mocked(client.apiPost).mockResolvedValueOnce({ ok: true } as never)
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: { source: 'todoist', signals_ingested: 0 },
+    } as never)
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openIntegrationsTab(container)
@@ -396,7 +406,7 @@ describe('SettingsPage', () => {
     fireEvent.click(todoistSyncButton as HTMLElement)
 
     await waitFor(() => {
-      expect(within(root).getByText('Todoist synced.')).toBeInTheDocument()
+      expect(within(root).getByText('Todoist synced (0 signals).')).toBeInTheDocument()
     })
 
     googleSave.resolve({ ok: true })
@@ -410,7 +420,7 @@ describe('SettingsPage', () => {
     expect(googleCard).not.toBeNull()
     expect(todoistCard).not.toBeNull()
     expect(within(googleCard as HTMLElement).getByText('Google Calendar credentials saved.')).toBeInTheDocument()
-    expect(within(todoistCard as HTMLElement).getByText('Todoist synced.')).toBeInTheDocument()
+    expect(within(todoistCard as HTMLElement).getByText('Todoist synced (0 signals).')).toBeInTheDocument()
   })
 
   it('renders integration feedback on the matching integration card', async () => {
@@ -435,7 +445,10 @@ describe('SettingsPage', () => {
 
   it('keeps multiple todoist action messages on the todoist card', async () => {
     vi.mocked(client.apiPatch).mockResolvedValueOnce({ ok: true } as never)
-    vi.mocked(client.apiPost).mockResolvedValueOnce({ ok: true } as never)
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: { source: 'todoist', signals_ingested: 0 },
+    } as never)
 
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openIntegrationsTab(container)
@@ -452,13 +465,13 @@ describe('SettingsPage', () => {
     fireEvent.click(todoistSyncButton as HTMLElement)
 
     await waitFor(() => {
-      expect(within(root).getByText('Todoist synced.')).toBeInTheDocument()
+      expect(within(root).getByText('Todoist synced (0 signals).')).toBeInTheDocument()
     })
 
     const todoistCard = within(root).getByRole('heading', { name: /todoist/i }).closest('.rounded-lg')
     expect(todoistCard).not.toBeNull()
     expect(within(todoistCard as HTMLElement).getByText('Todoist token saved.')).toBeInTheDocument()
-    expect(within(todoistCard as HTMLElement).getByText('Todoist synced.')).toBeInTheDocument()
+    expect(within(todoistCard as HTMLElement).getByText('Todoist synced (0 signals).')).toBeInTheDocument()
   })
 
   it('renders local integration cards and syncs the selected local adapter', async () => {
@@ -479,9 +492,9 @@ describe('SettingsPage', () => {
     fireEvent.click(notesSyncButton as HTMLElement)
 
     await waitFor(() => {
-      expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/notes', {})
+      expect(client.apiPost).toHaveBeenCalledWith('/v1/sync/notes', {}, expect.any(Function))
     })
-    expect(within(root).getByText('Notes synced.')).toBeInTheDocument()
+    expect(within(root).getByText('Notes synced (0 signals).')).toBeInTheDocument()
   })
 
   it('shows integration sync history for the selected card', async () => {
@@ -569,7 +582,7 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(within(evaluateCard as HTMLElement).getByText(/evaluate restarted \(ok\)\.?/i)).toBeInTheDocument()
     })
-    expect(client.apiPost).toHaveBeenCalledWith('/api/components/evaluate/restart', {})
+    expect(client.apiPost).toHaveBeenCalledWith('/api/components/evaluate/restart', {}, expect.any(Function))
   })
 
   it('shows an error message when component restart fails', async () => {
@@ -632,17 +645,21 @@ describe('SettingsPage', () => {
     fireEvent.change(delayInputs[0] as HTMLElement, { target: { value: '90' } })
     fireEvent.click(within(root).getAllByRole('button', { name: /schedule retry/i })[0] as HTMLElement)
 
-    expect(client.apiPatch).not.toHaveBeenCalledWith('/v1/runs/run_122', expect.anything())
+    expect(client.apiPatch).not.toHaveBeenCalledWith('/v1/runs/run_122', expect.anything(), expect.any(Function))
     expect(within(root).getByText(/automatic retry is unsupported for search/i)).toBeInTheDocument()
     fireEvent.click(within(root).getByRole('button', { name: /confirm override retry/i }))
 
     await waitFor(() => {
-      expect(client.apiPatch).toHaveBeenCalledWith('/v1/runs/run_122', {
-        status: 'retry_scheduled',
-        reason: 'manual_backoff',
-        retry_after_seconds: 90,
-        allow_unsupported_retry: true,
-      })
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/v1/runs/run_122',
+        {
+          status: 'retry_scheduled',
+          reason: 'manual_backoff',
+          retry_after_seconds: 90,
+          allow_unsupported_retry: true,
+        },
+        expect.any(Function),
+      )
     })
     await waitFor(() => {
       expect(within(root).getAllByText(/Retry at:/i)).toHaveLength(2)
@@ -660,7 +677,7 @@ describe('SettingsPage', () => {
     fireEvent.click(within(root).getByRole('button', { name: /cancel/i }))
 
     expect(within(root).queryByRole('button', { name: /confirm override retry/i })).toBeNull()
-    expect(client.apiPatch).not.toHaveBeenCalledWith('/v1/runs/run_122', expect.anything())
+    expect(client.apiPatch).not.toHaveBeenCalledWith('/v1/runs/run_122', expect.anything(), expect.any(Function))
   })
 
   it('keeps pending override armed across eligible websocket updates', async () => {
@@ -900,10 +917,14 @@ describe('SettingsPage', () => {
     fireEvent.click(updatedBlockButtons[0] as HTMLElement)
 
     await waitFor(() => {
-      expect(client.apiPatch).toHaveBeenCalledWith('/v1/runs/run_123', {
-        status: 'blocked',
-        blocked_reason: 'operator_ui_blocked',
-      })
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/v1/runs/run_123',
+        {
+          status: 'blocked',
+          blocked_reason: 'operator_ui_blocked',
+        },
+        expect.any(Function),
+      )
     })
 
     firstPatch.resolve({
@@ -956,10 +977,14 @@ describe('SettingsPage', () => {
     fireEvent.click(within(root).getAllByRole('button', { name: /block run/i })[0] as HTMLElement)
 
     await waitFor(() => {
-      expect(client.apiPatch).toHaveBeenCalledWith('/v1/runs/run_122', {
-        status: 'blocked',
-        blocked_reason: 'waiting_on_dependency',
-      })
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/v1/runs/run_122',
+        {
+          status: 'blocked',
+          blocked_reason: 'waiting_on_dependency',
+        },
+        expect.any(Function),
+      )
     })
     await waitFor(() => {
       expect(within(root).getByText('Run blocked.')).toBeInTheDocument()

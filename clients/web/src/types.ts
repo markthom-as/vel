@@ -55,6 +55,11 @@ export interface InterventionActionData {
   state: string;
 }
 
+export interface SyncResultData {
+  source: string;
+  signals_ingested: number;
+}
+
 export interface ProvenanceData {
   message_id: string;
   events: ProvenanceEvent[];
@@ -180,6 +185,93 @@ export interface RunSummaryData {
 export interface CurrentContextData {
   computed_at: UnixSeconds;
   context: JsonValue;
+}
+
+export interface NowLabelData {
+  key: string;
+  label: string;
+}
+
+export interface NowRiskSummaryData {
+  level: string;
+  score: number | null;
+  label: string;
+}
+
+export interface NowSummaryData {
+  mode: NowLabelData;
+  phase: NowLabelData;
+  meds: NowLabelData;
+  risk: NowRiskSummaryData;
+}
+
+export interface NowEventData {
+  title: string;
+  start_ts: UnixSeconds;
+  end_ts: UnixSeconds | null;
+  location: string | null;
+  prep_minutes: number | null;
+  travel_minutes: number | null;
+  leave_by_ts: UnixSeconds | null;
+}
+
+export interface NowTaskData {
+  id: string;
+  text: string;
+  source_type: string;
+  due_at: string | null;
+  project: string | null;
+  commitment_kind: string | null;
+}
+
+export interface NowScheduleData {
+  next_event: NowEventData | null;
+  upcoming_events: NowEventData[];
+}
+
+export interface NowTasksData {
+  todoist: NowTaskData[];
+  other_open: NowTaskData[];
+  next_commitment: NowTaskData | null;
+}
+
+export interface NowAttentionData {
+  state: NowLabelData;
+  drift: NowLabelData;
+  severity: NowLabelData;
+  confidence: number | null;
+  reasons: string[];
+}
+
+export interface NowFreshnessEntryData {
+  key: string;
+  label: string;
+  status: string;
+  last_sync_at: UnixSeconds | null;
+  age_seconds: UnixSeconds | null;
+}
+
+export interface NowFreshnessData {
+  overall_status: string;
+  sources: NowFreshnessEntryData[];
+}
+
+export interface NowDebugData {
+  raw_context: JsonValue;
+  signals_used: string[];
+  commitments_used: string[];
+  risk_used: string[];
+}
+
+export interface NowData {
+  computed_at: UnixSeconds;
+  summary: NowSummaryData;
+  schedule: NowScheduleData;
+  tasks: NowTasksData;
+  attention: NowAttentionData;
+  freshness: NowFreshnessData;
+  reasons: string[];
+  debug: NowDebugData;
 }
 
 export interface CommitmentData {
@@ -417,6 +509,14 @@ export function decodeInterventionActionData(value: unknown): InterventionAction
   };
 }
 
+export function decodeSyncResultData(value: unknown): SyncResultData {
+  const record = expectRecord(value, 'sync result');
+  return {
+    source: expectString(record.source, 'sync result.source'),
+    signals_ingested: expectNumber(record.signals_ingested, 'sync result.signals_ingested'),
+  };
+}
+
 export function decodeRunUpdateEventData(value: unknown): RunUpdateEventData {
   return decodeRunSummaryData(value);
 }
@@ -426,6 +526,103 @@ export function decodeCurrentContextData(value: unknown): CurrentContextData {
   return {
     computed_at: expectUnixSeconds(record.computed_at, 'current context.computed_at'),
     context: decodeJsonValue(record.context),
+  };
+}
+
+export function decodeNowLabelData(value: unknown): NowLabelData {
+  const record = expectRecord(value, 'now label');
+  return {
+    key: expectString(record.key, 'now label.key'),
+    label: expectString(record.label, 'now label.label'),
+  };
+}
+
+export function decodeNowRiskSummaryData(value: unknown): NowRiskSummaryData {
+  const record = expectRecord(value, 'now risk summary');
+  return {
+    level: expectString(record.level, 'now risk summary.level'),
+    score: expectNullableNumber(record.score, 'now risk summary.score'),
+    label: expectString(record.label, 'now risk summary.label'),
+  };
+}
+
+export function decodeNowEventData(value: unknown): NowEventData {
+  const record = expectRecord(value, 'now event');
+  return {
+    title: expectString(record.title, 'now event.title'),
+    start_ts: expectUnixSeconds(record.start_ts, 'now event.start_ts'),
+    end_ts: expectNullableUnixSeconds(record.end_ts, 'now event.end_ts'),
+    location: expectNullableString(record.location, 'now event.location'),
+    prep_minutes: expectNullableNumber(record.prep_minutes, 'now event.prep_minutes'),
+    travel_minutes: expectNullableNumber(record.travel_minutes, 'now event.travel_minutes'),
+    leave_by_ts: expectNullableUnixSeconds(record.leave_by_ts, 'now event.leave_by_ts'),
+  };
+}
+
+export function decodeNowTaskData(value: unknown): NowTaskData {
+  const record = expectRecord(value, 'now task');
+  return {
+    id: expectString(record.id, 'now task.id'),
+    text: expectString(record.text, 'now task.text'),
+    source_type: expectString(record.source_type, 'now task.source_type'),
+    due_at: expectNullableRfc3339Timestamp(record.due_at, 'now task.due_at'),
+    project: expectNullableString(record.project, 'now task.project'),
+    commitment_kind: expectNullableString(record.commitment_kind, 'now task.commitment_kind'),
+  };
+}
+
+export function decodeNowData(value: unknown): NowData {
+  const record = expectRecord(value, 'now data');
+  const summary = expectRecord(record.summary, 'now data.summary');
+  const schedule = expectRecord(record.schedule, 'now data.schedule');
+  const tasks = expectRecord(record.tasks, 'now data.tasks');
+  const attention = expectRecord(record.attention, 'now data.attention');
+  const freshness = expectRecord(record.freshness, 'now data.freshness');
+  const debug = expectRecord(record.debug, 'now data.debug');
+  return {
+    computed_at: expectUnixSeconds(record.computed_at, 'now data.computed_at'),
+    summary: {
+      mode: decodeNowLabelData(summary.mode),
+      phase: decodeNowLabelData(summary.phase),
+      meds: decodeNowLabelData(summary.meds),
+      risk: decodeNowRiskSummaryData(summary.risk),
+    },
+    schedule: {
+      next_event: decodeNullable(schedule.next_event, decodeNowEventData),
+      upcoming_events: decodeArray(schedule.upcoming_events ?? [], decodeNowEventData),
+    },
+    tasks: {
+      todoist: decodeArray(tasks.todoist ?? [], decodeNowTaskData),
+      other_open: decodeArray(tasks.other_open ?? [], decodeNowTaskData),
+      next_commitment: decodeNullable(tasks.next_commitment, decodeNowTaskData),
+    },
+    attention: {
+      state: decodeNowLabelData(attention.state),
+      drift: decodeNowLabelData(attention.drift),
+      severity: decodeNowLabelData(attention.severity),
+      confidence: expectNullableNumber(attention.confidence, 'now data.attention.confidence'),
+      reasons: decodeArray(attention.reasons ?? [], (item) => expectString(item, 'now data.attention.reasons')),
+    },
+    freshness: {
+      overall_status: expectString(freshness.overall_status, 'now data.freshness.overall_status'),
+      sources: decodeArray(freshness.sources ?? [], (item) => {
+        const source = expectRecord(item, 'now freshness source');
+        return {
+          key: expectString(source.key, 'now freshness source.key'),
+          label: expectString(source.label, 'now freshness source.label'),
+          status: expectString(source.status, 'now freshness source.status'),
+          last_sync_at: expectNullableUnixSeconds(source.last_sync_at, 'now freshness source.last_sync_at'),
+          age_seconds: expectNullableUnixSeconds(source.age_seconds, 'now freshness source.age_seconds'),
+        };
+      }),
+    },
+    reasons: decodeArray(record.reasons ?? [], (item) => expectString(item, 'now data.reasons')),
+    debug: {
+      raw_context: decodeJsonValue(debug.raw_context),
+      signals_used: decodeArray(debug.signals_used ?? [], (item) => expectString(item, 'now data.debug.signals_used')),
+      commitments_used: decodeArray(debug.commitments_used ?? [], (item) => expectString(item, 'now data.debug.commitments_used')),
+      risk_used: decodeArray(debug.risk_used ?? [], (item) => expectString(item, 'now data.debug.risk_used')),
+    },
   };
 }
 
