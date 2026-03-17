@@ -29,6 +29,90 @@ fn suppresses_new_nudge(nudge: &vel_storage::NudgeRecord, nudge_type: &str, now_
                     .unwrap_or(true)))
 }
 
+async fn reactivate_snoozed_nudge_for_higher_urgency(
+    storage: &Storage,
+    existing_nudges: &[vel_storage::NudgeRecord],
+    nudge_type: &str,
+    desired_level: &str,
+    desired_message: &str,
+    inference_snapshot: serde_json::Value,
+    metadata_json: serde_json::Value,
+    now_ts: i64,
+) -> Result<bool, crate::errors::AppError> {
+    let Some(nudge) = existing_nudges.iter().find(|nudge| {
+        nudge.nudge_type == nudge_type
+            && nudge.state == "snoozed"
+            && nudge
+                .snoozed_until
+                .map(|snoozed_until| snoozed_until > now_ts)
+                .unwrap_or(false)
+    }) else {
+        return Ok(false);
+    };
+
+    if nudge_level_rank(desired_level) <= nudge_level_rank(&nudge.level) {
+        return Ok(false);
+    }
+
+    let inference_snapshot_json = inference_snapshot.to_string();
+    storage
+        .update_nudge_lifecycle(
+            &nudge.nudge_id,
+            desired_level,
+            "active",
+            desired_message,
+            None,
+            None,
+            Some(&inference_snapshot_json),
+            &metadata_json,
+        )
+        .await?;
+    let _ = storage
+        .insert_nudge_event(
+            &nudge.nudge_id,
+            "nudge_reactivated",
+            &serde_json::json!({
+                "reason": "higher_urgency",
+                "from_level": nudge.level,
+                "to_level": desired_level,
+            })
+            .to_string(),
+            now_ts,
+        )
+        .await;
+    let _ = storage
+        .insert_nudge_event(
+            &nudge.nudge_id,
+            "nudge_escalated",
+            &serde_json::json!({
+                "nudge_type": nudge_type,
+                "from_level": nudge.level,
+                "to_level": desired_level,
+            })
+            .to_string(),
+            now_ts,
+        )
+        .await;
+    if let Err(e) = storage
+        .emit_event(
+            "NUDGE_ESCALATED",
+            "nudge",
+            Some(&nudge.nudge_id),
+            &serde_json::json!({
+                "nudge_type": nudge_type,
+                "from_level": nudge.level,
+                "to_level": desired_level,
+                "reactivated": true,
+            })
+            .to_string(),
+        )
+        .await
+    {
+        tracing::warn!(error = %e, nudge_id = %nudge.nudge_id, "emit NUDGE_ESCALATED");
+    }
+    Ok(true)
+}
+
 async fn reactivate_expired_snoozed_nudge(
     storage: &Storage,
     existing_nudges: &[vel_storage::NudgeRecord],
@@ -334,6 +418,19 @@ pub async fn evaluate(
         .await?
         {
             count += 1;
+        } else if reactivate_snoozed_nudge_for_higher_urgency(
+            storage,
+            &existing_nudges,
+            "meeting_prep_window",
+            prep_level,
+            "Prep window for your first meeting has started.",
+            inference_snapshot.clone(),
+            explanation.clone(),
+            now_ts,
+        )
+        .await?
+        {
+            count += 1;
         } else if escalate_active_nudge(
             storage,
             &existing_nudges,
@@ -421,7 +518,20 @@ pub async fn evaluate(
                     "leave_by": leave_by,
                     "source": "context"
                 });
-                if escalate_active_nudge(
+                if reactivate_snoozed_nudge_for_higher_urgency(
+                    storage,
+                    &existing_nudges,
+                    "commute_leave_time",
+                    lvl,
+                    msg,
+                    inference_snapshot.clone(),
+                    explanation.clone(),
+                    now_ts,
+                )
+                .await?
+                {
+                    count += 1;
+                } else if escalate_active_nudge(
                     storage,
                     &existing_nudges,
                     "commute_leave_time",
@@ -556,6 +666,19 @@ pub async fn evaluate(
         });
         if reactivate_expired_snoozed_nudge(storage, &existing_nudges, "response_debt", now_ts)
             .await?
+        {
+            count += 1;
+        } else if reactivate_snoozed_nudge_for_higher_urgency(
+            storage,
+            &existing_nudges,
+            "response_debt",
+            level,
+            message,
+            inference_snapshot.clone(),
+            explanation.clone(),
+            now_ts,
+        )
+        .await?
         {
             count += 1;
         } else if escalate_active_nudge(

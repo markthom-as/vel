@@ -1265,6 +1265,142 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    #[tokio::test]
+    async fn snoozed_commute_nudge_reactivates_when_leave_window_worsens() {
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!(
+            "vel_nudge_unsnooze_escalate_{}.db",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        ));
+        let path_str = path.to_string_lossy().to_string();
+
+        let storage = Storage::connect(&path_str).await.unwrap();
+        storage.migrate().await.unwrap();
+        let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "test".to_string(),
+                source_ref: Some("gentle-window".to_string()),
+                timestamp: now_ts + 24 * 60,
+                payload_json: Some(serde_json::json!({
+                    "start_time": now_ts + 24 * 60,
+                    "title": "Meeting with Dimitri",
+                    "travel_minutes": 10
+                })),
+            })
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let storage2 = Storage::connect(&path_str).await.unwrap();
+        let commute = storage2
+            .list_nudges(None, 10)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|nudge| nudge.nudge_type == "commute_leave_time")
+            .expect("commute nudge should exist after first evaluate");
+        assert_eq!(commute.level, "gentle");
+
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/v1/nudges/{}/snooze", commute.nudge_id))
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::json!({ "minutes": 15 }).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        storage2
+            .insert_signal(vel_storage::SignalInsert {
+                signal_type: "calendar_event".to_string(),
+                source: "test".to_string(),
+                source_ref: Some("danger-window".to_string()),
+                timestamp: now_ts + 8 * 60,
+                payload_json: Some(serde_json::json!({
+                    "start_time": now_ts + 8 * 60,
+                    "title": "Meeting moved earlier",
+                    "travel_minutes": 10
+                })),
+            })
+            .await
+            .unwrap();
+
+        let _ = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/evaluate")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let reactivated = storage2
+            .get_nudge(&commute.nudge_id)
+            .await
+            .unwrap()
+            .expect("commute nudge should still exist");
+        assert_eq!(reactivated.state, "active");
+        assert_eq!(reactivated.level, "danger");
+        assert_eq!(reactivated.snoozed_until, None);
+        let commute_nudges: Vec<_> = storage2
+            .list_nudges(None, 20)
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|nudge| nudge.nudge_type == "commute_leave_time")
+            .collect();
+        assert_eq!(commute_nudges.len(), 1);
+        let event_types: Vec<_> = storage2
+            .list_nudge_events(&commute.nudge_id, 10)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|event| event.event_type)
+            .collect();
+        assert_eq!(
+            event_types,
+            vec![
+                "nudge_created".to_string(),
+                "nudge_snoozed".to_string(),
+                "nudge_reactivated".to_string(),
+                "nudge_escalated".to_string(),
+            ]
+        );
+
+        let _ = std::fs::remove_file(&path);
+    }
+
     /// Context explain returns signals_used and commitments_used.
     #[tokio::test]
     async fn context_explain_includes_signals_and_commitments_used() {
