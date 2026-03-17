@@ -1,9 +1,8 @@
 use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_api_types::{
-    NowAttentionData, NowData, NowDebugData, NowEventData, NowFreshnessData,
-    NowFreshnessEntryData, NowLabelData, NowRiskSummaryData, NowScheduleData, NowSummaryData,
-    NowTaskData, NowTasksData,
+    NowAttentionData, NowData, NowDebugData, NowEventData, NowFreshnessData, NowFreshnessEntryData,
+    NowLabelData, NowRiskSummaryData, NowScheduleData, NowSummaryData, NowTaskData, NowTasksData,
 };
 use vel_config::AppConfig;
 use vel_core::{Commitment, CommitmentStatus};
@@ -24,7 +23,11 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
     let next_commitment_id = string_field(&context, "next_commitment_id");
     let next_commitment = next_commitment_id
         .as_ref()
-        .and_then(|id| commitments.iter().find(|commitment| commitment.id.as_ref() == id))
+        .and_then(|id| {
+            commitments
+                .iter()
+                .find(|commitment| commitment.id.as_ref() == id)
+        })
         .map(now_task);
 
     let mut todoist = Vec::new();
@@ -73,7 +76,11 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowData, A
     Ok(NowData {
         computed_at,
         summary: NowSummaryData {
-            mode: label_for_mode(string_field(&context, "mode").as_deref().unwrap_or("unknown")),
+            mode: label_for_mode(
+                string_field(&context, "mode")
+                    .as_deref()
+                    .unwrap_or("unknown"),
+            ),
             phase: label_for_phase(
                 string_field(&context, "morning_state")
                     .as_deref()
@@ -283,14 +290,81 @@ fn age_status(age_seconds: i64) -> &'static str {
 }
 
 fn sort_commitments(mut commitments: Vec<Commitment>) -> Vec<Commitment> {
-    commitments.sort_by(|left, right| {
-        let left_due = left.due_at.map(|value| value.unix_timestamp()).unwrap_or(i64::MAX);
-        let right_due = right.due_at.map(|value| value.unix_timestamp()).unwrap_or(i64::MAX);
-        left_due
-            .cmp(&right_due)
-            .then_with(|| right.created_at.cmp(&left.created_at))
-    });
+    let now = OffsetDateTime::now_utc();
+    commitments.sort_by(|left, right| compare_commitments(left, right, now));
     commitments
+}
+
+fn compare_commitments(
+    left: &Commitment,
+    right: &Commitment,
+    now: OffsetDateTime,
+) -> std::cmp::Ordering {
+    let left_priority = commitment_priority_key(left, now);
+    let right_priority = commitment_priority_key(right, now);
+    left_priority
+        .cmp(&right_priority)
+        .then_with(|| {
+            left.due_at
+                .map(|value| value.unix_timestamp())
+                .unwrap_or(i64::MAX)
+                .cmp(
+                    &right
+                        .due_at
+                        .map(|value| value.unix_timestamp())
+                        .unwrap_or(i64::MAX),
+                )
+        })
+        .then_with(|| todoist_priority(right).cmp(&todoist_priority(left)))
+        .then_with(|| todoist_updated_at(right).cmp(&todoist_updated_at(left)))
+        .then_with(|| right.created_at.cmp(&left.created_at))
+}
+
+fn commitment_priority_key(commitment: &Commitment, now: OffsetDateTime) -> (u8, i64) {
+    let due_ts = commitment.due_at.map(|value| value.unix_timestamp());
+    let due_at = commitment.due_at;
+    let due_date = due_at.map(|value| value.date());
+    let today = now.date();
+    let has_due_time = commitment
+        .metadata_json
+        .get("has_due_time")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let priority_bucket =
+        if commitment.commitment_kind.as_deref() == Some("medication") && due_date == Some(today) {
+            0
+        } else if due_ts.is_some_and(|value| value < now.unix_timestamp()) {
+            1
+        } else if due_date == Some(today) && has_due_time {
+            2
+        } else if due_date == Some(today) {
+            3
+        } else if todoist_priority(commitment) >= 3 || was_recently_updated(commitment, now) {
+            4
+        } else {
+            5
+        };
+    (priority_bucket, due_ts.unwrap_or(i64::MAX))
+}
+
+fn todoist_priority(commitment: &Commitment) -> i64 {
+    commitment
+        .metadata_json
+        .get("priority")
+        .and_then(|value| value.as_i64())
+        .unwrap_or(1)
+}
+
+fn todoist_updated_at(commitment: &Commitment) -> i64 {
+    commitment
+        .metadata_json
+        .get("updated_at")
+        .and_then(|value| value.as_i64())
+        .unwrap_or(i64::MIN)
+}
+
+fn was_recently_updated(commitment: &Commitment, now: OffsetDateTime) -> bool {
+    todoist_updated_at(commitment) >= now.unix_timestamp() - (24 * 60 * 60)
 }
 
 fn now_task(commitment: &Commitment) -> NowTaskData {
@@ -309,13 +383,18 @@ fn calendar_event_from_signal(signal: SignalRecord) -> Option<NowEventData> {
         return None;
     }
     let payload = signal.payload_json;
-    let start_ts = payload.get("start")?.as_i64().or_else(|| payload.get("start_ts")?.as_i64())?;
+    let start_ts = payload
+        .get("start")?
+        .as_i64()
+        .or_else(|| payload.get("start_ts")?.as_i64())?;
     let title = payload
         .get("title")
         .and_then(|value| value.as_str())
         .unwrap_or("Untitled event")
         .to_string();
-    let travel_minutes = payload.get("travel_minutes").and_then(|value| value.as_i64());
+    let travel_minutes = payload
+        .get("travel_minutes")
+        .and_then(|value| value.as_i64());
     Some(NowEventData {
         title,
         start_ts,
@@ -334,6 +413,115 @@ fn label(key: &str, text: &str) -> NowLabelData {
     NowLabelData {
         key: key.to_string(),
         label: text.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::{Duration, Month};
+    use vel_core::{CommitmentId, CommitmentStatus};
+
+    #[test]
+    fn pending_medication_today_outranks_ordinary_task() {
+        let now = fixed_now();
+        let med = commitment_fixture(
+            "Take meds",
+            Some(now.replace_hour(9).unwrap()),
+            Some("medication"),
+            json!({ "has_due_time": true }),
+        );
+        let ordinary = commitment_fixture("Reply to email", None, Some("todo"), json!({}));
+
+        assert_eq!(
+            compare_commitments(&med, &ordinary, now),
+            std::cmp::Ordering::Less
+        );
+    }
+
+    #[test]
+    fn overdue_task_outranks_no_due_task() {
+        let now = fixed_now();
+        let overdue = commitment_fixture(
+            "Ship report",
+            Some(now - Duration::hours(2)),
+            Some("todo"),
+            json!({ "has_due_time": true }),
+        );
+        let no_due = commitment_fixture("Clean inbox", None, Some("todo"), json!({}));
+
+        assert_eq!(
+            compare_commitments(&overdue, &no_due, now),
+            std::cmp::Ordering::Less
+        );
+    }
+
+    #[test]
+    fn due_today_with_time_outranks_no_due_task() {
+        let now = fixed_now();
+        let due_soon = commitment_fixture(
+            "Prepare notes",
+            Some(now + Duration::hours(3)),
+            Some("todo"),
+            json!({ "has_due_time": true }),
+        );
+        let no_due = commitment_fixture("Someday idea", None, Some("todo"), json!({}));
+
+        assert_eq!(
+            compare_commitments(&due_soon, &no_due, now),
+            std::cmp::Ordering::Less
+        );
+    }
+
+    #[test]
+    fn high_priority_beats_plain_backlog_task() {
+        let now = fixed_now();
+        let high_priority = commitment_fixture(
+            "Urgent follow-up",
+            None,
+            Some("todo"),
+            json!({ "priority": 4 }),
+        );
+        let backlog = commitment_fixture(
+            "Backlog cleanup",
+            None,
+            Some("todo"),
+            json!({ "priority": 1 }),
+        );
+
+        assert_eq!(
+            compare_commitments(&high_priority, &backlog, now),
+            std::cmp::Ordering::Less
+        );
+    }
+
+    fn fixed_now() -> OffsetDateTime {
+        time::Date::from_calendar_date(2026, Month::March, 16)
+            .unwrap()
+            .with_hms(8, 0, 0)
+            .unwrap()
+            .assume_utc()
+    }
+
+    fn commitment_fixture(
+        text: &str,
+        due_at: Option<OffsetDateTime>,
+        kind: Option<&str>,
+        metadata_json: JsonValue,
+    ) -> Commitment {
+        Commitment {
+            id: CommitmentId::from(format!("com_{}", text.replace(' ', "_").to_lowercase())),
+            text: text.to_string(),
+            source_type: "todoist".to_string(),
+            source_id: None,
+            status: CommitmentStatus::Open,
+            due_at,
+            project: None,
+            commitment_kind: kind.map(str::to_string),
+            created_at: fixed_now() - Duration::hours(1),
+            resolved_at: None,
+            metadata_json,
+        }
     }
 }
 
