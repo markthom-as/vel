@@ -46,7 +46,14 @@ Plans:
   4. A new node discovers the system and completes onboarding diagnostics without manual configuration
   5. Agent capability requests resolve to scoped tokens; no raw credentials appear in prompts or logs
   6. The operator CLI and web dashboard both display effective (resolved) configuration state, not raw config file values
-**Plans**: TBD
+**Plans**: 6 plans
+Plans:
+- [ ] 02-01-PLAN.md — SP1: Contract alignment, operator diagnostics, connect surface consistency (Wave 1)
+- [ ] 02-02-PLAN.md — SP2 Lane A: Signal reducer extraction — SignalReducer trait + ReducerRegistry (Wave 2, TDD)
+- [ ] 02-03-PLAN.md — SP2 Lane B: Connect lifecycle MVP — launch/heartbeat/terminate/expiry (Wave 2)
+- [ ] 02-04-PLAN.md — SP2 Lane C: Capability broker MVP — CapabilityDescriptor + BrokerService (Wave 2, TDD)
+- [ ] 02-05-PLAN.md — SP3 Lanes A+B: Node link pairing flow + HLC sync ordering primitive (Wave 3)
+- [ ] 02-06-PLAN.md — SP3 Lane C: Accessibility/config clarity — vel config show + canonical terminology (Wave 3)
 
 ### Phase 3: Deterministic Verification & Continuous Alignment
 **Goal**: The system can replay any recorded day deterministically to verify correctness, evaluate agent reasoning outputs via an LLM judge, and expose complete execution traces to the operator — giving the operator confidence that agent behavior is auditable and regressions are detectable.
@@ -84,6 +91,6 @@ Phases execute in numeric order: 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Structural Foundation | - | Complete | 2026-03-18 |
 | 1.1. Preflight — Pre-Phase 2 Hardening | 1/1 | Complete | 2026-03-18 |
-| 2. Distributed State, Offline Clients & System-of-Systems | 0/TBD | Not started | - |
+| 2. Distributed State, Offline Clients & System-of-Systems | 0/6 | Not started | - |
 | 3. Deterministic Verification & Continuous Alignment | 0/TBD | Not started | - |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 0/TBD | Not started | - |
