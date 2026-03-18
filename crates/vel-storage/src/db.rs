@@ -1,12 +1,12 @@
 use crate::{
     infra,
     repositories::{
-        artifacts_repo, assistant_transcripts_repo, captures_repo, chat_repo, cluster_workers_repo,
-        commitment_risk_repo, commitments_repo, context_timeline_repo, current_context_repo,
-        inferred_state_repo, integration_connections_repo, nudges_repo, processing_jobs_repo,
-        run_refs_repo, runs_repo, runtime_loops_repo, settings_repo, signals_repo,
-        suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
-        work_assignments_repo,
+        artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
+        cluster_workers_repo, commitment_risk_repo, commitments_repo, connect_runs_repo,
+        context_timeline_repo, current_context_repo, inferred_state_repo,
+        integration_connections_repo, nudges_repo, processing_jobs_repo, run_refs_repo, runs_repo,
+        runtime_loops_repo, settings_repo, signals_repo, suggestion_feedback_repo,
+        suggestions_repo, threads_repo, uncertainty_records_repo, work_assignments_repo,
     },
 };
 use serde::Serialize;
@@ -474,6 +474,19 @@ pub struct RuntimeLoopRecord {
     pub next_due_at: Option<i64>,
 }
 
+/// A single broker audit event — grant, deny, or execute.
+#[derive(Debug, Clone)]
+pub struct BrokerEventRecord {
+    pub id: String,
+    pub event_type: String,
+    pub run_id: String,
+    pub scope: String,
+    pub resource: Option<String>,
+    pub action: String,
+    pub reason: Option<String>,
+    pub occurred_at: i64,
+}
+
 pub struct WorkAssignmentInsert {
     pub receipt_id: Option<String>,
     pub work_request_id: String,
@@ -580,6 +593,9 @@ pub struct WorkAssignmentUpdate {
     pub result: Option<String>,
     pub error_message: Option<String>,
 }
+
+// Re-export so callers in veld can use ConnectRunRecord without reaching into the repo.
+pub use crate::repositories::connect_runs_repo::ConnectRunRecord;
 
 impl Storage {
     pub async fn connect(db_path: &str) -> Result<Self, StorageError> {
@@ -1682,6 +1698,64 @@ impl Storage {
         cluster_workers_repo::list_cluster_workers(self.pool()).await
     }
 
+    // --- Connect runs ---
+
+    pub async fn insert_connect_run(
+        &self,
+        id: &str,
+        agent_id: &str,
+        node_id: &str,
+        capabilities_json: &str,
+        lease_expires_at: i64,
+        started_at: i64,
+    ) -> Result<(), StorageError> {
+        connect_runs_repo::insert_connect_run(
+            self.pool(),
+            id,
+            agent_id,
+            node_id,
+            capabilities_json,
+            lease_expires_at,
+            started_at,
+        )
+        .await
+    }
+
+    pub async fn update_connect_heartbeat(
+        &self,
+        id: &str,
+        new_lease_expires_at: i64,
+    ) -> Result<(), StorageError> {
+        connect_runs_repo::update_heartbeat(self.pool(), id, new_lease_expires_at).await
+    }
+
+    pub async fn expire_stale_connect_runs(&self, now_ts: i64) -> Result<u64, StorageError> {
+        connect_runs_repo::expire_stale_runs(self.pool(), now_ts).await
+    }
+
+    pub async fn terminate_connect_run(
+        &self,
+        id: &str,
+        now_ts: i64,
+        reason: &str,
+    ) -> Result<(), StorageError> {
+        connect_runs_repo::terminate_run(self.pool(), id, now_ts, reason).await
+    }
+
+    pub async fn get_connect_run(
+        &self,
+        id: &str,
+    ) -> Result<Option<ConnectRunRecord>, StorageError> {
+        connect_runs_repo::get_connect_run(self.pool(), id).await
+    }
+
+    pub async fn list_connect_runs(
+        &self,
+        status_filter: Option<&str>,
+    ) -> Result<Vec<ConnectRunRecord>, StorageError> {
+        connect_runs_repo::list_connect_runs(self.pool(), status_filter).await
+    }
+
     pub async fn get_runtime_loop(
         &self,
         loop_kind: &str,
@@ -1706,6 +1780,41 @@ impl Storage {
 
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
         captures_repo::orientation_snapshot(self.pool()).await
+    }
+
+    /// Persist a broker audit event (grant, deny, or execute).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn insert_broker_event(
+        &self,
+        id: &str,
+        event_type: &str,
+        run_id: &str,
+        scope: &str,
+        resource: Option<&str>,
+        action: &str,
+        reason: Option<&str>,
+        occurred_at: i64,
+    ) -> Result<(), StorageError> {
+        broker_events_repo::insert_broker_event(
+            self.pool(),
+            id,
+            event_type,
+            run_id,
+            scope,
+            resource,
+            action,
+            reason,
+            occurred_at,
+        )
+        .await
+    }
+
+    /// List all broker events for a given run_id, ordered by occurred_at ascending.
+    pub async fn list_broker_events(
+        &self,
+        run_id: &str,
+    ) -> Result<Vec<BrokerEventRecord>, StorageError> {
+        broker_events_repo::list_broker_events(self.pool(), run_id).await
     }
 }
 

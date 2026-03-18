@@ -1,3 +1,4 @@
+pub mod capability;
 pub mod command;
 pub mod commitment;
 pub mod connect;
@@ -13,6 +14,7 @@ pub mod types;
 pub mod uncertainty;
 pub mod vocabulary;
 
+pub use capability::{CapabilityDescriptor, CapabilityGrant, CapabilityDenial};
 pub use command::{
     CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,
     RelationOperation, ResolutionConfidence, ResolutionMeta, ResolvedCommand, TargetSelector,

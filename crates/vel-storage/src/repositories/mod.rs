@@ -1,8 +1,10 @@
 pub(crate) mod artifacts_repo;
 pub(crate) mod assistant_transcripts_repo;
+pub(crate) mod broker_events_repo;
 pub(crate) mod captures_repo;
 pub(crate) mod chat_repo;
 pub(crate) mod cluster_workers_repo;
+pub(crate) mod connect_runs_repo;
 pub(crate) mod commitment_risk_repo;
 pub(crate) mod commitments_repo;
 pub(crate) mod context_timeline_repo;
