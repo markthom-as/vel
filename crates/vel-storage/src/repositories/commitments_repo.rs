@@ -107,6 +107,7 @@ pub(crate) async fn list_commitments(
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_commitment(
     pool: &SqlitePool,
     id: &str,

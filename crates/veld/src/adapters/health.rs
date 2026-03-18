@@ -91,7 +91,7 @@ fn sample_source_ref(sample: &HealthSample) -> String {
         sample.metric_type.trim(),
         sample.timestamp,
         sample.value,
-        source_app.replace(':', "_").replace('/', "_")
+        source_app.replace([':', '/'], "_")
     ) + &format!(":{unit}")
 }
 

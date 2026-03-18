@@ -18,8 +18,8 @@ pub async fn run(client: &ApiClient, limit: u32, today: bool, json: bool) -> any
         return Ok(());
     }
     println!(
-        "{:<20} {:<12} {:<12} {:<20} {}",
-        "CAPTURE ID", "TYPE", "SOURCE", "TIME", "CONTENT"
+        "{:<20} {:<12} {:<12} {:<20} CONTENT",
+        "CAPTURE ID", "TYPE", "SOURCE", "TIME"
     );
     for c in &captures {
         let content = if c.content_text.len() > TRUNCATE_LEN {

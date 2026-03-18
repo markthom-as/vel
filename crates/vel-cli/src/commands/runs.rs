@@ -40,8 +40,8 @@ pub async fn run_list(
         return Ok(());
     }
     println!(
-        "{:<14} {:<22} {:<16} {:<26} {}",
-        "RUN ID", "KIND", "STATUS", "CREATED AT", "NEXT ACTION"
+        "{:<14} {:<22} {:<16} {:<26} NEXT ACTION",
+        "RUN ID", "KIND", "STATUS", "CREATED AT"
     );
     for r in runs {
         let created = r.created_at.to_string();
@@ -143,7 +143,7 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
         for a in &r.artifacts {
             let size_str = a
                 .size_bytes
-                .map(|b| format_size(b))
+                .map(format_size)
                 .unwrap_or_else(|| "—".to_string());
             println!("  {}  {}  {}", a.artifact_id, a.artifact_type, size_str);
         }
@@ -151,6 +151,7 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run_status(
     client: &ApiClient,
     id: &str,

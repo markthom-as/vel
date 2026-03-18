@@ -15,8 +15,8 @@ pub async fn run_list(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     }
 
     println!(
-        "{:<28} {:<8} {:<10} {:<12} {}",
-        "LOOP", "ENABLED", "INTERVAL", "STATUS", "NEXT DUE"
+        "{:<28} {:<8} {:<10} {:<12} NEXT DUE",
+        "LOOP", "ENABLED", "INTERVAL", "STATUS"
     );
     for loop_data in loops {
         println!(

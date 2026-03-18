@@ -145,7 +145,7 @@ pub(crate) async fn create_message_response(
             Ok(Some(assistant_message)) => {
                 let ws_payload = serde_json::to_value(&assistant_message).unwrap_or_default();
                 broadcast_chat_ws_event(state, WS_EVENT_MESSAGES_NEW, ws_payload);
-                (Some(ChatMessage::from(assistant_message)), None)
+                (Some(assistant_message), None)
             }
             Ok(None) => (None, None),
             Err(error) => {

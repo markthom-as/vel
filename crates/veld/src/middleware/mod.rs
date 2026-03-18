@@ -74,10 +74,10 @@ pub(crate) fn extract_header_token<'a>(
         .filter(|value| !value.is_empty())
 }
 
-pub(crate) fn expected_token_for_class<'a>(
+pub(crate) fn expected_token_for_class(
     class: RouteExposureClass,
-    policy: &'a HttpExposurePolicy,
-) -> Option<(&'static str, &'a str)> {
+    policy: &HttpExposurePolicy,
+) -> Option<(&'static str, &str)> {
     match class {
         RouteExposureClass::LocalPublic => None,
         RouteExposureClass::OperatorAuthenticated => policy

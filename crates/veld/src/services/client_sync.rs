@@ -362,6 +362,7 @@ fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBoots
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn ingest_worker_heartbeat(
     state: &AppState,
     worker_id: String,
@@ -1142,6 +1143,7 @@ pub async fn queue_validation_request(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn queue_work_request(
     state: &AppState,
     signal_type: &str,
@@ -1277,6 +1279,7 @@ struct WorkQueueScheduleState {
     next_retry_at: Option<i64>,
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn build_existing_routing_response(
     state: &AppState,
     signal_type: &str,

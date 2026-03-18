@@ -227,6 +227,7 @@ where
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_candidate(
     suggestion_type: SuggestionType,
     priority: i64,
@@ -527,7 +528,7 @@ fn rank_candidates(
             let age_days = (OffsetDateTime::now_utc().unix_timestamp() - newest_created_at)
                 .div_euclid(86_400)
                 .max(0);
-            (15 - age_days.min(15)) as i64
+            15 - age_days.min(15)
         } else {
             0
         };

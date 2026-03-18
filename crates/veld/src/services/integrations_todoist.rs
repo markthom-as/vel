@@ -358,6 +358,7 @@ where
     Ok(all_items)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn reconcile_commitment(
     storage: &Storage,
     existing: Option<&Commitment>,

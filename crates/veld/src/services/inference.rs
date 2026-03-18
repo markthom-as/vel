@@ -375,6 +375,7 @@ fn collect_commitments_used(open_commitments: &[vel_core::Commitment]) -> Vec<St
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn derive_inference_state(
     has_workstation_activity: bool,
     meds_done_today: bool,
@@ -1184,7 +1185,7 @@ fn build_assistant_message_summary(
             .payload_json
             .get("source")
             .and_then(serde_json::Value::as_str)
-            .or_else(|| Some(signal.source.as_str()))
+            .or(Some(signal.source.as_str()))
             .map(ToString::to_string),
     })
 }

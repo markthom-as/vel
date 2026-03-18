@@ -10,7 +10,7 @@ pub async fn run(
     format: &str,
     json: bool,
 ) -> anyhow::Result<()> {
-    let captures = captures || (!captures && !runs && !artifacts);
+    let captures = captures || !artifacts && !runs;
     if !captures && !runs && !artifacts {
         println!("Specify --captures, --runs, and/or --artifacts to export.");
         return Ok(());

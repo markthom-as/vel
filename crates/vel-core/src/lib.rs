@@ -53,19 +53,14 @@ use std::fmt::{Display, Formatter};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum PrivacyClass {
+    #[default]
     Private,
     Work,
     Sensitive,
     DoNotRecord,
-}
-
-impl Default for PrivacyClass {
-    fn default() -> Self {
-        Self::Private
-    }
 }
 
 impl Display for PrivacyClass {
@@ -80,18 +75,13 @@ impl Display for PrivacyClass {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncClass {
     Hot,
+    #[default]
     Warm,
     Cold,
-}
-
-impl Default for SyncClass {
-    fn default() -> Self {
-        Self::Warm
-    }
 }
 
 impl Display for SyncClass {
@@ -276,17 +266,12 @@ impl From<String> for JobId {
 }
 
 /// Whether Vel manages the artifact file (writes, checksum, size) or only references an external location.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactStorageKind {
     Managed,
+    #[default]
     External,
-}
-
-impl Default for ArtifactStorageKind {
-    fn default() -> Self {
-        Self::External
-    }
 }
 
 impl std::fmt::Display for ArtifactStorageKind {

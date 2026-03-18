@@ -156,6 +156,7 @@ pub async fn run_workers(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run_branch_sync_request(
     client: &ApiClient,
     branch: &str,
@@ -366,8 +367,8 @@ fn print_cluster_state_summary(state: &SyncClusterStateData) {
     if !state.nodes.is_empty() {
         println!();
         println!(
-            "{:<24} {:<12} {:<14} {:<6} {}",
-            "NODE_ID", "CLASS", "REACHABILITY", "TAILNET", "LAST_SEEN"
+            "{:<24} {:<12} {:<14} {:<6} LAST_SEEN",
+            "NODE_ID", "CLASS", "REACHABILITY", "TAILNET"
         );
         for node in &state.nodes {
             let tailnet = if node.tailscale_base_url.is_some() {
@@ -407,8 +408,8 @@ fn print_cluster_state_summary(state: &SyncClusterStateData) {
 
     println!();
     println!(
-        "{:<24} {:<16} {:<12} {:<10} {:<14} {:<8} {}",
-        "WORKER_ID", "NODE_ID", "CLASS", "STATUS", "LOAD", "TAILNET", "FAIL_RATE"
+        "{:<24} {:<16} {:<12} {:<10} {:<14} {:<8} FAIL_RATE",
+        "WORKER_ID", "NODE_ID", "CLASS", "STATUS", "LOAD", "TAILNET"
     );
     for worker in &state.workers {
         let load = format_worker_load(worker.current_load, worker.max_concurrency);

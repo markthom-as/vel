@@ -167,6 +167,7 @@ pub(crate) async fn update_nudge_state_in_tx(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_nudge_lifecycle(
     pool: &SqlitePool,
     nudge_id: &str,
@@ -196,6 +197,7 @@ pub(crate) async fn update_nudge_lifecycle(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn update_nudge_lifecycle_in_tx(
     tx: &mut Transaction<'_, Sqlite>,
     nudge_id: &str,

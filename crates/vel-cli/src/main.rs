@@ -16,6 +16,7 @@ struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
+#[allow(clippy::enum_variant_names)]
 enum Command {
     Doctor {
         #[arg(long)]

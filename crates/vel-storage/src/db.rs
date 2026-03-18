@@ -686,6 +686,7 @@ impl Storage {
         commitments_repo::list_commitments(self.pool(), status_filter, project, kind, limit).await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_commitment(
         &self,
         id: &str,
@@ -830,6 +831,7 @@ impl Storage {
             .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_nudge_lifecycle(
         &self,
         nudge_id: &str,

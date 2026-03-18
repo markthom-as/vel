@@ -48,7 +48,7 @@ fn format_result(result: &SearchResult) -> anyhow::Result<String> {
     if let Some(source_device) = result.source_device.as_deref() {
         lines.push(format!("source: {}", source_device));
     }
-    lines.push(result.snippet.replace('[', "").replace(']', ""));
+    lines.push(result.snippet.replace(['[', ']'], ""));
     Ok(lines.join("\n"))
 }
 

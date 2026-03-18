@@ -45,6 +45,7 @@ fn commute_level_message(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn reactivate_snoozed_nudge_for_higher_urgency(
     storage: &Storage,
     existing_nudges: &[vel_storage::NudgeRecord],
@@ -160,6 +161,7 @@ async fn reactivate_expired_snoozed_nudge(
     Ok(true)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn escalate_active_nudge(
     storage: &Storage,
     existing_nudges: &[vel_storage::NudgeRecord],
@@ -228,6 +230,7 @@ async fn escalate_active_nudge(
 
 /// **Recompute-and-persist.** Evaluate and create/update nudges from current context, risk snapshots, commitments, and active nudges.
 /// Does not recompute meds/prep/morning from raw signals; reads from context.
+#[allow(clippy::if_same_then_else)]
 pub async fn evaluate(
     storage: &Storage,
     policy_config: &PolicyConfig,
@@ -477,18 +480,17 @@ pub async fn evaluate(
     let has_commute_nudge = existing_nudges
         .iter()
         .any(|n| suppresses_new_nudge(n, "commute_leave_time", now_ts));
-    if commute_cfg
-        .map(|c| c.enabled && c.require_travel_minutes)
-        .unwrap_or(false)
-        && commute_window_active
-        && leave_by_ts.is_some()
-    {
+    if let Some(leave_by) = leave_by_ts.filter(|_| {
+        commute_cfg
+            .map(|c| c.enabled && c.require_travel_minutes)
+            .unwrap_or(false)
+            && commute_window_active
+    }) {
         if reactivate_expired_snoozed_nudge(storage, &existing_nudges, "commute_leave_time", now_ts)
             .await?
         {
             count += 1;
         } else {
-            let leave_by = leave_by_ts.unwrap();
             let level_message =
                 commute_cfg.and_then(|config| commute_level_message(now_ts, leave_by, config));
             if let Some((lvl, msg)) = level_message {

@@ -28,6 +28,12 @@ pub struct WorkerLoadGuard<'a> {
     state: &'a WorkerRuntimeState,
 }
 
+impl Default for WorkerRuntimeState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WorkerRuntimeState {
     pub fn new() -> Self {
         let max_concurrency = std::thread::available_parallelism()

@@ -1162,6 +1162,7 @@ async fn execute_create_planning_artifact(
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(clippy::enum_variant_names)]
 enum CommandExecutionPayloadKind {
     ArtifactCreated,
     SpecDraftCreated,
