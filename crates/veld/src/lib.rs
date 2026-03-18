@@ -1,6 +1,7 @@
 pub mod adapters;
 pub mod app;
 pub mod broadcast;
+pub mod middleware;
 pub mod errors;
 pub mod llm;
 pub mod policy_config;

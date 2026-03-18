@@ -3,6 +3,7 @@ mod app;
 mod broadcast;
 mod errors;
 mod llm;
+mod middleware;
 mod policy_config;
 mod routes;
 mod services;
