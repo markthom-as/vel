@@ -1853,6 +1853,37 @@ pub struct EvaluateResultData {
     pub nudges_created_or_updated: u32,
 }
 
+/// A single freshness entry for a data source tracked by the operator diagnostics endpoint.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FreshnessEntryData {
+    /// Identifier for the data source (e.g. worker ID or source name).
+    pub source: String,
+    /// Unix timestamp of last successful heartbeat or sync for this source.
+    pub last_seen_at: Option<UnixSeconds>,
+    /// Freshness status: "fresh" | "stale" | "missing"
+    pub status: String,
+}
+
+/// Operator diagnostics payload — surfaces currently available sync/capability state.
+/// Returned by GET /api/diagnostics (operator-authenticated).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiagnosticsData {
+    /// Node ID of the authority node.
+    pub node_id: String,
+    /// Human-readable display name for the authority node.
+    pub node_display_name: String,
+    /// Unix timestamp when this diagnostics snapshot was generated.
+    pub generated_at: UnixSeconds,
+    /// Overall sync status: "ready" | "degraded" | "offline" | "unknown"
+    pub sync_status: String,
+    /// Count of currently active (registered) workers.
+    pub active_workers: u32,
+    /// Unique capability strings advertised across all active workers.
+    pub capability_summary: Vec<String>,
+    /// Per-source freshness entries derived from active worker heartbeat data.
+    pub freshness_entries: Vec<FreshnessEntryData>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SynthesisWeekData {
     pub run_id: String,

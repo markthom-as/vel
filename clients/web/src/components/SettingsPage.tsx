@@ -8,6 +8,7 @@ import type {
   ClusterBootstrapData,
   ComponentData,
   ComponentLogEventData,
+  DiagnosticsData,
   IntegrationLogEventData,
   IntegrationsData,
   LocalIntegrationData,
@@ -323,6 +324,7 @@ export function SettingsPage({
   const [actingLoops, setActingLoops] = useState<Record<string, true>>({});
   const [loopDrafts, setLoopDrafts] = useState<Record<string, LoopDraft>>({});
   const [loopActionState, setLoopActionState] = useState<Record<string, LoopActionState>>({});
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsData | null>(null);
   const nextIntegrationActionIdRef = useRef(0);
   const latestIntegrationActionIdByKeyRef = useRef<Record<IntegrationActionKey, number>>(
     {} as Record<IntegrationActionKey, number>,
@@ -522,6 +524,25 @@ export function SettingsPage({
       behavior: 'auto',
     });
   }, [activeTab, initialIntegrationId, integrations]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/diagnostics', {
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => res.json())
+      .then((body: { ok: boolean; data?: DiagnosticsData }) => {
+        if (!cancelled && body.ok && body.data) {
+          setDiagnostics(body.data);
+        }
+      })
+      .catch(() => {
+        // diagnostics fetch failure is non-critical — silently ignore
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const update = async (key: keyof SettingsData, value: boolean | unknown) => {
     setSaving(true);
@@ -1768,6 +1789,72 @@ export function SettingsPage({
             This tab is for operator actions only: adjust loops, manage retries, and restart components. Use Stats for passive observability.
           </p>
         </div>
+        {diagnostics ? (
+          <section>
+            <div className="mb-3">
+              <h3 className="text-lg font-medium text-zinc-200">System Diagnostics</h3>
+              <p className="text-sm text-zinc-500">
+                Live sync status, active worker count, capabilities, and per-source freshness.
+              </p>
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="text-xs uppercase tracking-wide text-zinc-500 w-28">Node</span>
+                <span className="text-sm text-zinc-200">{diagnostics.node_display_name}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs uppercase tracking-wide text-zinc-500 w-28">Sync status</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${
+                    diagnostics.sync_status === 'ready'
+                      ? 'bg-emerald-950 text-emerald-300'
+                      : diagnostics.sync_status === 'degraded'
+                      ? 'bg-amber-950 text-amber-300'
+                      : diagnostics.sync_status === 'offline'
+                      ? 'bg-rose-950 text-rose-300'
+                      : 'bg-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {diagnostics.sync_status}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs uppercase tracking-wide text-zinc-500 w-28">Active workers</span>
+                <span className="text-sm text-zinc-200">{diagnostics.active_workers}</span>
+              </div>
+              {diagnostics.capability_summary.length > 0 ? (
+                <div className="flex items-start gap-3">
+                  <span className="text-xs uppercase tracking-wide text-zinc-500 w-28 mt-0.5">Capabilities</span>
+                  <span className="text-sm text-zinc-400">{diagnostics.capability_summary.join(', ')}</span>
+                </div>
+              ) : null}
+              {diagnostics.freshness_entries.length > 0 ? (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Freshness</p>
+                  <ul className="space-y-1">
+                    {diagnostics.freshness_entries.map((entry) => (
+                      <li key={entry.source} className="flex items-center justify-between text-sm">
+                        <span className="text-zinc-400 truncate max-w-xs">{entry.source}</span>
+                        <span
+                          className={`ml-3 rounded-full px-2 py-0.5 text-xs ${
+                            entry.status === 'fresh'
+                              ? 'bg-emerald-950 text-emerald-300'
+                              : entry.status === 'stale'
+                              ? 'bg-amber-950 text-amber-300'
+                              : 'bg-zinc-800 text-zinc-400'
+                          }`}
+                        >
+                          {entry.status}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
         <section>
           <div className="mb-3">
             <h3 className="text-lg font-medium text-zinc-200">Runtime loops</h3>

@@ -160,6 +160,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/sync/bootstrap", get(routes::sync::sync_bootstrap))
         .route("/v1/sync/cluster", get(routes::sync::sync_cluster))
         .route("/v1/evaluate", post(routes::evaluate::run_evaluate))
+        .route(
+            "/api/diagnostics",
+            get(routes::diagnostics::get_diagnostics),
+        )
         .route("/api/components", get(routes::components::list_components))
         .route(
             "/api/components/:id/logs",

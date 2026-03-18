@@ -6,6 +6,7 @@ pub mod command_lang;
 pub mod commitments;
 pub mod components;
 pub mod context;
+pub mod diagnostics;
 pub mod doctor;
 pub mod evaluate;
 pub mod explain;

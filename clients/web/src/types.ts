@@ -6,6 +6,22 @@ export interface ApiResponse<T> {
   meta: { request_id: string; degraded?: boolean };
 }
 
+export interface FreshnessEntryData {
+  source: string;
+  last_seen_at: number | null;
+  status: 'fresh' | 'stale' | 'missing';
+}
+
+export interface DiagnosticsData {
+  node_id: string;
+  node_display_name: string;
+  generated_at: number;
+  sync_status: string;
+  active_workers: number;
+  capability_summary: string[];
+  freshness_entries: FreshnessEntryData[];
+}
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };
