@@ -1,4 +1,4 @@
-use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
 use sqlx::{
     migrate::{MigrateError, Migrator},
     sqlite::SqlitePoolOptions,
@@ -21,7 +21,11 @@ pub(crate) fn sqlite_connect_options(db_path: &str) -> Result<SqliteConnectOptio
     };
 
     let options = SqliteConnectOptions::from_str(&url)?.create_if_missing(true);
-
+    let options = if db_path != ":memory:" {
+        options.journal_mode(SqliteJournalMode::Wal)
+    } else {
+        options
+    };
     Ok(options)
 }
 
