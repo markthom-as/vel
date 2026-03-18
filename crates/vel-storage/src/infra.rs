@@ -167,3 +167,39 @@ pub(crate) async fn emit_event(
     .await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn wal_mode_enabled_for_file_db() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let db_path = std::env::temp_dir()
+            .join(format!("vel-wal-test-{nanos}.sqlite"))
+            .to_string_lossy()
+            .to_string();
+
+        let pool = connect_pool(&db_path).await.expect("pool opens");
+        let row: (String,) = sqlx::query_as("PRAGMA journal_mode")
+            .fetch_one(&pool)
+            .await
+            .expect("pragma query");
+        assert_eq!(row.0, "wal", "WAL mode should be active for file-based DB");
+
+        // cleanup WAL sidecar files
+        std::fs::remove_file(&db_path).ok();
+        std::fs::remove_file(format!("{}-wal", db_path)).ok();
+        std::fs::remove_file(format!("{}-shm", db_path)).ok();
+    }
+
+    #[tokio::test]
+    async fn wal_mode_skipped_for_memory_db() {
+        // In-memory databases cannot use WAL — must connect without error
+        let pool = connect_pool(":memory:").await;
+        assert!(pool.is_ok(), "in-memory connect must succeed (no WAL applied)");
+    }
+}
