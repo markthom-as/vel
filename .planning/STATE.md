@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-03-19T04:20:00Z"
-last_activity: 2026-03-18 — Phase 3 Plan 05 complete; eval runner, fixture schema, and CI/documented quality gates landed
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-18T21:27:01Z"
+last_activity: 2026-03-18 — Phase 4 Plan 01 complete; semantic-memory, sandbox ABI, and swarm protocol contracts landed with schemas, templates, and authority docs
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 13
+  total_plans: 17
   completed_plans: 7
-  percent: 54
+  percent: 41
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 4 — Autonomous Swarm, Graph RAG & Zero-Trust Execution (Phase 3 complete; Phase 4 planning not yet started)
+**Current focus:** Phase 4 — Autonomous Swarm, Graph RAG & Zero-Trust Execution (contract foundations landed; runtime implementation slices remain)
 
 ## Current Position
 
 Phase: 4 of 4 (Autonomous Swarm, Graph RAG & Zero-Trust Execution)
-Plan: 0 of TBD in current phase (Phase 4 not yet planned on disk)
+Plan: 1 of 5 in current phase (04-01 complete; semantic/sandbox/protocol contracts published)
 Status: In progress
-Last activity: 2026-03-18 — Phase 3 Plan 05 complete; `veld-evals` now ships fixture-driven deterministic replay plus optional judge scoring
+Last activity: 2026-03-18 — Phase 4 Plan 01 complete; `vel-core` now defines typed semantic-memory, sandbox, and swarm protocol contracts backed by checked-in config assets
 
-Progress: [██████▒▒▒▒] 54%
+Progress: [████▒▒▒▒▒▒] 41%
 
 ## Performance Metrics
 
@@ -80,11 +80,13 @@ Recent decisions affecting current work:
 - [Phase 3 P03]: User-doc support guidance should point operators to shipped inspect surfaces and runtime API docs before deeper architecture docs
 - [Phase 3 P04]: Deterministic replay should normalize identifier churn (run/artifact/capture IDs) and assert semantic outputs plus boundary events instead of raw row identity
 - [Phase 3 P05]: Eval fixtures should carry explicit judge policy and rubric, while deterministic replay remains the hard gate and judge failure remains separately reportable
+- [Phase 4 P01]: Publish Phase 4 contracts in `vel-core` plus config schemas/examples/templates before selecting concrete runtime/index implementation details
 
 ### Roadmap Evolution
 
 - Phase 1.1 inserted after Phase 1 (2026-03-18): Preflight hardening — integration startup panics, WAL mode, app.rs decomp (URGENT — gates Phase 2)
 - Phase 3 planning created (2026-03-18): 5-plan rollout covering trace/doc closure, simulation harness, and eval pipeline
+- Phase 4 planning created (2026-03-18): 5-plan rollout covering contract foundations, semantic retrieval, sandbox runtime, protocol fixtures, and SDK closure
 
 ### Pending Todos
 
@@ -103,11 +105,11 @@ Recent decisions affecting current work:
 - Phase 1.1 (preflight) COMPLETE — Phase 2 is now unblocked
 - Phase 2 complete enough for roadmap progression; Phase 3 has started with trace contract closure
 - Ticket 006 status documented accurately (shell only, all 4 criteria unmet) — SP2 Lane B will implement
-- Phase 3 is complete; remaining autonomous work is Phase 4 planning and execution
-- Phase 4 WASM runtime choice is unresolved — must decide before Phase 4 SP1 contract work (wasmtime recommended)
+- Phase 3 is complete; remaining autonomous work is Phase 4 execution
+- Phase 4 WASM runtime choice is still unresolved for implementation slices — contract-first SP1 is complete, runtime selection still needed before 04-03 (wasmtime recommended)
 
 ## Session Continuity
 
-Last session: 2026-03-19T04:20:00Z
-Stopped at: Completed 03-05-PLAN.md
+Last session: 2026-03-18T21:27:01Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

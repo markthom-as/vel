@@ -87,7 +87,13 @@ Plans:
   2. An untrusted agent binary executes inside the WASM sandbox and can only interact with veld through declared capability contracts — any attempt to exceed declared permissions is rejected at the boundary
   3. A developer can import `vel-agent-sdk`, implement the swarm execution contract, and have their agent communicate with veld without touching veld internals
   4. The SDK ships with at least one working reference implementation and documentation covering the full integration contract
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [x] 04-01-PLAN.md — SP1: semantic-memory, sandbox-ABI, and swarm-protocol contract foundations
+- [ ] 04-02-PLAN.md — SP2 Lane A: semantic index backend seam, provenance-preserving records, and retrieval lifecycle
+- [ ] 04-03-PLAN.md — SP2 Lane B: WASM sandbox runtime, deny-by-default policies, and operator-visible decisions
+- [ ] 04-04-PLAN.md — SP3 Lane A: swarm protocol crate, fixtures, and versioned serialization/validation
+- [ ] 04-05-PLAN.md — SP3 Lane B: reference SDK limb and end-to-end scoped capability flow
 
 ## Progress
 
@@ -100,4 +106,4 @@ Phases execute in numeric order: 2 → 3 → 4
 | 1.1. Preflight — Pre-Phase 2 Hardening | 1/1 | Complete | 2026-03-18 |
 | 2. Distributed State, Offline Clients & System-of-Systems | 0/7 | Not started | - |
 | 3. Deterministic Verification & Continuous Alignment | 5/5 | Complete | 2026-03-18 |
-| 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 0/TBD | Not started | - |
+| 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 1/5 | In progress | - |
