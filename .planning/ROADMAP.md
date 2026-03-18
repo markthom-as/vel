@@ -29,7 +29,9 @@ Phase 1 (structural decomposition, auth hardening, canonical schemas, self-aware
   - Fix `expect()` panics on integration settings load in `integrations_todoist.rs` and `integrations_google.rs`
   - Enable WAL mode in `vel-storage/src/infra.rs` database initialization
   - Extract auth middleware + `HttpExposurePolicy` from `app.rs` to `crates/veld/src/middleware/`
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [ ] 1.1-01-PLAN.md — TDD: Wave 0 failing tests + WAL mode + integration settings hardening + middleware extraction
 
 ---
 
@@ -83,7 +85,7 @@ Phases execute in numeric order: 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Structural Foundation | - | Complete | 2026-03-18 |
-| 1.1. Preflight — Pre-Phase 2 Hardening | 0/TBD | Not started | - |
+| 1.1. Preflight — Pre-Phase 2 Hardening | 0/1 | Not started | - |
 | 2. Distributed State, Offline Clients & System-of-Systems | 0/TBD | Not started | - |
 | 3. Deterministic Verification & Continuous Alignment | 0/TBD | Not started | - |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 0/TBD | Not started | - |
