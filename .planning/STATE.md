@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 1.1 — Preflight: Pre-Phase 2 Hardening
+**Current focus:** Phase 2 — Distributed State, Offline Clients & System-of-Systems
 
 ## Current Position
 
-Phase: 1.1 of 4 (Preflight — Pre-Phase 2 Hardening)
-Plan: 1 of 1 in current phase (COMPLETE)
-Status: Phase 1.1 complete — Phase 2 unblocked
-Last activity: 2026-03-18 — Plan 1.1-01 complete: WAL mode, settings hardening, middleware extraction, full clippy clean
+Phase: 2 of 4 (Distributed State, Offline Clients & System-of-Systems)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-03-18 — Phase 1.1 complete (verified 6/6); Phase 2 unblocked
 
 Progress: [██████████] 100%
 

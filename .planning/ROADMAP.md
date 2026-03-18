@@ -11,7 +11,7 @@ Phase 1 (structural decomposition, auth hardening, canonical schemas, self-aware
 - Integer phases only; decimal phases created via `/gsd:insert-phase` if urgent work is needed
 
 - [x] **Phase 1: Structural Foundation** - Layered crates, auth hardening, canonical schemas, self-awareness (COMPLETE)
-- [ ] **Phase 1.1: Preflight — Pre-Phase 2 Hardening** (INSERTED) - Integration startup panic fixes, SQLite WAL mode, app.rs decomposition
+- [x] **Phase 1.1: Preflight — Pre-Phase 2 Hardening** (INSERTED) - Integration startup panic fixes, SQLite WAL mode, app.rs decomposition (COMPLETE)
 - [ ] **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Signal ingestion, HLC sync, agent connect, capability brokering, operator accessibility
 - [ ] **Phase 3: Deterministic Verification & Continuous Alignment** - Day-simulation harness, LLM-as-a-Judge eval, execution tracing, user documentation
 - [ ] **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Semantic memory graph, WASM sandboxing, swarm execution SDK
@@ -85,7 +85,7 @@ Phases execute in numeric order: 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Structural Foundation | - | Complete | 2026-03-18 |
-| 1.1. Preflight — Pre-Phase 2 Hardening | 0/1 | Not started | - |
+| 1.1. Preflight — Pre-Phase 2 Hardening | 1/1 | Complete | 2026-03-18 |
 | 2. Distributed State, Offline Clients & System-of-Systems | 0/TBD | Not started | - |
 | 3. Deterministic Verification & Continuous Alignment | 0/TBD | Not started | - |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 0/TBD | Not started | - |
