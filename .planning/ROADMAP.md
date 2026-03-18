@@ -11,11 +11,27 @@ Phase 1 (structural decomposition, auth hardening, canonical schemas, self-aware
 - Integer phases only; decimal phases created via `/gsd:insert-phase` if urgent work is needed
 
 - [x] **Phase 1: Structural Foundation** - Layered crates, auth hardening, canonical schemas, self-awareness (COMPLETE)
+- [ ] **Phase 1.1: Preflight — Pre-Phase 2 Hardening** (INSERTED) - Integration startup panic fixes, SQLite WAL mode, app.rs decomposition
 - [ ] **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Signal ingestion, HLC sync, agent connect, capability brokering, operator accessibility
 - [ ] **Phase 3: Deterministic Verification & Continuous Alignment** - Day-simulation harness, LLM-as-a-Judge eval, execution tracing, user documentation
 - [ ] **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Semantic memory graph, WASM sandboxing, swarm execution SDK
 
 ## Phase Details
+
+### Phase 1.1: Preflight — Pre-Phase 2 Hardening (INSERTED)
+**Goal**: Eliminate crash-risk technical debt and close infrastructure gaps that will become more expensive once distributed complexity grows. This phase has no new feature surface — it is purely hardening. Must complete before Phase 2 execution begins.
+**Depends on**: Phase 1 (complete)
+**Success Criteria** (what must be TRUE):
+  1. Daemon starts cleanly with missing or corrupt Todoist/Google Calendar settings — no panics, graceful degradation with warning logs
+  2. SQLite WAL mode is enabled; concurrent readers do not block background writers
+  3. `app.rs` auth middleware and exposure gate logic extracted to a separate module; file is under 3,000 lines
+**Work items**:
+  - Fix `expect()` panics on integration settings load in `integrations_todoist.rs` and `integrations_google.rs`
+  - Enable WAL mode in `vel-storage/src/infra.rs` database initialization
+  - Extract auth middleware + `HttpExposurePolicy` from `app.rs` to `crates/veld/src/middleware/`
+**Plans**: TBD
+
+---
 
 ### Phase 2: Distributed State, Offline Clients & System-of-Systems
 **Goal**: The system can ingest signals from pluggable sources, maintain consistent distributed state across nodes, launch and supervise agent processes, broker capabilities without exposing raw credentials, and present clear effective configuration to the operator.
@@ -67,6 +83,7 @@ Phases execute in numeric order: 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Structural Foundation | - | Complete | 2026-03-18 |
+| 1.1. Preflight — Pre-Phase 2 Hardening | 0/TBD | Not started | - |
 | 2. Distributed State, Offline Clients & System-of-Systems | 0/TBD | Not started | - |
 | 3. Deterministic Verification & Continuous Alignment | 0/TBD | Not started | - |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 0/TBD | Not started | - |
