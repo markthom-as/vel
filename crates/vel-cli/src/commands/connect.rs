@@ -20,7 +20,11 @@ pub async fn run_list_instances(_client: &ApiClient, _json: bool) -> anyhow::Res
     Ok(())
 }
 
-pub async fn run_inspect_instance(_client: &ApiClient, _id: &str, _json: bool) -> anyhow::Result<()> {
+pub async fn run_inspect_instance(
+    _client: &ApiClient,
+    _id: &str,
+    _json: bool,
+) -> anyhow::Result<()> {
     eprintln!(
         "Note: agent launch protocol is not yet active (ticket 006 — SP2 Lane B).\n\
          Instance inspection will be available once the connect lifecycle protocol is implemented.\n\
