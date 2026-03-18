@@ -1,6 +1,6 @@
 use crate::db::{CaptureInsert, SearchFilters, SignalRecord, StorageError};
 use crate::mapping::timestamp_to_datetime;
-use crate::repositories::{processing_jobs_repo, signals_repo};
+use crate::repositories::{processing_jobs_repo, semantic_memory_repo, signals_repo};
 use serde_json::json;
 use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool};
 use time::OffsetDateTime;
@@ -77,6 +77,14 @@ pub(crate) async fn insert_capture_with_id_at(
 
     let job_id = JobId::new();
     let payload = json!({ "capture_id": capture_id.to_string() }).to_string();
+
+    semantic_memory_repo::upsert_capture_record_in_tx(
+        &mut tx,
+        capture_id.as_ref(),
+        &input.content_text,
+        occurred_at,
+    )
+    .await?;
 
     processing_jobs_repo::insert_processing_job_in_tx(
         &mut tx,

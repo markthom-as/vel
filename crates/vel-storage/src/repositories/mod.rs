@@ -16,6 +16,7 @@ pub(crate) mod processing_jobs_repo;
 pub(crate) mod run_refs_repo;
 pub(crate) mod runs_repo;
 pub(crate) mod runtime_loops_repo;
+pub(crate) mod semantic_memory_repo;
 pub(crate) mod settings_repo;
 pub(crate) mod signals_repo;
 pub(crate) mod suggestion_feedback_repo;

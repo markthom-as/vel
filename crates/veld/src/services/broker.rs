@@ -3,6 +3,8 @@
 //! Agents never receive raw credentials. The broker enforces scope checks and
 //! persists every grant/deny/execute decision with a stable trace ID.
 
+use time::OffsetDateTime;
+use uuid::Uuid;
 use vel_core::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 use vel_storage::Storage;
 
@@ -31,7 +33,40 @@ impl<'a> BrokerService<'a> {
         requested: &CapabilityDescriptor,
         allowlist: &[CapabilityDescriptor],
     ) -> Result<CapabilityGrant, CapabilityDenial> {
-        todo!("implement resolve_capability")
+        if let Some(grant_desc) = allowlist.iter().find(|entry| entry.matches(requested)) {
+            let grant = CapabilityGrant {
+                grant_id: format!("grant_{}", Uuid::new_v4().simple()),
+                run_id: run_id.to_string(),
+                descriptor: CapabilityDescriptor {
+                    scope: grant_desc.scope.clone(),
+                    resource: requested
+                        .resource
+                        .clone()
+                        .or_else(|| grant_desc.resource.clone()),
+                    action: grant_desc.action.clone(),
+                },
+                granted_at: OffsetDateTime::now_utc().unix_timestamp(),
+                expires_at: None,
+            };
+            let _ = self
+                .storage
+                .insert_broker_event(
+                    &grant.grant_id,
+                    "grant",
+                    run_id,
+                    &grant.descriptor.scope,
+                    grant.descriptor.resource.as_deref(),
+                    &grant.descriptor.action,
+                    None,
+                    grant.granted_at,
+                )
+                .await;
+            Ok(grant)
+        } else {
+            Err(self
+                .deny_with_trace(run_id, requested.clone(), "scope not in allowlist")
+                .await)
+        }
     }
 
     /// Convenience: always-deny path for fail-closed behavior.
@@ -42,7 +77,27 @@ impl<'a> BrokerService<'a> {
         requested: CapabilityDescriptor,
         reason: &str,
     ) -> CapabilityDenial {
-        todo!("implement deny_with_trace")
+        let denial = CapabilityDenial {
+            denial_id: format!("deny_{}", Uuid::new_v4().simple()),
+            run_id: run_id.to_string(),
+            requested,
+            reason: reason.to_string(),
+            denied_at: OffsetDateTime::now_utc().unix_timestamp(),
+        };
+        let _ = self
+            .storage
+            .insert_broker_event(
+                &denial.denial_id,
+                "deny",
+                run_id,
+                &denial.requested.scope,
+                denial.requested.resource.as_deref(),
+                &denial.requested.action,
+                Some(&denial.reason),
+                denial.denied_at,
+            )
+            .await;
+        denial
     }
 
     // Secret hygiene invariant: raw credentials MUST NOT appear in any return value.
@@ -56,7 +111,55 @@ impl<'a> BrokerService<'a> {
         grant: &CapabilityGrant,
         action_payload: &serde_json::Value,
     ) -> Result<serde_json::Value, AppError> {
-        todo!("implement execute_brokered")
+        let occurred_at = OffsetDateTime::now_utc().unix_timestamp();
+        self.storage
+            .insert_broker_event(
+                &format!("exec_{}", Uuid::new_v4().simple()),
+                "execute",
+                &grant.run_id,
+                &grant.descriptor.scope,
+                grant.descriptor.resource.as_deref(),
+                &grant.descriptor.action,
+                None,
+                occurred_at,
+            )
+            .await
+            .map_err(|error| AppError::internal(error.to_string()))?;
+
+        let result = match (
+            grant.descriptor.scope.as_str(),
+            grant.descriptor.action.as_str(),
+        ) {
+            ("read:context", "read") => serde_json::json!({
+                "executed": true,
+                "scope": grant.descriptor.scope,
+                "result_kind": "context_snapshot",
+                "query": action_payload.get("query").cloned().unwrap_or(serde_json::Value::Null),
+            }),
+            ("read:artifact", "read") => serde_json::json!({
+                "executed": true,
+                "scope": grant.descriptor.scope,
+                "result_kind": "artifact_handle",
+                "artifact_id": grant.descriptor.resource,
+            }),
+            ("execute:action_batch", "execute") => serde_json::json!({
+                "executed": true,
+                "scope": grant.descriptor.scope,
+                "accepted_actions": action_payload
+                    .get("actions")
+                    .and_then(serde_json::Value::as_array)
+                    .map(|actions| actions.len())
+                    .unwrap_or(0),
+            }),
+            _ => serde_json::json!({
+                "executed": true,
+                "scope": grant.descriptor.scope,
+                "action": grant.descriptor.action,
+                "resource": grant.descriptor.resource,
+            }),
+        };
+
+        Ok(result)
     }
 }
 

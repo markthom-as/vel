@@ -2,7 +2,10 @@
 
 use std::collections::{HashMap, HashSet};
 use time::OffsetDateTime;
-use vel_core::{Clock, ContextCapture, OrientationSnapshot, SystemClock};
+use vel_core::{
+    Clock, ContextCapture, HybridRetrievalPolicy, OrientationSnapshot, RetrievalStrategy,
+    SemanticQuery, SemanticQueryFilters, SemanticSourceKind, SystemClock,
+};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TodayContextData {
@@ -79,6 +82,43 @@ pub fn build_end_of_day_at(
         what_remains_open: what_remains_open.into_iter().take(10).collect(),
         what_may_matter_tomorrow: what_may_matter_tomorrow.into_iter().take(5).collect(),
     }
+}
+
+pub fn semantic_query_for_snapshot(snapshot: &OrientationSnapshot) -> Option<SemanticQuery> {
+    let source_text = combined_source_text(snapshot);
+    let focus_candidates = extract_focus_candidates(source_text.iter().map(String::as_str));
+    let reminders = extract_commitments(source_text.iter().map(String::as_str));
+
+    let mut parts = Vec::new();
+    parts.extend(focus_candidates.into_iter().take(3));
+    parts.extend(
+        reminders
+            .into_iter()
+            .take(2)
+            .map(|value| truncate_query_phrase(&value, 48)),
+    );
+
+    let query_text = parts.join(" ").trim().to_string();
+    if query_text.is_empty() {
+        return None;
+    }
+
+    Some(SemanticQuery {
+        query_text,
+        top_k: 5,
+        strategy: RetrievalStrategy::Hybrid,
+        include_provenance: true,
+        filters: SemanticQueryFilters {
+            source_kinds: vec![SemanticSourceKind::Capture],
+            ..Default::default()
+        },
+        policy: Some(HybridRetrievalPolicy {
+            lexical_weight: 0.35,
+            semantic_weight: 0.65,
+            rerank_window: 12,
+            min_combined_score: 0.05,
+        }),
+    })
 }
 
 fn combined_source_text(snapshot: &OrientationSnapshot) -> Vec<String> {
@@ -181,6 +221,10 @@ fn stopwords() -> HashSet<&'static str> {
     .collect()
 }
 
+fn truncate_query_phrase(value: &str, max_chars: usize) -> String {
+    value.chars().take(max_chars).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,5 +288,40 @@ mod tests {
         let today = build_today_at(&snapshot, time::macros::datetime!(2026-03-17 23:59:00 UTC));
 
         assert_eq!(today.date, "2026-03-17");
+    }
+
+    #[test]
+    fn semantic_query_is_derived_from_snapshot_terms() {
+        let snapshot = OrientationSnapshot {
+            recent_today: Vec::new(),
+            recent_week: vec![ContextCapture {
+                capture_id: "cap_tax".to_string().into(),
+                capture_type: "quick_note".to_string(),
+                content_text: "remember accountant tax estimate follow up".to_string(),
+                occurred_at: time::OffsetDateTime::now_utc(),
+                source_device: None,
+            }],
+            recent_signal_summaries: vec!["todo finish tax draft".to_string()],
+        };
+
+        let query = semantic_query_for_snapshot(&snapshot).expect("query should exist");
+
+        assert_eq!(query.strategy, RetrievalStrategy::Hybrid);
+        assert!(query.query_text.contains("accountant") || query.query_text.contains("tax"));
+        assert_eq!(
+            query.filters.source_kinds,
+            vec![SemanticSourceKind::Capture]
+        );
+    }
+
+    #[test]
+    fn semantic_query_is_absent_for_empty_snapshot() {
+        let snapshot = OrientationSnapshot {
+            recent_today: Vec::new(),
+            recent_week: Vec::new(),
+            recent_signal_summaries: Vec::new(),
+        };
+
+        assert!(semantic_query_for_snapshot(&snapshot).is_none());
     }
 }

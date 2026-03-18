@@ -297,6 +297,35 @@ where
         .await?;
 
     let snapshot = state.storage.orientation_snapshot_at(now).await?;
+    let semantic_hits = if let Some(query) =
+        context_generation::semantic_query_for_snapshot(&snapshot)
+    {
+        let hits = state.storage.semantic_query(&query).await?;
+        event_seq
+            .append(
+                state,
+                run_id,
+                RunEventType::SearchExecuted,
+                &serde_json::json!({
+                    "query_text": query.query_text,
+                    "strategy": query.strategy,
+                    "hit_count": hits.len(),
+                    "hits": hits.iter().map(|hit| serde_json::json!({
+                        "record_id": serde_json::to_value(&hit.record_id).unwrap_or(serde_json::Value::Null),
+                        "source_kind": hit.source_kind,
+                        "source_id": hit.source_id,
+                        "combined_score": hit.combined_score,
+                        "lexical_score": hit.lexical_score,
+                        "semantic_score": hit.semantic_score,
+                        "provenance": hit.provenance,
+                    })).collect::<Vec<_>>(),
+                }),
+            )
+            .await?;
+        hits
+    } else {
+        Vec::new()
+    };
     let data = compute(&snapshot)?;
 
     let body = serde_json::to_vec(&data).map_err(|e| AppError::internal(e.to_string()))?;
@@ -329,7 +358,8 @@ where
     let metadata_json = serde_json::json!({
         "generator": "context-v1",
         "context_kind": kind.as_str(),
-        "snapshot_window": "7d"
+        "snapshot_window": "7d",
+        "semantic_hit_count": semantic_hits.len()
     });
 
     let artifact_id = state

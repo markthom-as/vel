@@ -5,8 +5,9 @@ use crate::{
         cluster_workers_repo, commitment_risk_repo, commitments_repo, connect_runs_repo,
         context_timeline_repo, current_context_repo, inferred_state_repo,
         integration_connections_repo, nudges_repo, processing_jobs_repo, run_refs_repo, runs_repo,
-        runtime_loops_repo, settings_repo, signals_repo, suggestion_feedback_repo,
-        suggestions_repo, threads_repo, uncertainty_records_repo, work_assignments_repo,
+        runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
+        suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
+        work_assignments_repo,
     },
 };
 use serde::Serialize;
@@ -21,7 +22,8 @@ use vel_core::{
     IntegrationConnectionEventType, IntegrationConnectionId, IntegrationConnectionSettingRef,
     IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, InterventionId, JobId,
     JobStatus, MessageId, OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType,
-    RunId, RunKind, RunStatus, SearchResult, SyncClass,
+    RunId, RunKind, RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
+    SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -1310,6 +1312,28 @@ impl Storage {
         filters: SearchFilters,
     ) -> Result<Vec<SearchResult>, StorageError> {
         captures_repo::search_captures(self.pool(), query, filters).await
+    }
+
+    pub async fn semantic_query(
+        &self,
+        query: &SemanticQuery,
+    ) -> Result<Vec<SemanticHit>, StorageError> {
+        semantic_memory_repo::semantic_query(self.pool(), query).await
+    }
+
+    pub async fn rebuild_semantic_memory_index(&self) -> Result<u64, StorageError> {
+        semantic_memory_repo::rebuild_capture_index(self.pool()).await
+    }
+
+    pub async fn semantic_record_count(&self) -> Result<i64, StorageError> {
+        semantic_memory_repo::semantic_record_count(self.pool()).await
+    }
+
+    pub async fn get_semantic_record(
+        &self,
+        record_id: &str,
+    ) -> Result<Option<SemanticMemoryRecord>, StorageError> {
+        semantic_memory_repo::get_semantic_record(self.pool(), record_id).await
     }
 
     pub async fn insert_processing_job(

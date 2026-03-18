@@ -15,4 +15,7 @@ pub use db::{
     SuggestionInsertV2, SuggestionRecord, UncertaintyRecord, UncertaintyRecordInsert,
     WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentUpdate,
 };
-pub use vel_core::{ContextCapture, OrientationSnapshot, SearchResult, WorkAssignmentStatus};
+pub use vel_core::{
+    ContextCapture, OrientationSnapshot, SearchResult, SemanticHit, SemanticMemoryRecord,
+    SemanticQuery, WorkAssignmentStatus,
+};

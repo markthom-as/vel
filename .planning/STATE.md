@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-18T21:27:01Z"
-last_activity: 2026-03-18 — Phase 4 Plan 01 complete; semantic-memory, sandbox ABI, and swarm protocol contracts landed with schemas, templates, and authority docs
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-03-18T21:44:57Z"
+last_activity: 2026-03-18 — Phase 4 Plan 03 complete; broker mediation is live and sandbox host calls now fail closed with run-event diagnostics
 progress:
-  total_phases: 4
+  total_phases: 9
   completed_phases: 3
   total_plans: 17
-  completed_plans: 7
-  percent: 41
+  completed_plans: 9
+  percent: 53
 ---
 
 # Project State
@@ -21,21 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 4 — Autonomous Swarm, Graph RAG & Zero-Trust Execution (contract foundations landed; runtime implementation slices remain)
+**Current focus:** Phase 4 — Autonomous Swarm, Graph RAG & Zero-Trust Execution (semantic retrieval and sandbox host baselines landed; protocol and SDK slices remain; post-Phase-4 roadmap now extends through Phase 9)
 
 ## Current Position
 
-Phase: 4 of 4 (Autonomous Swarm, Graph RAG & Zero-Trust Execution)
-Plan: 1 of 5 in current phase (04-01 complete; semantic/sandbox/protocol contracts published)
+Phase: 4 of 9 (Autonomous Swarm, Graph RAG & Zero-Trust Execution)
+Plan: 3 of 5 in current phase (04-01 through 04-03 complete; sandbox host diagnostics are now shipped)
 Status: In progress
-Last activity: 2026-03-18 — Phase 4 Plan 01 complete; `vel-core` now defines typed semantic-memory, sandbox, and swarm protocol contracts backed by checked-in config assets
+Last activity: 2026-03-18 — Phase 4 Plan 03 complete; broker grants/denials persist and sandbox host execution now records deny-by-default run diagnostics
 
-Progress: [████▒▒▒▒▒▒] 41%
+Progress: [█████▒▒▒▒▒] 53%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 9
 - Average duration: 22m
 - Total execution time: 153m
 
@@ -81,23 +81,30 @@ Recent decisions affecting current work:
 - [Phase 3 P04]: Deterministic replay should normalize identifier churn (run/artifact/capture IDs) and assert semantic outputs plus boundary events instead of raw row identity
 - [Phase 3 P05]: Eval fixtures should carry explicit judge policy and rubric, while deterministic replay remains the hard gate and judge failure remains separately reportable
 - [Phase 4 P01]: Publish Phase 4 contracts in `vel-core` plus config schemas/examples/templates before selecting concrete runtime/index implementation details
+- [Phase 4 P02]: Ship a deterministic local semantic baseline first — capture-backed indexing plus provenance-bearing hybrid retrieval — before widening to heavier embedding backends
+- [Phase 4 P03]: Close the broker TODOs before claiming sandbox isolation; the host executor can ship over decoded ABI envelopes first, while concrete WASM guest embedding remains a later implementation choice
 
 ### Roadmap Evolution
 
 - Phase 1.1 inserted after Phase 1 (2026-03-18): Preflight hardening — integration startup panics, WAL mode, app.rs decomp (URGENT — gates Phase 2)
 - Phase 3 planning created (2026-03-18): 5-plan rollout covering trace/doc closure, simulation harness, and eval pipeline
 - Phase 4 planning created (2026-03-18): 5-plan rollout covering contract foundations, semantic retrieval, sandbox runtime, protocol fixtures, and SDK closure
+- Phase 5 added (2026-03-18): Now + Inbox core and project substrate
+- Phase 6 added (2026-03-18): High-value write-back integrations and lightweight people graph
+- Phase 7 added (2026-03-18): Apple action loops and behavioral signal ingestion
+- Phase 8 added (2026-03-18): Coding-centric supervised execution with GSD and local agents
+- Phase 9 added (2026-03-18): Backup-first trust surfaces and simple operator control
 
 ### Pending Todos
 
-3 todos remaining (5 completed in 02-01/03-05):
+1 todo remaining (7 completed in 02-01/04-03):
 - DONE: Ticket 006: add Current Baseline section (02-01)
 - DONE: Ticket 016: add broker scope decision record (agents-only) (02-01)
 - DONE: Ticket 005: add NodeIdentity prereq + WAL mode step (02-01)
 - DONE: Ticket 007: define vel-sim crate interface contract in SP2 harness slice (03-04)
 - DONE: Ticket 008: add judge model strategy via explicit `judge` routing task + per-fixture override (03-05)
-- Ticket 010: decide WASM runtime (wasmtime + Component Model recommended)
-- Ticket 009: add embedding model, index rebuild trigger, hybrid ranking contracts
+- DONE: Ticket 009: add embedding model, index rebuild trigger, hybrid ranking contracts (04-02)
+- DONE: Ticket 010: host ABI policy enforcement, deny-by-default decisions, and operator-visible diagnostics baseline (04-03)
 - Ticket 014: define protocol versioning strategy
 
 ### Blockers/Concerns
@@ -106,10 +113,10 @@ Recent decisions affecting current work:
 - Phase 2 complete enough for roadmap progression; Phase 3 has started with trace contract closure
 - Ticket 006 status documented accurately (shell only, all 4 criteria unmet) — SP2 Lane B will implement
 - Phase 3 is complete; remaining autonomous work is Phase 4 execution
-- Phase 4 WASM runtime choice is still unresolved for implementation slices — contract-first SP1 is complete, runtime selection still needed before 04-03 (wasmtime recommended)
+- Concrete WASM guest runtime choice is still unresolved — the decoded-ABI host executor is shipped, but direct guest execution still needs a runtime decision before final Phase 4 closure (wasmtime recommended)
 
 ## Session Continuity
 
-Last session: 2026-03-18T21:27:01Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-03-18T21:44:57Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None

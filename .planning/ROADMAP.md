@@ -2,7 +2,7 @@
 
 ## Overview
 
-Phase 1 (structural decomposition, auth hardening, canonical schemas, self-awareness contracts) is complete. The remaining work delivers three capabilities in sequence: distributed state and offline-capable clients with agent supervision (Phase 2), deterministic verification and continuous alignment so the system can be trusted and audited (Phase 3), and finally autonomous swarm execution with semantic memory and zero-trust sandboxing (Phase 4). Each phase produces a verifiable capability boundary before the next begins.
+Phase 1 (structural decomposition, auth hardening, canonical schemas, self-awareness contracts) is complete. The remaining roadmap now covers nine ordered phases: distributed state and offline-capable clients with agent supervision (Phase 2), deterministic verification and continuous alignment (Phase 3), autonomous swarm execution with semantic memory and zero-trust sandboxing (Phase 4), then a product-shaping sequence focused on `Now + Inbox`, project substrate, high-value write-back integrations, Apple action loops, coding-centric supervised execution, and backup-first trust surfaces (Phases 5-9). Each phase produces a verifiable capability boundary before the next begins.
 
 ## Phases
 
@@ -15,6 +15,11 @@ Phase 1 (structural decomposition, auth hardening, canonical schemas, self-aware
 - [ ] **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Signal ingestion, HLC sync, agent connect, capability brokering, operator accessibility
 - [x] **Phase 3: Deterministic Verification & Continuous Alignment** - Day-simulation harness, LLM-as-a-Judge eval, execution tracing, user documentation (COMPLETE)
 - [ ] **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Semantic memory graph, WASM sandboxing, swarm execution SDK
+- [ ] **Phase 5: Now + Inbox core and project substrate** - Keep `Now + Inbox` primary while adding durable project structure and shared workspace contracts
+- [ ] **Phase 6: High-value write-back integrations and lightweight people graph** - Add notes, reminders, GitHub, email, transcripts, and minimal people identity with upstream write-back
+- [ ] **Phase 7: Apple action loops and behavioral signal ingestion** - Prioritize fast iOS/watch actions and directly useful behavior signals
+- [ ] **Phase 8: Coding-centric supervised execution with GSD and local agents** - Launch and supervise coding-first runtimes with direct GSD integration and local-agent support
+- [ ] **Phase 9: Backup-first trust surfaces and simple operator control** - Add backup-first trust workflows and keep control/config surfaces simple
 
 ## Phase Details
 
@@ -90,15 +95,15 @@ Plans:
 **Plans**: 5 plans
 Plans:
 - [x] 04-01-PLAN.md — SP1: semantic-memory, sandbox-ABI, and swarm-protocol contract foundations
-- [ ] 04-02-PLAN.md — SP2 Lane A: semantic index backend seam, provenance-preserving records, and retrieval lifecycle
-- [ ] 04-03-PLAN.md — SP2 Lane B: WASM sandbox runtime, deny-by-default policies, and operator-visible decisions
+- [x] 04-02-PLAN.md — SP2 Lane A: semantic index backend seam, provenance-preserving records, and retrieval lifecycle
+- [x] 04-03-PLAN.md — SP2 Lane B: WASM sandbox runtime, deny-by-default policies, and operator-visible decisions
 - [ ] 04-04-PLAN.md — SP3 Lane A: swarm protocol crate, fixtures, and versioned serialization/validation
 - [ ] 04-05-PLAN.md — SP3 Lane B: reference SDK limb and end-to-end scoped capability flow
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 2 → 3 → 4
+Phases execute in numeric order: 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -106,4 +111,59 @@ Phases execute in numeric order: 2 → 3 → 4
 | 1.1. Preflight — Pre-Phase 2 Hardening | 1/1 | Complete | 2026-03-18 |
 | 2. Distributed State, Offline Clients & System-of-Systems | 0/7 | Not started | - |
 | 3. Deterministic Verification & Continuous Alignment | 5/5 | Complete | 2026-03-18 |
-| 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 1/5 | In progress | - |
+| 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 3/5 | In progress | - |
+| 5. Now + Inbox core and project substrate | 0/0 | Not planned | - |
+| 6. High-value write-back integrations and lightweight people graph | 0/0 | Not planned | - |
+| 7. Apple action loops and behavioral signal ingestion | 0/0 | Not planned | - |
+| 8. Coding-centric supervised execution with GSD and local agents | 0/0 | Not planned | - |
+| 9. Backup-first trust surfaces and simple operator control | 0/0 | Not planned | - |
+
+### Phase 5: Now + Inbox core and project substrate
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 5 to break down)
+
+### Phase 6: High-value write-back integrations and lightweight people graph
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 5
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 6 to break down)
+
+### Phase 7: Apple action loops and behavioral signal ingestion
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 7 to break down)
+
+### Phase 8: Coding-centric supervised execution with GSD and local agents
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 8 to break down)
+
+### Phase 9: Backup-first trust surfaces and simple operator control
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 8
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 9 to break down)

@@ -25,6 +25,7 @@ pub mod now;
 pub mod nudge_engine;
 pub(crate) mod operator_settings;
 pub mod risk;
+pub mod sandbox;
 pub mod suggestions;
 pub mod synthesis;
 pub mod timezone;

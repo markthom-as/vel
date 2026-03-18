@@ -696,6 +696,8 @@ pub enum RunEventType {
     RunRetryBlocked,
     ArtifactWritten,
     SearchExecuted,
+    SandboxCallEvaluated,
+    SandboxRunCompleted,
     ContextGenerated,
     RefsCreated,
 }
@@ -713,6 +715,8 @@ impl Display for RunEventType {
             Self::RunRetryBlocked => "run_retry_blocked",
             Self::ArtifactWritten => "artifact_written",
             Self::SearchExecuted => "search_executed",
+            Self::SandboxCallEvaluated => "sandbox_call_evaluated",
+            Self::SandboxRunCompleted => "sandbox_run_completed",
             Self::ContextGenerated => "context_generated",
             Self::RefsCreated => "refs_created",
         };
@@ -735,6 +739,8 @@ impl std::str::FromStr for RunEventType {
             "run_retry_blocked" => Ok(Self::RunRetryBlocked),
             "artifact_written" => Ok(Self::ArtifactWritten),
             "search_executed" => Ok(Self::SearchExecuted),
+            "sandbox_call_evaluated" => Ok(Self::SandboxCallEvaluated),
+            "sandbox_run_completed" => Ok(Self::SandboxRunCompleted),
             "context_generated" => Ok(Self::ContextGenerated),
             "refs_created" => Ok(Self::RefsCreated),
             _ => Err(crate::VelCoreError::Validation(format!(

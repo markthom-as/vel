@@ -1,6 +1,20 @@
 # Semantic Memory Contract
 
-This document defines the Phase 4 contract layer for semantic memory before runtime indexing is implemented.
+This document defines the Phase 4 semantic-memory contract and the currently shipped baseline.
+
+## Current Status
+
+Implemented today:
+
+- capture ingestion writes deterministic local semantic records alongside lexical search state
+- retrieval uses a local token-overlap backend with explicit `embedding_model` and `embedding_revision`
+- context generation emits `search_executed` run events with retrieval provenance and combined scores
+
+Still planned:
+
+- artifact, thread, and message indexing beyond capture-backed records
+- pluggable embedding/vector backends beyond the local deterministic baseline
+- broader operator-facing retrieval diagnostics and ranking controls
 
 ## Purpose
 

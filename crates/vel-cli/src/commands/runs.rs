@@ -29,6 +29,13 @@ fn format_trace_summary(trace_id: &str, parent_run_id: Option<&str>) -> String {
     }
 }
 
+fn should_print_event_payload(event_type: &str) -> bool {
+    matches!(
+        event_type,
+        "search_executed" | "sandbox_call_evaluated" | "sandbox_run_completed"
+    )
+}
+
 pub async fn run_list(
     client: &ApiClient,
     kind: Option<&str>,
@@ -152,6 +159,13 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
         let t = e.created_at.time();
         let time_str = format!("{:02}:{:02}:{:02}", t.hour(), t.minute(), t.second());
         println!("  {} {}", time_str, e.event_type);
+        if should_print_event_payload(&e.event_type) {
+            let formatted =
+                serde_json::to_string_pretty(&e.payload).unwrap_or_else(|_| e.payload.to_string());
+            for line in formatted.lines() {
+                println!("    {}", line);
+            }
+        }
     }
     if !r.artifacts.is_empty() {
         println!("\nArtifacts:");
@@ -202,7 +216,7 @@ pub async fn run_status(
 
 #[cfg(test)]
 mod tests {
-    use super::{format_trace_summary, parse_retry_at};
+    use super::{format_trace_summary, parse_retry_at, should_print_event_payload};
 
     #[test]
     fn parse_retry_at_accepts_valid_rfc3339() {
@@ -243,5 +257,12 @@ mod tests {
     #[test]
     fn format_trace_summary_returns_trace_only_without_parent() {
         assert_eq!(format_trace_summary("trace_1", None), "trace_1");
+    }
+
+    #[test]
+    fn prints_payload_for_high_value_diagnostic_events() {
+        assert!(should_print_event_payload("sandbox_call_evaluated"));
+        assert!(should_print_event_payload("search_executed"));
+        assert!(!should_print_event_payload("run_started"));
     }
 }
