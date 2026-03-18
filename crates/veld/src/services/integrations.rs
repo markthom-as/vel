@@ -1196,7 +1196,16 @@ where
     Ok(all
         .get(key)
         .cloned()
-        .map(|value| serde_json::from_value::<T>(value).unwrap_or_default())
+        .map(|value| {
+            serde_json::from_value::<T>(value).unwrap_or_else(|err| {
+                tracing::warn!(
+                    key = %key,
+                    error = %err,
+                    "integration settings deserialization failed, using defaults"
+                );
+                T::default()
+            })
+        })
         .unwrap_or_default())
 }
 
