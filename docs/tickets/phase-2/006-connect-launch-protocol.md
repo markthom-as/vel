@@ -23,6 +23,18 @@ Connect runtime foundations exist (types and worker routing primitives), but run
 
 This ticket ships Connect in supervised slices with explicit capability scopes, denial paths, and traceability.
 
+**Status: in-progress (shell only)**
+
+# Current Baseline
+
+The following infrastructure exists but does not yet implement the full protocol:
+
+- **Heartbeat infra**: heartbeat-related structures and registration paths exist in `crates/veld/src/services/client_sync.rs`.
+- **Route reservations**: `/v1/connect` and `/v1/connect/*path` routes exist in `crates/veld/src/app.rs` but currently call `deny_undefined_route`, returning 403 for all requests.
+- **CLI stubs**: connect subcommands exist in `crates/vel-cli/src/commands/connect.rs` but do not call active backend routes.
+
+All four acceptance criteria are unmet. This ticket is in-progress at the shell/stub level only.
+
 # Impacted Files & Symbols
 
 - **File**: `crates/veld/src/app.rs`

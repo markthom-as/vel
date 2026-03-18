@@ -100,27 +100,39 @@ Primary outcome:
 ---
 
 ## Phase 2: Distributed State, Offline Clients & System-of-Systems
-**Current Status: [PARTIAL]**
+**Current Status: [IN PROGRESS — SP1 active]**
 
 Execution board: `docs/tickets/phase-2/parallel-execution-board.md`
 
+Phase 2 is organized into three sub-phases (SP1/SP2/SP3). See the parallel execution board for current lane ownership and merge gates.
+
+- **SP1 (Contract Alignment & Visibility Closure)** — active: normalize ticket scope, close operator diagnostics gaps, align CLI/runtime behavior.
+- **SP2 (Core Runtime Delivery)** — queued: reducer extraction, connect lifecycle MVP, capability broker MVP.
+- **SP3 (Onboarding, Conflict Hardening & Cross-Surface Closure)** — queued: depends on SP2 seams.
+
 ### 2.1 Pluggable Signal Ingestion & Context Reducer Pipeline **[PLANNED]**
 *   *Ticket*: `004-signal-reducer-pipeline.md`
+*   *Status*: planned — no reducer infrastructure shipped yet. SP2 Lane A.
 
 ### 2.2 Sync Ordering & Conflict Resolution Baseline **[PLANNED]**
 *   *Ticket*: `005-hlc-sync-implementation.md`
+*   *Status*: planned — ordering primitive not yet implemented. SP3 Lane B. Requires `NodeIdentity` type (vel-core) and WAL mode (confirmed in Phase 1.1).
 
-### 2.3 Agent Connect Launch Protocol & Supervision **[PARTIAL]**
+### 2.3 Agent Connect Launch Protocol & Supervision **[IN PROGRESS — shell only]**
 *   *Ticket*: `006-connect-launch-protocol.md`
+*   *Status*: in-progress (shell only) — heartbeat infra exists in client_sync.rs, connect routes registered in app.rs but all return 403 via deny_undefined_route. CLI stubs exist. All 4 acceptance criteria unmet. SP2 Lane B.
 
-### 2.4 Tester-Readiness Onboarding & Node Discovery **[PARTIAL]**
+### 2.4 Tester-Readiness Onboarding & Node Discovery **[IN PROGRESS — Slice A partial]**
 *   *Ticket*: `012-tester-readiness-onboarding.md`
+*   *Status*: in-progress — Slice A (source discovery, freshness visibility) partial. Slice B (vel node link, pairing tokens, guided wizard) not started. SP3 Lane A.
 
 ### 2.5 Capability Broker & Secret Mediation **[PLANNED]**
 *   *Ticket*: `016-capability-broker-secret-mediation.md`
+*   *Status*: planned — scope: agents-only (integration-level brokering deferred per 2026-03-18 decision). SP2 Lane C.
 
-### 2.6 Operator Surface Accessibility & Effective Config Clarity **[PARTIAL]**
+### 2.6 Operator Surface Accessibility & Effective Config Clarity **[IN PROGRESS — baseline present]**
 *   *Ticket*: `019-operator-accessibility-config-clarity.md`
+*   *Status*: in-progress — baseline operator clarity exists (freshness/degraded state in web, readable config in CLI, endpoint resolution in Apple). Remaining work: terminology alignment, accessibility gap closure, config discoverability. SP1 Lane B (diagnostics) + SP3 Lane C (full closure).
 
 ---
 

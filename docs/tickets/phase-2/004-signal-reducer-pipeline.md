@@ -50,10 +50,21 @@ The target is modular reduction without changing transport DTO boundaries or sto
 
 # Implementation Steps (The How)
 
-1. **Carve the seam**: define reducer trait + registry module under `services/inference/`.
-2. **Extract domains**: move existing domain branches into reducer modules.
-3. **Stabilize ordering**: make execution order explicit and covered by tests.
-4. **Harden traces**: log reducer application boundaries for replay diagnostics.
+**Output Contract:**
+
+The reducer trait operates on `CurrentContextV1` (defined in `vel-core/src/context.rs`) as both input and output. The trait signature must be:
+
+```rust
+fn reduce(&self, ctx: &CurrentContextV1, signals: &[SignalRecord]) -> CurrentContextV1
+```
+
+Reducers must not return HTTP DTOs, raw JSON, or storage types. `CurrentContextV1` is the canonical reducer output contract.
+
+1. **Step 0 — Confirm output contract**: verify `CurrentContextV1` is defined in `vel-core/src/context.rs` and the reducer trait signature matches the contract above.
+2. **Carve the seam**: define reducer trait + registry module under `services/inference/`.
+3. **Extract domains**: move existing domain branches into reducer modules.
+4. **Stabilize ordering**: make execution order explicit and covered by tests.
+5. **Harden traces**: log reducer application boundaries for replay diagnostics.
 
 # Acceptance Criteria
 

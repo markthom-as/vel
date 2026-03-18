@@ -25,6 +25,10 @@ Vel already separates public integration settings from secret values in core int
 
 This ticket introduces that broker boundary so agent requests are mediated by explicit capability scope checks and point-of-use secret injection.
 
+## Scope Decision Record
+
+**Scope: agents-only.** Integration-level capability brokering (integrations delegating to broker) is deferred to a later milestone per 2026-03-18 decision. The broker boundary applies exclusively to delegated agent runtimes launched via the connect protocol (ticket 006). Direct integration paths remain outside broker mediation until a future milestone explicitly expands scope.
+
 # Impacted Files & Symbols
 
 - **Directory**: `crates/veld/src/services/`

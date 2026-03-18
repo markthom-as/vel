@@ -54,10 +54,16 @@ This ticket intentionally replaces the previous HLC-only framing with a two-slic
 
 # Implementation Steps (The How)
 
-1. **Define primitive**: introduce ordering value object + comparator semantics.
-2. **Add storage support**: persist ordering metadata where needed.
-3. **Wire reconciliation**: enforce deterministic merge decisions in sync service.
-4. **Expose diagnostics**: surface conflict decisions in inspectable outputs/events.
+**Prerequisites:**
+
+- **NodeIdentity**: a `NodeIdentity` newtype wrapper for node UUID must be defined in `vel-core` before implementation begins. It requires `Display`, `Serialize`, and `Deserialize` implementations and is used as the node-origin discriminant in ordering primitives and conflict tie-breaking.
+- **WAL mode**: SQLite WAL mode must be active in `vel-storage/src/infra.rs`. This was completed in Phase 1.1 (confirmed). Verify WAL pragma is set before adding ordering fields to storage.
+
+1. **Step 0 — Verify prerequisites**: confirm `NodeIdentity` is defined in `vel-core` and WAL mode pragma is active in `vel-storage/src/infra.rs`.
+2. **Define primitive**: introduce ordering value object + comparator semantics.
+3. **Add storage support**: persist ordering metadata where needed.
+4. **Wire reconciliation**: enforce deterministic merge decisions in sync service.
+5. **Expose diagnostics**: surface conflict decisions in inspectable outputs/events.
 
 # Acceptance Criteria
 

@@ -59,9 +59,14 @@ This ticket is now treated as **partial implementation closure**: preserve shipp
 
 # Acceptance Criteria
 
-1. [ ] Non-technical tester can complete node linking in a short guided flow.
+**Slice A (Already Partial — source discovery & freshness visibility):**
+
 2. [ ] Local data source suggestions are surfaced during onboarding.
 3. [ ] Linked nodes and freshness state are inspectable in CLI/web diagnostics.
+
+**Slice B (Remaining — pairing flow & guided wizard):**
+
+1. [ ] Non-technical tester can complete node linking in a short guided flow.
 4. [ ] Pairing does not grant broad long-lived credentials by default.
 
 # Verification & Regression
