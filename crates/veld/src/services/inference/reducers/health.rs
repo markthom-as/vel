@@ -67,9 +67,8 @@ mod tests {
     fn health_reducer_returns_ctx_unchanged_when_no_health_signals() {
         let reducer = HealthReducer;
         let ctx = CurrentContextV1::default();
-        let signals: Vec<SignalRecord> = vec![
-            make_signal("sig_cal", "calendar_event", 1_700_000_000),
-        ];
+        let signals: Vec<SignalRecord> =
+            vec![make_signal("sig_cal", "calendar_event", 1_700_000_000)];
 
         let result = reducer.reduce(ctx.clone(), &signals);
 
@@ -92,7 +91,9 @@ mod tests {
 
         let result = reducer.reduce(ctx, &signals);
 
-        let summary = result.health_summary.expect("health_summary should be populated");
+        let summary = result
+            .health_summary
+            .expect("health_summary should be populated");
         assert_eq!(summary["metric_type"], "heart_rate");
         assert_eq!(summary["unit"], "bpm");
     }
@@ -109,7 +110,9 @@ mod tests {
 
         let result = reducer.reduce(ctx, &signals);
 
-        let summary = result.health_summary.expect("health_summary should be populated");
+        let summary = result
+            .health_summary
+            .expect("health_summary should be populated");
         assert_eq!(summary["metric_type"], "heart_rate");
     }
 }

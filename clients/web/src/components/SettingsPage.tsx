@@ -1961,6 +1961,16 @@ export function SettingsPage({
                 </div>
                 <div className="mt-3 space-y-1 text-sm text-zinc-300">
                   <p>
+                    Trace:{' '}
+                    <span className="font-mono text-zinc-200">{run.trace_id}</span>
+                  </p>
+                  {run.parent_run_id ? (
+                    <p>
+                      Parent run:{' '}
+                      <span className="font-mono text-zinc-200">{run.parent_run_id}</span>
+                    </p>
+                  ) : null}
+                  <p>
                     Auto retry:{' '}
                     <span className={run.automatic_retry_supported ? 'text-emerald-400' : 'text-amber-300'}>
                       {run.automatic_retry_supported ? 'supported' : 'unsupported'}

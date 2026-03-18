@@ -1457,6 +1457,8 @@ pub struct RunSummaryData {
     pub id: RunId,
     pub kind: String,
     pub status: String,
+    pub trace_id: String,
+    pub parent_run_id: Option<RunId>,
     pub automatic_retry_supported: bool,
     pub automatic_retry_reason: Option<String>,
     pub unsupported_retry_override: bool,
@@ -1478,6 +1480,7 @@ pub struct RunSummaryData {
 pub struct RunEventData {
     pub seq: u32,
     pub event_type: String,
+    pub trace_id: Option<String>,
     pub payload: JsonValue,
     pub created_at: OffsetDateTime,
 }
@@ -1513,6 +1516,8 @@ pub struct RunDetailData {
     pub id: RunId,
     pub kind: String,
     pub status: String,
+    pub trace_id: String,
+    pub parent_run_id: Option<RunId>,
     pub automatic_retry_supported: bool,
     pub automatic_retry_reason: Option<String>,
     pub unsupported_retry_override: bool,

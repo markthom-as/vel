@@ -2614,6 +2614,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "vel-sim"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+ "uuid",
+ "vel-config",
+ "vel-core",
+ "vel-storage",
+ "veld",
+]
+
+[[package]]
 name = "vel-storage"
 version = "0.1.0"
 dependencies = [

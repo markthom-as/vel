@@ -4,8 +4,8 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 use time::OffsetDateTime;
 use vel_core::{
-    ArtifactId, ArtifactStorageKind, PrivacyClass, Ref, RefRelationType, RunEventType, RunId,
-    RunKind, RunStatus, SyncClass,
+    ArtifactId, ArtifactStorageKind, Clock, PrivacyClass, Ref, RefRelationType, RunEventType,
+    RunId, RunKind, RunStatus, SyncClass, SystemClock,
 };
 use vel_storage::ArtifactInsert;
 
@@ -98,6 +98,13 @@ impl RunEventSequencer {
 pub async fn generate_today(
     state: &AppState,
 ) -> Result<ContextRunOutput<TodayContextData>, AppError> {
+    generate_today_at(state, SystemClock.now()).await
+}
+
+pub async fn generate_today_at(
+    state: &AppState,
+    now: OffsetDateTime,
+) -> Result<ContextRunOutput<TodayContextData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::Today;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
@@ -107,8 +114,8 @@ pub async fn generate_today(
         .create_run(&run_id, RunKind::ContextGeneration, &input_json)
         .await?;
 
-    let result = run_context_generation(state, &run_id, kind, |snapshot| {
-        Ok(context_generation::build_today(snapshot))
+    let result = run_context_generation(state, &run_id, kind, now, |snapshot| {
+        Ok(context_generation::build_today_at(snapshot, now))
     })
     .await;
 
@@ -120,7 +127,7 @@ pub async fn generate_today(
             data,
         }),
         Err(e) => {
-            fail_run(state, &run_id, &e).await;
+            fail_run_at(state, &run_id, &e, now).await;
             Err(e)
         }
     }
@@ -133,6 +140,15 @@ pub async fn retry_existing_run(
     run_id: &RunId,
     input_json: &serde_json::Value,
 ) -> Result<(), AppError> {
+    retry_existing_run_at(state, run_id, input_json, SystemClock.now()).await
+}
+
+pub async fn retry_existing_run_at(
+    state: &AppState,
+    run_id: &RunId,
+    input_json: &serde_json::Value,
+    now: OffsetDateTime,
+) -> Result<(), AppError> {
     let kind = ContextKind::from_input_json(input_json)?;
     let existing = state.storage.get_run_by_id(run_id.as_ref()).await?;
     if existing.is_none() {
@@ -140,25 +156,25 @@ pub async fn retry_existing_run(
     }
 
     let result = match kind {
-        ContextKind::Today => run_context_generation(state, run_id, kind, |snapshot| {
-            Ok(context_generation::build_today(snapshot))
+        ContextKind::Today => run_context_generation(state, run_id, kind, now, |snapshot| {
+            Ok(context_generation::build_today_at(snapshot, now))
         })
         .await
         .map(|_| ()),
-        ContextKind::Morning => run_context_generation(state, run_id, kind, |snapshot| {
-            Ok(context_generation::build_morning(snapshot))
+        ContextKind::Morning => run_context_generation(state, run_id, kind, now, |snapshot| {
+            Ok(context_generation::build_morning_at(snapshot, now))
         })
         .await
         .map(|_| ()),
-        ContextKind::EndOfDay => run_context_generation(state, run_id, kind, |snapshot| {
-            Ok(context_generation::build_end_of_day(snapshot))
+        ContextKind::EndOfDay => run_context_generation(state, run_id, kind, now, |snapshot| {
+            Ok(context_generation::build_end_of_day_at(snapshot, now))
         })
         .await
         .map(|_| ()),
     };
 
     if let Err(e) = result {
-        fail_run(state, run_id, &e).await;
+        fail_run_at(state, run_id, &e, now).await;
         return Err(e);
     }
 
@@ -169,6 +185,13 @@ pub async fn retry_existing_run(
 pub async fn generate_morning(
     state: &AppState,
 ) -> Result<ContextRunOutput<MorningContextData>, AppError> {
+    generate_morning_at(state, SystemClock.now()).await
+}
+
+pub async fn generate_morning_at(
+    state: &AppState,
+    now: OffsetDateTime,
+) -> Result<ContextRunOutput<MorningContextData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::Morning;
     let input_json = serde_json::json!({ "context_kind": kind.as_str() });
@@ -178,8 +201,8 @@ pub async fn generate_morning(
         .create_run(&run_id, RunKind::ContextGeneration, &input_json)
         .await?;
 
-    let result = run_context_generation(state, &run_id, kind, |snapshot| {
-        Ok(context_generation::build_morning(snapshot))
+    let result = run_context_generation(state, &run_id, kind, now, |snapshot| {
+        Ok(context_generation::build_morning_at(snapshot, now))
     })
     .await;
 
@@ -191,7 +214,7 @@ pub async fn generate_morning(
             data,
         }),
         Err(e) => {
-            fail_run(state, &run_id, &e).await;
+            fail_run_at(state, &run_id, &e, now).await;
             Err(e)
         }
     }
@@ -200,6 +223,13 @@ pub async fn generate_morning(
 /// Run-backed end-of-day context.
 pub async fn generate_end_of_day(
     state: &AppState,
+) -> Result<ContextRunOutput<EndOfDayContextData>, AppError> {
+    generate_end_of_day_at(state, SystemClock.now()).await
+}
+
+pub async fn generate_end_of_day_at(
+    state: &AppState,
+    now: OffsetDateTime,
 ) -> Result<ContextRunOutput<EndOfDayContextData>, AppError> {
     let run_id = RunId::new();
     let kind = ContextKind::EndOfDay;
@@ -210,8 +240,8 @@ pub async fn generate_end_of_day(
         .create_run(&run_id, RunKind::ContextGeneration, &input_json)
         .await?;
 
-    let result = run_context_generation(state, &run_id, kind, |snapshot| {
-        Ok(context_generation::build_end_of_day(snapshot))
+    let result = run_context_generation(state, &run_id, kind, now, |snapshot| {
+        Ok(context_generation::build_end_of_day_at(snapshot, now))
     })
     .await;
 
@@ -223,7 +253,7 @@ pub async fn generate_end_of_day(
             data,
         }),
         Err(e) => {
-            fail_run(state, &run_id, &e).await;
+            fail_run_at(state, &run_id, &e, now).await;
             Err(e)
         }
     }
@@ -235,13 +265,13 @@ async fn run_context_generation<T, F>(
     state: &AppState,
     run_id: &RunId,
     kind: ContextKind,
+    now: OffsetDateTime,
     compute: F,
 ) -> Result<(ArtifactId, T), AppError>
 where
     T: serde::Serialize,
     F: FnOnce(&vel_core::OrientationSnapshot) -> Result<T, AppError>,
 {
-    let now = OffsetDateTime::now_utc();
     let started_at = now.unix_timestamp();
     let mut event_seq = RunEventSequencer::for_run(state, run_id).await?;
 
@@ -266,7 +296,7 @@ where
         )
         .await?;
 
-    let snapshot = state.storage.orientation_snapshot().await?;
+    let snapshot = state.storage.orientation_snapshot_at(now).await?;
     let data = compute(&snapshot)?;
 
     let body = serde_json::to_vec(&data).map_err(|e| AppError::internal(e.to_string()))?;
@@ -277,7 +307,7 @@ where
         format!("sha256:{}", hex::encode(hasher.finalize()))
     };
 
-    let date_str = OffsetDateTime::now_utc().date().to_string();
+    let date_str = now.date().to_string();
     let storage_uri = format!(
         "context/{}/{}/{}.json",
         kind.as_str(),
@@ -372,7 +402,7 @@ where
         )
         .await?;
 
-    let finished_at = OffsetDateTime::now_utc().unix_timestamp();
+    let finished_at = now.unix_timestamp();
     let output_json = serde_json::json!({
         "artifact_id": artifact_id.to_string(),
         "context_kind": kind.as_str()
@@ -403,7 +433,11 @@ where
 }
 
 async fn fail_run(state: &AppState, run_id: &RunId, error: &AppError) {
-    let finished_at = OffsetDateTime::now_utc().unix_timestamp();
+    fail_run_at(state, run_id, error, SystemClock.now()).await;
+}
+
+async fn fail_run_at(state: &AppState, run_id: &RunId, error: &AppError, now: OffsetDateTime) {
+    let finished_at = now.unix_timestamp();
     let error_json = serde_json::json!({ "message": error.to_string() });
     let _ = state
         .storage

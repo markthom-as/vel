@@ -35,12 +35,29 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 8. [Privacy](privacy.md) for the current local-first trust model and data locations.
 9. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
 
+## Support And Update Model
+
+These docs are the operator support surface for shipped behavior.
+
+- Update `docs/user/` when a shipped CLI, web, Apple, or recovery workflow changes.
+- Update `docs/api/` in the same slice when an operator-visible endpoint or inspect contract changes.
+- Keep `docs/MASTER_PLAN.md` as the release-truth source for shipped vs planned status.
+- Prefer repairing the nearest user doc over adding a new shadow note elsewhere in the repo.
+
+For support work, use this order:
+
+1. confirm shipped status in [MASTER_PLAN.md](../MASTER_PLAN.md)
+2. check the relevant setup/use/troubleshooting page in `docs/user/`
+3. check [docs/api/runtime.md](../api/runtime.md) when the problem involves run inspection, traces, or endpoint behavior
+4. inspect the live runtime with CLI or web surfaces before assuming the docs are wrong
+
 ## What works now
 
 - `veld` runs a local daemon and HTTP API.
 - `veld` can also run as a persistent Docker container for NAS/local network deployment.
 - `vel` provides the main operator CLI.
 - captures, commitments, context generation, nudges, recent/review flows, and artifact/run inspection are implemented.
+- recent run inspection now exposes trace lineage (`trace_id`, optional `parent_run_id`) in both CLI and web runtime surfaces.
 - local integrations can be ingested from files or snapshots.
 - on macOS, `veld` auto-discovers local `activity`, `health`, `git`, `messaging`, `reminders`, `notes`, and `transcripts` sources under `~/Library/Application Support/Vel/...` when they exist.
 

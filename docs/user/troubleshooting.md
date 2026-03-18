@@ -17,6 +17,18 @@ cargo run -p vel-cli -- runs --today
 
 These usually tell you whether the daemon is up, whether the database and artifact paths are valid, and whether recent runs or evaluations are actually happening.
 
+If the issue involves a specific workflow or delegated run, also inspect the run lineage:
+
+```bash
+cargo run -p vel-cli -- run inspect <id>
+```
+
+Look for:
+
+- `Trace:` to identify the full workflow lineage
+- `Parent run:` when the run was delegated or spawned from another run
+- event ordering and terminal status before assuming the wrong component failed
+
 ## The daemon is not reachable
 
 Symptoms:
@@ -200,11 +212,21 @@ cargo run -p vel-cli -- run inspect <id>
 cargo run -p vel-cli -- inspect artifact <id>
 ```
 
+Run inspection is the first stop for workflow review:
+
+1. use `vel runs --today` to find the relevant run id
+2. use `vel run inspect <id>` to inspect `Trace:` and `Parent run:` lineage
+3. inspect events and artifacts on that run before retrying blindly
+4. if the trace shows a delegated chain, inspect the parent run next
+
+In the runtime Settings tab, the Recent Runs cards expose the same trace lineage so you can inspect the workflow path without dropping to the CLI.
+
 In the web client, use:
 
 - the Context panel
 - the Now source freshness details
 - the Suggestions evidence/detail view
+- the Runtime Settings "Recent runs" cards for trace-linked run lineage and retry/block controls
 
 ## Last resort
 
@@ -215,6 +237,7 @@ If the state still looks wrong:
 3. sync the source explicitly
 4. rerun `evaluate`
 5. inspect the latest runs and artifacts
+6. if runs are part of a chain, inspect the trace lineage before deciding which step actually failed
 
 That sequence usually distinguishes:
 

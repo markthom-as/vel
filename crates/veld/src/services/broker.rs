@@ -3,7 +3,7 @@
 //! Agents never receive raw credentials. The broker enforces scope checks and
 //! persists every grant/deny/execute decision with a stable trace ID.
 
-use vel_core::{CapabilityDescriptor, CapabilityDenial, CapabilityGrant};
+use vel_core::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 use vel_storage::Storage;
 
 use crate::errors::AppError;
@@ -152,10 +152,7 @@ mod tests {
         assert_eq!(denial.run_id, "run_trace_1");
         assert_eq!(denial.reason, "test denial");
 
-        let events = storage
-            .list_broker_events("run_trace_1")
-            .await
-            .unwrap();
+        let events = storage.list_broker_events("run_trace_1").await.unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].event_type, "deny");
     }

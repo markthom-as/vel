@@ -209,6 +209,8 @@ describe('SettingsPage', () => {
               id: 'run_122',
               kind: 'search',
               status: 'failed',
+              trace_id: 'trace_122',
+              parent_run_id: null,
               automatic_retry_supported: false,
               automatic_retry_reason: 'search runs do not have an automatic retry executor',
               unsupported_retry_override: false,
@@ -225,6 +227,8 @@ describe('SettingsPage', () => {
               id: 'run_123',
               kind: 'search',
               status: 'retry_scheduled',
+              trace_id: 'trace_122',
+              parent_run_id: 'run_122',
               automatic_retry_supported: false,
               automatic_retry_reason: 'search runs do not have an automatic retry executor',
               unsupported_retry_override: true,
@@ -1132,7 +1136,9 @@ describe('SettingsPage', () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openRuntimeTab(container)
     expect(within(root).getByText('run_123')).toBeInTheDocument()
-    expect(within(root).getByText('run_122')).toBeInTheDocument()
+    expect(within(root).getAllByText('run_122').length).toBeGreaterThan(0)
+    expect(within(root).getAllByText('trace_122')).toHaveLength(2)
+    expect(within(root).getByText(/parent run:/i)).toBeInTheDocument()
     expect(within(root).getAllByText(/auto retry:/i)).toHaveLength(2)
     expect(within(root).getAllByText(/search runs do not have an automatic retry executor/i)).toHaveLength(2)
     expect(within(root).getByText(/manual override active: manual operator override/i)).toBeInTheDocument()
@@ -1553,6 +1559,8 @@ describe('SettingsPage', () => {
         id: 'run_122',
         kind: 'search',
         status: 'blocked',
+        trace_id: 'trace_122b',
+        parent_run_id: 'run_root',
         automatic_retry_supported: false,
         automatic_retry_reason: 'search runs do not have an automatic retry executor',
         unsupported_retry_override: false,
@@ -1573,6 +1581,8 @@ describe('SettingsPage', () => {
     ).length
     expect(runsCallsAfter).toBe(runsCallsBefore)
     expect(within(root).getByText('Blocked reason: ws_blocked_reason')).toBeInTheDocument()
+    expect(within(root).getByText('trace_122b')).toBeInTheDocument()
+    expect(within(root).getByText('run_root')).toBeInTheDocument()
   })
 
   it('updates components from websocket payloads without refetching', async () => {

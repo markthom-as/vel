@@ -10,11 +10,12 @@ pub mod message;
 pub mod provenance;
 pub mod risk;
 pub mod run;
+pub mod time;
 pub mod types;
 pub mod uncertainty;
 pub mod vocabulary;
 
-pub use capability::{CapabilityDescriptor, CapabilityGrant, CapabilityDenial};
+pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 pub use command::{
     CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,
     RelationOperation, ResolutionConfidence, ResolutionMeta, ResolvedCommand, TargetSelector,
@@ -41,7 +42,10 @@ pub use message::{
 };
 pub use provenance::{Ref, RefRelationType};
 pub use risk::{normalize_risk_level, sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
-pub use run::{Run, RunEvent, RunEventType, RunId, RunKind, RunStatus};
+pub use run::{
+    HandoffEnvelope, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, TraceId, TraceLink,
+};
+pub use time::{Clock, FixedClock, SystemClock};
 pub use types::{ConversationId, EventId, IntegrationConnectionId, InterventionId, MessageId};
 pub use uncertainty::{ResolutionMode, UncertaintyStatus};
 pub use vocabulary::{
@@ -50,9 +54,9 @@ pub use vocabulary::{
     SHOULD_COMMAND_VERBS,
 };
 
+use ::time::OffsetDateTime;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]

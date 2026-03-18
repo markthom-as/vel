@@ -18,6 +18,7 @@ Today, Vel is strongest at:
 - commitments and nudges
 - current-context generation
 - run/artifact inspectability
+- trace-linked run inspection on CLI and web runtime surfaces
 - local snapshot and file-based integration flows
 - operator-facing web surfaces for current state, suggestions, settings, and explain-oriented context inspection
 
@@ -46,6 +47,7 @@ Common examples:
 
 - integrations that depend on local exports or permissions
 - user-facing docs that are still expanding
+- trace reviewability that is visible in operator surfaces but not yet a full dedicated trace explorer
 - surfaces where inspection is stronger than polished UX
 - distributed or multi-client stories that are specified more deeply than they are shipped
 

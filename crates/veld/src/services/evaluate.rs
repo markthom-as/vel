@@ -7,6 +7,8 @@
 use crate::{
     broadcast::WsEnvelope, errors::AppError, policy_config::PolicyConfig, state::AppState,
 };
+use time::OffsetDateTime;
+use vel_core::{Clock, SystemClock};
 use vel_storage::Storage;
 
 pub const CONTEXT_UPDATED_WS_EVENT_TYPE: &str = "context:updated";
@@ -30,10 +32,18 @@ pub async fn run(
     storage: &Storage,
     policy_config: &PolicyConfig,
 ) -> Result<EvaluateResult, AppError> {
-    let now_ts = time::OffsetDateTime::now_utc().unix_timestamp();
+    run_at(storage, policy_config, SystemClock.now()).await
+}
+
+pub async fn run_at(
+    storage: &Storage,
+    policy_config: &PolicyConfig,
+    now: OffsetDateTime,
+) -> Result<EvaluateResult, AppError> {
+    let now_ts = now.unix_timestamp();
 
     let _ = crate::services::risk::run(storage, now_ts).await?;
-    let states = crate::services::inference::run(storage).await?;
+    let states = crate::services::inference::run_at(storage, now).await?;
     let nudges = crate::services::nudge_engine::evaluate(storage, policy_config, states).await?;
     if let Err(e) =
         crate::services::suggestions::evaluate_after_nudges(storage, policy_config).await

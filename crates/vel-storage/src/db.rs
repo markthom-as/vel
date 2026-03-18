@@ -653,6 +653,14 @@ impl Storage {
         captures_repo::insert_capture(self.pool(), input).await
     }
 
+    pub async fn insert_capture_at(
+        &self,
+        input: CaptureInsert,
+        occurred_at: i64,
+    ) -> Result<CaptureId, StorageError> {
+        captures_repo::insert_capture_at(self.pool(), input, occurred_at).await
+    }
+
     pub async fn insert_capture_with_id(
         &self,
         capture_id: CaptureId,
@@ -1779,7 +1787,15 @@ impl Storage {
     }
 
     pub async fn orientation_snapshot(&self) -> Result<OrientationSnapshot, StorageError> {
-        captures_repo::orientation_snapshot(self.pool()).await
+        self.orientation_snapshot_at(OffsetDateTime::now_utc())
+            .await
+    }
+
+    pub async fn orientation_snapshot_at(
+        &self,
+        now: OffsetDateTime,
+    ) -> Result<OrientationSnapshot, StorageError> {
+        captures_repo::orientation_snapshot_at(self.pool(), now).await
     }
 
     /// Persist a broker audit event (grant, deny, or execute).

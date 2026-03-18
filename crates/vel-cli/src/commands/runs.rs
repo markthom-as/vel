@@ -22,6 +22,13 @@ fn format_size(bytes: i64) -> String {
     }
 }
 
+fn format_trace_summary(trace_id: &str, parent_run_id: Option<&str>) -> String {
+    match parent_run_id {
+        Some(parent_run_id) => format!("{} <- {}", trace_id, parent_run_id),
+        None => trace_id.to_string(),
+    }
+}
+
 pub async fn run_list(
     client: &ApiClient,
     kind: Option<&str>,
@@ -40,11 +47,15 @@ pub async fn run_list(
         return Ok(());
     }
     println!(
-        "{:<14} {:<22} {:<16} {:<26} NEXT ACTION",
-        "RUN ID", "KIND", "STATUS", "CREATED AT"
+        "{:<14} {:<22} {:<22} {:<16} {:<26} NEXT ACTION",
+        "RUN ID", "TRACE", "KIND", "STATUS", "CREATED AT"
     );
     for r in runs {
         let created = r.created_at.to_string();
+        let trace_summary = format_trace_summary(
+            r.trace_id.as_str(),
+            r.parent_run_id.as_ref().map(|id| id.as_ref()),
+        );
         let next_action = if let Some(t) = r.retry_scheduled_at.as_ref() {
             if r.unsupported_retry_override {
                 format!("retry @ {} (override)", t)
@@ -64,8 +75,8 @@ pub async fn run_list(
                 .unwrap_or_else(|| "—".to_string())
         };
         println!(
-            "{:<14} {:<22} {:<16} {:<26} {}",
-            r.id, r.kind, r.status, created, next_action
+            "{:<14} {:<22} {:<22} {:<16} {:<26} {}",
+            r.id, trace_summary, r.kind, r.status, created, next_action
         );
     }
     Ok(())
@@ -79,6 +90,10 @@ pub async fn run_inspect(client: &ApiClient, id: &str, json: bool) -> anyhow::Re
     }
     let r = response.data.expect("get_run response missing data");
     println!("Run: {}", r.id);
+    println!("Trace: {}", r.trace_id);
+    if let Some(parent_run_id) = &r.parent_run_id {
+        println!("Parent run: {}", parent_run_id);
+    }
     println!("Kind: {}", r.kind);
     println!("Status: {}", r.status);
     println!(
@@ -187,7 +202,7 @@ pub async fn run_status(
 
 #[cfg(test)]
 mod tests {
-    use super::parse_retry_at;
+    use super::{format_trace_summary, parse_retry_at};
 
     #[test]
     fn parse_retry_at_accepts_valid_rfc3339() {
@@ -215,5 +230,18 @@ mod tests {
     fn parse_retry_at_none_is_ok() {
         let parsed = parse_retry_at(None).expect("None should be accepted");
         assert!(parsed.is_none());
+    }
+
+    #[test]
+    fn format_trace_summary_includes_parent_when_present() {
+        assert_eq!(
+            format_trace_summary("trace_1", Some("run_parent")),
+            "trace_1 <- run_parent"
+        );
+    }
+
+    #[test]
+    fn format_trace_summary_returns_trace_only_without_parent() {
+        assert_eq!(format_trace_summary("trace_1", None), "trace_1");
     }
 }

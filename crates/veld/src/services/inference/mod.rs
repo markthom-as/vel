@@ -8,7 +8,7 @@ pub mod reducers;
 pub mod registry;
 
 use time::OffsetDateTime;
-use vel_core::{CommitmentStatus, CurrentContextV1, RiskSnapshot};
+use vel_core::{Clock, CommitmentStatus, CurrentContextV1, RiskSnapshot, SystemClock};
 use vel_storage::{InferredStateInsert, Storage};
 
 use self::registry::ReducerRegistry;
@@ -26,7 +26,11 @@ pub trait SignalReducer: Send + Sync {
 
     /// Apply this reducer: take ownership of `ctx`, update owned fields from `signals`, return
     /// the updated context. Fields this reducer does not own must be passed through unchanged.
-    fn reduce(&self, ctx: CurrentContextV1, signals: &[vel_storage::SignalRecord]) -> CurrentContextV1;
+    fn reduce(
+        &self,
+        ctx: CurrentContextV1,
+        signals: &[vel_storage::SignalRecord],
+    ) -> CurrentContextV1;
 }
 
 const RECENT_GIT_ACTIVITY_WINDOW_SECS: i64 = 90 * 60;
@@ -132,7 +136,13 @@ struct DerivedContextState {
 /// append to context_timeline on material change.
 /// Returns count of state records written. Only call from evaluate orchestration.
 pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
-    let now = OffsetDateTime::now_utc();
+    run_at(storage, SystemClock.now()).await
+}
+
+pub async fn run_at(
+    storage: &Storage,
+    now: OffsetDateTime,
+) -> Result<usize, crate::errors::AppError> {
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
     let now_ts = now.unix_timestamp();
     let start_of_today = crate::services::timezone::start_of_local_day_timestamp(&timezone, now)?;

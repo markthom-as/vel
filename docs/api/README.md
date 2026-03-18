@@ -10,6 +10,7 @@ This directory contains canonical API documentation for both:
 See [`runtime.md`](runtime.md) for:
 
 - health
+- run inspection and trace-linked workflow lineage
 - captures
 - search
 - context

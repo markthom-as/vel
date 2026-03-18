@@ -40,6 +40,71 @@ impl AsRef<str> for RunId {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TraceId(pub(crate) String);
+
+impl TraceId {
+    pub fn new() -> Self {
+        Self(format!("trace_{}", Uuid::new_v4().simple()))
+    }
+}
+
+impl Default for TraceId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Display for TraceId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl From<String> for TraceId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl AsRef<str> for TraceId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TraceLink {
+    pub trace_id: TraceId,
+    #[serde(default)]
+    pub parent_run_id: Option<RunId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HandoffEnvelope {
+    pub task_id: String,
+    pub trace_id: TraceId,
+    pub from_agent: String,
+    pub to_agent: String,
+    pub objective: String,
+    #[serde(default)]
+    pub inputs: Value,
+    #[serde(default)]
+    pub constraints: Vec<String>,
+    #[serde(default)]
+    pub read_scopes: Vec<String>,
+    #[serde(default)]
+    pub write_scopes: Vec<String>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub capability_scope: Value,
+    #[serde(default)]
+    pub deadline: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub expected_output_schema: Value,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunKind {
@@ -688,4 +753,50 @@ pub struct RunEvent {
     pub event_type: RunEventType,
     pub payload_json: Value,
     pub created_at: OffsetDateTime,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HandoffEnvelope, TraceId, TraceLink};
+    use serde_json::json;
+    use time::OffsetDateTime;
+
+    #[test]
+    fn trace_link_serializes_parent_run_id() {
+        let link = TraceLink {
+            trace_id: TraceId::from("trace_demo".to_string()),
+            parent_run_id: Some("run_parent".to_string().into()),
+        };
+
+        let json = serde_json::to_value(link).expect("trace link should serialize");
+        assert_eq!(json["trace_id"], "trace_demo");
+        assert_eq!(json["parent_run_id"], "run_parent");
+    }
+
+    #[test]
+    fn handoff_envelope_round_trips_with_trace_id() {
+        let deadline = OffsetDateTime::from_unix_timestamp(1_742_273_600).unwrap();
+        let envelope = HandoffEnvelope {
+            task_id: "task_1".to_string(),
+            trace_id: TraceId::from("trace_1".to_string()),
+            from_agent: "planner".to_string(),
+            to_agent: "risk_evaluator".to_string(),
+            objective: "Evaluate the next step".to_string(),
+            inputs: json!({ "run_id": "run_1" }),
+            constraints: vec!["stay deterministic".to_string()],
+            read_scopes: vec!["docs/".to_string()],
+            write_scopes: vec![".planning/".to_string()],
+            allowed_tools: vec!["search".to_string()],
+            capability_scope: json!({ "mode": "read_only" }),
+            deadline: Some(deadline),
+            expected_output_schema: json!({ "type": "object" }),
+        };
+
+        let value = serde_json::to_value(&envelope).expect("handoff envelope should serialize");
+        assert_eq!(value["trace_id"], "trace_1");
+        let decoded: HandoffEnvelope =
+            serde_json::from_value(value).expect("handoff envelope should deserialize");
+        assert_eq!(decoded.trace_id.as_ref(), "trace_1");
+        assert_eq!(decoded.to_agent, "risk_evaluator");
+    }
 }

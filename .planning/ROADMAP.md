@@ -68,7 +68,13 @@ Plans:
   3. LLM eval results are queryable by date range and model so regressions can be spotted across runs
   4. Every agent run has a stable run ID; the operator can pull a full trace including inter-agent handoffs from the dashboard
   5. Operator-facing workflows are covered by documentation accessible from a searchable wiki
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [x] 03-01-PLAN.md — SP1 Lane A/B entry: shared trace contract + run inspection linkage + contract docs
+- [x] 03-02-PLAN.md — SP1 Lane B: CLI/web trace inspection surfaces
+- [x] 03-03-PLAN.md — SP1 Lane C: user docs/support parity + recovery architecture
+- [x] 03-04-PLAN.md — SP2: deterministic day-simulation harness + replay assertions
+- [ ] 03-05-PLAN.md — SP3: eval runner, judge integration, and reporting gates
 
 ### Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution
 **Goal**: The system maintains a semantic memory graph over captured entities, uses graph-based retrieval to surface relevant context during reasoning, executes untrusted agents in WASM sandboxes with zero-trust defaults, and provides a first-class SDK for building external agent Limbs that communicate via a standardized swarm contract.
@@ -93,5 +99,5 @@ Phases execute in numeric order: 2 → 3 → 4
 | 1. Structural Foundation | - | Complete | 2026-03-18 |
 | 1.1. Preflight — Pre-Phase 2 Hardening | 1/1 | Complete | 2026-03-18 |
 | 2. Distributed State, Offline Clients & System-of-Systems | 0/7 | Not started | - |
-| 3. Deterministic Verification & Continuous Alignment | 0/TBD | Not started | - |
+| 3. Deterministic Verification & Continuous Alignment | 4/5 | In progress | - |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 0/TBD | Not started | - |

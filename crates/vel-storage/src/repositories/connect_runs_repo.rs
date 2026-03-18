@@ -61,11 +61,10 @@ pub(crate) async fn update_heartbeat(
 
     if result.rows_affected() == 0 {
         // Check if the run exists at all
-        let exists: Option<i64> =
-            sqlx::query_scalar("SELECT 1 FROM connect_runs WHERE id = ?")
-                .bind(id)
-                .fetch_optional(pool)
-                .await?;
+        let exists: Option<i64> = sqlx::query_scalar("SELECT 1 FROM connect_runs WHERE id = ?")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
         if exists.is_none() {
             return Err(StorageError::NotFound(format!(
                 "connect run not found: {}",
@@ -80,10 +79,7 @@ pub(crate) async fn update_heartbeat(
     Ok(())
 }
 
-pub(crate) async fn expire_stale_runs(
-    pool: &SqlitePool,
-    now_ts: i64,
-) -> Result<u64, StorageError> {
+pub(crate) async fn expire_stale_runs(pool: &SqlitePool, now_ts: i64) -> Result<u64, StorageError> {
     let result = sqlx::query(
         r#"
         UPDATE connect_runs
@@ -119,11 +115,10 @@ pub(crate) async fn terminate_run(
 
     if result.rows_affected() == 0 {
         // Check if the run exists at all
-        let exists: Option<i64> =
-            sqlx::query_scalar("SELECT 1 FROM connect_runs WHERE id = ?")
-                .bind(id)
-                .fetch_optional(pool)
-                .await?;
+        let exists: Option<i64> = sqlx::query_scalar("SELECT 1 FROM connect_runs WHERE id = ?")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
         if exists.is_none() {
             return Err(StorageError::NotFound(format!(
                 "connect run not found: {}",
@@ -195,9 +190,7 @@ pub(crate) async fn list_connect_runs(
         .collect()
 }
 
-fn map_connect_run_row(
-    row: &sqlx::sqlite::SqliteRow,
-) -> Result<ConnectRunRecord, StorageError> {
+fn map_connect_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<ConnectRunRecord, StorageError> {
     Ok(ConnectRunRecord {
         id: row.try_get("id")?,
         agent_id: row.try_get("agent_id")?,
@@ -272,17 +265,9 @@ mod tests {
         let pool = make_pool().await;
         let now = OffsetDateTime::now_utc().unix_timestamp();
 
-        insert_connect_run(
-            &pool,
-            "run-002",
-            "agent-b",
-            "node-1",
-            "[]",
-            now + 60,
-            now,
-        )
-        .await
-        .expect("insert");
+        insert_connect_run(&pool, "run-002", "agent-b", "node-1", "[]", now + 60, now)
+            .await
+            .expect("insert");
 
         let new_expiry = now + 120;
         update_heartbeat(&pool, "run-002", new_expiry)
@@ -315,17 +300,9 @@ mod tests {
         .expect("insert stale");
 
         // Fresh run: not yet expired
-        insert_connect_run(
-            &pool,
-            "run-fresh",
-            "agent-d",
-            "node-1",
-            "[]",
-            now + 60,
-            now,
-        )
-        .await
-        .expect("insert fresh");
+        insert_connect_run(&pool, "run-fresh", "agent-d", "node-1", "[]", now + 60, now)
+            .await
+            .expect("insert fresh");
 
         let count = expire_stale_runs(&pool, now).await.expect("expire");
         assert_eq!(count, 1);
@@ -335,10 +312,7 @@ mod tests {
             .expect("get stale")
             .expect("exists");
         assert_eq!(stale.status, "expired");
-        assert_eq!(
-            stale.terminal_reason.as_deref(),
-            Some("lease_expired")
-        );
+        assert_eq!(stale.terminal_reason.as_deref(), Some("lease_expired"));
 
         let fresh = get_connect_run(&pool, "run-fresh")
             .await
@@ -352,17 +326,9 @@ mod tests {
         let pool = make_pool().await;
         let now = OffsetDateTime::now_utc().unix_timestamp();
 
-        insert_connect_run(
-            &pool,
-            "run-term",
-            "agent-e",
-            "node-1",
-            "[]",
-            now + 60,
-            now,
-        )
-        .await
-        .expect("insert");
+        insert_connect_run(&pool, "run-term", "agent-e", "node-1", "[]", now + 60, now)
+            .await
+            .expect("insert");
 
         terminate_run(&pool, "run-term", now, "operator_request")
             .await
@@ -373,10 +339,7 @@ mod tests {
             .expect("get")
             .expect("exists");
         assert_eq!(record.status, "terminated");
-        assert_eq!(
-            record.terminal_reason.as_deref(),
-            Some("operator_request")
-        );
+        assert_eq!(record.terminal_reason.as_deref(), Some("operator_request"));
         assert!(record.terminated_at.is_some());
     }
 

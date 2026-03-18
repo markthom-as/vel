@@ -53,9 +53,7 @@ pub(crate) async fn list_broker_events(
         .collect::<Result<Vec<_>, _>>()
 }
 
-fn map_broker_event_row(
-    row: &sqlx::sqlite::SqliteRow,
-) -> Result<BrokerEventRecord, StorageError> {
+fn map_broker_event_row(row: &sqlx::sqlite::SqliteRow) -> Result<BrokerEventRecord, StorageError> {
     Ok(BrokerEventRecord {
         id: row.try_get("id")?,
         event_type: row.try_get("event_type")?,

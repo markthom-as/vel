@@ -10,8 +10,16 @@ pub(crate) async fn insert_capture(
     pool: &SqlitePool,
     input: CaptureInsert,
 ) -> Result<CaptureId, StorageError> {
+    insert_capture_at(pool, input, OffsetDateTime::now_utc().unix_timestamp()).await
+}
+
+pub(crate) async fn insert_capture_at(
+    pool: &SqlitePool,
+    input: CaptureInsert,
+    occurred_at: i64,
+) -> Result<CaptureId, StorageError> {
     let capture_id = CaptureId::new();
-    insert_capture_with_id(pool, capture_id.clone(), input).await?;
+    insert_capture_with_id_at(pool, capture_id.clone(), input, occurred_at).await?;
     Ok(capture_id)
 }
 
@@ -20,8 +28,22 @@ pub(crate) async fn insert_capture_with_id(
     capture_id: CaptureId,
     input: CaptureInsert,
 ) -> Result<bool, StorageError> {
+    insert_capture_with_id_at(
+        pool,
+        capture_id,
+        input,
+        OffsetDateTime::now_utc().unix_timestamp(),
+    )
+    .await
+}
+
+pub(crate) async fn insert_capture_with_id_at(
+    pool: &SqlitePool,
+    capture_id: CaptureId,
+    input: CaptureInsert,
+    occurred_at: i64,
+) -> Result<bool, StorageError> {
     let mut tx = pool.begin().await?;
-    let now = OffsetDateTime::now_utc().unix_timestamp();
     let metadata = json!({});
 
     let result = sqlx::query(
@@ -41,8 +63,8 @@ pub(crate) async fn insert_capture_with_id(
     .bind(capture_id.to_string())
     .bind(&input.capture_type)
     .bind(&input.content_text)
-    .bind(now)
-    .bind(now)
+    .bind(occurred_at)
+    .bind(occurred_at)
     .bind(input.source_device)
     .bind(input.privacy_class.to_string())
     .bind(metadata.to_string())
@@ -142,10 +164,10 @@ pub(crate) async fn list_captures_recent(
         .collect::<Result<Vec<_>, _>>()
 }
 
-pub(crate) async fn orientation_snapshot(
+pub(crate) async fn orientation_snapshot_at(
     pool: &SqlitePool,
+    now: OffsetDateTime,
 ) -> Result<OrientationSnapshot, StorageError> {
-    let now = OffsetDateTime::now_utc();
     let start_of_day = now
         .date()
         .with_hms(0, 0, 0)

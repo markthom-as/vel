@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use time::OffsetDateTime;
-use vel_core::{ContextCapture, OrientationSnapshot};
+use vel_core::{Clock, ContextCapture, OrientationSnapshot, SystemClock};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TodayContextData {
@@ -30,11 +30,15 @@ pub struct EndOfDayContextData {
 }
 
 pub fn build_today(snapshot: &OrientationSnapshot) -> TodayContextData {
+    build_today_at(snapshot, SystemClock.now())
+}
+
+pub fn build_today_at(snapshot: &OrientationSnapshot, now: OffsetDateTime) -> TodayContextData {
     let source_text = combined_source_text(snapshot);
     let reminders = extract_commitments(source_text.iter().map(String::as_str));
     let focus_candidates = extract_focus_candidates(source_text.iter().map(String::as_str));
     TodayContextData {
-        date: OffsetDateTime::now_utc().date().to_string(),
+        date: now.date().to_string(),
         recent_captures: snapshot.recent_today.clone(),
         focus_candidates,
         reminders: reminders.into_iter().take(5).collect(),
@@ -42,11 +46,15 @@ pub fn build_today(snapshot: &OrientationSnapshot) -> TodayContextData {
 }
 
 pub fn build_morning(snapshot: &OrientationSnapshot) -> MorningContextData {
+    build_morning_at(snapshot, SystemClock.now())
+}
+
+pub fn build_morning_at(snapshot: &OrientationSnapshot, now: OffsetDateTime) -> MorningContextData {
     let source_text = combined_source_text(snapshot);
     let top_active_threads = extract_focus_candidates(source_text.iter().map(String::as_str));
     let pending_commitments = extract_commitments(source_text.iter().map(String::as_str));
     MorningContextData {
-        date: OffsetDateTime::now_utc().date().to_string(),
+        date: now.date().to_string(),
         suggested_focus: top_active_threads.first().cloned(),
         key_reminders: pending_commitments.iter().take(5).cloned().collect(),
         top_active_threads,
@@ -55,11 +63,18 @@ pub fn build_morning(snapshot: &OrientationSnapshot) -> MorningContextData {
 }
 
 pub fn build_end_of_day(snapshot: &OrientationSnapshot) -> EndOfDayContextData {
+    build_end_of_day_at(snapshot, SystemClock.now())
+}
+
+pub fn build_end_of_day_at(
+    snapshot: &OrientationSnapshot,
+    now: OffsetDateTime,
+) -> EndOfDayContextData {
     let source_text = combined_source_text(snapshot);
     let what_remains_open = extract_commitments(source_text.iter().map(String::as_str));
     let what_may_matter_tomorrow = extract_focus_candidates(source_text.iter().map(String::as_str));
     EndOfDayContextData {
-        date: OffsetDateTime::now_utc().date().to_string(),
+        date: now.date().to_string(),
         what_was_done: snapshot.recent_today.clone(),
         what_remains_open: what_remains_open.into_iter().take(10).collect(),
         what_may_matter_tomorrow: what_may_matter_tomorrow.into_iter().take(5).collect(),
@@ -216,5 +231,18 @@ mod tests {
             .focus_candidates
             .iter()
             .any(|item| item.contains("forecast")));
+    }
+
+    #[test]
+    fn build_today_uses_supplied_time_for_date() {
+        let snapshot = OrientationSnapshot {
+            recent_today: Vec::new(),
+            recent_week: Vec::new(),
+            recent_signal_summaries: Vec::new(),
+        };
+
+        let today = build_today_at(&snapshot, time::macros::datetime!(2026-03-17 23:59:00 UTC));
+
+        assert_eq!(today.date, "2026-03-17");
     }
 }

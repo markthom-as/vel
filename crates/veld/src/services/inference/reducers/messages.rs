@@ -25,20 +25,12 @@ impl SignalReducer for MessagesReducer {
         let waiting_on_me_threads: Vec<&SignalRecord> = message_threads
             .iter()
             .copied()
-            .filter(|s| {
-                s.payload_json
-                    .get("waiting_state")
-                    .and_then(|v| v.as_str())
-                    == Some("me")
-            })
+            .filter(|s| s.payload_json.get("waiting_state").and_then(|v| v.as_str()) == Some("me"))
             .collect();
         let waiting_on_others_count = message_threads
             .iter()
             .filter(|s| {
-                s.payload_json
-                    .get("waiting_state")
-                    .and_then(|v| v.as_str())
-                    == Some("others")
+                s.payload_json.get("waiting_state").and_then(|v| v.as_str()) == Some("others")
             })
             .count();
         let scheduling_thread_count = message_threads
@@ -121,13 +113,15 @@ mod tests {
     fn messages_reducer_returns_ctx_unchanged_when_no_message_signals() {
         let reducer = MessagesReducer;
         let ctx = make_ctx();
-        let signals: Vec<SignalRecord> = vec![
-            make_signal("sig_cal", "calendar_event", 1_700_000_000),
-        ];
+        let signals: Vec<SignalRecord> =
+            vec![make_signal("sig_cal", "calendar_event", 1_700_000_000)];
 
         let result = reducer.reduce(ctx.clone(), &signals);
 
-        assert_eq!(result.message_waiting_on_me_count, ctx.message_waiting_on_me_count);
+        assert_eq!(
+            result.message_waiting_on_me_count,
+            ctx.message_waiting_on_me_count
+        );
         assert!(result.message_summary.is_none());
     }
 

@@ -3,11 +3,11 @@
 use vel_core::CurrentContextV1;
 use vel_storage::SignalRecord;
 
-use crate::services::inference::SignalReducer;
 use crate::services::inference::reducers::{
     calendar::CalendarReducer, git::GitActivityReducer, health::HealthReducer,
     messages::MessagesReducer,
 };
+use crate::services::inference::SignalReducer;
 
 /// Registry of signal reducers applied in an explicit, replay-deterministic order.
 pub struct ReducerRegistry {

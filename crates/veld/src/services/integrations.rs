@@ -1649,10 +1649,17 @@ mod tests {
         storage.migrate().await.unwrap();
 
         // No key written — load_todoist_settings must return Default, no panic
-        let settings = integrations_todoist::load_todoist_settings(&storage).await
+        let settings = integrations_todoist::load_todoist_settings(&storage)
+            .await
             .expect("load should succeed even with no settings written");
-        assert!(settings.api_token.is_none(), "unconfigured storage should have no api_token");
-        assert!(settings.last_sync_at.is_none(), "unconfigured storage should have no last_sync_at");
+        assert!(
+            settings.api_token.is_none(),
+            "unconfigured storage should have no api_token"
+        );
+        assert!(
+            settings.last_sync_at.is_none(),
+            "unconfigured storage should have no last_sync_at"
+        );
     }
 
     #[tokio::test]
@@ -1662,12 +1669,22 @@ mod tests {
 
         // Write a JSON value that cannot deserialize into TodoistPublicSettings (wrong shape)
         let corrupt = serde_json::json!("this-is-a-string-not-an-object");
-        storage.set_setting(integrations_todoist::TODOIST_SETTINGS_KEY, &corrupt).await.unwrap();
+        storage
+            .set_setting(integrations_todoist::TODOIST_SETTINGS_KEY, &corrupt)
+            .await
+            .unwrap();
 
         // Must succeed (Ok) and return Default — no panic
         let result = integrations_todoist::load_todoist_settings(&storage).await;
-        assert!(result.is_ok(), "corrupt settings must not propagate an error: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "corrupt settings must not propagate an error: {:?}",
+            result.err()
+        );
         let settings = result.unwrap();
-        assert!(settings.api_token.is_none(), "corrupt settings must fall back to api_token=None");
+        assert!(
+            settings.api_token.is_none(),
+            "corrupt settings must fall back to api_token=None"
+        );
     }
 }

@@ -32,3 +32,9 @@ Agent handoffs must be structured.
 - every handoff is logged
 - no hidden scratch assumptions crossing boundaries
 - no secret material should cross a handoff unless the receiving boundary is explicitly allowed to hold it
+
+## Runtime Inspection Contract
+
+- operator run inspection surfaces expose a stable `trace_id` for every run
+- delegated runs should also expose `parent_run_id` when that relationship is known from persisted input/output/event metadata
+- older runs that predate explicit trace persistence may use `run_id` as the fallback `trace_id`; this is compatibility behavior, not the long-term storage target

@@ -6,6 +6,7 @@ use vel_core::{RunEventType, RunId, RunKind, RunStatus};
 use vel_storage::Storage;
 use veld::{
     policy_config::{LoopPolicies, LoopPolicy, PolicyConfig},
+    services::evaluate,
     state::AppState,
     worker,
 };
@@ -389,4 +390,22 @@ async fn retry_loop_remains_functional_after_worker_refactor() {
     assert!(events
         .iter()
         .any(|event| event.event_type == RunEventType::RunSucceeded));
+}
+
+#[tokio::test]
+async fn evaluate_run_at_persists_fixed_computed_at() {
+    let state = test_state(AppConfig::default(), PolicyConfig::default()).await;
+    let fixed_now = time::macros::datetime!(2026-03-18 15:30:00 UTC);
+
+    evaluate::run_at(&state.storage, &state.policy_config, fixed_now)
+        .await
+        .expect("evaluate with fixed clock should succeed");
+
+    let (computed_at, _) = state
+        .storage
+        .get_current_context()
+        .await
+        .unwrap()
+        .expect("evaluate should persist current context");
+    assert_eq!(computed_at, fixed_now.unix_timestamp());
 }

@@ -204,6 +204,9 @@ mod tests {
     async fn wal_mode_skipped_for_memory_db() {
         // In-memory databases cannot use WAL — must connect without error
         let pool = connect_pool(":memory:").await;
-        assert!(pool.is_ok(), "in-memory connect must succeed (no WAL applied)");
+        assert!(
+            pool.is_ok(),
+            "in-memory connect must succeed (no WAL applied)"
+        );
     }
 }

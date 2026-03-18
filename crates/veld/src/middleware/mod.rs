@@ -128,8 +128,7 @@ pub(crate) async fn enforce_exposure_gate(
         return unauthorized_response(gate.class);
     }
 
-    let Some((header_name, expected_token)) =
-        expected_token_for_class(gate.class, &gate.policy)
+    let Some((header_name, expected_token)) = expected_token_for_class(gate.class, &gate.policy)
     else {
         return if gate.policy.strict_auth {
             unauthorized_response(gate.class)

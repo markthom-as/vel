@@ -42,6 +42,61 @@ struct RunOperatorMetadata {
     unsupported_retry_override_reason: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct TraceMetadata {
+    trace_id: String,
+    parent_run_id: Option<vel_core::RunId>,
+}
+
+fn json_string_field(value: &serde_json::Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+}
+
+fn trace_metadata(run: &vel_core::Run, events: &[vel_core::RunEvent]) -> TraceMetadata {
+    let parent_run_id = run
+        .input_json
+        .get("parent_run_id")
+        .and_then(serde_json::Value::as_str)
+        .map(|value| value.to_string().into())
+        .or_else(|| {
+            run.output_json
+                .as_ref()
+                .and_then(|value| json_string_field(value, "parent_run_id"))
+                .map(Into::into)
+        })
+        .or_else(|| {
+            events.iter().rev().find_map(|event| {
+                json_string_field(&event.payload_json, "parent_run_id").map(Into::into)
+            })
+        });
+
+    let trace_id = run
+        .input_json
+        .get("trace_id")
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string)
+        .or_else(|| {
+            run.output_json
+                .as_ref()
+                .and_then(|value| json_string_field(value, "trace_id"))
+        })
+        .or_else(|| {
+            events
+                .iter()
+                .rev()
+                .find_map(|event| json_string_field(&event.payload_json, "trace_id"))
+        })
+        .unwrap_or_else(|| run.id.to_string());
+
+    TraceMetadata {
+        trace_id,
+        parent_run_id,
+    }
+}
+
 fn run_operator_metadata(output: Option<&serde_json::Value>) -> RunOperatorMetadata {
     let retry_scheduled_at = output
         .and_then(|v| v.get("retry_scheduled_at_ts"))
@@ -192,9 +247,10 @@ async fn run_summary_data(
     run: vel_core::Run,
 ) -> Result<RunSummaryData, AppError> {
     let (automatic_retry_supported, automatic_retry_reason) = automatic_retry_policy(run.kind);
+    let events = state.storage.list_run_events(run.id.as_ref()).await?;
+    let trace = trace_metadata(&run, &events);
     let mut metadata = run_operator_metadata(run.output_json.as_ref());
     if run.status == RunStatus::RetryScheduled {
-        let events = state.storage.list_run_events(run.id.as_ref()).await?;
         let (retry_at, retry_reason, unsupported_retry_override, unsupported_retry_override_reason) =
             retry_metadata_from_events(&events);
         if metadata.retry_scheduled_at.is_none() {
@@ -215,6 +271,8 @@ async fn run_summary_data(
         id: run.id,
         kind: run.kind.to_string(),
         status: run.status.to_string(),
+        trace_id: trace.trace_id,
+        parent_run_id: trace.parent_run_id,
         automatic_retry_supported,
         automatic_retry_reason,
         unsupported_retry_override: metadata.unsupported_retry_override,
@@ -267,14 +325,20 @@ pub async fn get_run(
         .await?
         .ok_or_else(|| AppError::not_found("run not found"))?;
     let events = state.storage.list_run_events(run.id.as_ref()).await?;
+    let trace = trace_metadata(&run, &events);
     let (retry_at, retry_reason, unsupported_retry_override, unsupported_retry_override_reason) =
         retry_metadata_from_events(&events);
     let event_data = events
-        .into_iter()
+        .iter()
         .map(|e| RunEventData {
             seq: e.seq,
             event_type: e.event_type.to_string(),
-            payload: e.payload_json,
+            trace_id: e
+                .payload_json
+                .get("trace_id")
+                .and_then(serde_json::Value::as_str)
+                .map(ToString::to_string),
+            payload: e.payload_json.clone(),
             created_at: e.created_at,
         })
         .collect();
@@ -320,6 +384,8 @@ pub async fn get_run(
             id: run.id,
             kind: run.kind.to_string(),
             status: run.status.to_string(),
+            trace_id: trace.trace_id,
+            parent_run_id: trace.parent_run_id,
             automatic_retry_supported,
             automatic_retry_reason,
             unsupported_retry_override: metadata.unsupported_retry_override,

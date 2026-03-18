@@ -10,10 +10,10 @@ use tower_http::trace::TraceLayer;
 use vel_config::AppConfig;
 use vel_storage::Storage;
 
-use crate::{policy_config::PolicyConfig, routes, state::AppState};
 use crate::middleware::{
     enforce_exposure_gate, ExposureGate, HttpExposurePolicy, RouteExposureClass,
 };
+use crate::{policy_config::PolicyConfig, routes, state::AppState};
 
 fn public_routes() -> Router<AppState> {
     Router::new()
@@ -4499,6 +4499,55 @@ mod tests {
             data["automatic_retry_reason"],
             "worker can re-execute the original run input"
         );
+        assert_eq!(data["trace_id"], run_id.as_ref());
+        assert!(data["parent_run_id"].is_null());
+    }
+
+    #[tokio::test]
+    async fn get_run_prefers_explicit_trace_metadata() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let run_id = vel_core::RunId::new();
+        storage
+            .create_run(
+                &run_id,
+                vel_core::RunKind::Agent,
+                &serde_json::json!({
+                    "agent_id": "planner",
+                    "trace_id": "trace_demo",
+                    "parent_run_id": "run_parent"
+                }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/runs/{}", run_id))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let data = &json["data"];
+        assert_eq!(data["trace_id"], "trace_demo");
+        assert_eq!(data["parent_run_id"], "run_parent");
     }
 
     #[tokio::test]
@@ -4543,6 +4592,8 @@ mod tests {
             .as_array()
             .and_then(|runs| runs.iter().find(|run| run["id"] == run_id.as_ref()))
             .expect("run should be present in list response");
+        assert_eq!(run["trace_id"], run_id.as_ref());
+        assert!(run["parent_run_id"].is_null());
         assert_eq!(run["automatic_retry_supported"], false);
         assert_eq!(
             run["automatic_retry_reason"],

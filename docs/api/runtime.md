@@ -160,6 +160,9 @@ These are mounted as `future_external` and currently return `403` (deny-by-defau
 ### `PATCH /v1/runs/:id`
 
 - run inspection and terminal-state updates
+- run summaries/details now expose `trace_id` for every run and `parent_run_id` when the run is part of a delegated chain
+- compatibility rule: when older persisted runs do not carry an explicit trace identifier, the runtime falls back to the stable `run_id` as the trace ID
+- operator surfaces should treat `trace_id` as the workflow inspection key and `parent_run_id` as lineage context, not as a substitute for the concrete `run_id`
 
 ### `GET /v1/context/today`
 ### `GET /v1/context/morning`

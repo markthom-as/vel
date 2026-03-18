@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-18T16:01:40Z"
-last_activity: 2026-03-18 — Phase 2 SP1 complete; contract alignment, operator diagnostics, connect surface consistency
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-03-19T03:35:00Z"
+last_activity: 2026-03-18 — Phase 3 Plan 04 complete; deterministic replay harness and fixed-time runtime seams landed
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 8
-  completed_plans: 2
-  percent: 25
+  completed_phases: 2
+  total_plans: 13
+  completed_plans: 6
+  percent: 46
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 2 — Distributed State, Offline Clients & System-of-Systems (SP1 complete, SP2 queued)
+**Current focus:** Phase 3 — Deterministic Verification & Continuous Alignment (simulation harness complete; eval pipeline queued)
 
 ## Current Position
 
-Phase: 2 of 4 (Distributed State, Offline Clients & System-of-Systems)
-Plan: 1 of 7 in current phase (02-01 complete)
+Phase: 3 of 4 (Deterministic Verification & Continuous Alignment)
+Plan: 4 of 5 in current phase (03-01 through 03-04 complete)
 Status: In progress
-Last activity: 2026-03-18 — Phase 2 Plan 01 (SP1 Contract Alignment) complete; SP2 lanes now unblocked
+Last activity: 2026-03-18 — Phase 3 Plan 04 complete; replay-sensitive services now support fixed-time execution and `vel-sim` proves deterministic day replay
 
-Progress: [██▒▒▒▒▒▒▒▒] 25%
+Progress: [█████▒▒▒▒▒] 46%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 29m
-- Total execution time: 29m
+- Total plans completed: 6
+- Average duration: 21m
+- Total execution time: 130m
 
 **By Phase:**
 
@@ -45,10 +45,14 @@ Progress: [██▒▒▒▒▒▒▒▒] 25%
 |-------|-------|-------|----------|
 | 1.1 P01 | 1 | 29m | 29m |
 | 02 P01 | 1 | 9m | 9m |
+| 03 P01 | 1 | 47m | 47m |
+| 03 P02 | 1 | 7m | 7m |
+| 03 P03 | 1 | 4m | 4m |
+| 03 P04 | 1 | 34m | 34m |
 
 **Recent Trend:**
-- Last 5 plans: 9m
-- Trend: improving
+- Last 5 plans: 20m
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -69,18 +73,24 @@ Recent decisions affecting current work:
 - [Phase 2 P01]: Freshness threshold 5 minutes for fresh/stale classification — matches typical heartbeat intervals
 - [Phase 2 P01]: Broker scope: agents-only (ticket 016) — integration-level brokering deferred per 2026-03-18 decision
 - [Phase 2 P01]: CLI connect stubs use eprintln + exit 0 (not error) — informative, non-alarming for shell scripts
+- [Phase 3 P01]: Trace fallback rule — when older persisted runs lack explicit trace metadata, surface `run_id` as `trace_id` for operator compatibility
+- [Phase 3 P01]: Trace contract starts at run/operator boundary first — richer persistence and UI follow in later Phase 3 slices
+- [Phase 3 P02]: Reuse existing Recent Runs and `vel run inspect` surfaces before building any separate trace explorer
+- [Phase 3 P03]: User-doc support guidance should point operators to shipped inspect surfaces and runtime API docs before deeper architecture docs
+- [Phase 3 P04]: Deterministic replay should normalize identifier churn (run/artifact/capture IDs) and assert semantic outputs plus boundary events instead of raw row identity
 
 ### Roadmap Evolution
 
 - Phase 1.1 inserted after Phase 1 (2026-03-18): Preflight hardening — integration startup panics, WAL mode, app.rs decomp (URGENT — gates Phase 2)
+- Phase 3 planning created (2026-03-18): 5-plan rollout covering trace/doc closure, simulation harness, and eval pipeline
 
 ### Pending Todos
 
-5 todos remaining (3 completed in 02-01):
+4 todos remaining (4 completed in 02-01/03-04):
 - DONE: Ticket 006: add Current Baseline section (02-01)
 - DONE: Ticket 016: add broker scope decision record (agents-only) (02-01)
 - DONE: Ticket 005: add NodeIdentity prereq + WAL mode step (02-01)
-- Ticket 007: define vel-sim crate interface contract in SP1 scope
+- DONE: Ticket 007: define vel-sim crate interface contract in SP2 harness slice (03-04)
 - Ticket 008: add judge model strategy (local via vel-llm)
 - Ticket 010: decide WASM runtime (wasmtime + Component Model recommended)
 - Ticket 009: add embedding model, index rebuild trigger, hybrid ranking contracts
@@ -89,13 +99,13 @@ Recent decisions affecting current work:
 ### Blockers/Concerns
 
 - Phase 1.1 (preflight) COMPLETE — Phase 2 is now unblocked
-- SP1 COMPLETE (02-01) — SP2 lanes now unblocked
+- Phase 2 complete enough for roadmap progression; Phase 3 has started with trace contract closure
 - Ticket 006 status documented accurately (shell only, all 4 criteria unmet) — SP2 Lane B will implement
-- Phase 3 sub-phase 2 (simulation harness) is gated on Phase 2's 006 + 016 + 004 all completing
-- Phase 4 WASM runtime choice is unresolved — must decide before SP1 contract work (wasmtime recommended)
+- Phase 3 SP1/SP2 are complete; remaining Phase 3 work is eval/judge pipeline (03-05)
+- Phase 4 WASM runtime choice is unresolved — must decide before Phase 4 SP1 contract work (wasmtime recommended)
 
 ## Session Continuity
 
-Last session: 2026-03-18T16:01:40Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-03-19T03:35:00Z
+Stopped at: Completed 03-04-PLAN.md
 Resume file: None

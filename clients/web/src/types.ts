@@ -250,6 +250,8 @@ export interface RunSummaryData {
   id: string;
   kind: string;
   status: string;
+  trace_id: string;
+  parent_run_id: string | null;
   automatic_retry_supported: boolean;
   automatic_retry_reason: string | null;
   unsupported_retry_override: boolean;
@@ -1288,10 +1290,13 @@ export function decodeGoogleCalendarAuthStartData(value: unknown): GoogleCalenda
 
 export function decodeRunSummaryData(value: unknown): RunSummaryData {
   const record = expectRecord(value, 'run summary');
+  const id = expectString(record.id, 'run summary.id');
   return {
-    id: expectString(record.id, 'run summary.id'),
+    id,
     kind: expectString(record.kind, 'run summary.kind'),
     status: expectString(record.status, 'run summary.status'),
+    trace_id: expectNullableString(record.trace_id ?? null, 'run summary.trace_id') ?? id,
+    parent_run_id: expectNullableString(record.parent_run_id ?? null, 'run summary.parent_run_id'),
     automatic_retry_supported: expectBoolean(
       record.automatic_retry_supported,
       'run summary.automatic_retry_supported',

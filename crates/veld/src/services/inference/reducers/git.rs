@@ -97,9 +97,8 @@ mod tests {
     fn git_reducer_returns_ctx_unchanged_when_no_git_signals() {
         let reducer = GitActivityReducer;
         let ctx = make_ctx(1_700_000_000);
-        let signals: Vec<SignalRecord> = vec![
-            make_signal("sig_cal", "calendar_event", 1_700_000_000),
-        ];
+        let signals: Vec<SignalRecord> =
+            vec![make_signal("sig_cal", "calendar_event", 1_700_000_000)];
 
         let result = reducer.reduce(ctx.clone(), &signals);
 
@@ -125,7 +124,9 @@ mod tests {
 
         let result = reducer.reduce(ctx, &signals);
 
-        let summary = result.git_activity_summary.expect("git_activity_summary should be set");
+        let summary = result
+            .git_activity_summary
+            .expect("git_activity_summary should be set");
         assert_eq!(summary["repo"], "vel");
         assert_eq!(summary["branch"], "main");
         assert_eq!(summary["files_changed"], 3);
