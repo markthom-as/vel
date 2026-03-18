@@ -33,11 +33,9 @@ Phase 1 (structural decomposition, auth hardening, canonical schemas, self-aware
 Plans:
 - [ ] 1.1-01-PLAN.md — TDD: Wave 0 failing tests + WAL mode + integration settings hardening + middleware extraction
 
----
-
 ### Phase 2: Distributed State, Offline Clients & System-of-Systems
 **Goal**: The system can ingest signals from pluggable sources, maintain consistent distributed state across nodes, launch and supervise agent processes, broker capabilities without exposing raw credentials, and present clear effective configuration to the operator.
-**Depends on**: Phase 1 (complete)
+**Depends on**: Phase 1
 **Requirements**: SIG-01, SIG-02, SYNC-01, SYNC-02, CONN-01, CONN-02, CONN-03, CONN-04, CAP-01, CAP-02, OPS-01, OPS-02
 **Tickets**: `docs/tickets/phase-2/` — 004, 005, 006, 012, 016, 019
 **Parallel board**: `docs/tickets/phase-2/parallel-execution-board.md`
