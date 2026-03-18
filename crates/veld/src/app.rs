@@ -264,6 +264,9 @@ fn worker_authenticated_routes() -> Router<AppState> {
 
 fn future_external_routes() -> Router<AppState> {
     Router::new()
+        // SP2 Lane B: full connect lifecycle implemented in ticket 006 (Phase 2 SP2).
+        // These routes intentionally return 404 until SP2 implementation is complete.
+        // CLI connect commands that called /v1/connect/* now return informative "not yet active" messages.
         .route("/v1/connect", any(deny_undefined_route))
         .route("/v1/connect/*path", any(deny_undefined_route))
         .route("/v1/cluster/clients", any(deny_undefined_route))
