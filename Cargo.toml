@@ -8,6 +8,7 @@ members = [
   "crates/veld",
   "crates/vel-cli",
   "crates/vel-sim",
+  "crates/veld-evals",
 ]
 resolver = "2"
 

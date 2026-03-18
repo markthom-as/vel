@@ -2676,6 +2676,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "veld-evals"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "time",
+ "tokio",
+ "uuid",
+ "vel-config",
+ "vel-core",
+ "vel-llm",
+ "vel-sim",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -9,7 +9,8 @@ use vel_core::{ArtifactId, CaptureId, PrivacyClass, RefRelationType, RunEventTyp
 use vel_storage::{CaptureInsert, SignalInsert, Storage};
 use veld::{policy_config::PolicyConfig, services::context_runs, state::AppState};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ScenarioKind {
     Today,
     Morning,
@@ -36,6 +37,7 @@ pub struct SignalFixture {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DayScenarioFixture {
+    #[serde(with = "time::serde::rfc3339")]
     pub now: OffsetDateTime,
     pub captures: Vec<CaptureFixture>,
     pub signals: Vec<SignalFixture>,

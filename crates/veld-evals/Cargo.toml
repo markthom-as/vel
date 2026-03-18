@@ -1,0 +1,20 @@
+[package]
+name = "veld-evals"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait = "0.1"
+clap.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+tokio.workspace = true
+vel-config = { path = "../vel-config" }
+vel-core = { path = "../vel-core" }
+vel-llm = { path = "../vel-llm" }
+vel-sim = { path = "../vel-sim" }
+uuid.workspace = true

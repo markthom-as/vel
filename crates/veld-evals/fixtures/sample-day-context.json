@@ -1,0 +1,64 @@
+{
+  "schema_version": "veld_eval_fixture/v1",
+  "scenarios": [
+    {
+      "name": "today-context-baseline",
+      "kind": "today",
+      "simulation": {
+        "now": "2026-03-18T15:30:00Z",
+        "timezone": "UTC",
+        "captures": [
+          {
+            "content_text": "follow up with Sam on the review agenda",
+            "capture_type": "note",
+            "occurred_at": 1773844200,
+            "source_device": "phone",
+            "privacy_class": "private"
+          },
+          {
+            "content_text": "remember the forecast budget before the 4pm check-in",
+            "capture_type": "note",
+            "occurred_at": 1773846600,
+            "source_device": "laptop",
+            "privacy_class": "private"
+          }
+        ],
+        "signals": [
+          {
+            "signal_type": "external_task",
+            "source": "todoist",
+            "source_ref": "task-1",
+            "timestamp": 1773846900,
+            "payload_json": {
+              "text": "follow up with Sam on the review agenda"
+            }
+          },
+          {
+            "signal_type": "calendar_event",
+            "source": "calendar",
+            "source_ref": "event-1",
+            "timestamp": 1773847800,
+            "payload_json": {
+              "title": "forecast budget check-in"
+            }
+          }
+        ]
+      },
+      "expectations": {
+        "expected_date": "2026-03-18",
+        "required_events": [
+          "run_created",
+          "run_started",
+          "context_generated",
+          "artifact_written",
+          "refs_created",
+          "run_succeeded"
+        ],
+        "min_ref_count": 3
+      },
+      "judge": {
+        "mode": "disabled"
+      }
+    }
+  ]
+}

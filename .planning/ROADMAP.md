@@ -13,7 +13,7 @@ Phase 1 (structural decomposition, auth hardening, canonical schemas, self-aware
 - [x] **Phase 1: Structural Foundation** - Layered crates, auth hardening, canonical schemas, self-awareness (COMPLETE)
 - [x] **Phase 1.1: Preflight — Pre-Phase 2 Hardening** (INSERTED) - Integration startup panic fixes, SQLite WAL mode, app.rs decomposition (COMPLETE)
 - [ ] **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Signal ingestion, HLC sync, agent connect, capability brokering, operator accessibility
-- [ ] **Phase 3: Deterministic Verification & Continuous Alignment** - Day-simulation harness, LLM-as-a-Judge eval, execution tracing, user documentation
+- [x] **Phase 3: Deterministic Verification & Continuous Alignment** - Day-simulation harness, LLM-as-a-Judge eval, execution tracing, user documentation (COMPLETE)
 - [ ] **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Semantic memory graph, WASM sandboxing, swarm execution SDK
 
 ## Phase Details
@@ -74,7 +74,7 @@ Plans:
 - [x] 03-02-PLAN.md — SP1 Lane B: CLI/web trace inspection surfaces
 - [x] 03-03-PLAN.md — SP1 Lane C: user docs/support parity + recovery architecture
 - [x] 03-04-PLAN.md — SP2: deterministic day-simulation harness + replay assertions
-- [ ] 03-05-PLAN.md — SP3: eval runner, judge integration, and reporting gates
+- [x] 03-05-PLAN.md — SP3: eval runner, judge integration, and reporting gates
 
 ### Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution
 **Goal**: The system maintains a semantic memory graph over captured entities, uses graph-based retrieval to surface relevant context during reasoning, executes untrusted agents in WASM sandboxes with zero-trust defaults, and provides a first-class SDK for building external agent Limbs that communicate via a standardized swarm contract.
@@ -99,5 +99,5 @@ Phases execute in numeric order: 2 → 3 → 4
 | 1. Structural Foundation | - | Complete | 2026-03-18 |
 | 1.1. Preflight — Pre-Phase 2 Hardening | 1/1 | Complete | 2026-03-18 |
 | 2. Distributed State, Offline Clients & System-of-Systems | 0/7 | Not started | - |
-| 3. Deterministic Verification & Continuous Alignment | 4/5 | In progress | - |
+| 3. Deterministic Verification & Continuous Alignment | 5/5 | Complete | 2026-03-18 |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 0/TBD | Not started | - |

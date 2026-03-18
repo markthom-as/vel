@@ -27,3 +27,6 @@ jobs:
 
       - name: Smoke test daemon/API/CLI
         run: make smoke
+
+      - name: Eval fixture smoke
+        run: cargo run -p veld-evals -- run --fixtures crates/veld-evals/fixtures/sample-day-context.json --report /tmp/vel-eval-report.json

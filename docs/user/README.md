@@ -32,8 +32,9 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 5. [Surfaces](surfaces.md) for what the main UI and CLI surfaces mean.
 6. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
 7. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
-8. [Privacy](privacy.md) for the current local-first trust model and data locations.
-9. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
+8. [Eval Runner](evals.md) for fixture-driven deterministic replay and optional judge scoring.
+9. [Privacy](privacy.md) for the current local-first trust model and data locations.
+10. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
 
 ## Support And Update Model
 
@@ -58,6 +59,7 @@ For support work, use this order:
 - `vel` provides the main operator CLI.
 - captures, commitments, context generation, nudges, recent/review flows, and artifact/run inspection are implemented.
 - recent run inspection now exposes trace lineage (`trace_id`, optional `parent_run_id`) in both CLI and web runtime surfaces.
+- fixture-driven eval runs are available through `veld-evals`, with deterministic replay as the hard gate and optional judge scoring layered on top.
 - local integrations can be ingested from files or snapshots.
 - on macOS, `veld` auto-discovers local `activity`, `health`, `git`, `messaging`, `reminders`, `notes`, and `transcripts` sources under `~/Library/Application Support/Vel/...` when they exist.
 

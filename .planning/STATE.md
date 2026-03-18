@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-03-19T03:35:00Z"
-last_activity: 2026-03-18 — Phase 3 Plan 04 complete; deterministic replay harness and fixed-time runtime seams landed
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-03-19T04:20:00Z"
+last_activity: 2026-03-18 — Phase 3 Plan 05 complete; eval runner, fixture schema, and CI/documented quality gates landed
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 13
-  completed_plans: 6
-  percent: 46
+  completed_plans: 7
+  percent: 54
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 3 — Deterministic Verification & Continuous Alignment (simulation harness complete; eval pipeline queued)
+**Current focus:** Phase 4 — Autonomous Swarm, Graph RAG & Zero-Trust Execution (Phase 3 complete; Phase 4 planning not yet started)
 
 ## Current Position
 
-Phase: 3 of 4 (Deterministic Verification & Continuous Alignment)
-Plan: 4 of 5 in current phase (03-01 through 03-04 complete)
+Phase: 4 of 4 (Autonomous Swarm, Graph RAG & Zero-Trust Execution)
+Plan: 0 of TBD in current phase (Phase 4 not yet planned on disk)
 Status: In progress
-Last activity: 2026-03-18 — Phase 3 Plan 04 complete; replay-sensitive services now support fixed-time execution and `vel-sim` proves deterministic day replay
+Last activity: 2026-03-18 — Phase 3 Plan 05 complete; `veld-evals` now ships fixture-driven deterministic replay plus optional judge scoring
 
-Progress: [█████▒▒▒▒▒] 46%
+Progress: [██████▒▒▒▒] 54%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 21m
-- Total execution time: 130m
+- Total plans completed: 7
+- Average duration: 22m
+- Total execution time: 153m
 
 **By Phase:**
 
@@ -49,9 +49,10 @@ Progress: [█████▒▒▒▒▒] 46%
 | 03 P02 | 1 | 7m | 7m |
 | 03 P03 | 1 | 4m | 4m |
 | 03 P04 | 1 | 34m | 34m |
+| 03 P05 | 1 | 23m | 23m |
 
 **Recent Trend:**
-- Last 5 plans: 20m
+- Last 5 plans: 23m
 - Trend: stable
 
 *Updated after each plan completion*
@@ -78,6 +79,7 @@ Recent decisions affecting current work:
 - [Phase 3 P02]: Reuse existing Recent Runs and `vel run inspect` surfaces before building any separate trace explorer
 - [Phase 3 P03]: User-doc support guidance should point operators to shipped inspect surfaces and runtime API docs before deeper architecture docs
 - [Phase 3 P04]: Deterministic replay should normalize identifier churn (run/artifact/capture IDs) and assert semantic outputs plus boundary events instead of raw row identity
+- [Phase 3 P05]: Eval fixtures should carry explicit judge policy and rubric, while deterministic replay remains the hard gate and judge failure remains separately reportable
 
 ### Roadmap Evolution
 
@@ -86,12 +88,12 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-4 todos remaining (4 completed in 02-01/03-04):
+3 todos remaining (5 completed in 02-01/03-05):
 - DONE: Ticket 006: add Current Baseline section (02-01)
 - DONE: Ticket 016: add broker scope decision record (agents-only) (02-01)
 - DONE: Ticket 005: add NodeIdentity prereq + WAL mode step (02-01)
 - DONE: Ticket 007: define vel-sim crate interface contract in SP2 harness slice (03-04)
-- Ticket 008: add judge model strategy (local via vel-llm)
+- DONE: Ticket 008: add judge model strategy via explicit `judge` routing task + per-fixture override (03-05)
 - Ticket 010: decide WASM runtime (wasmtime + Component Model recommended)
 - Ticket 009: add embedding model, index rebuild trigger, hybrid ranking contracts
 - Ticket 014: define protocol versioning strategy
@@ -101,11 +103,11 @@ Recent decisions affecting current work:
 - Phase 1.1 (preflight) COMPLETE — Phase 2 is now unblocked
 - Phase 2 complete enough for roadmap progression; Phase 3 has started with trace contract closure
 - Ticket 006 status documented accurately (shell only, all 4 criteria unmet) — SP2 Lane B will implement
-- Phase 3 SP1/SP2 are complete; remaining Phase 3 work is eval/judge pipeline (03-05)
+- Phase 3 is complete; remaining autonomous work is Phase 4 planning and execution
 - Phase 4 WASM runtime choice is unresolved — must decide before Phase 4 SP1 contract work (wasmtime recommended)
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:35:00Z
-Stopped at: Completed 03-04-PLAN.md
+Last session: 2026-03-19T04:20:00Z
+Stopped at: Completed 03-05-PLAN.md
 Resume file: None

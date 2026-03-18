@@ -1,7 +1,7 @@
 # Model profiles and routing
 
 - **Profile tomls** — One file per model/backend (e.g. `local-qwen3-coder.toml`, `local-qwen25-fast.toml`). Required: `id`, `provider`, `base_url`, `model`. Optional: `context_window`, `max_output_tokens`, `temperature`, `supports_tools`, `supports_json`, `enabled`.
-- **routing.toml** — `[default]` section: task class → profile id (e.g. `chat = "local-qwen3-coder"`, `summarize = "local-qwen25-fast"`).
+- **routing.toml** — `[default]` section: task class → profile id (e.g. `chat = "local-qwen3-coder"`, `summarize = "local-qwen25-fast"`, `judge = "local-qwen25-fast"`).
 - **Template files** — `templates/profile.template.toml` and `templates/routing.template.toml` provide canonical starter shapes.
 - **Schema files** — `config/schemas/model-profile.schema.json` and `config/schemas/model-routing.schema.json` define machine-readable contracts.
 
