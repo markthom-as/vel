@@ -24,7 +24,9 @@ impl CapabilityDescriptor {
     /// - action must be equal
     /// - resource: None in this (allowlist) descriptor acts as wildcard — matches any resource
     pub fn matches(&self, requested: &CapabilityDescriptor) -> bool {
-        todo!("implement matches")
+        self.scope == requested.scope
+            && self.action == requested.action
+            && (self.resource.is_none() || self.resource == requested.resource)
     }
 }
 

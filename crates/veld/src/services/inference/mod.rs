@@ -4,15 +4,37 @@
 //! **Boundary: recompute-and-persist.** This module must only be called from the evaluate
 //! orchestration (e.g. [crate::services::evaluate::run]). Never call from explain or read routes.
 
+pub mod reducers;
+pub mod registry;
+
 use time::OffsetDateTime;
 use vel_core::{CommitmentStatus, CurrentContextV1, RiskSnapshot};
 use vel_storage::{InferredStateInsert, Storage};
+
+use self::registry::ReducerRegistry;
+
+/// Trait implemented by every signal domain reducer.
+///
+/// Reducers are pure functions: given a context snapshot and a slice of today's signals,
+/// they return a new (or unchanged) context. Each reducer owns a specific subset of
+/// `CurrentContextV1` fields and must not touch fields it does not own.
+///
+/// Implement `Send + Sync` so reducers can be stored in a registry and shared across threads.
+pub trait SignalReducer: Send + Sync {
+    /// Human-readable name used in traces and diagnostics.
+    fn name(&self) -> &'static str;
+
+    /// Apply this reducer: take ownership of `ctx`, update owned fields from `signals`, return
+    /// the updated context. Fields this reducer does not own must be passed through unchanged.
+    fn reduce(&self, ctx: CurrentContextV1, signals: &[vel_storage::SignalRecord]) -> CurrentContextV1;
+}
 
 const RECENT_GIT_ACTIVITY_WINDOW_SECS: i64 = 90 * 60;
 const RECENT_COMMITMENT_ACTIVITY_WINDOW_SECS: i64 = 24 * 60 * 60;
 const DEFAULT_PREP_MINUTES: i64 = 15;
 const DEFAULT_TRAVEL_MINUTES: i64 = 0;
 const COMMUTE_WINDOW_LEAD_SECS: i64 = 15 * 60;
+
 struct InferenceInputs {
     open_commitments: Vec<vel_core::Commitment>,
     medication_commitments: Vec<vel_core::Commitment>,
@@ -106,7 +128,8 @@ struct DerivedContextState {
 }
 
 /// **Recompute-and-persist.** Run inference once: compute morning state, meds status, prep window;
-/// build canonical current context; persist inferred_state and current_context; append to context_timeline on material change.
+/// build canonical current context via reducer pipeline; persist inferred_state and current_context;
+/// append to context_timeline on material change.
 /// Returns count of state records written. Only call from evaluate orchestration.
 pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
     let now = OffsetDateTime::now_utc();
@@ -149,7 +172,8 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         now_ts,
     );
 
-    let context = build_current_context(
+    // Build base context from orchestration-level logic (commitments, risk, attention, meds).
+    let base_context = build_base_context(
         now_ts,
         derived.inference_state.mode,
         derived.inference_state.morning_state,
@@ -164,15 +188,16 @@ pub async fn run(storage: &Storage) -> Result<usize, crate::errors::AppError> {
         &derived.commitments_used,
         &derived.risk_used,
         &derived.attention,
-        derived.health_summary.as_ref(),
-        derived.git_activity_summary.as_ref(),
         derived.mood_summary.as_ref(),
         derived.pain_summary.as_ref(),
         derived.note_document_summary.as_ref(),
         derived.assistant_message_summary.as_ref(),
-        &derived.message_summary,
         &temporal_windows,
     );
+
+    // Apply signal reducers: calendar, messages, health, git — in explicit deterministic order.
+    let registry = ReducerRegistry::new();
+    let context = registry.apply_all(base_context, &signals_today);
 
     persist_inference_outputs(
         storage,
@@ -748,8 +773,10 @@ fn derive_global_risk_summary(risk_snapshots: &[RiskSnapshot]) -> GlobalRiskSumm
     }
 }
 
+/// Build base context from orchestration-level derived state.
+/// Signal-domain fields (health, git, messages, calendar) are populated by `ReducerRegistry::apply_all`.
 #[allow(clippy::too_many_arguments)]
-fn build_current_context(
+fn build_base_context(
     now_ts: i64,
     mode: &str,
     state_name: &str,
@@ -764,13 +791,10 @@ fn build_current_context(
     commitments_used: &[String],
     risk_used: &[String],
     attention: &AttentionState,
-    health_summary: Option<&HealthSummary>,
-    git_activity_summary: Option<&GitActivitySummary>,
     mood_summary: Option<&MoodSummary>,
     pain_summary: Option<&PainSummary>,
     note_document_summary: Option<&NoteDocumentSummary>,
     assistant_message_summary: Option<&AssistantMessageSummary>,
-    message_summary: &MessageSummary,
     temporal_windows: &TemporalWindows,
 ) -> CurrentContextV1 {
     CurrentContextV1 {
@@ -800,28 +824,6 @@ fn build_current_context(
             .iter()
             .map(|reason| (*reason).to_string())
             .collect(),
-        health_summary: health_summary.map(|summary| {
-            serde_json::json!({
-                "timestamp": summary.timestamp,
-                "metric_type": summary.metric_type,
-                "value": summary.value,
-                "unit": summary.unit,
-                "source_app": summary.source_app,
-                "device": summary.device,
-            })
-        }),
-        git_activity_summary: git_activity_summary.map(|summary| {
-            serde_json::json!({
-                "timestamp": summary.timestamp,
-                "repo": summary.repo,
-                "branch": summary.branch,
-                "operation": summary.operation,
-                "message": summary.message,
-                "files_changed": summary.files_changed,
-                "insertions": summary.insertions,
-                "deletions": summary.deletions,
-            })
-        }),
         mood_summary: mood_summary.map(|summary| {
             serde_json::json!({
                 "timestamp": summary.timestamp,
@@ -853,17 +855,6 @@ fn build_current_context(
                 "source": summary.source,
             })
         }),
-        message_waiting_on_me_count: Some(message_summary.waiting_on_me_count as u64),
-        message_waiting_on_others_count: Some(message_summary.waiting_on_others_count as u64),
-        message_scheduling_thread_count: Some(message_summary.scheduling_thread_count as u64),
-        message_urgent_thread_count: Some(message_summary.urgent_thread_count as u64),
-        message_summary: Some(serde_json::json!({
-            "waiting_on_me_count": message_summary.waiting_on_me_count,
-            "waiting_on_others_count": message_summary.waiting_on_others_count,
-            "scheduling_thread_count": message_summary.scheduling_thread_count,
-            "urgent_thread_count": message_summary.urgent_thread_count,
-            "top_threads": message_summary.top_threads,
-        })),
         leave_by_ts: temporal_windows.leave_by_ts,
         next_event_start_ts: temporal_windows.next_event_start_ts,
         ..CurrentContextV1::default()
@@ -1385,8 +1376,8 @@ mod tests {
     }
 
     #[test]
-    fn build_current_context_output_is_compatible_with_typed_context_migrator() {
-        let context = build_current_context(
+    fn build_base_context_output_is_compatible_with_typed_context_migrator() {
+        let context = build_base_context(
             1_700_000_000,
             "morning_mode",
             "awake_unstarted",
@@ -1415,15 +1406,6 @@ mod tests {
             None,
             None,
             None,
-            None,
-            None,
-            &MessageSummary {
-                waiting_on_me_count: 1,
-                waiting_on_others_count: 2,
-                scheduling_thread_count: 0,
-                urgent_thread_count: 0,
-                top_threads: Vec::new(),
-            },
             &TemporalWindows {
                 prep_window_active: true,
                 commute_window_active: false,
@@ -1439,7 +1421,6 @@ mod tests {
         assert_eq!(typed.mode, "morning_mode");
         assert_eq!(typed.morning_state, "awake_unstarted");
         assert_eq!(typed.attention_confidence, Some(0.8));
-        assert_eq!(context_json["message_waiting_on_me_count"], 1);
     }
 
     #[test]

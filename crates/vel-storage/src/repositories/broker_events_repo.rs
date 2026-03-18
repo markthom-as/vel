@@ -13,14 +13,44 @@ pub(crate) async fn insert_broker_event(
     reason: Option<&str>,
     occurred_at: i64,
 ) -> Result<(), StorageError> {
-    todo!("implement insert_broker_event")
+    sqlx::query(
+        r#"
+        INSERT INTO broker_events (id, event_type, run_id, scope, resource, action, reason, occurred_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        "#,
+    )
+    .bind(id)
+    .bind(event_type)
+    .bind(run_id)
+    .bind(scope)
+    .bind(resource)
+    .bind(action)
+    .bind(reason)
+    .bind(occurred_at)
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 pub(crate) async fn list_broker_events(
     pool: &SqlitePool,
     run_id: &str,
 ) -> Result<Vec<BrokerEventRecord>, StorageError> {
-    todo!("implement list_broker_events")
+    let rows = sqlx::query(
+        r#"
+        SELECT id, event_type, run_id, scope, resource, action, reason, occurred_at
+        FROM broker_events
+        WHERE run_id = ?
+        ORDER BY occurred_at ASC
+        "#,
+    )
+    .bind(run_id)
+    .fetch_all(pool)
+    .await?;
+
+    rows.into_iter()
+        .map(|row| map_broker_event_row(&row))
+        .collect::<Result<Vec<_>, _>>()
 }
 
 fn map_broker_event_row(

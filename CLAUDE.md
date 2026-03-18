@@ -1,0 +1,120 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What is Vel
+
+Vel is a local-first personal cognition runtime for capture, recall, daily orientation, and supervised execution. The main components are:
+
+- **veld** — Rust daemon (API server, "Authority" node)
+- **vel** — Rust CLI (primary operator shell)
+- **clients/web** — React + TypeScript operator dashboard
+- **clients/apple** — iOS/watchOS/macOS Swift clients
+
+## Commands
+
+### Rust Backend
+
+```sh
+make build-api          # build veld
+make dev-api            # run veld daemon
+make test-api           # cargo test --workspace --all-features
+make fmt-check          # rustfmt check
+make clippy-check       # clippy with warnings-as-errors
+make verify             # fmt + clippy + lint + tests (full)
+make ci                 # install + check + test + build
+
+# Run a single test
+cargo test -p <crate> <test_name>
+# e.g.: cargo test -p vel-storage test_capture_round_trip
+```
+
+### Web Frontend
+
+```sh
+make install-web        # npm ci
+make dev-web            # vite dev server (proxies /api, /v1, /ws to localhost:4130)
+make test-web           # vitest
+make lint-web           # eslint
+```
+
+### Full Stack
+
+```sh
+make dev                # veld + web dev server together
+make seed               # populate local API with sample data
+make smoke              # daemon/API/CLI smoke tests
+```
+
+## Architecture
+
+### Rust Crate Layering
+
+```
+vel-core          ← domain types, semantics, invariants (no transport, no storage)
+vel-storage       ← SQLite repositories via sqlx (must NOT depend on vel-api-types)
+vel-api-types     ← HTTP transport DTOs only
+vel-config        ← TOML/YAML config loading
+vel-llm           ← provider-agnostic LLM abstraction
+veld              ← daemon: axum routes → services → storage
+vel-cli           ← CLI binary (vel)
+```
+
+**Layering rules:**
+- `vel-storage` must NOT depend on `vel-api-types`
+- Route handlers should be thin: parse → auth → call service → map to DTO → map errors
+- Services hold application logic and must not return HTTP DTOs or raw JSON strings
+- Client surfaces (`clients/web`, `clients/apple`) are UI shells — policy, inference, and durable state rules belong in the Rust backend
+
+### Key Backend Paths
+
+- `crates/veld/src/routes/` — HTTP route handlers (thin layer)
+- `crates/veld/src/services/` — Application logic
+- `crates/veld/src/adapters/` — Integration adapters (calendar, todoist, git, health, etc.)
+- `crates/vel-storage/src/repositories/` — Per-entity SQLite repositories
+- `migrations/` — Numbered SQLx migrations (compile-time verified)
+
+### Web Frontend
+
+- `clients/web/src/api/` — API client methods
+- `clients/web/src/components/` — React components
+- `clients/web/src/data/` — State management and queries
+- `clients/web/src/realtime/` — WebSocket sync
+- `clients/web/src/types.ts` — Comprehensive TypeScript types
+
+### Configuration & Secrets
+
+- `vel.toml` — Main daemon config (bind_addr, db_path, artifact_root, log level, LLM paths)
+- `.env.example` — Required env vars template
+- `config/agent-specs.yaml`, `config/policies.yaml` — Agent and policy definitions
+- Auth tokens: `VEL_OPERATOR_API_TOKEN`, `VEL_WORKER_API_TOKEN`
+
+New HTTP endpoints require authentication by default. Public routes must be explicit and documented.
+
+## Authority & Documentation
+
+Before substantial implementation work, read in order:
+1. `docs/MASTER_PLAN.md` — canonical implementation truth and phase status
+2. The relevant phase ticket in `docs/tickets/phase-*/`
+3. `README.md` — project overview and quickstart
+4. The closest subtree guide for the surface you are touching
+5. `config/README.md` if touching config, schemas, manifests, integrations, or policy surfaces
+
+Vel is mid-migration — existing code may drift from the target architecture. Do not treat drift as precedent for new work.
+
+## Development Workflow
+
+1. Run the narrowest relevant existing tests first to establish a baseline
+2. Implement the minimum viable slice
+3. For logic changes, prefer red/green TDD: failing test first, then make it pass
+4. Manually exercise changed behavior in addition to automated checks
+5. When changing a wire contract, update both the Rust DTOs and affected client code in the same change
+6. Keep changes small enough to review efficiently
+
+## Priority Order
+
+1. Capture system
+2. Memory graph
+3. Context recall
+4. Daily alignment engine
+5. Execution automation
