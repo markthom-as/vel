@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: planning
+stopped_at: Completed 1.1-01-PLAN.md
+last_updated: "2026-03-18T08:20:42.056Z"
+last_activity: 2026-03-18 — Phase 1.1 inserted after architecture audit; 8 todos captured; Phase 2 blocked until preflight complete
+progress:
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 100
+---
+
 # Project State
 
 ## Project Reference
@@ -10,28 +26,28 @@ See: .planning/PROJECT.md (updated 2026-03-18)
 ## Current Position
 
 Phase: 1.1 of 4 (Preflight — Pre-Phase 2 Hardening)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-18 — Phase 1.1 inserted after architecture audit; 8 todos captured; Phase 2 blocked until preflight complete
+Plan: 1 of 1 in current phase (COMPLETE)
+Status: Phase 1.1 complete — Phase 2 unblocked
+Last activity: 2026-03-18 — Plan 1.1-01 complete: WAL mode, settings hardening, middleware extraction, full clippy clean
 
-Progress: [##########░░░░░░░░░░░░░░░░░░░░] ~25% (Phase 1 complete, 3 phases remain)
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0 (in GSD tracking; Phase 1 executed outside GSD)
-- Average duration: -
-- Total execution time: -
+- Total plans completed: 1
+- Average duration: 29m
+- Total execution time: 29m
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 1.1 P01 | 1 | 29m | 29m |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 29m
+- Trend: baseline
 
 *Updated after each plan completion*
 
@@ -45,6 +61,9 @@ Recent decisions affecting current work:
 - [Init]: GSD phases match master plan phases (2, 3, 4) — tickets already grouped, avoids re-scoping
 - [Init]: Ticket files in `docs/tickets/` are the authoritative implementation specs — no re-derivation needed
 - [Init]: Domain research skipped — domain is well-understood; tickets are prescriptive
+- [Phase 1.1]: Re-export pattern for backward compat: only OPERATOR/WORKER_AUTH_HEADER re-exported from app.rs; test module imports directly from crate::middleware
+- [Phase 1.1]: main.rs requires explicit mod middleware; declaration - Rust binary targets have independent module trees from lib.rs
+- [Phase 1.1]: Phase gate clippy fixes: pre-existing clippy warnings fixed to achieve zero-warning state (4 vel-core, 5 vel-storage, 20 veld, 11 vel-cli)
 
 ### Roadmap Evolution
 
@@ -64,13 +83,13 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- Phase 1.1 (preflight) must complete before Phase 2 execution begins
+- Phase 1.1 (preflight) COMPLETE — Phase 2 is now unblocked
 - Ticket 006 (Connect) is more incomplete than its "in-progress" status suggests — all 4 acceptance criteria unmet, routes still return 403
 - Phase 3 sub-phase 2 (simulation harness) is gated on Phase 2's 006 + 016 + 004 all completing
 - Phase 4 WASM runtime choice is unresolved — must decide before SP1 contract work (wasmtime recommended)
 
 ## Session Continuity
 
-Last session: 2026-03-18
-Stopped at: Roadmap created; no plans exist yet
+Last session: 2026-03-18T08:20:42.055Z
+Stopped at: Completed 1.1-01-PLAN.md
 Resume file: None
