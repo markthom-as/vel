@@ -28,8 +28,8 @@ Requirements for Phases 2–4 (Phase 1 is complete). Each maps to a master plan 
 
 ### Operator Experience (Phase 2)
 
-- [ ] **OPS-01**: Operator surfaces (CLI, web) expose effective configuration state clearly (ticket 019)
-- [ ] **OPS-02**: Accessibility requirements are met for the operator dashboard (ticket 019)
+- [x] **OPS-01**: Operator surfaces (CLI, web) expose effective configuration state clearly (ticket 019)
+- [x] **OPS-02**: Accessibility requirements are met for the operator dashboard (ticket 019)
 
 ### Deterministic Verification (Phase 3)
 

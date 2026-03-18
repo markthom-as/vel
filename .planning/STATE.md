@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Completed 1.1-01-PLAN.md
-last_updated: "2026-03-18T08:20:42.056Z"
-last_activity: 2026-03-18 — Phase 1.1 inserted after architecture audit; 8 todos captured; Phase 2 blocked until preflight complete
+status: in-progress
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-18T16:01:40Z"
+last_activity: 2026-03-18 — Phase 2 SP1 complete; contract alignment, operator diagnostics, connect surface consistency
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
-  percent: 100
+  total_plans: 8
+  completed_plans: 2
+  percent: 25
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-18)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 2 — Distributed State, Offline Clients & System-of-Systems
+**Current focus:** Phase 2 — Distributed State, Offline Clients & System-of-Systems (SP1 complete, SP2 queued)
 
 ## Current Position
 
 Phase: 2 of 4 (Distributed State, Offline Clients & System-of-Systems)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-18 — Phase 1.1 complete (verified 6/6); Phase 2 unblocked
+Plan: 1 of 7 in current phase (02-01 complete)
+Status: In progress
+Last activity: 2026-03-18 — Phase 2 Plan 01 (SP1 Contract Alignment) complete; SP2 lanes now unblocked
 
-Progress: [██████████] 100%
+Progress: [██▒▒▒▒▒▒▒▒] 25%
 
 ## Performance Metrics
 
@@ -44,10 +44,11 @@ Progress: [██████████] 100%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1.1 P01 | 1 | 29m | 29m |
+| 02 P01 | 1 | 9m | 9m |
 
 **Recent Trend:**
-- Last 5 plans: 29m
-- Trend: baseline
+- Last 5 plans: 9m
+- Trend: improving
 
 *Updated after each plan completion*
 
@@ -64,6 +65,10 @@ Recent decisions affecting current work:
 - [Phase 1.1]: Re-export pattern for backward compat: only OPERATOR/WORKER_AUTH_HEADER re-exported from app.rs; test module imports directly from crate::middleware
 - [Phase 1.1]: main.rs requires explicit mod middleware; declaration - Rust binary targets have independent module trees from lib.rs
 - [Phase 1.1]: Phase gate clippy fixes: pre-existing clippy warnings fixed to achieve zero-warning state (4 vel-core, 5 vel-storage, 20 veld, 11 vel-cli)
+- [Phase 2 P01]: Diagnostics route in own file (routes/diagnostics.rs) not signals.rs — clean separation of concerns
+- [Phase 2 P01]: Freshness threshold 5 minutes for fresh/stale classification — matches typical heartbeat intervals
+- [Phase 2 P01]: Broker scope: agents-only (ticket 016) — integration-level brokering deferred per 2026-03-18 decision
+- [Phase 2 P01]: CLI connect stubs use eprintln + exit 0 (not error) — informative, non-alarming for shell scripts
 
 ### Roadmap Evolution
 
@@ -71,10 +76,10 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-8 todos captured from architecture audit (2026-03-18) — all doc/ticket update items:
-- Ticket 006: add Current Baseline section
-- Ticket 016: add broker scope decision record (agents-only)
-- Ticket 005: add NodeIdentity prereq + WAL mode step
+5 todos remaining (3 completed in 02-01):
+- DONE: Ticket 006: add Current Baseline section (02-01)
+- DONE: Ticket 016: add broker scope decision record (agents-only) (02-01)
+- DONE: Ticket 005: add NodeIdentity prereq + WAL mode step (02-01)
 - Ticket 007: define vel-sim crate interface contract in SP1 scope
 - Ticket 008: add judge model strategy (local via vel-llm)
 - Ticket 010: decide WASM runtime (wasmtime + Component Model recommended)
@@ -84,12 +89,13 @@ Recent decisions affecting current work:
 ### Blockers/Concerns
 
 - Phase 1.1 (preflight) COMPLETE — Phase 2 is now unblocked
-- Ticket 006 (Connect) is more incomplete than its "in-progress" status suggests — all 4 acceptance criteria unmet, routes still return 403
+- SP1 COMPLETE (02-01) — SP2 lanes now unblocked
+- Ticket 006 status documented accurately (shell only, all 4 criteria unmet) — SP2 Lane B will implement
 - Phase 3 sub-phase 2 (simulation harness) is gated on Phase 2's 006 + 016 + 004 all completing
 - Phase 4 WASM runtime choice is unresolved — must decide before SP1 contract work (wasmtime recommended)
 
 ## Session Continuity
 
-Last session: 2026-03-18T08:20:42.055Z
-Stopped at: Completed 1.1-01-PLAN.md
+Last session: 2026-03-18T16:01:40Z
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
