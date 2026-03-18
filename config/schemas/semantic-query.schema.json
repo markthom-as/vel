@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/semantic-query.schema.json",
+  "title": "Vel Semantic Query",
+  "description": "Canonical query contract for semantic and hybrid retrieval.",
+  "type": "object",
+  "properties": {
+    "query_text": { "type": "string", "minLength": 1 },
+    "top_k": { "type": "integer", "minimum": 1 },
+    "strategy": {
+      "type": "string",
+      "enum": ["lexical_only", "semantic_only", "hybrid"]
+    },
+    "include_provenance": { "type": "boolean" },
+    "filters": {
+      "type": "object",
+      "properties": {
+        "source_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["capture", "artifact", "thread", "message"]
+          }
+        },
+        "source_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "trace_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "lexical_weight": { "type": "number" },
+        "semantic_weight": { "type": "number" },
+        "rerank_window": { "type": "integer", "minimum": 1 },
+        "min_combined_score": { "type": "number" }
+      },
+      "required": [
+        "lexical_weight",
+        "semantic_weight",
+        "rerank_window",
+        "min_combined_score"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "query_text",
+    "top_k",
+    "strategy",
+    "include_provenance",
+    "filters"
+  ],
+  "additionalProperties": false
+}

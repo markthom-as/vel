@@ -1,0 +1,17 @@
+{
+  "default_mode": "deny",
+  "allowed_calls": [],
+  "filesystem": {
+    "read_roots": [],
+    "write_roots": []
+  },
+  "network": {
+    "allowed_hosts": []
+  },
+  "resources": {
+    "max_fuel": 100000,
+    "max_memory_bytes": 10485760,
+    "wall_timeout_ms": 30000
+  },
+  "review_gate": "explicit_operator_or_ticket_policy"
+}

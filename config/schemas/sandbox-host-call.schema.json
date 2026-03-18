@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/sandbox-host-call.schema.json",
+  "title": "Vel Sandbox Host Call Envelope",
+  "description": "Canonical ABI envelope for sandbox-to-host requests.",
+  "type": "object",
+  "properties": {
+    "abi_version": { "type": "string", "minLength": 1 },
+    "module_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "call": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "read_context" },
+            "query": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "query"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "request_capability" },
+            "capability": { "type": "string", "minLength": 1 },
+            "reason": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "capability", "reason"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "submit_action_batch" },
+            "actions": { "type": "array", "items": { "type": "object" } }
+          },
+          "required": ["kind", "actions"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "read_artifact" },
+            "artifact_id": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "artifact_id"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": ["abi_version", "module_id", "run_id", "trace_id", "call"],
+  "additionalProperties": false
+}

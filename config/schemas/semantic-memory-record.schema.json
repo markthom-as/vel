@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/semantic-memory-record.schema.json",
+  "title": "Vel Semantic Memory Record",
+  "description": "Canonical persisted semantic chunk contract with provenance linkage.",
+  "type": "object",
+  "properties": {
+    "record_id": { "type": "string", "minLength": 1 },
+    "source_kind": {
+      "type": "string",
+      "enum": ["capture", "artifact", "thread", "message"]
+    },
+    "source_id": { "type": "string", "minLength": 1 },
+    "chunk_id": { "type": "string", "minLength": 1 },
+    "content_text": { "type": "string", "minLength": 1 },
+    "embedding_model": { "type": "string", "minLength": 1 },
+    "embedding_revision": { "type": "string", "minLength": 1 },
+    "token_count": { "type": "integer", "minimum": 1 },
+    "metadata_json": { "type": "object" },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "capture_id": { "type": "string", "minLength": 1 },
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "thread_id": { "type": "string", "minLength": 1 },
+        "message_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "trace_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "record_id",
+    "source_kind",
+    "source_id",
+    "chunk_id",
+    "content_text",
+    "embedding_model",
+    "embedding_revision",
+    "token_count",
+    "metadata_json",
+    "provenance"
+  ],
+  "additionalProperties": false
+}

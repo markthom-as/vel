@@ -1,0 +1,28 @@
+{
+  "protocol_version": "vel_protocol/v1",
+  "message_id": "msg_proto_01",
+  "sent_at": "2026-03-18T21:00:00Z",
+  "sender": {
+    "node_id": "node_local",
+    "actor_id": "sdk_worker_example",
+    "actor_kind": "external_limb"
+  },
+  "trace": {
+    "run_id": "run_example_01",
+    "trace_id": "trace_example_01",
+    "parent_run_id": "run_parent_01"
+  },
+  "payload": {
+    "kind": "handshake",
+    "protocol_version": "vel_protocol/v1",
+    "sdk_name": "vel-agent-sdk-rust",
+    "sdk_version": "0.1.0",
+    "requested_capabilities": [
+      {
+        "name": "context.read",
+        "scope": "today_brief",
+        "reason": "Need current context to plan the next batch."
+      }
+    ]
+  }
+}

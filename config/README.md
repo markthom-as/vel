@@ -31,6 +31,11 @@ Use it to answer four questions quickly:
   - `schemas/model-routing.schema.json`
   - `schemas/connector-manifest.schema.json`
   - `schemas/self-model-envelope.schema.json`
+  - `schemas/semantic-query.schema.json`
+  - `schemas/semantic-memory-record.schema.json`
+  - `schemas/sandbox-policy.schema.json`
+  - `schemas/sandbox-host-call.schema.json`
+  - `schemas/swarm-protocol-envelope.schema.json`
 - Examples and manifests:
   - `examples/app-config.example.toml`
   - `examples/agent-specs.example.yaml`
@@ -39,6 +44,10 @@ Use it to answer four questions quickly:
   - `examples/model-routing.example.toml`
   - `examples/connector-manifest.example.json`
   - `examples/self-model-envelope.example.json`
+  - `examples/semantic-query.example.json`
+  - `examples/semantic-memory-record.example.json`
+  - `examples/sandbox-host-call.example.json`
+  - `examples/swarm-protocol-envelope.example.json`
   - `contracts-manifest.json`
 
 ## Ownership Rules

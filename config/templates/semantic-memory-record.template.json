@@ -1,0 +1,12 @@
+{
+  "record_id": "{{record_id}}",
+  "source_kind": "capture",
+  "source_id": "{{source_id}}",
+  "chunk_id": "{{chunk_id}}",
+  "content_text": "{{content_text}}",
+  "embedding_model": "{{embedding_model}}",
+  "embedding_revision": "{{embedding_revision}}",
+  "token_count": 1,
+  "metadata_json": {},
+  "provenance": {}
+}

@@ -1,0 +1,11 @@
+{
+  "abi_version": "sandbox_abi/v1",
+  "module_id": "wasm_weather_helper",
+  "run_id": "run_example_01",
+  "trace_id": "trace_example_01",
+  "call": {
+    "kind": "request_capability",
+    "capability": "network.weather.read",
+    "reason": "Need forecast data to suggest commute timing."
+  }
+}

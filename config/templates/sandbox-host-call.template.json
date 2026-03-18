@@ -1,0 +1,10 @@
+{
+  "abi_version": "sandbox_abi/v1",
+  "module_id": "{{module_id}}",
+  "run_id": "{{run_id}}",
+  "trace_id": "{{trace_id}}",
+  "call": {
+    "kind": "read_context",
+    "query": "{{query}}"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/sandbox-policy.schema.json",
+  "title": "Vel Sandbox Policy",
+  "description": "Canonical deny-by-default policy contract for sandboxed agent modules.",
+  "type": "object",
+  "properties": {
+    "default_mode": {
+      "type": "string",
+      "enum": ["deny", "brokered", "allow"]
+    },
+    "allowed_calls": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "filesystem": {
+      "type": "object",
+      "properties": {
+        "read_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "write_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "required": ["read_roots", "write_roots"],
+      "additionalProperties": false
+    },
+    "network": {
+      "type": "object",
+      "properties": {
+        "allowed_hosts": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "required": ["allowed_hosts"],
+      "additionalProperties": false
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "max_fuel": { "type": "integer", "minimum": 1 },
+        "max_memory_bytes": { "type": "integer", "minimum": 1 },
+        "wall_timeout_ms": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["max_fuel", "max_memory_bytes", "wall_timeout_ms"],
+      "additionalProperties": false
+    },
+    "review_gate": { "type": "string", "minLength": 1 }
+  },
+  "required": [
+    "default_mode",
+    "allowed_calls",
+    "filesystem",
+    "network",
+    "resources",
+    "review_gate"
+  ],
+  "additionalProperties": false
+}

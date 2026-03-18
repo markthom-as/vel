@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/swarm-protocol-envelope.schema.json",
+  "title": "Vel Swarm Protocol Envelope",
+  "description": "Canonical versioned envelope for external limb and authority protocol messages.",
+  "type": "object",
+  "properties": {
+    "protocol_version": { "type": "string", "minLength": 1 },
+    "message_id": { "type": "string", "minLength": 1 },
+    "sent_at": { "type": "string", "minLength": 1 },
+    "sender": {
+      "type": "object",
+      "properties": {
+        "node_id": { "type": "string", "minLength": 1 },
+        "actor_id": { "type": "string", "minLength": 1 },
+        "actor_kind": { "type": "string", "minLength": 1 }
+      },
+      "required": ["node_id", "actor_id", "actor_kind"],
+      "additionalProperties": false
+    },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "run_id": { "type": "string", "minLength": 1 },
+        "trace_id": { "type": "string", "minLength": 1 },
+        "parent_run_id": { "type": "string", "minLength": 1 }
+      },
+      "required": ["run_id", "trace_id"],
+      "additionalProperties": false
+    },
+    "payload": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "handshake" },
+            "protocol_version": { "type": "string", "minLength": 1 },
+            "sdk_name": { "type": "string", "minLength": 1 },
+            "sdk_version": { "type": "string", "minLength": 1 },
+            "requested_capabilities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "scope": { "type": "string", "minLength": 1 },
+                  "reason": { "type": "string", "minLength": 1 }
+                },
+                "required": ["name", "scope", "reason"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "protocol_version",
+            "sdk_name",
+            "sdk_version",
+            "requested_capabilities"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "heartbeat" },
+            "lease_id": { "type": "string", "minLength": 1 },
+            "status": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "lease_id", "status"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "capability_request" },
+            "requests": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "scope": { "type": "string", "minLength": 1 },
+                  "reason": { "type": "string", "minLength": 1 }
+                },
+                "required": ["name", "scope", "reason"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["kind", "requests"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "action_batch_submit" },
+            "batch_id": { "type": "string", "minLength": 1 },
+            "actions": { "type": "array", "items": { "type": "object" } }
+          },
+          "required": ["kind", "batch_id", "actions"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "action_result" },
+            "batch_id": { "type": "string", "minLength": 1 },
+            "outcome": { "type": "string", "minLength": 1 },
+            "details": { "type": "object" }
+          },
+          "required": ["kind", "batch_id", "outcome", "details"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "protocol_version",
+    "message_id",
+    "sent_at",
+    "sender",
+    "trace",
+    "payload"
+  ],
+  "additionalProperties": false
+}

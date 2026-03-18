@@ -80,6 +80,36 @@
       "path": "config/templates/self-model-envelope.template.json",
       "kind": "self_model_envelope_template",
       "schema": "config/schemas/self-model-envelope.schema.json"
+    },
+    {
+      "id": "semantic_query_template",
+      "path": "config/templates/semantic-query.template.json",
+      "kind": "semantic_query_template",
+      "schema": "config/schemas/semantic-query.schema.json"
+    },
+    {
+      "id": "semantic_memory_record_template",
+      "path": "config/templates/semantic-memory-record.template.json",
+      "kind": "semantic_memory_record_template",
+      "schema": "config/schemas/semantic-memory-record.schema.json"
+    },
+    {
+      "id": "sandbox_policy_template",
+      "path": "config/templates/sandbox-policy.template.json",
+      "kind": "sandbox_policy_template",
+      "schema": "config/schemas/sandbox-policy.schema.json"
+    },
+    {
+      "id": "sandbox_host_call_template",
+      "path": "config/templates/sandbox-host-call.template.json",
+      "kind": "sandbox_host_call_template",
+      "schema": "config/schemas/sandbox-host-call.schema.json"
+    },
+    {
+      "id": "swarm_protocol_envelope_template",
+      "path": "config/templates/swarm-protocol-envelope.template.json",
+      "kind": "swarm_protocol_envelope_template",
+      "schema": "config/schemas/swarm-protocol-envelope.schema.json"
     }
   ],
   "contract_examples": [
@@ -124,6 +154,30 @@
       "path": "config/examples/self-model-envelope.example.json",
       "kind": "self_model_envelope",
       "schema": "config/schemas/self-model-envelope.schema.json"
+    },
+    {
+      "id": "semantic_query_example",
+      "path": "config/examples/semantic-query.example.json",
+      "kind": "semantic_query",
+      "schema": "config/schemas/semantic-query.schema.json"
+    },
+    {
+      "id": "semantic_memory_record_example",
+      "path": "config/examples/semantic-memory-record.example.json",
+      "kind": "semantic_memory_record",
+      "schema": "config/schemas/semantic-memory-record.schema.json"
+    },
+    {
+      "id": "sandbox_host_call_example",
+      "path": "config/examples/sandbox-host-call.example.json",
+      "kind": "sandbox_host_call",
+      "schema": "config/schemas/sandbox-host-call.schema.json"
+    },
+    {
+      "id": "swarm_protocol_envelope_example",
+      "path": "config/examples/swarm-protocol-envelope.example.json",
+      "kind": "swarm_protocol_envelope",
+      "schema": "config/schemas/swarm-protocol-envelope.schema.json"
     }
   ],
   "authority_docs": [
@@ -131,6 +185,9 @@
     "docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md",
     "docs/cognitive-agent-architecture/integrations/data-source-catalog.md",
     "docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md",
+    "docs/cognitive-agent-architecture/cognition/semantic-memory-contract.md",
+    "docs/cognitive-agent-architecture/agents/sandbox-host-abi.md",
+    "docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md",
     "docs/tickets/phase-1/021-canonical-schema-and-config-contracts.md",
     "docs/tickets/phase-1/022-data-sources-and-connector-architecture.md",
     "docs/tickets/phase-1/023-self-awareness-and-supervised-self-modification.md",

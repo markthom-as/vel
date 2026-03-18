@@ -80,6 +80,9 @@ Today the contract surface is partially explicit but not yet unified.
 | Connect capability manifest | `vel-core` + `vel-api-types` | `crates/vel-core/src/connect.rs`, `crates/vel-api-types/src/lib.rs` | worker/connect capability boundary | explicit manifest shape | route coverage and consumer surfaces are still partial |
 | Handoff envelope | architecture pack | `docs/cognitive-agent-architecture/agents/handoffs.md` | agent-to-agent boundary | version by envelope schema, not vibes | still needs machine-readable publication and shared consumption |
 | Self-model | architecture pack | `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md`, `config/examples/self-model-envelope.example.json`, `config/schemas/self-model-envelope.schema.json` | repo/runtime introspection boundary | versioned self-model contract | doc, example, and schema exist; runtime enforcement is still future work |
+| Semantic query + record | `vel-core` | `crates/vel-core/src/semantic.rs`, `docs/cognitive-agent-architecture/cognition/semantic-memory-contract.md`, `config/schemas/semantic-query.schema.json`, `config/schemas/semantic-memory-record.schema.json` | semantic retrieval boundary | additive fields with explicit embedding revision | contract published; runtime indexing remains future phase work |
+| Sandbox host ABI + policy | `vel-core` | `crates/vel-core/src/sandbox.rs`, `docs/cognitive-agent-architecture/agents/sandbox-host-abi.md`, `config/schemas/sandbox-policy.schema.json`, `config/schemas/sandbox-host-call.schema.json` | sandbox-to-host boundary | explicit ABI version field | contract published; runtime host still unimplemented |
+| Swarm protocol envelope | `vel-core` now, `vel-protocol` later | `crates/vel-core/src/protocol.rs`, `docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md`, `config/schemas/swarm-protocol-envelope.schema.json` | external limb protocol boundary | protocol version in every envelope | contract published now; dedicated protocol crate remains future phase work |
 
 ## Schema Governance Rules
 
@@ -117,6 +120,10 @@ The repo keeps checked-in templates and examples for human-authored and shared c
 - `config/examples/model-routing.example.toml`
 - `config/examples/connector-manifest.example.json`
 - `config/examples/self-model-envelope.example.json`
+- `config/examples/semantic-query.example.json`
+- `config/examples/semantic-memory-record.example.json`
+- `config/examples/sandbox-host-call.example.json`
+- `config/examples/swarm-protocol-envelope.example.json`
 
 Templates and fixtures are examples and scaffolds, not hidden sources of truth. They should stay parseable and aligned with ticket `025-config-and-contract-fixture-parity.md`.
 
@@ -126,6 +133,7 @@ Contract surfaces should be publishable in machine-readable form for clients and
 
 Current published artifacts live under `config/schemas/` and are indexed by `config/contracts-manifest.json`.
 Shared consumers now include `vel-cli` docs output and runtime doctor diagnostics through `vel-config`'s published-manifest loader; additional client surface adoption can extend the same registry.
+Phase 4 contract publications for semantic memory, sandbox ABI, and swarm protocol should follow the same manifest-backed pattern before runtime implementations widen.
 
 ### Scientific Substrate And Symbolic Layer
 

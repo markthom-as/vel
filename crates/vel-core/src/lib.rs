@@ -7,9 +7,12 @@ pub mod integration;
 pub mod intervention;
 pub mod loops;
 pub mod message;
+pub mod protocol;
 pub mod provenance;
 pub mod risk;
 pub mod run;
+pub mod sandbox;
+pub mod semantic;
 pub mod time;
 pub mod types;
 pub mod uncertainty;
@@ -40,10 +43,23 @@ pub use message::{
     Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
 };
+pub use protocol::{
+    CapabilityRequest as ProtocolCapabilityRequest, ProtocolEnvelope, ProtocolPayload,
+    ProtocolSender, ProtocolTraceContext,
+};
 pub use provenance::{Ref, RefRelationType};
 pub use risk::{normalize_risk_level, sort_snapshots_by_priority_desc, RiskFactors, RiskSnapshot};
 pub use run::{
     HandoffEnvelope, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, TraceId, TraceLink,
+};
+pub use sandbox::{
+    FilesystemAccessPolicy, NetworkAccessPolicy, SandboxCapabilityPolicy, SandboxDecisionRecord,
+    SandboxDecisionStatus, SandboxHostCall, SandboxHostCallEnvelope, SandboxPolicyMode,
+    SandboxResourceLimits,
+};
+pub use semantic::{
+    HybridRetrievalPolicy, RetrievalStrategy, SemanticHit, SemanticMemoryRecord,
+    SemanticProvenance, SemanticQuery, SemanticQueryFilters, SemanticRecordId, SemanticSourceKind,
 };
 pub use time::{Clock, FixedClock, SystemClock};
 pub use types::{ConversationId, EventId, IntegrationConnectionId, InterventionId, MessageId};

@@ -1,0 +1,20 @@
+{
+  "protocol_version": "vel_protocol/v1",
+  "message_id": "{{message_id}}",
+  "sent_at": "{{sent_at}}",
+  "sender": {
+    "node_id": "{{node_id}}",
+    "actor_id": "{{actor_id}}",
+    "actor_kind": "external_limb"
+  },
+  "trace": {
+    "run_id": "{{run_id}}",
+    "trace_id": "{{trace_id}}",
+    "parent_run_id": "{{parent_run_id}}"
+  },
+  "payload": {
+    "kind": "heartbeat",
+    "lease_id": "{{lease_id}}",
+    "status": "healthy"
+  }
+}

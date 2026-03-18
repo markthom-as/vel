@@ -1,0 +1,19 @@
+{
+  "record_id": "sem_example_01",
+  "source_kind": "capture",
+  "source_id": "cap_example_01",
+  "chunk_id": "chunk_0001",
+  "content_text": "Need to follow up on the budget review before tomorrow morning.",
+  "embedding_model": "local-mini-embed",
+  "embedding_revision": "2026-03-18",
+  "token_count": 12,
+  "metadata_json": {
+    "memory_tier": "operational",
+    "index_backend": "local_file"
+  },
+  "provenance": {
+    "capture_id": "cap_example_01",
+    "run_id": "run_example_01",
+    "trace_id": "trace_example_01"
+  }
+}
