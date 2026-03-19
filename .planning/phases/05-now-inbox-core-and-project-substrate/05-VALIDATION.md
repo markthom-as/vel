@@ -43,10 +43,10 @@ created: 2026-03-18
 | 05-02-02 | 02 | 2 | PROJ-03 | route/service | `cargo test -p veld project -- --nocapture` | ❌ W0 | ⬜ pending |
 | 05-03-01 | 03 | 3 | CONTINUITY-01, CONTINUITY-02 | integration | `cargo test -p vel-storage linking -- --nocapture && cargo test -p veld linking -- --nocapture` | ❌ W0 | ⬜ pending |
 | 05-04-01 | 04 | 4 | CONTINUITY-02 | cli/doc | `cargo test -p vel-cli node -- --nocapture && rg -n "vel node link issue|/v1/linking/status" docs/api/runtime.md` | ❌ W0 | ⬜ pending |
-| 05-05-01 | 05 | 4 | NOW-01, NOW-02, INBOX-01, INBOX-02, ACTION-01, REVIEW-01 | service/integration | `cargo test -p veld now -- --nocapture && cargo test -p veld inbox -- --nocapture && cargo test -p veld intervention -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ❌ W0 | ⬜ pending |
-| 05-06-01 | 06 | 5 | NOW-01, NOW-02, INBOX-01, INBOX-02, CONTINUITY-01, PROJ-03 | web data | `npm --prefix clients/web test -- --run src/types.test.ts src/data/chat.test.ts` | ❌ W0 | ⬜ pending |
-| 05-07-01 | 07 | 6 | NOW-01, NOW-02, INBOX-01, INBOX-02, CONTINUITY-01, PROJ-03 | web component | `npm --prefix clients/web test -- --run src/components/NowView.test.tsx src/components/InboxView.test.tsx src/components/MainPanel.test.tsx src/components/Sidebar.test.tsx src/components/ProjectsView.test.tsx` | ✅ partial | ⬜ pending |
-| 05-08-01 | 08 | 6 | CONTINUITY-01, CONTINUITY-02 | Apple compile | `make check-apple-swift` | ✅ partial | ⬜ pending |
+| 05-05-01 | 05 | 4 | NOW-01, NOW-02, INBOX-01, INBOX-02, ACTION-01, REVIEW-01, CONTINUITY-01 | service/integration | `cargo test -p veld now -- --nocapture && cargo test -p veld inbox -- --nocapture && cargo test -p veld sync -- --nocapture && cargo test -p veld intervention -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ❌ W0 | ⬜ pending |
+| 05-06-01 | 06 | 5 | NOW-01, NOW-02, INBOX-01, INBOX-02, CONTINUITY-01, CONTINUITY-02, PROJ-03 | web data | `npm --prefix clients/web test -- --run src/types.test.ts src/data/chat.test.ts` | ❌ W0 | ⬜ pending |
+| 05-07-01 | 07 | 6 | NOW-01, NOW-02, INBOX-01, INBOX-02, REVIEW-01, CONTINUITY-01, CONTINUITY-02, PROJ-03 | web component | `npm --prefix clients/web test -- --run src/components/NowView.test.tsx src/components/InboxView.test.tsx src/components/MainPanel.test.tsx src/components/Sidebar.test.tsx src/components/ProjectsView.test.tsx` | ✅ partial | ⬜ pending |
+| 05-08-01 | 08 | 5 | CONTINUITY-01, CONTINUITY-02 | Apple compile | `make check-apple-swift` | ✅ partial | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
