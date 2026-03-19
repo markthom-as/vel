@@ -43,6 +43,7 @@ pub(crate) struct TailscalePeer {
     pub online: bool,
     pub tailscale_ips: Vec<String>,
     pub base_url: String,
+    pub candidate_base_urls: Vec<String>,
 }
 
 pub(crate) async fn discover_base_url(config: &AppConfig) -> Option<String> {
@@ -72,7 +73,8 @@ pub(crate) async fn discover_peers(config: &AppConfig) -> Vec<TailscalePeer> {
             if dns_name.is_empty() || dns_name == self_dns_name {
                 return None;
             }
-            let base_url = build_base_url(config, &dns_name)?;
+            let candidate_base_urls = candidate_base_urls(config, &dns_name, &peer.tailscale_ips);
+            let base_url = candidate_base_urls.first()?.clone();
             Some(TailscalePeer {
                 dns_name,
                 host_name: peer
@@ -90,6 +92,7 @@ pub(crate) async fn discover_peers(config: &AppConfig) -> Vec<TailscalePeer> {
                 online: peer.online.unwrap_or(false),
                 tailscale_ips: peer.tailscale_ips,
                 base_url,
+                candidate_base_urls,
             })
         })
         .collect()
@@ -138,6 +141,25 @@ fn build_base_url(config: &AppConfig, dns_name: &str) -> Option<String> {
 
 fn normalize_dns_name(dns_name: &str) -> String {
     dns_name.trim().trim_end_matches('.').to_string()
+}
+
+fn candidate_base_urls(
+    config: &AppConfig,
+    dns_name: &str,
+    tailscale_ips: &[String],
+) -> Vec<String> {
+    let mut urls = Vec::new();
+    if let Some(url) = build_base_url(config, dns_name) {
+        urls.push(url);
+    }
+    for ip in tailscale_ips {
+        if let Some(url) = build_base_url(config, ip) {
+            if !urls.contains(&url) {
+                urls.push(url);
+            }
+        }
+    }
+    urls
 }
 
 fn port_from_bind_addr(bind_addr: &str) -> Option<u16> {
@@ -205,7 +227,9 @@ mod tests {
             .into_values()
             .filter_map(|peer| {
                 let dns_name = normalize_dns_name(peer.dns_name.as_deref()?);
-                let base_url = build_base_url(&config, &dns_name)?;
+                let candidate_base_urls =
+                    candidate_base_urls(&config, &dns_name, &peer.tailscale_ips);
+                let base_url = candidate_base_urls.first()?.clone();
                 Some(TailscalePeer {
                     dns_name,
                     host_name: peer.host_name,
@@ -213,6 +237,7 @@ mod tests {
                     online: peer.online.unwrap_or(false),
                     tailscale_ips: peer.tailscale_ips,
                     base_url,
+                    candidate_base_urls,
                 })
             })
             .collect::<Vec<_>>();
@@ -222,6 +247,13 @@ mod tests {
         assert_eq!(
             peers[0].base_url,
             "http://joves-macbook-pro.tailnet.ts.net:4130"
+        );
+        assert_eq!(
+            peers[0].candidate_base_urls,
+            vec![
+                "http://joves-macbook-pro.tailnet.ts.net:4130".to_string(),
+                "http://100.106.75.48:4130".to_string()
+            ]
         );
         assert!(peers[0].online);
     }

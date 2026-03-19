@@ -1,3 +1,4 @@
+pub mod apple;
 pub mod capability;
 pub mod command;
 pub mod commitment;
@@ -26,6 +27,12 @@ pub mod uncertainty;
 pub mod vocabulary;
 pub mod writeback;
 
+pub use apple::{
+    AppleBehaviorMetric, AppleBehaviorSummary, AppleBehaviorSummaryScope, AppleClientSurface,
+    AppleRequestedOperation, AppleResponseEvidence, AppleResponseMode, AppleScheduleEvent,
+    AppleScheduleSnapshot, AppleTurnProvenance, AppleVoiceIntent,
+    AppleVoiceTurnQueuedMutationSummary, AppleVoiceTurnRequest, AppleVoiceTurnResponse,
+};
 pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 pub use command::{
     CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,

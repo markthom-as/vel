@@ -6,12 +6,11 @@ use vel_api_types::{
 
 use crate::{errors::AppError, routes::response, state::AppState};
 
-pub async fn bootstrap(
-    State(state): State<AppState>,
-) -> Result<Json<ApiResponse<ClusterBootstrapData>>, AppError> {
-    state.storage.healthcheck().await?;
-    let data = crate::services::client_sync::effective_cluster_bootstrap_data(&state).await?;
-    let data = vel_api_types::ClusterBootstrapData {
+fn cluster_bootstrap_to_api(
+    data: crate::services::client_sync::ClusterBootstrap,
+    include_sensitive_state: bool,
+) -> vel_api_types::ClusterBootstrapData {
+    vel_api_types::ClusterBootstrapData {
         node_id: data.node_id,
         node_display_name: data.node_display_name,
         active_authority_node_id: data.active_authority_node_id,
@@ -41,38 +40,72 @@ pub async fn bootstrap(
                 environment: profile.environment,
             })
             .collect(),
-        linked_nodes: data
-            .linked_nodes
-            .into_iter()
-            .map(vel_api_types::LinkedNodeData::from)
-            .collect(),
-        projects: data
-            .projects
-            .into_iter()
-            .map(vel_api_types::ProjectRecordData::from)
-            .collect(),
-        action_items: data
-            .action_items
-            .into_iter()
-            .map(vel_api_types::ActionItemData::from)
-            .collect(),
-        pending_writebacks: data
-            .pending_writebacks
-            .into_iter()
-            .map(vel_api_types::WritebackOperationData::from)
-            .collect(),
-        conflicts: data
-            .conflicts
-            .into_iter()
-            .map(vel_api_types::ConflictCaseData::from)
-            .collect(),
-        people: data
-            .people
-            .into_iter()
-            .map(vel_api_types::PersonRecordData::from)
-            .collect(),
-    };
+        linked_nodes: if include_sensitive_state {
+            data.linked_nodes
+                .into_iter()
+                .map(vel_api_types::LinkedNodeData::from)
+                .collect()
+        } else {
+            Vec::new()
+        },
+        projects: if include_sensitive_state {
+            data.projects
+                .into_iter()
+                .map(vel_api_types::ProjectRecordData::from)
+                .collect()
+        } else {
+            Vec::new()
+        },
+        action_items: if include_sensitive_state {
+            data.action_items
+                .into_iter()
+                .map(vel_api_types::ActionItemData::from)
+                .collect()
+        } else {
+            Vec::new()
+        },
+        pending_writebacks: if include_sensitive_state {
+            data.pending_writebacks
+                .into_iter()
+                .map(vel_api_types::WritebackOperationData::from)
+                .collect()
+        } else {
+            Vec::new()
+        },
+        conflicts: if include_sensitive_state {
+            data.conflicts
+                .into_iter()
+                .map(vel_api_types::ConflictCaseData::from)
+                .collect()
+        } else {
+            Vec::new()
+        },
+        people: if include_sensitive_state {
+            data.people
+                .into_iter()
+                .map(vel_api_types::PersonRecordData::from)
+                .collect()
+        } else {
+            Vec::new()
+        },
+    }
+}
+
+pub async fn bootstrap(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<ClusterBootstrapData>>, AppError> {
+    state.storage.healthcheck().await?;
+    let data = crate::services::client_sync::effective_cluster_bootstrap_data(&state).await?;
+    let data = cluster_bootstrap_to_api(data, true);
     Ok(response::success(data))
+}
+
+pub async fn discovery_bootstrap(
+    State(state): State<AppState>,
+) -> Result<Json<ApiResponse<ClusterBootstrapData>>, AppError> {
+    state.storage.healthcheck().await?;
+    let data = crate::services::client_sync::effective_cluster_bootstrap_data(&state).await?;
+    Ok(response::success(cluster_bootstrap_to_api(data, false)))
 }
 
 pub async fn workers(

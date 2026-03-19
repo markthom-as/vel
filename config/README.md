@@ -33,6 +33,8 @@ Use it to answer four questions quickly:
   - `schemas/self-model-envelope.schema.json`
   - `schemas/semantic-query.schema.json`
   - `schemas/semantic-memory-record.schema.json`
+  - `schemas/apple-voice-turn.schema.json`
+  - `schemas/apple-behavior-summary.schema.json`
   - `schemas/project-workspace.schema.json`
   - `schemas/operator-action-item.schema.json`
   - `schemas/writeback-operation.schema.json`
@@ -50,6 +52,8 @@ Use it to answer four questions quickly:
   - `examples/self-model-envelope.example.json`
   - `examples/semantic-query.example.json`
   - `examples/semantic-memory-record.example.json`
+  - `examples/apple-voice-turn.example.json`
+  - `examples/apple-behavior-summary.example.json`
   - `examples/project-workspace.example.json`
   - `examples/operator-action-item.example.json`
   - `examples/writeback-operation.example.json`
@@ -67,6 +71,7 @@ Use it to answer four questions quickly:
 - `docs/cognitive-agent-architecture/integrations/writeback-and-conflict-contracts.md` owns the Phase 06 write-back, conflict, and people contract vocabulary.
 - `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md` owns self-model and writable-scope semantics.
 - `docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md` owns the Phase 05 typed project, operator-action, and linking vocabulary.
+- `docs/cognitive-agent-architecture/apple/apple-action-loop-contracts.md` owns the Phase 07 Apple voice, schedule, and bounded behavior-summary vocabulary.
 
 ## Scientific Substrate vs Symbolic Layer
 

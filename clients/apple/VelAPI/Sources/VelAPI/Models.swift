@@ -110,6 +110,128 @@ public struct HealthData: Codable, Sendable {
     public let version: String?
 }
 
+// MARK: - Apple quick loops
+
+public typealias AppleVoiceTurnResponse = APIEnvelope<AppleVoiceTurnResponseData>
+public typealias AppleBehaviorSummaryResponse = APIEnvelope<AppleBehaviorSummaryData>
+
+public enum AppleClientSurfaceData: String, Codable, Sendable {
+    case iosVoice = "ios_voice"
+    case iosCapture = "ios_capture"
+    case watchBriefing = "watch_briefing"
+    case watchQuickAction = "watch_quick_action"
+    case macContext = "mac_context"
+}
+
+public enum AppleRequestedOperationData: String, Codable, Sendable {
+    case captureOnly = "capture_only"
+    case queryOnly = "query_only"
+    case captureAndQuery = "capture_and_query"
+    case mutation
+}
+
+public enum AppleVoiceIntentData: String, Codable, Sendable {
+    case capture
+    case morningBriefing = "morning_briefing"
+    case currentSchedule = "current_schedule"
+    case nextCommitment = "next_commitment"
+    case activeNudges = "active_nudges"
+    case explainWhy = "explain_why"
+    case behaviorSummary = "behavior_summary"
+    case completeCommitment = "complete_commitment"
+    case snoozeNudge = "snooze_nudge"
+}
+
+public struct AppleTurnProvenanceData: Codable, Sendable {
+    public let source_device: String?
+    public let locale: String?
+    public let transcript_origin: String?
+    public let recorded_at: String?
+    public let offline_captured_at: String?
+    public let queued_at: String?
+}
+
+public struct AppleVoiceTurnRequestData: Codable, Sendable {
+    public let transcript: String
+    public let surface: AppleClientSurfaceData
+    public let operation: AppleRequestedOperationData
+    public let intents: [AppleVoiceIntentData]
+    public let provenance: AppleTurnProvenanceData?
+}
+
+public enum AppleResponseModeData: String, Codable, Sendable {
+    case spokenSummary = "spoken_summary"
+    case card
+    case confirmation
+    case clarificationRequired = "clarification_required"
+}
+
+public struct AppleResponseEvidenceData: Codable, Sendable {
+    public let kind: String
+    public let label: String
+    public let detail: String
+    public let source_id: String?
+}
+
+public struct AppleVoiceTurnQueuedMutationSummaryData: Codable, Sendable {
+    public let mutation_kind: String
+    public let queued: Bool
+    public let summary: String
+    public let action_reference_id: String?
+}
+
+public struct AppleScheduleEventData: Codable, Sendable {
+    public let title: String
+    public let start_ts: Int
+    public let end_ts: Int?
+    public let location: String?
+    public let leave_by_ts: Int?
+}
+
+public struct AppleScheduleSnapshotData: Codable, Sendable {
+    public let generated_at: Int
+    public let timezone: String
+    public let focus_summary: String?
+    public let next_event: AppleScheduleEventData?
+    public let upcoming_events: [AppleScheduleEventData]
+    public let reasons: [String]
+}
+
+public enum AppleBehaviorSummaryScopeData: String, Codable, Sendable {
+    case daily
+}
+
+public struct AppleBehaviorMetricData: Codable, Sendable {
+    public let metric_key: String
+    public let display_label: String
+    public let value: Double
+    public let unit: String
+    public let recorded_at: Int
+    public let reasons: [String]
+}
+
+public struct AppleBehaviorSummaryData: Codable, Sendable {
+    public let generated_at: Int
+    public let timezone: String
+    public let scope: AppleBehaviorSummaryScopeData
+    public let headline: String
+    public let metrics: [AppleBehaviorMetricData]
+    public let reasons: [String]
+    public let freshness_seconds: Int?
+}
+
+public struct AppleVoiceTurnResponseData: Codable, Sendable {
+    public let operation: AppleRequestedOperationData
+    public let mode: AppleResponseModeData
+    public let summary: String
+    public let capture_id: String?
+    public let reasons: [String]
+    public let evidence: [AppleResponseEvidenceData]
+    public let queued_mutation: AppleVoiceTurnQueuedMutationSummaryData?
+    public let schedule: AppleScheduleSnapshotData?
+    public let behavior_summary: AppleBehaviorSummaryData?
+}
+
 // MARK: - Cluster bootstrap
 
 public typealias ClusterBootstrapResponse = APIEnvelope<ClusterBootstrapData>

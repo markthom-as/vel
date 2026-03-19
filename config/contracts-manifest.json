@@ -180,6 +180,18 @@
       "schema": "config/schemas/swarm-protocol-envelope.schema.json"
     },
     {
+      "id": "apple_voice_turn_example",
+      "path": "config/examples/apple-voice-turn.example.json",
+      "kind": "apple_voice_turn",
+      "schema": "config/schemas/apple-voice-turn.schema.json"
+    },
+    {
+      "id": "apple_behavior_summary_example",
+      "path": "config/examples/apple-behavior-summary.example.json",
+      "kind": "apple_behavior_summary",
+      "schema": "config/schemas/apple-behavior-summary.schema.json"
+    },
+    {
       "id": "project_workspace_example",
       "path": "config/examples/project-workspace.example.json",
       "kind": "project_workspace",
@@ -210,6 +222,7 @@
     "docs/cognitive-agent-architecture/integrations/data-source-catalog.md",
     "docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md",
     "docs/cognitive-agent-architecture/cognition/semantic-memory-contract.md",
+    "docs/cognitive-agent-architecture/apple/apple-action-loop-contracts.md",
     "docs/cognitive-agent-architecture/agents/sandbox-host-abi.md",
     "docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md",
     "docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md",

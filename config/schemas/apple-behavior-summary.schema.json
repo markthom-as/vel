@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/apple-behavior-summary.schema.json",
+  "title": "AppleBehaviorSummary",
+  "description": "Canonical Phase 07 Apple daily behavior summary contract for bounded step, stand, and exercise signals.",
+  "type": "object",
+  "$defs": {
+    "AppleBehaviorMetric": {
+      "type": "object",
+      "properties": {
+        "metric_key": {
+          "type": "string",
+          "enum": ["step_count", "stand_hours", "exercise_minutes"]
+        },
+        "display_label": { "type": "string", "minLength": 1 },
+        "value": { "type": "number" },
+        "unit": { "type": "string", "minLength": 1 },
+        "recorded_at": { "type": "integer" },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "required": [
+        "metric_key",
+        "display_label",
+        "value",
+        "unit",
+        "recorded_at",
+        "reasons"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "generated_at": { "type": "integer" },
+    "timezone": { "type": "string", "minLength": 1 },
+    "scope": { "type": "string", "enum": ["daily"] },
+    "headline": { "type": "string", "minLength": 1 },
+    "metrics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AppleBehaviorMetric" }
+    },
+    "reasons": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "freshness_seconds": { "type": ["integer", "null"] }
+  },
+  "required": [
+    "generated_at",
+    "timezone",
+    "scope",
+    "headline",
+    "metrics",
+    "reasons",
+    "freshness_seconds"
+  ],
+  "additionalProperties": false
+}

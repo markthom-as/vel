@@ -1,0 +1,92 @@
+{
+  "request": {
+    "transcript": "What matters now, and am I on track today?",
+    "surface": "ios_voice",
+    "operation": "capture_and_query",
+    "intents": ["current_schedule", "behavior_summary"],
+    "provenance": {
+      "source_device": "iphone-16-pro",
+      "locale": "en-US",
+      "transcript_origin": "speech",
+      "recorded_at": "2026-03-19T14:10:00Z",
+      "offline_captured_at": null,
+      "queued_at": null
+    }
+  },
+  "response": {
+    "operation": "capture_and_query",
+    "mode": "spoken_summary",
+    "summary": "You have standup at 9 and you are already moving well this morning.",
+    "capture_id": "cap_voice_20260319",
+    "reasons": [
+      "Standup is the next scheduled commitment in the backend-owned Now snapshot.",
+      "Your latest Health summary shows fresh step data from this morning."
+    ],
+    "evidence": [
+      {
+        "kind": "schedule_event",
+        "label": "Standup",
+        "detail": "Starts at 2026-03-19T15:00:00Z.",
+        "source_id": "evt_standup"
+      },
+      {
+        "kind": "health_metric",
+        "label": "Steps",
+        "detail": "4,200 recorded steps as of 8:58 AM.",
+        "source_id": "health_step_count"
+      }
+    ],
+    "queued_mutation": {
+      "mutation_kind": "capture_create",
+      "queued": false,
+      "summary": "Transcript stored as an Apple voice capture.",
+      "action_reference_id": "act_capture_01"
+    },
+    "schedule": {
+      "generated_at": 1763661000,
+      "timezone": "America/Denver",
+      "focus_summary": "Morning execution block before midday review.",
+      "next_event": {
+        "title": "Standup",
+        "start_ts": 1763661600,
+        "end_ts": 1763662500,
+        "location": "Desk",
+        "leave_by_ts": 1763661300
+      },
+      "upcoming_events": [
+        {
+          "title": "Design review",
+          "start_ts": 1763672400,
+          "end_ts": 1763675100,
+          "location": null,
+          "leave_by_ts": null
+        }
+      ],
+      "reasons": [
+        "Derived from the same /v1/now output used by other operator surfaces."
+      ]
+    },
+    "behavior_summary": {
+      "generated_at": 1763661000,
+      "timezone": "America/Denver",
+      "scope": "daily",
+      "headline": "You are on track for movement today.",
+      "metrics": [
+        {
+          "metric_key": "step_count",
+          "display_label": "Steps",
+          "value": 4200,
+          "unit": "count",
+          "recorded_at": 1763661480,
+          "reasons": [
+            "Above your same-time baseline."
+          ]
+        }
+      ],
+      "reasons": [
+        "Health snapshot was refreshed less than 5 minutes ago."
+      ],
+      "freshness_seconds": 120
+    }
+  }
+}

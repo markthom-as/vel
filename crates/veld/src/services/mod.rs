@@ -5,6 +5,7 @@
 
 pub mod adaptive_policies;
 pub mod agent_protocol;
+pub mod apple_voice;
 pub mod broker;
 pub mod chat;
 pub mod client_sync;
@@ -26,6 +27,7 @@ pub(crate) mod integrations_todoist;
 pub mod journal;
 pub(crate) mod lan_discovery;
 pub mod linking;
+pub(crate) mod local_network;
 pub mod now;
 pub mod nudge_engine;
 pub mod operator_queue;

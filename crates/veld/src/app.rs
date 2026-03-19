@@ -19,6 +19,10 @@ fn public_routes() -> Router<AppState> {
     Router::new()
         .route("/v1/health", get(routes::health::health))
         .route(
+            "/v1/discovery/bootstrap",
+            get(routes::cluster::discovery_bootstrap),
+        )
+        .route(
             "/api/integrations/google-calendar/oauth/callback",
             get(routes::integrations::google_calendar_oauth_callback),
         )
@@ -34,6 +38,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/cluster/bootstrap", get(routes::cluster::bootstrap))
         .route("/v1/cluster/workers", get(routes::cluster::workers))
         .route("/v1/doctor", get(routes::doctor::doctor))
+        .route(
+            "/v1/apple/voice/turn",
+            post(routes::apple::apple_voice_turn),
+        )
         .route(
             "/v1/captures",
             get(routes::captures::list_captures).post(routes::captures::create_capture),
@@ -1228,6 +1236,42 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn discovery_bootstrap_route_remains_local_public_with_strict_auth() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut config = AppConfig::default();
+        config.node_id = Some("vel-desktop".to_string());
+        config.node_display_name = Some("Vel Desktop".to_string());
+        config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
+        let app = build_app_with_policy(
+            AppState::new(
+                storage,
+                config,
+                test_policy_config(),
+                tokio::sync::broadcast::channel(8).0,
+                None,
+                None,
+            ),
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: Some("worker-secret".to_string()),
+                strict_auth: true,
+            },
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/discovery/bootstrap")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
     async fn undefined_api_and_ws_paths_remain_not_found_with_or_without_auth() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -1729,6 +1773,55 @@ mod tests {
         assert_eq!(data.nodes[0].node_id, "vel-desktop");
         assert_eq!(data.workers[0].worker_id, "vel-desktop");
         assert_eq!(data.sync_transport.as_deref(), Some("tailscale"));
+    }
+
+    #[tokio::test]
+    async fn discovery_bootstrap_endpoint_strips_operator_state() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .upsert_linked_node(&vel_core::LinkedNodeRecord {
+                node_id: "node_remote".to_string(),
+                node_display_name: "Remote".to_string(),
+                status: vel_core::LinkStatus::Linked,
+                scopes: vel_core::LinkScope {
+                    read_context: true,
+                    write_safe_actions: false,
+                    execute_repo_tasks: false,
+                },
+                linked_at: time::OffsetDateTime::now_utc(),
+                last_seen_at: None,
+                transport_hint: Some("tailscale".to_string()),
+            })
+            .await
+            .unwrap();
+
+        let mut config = AppConfig::default();
+        config.node_id = Some("vel-desktop".to_string());
+        config.node_display_name = Some("Vel Desktop".to_string());
+        config.lan_base_url = Some("http://192.168.1.10:4130".to_string());
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/discovery/bootstrap")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["node_id"], "vel-desktop");
+        assert_eq!(json["data"]["lan_base_url"], "http://192.168.1.10:4130");
+        assert_eq!(json["data"]["linked_nodes"], serde_json::json!([]));
+        assert_eq!(json["data"]["projects"], serde_json::json!([]));
+        assert_eq!(json["data"]["action_items"], serde_json::json!([]));
     }
 
     #[tokio::test]

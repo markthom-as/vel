@@ -1,0 +1,43 @@
+{
+  "generated_at": 1763661000,
+  "timezone": "America/Denver",
+  "scope": "daily",
+  "headline": "You are on track for movement today.",
+  "metrics": [
+    {
+      "metric_key": "step_count",
+      "display_label": "Steps",
+      "value": 4200,
+      "unit": "count",
+      "recorded_at": 1763661480,
+      "reasons": [
+        "Above your same-time baseline."
+      ]
+    },
+    {
+      "metric_key": "stand_hours",
+      "display_label": "Stand hours",
+      "value": 6,
+      "unit": "hours",
+      "recorded_at": 1763661480,
+      "reasons": [
+        "You have already stood during most work hours so far."
+      ]
+    },
+    {
+      "metric_key": "exercise_minutes",
+      "display_label": "Exercise",
+      "value": 18,
+      "unit": "minutes",
+      "recorded_at": 1763661480,
+      "reasons": [
+        "Morning walk contributed most of today's exercise minutes."
+      ]
+    }
+  ],
+  "reasons": [
+    "Derived from the bounded Apple Health metric set for Phase 07.",
+    "Freshness is reported so Apple clients can explain staleness instead of guessing."
+  ],
+  "freshness_seconds": 120
+}

@@ -132,10 +132,22 @@ pub(crate) async fn discover_peers(
     })
     .map_err(|error| AppError::internal(format!("serialize LAN discovery query: {error}")))?;
 
-    socket
-        .send_to(&payload, ("255.255.255.255", DISCOVERY_PORT))
-        .await
-        .map_err(|error| AppError::internal(format!("send LAN discovery broadcast: {error}")))?;
+    let mut sent = false;
+    let mut last_error = None;
+    for target in crate::services::local_network::lan_broadcast_targets() {
+        match socket.send_to(&payload, (target, DISCOVERY_PORT)).await {
+            Ok(_) => sent = true,
+            Err(error) => last_error = Some(error),
+        }
+    }
+    if !sent {
+        return Err(AppError::internal(format!(
+            "send LAN discovery broadcast: {}",
+            last_error
+                .map(|error| error.to_string())
+                .unwrap_or_else(|| "no broadcast targets were available".to_string())
+        )));
+    }
 
     collect_discovery_responses(&socket, &request_id, local_node_id).await
 }

@@ -184,7 +184,9 @@ async fn apple_voice_schedule_query_uses_backend_now_state_not_client_heuristics
     assert_eq!(next_event.title, "Backend Planning Review");
     assert_eq!(next_event.location.as_deref(), Some("Studio"));
     assert!(
-        data.evidence.iter().any(|item| item.label.contains("Backend Planning Review")),
+        data.evidence
+            .iter()
+            .any(|item| item.label.contains("Backend Planning Review")),
         "response should cite backend-derived schedule evidence"
     );
 }

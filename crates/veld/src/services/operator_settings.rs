@@ -33,6 +33,9 @@ pub(crate) async fn runtime_sync_config(
     if runtime.tailscale_base_url.is_none() {
         runtime.tailscale_base_url = crate::services::tailscale::discover_base_url(&runtime).await;
     }
+    if runtime.lan_base_url.is_none() {
+        runtime.lan_base_url = crate::services::local_network::discover_lan_base_url(&runtime);
+    }
 
     Ok(runtime)
 }

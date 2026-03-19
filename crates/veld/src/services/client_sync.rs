@@ -405,23 +405,32 @@ async fn fetch_tailscale_peer_worker(
     peer: &crate::services::tailscale::TailscalePeer,
     now: i64,
 ) -> Option<WorkerPresence> {
-    let url = format!("{}/v1/sync/bootstrap", peer.base_url.trim_end_matches('/'));
-    let response = client.get(&url).send().await.ok()?;
-    if !response.status().is_success() {
-        tracing::debug!(
-            base_url = %peer.base_url,
-            status = %response.status(),
-            "tailscale peer bootstrap probe was not accepted"
-        );
-        return None;
+    for base_url in &peer.candidate_base_urls {
+        let url = format!("{}/v1/discovery/bootstrap", base_url.trim_end_matches('/'));
+        let Ok(response) = client.get(&url).send().await else {
+            continue;
+        };
+        if !response.status().is_success() {
+            tracing::debug!(
+                base_url = %base_url,
+                status = %response.status(),
+                "tailscale peer bootstrap probe was not accepted"
+            );
+            continue;
+        }
+
+        let Ok(body) = response.json::<ApiResponse<SyncBootstrapData>>().await else {
+            continue;
+        };
+        let Some(cluster) = body.data.map(|data| data.cluster) else {
+            continue;
+        };
+        return Some(discovered_worker_from_bootstrap(
+            peer, cluster, now, base_url,
+        ));
     }
 
-    let body = response
-        .json::<ApiResponse<SyncBootstrapData>>()
-        .await
-        .ok()?;
-    let cluster = body.data?.cluster;
-    Some(discovered_worker_from_bootstrap(peer, cluster, now))
+    None
 }
 
 async fn discover_lan_workers(
@@ -446,6 +455,7 @@ fn discovered_worker_from_bootstrap(
     peer: &crate::services::tailscale::TailscalePeer,
     cluster: vel_api_types::ClusterBootstrapData,
     now: i64,
+    resolved_base_url: &str,
 ) -> WorkerPresence {
     let latency_class = if peer.online { "low" } else { "unknown" }.to_string();
     WorkerPresence {
@@ -484,8 +494,8 @@ fn discovered_worker_from_bootstrap(
         sync_transport: cluster.sync_transport,
         tailscale_base_url: cluster
             .tailscale_base_url
-            .or_else(|| Some(peer.base_url.clone())),
-        preferred_tailnet_endpoint: Some(peer.base_url.clone()),
+            .or_else(|| Some(resolved_base_url.to_string())),
+        preferred_tailnet_endpoint: Some(resolved_base_url.to_string()),
         tailscale_reachable: peer.online,
         lan_base_url: cluster.lan_base_url,
         localhost_base_url: cluster.localhost_base_url,
@@ -2283,6 +2293,10 @@ mod tests {
             online: true,
             tailscale_ips: vec!["100.106.75.48".to_string()],
             base_url: "http://joves-macbook-pro.tailnet.ts.net:4130".to_string(),
+            candidate_base_urls: vec![
+                "http://joves-macbook-pro.tailnet.ts.net:4130".to_string(),
+                "http://100.106.75.48:4130".to_string(),
+            ],
         };
         let worker = discovered_worker_from_bootstrap(
             &peer,
@@ -2309,6 +2323,7 @@ mod tests {
                 people: vec![],
             },
             1_710_000_000,
+            "http://100.106.75.48:4130",
         );
 
         assert_eq!(worker.node_id, "vel-mbp");
@@ -2316,6 +2331,10 @@ mod tests {
         assert_eq!(worker.worker_id, "discovered:vel-mbp");
         assert_eq!(worker.sync_status, "discovered_via_tailscale");
         assert_eq!(worker.client_kind.as_deref(), Some("vel_macos"));
+        assert_eq!(
+            worker.preferred_tailnet_endpoint.as_deref(),
+            Some("http://100.106.75.48:4130")
+        );
     }
 
     #[test]
