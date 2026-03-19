@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 07
 current_phase_name: apple-action-loops-and-behavioral-signal-ingestion
-current_plan: 2
-status: ready_to_execute
-stopped_at: Completed 07-01-PLAN.md; 07-02 is next
-last_updated: "2026-03-19T06:58:44Z"
+current_plan: 3
+status: executing
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-03-19T07:10:16.719Z"
 last_activity: 2026-03-19
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 44
-  completed_plans: 29
+  completed_plans: 30
   percent: 25
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 Status: Phase 07 ready to execute
 Current Phase: 07
 Current Phase Name: apple-action-loops-and-behavioral-signal-ingestion
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 4
 Progress: 25%
 Last Activity: 2026-03-19
@@ -68,6 +68,7 @@ Next: $gsd-execute-phase 07
 
 *Updated after each plan completion*
 | Phase 07 P1 | 11m | 2 tasks | 12 files |
+| Phase 07 P02 | 6m | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,9 @@ Recent decisions affecting current work:
 - [Phase 8+]: Task handoff is part of the product, not just protocol plumbing; human-to-agent and agent-to-agent delegation must be explicit, inspectable, and reviewable
 - [Phase 8+]: GSD integration should begin through repo-local docs/context that GSD already consumes; Vel should eventually route by token budget and agent profile
 - [Phase 9+]: Backup matters mainly as trust against loss; recovery is lower priority than core usability and backup/export confidence
+- [Phase 07]: Apple voice turns now persist transcript provenance before any query or mutation response is returned.
+- [Phase 07]: Apple schedule answers are derived from backend /v1/now output rather than Swift-local synthesis.
+- [Phase 07]: Low-risk Apple voice mutations reuse the existing client_sync action path and fail closed when the backend cannot resolve a safe target.
 
 ### Roadmap Evolution
 
@@ -154,6 +158,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-19T06:58:44Z
-Stopped at: Completed 07-01-PLAN.md; 07-02 is next
+Last session: 2026-03-19T07:10:16.718Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
