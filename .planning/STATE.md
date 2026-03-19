@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 07
-current_phase_name: apple-action-loops-and-behavioral-signal-ingestion
-current_plan: 4
-status: verifying
-stopped_at: Completed 07-04-PLAN.md
-last_updated: "2026-03-19T07:40:46.912Z"
+current_phase: 09
+current_phase_name: backup-first-trust-surfaces-and-simple-operator-control
+current_plan: 1
+status: ready_to_execute
+stopped_at: Added Phases 10 and 11; Phase 09 remains next
+last_updated: "2026-03-19T10:24:00Z"
 last_activity: 2026-03-19
 progress:
-  total_phases: 9
-  completed_phases: 6
+  total_phases: 11
+  completed_phases: 8
   total_plans: 44
-  completed_plans: 35
-  percent: 100
+  completed_plans: 38
+  percent: 0
 ---
 
 # Project State
@@ -24,22 +24,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 07 — apple-action-loops-and-behavioral-signal-ingestion
+**Current focus:** Phase 09 — backup-first-trust-surfaces-and-simple-operator-control
 
-Status: Phase 07 ready to verify
-Current Phase: 07
-Current Phase Name: apple-action-loops-and-behavioral-signal-ingestion
-Current Plan: 4
+Status: Phase 09 ready to execute
+Current Phase: 09
+Current Phase Name: backup-first-trust-surfaces-and-simple-operator-control
+Current Plan: 1
 Total Plans in Phase: 4
-Progress: 100%
+Progress: 0%
 Last Activity: 2026-03-19
-Last Activity Description: Completed 07-04 Apple client wiring and doc alignment; phase ready to verify
+Last Activity Description: Added Phase 10 daily-loop MVP and Phase 11 shell/onboarding ergonomics while keeping Phase 09 as the active next lane
 
 ## Current Position
 
-Phase: 07 (apple-action-loops-and-behavioral-signal-ingestion) — READY TO VERIFY
-Plan: 4 of 4 complete
-Next: $gsd-verify-work 07
+Phase: 09 (backup-first-trust-surfaces-and-simple-operator-control) — READY TO EXECUTE
+Plan: 0 of 4 complete
+Next: $gsd-execute-phase 09
 
 ## Performance Metrics
 
@@ -115,6 +115,8 @@ Recent decisions affecting current work:
 - [Phase 8+]: Task handoff is part of the product, not just protocol plumbing; human-to-agent and agent-to-agent delegation must be explicit, inspectable, and reviewable
 - [Phase 8+]: GSD integration should begin through repo-local docs/context that GSD already consumes; Vel should eventually route by token budget and agent profile
 - [Phase 9+]: Backup matters mainly as trust against loss; recovery is lower priority than core usability and backup/export confidence
+- [Phase 10+]: The next major product-value lane after backup/trust should be a strict daily loop built on existing `Now`, commitments, calendar/Todoist, and Apple voice seams rather than a brand-new planner subsystem.
+- [Phase 11+]: The raw UI/integration backlog should be narrowed to shell, onboarding, docs, and connector ergonomics first; broad provider proliferation stays deferred until the daily loop is working.
 - [Phase 07]: Apple voice turns now persist transcript provenance before any query or mutation response is returned.
 - [Phase 07]: Apple schedule answers are derived from backend /v1/now output rather than Swift-local synthesis.
 - [Phase 07]: Low-risk Apple voice mutations reuse the existing client_sync action path and fail closed when the backend cannot resolve a safe target.
@@ -137,6 +139,11 @@ Recent decisions affecting current work:
 - Phase 6 planning created (2026-03-18): 7-plan rollout covering contracts, reconciliation, Todoist write-back, notes/reminders, people/graph expansion, GitHub/email, and operator-surface closure
 - Phase 7 planning created (2026-03-19): 4-plan rollout covering Apple contracts, backend-owned voice loops, bounded behavior ingestion, and Apple client/doc closure
 - Phase 8 planning created (2026-03-19): 6-plan rollout covering execution contracts, repo-local GSD artifacts, connect transport closure, routing/handoff review, direct guest runtime, and SDK/docs closure
+- Phase 8 parallel execution advanced (2026-03-19): plans 08-04 through 08-06 completed after 08-01 through 08-03, leaving Phase 08 ready to verify behind the active Phase 07 lane
+- Phase 7 and Phase 8 closed (2026-03-19): Phase 07 completed after skipped-manual UAT, then Phase 08 UAT was skipped and the roadmap advanced to Phase 09
+- Phase 10 added (2026-03-19): Daily-loop morning overview and standup commitment engine
+- Phase 11 added (2026-03-19): Operator shell, onboarding, and connector ergonomics
+- CSV backlog triaged (2026-03-19): interface and daily-loop fixes assigned to Phases 10 and 11; remaining provider/platform expansion captured in BACKLOG.md
 
 ### Pending Todos
 
@@ -160,9 +167,11 @@ Recent decisions affecting current work:
 - Phase 06 is complete; the next active implementation lane is Phase 07 execution
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
+- Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
+- Future work now extends through Phase 11; Phase 10 is the next product-value phase after the active Phase 09 backup/trust lane
 
 ## Session Continuity
 
 Last session: 2026-03-19T07:35:55.445Z
-Stopped at: Completed 07-04-PLAN.md
+Stopped at: Added Phases 10 and 11; Phase 09 remains next
 Resume file: None

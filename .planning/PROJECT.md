@@ -54,6 +54,8 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - [ ] Phase 7 — iOS/watch action loops first: voice capture, current schedule, and nudge response; lightweight behavior signals
 - [ ] Phase 8 — coding-first supervised execution with GSD-aware repo docs, token-budget awareness, and local-agent support
 - [ ] Phase 9 — backup/export trust surfaces and simple operator control, with recovery deferred behind core usability
+- [ ] Phase 10 — strict daily-loop MVP: morning overview, standup, 1-3 commitments, deferrals, and focus protection over existing `Now`/calendar/Todoist/voice seams
+- [ ] Phase 11 — shell, onboarding, and connector ergonomics: routes, docs/help surfaces, project detail UX, linking/discovery reliability, and settings polish
 
 ### Out of Scope
 
@@ -64,7 +66,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ## Context
 
-This is a mid-migration brownfield project. The codebase has been structurally decomposed (Phase 1 complete): layered Rust crates (`vel-core` → `vel-storage` → `vel-api-types` → `veld`), auth hardening, canonical schemas, and self-awareness contracts are all in place. Phase 3 is complete; Phases 2 and 4 shipped meaningful baselines but had unfinished original-scope work. That unfinished work has been explicitly re-scoped into Phases 5, 6, and 8 so no active roadmap work remains before Phase 5. The active planning lane is the product-shaping sequence centered on `Now + Inbox`, typed project substrate, safe write-back, Apple action loops, supervised execution, and backup-first trust.
+This is a mid-migration brownfield project. The codebase has been structurally decomposed (Phase 1 complete): layered Rust crates (`vel-core` → `vel-storage` → `vel-api-types` → `veld`), auth hardening, canonical schemas, and self-awareness contracts are all in place. Phase 3 is complete; Phases 2 and 4 shipped meaningful baselines but had unfinished original-scope work. That unfinished work has been explicitly re-scoped into Phases 5, 6, and 8 so no active roadmap work remains before Phase 5. The active planning lane is the product-shaping sequence centered on `Now + Inbox`, typed project substrate, safe write-back, Apple action loops, supervised execution, backup-first trust, a strict daily loop, and a cleaner operator shell/onboarding path.
 
 The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implementation specifications for the shipped architecture queue. For active future work, `.planning/ROADMAP.md` and subsequent phase plans are the requirements source starting at Phase 5. For non-phase future work that is not yet scheduled, use `.planning/BACKLOG.md`. For execution-ready small work items, use `.planning/todos/pending/`.
 
@@ -94,6 +96,8 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | Task handoff is a product feature, not just protocol plumbing | Human-to-agent and agent-to-agent delegation must be explicit, inspectable, and reviewable in real workflows | Accepted |
 | Astrology is a toggleable enrichment module, not core planning logic | Useful for the operator, optional for most users, and deferrable | Accepted |
 | GSD integration should begin through repo-local docs/context that GSD already consumes | Lowest-friction path to coding-first supervised execution | Accepted |
+| Daily-loop value should be built from the shipped `Now`/calendar/Todoist/voice seams instead of inventing a separate planning subsystem | Maximizes product value from already-landed foundations and avoids a parallel architecture | Accepted |
+| Interface and shell fixes should be planned, while broader provider/platform expansion stays backlog-only until daily use is strong | Keeps roadmap effort focused on adoption and repeated use rather than diffuse expansion | Accepted |
 
 ---
 *Last updated: 2026-03-19 after auditing completed claims and re-scoping unfinished historical work*

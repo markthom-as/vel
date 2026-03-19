@@ -2,7 +2,7 @@
 
 ## Overview
 
-Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical baselines with unfinished original-scope work explicitly re-scoped into Phases 5, 6, and 8. There is no remaining active roadmap work before Phase 5. The active roadmap now begins with the product-shaping sequence focused on `Now + Inbox`, project substrate, high-value write-back integrations, Apple action loops, coding-centric supervised execution, and backup-first trust surfaces (Phases 5-9). Each remaining phase produces a verifiable capability boundary before the next begins.
+Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical baselines with unfinished original-scope work explicitly re-scoped into Phases 5, 6, and 8. There is no remaining active roadmap work before Phase 5. The active roadmap now begins with the product-shaping sequence focused on `Now + Inbox`, project substrate, high-value write-back integrations, Apple action loops, coding-centric supervised execution, backup-first trust surfaces, a strict daily-loop MVP, and operator-shell/onboarding ergonomics (Phases 5-11). Each remaining phase produces a verifiable capability boundary before the next begins.
 
 ## Phases
 
@@ -17,9 +17,11 @@ Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical base
 - **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Closed historical baseline; unfinished semantic graph expansion, direct WASM guest runtime, and external limb transport work moved to Phases 6 and 8
 - [x] **Phase 5: Now + Inbox core and project substrate** - Keep `Now + Inbox` primary while adding durable project structure and shared workspace contracts (COMPLETE)
 - [x] **Phase 6: High-value write-back integrations and lightweight people graph** - Add notes, reminders, GitHub, email, transcripts, and minimal people identity with upstream write-back (COMPLETE)
-- [ ] **Phase 7: Apple action loops and behavioral signal ingestion** - Prioritize fast iOS/watch actions and directly useful behavior signals
-- [ ] **Phase 8: Coding-centric supervised execution with GSD and local agents** - Launch and supervise coding-first runtimes with direct GSD integration and local-agent support
+- [x] **Phase 7: Apple action loops and behavioral signal ingestion** - Prioritize fast iOS/watch actions and directly useful behavior signals (COMPLETE)
+- [x] **Phase 8: Coding-centric supervised execution with GSD and local agents** - Launch and supervise coding-first runtimes with direct GSD integration and local-agent support (COMPLETE)
 - [ ] **Phase 9: Backup-first trust surfaces and simple operator control** - Add backup-first trust workflows and keep control/config surfaces simple
+- [ ] **Phase 10: Daily-loop morning overview and standup commitment engine** - Turn `Now`, calendar, Todoist, commitments, and voice into a bounded daily prioritization loop
+- [ ] **Phase 11: Operator shell, onboarding, and connector ergonomics** - Make the daily loop and integration surfaces easier to adopt, navigate, and trust
 
 ## Phase Details
 
@@ -115,7 +117,7 @@ Residual work moved forward:
 ## Progress
 
 **Execution Order:**
-Remaining execution order: 7 → 8 → 9
+Remaining execution order: 9 → 10 → 11
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -126,9 +128,11 @@ Remaining execution order: 7 → 8 → 9
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 5/5 | Closed / Re-scoped | 2026-03-19 |
 | 5. Now + Inbox core and project substrate | 9/9 | Complete | 2026-03-19 |
 | 6. High-value write-back integrations and lightweight people graph | 7/7 | Complete | 2026-03-19 |
-| 7. Apple action loops and behavioral signal ingestion | 4/4 | Ready to verify | - |
-| 8. Coding-centric supervised execution with GSD and local agents | 0/6 | Planned | - |
-| 9. Backup-first trust surfaces and simple operator control | 0/0 | Not planned | - |
+| 7. Apple action loops and behavioral signal ingestion | 4/4 | Complete | 2026-03-19 |
+| 8. Coding-centric supervised execution with GSD and local agents | 6/6 | Complete | 2026-03-19 |
+| 9. Backup-first trust surfaces and simple operator control | 0/4 | Ready to execute | - |
+| 10. Daily-loop morning overview and standup commitment engine | 0/0 | Not planned | - |
+| 11. Operator shell, onboarding, and connector ergonomics | 0/0 | Not planned | - |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -206,3 +210,29 @@ Plans:
 - [ ] 09-02-PLAN.md — Implement the snapshot-backed backup service, persisted history, and real CLI/API trust path
 - [ ] 09-03-PLAN.md — Surface backup freshness and safety state through doctor, settings, CLI, and web runtime views
 - [ ] 09-04-PLAN.md — Close with manual restore guidance, non-destructive verification, and narrow validation evidence
+
+### Phase 10: Daily-loop morning overview and standup commitment engine
+
+**Goal:** Turn the existing `Now`, commitments, calendar/Todoist input, and Apple/backend voice seams into a strict daily loop: a short morning overview that produces signals but no commitments, followed by a bounded standup that compresses work into 1-3 daily commitments, explicit deferrals, and focus-time protection.
+**Requirements**: MORNING-01, MORNING-02, MORNING-03, STANDUP-01, STANDUP-02, STANDUP-03, SESSION-01, VOICE-01
+**Depends on:** Phase 7 foundations; sequenced after Phase 9 in roadmap order
+**Plans:** 0 plans
+
+**Priority note:** This is the highest-value product phase after the current backup/trust lane because the repo already has partial `Now`, commitment, calendar, Todoist, and Apple voice primitives, but not yet one coherent <3 minute daily decision loop.
+**Included from CSV triage:** morning overview, standup/commitment compression, focus-time shaping, bounded voice-or-text flow, and action-stack quality work such as deduplicating repeated suggestions so the daily loop stays trustworthy.
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 10 to break down)
+
+### Phase 11: Operator shell, onboarding, and connector ergonomics
+
+**Goal:** Make Vel easier to adopt and operate daily by tightening the web/operator shell, onboarding path, contextual docs/help, project detail surfaces, integration/status affordances, and path-discovery ergonomics around the daily-loop product direction.
+**Requirements**: SHELL-01, SHELL-02, DOCS-01, ONBOARD-01, INTEGR-UX-01, PROJ-UX-01
+**Depends on:** Phase 10
+**Plans:** 0 plans
+
+**Scope note:** This phase intentionally narrows the raw backlog to operator-shell and integration ergonomics. Broad new-provider expansion (full Google suite, LLM-provider routing, Dropbox-style picker proliferation, SaaS auth scaffolding, client-to-client file transfer, and reading/media systems) remains deferred until the daily loop is clearly working.
+**Included from CSV triage:** app routes, top-nav/shell polish, icon-driven and collapsible navigation, softer auto-refresh freshness UX, project detail/edit surfaces, template viewing/editing in Settings, contextual docs/help routing, threads defaulting to the latest thread, upcoming-event ordering/pagination, richer Todoist rendering, connected-service icons, hidden internal integration paths, Apple/local-source path discovery/validation, and guided onboarding/linking/autodiscovery ergonomics.
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 11 to break down)

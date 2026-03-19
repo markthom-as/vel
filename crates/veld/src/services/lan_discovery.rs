@@ -117,39 +117,49 @@ pub(crate) async fn discover_peers(
     state: &AppState,
     local_node_id: &str,
 ) -> Result<Vec<LanDiscoveredPeer>, AppError> {
-    let socket = UdpSocket::bind(("0.0.0.0", 0))
-        .await
-        .map_err(|error| AppError::internal(format!("bind LAN discovery probe socket: {error}")))?;
-    socket
-        .set_broadcast(true)
-        .map_err(|error| AppError::internal(format!("enable LAN discovery broadcast: {error}")))?;
+    let mut peers = match UdpSocket::bind(("0.0.0.0", 0)).await {
+        Ok(socket) => {
+            if let Err(error) = socket.set_broadcast(true) {
+                tracing::debug!(error = %error, "failed to enable LAN discovery broadcast");
+                Vec::new()
+            } else {
+                let request_id = format!("lan-disc-{}", Uuid::new_v4().simple());
+                let payload = serde_json::to_vec(&DiscoveryQuery {
+                    protocol: DISCOVERY_PROTOCOL_VERSION.to_string(),
+                    request_id: request_id.clone(),
+                    sender_node_id: local_node_id.to_string(),
+                })
+                .map_err(|error| {
+                    AppError::internal(format!("serialize LAN discovery query: {error}"))
+                })?;
 
-    let request_id = format!("lan-disc-{}", Uuid::new_v4().simple());
-    let payload = serde_json::to_vec(&DiscoveryQuery {
-        protocol: DISCOVERY_PROTOCOL_VERSION.to_string(),
-        request_id: request_id.clone(),
-        sender_node_id: local_node_id.to_string(),
-    })
-    .map_err(|error| AppError::internal(format!("serialize LAN discovery query: {error}")))?;
+                let mut sent = false;
+                let mut last_error = None;
+                for target in crate::services::local_network::lan_broadcast_targets() {
+                    match socket.send_to(&payload, (target, DISCOVERY_PORT)).await {
+                        Ok(_) => sent = true,
+                        Err(error) => last_error = Some(error),
+                    }
+                }
 
-    let mut sent = false;
-    let mut last_error = None;
-    for target in crate::services::local_network::lan_broadcast_targets() {
-        match socket.send_to(&payload, (target, DISCOVERY_PORT)).await {
-            Ok(_) => sent = true,
-            Err(error) => last_error = Some(error),
+                if !sent {
+                    tracing::debug!(
+                        error = %last_error
+                            .map(|error| error.to_string())
+                            .unwrap_or_else(|| "no broadcast targets were available".to_string()),
+                        "LAN discovery broadcast did not send; falling back to HTTP probe"
+                    );
+                    Vec::new()
+                } else {
+                    collect_discovery_responses(&socket, &request_id, local_node_id).await?
+                }
+            }
         }
-    }
-    if !sent {
-        return Err(AppError::internal(format!(
-            "send LAN discovery broadcast: {}",
-            last_error
-                .map(|error| error.to_string())
-                .unwrap_or_else(|| "no broadcast targets were available".to_string())
-        )));
-    }
-
-    let mut peers = collect_discovery_responses(&socket, &request_id, local_node_id).await?;
+        Err(error) => {
+            tracing::debug!(error = %error, "failed to bind LAN discovery probe socket; falling back to HTTP probe");
+            Vec::new()
+        }
+    };
     let fallback_peers = discover_peers_via_http_probe(state, local_node_id).await;
     merge_discovered_peers(&mut peers, fallback_peers);
     Ok(peers)

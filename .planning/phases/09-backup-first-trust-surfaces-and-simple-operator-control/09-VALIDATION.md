@@ -39,12 +39,12 @@ created: 2026-03-19
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
 | 09-01-01 | 01 | 0 | BACKUP-01 | schema/doc | `node scripts/verify-repo-truth.mjs && rg -n "BACKUP-01|BACKUP-02|CTRL-01|CTRL-02" .planning/REQUIREMENTS.md` | ✅ | ⬜ pending |
-| 09-01-02 | 01 | 0 | CTRL-01 | Rust/unit | `cargo test -p vel-api-types backup -- --nocapture` | ✅ partial | ⬜ pending |
+| 09-01-02 | 01 | 0 | BACKUP-01 | Rust/unit | `cargo test -p vel-api-types backup -- --nocapture` | ✅ partial | ⬜ pending |
 | 09-02-01 | 02 | 2 | BACKUP-01 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture` | ❌ W0 | ⬜ pending |
 | 09-02-02 | 02 | 2 | BACKUP-01 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture` | ❌ W0 | ⬜ pending |
-| 09-03-01 | 03 | 3 | BACKUP-02 | Rust/route | `cargo test -p veld doctor -- --nocapture && cargo test -p vel-cli doctor -- --nocapture` | ✅ partial | ⬜ pending |
-| 09-03-02 | 03 | 3 | CTRL-02 | CLI/integration | `cargo test -p veld doctor -- --nocapture && cargo test -p vel-cli doctor -- --nocapture` | ✅ partial | ⬜ pending |
-| 09-04-01 | 04 | 4 | BACKUP-02 | CLI + web | `cargo test -p vel-cli backup -- --nocapture && npm --prefix clients/web test -- --run src/data/operator.test.ts src/components/SettingsPage.test.tsx` | ❌ W0 | ⬜ pending |
+| 09-03-01 | 03 | 3 | CTRL-01 | Rust/route | `cargo test -p veld chat_settings_get_and_patch -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ✅ partial | ⬜ pending |
+| 09-03-02 | 03 | 3 | CTRL-02 | CLI/integration | `cargo test -p veld doctor -- --nocapture && cargo test -p vel-cli doctor -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ✅ partial | ⬜ pending |
+| 09-04-01 | 04 | 4 | BACKUP-01 | CLI + web | `cargo test -p vel-cli backup -- --nocapture && npm --prefix clients/web test -- --run src/data/operator.test.ts src/components/SettingsPage.test.tsx` | ❌ W0 | ⬜ pending |
 | 09-04-02 | 04 | 4 | CTRL-02 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture && rg -n "nyquist_compliant: true|wave_0_complete: true" .planning/phases/09-backup-first-trust-surfaces-and-simple-operator-control/09-VALIDATION.md` | ✅ partial | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
@@ -58,7 +58,7 @@ created: 2026-03-19
 - [ ] `config/examples/backup-manifest.example.json` — checked-in example
 - [ ] `crates/vel-api-types/src/lib.rs` — transport DTO seam for backup trust and manifest status
 - [ ] `docs/user/backup-and-restore.md` — shipped operator workflow authority
-- [ ] Settings baseline issue explicitly isolated from backup evidence; do not use `chat_settings_get_and_patch` as a Phase 09 backup gate
+- [ ] Settings baseline issue explicitly isolated from Wave 0 backup evidence; later control-surface slices must carry their own `chat_settings_get_and_patch` verification
 
 *If none: "Existing infrastructure covers all phase requirements."*
 
@@ -80,7 +80,7 @@ created: 2026-03-19
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
 - [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
-- [ ] Feedback latency < 180s
+- [ ] Feedback latency < 30s
 - [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending

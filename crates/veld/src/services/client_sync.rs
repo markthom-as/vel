@@ -397,7 +397,7 @@ async fn discover_lan_workers_bounded(
     now: i64,
 ) -> Vec<WorkerPresence> {
     match timeout(
-        Duration::from_millis(750),
+        Duration::from_millis(2500),
         discover_lan_workers(state, local_bootstrap, now),
     )
     .await
