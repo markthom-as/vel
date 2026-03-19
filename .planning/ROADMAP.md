@@ -135,6 +135,11 @@ Remaining execution order: 16
 | 10. Daily-loop morning overview and standup commitment engine | 5/5 | Complete   | 2026-03-19 |
 | 11. Agent grounding and operator-relevant data/tool awareness | 3/3 | Complete   | 2026-03-19 |
 | 12. Operator shell, onboarding, and connector ergonomics | 4/4 | Complete | 2026-03-19 |
+| 13. Cross-surface core architecture and adapter boundaries | 4/4 | Complete | 2026-03-19 |
+| 14. Product discovery, operator modes, and milestone shaping | 4/4 | Complete | 2026-03-19 |
+| 15. Incremental core migration and canonical Rust service seams | 5/5 | Complete | 2026-03-19 |
+| 16. Logic-first product closure on canonical core surfaces | 1/5 | In Progress | - |
+| 17. Shell embodiment, operator-mode application, and surface simplification | 0/4 | Planned | - |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -321,14 +326,14 @@ Plans:
 **Goal:** Implement the next wave of operator product behavior as Rust-owned commands, queries, policies, and read models on top of the migrated seams, so later Apple/web/desktop UI phases become embodiment work rather than product-logic design work.
 **Requirements**: LOGIC-01, FLOW-01, MODE-02, READMODEL-02, SHELL-ARCH-01
 **Depends on:** Phase 15
-**Plans:** 5 plans
+**Plans:** 1/5 plans complete
 
 **Delivery note:** This phase is where the product logic discovered in Phase 14 should become canonical backend/application behavior, with UI phases following behind instead of leading product definition.
 **Included from thread decisions:** business logic should be defined and implemented before broad shell expansion, with later UI phases focused on embodiment, interaction quality, and surface-specific affordances rather than inventing product semantics.
 **Phase 14 carry-forward:** Phase 16 should implement the action-model and operator journey logic directly, including check-ins, heavier reflow semantics, summary-first trust/readiness, and backend-owned routing across `Now`, `Inbox`, `Threads`, and project-scoped actions.
 
 Plans:
-- [ ] 16-01-PLAN.md — Ratify the canonical operator-action transition contract and logic entry points before behavior widens
+- [x] 16-01-PLAN.md — Ratify the canonical operator-action transition contract and logic entry points before behavior widens
 - [ ] 16-02-PLAN.md — Implement backend-owned `check_in` accept/bypass/completion behavior over daily-loop/session seams
 - [ ] 16-03-PLAN.md — Implement backend-owned `reflow` confirm/apply/edit behavior and follow-up state generation
 - [ ] 16-04-PLAN.md — Tighten trust/readiness follow-through so degraded posture yields canonical backend-owned recovery/review actions
@@ -339,10 +344,13 @@ Plans:
 **Goal:** Apply the Phase 14 product taxonomy and Phase 15-16 backend ownership decisions across web, Apple, CLI, and future desktop-ready shells so the default operator experience is simpler, advanced/runtime concerns are progressively disclosed, and internal implementation categories stop leaking into everyday use.
 **Requirements**: SHELL-MODE-01, SHELL-MODE-02, TRUST-SUMMARY-01, APPLE-SHELL-01
 **Depends on:** Phase 16
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 **Embodiment note:** This phase exists so UI/surface simplification does not get mixed into migration or backend logic closure. It should apply the approved product-mode policy and shell boundaries rather than invent new product semantics.
 **Phase 14 carry-forward:** Phase 17 should embody minimal `Now`, triage-first `Inbox`, archive/search-first `Threads`, secondary-but-real `Projects`, inline `check_in`, and heavier `reflow` treatment without reopening the taxonomy or action-model decisions.
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 17 to break down)
+- [ ] 17-01-PLAN.md — Stabilize shared web shell classification and top-level routing around the approved taxonomy
+- [ ] 17-02-PLAN.md — Embody minimal `Now`, triage-first `Inbox`, and archive/search-first `Threads` in the web shell
+- [ ] 17-03-PLAN.md — Apply progressive disclosure to `Projects`, `Settings`, trust/setup, and passive support surfaces
+- [ ] 17-04-PLAN.md — Align Apple and CLI shells to the same taxonomy and disclosure rules without widening backend semantics

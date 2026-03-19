@@ -81,8 +81,9 @@ pub use operator_queue::{
     ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionPermissionMode,
     ActionScopeAffinity, ActionState, ActionSurface, CheckInCard, CheckInEscalation,
     CheckInEscalationTarget, CheckInSourceKind, CheckInSubmitTarget, CheckInSubmitTargetKind,
-    ReflowAcceptMode, ReflowCard, ReflowEditTarget, ReflowSeverity, ReflowTriggerKind,
-    ReviewSnapshot,
+    CheckInTransition, CheckInTransitionKind, CheckInTransitionTargetKind, ReflowAcceptMode,
+    ReflowCard, ReflowEditTarget, ReflowSeverity, ReflowTransition, ReflowTransitionKind,
+    ReflowTransitionTargetKind, ReflowTriggerKind, ReviewSnapshot,
 };
 pub use ordering::OrderingStamp;
 pub use people::{PersonAlias, PersonId, PersonLinkRef, PersonRecord};

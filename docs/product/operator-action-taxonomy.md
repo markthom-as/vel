@@ -50,6 +50,17 @@ The implementation migration seam for this taxonomy is now:
 
 That keeps action semantics backend-owned while still letting different shells render the same action differently.
 
+## Phase 16 Transition Rule
+
+Phase 16 starts by locking the backend-owned transition contract for `check_in` and `reflow`.
+
+Current working rule:
+
+- `check_in` cards carry typed transitions for submit, bypass, and thread escalation
+- `reflow` cards carry typed transitions for accept and thread-edit escalation
+- the typed transition list is the canonical read-model expectation for shells
+- lifecycle handlers that execute those transitions remain backend-owned service seams
+
 ## Draft Canonical Fields
 
 The exact DTO or Rust type name is for later phases, but the discovery-level schema should include these concepts.
@@ -182,6 +193,24 @@ Examples:
 - blocked
 
 This supports the active-versus-muted-history behavior already being defined for `Now` and `Inbox`.
+
+### `transitions`
+
+Cards that represent backend-owned operator logic should expose typed transitions describing the valid next moves the backend recognizes.
+
+Examples:
+
+- `check_in.submit`
+- `check_in.bypass`
+- `check_in.escalate`
+- `reflow.accept`
+- `reflow.edit`
+
+Transition rule:
+
+- shells should render and invoke these typed transitions
+- shells should not invent their own semantic next-step vocabulary for `check_in` or `reflow`
+- later lifecycle handlers may widen behavior, but they should do so by extending backend-owned transition handling rather than replacing the transition contract
 
 ### `source_ref`
 

@@ -215,6 +215,53 @@ pub struct CheckInEscalation {
     pub label: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckInTransitionKind {
+    Submit,
+    Bypass,
+    Escalate,
+}
+
+impl Display for CheckInTransitionKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::Submit => "submit",
+            Self::Bypass => "bypass",
+            Self::Escalate => "escalate",
+        };
+        f.write_str(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckInTransitionTargetKind {
+    DailyLoopTurn,
+    Threads,
+}
+
+impl Display for CheckInTransitionTargetKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::DailyLoopTurn => "daily_loop_turn",
+            Self::Threads => "threads",
+        };
+        f.write_str(value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckInTransition {
+    pub kind: CheckInTransitionKind,
+    pub label: String,
+    pub target: CheckInTransitionTargetKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub requires_response: bool,
+    pub requires_note: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CheckInCard {
     pub id: ActionItemId,
@@ -231,6 +278,8 @@ pub struct CheckInCard {
     pub blocking: bool,
     pub submit_target: CheckInSubmitTarget,
     pub escalation: Option<CheckInEscalation>,
+    #[serde(default)]
+    pub transitions: Vec<CheckInTransition>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -298,6 +347,48 @@ pub struct ReflowEditTarget {
     pub label: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowTransitionKind {
+    Accept,
+    Edit,
+}
+
+impl Display for ReflowTransitionKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::Accept => "accept",
+            Self::Edit => "edit",
+        };
+        f.write_str(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowTransitionTargetKind {
+    ApplySuggestion,
+    Threads,
+}
+
+impl Display for ReflowTransitionTargetKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::ApplySuggestion => "apply_suggestion",
+            Self::Threads => "threads",
+        };
+        f.write_str(value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReflowTransition {
+    pub kind: ReflowTransitionKind,
+    pub label: String,
+    pub target: ReflowTransitionTargetKind,
+    pub confirm_required: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReflowCard {
     pub id: ActionItemId,
@@ -309,6 +400,8 @@ pub struct ReflowCard {
     pub suggested_action_label: String,
     pub preview_lines: Vec<String>,
     pub edit_target: ReflowEditTarget,
+    #[serde(default)]
+    pub transitions: Vec<ReflowTransition>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -349,7 +442,8 @@ pub struct ReviewSnapshot {
 mod tests {
     use super::{
         ActionItem, ActionKind, ActionPermissionMode, ActionScopeAffinity, CheckInCard,
-        CheckInEscalationTarget, CheckInSourceKind, CheckInSubmitTargetKind,
+        CheckInEscalationTarget, CheckInSourceKind, CheckInSubmitTargetKind, CheckInTransitionKind,
+        ReflowCard, ReflowTransitionKind,
     };
 
     #[test]
@@ -388,7 +482,33 @@ mod tests {
             "escalation": {
                 "target": "threads",
                 "label": "Continue in Threads"
-            }
+            },
+            "transitions": [
+                {
+                    "kind": "submit",
+                    "label": "Continue standup",
+                    "target": "daily_loop_turn",
+                    "reference_id": "dls_123",
+                    "requires_response": true,
+                    "requires_note": false
+                },
+                {
+                    "kind": "bypass",
+                    "label": "Skip for now",
+                    "target": "daily_loop_turn",
+                    "reference_id": "dls_123",
+                    "requires_response": false,
+                    "requires_note": true
+                },
+                {
+                    "kind": "escalate",
+                    "label": "Continue in Threads",
+                    "target": "threads",
+                    "reference_id": "dls_123",
+                    "requires_response": false,
+                    "requires_note": false
+                }
+            ]
         });
 
         let card: CheckInCard = serde_json::from_value(value).expect("check-in card should parse");
@@ -400,9 +520,52 @@ mod tests {
         );
         assert_eq!(card.prompt_id, "standup_prompt_1");
         assert!(card.blocking);
+        assert_eq!(card.transitions.len(), 3);
+        assert_eq!(card.transitions[0].kind, CheckInTransitionKind::Submit);
         assert_eq!(
             card.escalation.as_ref().map(|value| &value.target),
             Some(&CheckInEscalationTarget::Threads)
         );
+    }
+
+    #[test]
+    fn reflow_card_round_trips_as_json() {
+        let value = serde_json::json!({
+            "id": "act_reflow_1",
+            "title": "Day changed",
+            "summary": "A scheduled event appears to have slipped past without the plan being updated.",
+            "trigger": "missed_event",
+            "severity": "critical",
+            "accept_mode": "confirm_required",
+            "suggested_action_label": "Accept",
+            "preview_lines": [
+                "Next scheduled event started 20 minutes ago."
+            ],
+            "edit_target": {
+                "target": "threads",
+                "label": "Edit"
+            },
+            "transitions": [
+                {
+                    "kind": "accept",
+                    "label": "Accept",
+                    "target": "apply_suggestion",
+                    "confirm_required": true
+                },
+                {
+                    "kind": "edit",
+                    "label": "Edit",
+                    "target": "threads",
+                    "confirm_required": false
+                }
+            ]
+        });
+
+        let card: ReflowCard = serde_json::from_value(value).expect("reflow card should parse");
+
+        assert_eq!(card.transitions.len(), 2);
+        assert_eq!(card.transitions[0].kind, ReflowTransitionKind::Accept);
+        assert_eq!(card.transitions[1].kind, ReflowTransitionKind::Edit);
+        assert_eq!(card.edit_target.target, CheckInEscalationTarget::Threads);
     }
 }

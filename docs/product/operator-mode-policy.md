@@ -104,6 +104,7 @@ Severity rule:
 - lower-severity reflows may apply on direct accept from the compact preview
 - higher-severity reflows should show a stronger confirmation or clearer diff before applying
 - backend logic should distinguish what may move and what must stay fixed or explicitly constrained
+- shells should consume typed `reflow` transitions instead of inferring lifecycle actions from button labels alone
 
 ## `Inbox` Policy
 
@@ -188,6 +189,7 @@ Implementation rule for the current migration lane:
 - the first backend-owned `check_in` seam may derive from active daily-loop prompt state
 - `Now` should consume that typed seam rather than owning check-in semantics locally
 - escalation toward `Threads` should remain metadata/linkage rather than hard-coded shell behavior
+- shells should treat the typed `check_in` transition list as the valid next-step contract rather than improvising additional semantic actions
 
 It may become blocking when it gates:
 

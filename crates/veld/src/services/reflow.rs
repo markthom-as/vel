@@ -1,6 +1,7 @@
 use vel_core::{
     ActionItemId, CheckInEscalationTarget, CurrentContextV1, ReflowAcceptMode, ReflowCard,
-    ReflowEditTarget, ReflowSeverity, ReflowTriggerKind,
+    ReflowEditTarget, ReflowSeverity, ReflowTransition, ReflowTransitionKind,
+    ReflowTransitionTargetKind, ReflowTriggerKind,
 };
 
 pub fn derive_reflow(context: &CurrentContextV1, now_ts: i64) -> Option<ReflowCard> {
@@ -34,7 +35,7 @@ pub fn derive_reflow(context: &CurrentContextV1, now_ts: i64) -> Option<ReflowCa
         ReflowSeverity::High | ReflowSeverity::Critical => ReflowAcceptMode::ConfirmRequired,
     };
 
-    Some(ReflowCard {
+    let mut card = ReflowCard {
         id: ActionItemId::from(format!("act_reflow_{}_{}", trigger, context.computed_at)),
         title: "Day changed".to_string(),
         summary,
@@ -47,7 +48,28 @@ pub fn derive_reflow(context: &CurrentContextV1, now_ts: i64) -> Option<ReflowCa
             target: CheckInEscalationTarget::Threads,
             label: "Edit".to_string(),
         },
-    })
+        transitions: Vec::new(),
+    };
+    card.transitions = transitions_for_card(&card);
+
+    Some(card)
+}
+
+pub fn transitions_for_card(card: &ReflowCard) -> Vec<ReflowTransition> {
+    vec![
+        ReflowTransition {
+            kind: ReflowTransitionKind::Accept,
+            label: card.suggested_action_label.clone(),
+            target: ReflowTransitionTargetKind::ApplySuggestion,
+            confirm_required: card.accept_mode == ReflowAcceptMode::ConfirmRequired,
+        },
+        ReflowTransition {
+            kind: ReflowTransitionKind::Edit,
+            label: card.edit_target.label.clone(),
+            target: ReflowTransitionTargetKind::Threads,
+            confirm_required: false,
+        },
+    ]
 }
 
 fn drift_candidate(
@@ -130,6 +152,10 @@ mod tests {
         assert_eq!(card.trigger, ReflowTriggerKind::MissedEvent);
         assert_eq!(card.severity, ReflowSeverity::Critical);
         assert_eq!(card.accept_mode, ReflowAcceptMode::ConfirmRequired);
+        assert_eq!(card.transitions.len(), 2);
+        assert_eq!(card.transitions[0].kind, ReflowTransitionKind::Accept);
+        assert!(card.transitions[0].confirm_required);
+        assert_eq!(card.transitions[1].kind, ReflowTransitionKind::Edit);
     }
 
     #[test]
@@ -147,5 +173,6 @@ mod tests {
         assert_eq!(card.trigger, ReflowTriggerKind::SlippedPlannedBlock);
         assert_eq!(card.severity, ReflowSeverity::Medium);
         assert_eq!(card.edit_target.target, CheckInEscalationTarget::Threads);
+        assert!(!card.transitions[0].confirm_required);
     }
 }

@@ -2386,6 +2386,64 @@ impl From<vel_core::CheckInEscalation> for CheckInEscalationData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckInTransitionKindData {
+    Submit,
+    Bypass,
+    Escalate,
+}
+
+impl From<vel_core::CheckInTransitionKind> for CheckInTransitionKindData {
+    fn from(value: vel_core::CheckInTransitionKind) -> Self {
+        match value {
+            vel_core::CheckInTransitionKind::Submit => Self::Submit,
+            vel_core::CheckInTransitionKind::Bypass => Self::Bypass,
+            vel_core::CheckInTransitionKind::Escalate => Self::Escalate,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckInTransitionTargetKindData {
+    DailyLoopTurn,
+    Threads,
+}
+
+impl From<vel_core::CheckInTransitionTargetKind> for CheckInTransitionTargetKindData {
+    fn from(value: vel_core::CheckInTransitionTargetKind) -> Self {
+        match value {
+            vel_core::CheckInTransitionTargetKind::DailyLoopTurn => Self::DailyLoopTurn,
+            vel_core::CheckInTransitionTargetKind::Threads => Self::Threads,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckInTransitionData {
+    pub kind: CheckInTransitionKindData,
+    pub label: String,
+    pub target: CheckInTransitionTargetKindData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+    pub requires_response: bool,
+    pub requires_note: bool,
+}
+
+impl From<vel_core::CheckInTransition> for CheckInTransitionData {
+    fn from(value: vel_core::CheckInTransition) -> Self {
+        Self {
+            kind: value.kind.into(),
+            label: value.label,
+            target: value.target.into(),
+            reference_id: value.reference_id,
+            requires_response: value.requires_response,
+            requires_note: value.requires_note,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckInCardData {
     pub id: ActionItemId,
     pub source_kind: CheckInSourceKindData,
@@ -2404,6 +2462,8 @@ pub struct CheckInCardData {
     pub submit_target: CheckInSubmitTargetData,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub escalation: Option<CheckInEscalationData>,
+    #[serde(default)]
+    pub transitions: Vec<CheckInTransitionData>,
 }
 
 impl From<vel_core::CheckInCard> for CheckInCardData {
@@ -2423,6 +2483,7 @@ impl From<vel_core::CheckInCard> for CheckInCardData {
             blocking: value.blocking,
             submit_target: value.submit_target.into(),
             escalation: value.escalation.map(Into::into),
+            transitions: value.transitions.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -2484,6 +2545,57 @@ impl From<vel_core::ReflowAcceptMode> for ReflowAcceptModeData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowTransitionKindData {
+    Accept,
+    Edit,
+}
+
+impl From<vel_core::ReflowTransitionKind> for ReflowTransitionKindData {
+    fn from(value: vel_core::ReflowTransitionKind) -> Self {
+        match value {
+            vel_core::ReflowTransitionKind::Accept => Self::Accept,
+            vel_core::ReflowTransitionKind::Edit => Self::Edit,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowTransitionTargetKindData {
+    ApplySuggestion,
+    Threads,
+}
+
+impl From<vel_core::ReflowTransitionTargetKind> for ReflowTransitionTargetKindData {
+    fn from(value: vel_core::ReflowTransitionTargetKind) -> Self {
+        match value {
+            vel_core::ReflowTransitionTargetKind::ApplySuggestion => Self::ApplySuggestion,
+            vel_core::ReflowTransitionTargetKind::Threads => Self::Threads,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflowTransitionData {
+    pub kind: ReflowTransitionKindData,
+    pub label: String,
+    pub target: ReflowTransitionTargetKindData,
+    pub confirm_required: bool,
+}
+
+impl From<vel_core::ReflowTransition> for ReflowTransitionData {
+    fn from(value: vel_core::ReflowTransition) -> Self {
+        Self {
+            kind: value.kind.into(),
+            label: value.label,
+            target: value.target.into(),
+            confirm_required: value.confirm_required,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReflowEditTargetData {
     pub target: CheckInEscalationTargetData,
     pub label: String,
@@ -2510,6 +2622,8 @@ pub struct ReflowCardData {
     #[serde(default)]
     pub preview_lines: Vec<String>,
     pub edit_target: ReflowEditTargetData,
+    #[serde(default)]
+    pub transitions: Vec<ReflowTransitionData>,
 }
 
 impl From<vel_core::ReflowCard> for ReflowCardData {
@@ -2524,6 +2638,7 @@ impl From<vel_core::ReflowCard> for ReflowCardData {
             suggested_action_label: value.suggested_action_label,
             preview_lines: value.preview_lines,
             edit_target: value.edit_target.into(),
+            transitions: value.transitions.into_iter().map(Into::into).collect(),
         }
     }
 }

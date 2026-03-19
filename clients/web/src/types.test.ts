@@ -1205,6 +1205,32 @@ describe('transport decoders', () => {
             target: 'threads',
             label: 'Continue in Threads',
           },
+          transitions: [
+            {
+              kind: 'submit',
+              label: 'Continue standup',
+              target: 'daily_loop_turn',
+              reference_id: 'dls_1',
+              requires_response: true,
+              requires_note: false,
+            },
+            {
+              kind: 'bypass',
+              label: 'Skip for now',
+              target: 'daily_loop_turn',
+              reference_id: 'dls_1',
+              requires_response: false,
+              requires_note: true,
+            },
+            {
+              kind: 'escalate',
+              label: 'Continue in Threads',
+              target: 'threads',
+              reference_id: 'dls_1',
+              requires_response: false,
+              requires_note: false,
+            },
+          ],
         },
         reflow: {
           id: 'act_reflow_1',
@@ -1223,6 +1249,20 @@ describe('transport decoders', () => {
             target: 'threads',
             label: 'Edit',
           },
+          transitions: [
+            {
+              kind: 'accept',
+              label: 'Accept',
+              target: 'apply_suggestion',
+              confirm_required: true,
+            },
+            {
+              kind: 'edit',
+              label: 'Edit',
+              target: 'threads',
+              confirm_required: false,
+            },
+          ],
         },
         action_items: [
           {
@@ -1430,6 +1470,32 @@ describe('transport decoders', () => {
           target: 'threads',
           label: 'Continue in Threads',
         },
+        transitions: [
+          {
+            kind: 'submit',
+            label: 'Continue standup',
+            target: 'daily_loop_turn',
+            reference_id: 'dls_1',
+            requires_response: true,
+            requires_note: false,
+          },
+          {
+            kind: 'bypass',
+            label: 'Skip for now',
+            target: 'daily_loop_turn',
+            reference_id: 'dls_1',
+            requires_response: false,
+            requires_note: true,
+          },
+          {
+            kind: 'escalate',
+            label: 'Continue in Threads',
+            target: 'threads',
+            reference_id: 'dls_1',
+            requires_response: false,
+            requires_note: false,
+          },
+        ],
       },
       reflow: {
         id: 'act_reflow_1',
@@ -1448,6 +1514,20 @@ describe('transport decoders', () => {
           target: 'threads',
           label: 'Edit',
         },
+        transitions: [
+          {
+            kind: 'accept',
+            label: 'Accept',
+            target: 'apply_suggestion',
+            confirm_required: true,
+          },
+          {
+            kind: 'edit',
+            label: 'Edit',
+            target: 'threads',
+            confirm_required: false,
+          },
+        ],
       },
       action_items: [
         {

@@ -1,7 +1,8 @@
 use time::OffsetDateTime;
 use vel_core::{
     ActionItemId, CheckInCard, CheckInEscalation, CheckInEscalationTarget, CheckInSourceKind,
-    CheckInSubmitTarget, CheckInSubmitTargetKind, DailyLoopPhase, DailyLoopSession,
+    CheckInSubmitTarget, CheckInSubmitTargetKind, CheckInTransition, CheckInTransitionKind,
+    CheckInTransitionTargetKind, DailyLoopPhase, DailyLoopSession,
 };
 use vel_storage::Storage;
 
@@ -29,6 +30,44 @@ pub async fn get_current_check_in(
     Ok(None)
 }
 
+pub fn transitions_for_card(card: &CheckInCard) -> Vec<CheckInTransition> {
+    let mut transitions = vec![CheckInTransition {
+        kind: CheckInTransitionKind::Submit,
+        label: card
+            .suggested_action_label
+            .clone()
+            .unwrap_or_else(|| "Continue".to_string()),
+        target: CheckInTransitionTargetKind::DailyLoopTurn,
+        reference_id: Some(card.submit_target.reference_id.clone()),
+        requires_response: true,
+        requires_note: false,
+    }];
+
+    if card.allow_skip {
+        transitions.push(CheckInTransition {
+            kind: CheckInTransitionKind::Bypass,
+            label: "Skip for now".to_string(),
+            target: CheckInTransitionTargetKind::DailyLoopTurn,
+            reference_id: Some(card.submit_target.reference_id.clone()),
+            requires_response: false,
+            requires_note: true,
+        });
+    }
+
+    if let Some(escalation) = &card.escalation {
+        transitions.push(CheckInTransition {
+            kind: CheckInTransitionKind::Escalate,
+            label: escalation.label.clone(),
+            target: CheckInTransitionTargetKind::Threads,
+            reference_id: Some(card.session_id.clone()),
+            requires_response: false,
+            requires_note: false,
+        });
+    }
+
+    transitions
+}
+
 fn card_from_daily_loop_session(session: DailyLoopSession) -> Option<CheckInCard> {
     let DailyLoopSession {
         id,
@@ -52,7 +91,7 @@ fn card_from_daily_loop_session(session: DailyLoopSession) -> Option<CheckInCard
         ),
     };
 
-    Some(CheckInCard {
+    let mut card = CheckInCard {
         id: ActionItemId::from(format!("act_check_in_{}_{}", id, prompt.prompt_id)),
         source_kind: CheckInSourceKind::DailyLoop,
         phase,
@@ -73,7 +112,10 @@ fn card_from_daily_loop_session(session: DailyLoopSession) -> Option<CheckInCard
             target: CheckInEscalationTarget::Threads,
             label: "Continue in Threads".to_string(),
         }),
-    })
+        transitions: Vec::new(),
+    };
+    card.transitions = transitions_for_card(&card);
+    Some(card)
 }
 
 #[cfg(test)]
@@ -119,5 +161,9 @@ mod tests {
         assert_eq!(card.submit_target.reference_id, "dls_test");
         assert_eq!(card.escalation.unwrap().label, "Continue in Threads");
         assert_eq!(card.id.as_ref(), "act_check_in_dls_test_standup_prompt_1");
+        assert_eq!(card.transitions.len(), 3);
+        assert_eq!(card.transitions[0].kind, CheckInTransitionKind::Submit);
+        assert_eq!(card.transitions[1].kind, CheckInTransitionKind::Bypass);
+        assert_eq!(card.transitions[2].kind, CheckInTransitionKind::Escalate);
     }
 }

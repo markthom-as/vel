@@ -384,6 +384,32 @@ mod tests {
                     target: vel_core::CheckInEscalationTarget::Threads,
                     label: "Continue in Threads".to_string(),
                 }),
+                transitions: vec![
+                    vel_core::CheckInTransition {
+                        kind: vel_core::CheckInTransitionKind::Submit,
+                        label: "Continue standup".to_string(),
+                        target: vel_core::CheckInTransitionTargetKind::DailyLoopTurn,
+                        reference_id: Some("dls_1".to_string()),
+                        requires_response: true,
+                        requires_note: false,
+                    },
+                    vel_core::CheckInTransition {
+                        kind: vel_core::CheckInTransitionKind::Bypass,
+                        label: "Skip for now".to_string(),
+                        target: vel_core::CheckInTransitionTargetKind::DailyLoopTurn,
+                        reference_id: Some("dls_1".to_string()),
+                        requires_response: false,
+                        requires_note: true,
+                    },
+                    vel_core::CheckInTransition {
+                        kind: vel_core::CheckInTransitionKind::Escalate,
+                        label: "Continue in Threads".to_string(),
+                        target: vel_core::CheckInTransitionTargetKind::Threads,
+                        reference_id: Some("dls_1".to_string()),
+                        requires_response: false,
+                        requires_note: false,
+                    },
+                ],
             }),
             reflow: Some(vel_core::ReflowCard {
                 id: vel_core::ActionItemId::from("act_reflow_1".to_string()),
@@ -403,6 +429,20 @@ mod tests {
                     target: vel_core::CheckInEscalationTarget::Threads,
                     label: "Edit".to_string(),
                 },
+                transitions: vec![
+                    vel_core::ReflowTransition {
+                        kind: vel_core::ReflowTransitionKind::Accept,
+                        label: "Accept".to_string(),
+                        target: vel_core::ReflowTransitionTargetKind::ApplySuggestion,
+                        confirm_required: true,
+                    },
+                    vel_core::ReflowTransition {
+                        kind: vel_core::ReflowTransitionKind::Edit,
+                        label: "Edit".to_string(),
+                        target: vel_core::ReflowTransitionTargetKind::Threads,
+                        confirm_required: false,
+                    },
+                ],
             }),
             action_items: vec![vel_core::ActionItem {
                 id: vel_core::ActionItemId::from("act_1".to_string()),
@@ -466,9 +506,17 @@ mod tests {
         assert_eq!(json["check_in"]["phase"], "standup");
         assert_eq!(json["check_in"]["submit_target"]["kind"], "daily_loop_turn");
         assert_eq!(json["check_in"]["escalation"]["target"], "threads");
+        assert_eq!(json["check_in"]["transitions"][0]["kind"], "submit");
+        assert_eq!(json["check_in"]["transitions"][1]["kind"], "bypass");
+        assert_eq!(json["check_in"]["transitions"][2]["target"], "threads");
         assert_eq!(json["reflow"]["trigger"], "missed_event");
         assert_eq!(json["reflow"]["severity"], "critical");
         assert_eq!(json["reflow"]["edit_target"]["target"], "threads");
+        assert_eq!(
+            json["reflow"]["transitions"][0]["target"],
+            "apply_suggestion"
+        );
+        assert_eq!(json["reflow"]["transitions"][1]["kind"], "edit");
         assert_eq!(json["action_items"][0]["rank"], 70);
         assert_eq!(json["review_snapshot"]["open_action_count"], 1);
     }

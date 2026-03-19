@@ -665,6 +665,8 @@ export interface ReviewSnapshotData {
 export type CheckInSourceKindData = 'daily_loop';
 export type CheckInSubmitTargetKindData = 'daily_loop_turn';
 export type CheckInEscalationTargetData = 'threads';
+export type CheckInTransitionKindData = 'submit' | 'bypass' | 'escalate';
+export type CheckInTransitionTargetKindData = 'daily_loop_turn' | 'threads';
 
 export interface CheckInSubmitTargetData {
   kind: CheckInSubmitTargetKindData;
@@ -674,6 +676,15 @@ export interface CheckInSubmitTargetData {
 export interface CheckInEscalationData {
   target: CheckInEscalationTargetData;
   label: string;
+}
+
+export interface CheckInTransitionData {
+  kind: CheckInTransitionKindData;
+  label: string;
+  target: CheckInTransitionTargetKindData;
+  reference_id: string | null;
+  requires_response: boolean;
+  requires_note: boolean;
 }
 
 export interface CheckInCardData {
@@ -691,6 +702,7 @@ export interface CheckInCardData {
   blocking: boolean;
   submit_target: CheckInSubmitTargetData;
   escalation: CheckInEscalationData | null;
+  transitions: CheckInTransitionData[];
 }
 
 export type ReflowTriggerKindData =
@@ -701,10 +713,19 @@ export type ReflowTriggerKindData =
   | 'task_no_longer_fits';
 export type ReflowSeverityData = 'medium' | 'high' | 'critical';
 export type ReflowAcceptModeData = 'direct_accept' | 'confirm_required';
+export type ReflowTransitionKindData = 'accept' | 'edit';
+export type ReflowTransitionTargetKindData = 'apply_suggestion' | 'threads';
 
 export interface ReflowEditTargetData {
   target: CheckInEscalationTargetData;
   label: string;
+}
+
+export interface ReflowTransitionData {
+  kind: ReflowTransitionKindData;
+  label: string;
+  target: ReflowTransitionTargetKindData;
+  confirm_required: boolean;
 }
 
 export interface ReflowCardData {
@@ -717,6 +738,7 @@ export interface ReflowCardData {
   suggested_action_label: string;
   preview_lines: string[];
   edit_target: ReflowEditTargetData;
+  transitions: ReflowTransitionData[];
 }
 
 export interface TrustReadinessFacetData {
@@ -2026,6 +2048,31 @@ export function decodeCheckInEscalationData(value: unknown): CheckInEscalationDa
   };
 }
 
+export function decodeCheckInTransitionKindData(value: unknown): CheckInTransitionKindData {
+  return expectEnumString(value, 'check-in transition kind', ['submit', 'bypass', 'escalate']);
+}
+
+export function decodeCheckInTransitionTargetKindData(
+  value: unknown,
+): CheckInTransitionTargetKindData {
+  return expectEnumString(value, 'check-in transition target', ['daily_loop_turn', 'threads']);
+}
+
+export function decodeCheckInTransitionData(value: unknown): CheckInTransitionData {
+  const record = expectRecord(value, 'check-in transition');
+  return {
+    kind: decodeCheckInTransitionKindData(record.kind),
+    label: expectString(record.label, 'check-in transition.label'),
+    target: decodeCheckInTransitionTargetKindData(record.target),
+    reference_id: expectNullableString(record.reference_id ?? null, 'check-in transition.reference_id'),
+    requires_response: expectBoolean(
+      record.requires_response,
+      'check-in transition.requires_response',
+    ),
+    requires_note: expectBoolean(record.requires_note, 'check-in transition.requires_note'),
+  };
+}
+
 export function decodeCheckInCardData(value: unknown): CheckInCardData {
   const record = expectRecord(value, 'check-in card');
   return {
@@ -2049,6 +2096,7 @@ export function decodeCheckInCardData(value: unknown): CheckInCardData {
     blocking: expectBoolean(record.blocking, 'check-in card.blocking'),
     submit_target: decodeCheckInSubmitTargetData(record.submit_target),
     escalation: decodeNullable(record.escalation ?? null, decodeCheckInEscalationData),
+    transitions: decodeArray(record.transitions ?? [], decodeCheckInTransitionData),
   };
 }
 
@@ -2070,11 +2118,34 @@ export function decodeReflowAcceptModeData(value: unknown): ReflowAcceptModeData
   return expectEnumString(value, 'reflow accept mode', ['direct_accept', 'confirm_required']);
 }
 
+export function decodeReflowTransitionKindData(value: unknown): ReflowTransitionKindData {
+  return expectEnumString(value, 'reflow transition kind', ['accept', 'edit']);
+}
+
+export function decodeReflowTransitionTargetKindData(
+  value: unknown,
+): ReflowTransitionTargetKindData {
+  return expectEnumString(value, 'reflow transition target', ['apply_suggestion', 'threads']);
+}
+
 export function decodeReflowEditTargetData(value: unknown): ReflowEditTargetData {
   const record = expectRecord(value, 'reflow edit target');
   return {
     target: decodeCheckInEscalationTargetData(record.target),
     label: expectString(record.label, 'reflow edit target.label'),
+  };
+}
+
+export function decodeReflowTransitionData(value: unknown): ReflowTransitionData {
+  const record = expectRecord(value, 'reflow transition');
+  return {
+    kind: decodeReflowTransitionKindData(record.kind),
+    label: expectString(record.label, 'reflow transition.label'),
+    target: decodeReflowTransitionTargetKindData(record.target),
+    confirm_required: expectBoolean(
+      record.confirm_required,
+      'reflow transition.confirm_required',
+    ),
   };
 }
 
@@ -2095,6 +2166,7 @@ export function decodeReflowCardData(value: unknown): ReflowCardData {
       expectString(item, 'reflow card.preview_lines'),
     ),
     edit_target: decodeReflowEditTargetData(record.edit_target),
+    transitions: decodeArray(record.transitions ?? [], decodeReflowTransitionData),
   };
 }
 
