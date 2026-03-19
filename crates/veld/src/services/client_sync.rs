@@ -5,6 +5,7 @@ use std::{
 
 use time::OffsetDateTime;
 use uuid::Uuid;
+use vel_api_types::{ApiResponse, SyncBootstrapData};
 
 use crate::{errors::AppError, state::AppState};
 use vel_core::{
@@ -354,6 +355,12 @@ pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkers, Ap
             worker
         })
         .collect();
+    let workers = merge_discovered_workers(
+        workers,
+        discover_tailscale_workers(state, &bootstrap, now).await,
+    );
+    let workers =
+        merge_discovered_workers(workers, discover_lan_workers(state, &bootstrap, now).await);
 
     Ok(ClusterWorkers {
         active_authority_node_id: bootstrap.active_authority_node_id.clone(),
@@ -361,6 +368,217 @@ pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkers, Ap
         generated_at: now,
         workers,
     })
+}
+
+async fn discover_tailscale_workers(
+    state: &AppState,
+    local_bootstrap: &ClusterBootstrap,
+    now: i64,
+) -> Vec<WorkerPresence> {
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(750))
+        .build()
+    {
+        Ok(client) => client,
+        Err(error) => {
+            tracing::debug!(error = %error, "failed to build tailscale discovery client");
+            return Vec::new();
+        }
+    };
+
+    let mut workers = Vec::new();
+    for peer in crate::services::tailscale::discover_peers(&state.config).await {
+        if !peer.online || peer.base_url == local_bootstrap.sync_base_url {
+            continue;
+        }
+        let Some(worker) = fetch_tailscale_peer_worker(&client, &peer, now).await else {
+            continue;
+        };
+        workers.push(worker);
+    }
+
+    workers
+}
+
+async fn fetch_tailscale_peer_worker(
+    client: &reqwest::Client,
+    peer: &crate::services::tailscale::TailscalePeer,
+    now: i64,
+) -> Option<WorkerPresence> {
+    let url = format!("{}/v1/sync/bootstrap", peer.base_url.trim_end_matches('/'));
+    let response = client.get(&url).send().await.ok()?;
+    if !response.status().is_success() {
+        tracing::debug!(
+            base_url = %peer.base_url,
+            status = %response.status(),
+            "tailscale peer bootstrap probe was not accepted"
+        );
+        return None;
+    }
+
+    let body = response
+        .json::<ApiResponse<SyncBootstrapData>>()
+        .await
+        .ok()?;
+    let cluster = body.data?.cluster;
+    Some(discovered_worker_from_bootstrap(peer, cluster, now))
+}
+
+async fn discover_lan_workers(
+    state: &AppState,
+    local_bootstrap: &ClusterBootstrap,
+    now: i64,
+) -> Vec<WorkerPresence> {
+    let Ok(peers) =
+        crate::services::lan_discovery::discover_peers(state, &local_bootstrap.node_id).await
+    else {
+        return Vec::new();
+    };
+
+    peers
+        .into_iter()
+        .filter(|peer| peer.cluster.node_id != local_bootstrap.node_id)
+        .map(|peer| discovered_worker_from_lan(peer, now))
+        .collect()
+}
+
+fn discovered_worker_from_bootstrap(
+    peer: &crate::services::tailscale::TailscalePeer,
+    cluster: vel_api_types::ClusterBootstrapData,
+    now: i64,
+) -> WorkerPresence {
+    let latency_class = if peer.online { "low" } else { "unknown" }.to_string();
+    WorkerPresence {
+        worker_id: format!("discovered:{}", cluster.node_id),
+        node_id: cluster.node_id,
+        node_display_name: cluster.node_display_name,
+        client_kind: peer.os.as_ref().map(|os| match os.as_str() {
+            "macOS" => "vel_macos".to_string(),
+            "linux" => "veld".to_string(),
+            other => other.to_lowercase(),
+        }),
+        client_version: None,
+        protocol_version: None,
+        build_id: None,
+        worker_classes: vec!["sync".to_string()],
+        capabilities: cluster.capabilities,
+        status: if peer.online {
+            "discovered".to_string()
+        } else {
+            "unreachable".to_string()
+        },
+        queue_depth: 0,
+        reachability: if peer.online {
+            "reachable".to_string()
+        } else {
+            "unknown".to_string()
+        },
+        latency_class,
+        compute_class: "unknown".to_string(),
+        power_class: "unknown".to_string(),
+        recent_failure_rate: 0.0,
+        tailscale_preferred: cluster.sync_transport == "tailscale",
+        last_heartbeat_at: now,
+        started_at: Some(now),
+        sync_base_url: cluster.sync_base_url,
+        sync_transport: cluster.sync_transport,
+        tailscale_base_url: cluster
+            .tailscale_base_url
+            .or_else(|| Some(peer.base_url.clone())),
+        preferred_tailnet_endpoint: Some(peer.base_url.clone()),
+        tailscale_reachable: peer.online,
+        lan_base_url: cluster.lan_base_url,
+        localhost_base_url: cluster.localhost_base_url,
+        ping_ms: None,
+        sync_status: "discovered_via_tailscale".to_string(),
+        last_upstream_sync_at: None,
+        last_downstream_sync_at: None,
+        last_sync_error: None,
+        incoming_linking_prompt: None,
+        capacity: WorkerCapacity {
+            max_concurrency: 0,
+            current_load: 0,
+            available_concurrency: 0,
+        },
+    }
+}
+
+fn discovered_worker_from_lan(
+    peer: crate::services::lan_discovery::LanDiscoveredPeer,
+    now: i64,
+) -> WorkerPresence {
+    let cluster = peer.cluster;
+    WorkerPresence {
+        worker_id: format!("lan:{}", cluster.node_id),
+        node_id: cluster.node_id,
+        node_display_name: cluster.node_display_name,
+        client_kind: None,
+        client_version: None,
+        protocol_version: None,
+        build_id: None,
+        worker_classes: vec!["sync".to_string()],
+        capabilities: cluster.capabilities,
+        status: "discovered".to_string(),
+        queue_depth: 0,
+        reachability: "reachable".to_string(),
+        latency_class: "low".to_string(),
+        compute_class: "unknown".to_string(),
+        power_class: "unknown".to_string(),
+        recent_failure_rate: 0.0,
+        tailscale_preferred: cluster.sync_transport == "tailscale",
+        last_heartbeat_at: now,
+        started_at: Some(now),
+        sync_base_url: cluster
+            .lan_base_url
+            .clone()
+            .unwrap_or_else(|| cluster.sync_base_url.clone()),
+        sync_transport: if cluster.lan_base_url.is_some() {
+            "lan".to_string()
+        } else {
+            cluster.sync_transport.clone()
+        },
+        tailscale_base_url: cluster.tailscale_base_url,
+        preferred_tailnet_endpoint: None,
+        tailscale_reachable: false,
+        lan_base_url: cluster.lan_base_url,
+        localhost_base_url: cluster.localhost_base_url,
+        ping_ms: None,
+        sync_status: "discovered_via_lan".to_string(),
+        last_upstream_sync_at: None,
+        last_downstream_sync_at: None,
+        last_sync_error: None,
+        incoming_linking_prompt: None,
+        capacity: WorkerCapacity {
+            max_concurrency: 0,
+            current_load: 0,
+            available_concurrency: 0,
+        },
+    }
+}
+
+fn merge_discovered_workers(
+    mut workers: Vec<WorkerPresence>,
+    discovered_workers: Vec<WorkerPresence>,
+) -> Vec<WorkerPresence> {
+    let known_node_ids = workers
+        .iter()
+        .map(|worker| worker.node_id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    let known_sync_urls = workers
+        .iter()
+        .map(|worker| worker.sync_base_url.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+
+    for worker in discovered_workers {
+        if known_node_ids.contains(&worker.node_id)
+            || known_sync_urls.contains(&worker.sync_base_url)
+        {
+            continue;
+        }
+        workers.push(worker);
+    }
+
+    workers
 }
 
 pub async fn effective_cluster_bootstrap(state: &AppState) -> Result<ClusterBootstrap, AppError> {
@@ -2002,6 +2220,137 @@ mod tests {
         assert_eq!(prompt.issued_by_node_id, "vel-node");
         assert!(prompt.scopes.read_context);
         assert!(!prompt.scopes.write_safe_actions);
+    }
+
+    #[test]
+    fn merge_discovered_workers_skips_nodes_already_known_from_heartbeats() {
+        let existing = WorkerPresence {
+            worker_id: "node_remote".to_string(),
+            node_id: "node_remote".to_string(),
+            node_display_name: "Remote".to_string(),
+            client_kind: Some("veld".to_string()),
+            client_version: None,
+            protocol_version: None,
+            build_id: None,
+            worker_classes: vec!["sync".to_string()],
+            capabilities: vec![],
+            status: "ready".to_string(),
+            queue_depth: 0,
+            reachability: "reachable".to_string(),
+            latency_class: "low".to_string(),
+            compute_class: "standard".to_string(),
+            power_class: "ac_or_unknown".to_string(),
+            recent_failure_rate: 0.0,
+            tailscale_preferred: true,
+            last_heartbeat_at: 1,
+            started_at: Some(1),
+            sync_base_url: "http://remote.tailnet.ts.net:4130".to_string(),
+            sync_transport: "tailscale".to_string(),
+            tailscale_base_url: Some("http://remote.tailnet.ts.net:4130".to_string()),
+            preferred_tailnet_endpoint: Some("http://remote.tailnet.ts.net:4130".to_string()),
+            tailscale_reachable: true,
+            lan_base_url: None,
+            localhost_base_url: None,
+            ping_ms: None,
+            sync_status: "ready".to_string(),
+            last_upstream_sync_at: None,
+            last_downstream_sync_at: None,
+            last_sync_error: None,
+            incoming_linking_prompt: None,
+            capacity: WorkerCapacity {
+                max_concurrency: 1,
+                current_load: 0,
+                available_concurrency: 1,
+            },
+        };
+        let discovered = WorkerPresence {
+            worker_id: "discovered:node_remote".to_string(),
+            sync_status: "discovered_via_tailscale".to_string(),
+            ..existing.clone()
+        };
+
+        let merged = merge_discovered_workers(vec![existing], vec![discovered]);
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].worker_id, "node_remote");
+    }
+
+    #[test]
+    fn discovered_worker_from_bootstrap_uses_remote_node_identity() {
+        let peer = crate::services::tailscale::TailscalePeer {
+            dns_name: "joves-macbook-pro.tailnet.ts.net".to_string(),
+            host_name: Some("joves-macbook-pro".to_string()),
+            os: Some("macOS".to_string()),
+            online: true,
+            tailscale_ips: vec!["100.106.75.48".to_string()],
+            base_url: "http://joves-macbook-pro.tailnet.ts.net:4130".to_string(),
+        };
+        let worker = discovered_worker_from_bootstrap(
+            &peer,
+            vel_api_types::ClusterBootstrapData {
+                node_id: "vel-mbp".to_string(),
+                node_display_name: "Jove's MacBook Pro".to_string(),
+                active_authority_node_id: "vel-mbp".to_string(),
+                active_authority_epoch: 1,
+                sync_base_url: "http://joves-macbook-pro.tailnet.ts.net:4130".to_string(),
+                sync_transport: "tailscale".to_string(),
+                tailscale_base_url: Some(
+                    "http://joves-macbook-pro.tailnet.ts.net:4130".to_string(),
+                ),
+                lan_base_url: None,
+                localhost_base_url: None,
+                capabilities: vec!["read_context".to_string()],
+                branch_sync: None,
+                validation_profiles: vec![],
+                linked_nodes: vec![],
+                projects: vec![],
+                action_items: vec![],
+                pending_writebacks: vec![],
+                conflicts: vec![],
+                people: vec![],
+            },
+            1_710_000_000,
+        );
+
+        assert_eq!(worker.node_id, "vel-mbp");
+        assert_eq!(worker.node_display_name, "Jove's MacBook Pro");
+        assert_eq!(worker.worker_id, "discovered:vel-mbp");
+        assert_eq!(worker.sync_status, "discovered_via_tailscale");
+        assert_eq!(worker.client_kind.as_deref(), Some("vel_macos"));
+    }
+
+    #[test]
+    fn discovered_worker_from_lan_prefers_advertised_lan_base_url() {
+        let worker = discovered_worker_from_lan(
+            crate::services::lan_discovery::LanDiscoveredPeer {
+                source_addr: "192.168.1.20:4131".parse().unwrap(),
+                cluster: vel_api_types::ClusterBootstrapData {
+                    node_id: "vel-lan".to_string(),
+                    node_display_name: "Vel LAN".to_string(),
+                    active_authority_node_id: "vel-lan".to_string(),
+                    active_authority_epoch: 1,
+                    sync_base_url: "http://192.168.1.20:4130".to_string(),
+                    sync_transport: "configured".to_string(),
+                    tailscale_base_url: None,
+                    lan_base_url: Some("http://192.168.1.20:4130".to_string()),
+                    localhost_base_url: None,
+                    capabilities: vec!["read_context".to_string()],
+                    branch_sync: None,
+                    validation_profiles: vec![],
+                    linked_nodes: vec![],
+                    projects: vec![],
+                    action_items: vec![],
+                    pending_writebacks: vec![],
+                    conflicts: vec![],
+                    people: vec![],
+                },
+            },
+            1_710_000_000,
+        );
+
+        assert_eq!(worker.node_id, "vel-lan");
+        assert_eq!(worker.sync_transport, "lan");
+        assert_eq!(worker.sync_status, "discovered_via_lan");
+        assert_eq!(worker.sync_base_url, "http://192.168.1.20:4130");
     }
 
     #[tokio::test]

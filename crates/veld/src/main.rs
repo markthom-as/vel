@@ -90,6 +90,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
     tokio::spawn(worker::run_background_workers(state.clone()));
+    tokio::spawn(services::lan_discovery::run_responder(state.clone()));
 
     let bind_addr = config.bind_addr.clone();
     let listener = TcpListener::bind(&config.bind_addr)
