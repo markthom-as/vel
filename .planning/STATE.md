@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 16
 current_phase_name: logic-first-product-closure-on-canonical-core-surfaces
-current_plan: 0
-status: planning
-stopped_at: Planned Phase 16; next logical step is execute 16-01
-last_updated: "2026-03-19T21:49:01Z"
+current_plan: 1
+status: executing
+stopped_at: Completed Phase 16-01; next logical step is execute 16-02
+last_updated: "2026-03-19T22:08:26Z"
 last_activity: 2026-03-19
 progress:
   total_phases: 17
   completed_phases: 12
-  total_plans: 69
-  completed_plans: 62
-  percent: 68
+  total_plans: 73
+  completed_plans: 63
+  percent: 69
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 16 execution-ready planning — logic-first-product-closure-on-canonical-core-surfaces
+**Current focus:** Phase 16 execution — logic-first-product-closure-on-canonical-core-surfaces
 
-Status: Phase 16 planned; execution can begin at 16-01
+Status: Phase 16 in progress; 16-01 is complete and 16-02 is next
 Current Phase: 16
 Current Phase Name: logic-first-product-closure-on-canonical-core-surfaces
-Current Plan: 0
+Current Plan: 1
 Total Plans in Phase: 5
-Progress: 0%
+Progress: 20%
 Last Activity: 2026-03-19
-Last Activity Description: Planned Phase 16 into five backend-logic slices covering transition contracts, check_in, reflow, readiness follow-through, and project-scoped action behavior
+Last Activity Description: Completed 16-01 by publishing typed backend-owned `check_in` and `reflow` transition contracts through core, DTO, service, route, and web seams, while Phase 17 planning completed in parallel
 
 ## Current Position
 
-Phase: 16 (logic-first-product-closure-on-canonical-core-surfaces) — PLANNED
-Plan: 0 of 5
+Phase: 16 (logic-first-product-closure-on-canonical-core-surfaces) — IN PROGRESS
+Plan: 1 of 5
 
 ## Performance Metrics
 
@@ -174,6 +174,8 @@ Recent decisions affecting current work:
 - Phase 15 completed (2026-03-19): 15-05 preserved project-scoped operator-action ownership through core, service, DTO, and shell seams and advanced the next lane to Phase 16 planning
 - Phase 16 discussion completed (2026-03-19): wrote `16-CONTEXT.md` to lock logic-first closure priorities, product rules, and code-context references ahead of planning
 - Phase 16 planning created (2026-03-19): 5-plan rollout covering transition contracts, backend-owned `check_in`, backend-owned `reflow`, trust/readiness follow-through, and project-scoped action behavior
+- Phase 16 execution started (2026-03-19): 16-01 completed by publishing typed backend-owned `check_in` and `reflow` transitions and wiring them through the `Now`/web contract
+- Phase 17 planning created (2026-03-19): 4-plan rollout covering web shell classification, default-surface embodiment, advanced/support disclosure, and Apple/CLI alignment
 
 ### Pending Todos
 
@@ -198,10 +200,10 @@ Recent decisions affecting current work:
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 - Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
-- Phase 16 is planned; the next active lane is 16-01 execution
+- Phase 16 is active; the next lane is 16-02 execution
 
 ## Session Continuity
 
 Last session: 2026-03-19T07:35:55.445Z
-Stopped at: Planned Phases 10 and 11 in parallel while Phase 09 remained the active execution lane
+Stopped at: Completed Phase 16-01 and Phase 17 planning in parallel; next logical step is 16-02 execution
 Resume file: None
