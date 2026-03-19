@@ -45,6 +45,18 @@ This phase is not broad UI implementation, not architecture migration, and not b
 - [locked] The product should prefer compact, contextual, icon-driven surfaces with tap/click to expand detail rather than broad equal-weight dashboards.
 - [locked] A unified action entry should handle capture, voice chat, text chat, action requests, and thread starts with automatic routing plus an override affordance.
 - [locked] Surface filters should be treated as views over a canonical action taxonomy, not as the core product model.
+- [locked] Vel should support explicit check-in actions that query the operator to repair context or collect missing metadata when inference alone is not enough.
+- [locked] Check-ins should default to inline `Now` cards with a suggested action and should escalate into `Threads` only when a longer interaction is needed.
+- [locked] The action taxonomy should include both urgency and importance so visually heavier actions like `reflow` can stand apart from lighter inline prompts such as routine nudges or check-ins.
+- [locked] `Now` should stay minimal: non-urgent items should usually collapse into badges/counts/deep links rather than render as direct cards.
+- [locked] `Reflow` should first appear as a compact `Day changed` preview with `Accept` and `Edit`, where `Edit` escalates into `Threads`.
+- [locked] Blocking `check_in` items should stay pinned, but allow bypass with a warning and operator note.
+- [locked] `Threads` should usually become durable only once an interaction is meaningfully multi-step.
+- [locked] Project-specific actions such as project review or project reflow may remain project-scoped even if surfaced through shared queues.
+- [locked] Non-urgent indicators in `Now` should prefer a subtle context-bar style and should usually deep-link into filtered `Inbox` views.
+- [locked] Check-in and bypass flows should prefer suggested responses or reasons with optional custom voice/text input.
+- [locked] Reflow acceptance should depend on severity, and backend logic should eventually distinguish movable from fixed constraints.
+- [locked] Project-scoped work should usually retain a visible project identity marker wherever it appears.
 
 ### Roadmap-shaping decisions
 - [locked] Phase 15 should stay focused on seam migration.
@@ -69,6 +81,11 @@ This phase is not broad UI implementation, not architecture migration, and not b
 - The operator wants eventual iOS parity, but mobile should remain summary-first, with grounding buried for now and advanced/runtime detail web-first.
 - The current boundary draft is: `Now` for orientation and immediate pressure, `Inbox` for triage and actionable queue work, `Threads` for parallel interactive work and searchable history.
 - Discovery should define an action taxonomy covering action kind, actor, permission mode, urgency, state, and surface affinity before filter labels harden into product semantics.
+- Check-ins should become a first-class operator action for context repair, missing metadata collection, and confirmation of ambiguous real-world state.
+- `Reflow` should be treated as more important and more notification-heavy than routine nudges or normal check-ins, even when all three can surface in `Now`.
+- `Now` should prefer ADHD-friendly minimal actionable context: direct cards for urgent issues, lighter indicators for the rest.
+- Morning start and end-of-day closure can remain named flows, but should ride on the same action/check-in/review model rather than becoming a separate semantics system.
+- The preferred subtle surface for non-urgent indicators is a compact context bar rather than another loud panel.
 - The Todoist user-story export in `/home/jove/Downloads/Vel.csv` reinforces several directionally important choices: subtle top status/context, icon-driven and collapsible shell affordances, strong onboarding, route-aware contextual help, integration hygiene, and richer project drill-down without promoting Projects back to the main daily-use surface.
 
 </specifics>

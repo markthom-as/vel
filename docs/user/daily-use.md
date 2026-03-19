@@ -19,7 +19,8 @@ Use `vel morning` for the bounded morning overview loop and `vel standup` for th
 If you are using the web shell and need the fastest path to the right help:
 
 - `Now` is the primary surface for daily orientation, freshness warnings, and the current daily-loop entry path.
-- `Settings` is the primary surface for Todoist, linking, writeback trust, and Apple/local-source setup guidance.
+- `Now` may also surface inline check-ins, summary trust warnings, and heavier reflow suggestions when the current plan is no longer trustworthy.
+- `Settings` is the deeper surface for Todoist, linking, writeback trust, and Apple/local-source setup guidance.
 - `Threads` is the conversation/history surface, not the setup authority.
 - if a shell card points you to setup or troubleshooting work, follow the matching guide in `docs/user/setup.md`, `docs/user/integrations/`, or `docs/user/troubleshooting.md` instead of guessing from stale UI state.
 
@@ -28,6 +29,7 @@ What you are looking for:
 - the current mode and morning state,
 - what commitments are open,
 - whether there are active nudges,
+- whether Vel is asking for a check-in or recommending a reflow,
 - whether recent source data looks fresh enough to trust.
 
 ## During the day
@@ -100,6 +102,8 @@ cargo run -p vel-cli -- evaluate
 
 On macOS, if local source snapshots are already in `~/Library/Application Support/Vel/...`, `veld` may bootstrap them automatically at startup. Manual sync is still useful when you want an immediate refresh.
 
+If the day plan no longer looks trustworthy after a stale sync or missed event, treat that as a candidate `reflow`, not just a generic refresh problem.
+
 ## Backup and trust check
 
 Before risky local changes, confirm backup trust:
@@ -126,6 +130,7 @@ Good uses:
 - see what was captured,
 - orient in Now before you react to scattered context,
 - triage Inbox from the explicit action queue instead of guessing what is urgent,
+- respond to inline check-ins when Vel needs missing metadata or context repair,
 - check pending writebacks, open conflicts, and people-linked review items from Now or Settings before trusting integration-backed edits,
 - inspect what remained unresolved,
 - notice response debt or drift,

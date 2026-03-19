@@ -238,6 +238,8 @@ CLI:
 - may expose deeper inspection than default web mode
 - should still follow the same taxonomy rather than inventing a separate product model
 
+See [operator-mode-policy.md](operator-mode-policy.md) for the progressive-disclosure and action-visibility rules that sit on top of this taxonomy.
+
 ## Onboarding Implications
 
 Onboarding should launch from a first-time advisory and remain relaunchable from Settings.

@@ -8,6 +8,11 @@ Cross-surface architecture authority:
 - command/query/read-model vocabulary: [cross-surface contract vocabulary](../../docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md)
 - shipped architecture proof flow: [cross-surface proof flows](../../docs/cognitive-agent-architecture/architecture/cross-surface-proof-flows.md)
 
+Product-mode authority for summary-first disclosure:
+
+- operator surface taxonomy: [operator surface taxonomy](../../docs/product/operator-surface-taxonomy.md)
+- operator mode policy: [operator mode policy](../../docs/product/operator-mode-policy.md)
+
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VelAppleModules** — shared Apple scaffold package for domain/application/infrastructure/platform/capability seams.
 - **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.

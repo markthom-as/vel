@@ -46,6 +46,8 @@ Contextual rendering rule:
 - when no immediate action is needed, `Now` should prefer summary counts and compact previews that link out to `Inbox` or `Threads`
 - examples include inbox pressure, nudges needing triage, and threads needing attention
 - once an item is acted on, it can leave the active `Now` area and fall into a muted `Now` history section near the bottom of the scroll for lightweight review
+- check-ins should normally appear here as inline cards with a suggested next action and an option to continue in a longer thread-style flow when the question cannot be resolved inline
+- actions shown in `Now` still need an importance/urgency distinction; `reflow` should generally render heavier and notify more aggressively than a normal `check_in` or routine nudge
 
 Mobile note:
 
@@ -188,6 +190,8 @@ If forced to choose top-level destinations today, the cleanest set remains:
 - `Settings`
 
 `Projects` should remain reachable, but not top-level by default until its role is clearer.
+
+See [operator-mode-policy.md](operator-mode-policy.md) for the disclosure rules that sit on top of these boundaries.
 
 ## Open Questions
 

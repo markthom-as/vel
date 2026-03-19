@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 14
-current_phase_name: product-discovery-operator-modes-and-milestone-shaping
-current_plan: 1
-status: executing
-stopped_at: Phase 13 closed; Phase 14 execution started from the first taxonomy slice
-last_updated: "2026-03-19T20:15:00Z"
+current_phase: 15
+current_phase_name: incremental-core-migration-and-canonical-rust-service-seams
+current_plan: 0
+status: planning
+stopped_at: Phase 14 completed; next logical step is Phase 15 planning
+last_updated: "2026-03-19T21:20:00Z"
 last_activity: 2026-03-19
 progress:
   total_phases: 17
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 14 — product-discovery-operator-modes-and-milestone-shaping
+**Current focus:** Phase 15 planning — incremental-core-migration-and-canonical-rust-service-seams
 
-Status: Phase 14 executing
-Current Phase: 14
-Current Phase Name: product-discovery-operator-modes-and-milestone-shaping
-Current Plan: 1
-Total Plans in Phase: 4
+Status: Phase 14 complete; Phase 15 planning next
+Current Phase: 15
+Current Phase Name: incremental-core-migration-and-canonical-rust-service-seams
+Current Plan: 0
+Total Plans in Phase: 0
 Progress: 0%
 Last Activity: 2026-03-19
-Last Activity Description: Closed Phase 13 and started Phase 14 plan 01 (operator-surface taxonomy)
+Last Activity Description: Closed Phase 14 and advanced the active lane to Phase 15 planning
 
 ## Current Position
 
-Phase: 14 (product-discovery-operator-modes-and-milestone-shaping) — EXECUTING
-Plan: 1 of 4
+Phase: 15 (incremental-core-migration-and-canonical-rust-service-seams) — PLANNING
+Plan: 0 of 0
 
 ## Performance Metrics
 
@@ -163,6 +163,9 @@ Recent decisions affecting current work:
 - Phase 14 planning created (2026-03-19): 4-plan rollout covering surface taxonomy, onboarding/trust journeys, operator-mode policy, and milestone reshaping
 - Phase 13 completed (2026-03-19): cross-surface architecture, contract vocabulary, future Apple/desktop paths, and proof flows are all documented and Phase 14 is now the active lane
 - Phase 14 execution started (2026-03-19): 14-01 began with the canonical operator-surface taxonomy
+- Phase 14 execution advanced (2026-03-19): 14-02 published onboarding/trust/recovery journeys and aligned daily-use/setup routing
+- Phase 14 execution advanced (2026-03-19): 14-03 published operator-mode policy, minimal `Now` rules, heavier `reflow`, inline `check_in`, and project-scoped action guidance
+- Phase 14 completed (2026-03-19): milestone reshaping locked 15 -> 16 -> 17 sequencing, preserved the action model and disclosure policy, and advanced the next lane to Phase 15 planning
 
 ### Pending Todos
 
@@ -187,7 +190,7 @@ Recent decisions affecting current work:
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 - Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
-- Phase 13 is complete; the active implementation lane is now Phase 14 product discovery, operator modes, and milestone shaping
+- Phase 14 is complete; the next active lane is Phase 15 planning for incremental core migration and canonical Rust service seams
 
 ## Session Continuity
 

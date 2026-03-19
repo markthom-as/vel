@@ -284,18 +284,19 @@ Plans:
 **Goal:** Define the actual operator product shape after the architectural seams are clear: what belongs in the default daily-use experience, what moves behind advanced or developer modes, how onboarding and trust ergonomics should work, and which future milestones deserve investment before broader UI proliferation.
 **Requirements**: PROD-01, MODE-01, UX-CORE-01, TRUST-UX-01, ONBOARD-02, ROADMAP-01
 **Depends on:** Phase 13
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans complete
 
 **Discovery note:** This phase should reduce accidental product sprawl by deciding which currently exposed surfaces are core, advanced, internal, or deferred rather than letting those boundaries emerge ad hoc from current web or Apple UI.
 **Included from thread decisions:** define the default core feature set, decide what moves behind menus or advanced/dev mode, settle onboarding/trust/help priorities, and produce milestone structure before broader UI or logic investment widens.
 **Discovery follow-on note:** Early discovery indicates Phase 14 should evaluate adding a dedicated post-16 shell embodiment and surface-simplification phase instead of forcing that UI work into Phase 16.
-**Taxonomy note:** The first discovery slice should ratify `Now`, `Inbox`, `Projects`, and the daily loop as the default operator story, with Settings/Stats/runtime detail classified under advanced or internal surfaces rather than left as implicit equals.
+**Taxonomy note:** Phase 14 concluded that `Now` and `Inbox` are the primary default surfaces, `Threads` is archive/search-first support, and `Projects` is secondary in navigation but may still own project-scoped actions.
+**Action-model note:** Phase 14 also concluded that filters remain derived views over a canonical action model, with separate axes for urgency, importance, blocking state, and disruption level.
 
 Plans:
-- [ ] 14-01-PLAN.md — Publish the canonical operator-surface taxonomy for default, advanced operator, and internal/developer surfaces
-- [ ] 14-02-PLAN.md — Define onboarding, trust, and recovery journeys as summary-first operator flows
-- [ ] 14-03-PLAN.md — Publish the operator-mode and progressive-disclosure policy across web, CLI, and Apple assumptions
-- [ ] 14-04-PLAN.md — Close with milestone reshaping, roadmap updates, and any new future phase needed for shell embodiment
+- [x] 14-01-PLAN.md — Publish the canonical operator-surface taxonomy for default, advanced operator, and internal/developer surfaces
+- [x] 14-02-PLAN.md — Define onboarding, trust, and recovery journeys as summary-first operator flows
+- [x] 14-03-PLAN.md — Publish the operator-mode and progressive-disclosure policy across web, CLI, and Apple assumptions
+- [x] 14-04-PLAN.md — Close with milestone reshaping, roadmap updates, and any new future phase needed for shell embodiment
 
 ### Phase 15: Incremental core migration and canonical Rust service seams
 
@@ -306,6 +307,7 @@ Plans:
 
 **Migration note:** This phase should favor a sequence of proof-bearing seam migrations over a broad crate shuffle. Structural moves are justified only when they materially reduce shell-owned logic, boundary confusion, or transport coupling.
 **Included from thread decisions:** do the minimum structural work needed for the next real logic slices, avoid refactor theater, and move seams only when the result clearly improves product-core ownership or portability.
+**Phase 14 carry-forward:** migration should create the backend-owned seams needed for canonical action records, summary-first trust/readiness projections, check-in flows, and reflow planning without re-opening shell-boundary debates.
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 15 to break down)
@@ -319,6 +321,7 @@ Plans:
 
 **Delivery note:** This phase is where the product logic discovered in Phase 14 should become canonical backend/application behavior, with UI phases following behind instead of leading product definition.
 **Included from thread decisions:** business logic should be defined and implemented before broad shell expansion, with later UI phases focused on embodiment, interaction quality, and surface-specific affordances rather than inventing product semantics.
+**Phase 14 carry-forward:** Phase 16 should implement the action-model and operator journey logic directly, including check-ins, heavier reflow semantics, summary-first trust/readiness, and backend-owned routing across `Now`, `Inbox`, `Threads`, and project-scoped actions.
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 16 to break down)
@@ -331,6 +334,7 @@ Plans:
 **Plans:** 0 plans
 
 **Embodiment note:** This phase exists so UI/surface simplification does not get mixed into migration or backend logic closure. It should apply the approved product-mode policy and shell boundaries rather than invent new product semantics.
+**Phase 14 carry-forward:** Phase 17 should embody minimal `Now`, triage-first `Inbox`, archive/search-first `Threads`, secondary-but-real `Projects`, inline `check_in`, and heavier `reflow` treatment without reopening the taxonomy or action-model decisions.
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 17 to break down)

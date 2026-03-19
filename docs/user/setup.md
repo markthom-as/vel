@@ -172,12 +172,35 @@ When the web shell or Settings tells you something needs setup, use this path:
 
 - `Now` freshness or stale connector warning:
   open the matching integration guide under `docs/user/integrations/` and then rerun the relevant sync.
+- `Now` check-in card:
+  answer it inline if the suggested action is correct; if the question needs more context, continue in Threads and then return to `Now`.
+- `Now` reflow suggestion:
+  treat it as a day-plan recalculation prompt. Confirm it when the current schedule is stale, a key event was missed, or today no longer fits the remaining time.
 - linking or paired-node trust question:
   use the linking routes in Settings first, then `docs/api/runtime.md` for `/v1/linking/*` behavior and `docs/user/troubleshooting.md` for recovery.
 - Todoist token or sync question:
   open `docs/user/integrations/todoist.md`.
 - Apple endpoint, `vel_tailscale_url`, or local-source path question:
   stay in this setup guide first, then continue to `docs/user/integrations/apple-macos.md` or `docs/user/integrations/local-sources.md`.
+
+## Summary-first setup and trust rule
+
+Vel should normally route setup, trust, and recovery work in this order:
+
+1. short summary in `Now` or Settings
+2. one suggested next action
+3. optional deeper inspection
+4. only then raw troubleshooting or implementation-aware recovery
+
+Examples:
+
+- onboarding blocker
+- stale source input
+- writeback trust issue
+- linking problem
+- Apple local-source discovery failure
+
+If you land directly in diagnostics, step back to the matching summary surface first unless the product is already in a clear recovery-only state.
 
 Phase 12 decision note:
 
