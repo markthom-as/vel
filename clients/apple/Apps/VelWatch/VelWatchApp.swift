@@ -23,6 +23,11 @@ final class VelWatchStore: ObservableObject {
     @Published var pendingActionCount: Int = 0
     @Published var mode: String?
     @Published var nextCommitmentText: String?
+    @Published var scheduleSummary: String?
+    @Published var scheduleDetail: String?
+    @Published var topActionTitle: String?
+    @Published var behaviorHeadline: String?
+    @Published var behaviorReason: String?
     @Published var lastActionStatus: String?
 
     init() {
@@ -33,43 +38,32 @@ final class VelWatchStore: ObservableObject {
 
     func refresh() async {
         let cached = offlineStore.cachedNudgesApplyingPendingActions()
-        let cachedContext = offlineStore.cachedContext()
-        let cachedCommitments = offlineStore.cachedCommitmentsApplyingPendingActions()
-        let hasCachedContent = !cached.isEmpty || cachedContext != nil || !cachedCommitments.isEmpty
+        let cachedNow = offlineStore.cachedNow()
+        let cachedBehavior = offlineStore.cachedAppleBehaviorSummary()
+        let hasCachedContent = !cached.isEmpty || cachedNow != nil || cachedBehavior != nil
         if hasCachedContent {
-            let active = cached.filter { $0.state == "active" || $0.state == "snoozed" }
-            await MainActor.run {
-                nudgeCount = active.count
-                message = active.first?.message ?? "No nudges"
-                transport = "cached"
-                activeNudgeID = active.first?.nudge_id
-                pendingActionCount = offlineStore.pendingActionCount()
-                mode = cachedContext?.context?.mode
-                nextCommitmentText = resolveNextCommitment(
-                    preferredID: cachedContext?.context?.next_commitment_id,
-                    commitments: cachedCommitments
-                )?.text
-            }
+            applySnapshot(nudges: cached, now: cachedNow, behavior: cachedBehavior, transportLabel: "cached")
         }
         for candidate in VelEndpointResolver.candidateBaseURLs() {
             client.baseURL = candidate
+            client.configuration = .shared()
             do {
                 _ = await offlineStore.drainQueuedActions(using: client)
                 let bootstrap = try await client.syncBootstrap()
                 offlineStore.hydrate(from: bootstrap)
-                let active = bootstrap.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
-                await MainActor.run {
-                    nudgeCount = active.count
-                    message = active.first?.message ?? "No nudges"
-                    transport = bootstrap.cluster.sync_transport
-                    activeNudgeID = active.first?.nudge_id
-                    pendingActionCount = offlineStore.pendingActionCount()
-                    mode = bootstrap.current_context?.context?.mode
-                    nextCommitmentText = resolveNextCommitment(
-                        preferredID: bootstrap.current_context?.context?.next_commitment_id,
-                        commitments: bootstrap.commitments
-                    )?.text
+                let now = try await client.now()
+                offlineStore.saveCachedNow(now)
+                let behavior = try? await client.appleBehaviorSummary()
+                if let behavior {
+                    offlineStore.saveCachedAppleBehaviorSummary(behavior)
                 }
+                let active = bootstrap.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+                applySnapshot(
+                    nudges: active,
+                    now: now,
+                    behavior: behavior,
+                    transportLabel: bootstrap.cluster.sync_transport
+                )
                 return
             } catch {
                 continue
@@ -84,6 +78,11 @@ final class VelWatchStore: ObservableObject {
                 message = "Offline"
                 mode = nil
                 nextCommitmentText = nil
+                scheduleSummary = nil
+                scheduleDetail = nil
+                topActionTitle = nil
+                behaviorHeadline = nil
+                behaviorReason = nil
             }
             pendingActionCount = offlineStore.pendingActionCount()
         }
@@ -167,25 +166,48 @@ final class VelWatchStore: ObservableObject {
         ].joined(separator: "\n")
     }
 
-    private func resolveNextCommitment(
-        preferredID: String?,
-        commitments: [CommitmentData]
-    ) -> CommitmentData? {
-        let open = commitments.filter { $0.status == "open" }
-        if let preferredID, let matched = open.first(where: { $0.id == preferredID }) {
-            return matched
+    private func applySnapshot(
+        nudges: [NudgeData],
+        now: NowData?,
+        behavior: AppleBehaviorSummaryData?,
+        transportLabel: String
+    ) {
+        let active = nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+        let nextEvent = now?.schedule.next_event
+        let scheduleSummaryValue: String?
+        if let nextEvent {
+            scheduleSummaryValue = nextEvent.title
+        } else {
+            scheduleSummaryValue = now?.schedule.empty_message
         }
-        return open.sorted { lhs, rhs in
-            switch (lhs.due_at, rhs.due_at) {
-            case let (l?, r?):
-                return l < r
-            case (.some, .none):
-                return true
-            case (.none, .some):
-                return false
-            case (.none, .none):
-                return lhs.text < rhs.text
-            }
-        }.first
+
+        let scheduleDetailValue: String?
+        if let leaveBy = nextEvent?.leave_by_ts {
+            scheduleDetailValue = "Leave by \(formatUnix(leaveBy))"
+        } else if let eventStart = nextEvent?.start_ts {
+            scheduleDetailValue = "Starts \(formatUnix(eventStart))"
+        } else {
+            scheduleDetailValue = nil
+        }
+
+        nudgeCount = active.count
+        message = scheduleSummaryValue ?? active.first?.message ?? "No quick-loop state yet"
+        transport = transportLabel
+        activeNudgeID = active.first?.nudge_id
+        pendingActionCount = offlineStore.pendingActionCount()
+        mode = now?.summary.mode.label
+        nextCommitmentText = now?.tasks.next_commitment?.text
+        scheduleSummary = scheduleSummaryValue
+        scheduleDetail = scheduleDetailValue
+        topActionTitle = now?.action_items.first?.title
+        behaviorHeadline = behavior?.headline
+        behaviorReason = behavior?.reasons.first
     }
+}
+
+private func formatUnix(_ unix: Int) -> String {
+    let formatter = DateFormatter()
+    formatter.dateStyle = .none
+    formatter.timeStyle = .short
+    return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(unix)))
 }

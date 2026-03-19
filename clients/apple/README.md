@@ -3,8 +3,8 @@
 Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel daemon (veld)** over HTTP; no business logic in the client.
 
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
-- **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), quick capture + push-to-talk voice capture, offline cache + queued actions.
-- **VelWatch** — Apple Watch: brief “what matters now” summary (mode + next commitment), nudge quick actions (done/snooze), quick capture/check-in/task entry, cached fallback.
+- **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
+- **VelWatch** — Apple Watch: backend-owned quick-loop summary from `/v1/now` plus Apple behavior summary, nudge quick actions (done/snooze), quick capture/check-in/task entry, cached fallback.
 - **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages/reminders snapshot export into Vel’s Application Support tree.
 
 Current architecture and planning references: [Master Plan](../../docs/MASTER_PLAN.md), [overarching concept spec](../../docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md), [HLC sync implementation ticket](../../docs/tickets/phase-2/005-hlc-sync-implementation.md), and [tester-readiness onboarding ticket](../../docs/tickets/phase-2/012-tester-readiness-onboarding.md).
@@ -24,6 +24,8 @@ make check-apple-swift
 This is useful for validating the shared `VelAPI` package, but full app builds still require Xcode on macOS.
 
 On a physical device, set the daemon base URL (e.g. `http://<your-mac-ip>:4130`) in app settings/UserDefaults.
+
+If your runtime enables strict HTTP auth, also set `vel_operator_token` in the Apple client's `UserDefaults`. `VelAPI` sends that value as `x-vel-operator-token` on operator-authenticated `/v1/*` requests, including `/v1/now`, `/v1/apple/voice/turn`, and `/v1/apple/behavior-summary`.
 
 ## Quick local setup (simulator)
 
@@ -107,9 +109,9 @@ Use `vel_tailscale_url` for day-to-day multi-device use. Keep `vel_base_url` as 
 
 ## Offline cache + queue behavior
 
-When the daemon is unreachable, clients keep rendering cached data and queue low-risk actions:
+When the daemon is unreachable, clients keep rendering cached backend data and queue low-risk actions:
 
-- cached surfaces: current context, nudges, commitments
+- cached surfaces: current context, nudges, commitments, `/v1/now`, Apple behavior summary
 - queued actions: nudge `done`, nudge `snooze`, commitment `done`, commitment `create`, capture `create`
 
 Queued actions are drained automatically on next successful reachability/bootstrap check.
@@ -124,6 +126,7 @@ Watch quick-action notes:
 
 - quick presets for common check-ins (for example meds taken / prep started)
 - quick note capture and quick commitment add directly from watch
+- watch refresh reads `/v1/now` for schedule/next-commitment state and `/v1/apple/behavior-summary` for the bounded behavior card
 - watch capture/task actions use the same queued sync lane when offline
 
 Voice capture notes:
@@ -132,8 +135,10 @@ Voice capture notes:
 - requires microphone + speech recognition permission
 - submissions preserve transcript provenance as a `voice_note` capture
 - transcript is editable before submit and intent suggestions update live
-- supported voice query intents: morning briefing, current context, next commitment, active nudges, and explain-why
-- supported voice action intents include commitment creation and targeted commitment done (for example, `mark meds done`)
+- supported backend voice query intents: morning briefing, current schedule, next commitment, active nudges, explain-why, and behavior summary
+- the Voice tab sends supported replies through `POST /v1/apple/voice/turn`; Swift renders the typed response and does not synthesize query answers locally
+- commitment creation still uses the existing direct capture/queue shell because it is not part of the current Apple voice backend contract
+- supported voice action intents include targeted commitment done and nudge snooze/done when the backend route is reachable; offline fallback is limited to provenance capture plus queued safe actions
 - voice responses can be spoken back with built-in TTS playback
 - voice transcript handoff can open the Capture tab directly for multimodal draft composition
 

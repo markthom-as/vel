@@ -7,9 +7,6 @@ struct ContentView: View {
 
     var body: some View {
         let linkedNodes = store.offlineStore.cachedLinkedNodes()
-        let actionItems = store.offlineStore.cachedActionItems()
-            .filter { $0.surface == .now }
-            .sorted { $0.rank < $1.rank }
 
         List {
             Section("Status") {
@@ -35,8 +32,8 @@ struct ContentView: View {
                 Text("Linked nodes: \(linkedNodes.count)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                if let actionTitle = actionItems.first?.title, !actionTitle.isEmpty {
-                    Text("Top action title: \(actionTitle)")
+                if let actionTitle = store.topActionTitle, !actionTitle.isEmpty {
+                    Text("Top action: \(actionTitle)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
@@ -62,6 +59,17 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                if let scheduleSummary = store.scheduleSummary, !scheduleSummary.isEmpty {
+                    Text(scheduleSummary)
+                        .font(.caption)
+                        .lineLimit(3)
+                }
+                if let scheduleDetail = store.scheduleDetail, !scheduleDetail.isEmpty {
+                    Text(scheduleDetail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
                 if let next = store.nextCommitmentText, !next.isEmpty {
                     Text(next)
                         .font(.caption)
@@ -70,6 +78,23 @@ struct ContentView: View {
                     Text("No open commitment")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                }
+            }
+            Section("Behavior") {
+                if let headline = store.behaviorHeadline, !headline.isEmpty {
+                    Text(headline)
+                        .font(.caption)
+                        .lineLimit(3)
+                } else {
+                    Text("No backend behavior summary cached.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let reason = store.behaviorReason, !reason.isEmpty {
+                    Text(reason)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
                 }
             }
             if store.activeNudgeID != nil {
@@ -138,7 +163,7 @@ struct ContentView: View {
             Section("Docs") {
                 Text("Core: docs/MASTER_PLAN.md")
                     .font(.caption2)
-                Text("User: docs/user/README.md")
+                Text("User: docs/user/daily-use.md")
                     .font(.caption2)
             }
         }

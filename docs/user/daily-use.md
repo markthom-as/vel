@@ -46,6 +46,12 @@ cargo run -p vel-cli -- exec export <project_id>
 
 The execution export writes only a small sidecar pack under the project's primary repo root, by default at `.planning/vel/`, so supervised GSD-readable handoffs stay inspectable and bounded instead of mutating arbitrary repo files.
 
+If you use the Apple clients during the day:
+
+- iPhone Voice replies should come from the backend Apple route, not from client-side query synthesis.
+- Apple Watch quick loops should reflect backend `/v1/now` schedule state plus the bounded Apple behavior summary.
+- When offline, treat Apple surfaces as cached-render + queued-safe-action shells. Wait for reconnect before trusting new schedule or explainability answers.
+
 ## Commitments and review
 
 Use commitments as the actionable layer:

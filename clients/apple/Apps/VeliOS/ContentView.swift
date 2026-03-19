@@ -1000,7 +1000,7 @@ private struct VoiceTab: View {
                     .disabled(!voiceModel.hasTranscript)
                 }
 
-                Text("Voice submissions always preserve transcript provenance as a voice capture in Vel.")
+                Text("Voice submissions preserve transcript provenance, then defer schedule and behavior replies to the backend Apple route.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
 
@@ -1038,7 +1038,7 @@ private struct VoiceTab: View {
                     }
                     .buttonStyle(.bordered)
                 } else {
-                    Text("Run a voice query like “what matters now?” or “why now?” to get an immediate response.")
+                    Text("Run a voice query like “what matters right now?” or “give me a behavior summary” for a backend-owned reply.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -2002,144 +2002,36 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             ? text
             : suggestedText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if intent.isQuery, store.isReachable {
-            await store.refresh()
+        if intent.usesBackendVoiceTurn {
+            let result = await submitBackendVoiceTurn(
+                using: store,
+                transcript: text,
+                primaryText: primaryText,
+                intent: intent
+            )
+            appendHistoryEntry(
+                transcript: text,
+                suggestedIntent: suggestedIntent,
+                committedIntent: result.committedIntent,
+                status: result.historyStatus
+            )
+            errorMessage = result.errorMessage
+            return
         }
 
-        let capturePayload = voiceCapturePayload(transcript: text, intent: intent)
-        await store.createCapture(
-            text: capturePayload,
-            type: "voice_note",
-            source: "apple_ios_voice"
+        let result = await submitViaQueuedShell(
+            using: store,
+            transcript: text,
+            primaryText: primaryText,
+            intent: intent
         )
-
-        var committedIntent: VoiceIntent?
-        var historyStatus = historyStatus(for: intent, isReachable: store.isReachable)
-        switch intent.kind {
-        case .captureCreate:
-            committedIntent = .capture
-            setResponse(
-                summary: store.isReachable ? "Saved voice capture." : "Voice capture queued for sync.",
-                detail: primaryText
-            )
-        case .commitmentCreate:
-            await store.createCommitment(text: primaryText)
-            committedIntent = .commitment
-            setResponse(
-                summary: store.isReachable ? "Created commitment." : "Commitment queued for sync.",
-                detail: primaryText
-            )
-        case .commitmentDone:
-            let target = primaryText.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !target.isEmpty else {
-                historyStatus = "needs_clarification"
-                errorMessage = "Commitment target missing. Clarify and retry."
-                setResponse(
-                    summary: "Commitment target is missing.",
-                    detail: "Try phrasing like “mark meds done.”"
-                )
-                break
-            }
-            let matches = rankedCommitmentMatches(
-                for: target,
-                in: store.commitments.filter { $0.status == "open" }
-            )
-            if let best = matches.first?.commitment {
-                if isAmbiguousTopMatch(matches) {
-                    historyStatus = "needs_clarification"
-                    let options = matches.prefix(3).map { $0.commitment.text }.joined(separator: " | ")
-                    errorMessage = "Commitment target was ambiguous. Clarify and retry."
-                    setResponse(
-                        summary: "Ambiguous commitment target.",
-                        detail: "Could match: \(options)"
-                    )
-                } else {
-                    await store.markCommitmentDone(id: best.id)
-                    committedIntent = .commitmentDone
-                    setResponse(
-                        summary: store.isReachable ? "Resolved commitment." : "Commitment completion queued.",
-                        detail: best.text
-                    )
-                }
-            } else {
-                historyStatus = "capture_only"
-                errorMessage = "No open commitment matched. Saved as capture only."
-                let detail = target.isEmpty
-                    ? "Saved transcript as capture provenance only."
-                    : "Target: \(target). Saved transcript as capture provenance only."
-                setResponse(
-                    summary: "No open commitment matched.",
-                    detail: detail
-                )
-            }
-        case .nudgeDone:
-            if let nudgeID = firstActionableNudgeID(from: store.nudges) {
-                await store.markNudgeDone(id: nudgeID)
-                committedIntent = .nudgeDone
-                setResponse(
-                    summary: store.isReachable ? "Resolved top nudge." : "Top nudge resolution queued.",
-                    detail: nil
-                )
-            } else {
-                errorMessage = "No active nudge found. Saved as capture only."
-                historyStatus = "capture_only"
-                setResponse(
-                    summary: "No active nudge found.",
-                    detail: "Saved transcript as capture provenance only."
-                )
-            }
-        case .nudgeSnooze:
-            let minutes = intent.minutes ?? 10
-            if let nudgeID = firstActionableNudgeID(from: store.nudges) {
-                await store.snoozeNudge(id: nudgeID, minutes: minutes)
-                committedIntent = .nudgeSnooze(minutes)
-                setResponse(
-                    summary: store.isReachable ? "Snoozed top nudge \(minutes) minutes." : "Top nudge snooze queued for \(minutes) minutes.",
-                    detail: nil
-                )
-            } else {
-                errorMessage = "No active nudge found. Saved as capture only."
-                historyStatus = "capture_only"
-                setResponse(
-                    summary: "No active nudge found.",
-                    detail: "Saved transcript as capture provenance only."
-                )
-            }
-        case .morningBriefing:
-            committedIntent = .morningBriefing
-            setResponse(buildMorningBriefingResponse(from: store))
-        case .queryContext:
-            committedIntent = .queryContext
-            setResponse(buildContextResponse(from: store))
-        case .queryNextCommitment:
-            committedIntent = .queryNextCommitment
-            setResponse(buildNextCommitmentResponse(from: store))
-        case .queryNudges:
-            committedIntent = .queryNudges
-            setResponse(buildNudgesResponse(from: store))
-        case .explainContext:
-            committedIntent = .explainContext
-            setResponse(buildExplanationResponse(from: store))
-        }
-
         appendHistoryEntry(
             transcript: text,
             suggestedIntent: suggestedIntent,
-            committedIntent: committedIntent,
-            status: historyStatus
+            committedIntent: result.committedIntent,
+            status: result.historyStatus
         )
-
-        if !store.isReachable {
-            if errorMessage == nil {
-                if intent.isQuery {
-                    errorMessage = "Answered from offline cache. Transcript capture queued for sync."
-                } else {
-                    errorMessage = "Voice action queued for sync while offline."
-                }
-            }
-        } else if committedIntent != nil {
-            errorMessage = nil
-        }
+        errorMessage = result.errorMessage
     }
 
     private func historyStatus(for intent: VoiceIntent, isReachable: Bool) -> String {
@@ -2238,197 +2130,337 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             .joined(separator: " ")
     }
 
-    private func nextOpenCommitment(from store: VelClientStore, preferredID: String?) -> CommitmentData? {
-        let open = store.commitments.filter { $0.status == "open" }
-        if let preferredID, let matching = open.first(where: { $0.id == preferredID }) {
-            return matching
-        }
-        return open.sorted { lhs, rhs in
-            switch (lhs.due_at, rhs.due_at) {
-            case let (l?, r?):
-                return l < r
-            case (.some, .none):
-                return true
-            case (.none, .some):
-                return false
-            case (.none, .none):
-                return lhs.text < rhs.text
-            }
-        }.first
+    private struct VoiceSubmitResult {
+        let committedIntent: VoiceIntent?
+        let historyStatus: String
+        let errorMessage: String?
     }
 
-    private func buildMorningBriefingResponse(from store: VelClientStore) -> VoiceResponse {
-        let context = store.context?.context
-        let next = nextOpenCommitment(from: store, preferredID: context?.next_commitment_id)
-        let activeNudges = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+    private func submitBackendVoiceTurn(
+        using store: VelClientStore,
+        transcript: String,
+        primaryText: String,
+        intent: VoiceIntent
+    ) async -> VoiceSubmitResult {
+        guard let appleIntent = intent.appleIntent, let operation = intent.appleOperation else {
+            return VoiceSubmitResult(committedIntent: nil, historyStatus: "unsupported", errorMessage: "This voice action is not supported by the Apple backend route.")
+        }
 
-        var summaryParts: [String] = []
-        if let next {
-            if let due = next.due_at {
-                summaryParts.append("Next: \(next.text), due \(formatUnix(due)).")
-            } else {
-                summaryParts.append("Next: \(next.text).")
+        if store.isReachable {
+            do {
+                let response = try await store.client.appleVoiceTurn(
+                    AppleVoiceTurnRequestData(
+                        transcript: transcript,
+                        surface: .iosVoice,
+                        operation: operation,
+                        intents: [appleIntent],
+                        provenance: appleProvenance(isOfflineFallback: false)
+                    )
+                )
+                await refreshBackendCaches(using: store)
+                await store.refresh()
+                setResponse(from: response, offlineStore: store.offlineStore)
+                return VoiceSubmitResult(
+                    committedIntent: intent,
+                    historyStatus: response.queued_mutation?.queued == true ? "queued" : historyStatus(for: intent, isReachable: true),
+                    errorMessage: nil
+                )
+            } catch {
+                let fallback = await submitOfflineVoiceFallback(
+                    using: store,
+                    transcript: transcript,
+                    primaryText: primaryText,
+                    intent: intent,
+                    underlyingError: error
+                )
+                return fallback
             }
-        } else {
-            summaryParts.append("No open commitments are cached.")
         }
 
-        if let top = activeNudges.first {
-            summaryParts.append("Top nudge: \(top.message).")
-        } else {
-            summaryParts.append("No active nudges right now.")
-        }
-
-        var requiredActions: [String] = []
-        if let meds = context?.meds_status?.lowercased(), meds != "taken", meds != "logged" {
-            requiredActions.append("log meds")
-        }
-        if context?.prep_window_active == true {
-            requiredActions.append("start prep")
-        }
-        if context?.commute_window_active == true {
-            if let leaveBy = context?.leave_by_ts {
-                requiredActions.append("leave by \(formatUnix(leaveBy))")
-            } else {
-                requiredActions.append("start commute")
-            }
-        }
-
-        let detail: String
-        if requiredActions.isEmpty {
-            detail = "No immediate required actions detected from current context."
-        } else {
-            detail = "Required now: \(requiredActions.joined(separator: ", "))."
-        }
-
-        return VoiceResponse(
-            summary: summaryParts.joined(separator: " "),
-            detail: detail
+        return await submitOfflineVoiceFallback(
+            using: store,
+            transcript: transcript,
+            primaryText: primaryText,
+            intent: intent,
+            underlyingError: nil
         )
     }
 
-    private func buildContextResponse(from store: VelClientStore) -> VoiceResponse {
-        guard let context = store.context?.context else {
-            return VoiceResponse(
-                summary: "No current context is cached yet.",
-                detail: "Refresh when Vel is reachable to load context."
+    private func submitViaQueuedShell(
+        using store: VelClientStore,
+        transcript: String,
+        primaryText: String,
+        intent: VoiceIntent
+    ) async -> VoiceSubmitResult {
+        let capturePayload = voiceCapturePayload(transcript: transcript, intent: intent)
+        await store.createCapture(
+            text: capturePayload,
+            type: "voice_note",
+            source: "apple_ios_voice"
+        )
+
+        switch intent.kind {
+        case .captureCreate:
+            setResponse(
+                summary: store.isReachable ? "Saved voice capture." : "Voice capture queued for sync.",
+                detail: primaryText
+            )
+            return VoiceSubmitResult(
+                committedIntent: .capture,
+                historyStatus: historyStatus(for: intent, isReachable: store.isReachable),
+                errorMessage: store.isReachable ? nil : "Voice transcript queued for sync."
+            )
+        case .commitmentCreate:
+            await store.createCommitment(text: primaryText)
+            setResponse(
+                summary: store.isReachable ? "Created commitment." : "Commitment queued for sync.",
+                detail: primaryText
+            )
+            return VoiceSubmitResult(
+                committedIntent: .commitment,
+                historyStatus: historyStatus(for: intent, isReachable: store.isReachable),
+                errorMessage: store.isReachable ? nil : "Commitment request queued for sync."
+            )
+        case .commitmentDone, .nudgeDone, .nudgeSnooze, .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary:
+            setResponse(
+                summary: "This voice action now requires the backend Apple route.",
+                detail: "Reconnect to Vel so the server can interpret and answer it."
+            )
+            return VoiceSubmitResult(
+                committedIntent: nil,
+                historyStatus: "backend_required",
+                errorMessage: "Transcript capture was preserved, but the action needs the backend-owned Apple route."
             )
         }
-
-        var summaryParts: [String] = []
-        if let mode = context.mode, !mode.isEmpty {
-            summaryParts.append("Mode: \(mode).")
-        }
-
-        if let next = nextOpenCommitment(from: store, preferredID: context.next_commitment_id) {
-            if let due = next.due_at {
-                summaryParts.append("Next commitment: \(next.text) due \(formatUnix(due)).")
-            } else {
-                summaryParts.append("Next commitment: \(next.text).")
-            }
-        }
-
-        if context.prep_window_active == true {
-            summaryParts.append("Prep window is active.")
-        }
-        if context.commute_window_active == true {
-            summaryParts.append("Commute window is active.")
-        }
-
-        let activeNudges = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
-        var detailParts: [String] = []
-        if let meds = context.meds_status, !meds.isEmpty {
-            detailParts.append("Meds: \(meds).")
-        }
-        if let attention = context.attention_state, !attention.isEmpty {
-            detailParts.append("Attention: \(attention).")
-        }
-        if let drift = context.drift_type, !drift.isEmpty {
-            detailParts.append("Drift: \(drift).")
-        }
-        if !activeNudges.isEmpty {
-            detailParts.append("Active nudges: \(activeNudges.count). Top: \(activeNudges[0].message)")
-        }
-
-        let summary = summaryParts.isEmpty ? "Context is available." : summaryParts.joined(separator: " ")
-        let detail = detailParts.isEmpty ? nil : detailParts.joined(separator: " ")
-        return VoiceResponse(summary: summary, detail: detail)
     }
 
-    private func buildNextCommitmentResponse(from store: VelClientStore) -> VoiceResponse {
-        let preferred = store.context?.context?.next_commitment_id
-        guard let next = nextOpenCommitment(from: store, preferredID: preferred) else {
-            return VoiceResponse(
-                summary: "No open commitments are cached.",
-                detail: "Sync or create a commitment to set a next action."
+    private func submitOfflineVoiceFallback(
+        using store: VelClientStore,
+        transcript: String,
+        primaryText: String,
+        intent: VoiceIntent,
+        underlyingError: Error?
+    ) async -> VoiceSubmitResult {
+        let capturePayload = voiceCapturePayload(transcript: transcript, intent: intent)
+        await store.createCapture(
+            text: capturePayload,
+            type: "voice_note",
+            source: "apple_ios_voice"
+        )
+
+        switch intent.kind {
+        case .captureCreate:
+            setResponse(summary: "Voice capture queued for sync.", detail: primaryText)
+            return VoiceSubmitResult(
+                committedIntent: .capture,
+                historyStatus: "queued",
+                errorMessage: fallbackErrorMessage(prefix: "Transcript capture queued for sync.", underlyingError: underlyingError)
+            )
+        case .commitmentDone:
+            let target = primaryText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !target.isEmpty else {
+                setResponse(summary: "Commitment target is missing.", detail: "Try phrasing like “mark meds done.”")
+                return VoiceSubmitResult(
+                    committedIntent: nil,
+                    historyStatus: "needs_clarification",
+                    errorMessage: fallbackErrorMessage(prefix: "Commitment target missing.", underlyingError: underlyingError)
+                )
+            }
+            let matches = rankedCommitmentMatches(
+                for: target,
+                in: store.commitments.filter { $0.status == "open" }
+            )
+            guard let best = matches.first?.commitment else {
+                setResponse(summary: "No open commitment matched.", detail: "Transcript capture was queued for sync.")
+                return VoiceSubmitResult(
+                    committedIntent: nil,
+                    historyStatus: "capture_only",
+                    errorMessage: fallbackErrorMessage(prefix: "No local commitment match for offline queueing.", underlyingError: underlyingError)
+                )
+            }
+            if isAmbiguousTopMatch(matches) {
+                let options = matches.prefix(3).map { $0.commitment.text }.joined(separator: " | ")
+                setResponse(summary: "Ambiguous commitment target.", detail: "Could match: \(options)")
+                return VoiceSubmitResult(
+                    committedIntent: nil,
+                    historyStatus: "needs_clarification",
+                    errorMessage: fallbackErrorMessage(prefix: "Commitment target was ambiguous.", underlyingError: underlyingError)
+                )
+            }
+            store.offlineStore.enqueueCommitmentDone(id: best.id)
+            await store.refresh()
+            setResponse(summary: "Commitment completion queued.", detail: best.text)
+            return VoiceSubmitResult(
+                committedIntent: .commitmentDone,
+                historyStatus: "queued",
+                errorMessage: fallbackErrorMessage(prefix: "Commitment completion queued for backend replay.", underlyingError: underlyingError)
+            )
+        case .nudgeDone:
+            guard let nudgeID = firstActionableNudgeID(from: store.nudges) else {
+                setResponse(summary: "No active nudge found.", detail: "Transcript capture was queued for sync.")
+                return VoiceSubmitResult(
+                    committedIntent: nil,
+                    historyStatus: "capture_only",
+                    errorMessage: fallbackErrorMessage(prefix: "No active nudge available for offline queueing.", underlyingError: underlyingError)
+                )
+            }
+            store.offlineStore.enqueueNudgeDone(id: nudgeID)
+            await store.refresh()
+            setResponse(summary: "Top nudge resolution queued.", detail: nil)
+            return VoiceSubmitResult(
+                committedIntent: .nudgeDone,
+                historyStatus: "queued",
+                errorMessage: fallbackErrorMessage(prefix: "Top nudge resolution queued for backend replay.", underlyingError: underlyingError)
+            )
+        case .nudgeSnooze:
+            guard let nudgeID = firstActionableNudgeID(from: store.nudges) else {
+                setResponse(summary: "No active nudge found.", detail: "Transcript capture was queued for sync.")
+                return VoiceSubmitResult(
+                    committedIntent: nil,
+                    historyStatus: "capture_only",
+                    errorMessage: fallbackErrorMessage(prefix: "No active nudge available for offline queueing.", underlyingError: underlyingError)
+                )
+            }
+            let minutes = intent.minutes ?? 10
+            store.offlineStore.enqueueNudgeSnooze(id: nudgeID, minutes: minutes)
+            await store.refresh()
+            setResponse(summary: "Top nudge snooze queued.", detail: "\(minutes) minutes")
+            return VoiceSubmitResult(
+                committedIntent: .nudgeSnooze(minutes),
+                historyStatus: "queued",
+                errorMessage: fallbackErrorMessage(prefix: "Top nudge snooze queued for backend replay.", underlyingError: underlyingError)
+            )
+        case .morningBriefing, .currentSchedule, .queryNextCommitment:
+            let cached = offlineCachedScheduleResponse(for: intent, offlineStore: store.offlineStore)
+            setResponse(cached)
+            return VoiceSubmitResult(
+                committedIntent: intent,
+                historyStatus: cached.summary.contains("Unavailable") ? "backend_required" : "answered_cached",
+                errorMessage: fallbackErrorMessage(prefix: "Showing cached backend schedule state only.", underlyingError: underlyingError)
+            )
+        case .behaviorSummary:
+            let cached = offlineCachedBehaviorResponse(offlineStore: store.offlineStore)
+            setResponse(cached)
+            return VoiceSubmitResult(
+                committedIntent: intent,
+                historyStatus: cached.summary.contains("Unavailable") ? "backend_required" : "answered_cached",
+                errorMessage: fallbackErrorMessage(prefix: "Showing cached backend behavior summary only.", underlyingError: underlyingError)
+            )
+        case .queryNudges, .explainWhy:
+            setResponse(
+                summary: "Unavailable offline.",
+                detail: "This reply is backend-owned and is not synthesized from local Swift cache."
+            )
+            return VoiceSubmitResult(
+                committedIntent: nil,
+                historyStatus: "backend_required",
+                errorMessage: fallbackErrorMessage(prefix: "Transcript capture queued, but this voice reply requires the backend route.", underlyingError: underlyingError)
+            )
+        case .commitmentCreate:
+            return await submitViaQueuedShell(
+                using: store,
+                transcript: transcript,
+                primaryText: primaryText,
+                intent: intent
             )
         }
-        if let due = next.due_at {
+    }
+
+    private func refreshBackendCaches(using store: VelClientStore) async {
+        if let now = try? await store.client.now() {
+            store.offlineStore.saveCachedNow(now)
+        }
+        if let behavior = try? await store.client.appleBehaviorSummary() {
+            store.offlineStore.saveCachedAppleBehaviorSummary(behavior)
+        }
+    }
+
+    private func setResponse(from response: AppleVoiceTurnResponseData, offlineStore: VelOfflineStore) {
+        if let behaviorSummary = response.behavior_summary {
+            offlineStore.saveCachedAppleBehaviorSummary(behaviorSummary)
+        }
+
+        let detailParts = response.queued_mutation.map(\.summary).flatMap { [$0] } ?? []
+        let reasonParts = Array(response.reasons.prefix(2))
+        let evidenceParts = response.evidence.prefix(2).map { "\($0.label): \($0.detail)" }
+        let detail = (detailParts + reasonParts + evidenceParts)
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .joined(separator: " ")
+        setResponse(summary: response.summary, detail: detail.isEmpty ? nil : detail)
+    }
+
+    private func offlineCachedScheduleResponse(
+        for intent: VoiceIntent,
+        offlineStore: VelOfflineStore
+    ) -> VoiceResponse {
+        guard let now = offlineStore.cachedNow() else {
             return VoiceResponse(
-                summary: "Next commitment: \(next.text).",
-                detail: "Due \(formatUnix(due))."
+                summary: "Unavailable offline.",
+                detail: "No cached backend /v1/now payload is available yet."
+            )
+        }
+
+        switch intent.kind {
+        case .morningBriefing, .currentSchedule:
+            if let next = now.schedule.next_event {
+                let detail = next.leave_by_ts.map { "Leave by \(formatUnix($0))." }
+                return VoiceResponse(
+                    summary: "Next event: \(next.title).",
+                    detail: detail ?? now.schedule.empty_message
+                )
+            }
+            return VoiceResponse(
+                summary: now.schedule.empty_message ?? "No upcoming schedule is cached.",
+                detail: now.reasons.first
+            )
+        case .queryNextCommitment:
+            if let next = now.tasks.next_commitment {
+                return VoiceResponse(
+                    summary: "Next commitment: \(next.text).",
+                    detail: next.due_at
+                )
+            }
+            return VoiceResponse(
+                summary: "No next commitment is cached.",
+                detail: now.schedule.empty_message
+            )
+        default:
+            return VoiceResponse(
+                summary: "Unavailable offline.",
+                detail: "Reconnect to fetch a backend-owned reply."
+            )
+        }
+    }
+
+    private func offlineCachedBehaviorResponse(offlineStore: VelOfflineStore) -> VoiceResponse {
+        guard let summary = offlineStore.cachedAppleBehaviorSummary() else {
+            return VoiceResponse(
+                summary: "Unavailable offline.",
+                detail: "No cached backend behavior summary is available yet."
             )
         }
         return VoiceResponse(
-            summary: "Next commitment: \(next.text).",
-            detail: nil
+            summary: summary.headline,
+            detail: summary.reasons.first
         )
     }
 
-    private func buildNudgesResponse(from store: VelClientStore) -> VoiceResponse {
-        let active = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
-        guard !active.isEmpty else {
-            return VoiceResponse(
-                summary: "No active nudges right now.",
-                detail: "You're clear on current nudge backlog."
-            )
+    private func fallbackErrorMessage(prefix: String, underlyingError: Error?) -> String {
+        if let underlyingError {
+            return "\(prefix) \(underlyingError.localizedDescription)"
         }
-
-        let top = active[0]
-        let summary = "You have \(active.count) active nudges. Top nudge: \(top.message)"
-        var detail = "Top nudge type: \(top.nudge_type), level: \(top.level), state: \(top.state)."
-        if let snoozedUntil = top.snoozed_until, top.state == "snoozed" {
-            detail += " Snoozed until \(formatUnix(snoozedUntil))."
-        }
-        return VoiceResponse(summary: summary, detail: detail)
+        return prefix
     }
 
-    private func buildExplanationResponse(from store: VelClientStore) -> VoiceResponse {
-        let active = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
-        let context = store.context?.context
-
-        var reasons: [String] = []
-        if context?.prep_window_active == true {
-            reasons.append("Prep window is currently active.")
-        }
-        if context?.commute_window_active == true {
-            reasons.append("Commute window is active.")
-        }
-        if let meds = context?.meds_status, !meds.isEmpty, meds.lowercased() != "taken" {
-            reasons.append("Meds status is \(meds).")
-        }
-        if let attention = context?.attention_state, !attention.isEmpty {
-            reasons.append("Attention state is \(attention).")
-        }
-        if let drift = context?.drift_type, !drift.isEmpty {
-            reasons.append("Drift signal is \(drift).")
-        }
-        if let top = active.first {
-            reasons.append("Top nudge is \(top.message) (\(top.level)).")
-        }
-
-        guard !reasons.isEmpty else {
-            return VoiceResponse(
-                summary: "No strong risk signals are visible in the cached context.",
-                detail: "Try refreshing for newer context and nudges."
-            )
-        }
-
-        let summary = reasons[0]
-        let detail = reasons.dropFirst().joined(separator: " ")
-        return VoiceResponse(
-            summary: summary,
-            detail: detail.isEmpty ? nil : detail
+    private func appleProvenance(isOfflineFallback: Bool) -> AppleTurnProvenanceData {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        return AppleTurnProvenanceData(
+            source_device: "apple_ios",
+            locale: Locale.current.identifier,
+            transcript_origin: "speech_recognition",
+            recorded_at: timestamp,
+            offline_captured_at: isOfflineFallback ? timestamp : nil,
+            queued_at: isOfflineFallback ? timestamp : nil
         )
     }
 

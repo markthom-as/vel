@@ -219,6 +219,18 @@ CLI fallback when the web shell is unavailable:
 
 - persisted current-context and operator-facing "what matters now" projections
 - `GET /v1/now` is the typed place to orient in Now: it returns ranked `action_items` plus the `review_snapshot` counts (`open_action_count`, `triage_count`, `projects_needing_review`)
+- Apple surfaces should treat `GET /v1/now` as the schedule and quick-loop authority instead of synthesizing schedule answers locally
+
+## Apple quick loops
+
+### `POST /v1/apple/voice/turn`
+### `GET /v1/apple/behavior-summary`
+
+- operator-authenticated Apple shell routes for iPhone/watch quick loops
+- `POST /v1/apple/voice/turn` persists transcript provenance first, then returns a typed backend-owned reply for supported Apple intents
+- `GET /v1/apple/behavior-summary` returns the bounded daily behavior rollup used by Apple quick-loop surfaces
+- Apple clients should send the same operator auth headers as the rest of `/v1/*` (`x-vel-operator-token` or `Authorization: Bearer <token>`) when token policy is configured
+- safe offline Apple mutations should continue to reuse `POST /v1/sync/actions`; clients should not invent a parallel Apple-only write lane
 
 ## Explainability and search
 
