@@ -83,6 +83,16 @@ pub fn same_local_day(
     left_local.date_naive() == right_local.date_naive()
 }
 
+pub fn local_date_string(timezone: &ResolvedTimeZone, value: OffsetDateTime) -> String {
+    let local = utc_datetime(value).with_timezone(&timezone.tz);
+    format!(
+        "{:04}-{:02}-{:02}",
+        local.year(),
+        local.month(),
+        local.day()
+    )
+}
+
 fn utc_datetime(value: OffsetDateTime) -> DateTime<Utc> {
     DateTime::<Utc>::from_timestamp(value.unix_timestamp(), value.nanosecond())
         .expect("offset datetime should convert to chrono datetime")
@@ -121,5 +131,15 @@ mod tests {
         let right = datetime!(2026-03-16 06:30:00 UTC);
 
         assert!(!same_local_day(&timezone, left, right));
+    }
+
+    #[test]
+    fn formats_local_date_string_using_timezone() {
+        let timezone = ResolvedTimeZone::parse("America/Denver").unwrap();
+        let value = datetime!(2026-03-16 05:30:00 UTC);
+
+        let date = local_date_string(&timezone, value);
+
+        assert_eq!(date, "2026-03-15");
     }
 }

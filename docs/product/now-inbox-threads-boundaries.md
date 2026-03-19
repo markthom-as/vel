@@ -86,6 +86,10 @@ It should contain:
 - reviewable suggestions when they need triage
 - project-linked items when they are still actionable queue items
 
+Project identity rule:
+
+- when an inbox or now item is project-scoped, the compact project marker should come from the backend-owned action seam instead of being reconstructed in the shell from a separate projects query
+
 Rendering rule:
 
 - unresolved or still-actionable items should stay in the active inbox area

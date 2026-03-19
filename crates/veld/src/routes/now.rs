@@ -1,9 +1,11 @@
 use axum::extract::State;
 use axum::Json;
 use vel_api_types::{
-    ActionItemData, ApiResponse, NowAttentionData, NowData, NowDebugData, NowEventData,
-    NowFreshnessData, NowFreshnessEntryData, NowLabelData, NowRiskSummaryData, NowScheduleData,
-    NowSourceActivityData, NowSourcesData, NowSummaryData, NowTaskData, NowTasksData,
+    ActionItemData, ApiResponse, CheckInCardData, NowAttentionData, NowData, NowDebugData,
+    NowEventData, NowFreshnessData, NowFreshnessEntryData, NowLabelData, NowRiskSummaryData,
+    NowScheduleData, NowSourceActivityData, NowSourcesData, NowSummaryData, NowTaskData,
+    NowTasksData, ReflowCardData, TrustReadinessData, TrustReadinessFacetData,
+    TrustReadinessReviewData,
 };
 
 use crate::{errors::AppError, routes::response, services, state::AppState};
@@ -26,6 +28,9 @@ impl From<services::now::NowOutput> for NowData {
             attention: value.attention.into(),
             sources: value.sources.into(),
             freshness: value.freshness.into(),
+            trust_readiness: value.trust_readiness.into(),
+            check_in: value.check_in.map(CheckInCardData::from),
+            reflow: value.reflow.map(ReflowCardData::from),
             action_items: value
                 .action_items
                 .into_iter()
@@ -174,6 +179,41 @@ impl From<services::now::NowFreshnessOutput> for NowFreshnessData {
     }
 }
 
+impl From<services::now::TrustReadinessOutput> for TrustReadinessData {
+    fn from(value: services::now::TrustReadinessOutput) -> Self {
+        Self {
+            level: value.level,
+            headline: value.headline,
+            summary: value.summary,
+            backup: value.backup.into(),
+            freshness: value.freshness.into(),
+            review: value.review.into(),
+            guidance: value.guidance,
+        }
+    }
+}
+
+impl From<services::now::TrustReadinessFacetOutput> for TrustReadinessFacetData {
+    fn from(value: services::now::TrustReadinessFacetOutput) -> Self {
+        Self {
+            level: value.level,
+            label: value.label,
+            detail: value.detail,
+        }
+    }
+}
+
+impl From<services::now::TrustReadinessReviewOutput> for TrustReadinessReviewData {
+    fn from(value: services::now::TrustReadinessReviewOutput) -> Self {
+        Self {
+            open_action_count: value.open_action_count,
+            pending_execution_reviews: value.pending_execution_reviews,
+            pending_writeback_count: value.pending_writeback_count,
+            conflict_count: value.conflict_count,
+        }
+    }
+}
+
 impl From<services::now::NowFreshnessEntryOutput> for NowFreshnessEntryData {
     fn from(value: services::now::NowFreshnessEntryOutput) -> Self {
         Self {
@@ -294,13 +334,87 @@ mod tests {
                     guidance: None,
                 }],
             },
+            trust_readiness: services::now::TrustReadinessOutput {
+                level: "warn".to_string(),
+                headline: "Review is pending".to_string(),
+                summary: "1 conflict(s) and 1 supervised review(s) still need operator attention."
+                    .to_string(),
+                backup: services::now::TrustReadinessFacetOutput {
+                    level: "ok".to_string(),
+                    label: "Backup".to_string(),
+                    detail: "Backup trust is healthy.".to_string(),
+                },
+                freshness: services::now::TrustReadinessFacetOutput {
+                    level: "ok".to_string(),
+                    label: "Freshness".to_string(),
+                    detail: "Current context and integrations look fresh enough to trust."
+                        .to_string(),
+                },
+                review: services::now::TrustReadinessReviewOutput {
+                    open_action_count: 1,
+                    pending_execution_reviews: 1,
+                    pending_writeback_count: 1,
+                    conflict_count: 1,
+                },
+                guidance: vec![
+                    "Backup trust is healthy.".to_string(),
+                    "Review the remaining conflicts or supervised execution handoffs before risky actions."
+                        .to_string(),
+                ],
+            },
+            check_in: Some(vel_core::CheckInCard {
+                id: vel_core::ActionItemId::from("act_check_in_1".to_string()),
+                source_kind: vel_core::CheckInSourceKind::DailyLoop,
+                phase: vel_core::DailyLoopPhase::Standup,
+                session_id: "dls_1".to_string(),
+                title: "Standup check-in".to_string(),
+                summary: "Vel needs one short answer before the standup can continue.".to_string(),
+                prompt_id: "standup_prompt_1".to_string(),
+                prompt_text: "Name the one to three commitments that matter most today."
+                    .to_string(),
+                suggested_action_label: Some("Continue standup".to_string()),
+                suggested_response: None,
+                allow_skip: true,
+                blocking: true,
+                submit_target: vel_core::CheckInSubmitTarget {
+                    kind: vel_core::CheckInSubmitTargetKind::DailyLoopTurn,
+                    reference_id: "dls_1".to_string(),
+                },
+                escalation: Some(vel_core::CheckInEscalation {
+                    target: vel_core::CheckInEscalationTarget::Threads,
+                    label: "Continue in Threads".to_string(),
+                }),
+            }),
+            reflow: Some(vel_core::ReflowCard {
+                id: vel_core::ActionItemId::from("act_reflow_1".to_string()),
+                title: "Day changed".to_string(),
+                summary:
+                    "A scheduled event appears to have slipped past without the plan being updated."
+                        .to_string(),
+                trigger: vel_core::ReflowTriggerKind::MissedEvent,
+                severity: vel_core::ReflowSeverity::Critical,
+                accept_mode: vel_core::ReflowAcceptMode::ConfirmRequired,
+                suggested_action_label: "Accept".to_string(),
+                preview_lines: vec![
+                    "Next scheduled event started 20 minutes ago.".to_string(),
+                    "Leave-by threshold passed 10 minutes ago.".to_string(),
+                ],
+                edit_target: vel_core::ReflowEditTarget {
+                    target: vel_core::CheckInEscalationTarget::Threads,
+                    label: "Edit".to_string(),
+                },
+            }),
             action_items: vec![vel_core::ActionItem {
                 id: vel_core::ActionItemId::from("act_1".to_string()),
                 surface: vel_core::ActionSurface::Now,
                 kind: vel_core::ActionKind::NextStep,
+                permission_mode: vel_core::ActionPermissionMode::UserConfirm,
+                scope_affinity: vel_core::ActionScopeAffinity::Global,
                 title: "Ship patch".to_string(),
                 summary: "Due soon".to_string(),
                 project_id: None,
+                project_label: None,
+                project_family: None,
                 state: vel_core::ActionState::Active,
                 rank: 70,
                 surfaced_at: due_at,
@@ -316,6 +430,7 @@ mod tests {
                 open_action_count: 1,
                 triage_count: 0,
                 projects_needing_review: 0,
+                pending_execution_reviews: 1,
             },
             pending_writebacks: vec![],
             conflicts: vec![],
@@ -343,6 +458,17 @@ mod tests {
             "Recent commit"
         );
         assert_eq!(json["freshness"]["sources"][0]["key"], "context");
+        assert_eq!(json["trust_readiness"]["level"], "warn");
+        assert_eq!(
+            json["trust_readiness"]["review"]["pending_execution_reviews"],
+            1
+        );
+        assert_eq!(json["check_in"]["phase"], "standup");
+        assert_eq!(json["check_in"]["submit_target"]["kind"], "daily_loop_turn");
+        assert_eq!(json["check_in"]["escalation"]["target"], "threads");
+        assert_eq!(json["reflow"]["trigger"], "missed_event");
+        assert_eq!(json["reflow"]["severity"], "critical");
+        assert_eq!(json["reflow"]["edit_target"]["target"], "threads");
         assert_eq!(json["action_items"][0]["rank"], 70);
         assert_eq!(json["review_snapshot"]["open_action_count"], 1);
     }

@@ -6,7 +6,10 @@ use time::{Duration, OffsetDateTime};
 use tower::util::ServiceExt;
 use vel_api_types::{ApiResponse, AppleVoiceIntentData, AppleVoiceTurnRequestData};
 use vel_config::AppConfig;
-use vel_core::{AppleClientSurface, AppleRequestedOperation, CurrentContextV1, DailyLoopPhase, DailyLoopStatus, DailyLoopSurface};
+use vel_core::{
+    AppleClientSurface, AppleRequestedOperation, CurrentContextV1, DailyLoopPhase, DailyLoopStatus,
+    DailyLoopSurface,
+};
 use vel_storage::{CommitmentInsert, NudgeInsert, SignalInsert, Storage};
 use veld::{app::build_app, policy_config::PolicyConfig};
 
@@ -320,7 +323,9 @@ async fn apple_voice_morning_briefing_starts_shared_daily_loop_session() {
         "morning voice intent should route into the daily-loop engine"
     );
     assert!(
-        data.reasons.iter().any(|reason| reason.contains("daily-loop")),
+        data.reasons
+            .iter()
+            .any(|reason| reason.contains("daily-loop")),
         "voice response should explain that the backend daily-loop engine answered it"
     );
 

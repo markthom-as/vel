@@ -580,6 +580,32 @@ mod tests {
                         overall_status: "fresh".to_string(),
                         sources: Vec::new(),
                     },
+                    trust_readiness: vel_api_types::TrustReadinessData {
+                        level: "ok".to_string(),
+                        headline: "Ready".to_string(),
+                        summary: "Backup, freshness, and review pressure look healthy enough for normal operation."
+                            .to_string(),
+                        backup: vel_api_types::TrustReadinessFacetData {
+                            level: "ok".to_string(),
+                            label: "Backup".to_string(),
+                            detail: "Backup trust is healthy.".to_string(),
+                        },
+                        freshness: vel_api_types::TrustReadinessFacetData {
+                            level: "ok".to_string(),
+                            label: "Freshness".to_string(),
+                            detail: "Current context and integrations look fresh enough to trust."
+                                .to_string(),
+                        },
+                        review: vel_api_types::TrustReadinessReviewData {
+                            open_action_count: 0,
+                            pending_execution_reviews: 0,
+                            pending_writeback_count: 0,
+                            conflict_count: 0,
+                        },
+                        guidance: vec!["Backup trust is healthy.".to_string()],
+                    },
+                    check_in: None,
+                    reflow: None,
                     action_items: Vec::new(),
                     review_snapshot: vel_api_types::ReviewSnapshotData::default(),
                     pending_writebacks: Vec::new(),

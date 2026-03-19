@@ -168,6 +168,11 @@ Guidance:
 - `blocking_state` should remain explicit and separate from salience
 - `disruption_level` should drive notification posture and visual interruption cost
 
+Current migration note:
+
+- the first backend-owned trust/readiness seam is allowed to compose backup trust, freshness state, pending writebacks/conflicts, and pending execution review pressure into one summary-first `Now` projection
+- shells should consume that typed readiness summary instead of independently recomputing trust posture from lower-level fields
+
 ## `Check_in` Policy
 
 `check_in` should default to:
@@ -177,6 +182,12 @@ Guidance:
 - suggested responses with optional custom input
 - optional freeform response
 - voice-capable response path where appropriate
+
+Implementation rule for the current migration lane:
+
+- the first backend-owned `check_in` seam may derive from active daily-loop prompt state
+- `Now` should consume that typed seam rather than owning check-in semantics locally
+- escalation toward `Threads` should remain metadata/linkage rather than hard-coded shell behavior
 
 It may become blocking when it gates:
 

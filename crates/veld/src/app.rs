@@ -141,7 +141,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
             "/v1/people/:id/aliases",
             post(routes::people::upsert_person_alias),
         )
-        .route("/v1/agent/inspect", get(routes::agent_grounding::get_agent_inspect))
+        .route(
+            "/v1/agent/inspect",
+            get(routes::agent_grounding::get_agent_inspect),
+        )
         .route("/v1/risk", get(routes::risk::list_risk))
         .route("/v1/risk/:id", get(routes::risk::get_commitment_risk))
         .route("/v1/suggestions", get(routes::suggestions::list))

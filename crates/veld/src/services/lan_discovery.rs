@@ -223,15 +223,17 @@ async fn discover_peers_via_http_probe(
         .and_then(|url| url.port_or_known_default())
         .unwrap_or(4130);
 
-    stream::iter(crate::services::local_network::lan_probe_targets().into_iter().map(|ip| {
-        fetch_http_probe_peer(&client, ip, port, local_node_id)
-    }))
-        .buffer_unordered(HTTP_PROBE_CONCURRENCY_LIMIT)
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .flatten()
-        .collect()
+    stream::iter(
+        crate::services::local_network::lan_probe_targets()
+            .into_iter()
+            .map(|ip| fetch_http_probe_peer(&client, ip, port, local_node_id)),
+    )
+    .buffer_unordered(HTTP_PROBE_CONCURRENCY_LIMIT)
+    .collect::<Vec<_>>()
+    .await
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 async fn fetch_http_probe_peer(

@@ -2,10 +2,10 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
     AppleClientSurface, AppleRequestedOperation, AppleResponseEvidence, AppleResponseMode,
-    AppleScheduleEvent, AppleScheduleSnapshot, AppleVoiceIntent, DailyLoopPhase,
-    DailyLoopSession, DailyLoopSessionOutcome, DailyLoopSessionState, DailyLoopStartMetadata,
-    DailyLoopStartRequest, DailyLoopStartSource, DailyLoopSurface,
+    AppleScheduleEvent, AppleScheduleSnapshot, AppleVoiceIntent,
     AppleVoiceTurnQueuedMutationSummary, AppleVoiceTurnRequest, AppleVoiceTurnResponse,
+    DailyLoopPhase, DailyLoopSession, DailyLoopSessionOutcome, DailyLoopSessionState,
+    DailyLoopStartMetadata, DailyLoopStartRequest, DailyLoopStartSource, DailyLoopSurface,
     PrivacyClass,
 };
 use vel_storage::{CaptureInsert, SignalInsert};
@@ -75,7 +75,9 @@ async fn daily_loop_voice_response(
     let phase = requested_daily_loop_phase(transcript);
     let session_date = daily_loop_session_date();
     let session = if transcript.to_ascii_lowercase().contains("resume") {
-        if let Some(active) = daily_loop::get_active_session(&state.storage, &session_date, phase).await? {
+        if let Some(active) =
+            daily_loop::get_active_session(&state.storage, &session_date, phase).await?
+        {
             active
         } else {
             start_daily_loop_for_apple(state, &session_date, phase).await?
@@ -300,7 +302,9 @@ fn apple_daily_loop_response(
     session: DailyLoopSession,
 ) -> AppleVoiceTurnResponse {
     let (summary, mut reasons, mut evidence) = describe_daily_loop_session(&session);
-    reasons.push("Apple voice delegated this request to the shared daily-loop session engine.".to_string());
+    reasons.push(
+        "Apple voice delegated this request to the shared daily-loop session engine.".to_string(),
+    );
 
     AppleVoiceTurnResponse {
         operation,
@@ -316,7 +320,8 @@ fn apple_daily_loop_response(
                 evidence.push(AppleResponseEvidence {
                     kind: "daily_loop_session".to_string(),
                     label: format!("{:?}", session.phase).to_lowercase(),
-                    detail: "Apple voice is rendering the shared daily-loop session state.".to_string(),
+                    detail: "Apple voice is rendering the shared daily-loop session state."
+                        .to_string(),
                     source_id: Some(session.id.to_string()),
                 });
             }
@@ -718,7 +723,12 @@ fn daily_loop_session_date() -> String {
 fn describe_daily_loop_session(
     session: &DailyLoopSession,
 ) -> (String, Vec<String>, Vec<AppleResponseEvidence>) {
-    match (&session.phase, &session.state, &session.outcome, session.current_prompt.as_ref()) {
+    match (
+        &session.phase,
+        &session.state,
+        &session.outcome,
+        session.current_prompt.as_ref(),
+    ) {
         (
             DailyLoopPhase::MorningOverview,
             DailyLoopSessionState::MorningOverview(state),
@@ -799,7 +809,8 @@ fn describe_daily_loop_session(
                 .map(|commitment| AppleResponseEvidence {
                     kind: "daily_commitment".to_string(),
                     label: commitment.title.clone(),
-                    detail: format!("Current {:?} commitment candidate.", commitment.bucket).to_lowercase(),
+                    detail: format!("Current {:?} commitment candidate.", commitment.bucket)
+                        .to_lowercase(),
                     source_id: commitment.source_ref.clone(),
                 })
                 .collect(),
@@ -825,7 +836,8 @@ fn describe_daily_loop_session(
                 )
             },
             vec![
-                "Standup writes persisted daily commitments through the shared backend engine.".to_string(),
+                "Standup writes persisted daily commitments through the shared backend engine."
+                    .to_string(),
             ],
             outcome
                 .commitments

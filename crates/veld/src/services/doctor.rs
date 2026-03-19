@@ -1,7 +1,6 @@
 //! Doctor service: runs diagnostic checks and returns structured result.
 
 use std::path::Path;
-use time::OffsetDateTime;
 use vel_api_types::{
     BackupFreshnessData, BackupFreshnessStateData, BackupStatusData, BackupStatusStateData,
     BackupTrustData, BackupTrustLevelData,
@@ -9,8 +8,6 @@ use vel_api_types::{
 use vel_config::load_repo_contracts_manifest;
 
 use crate::state::AppState;
-
-const BACKUP_STALE_AFTER_SECONDS: i64 = 48 * 60 * 60;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DoctorCheckStatus {
@@ -83,8 +80,7 @@ pub async fn run_diagnostics(state: &AppState) -> DoctorReport {
 pub(crate) async fn backup_trust(
     state: &AppState,
 ) -> Result<BackupTrustData, crate::errors::AppError> {
-    let status = crate::services::backup::backup_status(state).await?;
-    Ok(classify_backup_status(status, OffsetDateTime::now_utc()))
+    crate::services::backup::backup_trust_for_storage(&state.storage).await
 }
 
 fn check_artifact_dir(root: &str) -> DoctorCheck {
@@ -157,83 +153,6 @@ fn check_contracts_manifest() -> DoctorCheck {
     }
 }
 
-fn classify_backup_status(mut status: BackupStatusData, now: OffsetDateTime) -> BackupTrustData {
-    let age_seconds = status
-        .last_backup_at
-        .map(|value| (now - value).whole_seconds().max(0));
-    let freshness_state = match age_seconds {
-        None => BackupFreshnessStateData::Missing,
-        Some(age) if age > BACKUP_STALE_AFTER_SECONDS => BackupFreshnessStateData::Stale,
-        Some(_) => BackupFreshnessStateData::Current,
-    };
-
-    if matches!(freshness_state, BackupFreshnessStateData::Stale)
-        && matches!(status.state, BackupStatusStateData::Ready)
-    {
-        status.state = BackupStatusStateData::Stale;
-        if !status
-            .warnings
-            .iter()
-            .any(|warning| warning.contains("stale"))
-        {
-            status
-                .warnings
-                .push("last successful backup is stale".to_string());
-        }
-    }
-
-    let level = match status.state {
-        BackupStatusStateData::Missing | BackupStatusStateData::Degraded => {
-            BackupTrustLevelData::Fail
-        }
-        BackupStatusStateData::Stale => BackupTrustLevelData::Warn,
-        BackupStatusStateData::Ready => {
-            if matches!(freshness_state, BackupFreshnessStateData::Current)
-                && status
-                    .verification_summary
-                    .as_ref()
-                    .map(|summary| summary.verified)
-                    .unwrap_or(false)
-            {
-                BackupTrustLevelData::Ok
-            } else {
-                BackupTrustLevelData::Warn
-            }
-        }
-    };
-
-    BackupTrustData {
-        level,
-        status,
-        freshness: BackupFreshnessData {
-            state: freshness_state,
-            age_seconds,
-            stale_after_seconds: BACKUP_STALE_AFTER_SECONDS,
-        },
-        guidance: backup_guidance(level),
-    }
-}
-
-fn backup_guidance(level: BackupTrustLevelData) -> Vec<String> {
-    match level {
-        BackupTrustLevelData::Ok => vec![
-            "Backup trust is healthy. Keep running verify after important local changes.".to_string(),
-        ],
-        BackupTrustLevelData::Warn => vec![
-            "Backup trust is degraded. Create or verify a fresh backup before risky maintenance."
-                .to_string(),
-            "The explicit `vel backup` create/inspect/verify workflow lands in the next Phase 09 slice."
-                .to_string(),
-        ],
-        BackupTrustLevelData::Fail => vec![
-            "No trustworthy backup is currently available. Create a fresh backup before destructive actions."
-                .to_string(),
-            "Use the authenticated `/v1/backup/*` routes until the CLI backup workflow lands in the next slice."
-                .to_string(),
-        ],
-    }
-}
-
 fn backup_check(backup: &BackupTrustData) -> DoctorCheck {
     let status = match backup.level {
         BackupTrustLevelData::Ok => DoctorCheckStatus::Ok,
@@ -285,9 +204,9 @@ fn backup_trust_from_error(error: crate::errors::AppError) -> BackupTrustData {
         freshness: BackupFreshnessData {
             state: BackupFreshnessStateData::Missing,
             age_seconds: None,
-            stale_after_seconds: BACKUP_STALE_AFTER_SECONDS,
+            stale_after_seconds: crate::services::backup::BACKUP_STALE_AFTER_SECONDS,
         },
-        guidance: backup_guidance(BackupTrustLevelData::Fail),
+        guidance: crate::services::backup::backup_guidance(BackupTrustLevelData::Fail),
     }
 }
 

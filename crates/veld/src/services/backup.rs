@@ -8,10 +8,11 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use vel_api_types::{
-    BackupCoverageData, BackupManifestData, BackupSecretOmissionFlagsData, BackupStatusData,
-    BackupStatusStateData, BackupVerificationData,
+    BackupCoverageData, BackupFreshnessData, BackupFreshnessStateData, BackupManifestData,
+    BackupSecretOmissionFlagsData, BackupStatusData, BackupStatusStateData, BackupTrustData,
+    BackupTrustLevelData, BackupVerificationData,
 };
-use vel_storage::BackupRunRecord;
+use vel_storage::{BackupRunRecord, Storage};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -24,6 +25,7 @@ const SNAPSHOT_FILE_NAME: &str = "vel.sqlite";
 const PUBLIC_SETTINGS_FILE_NAME: &str = "public-settings.json";
 const RUNTIME_CONFIG_FILE_NAME: &str = "runtime-config.json";
 const OMITTED_ARTIFACT_SEGMENTS: &[&str] = &["cache", "tmp"];
+pub(crate) const BACKUP_STALE_AFTER_SECONDS: i64 = 48 * 60 * 60;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CreateBackupInput {
@@ -251,8 +253,11 @@ pub async fn verify_backup(
 }
 
 pub async fn backup_status(state: &AppState) -> Result<BackupStatusData, AppError> {
-    let Some(record) = state
-        .storage
+    backup_status_for_storage(&state.storage).await
+}
+
+pub async fn backup_status_for_storage(storage: &Storage) -> Result<BackupStatusData, AppError> {
+    let Some(record) = storage
         .get_last_successful_backup_run()
         .await
         .map_err(AppError::from)?
@@ -270,6 +275,92 @@ pub async fn backup_status(state: &AppState) -> Result<BackupStatusData, AppErro
     };
 
     status_from_record(&record)
+}
+
+pub async fn backup_trust_for_storage(storage: &Storage) -> Result<BackupTrustData, AppError> {
+    let status = backup_status_for_storage(storage).await?;
+    Ok(classify_backup_status(status, OffsetDateTime::now_utc()))
+}
+
+pub fn classify_backup_status(
+    mut status: BackupStatusData,
+    now: OffsetDateTime,
+) -> BackupTrustData {
+    let age_seconds = status
+        .last_backup_at
+        .map(|value| (now - value).whole_seconds().max(0));
+    let freshness_state = match age_seconds {
+        None => BackupFreshnessStateData::Missing,
+        Some(age) if age > BACKUP_STALE_AFTER_SECONDS => BackupFreshnessStateData::Stale,
+        Some(_) => BackupFreshnessStateData::Current,
+    };
+
+    if matches!(freshness_state, BackupFreshnessStateData::Stale)
+        && matches!(status.state, BackupStatusStateData::Ready)
+    {
+        status.state = BackupStatusStateData::Stale;
+        if !status
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("stale"))
+        {
+            status
+                .warnings
+                .push("last successful backup is stale".to_string());
+        }
+    }
+
+    let level = match status.state {
+        BackupStatusStateData::Missing | BackupStatusStateData::Degraded => {
+            BackupTrustLevelData::Fail
+        }
+        BackupStatusStateData::Stale => BackupTrustLevelData::Warn,
+        BackupStatusStateData::Ready => {
+            if matches!(freshness_state, BackupFreshnessStateData::Current)
+                && status
+                    .verification_summary
+                    .as_ref()
+                    .map(|summary| summary.verified)
+                    .unwrap_or(false)
+            {
+                BackupTrustLevelData::Ok
+            } else {
+                BackupTrustLevelData::Warn
+            }
+        }
+    };
+
+    BackupTrustData {
+        level,
+        status,
+        freshness: BackupFreshnessData {
+            state: freshness_state,
+            age_seconds,
+            stale_after_seconds: BACKUP_STALE_AFTER_SECONDS,
+        },
+        guidance: backup_guidance(level),
+    }
+}
+
+pub(crate) fn backup_guidance(level: BackupTrustLevelData) -> Vec<String> {
+    match level {
+        BackupTrustLevelData::Ok => vec![
+            "Backup trust is healthy. Keep running verify after important local changes."
+                .to_string(),
+        ],
+        BackupTrustLevelData::Warn => vec![
+            "Backup trust is degraded. Create or verify a fresh backup before risky maintenance."
+                .to_string(),
+            "The explicit `vel backup` create/inspect/verify workflow lands in the next Phase 09 slice."
+                .to_string(),
+        ],
+        BackupTrustLevelData::Fail => vec![
+            "No trustworthy backup is currently available. Create a fresh backup before destructive actions."
+                .to_string(),
+            "Use the authenticated `/v1/backup/*` routes until the CLI backup workflow lands in the next slice."
+                .to_string(),
+        ],
+    }
 }
 
 fn prepare_output_base(output_root: Option<&str>) -> Result<PathBuf, AppError> {

@@ -47,19 +47,20 @@ pub async fn build_agent_inspect(state: &AppState) -> Result<AgentInspectData, A
     .await?;
     let writeback_enabled =
         operator_settings::runtime_writeback_enabled(&state.storage, &state.config).await?;
-    let current_context = state
-        .storage
-        .get_current_context()
-        .await?
-        .map(|(computed_at, context)| AgentContextRefData {
-            computed_at,
-            mode: (!context.mode.trim().is_empty()).then_some(context.mode),
-            morning_state: (!context.morning_state.trim().is_empty())
-                .then_some(context.morning_state),
-            current_context_path: CURRENT_CONTEXT_PATH.to_string(),
-            explain_context_path: EXPLAIN_CONTEXT_PATH.to_string(),
-            explain_drift_path: EXPLAIN_DRIFT_PATH.to_string(),
-        });
+    let current_context =
+        state
+            .storage
+            .get_current_context()
+            .await?
+            .map(|(computed_at, context)| AgentContextRefData {
+                computed_at,
+                mode: (!context.mode.trim().is_empty()).then_some(context.mode),
+                morning_state: (!context.morning_state.trim().is_empty())
+                    .then_some(context.morning_state),
+                current_context_path: CURRENT_CONTEXT_PATH.to_string(),
+                explain_context_path: EXPLAIN_CONTEXT_PATH.to_string(),
+                explain_drift_path: EXPLAIN_DRIFT_PATH.to_string(),
+            });
 
     let review = AgentReviewObligationsData {
         review_snapshot: now.review_snapshot.clone(),
@@ -283,8 +284,7 @@ fn repo_handoff_capability(
     {
         Some(AgentBlockerData {
             code: "handoff_review_pending".to_string(),
-            message: "A repo-local write grant exists but still needs operator review."
-                .to_string(),
+            message: "A repo-local write grant exists but still needs operator review.".to_string(),
             escalation_hint: Some(
                 "Approve the pending execution handoff before launching repo-local mutation work."
                     .to_string(),
@@ -328,9 +328,7 @@ fn collect_blockers(
             message:
                 "Writeback-dependent mutation requests are unavailable while SAFE MODE is enabled."
                     .to_string(),
-            escalation_hint: Some(
-                "Enable writeback or stay within read/review lanes.".to_string(),
-            ),
+            escalation_hint: Some("Enable writeback or stay within read/review lanes.".to_string()),
         });
     }
     if pending_handoffs
@@ -339,9 +337,8 @@ fn collect_blockers(
     {
         blockers.push(AgentBlockerData {
             code: "handoff_review_pending".to_string(),
-            message:
-                "At least one repo-local mutation grant is still waiting on operator review."
-                    .to_string(),
+            message: "At least one repo-local mutation grant is still waiting on operator review."
+                .to_string(),
             escalation_hint: Some(
                 "Review pending execution handoffs before launching repo-local mutation work."
                     .to_string(),

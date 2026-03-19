@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{
-    ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionState, ActionSurface,
-    Commitment, CommitmentStatus, ConflictCaseRecord, LinkStatus, LinkedNodeRecord, ProjectId,
-    ProjectRecord, ProjectStatus, ReviewSnapshot, WritebackOperationRecord, WritebackStatus,
+    ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionPermissionMode,
+    ActionScopeAffinity, ActionState, ActionSurface, Commitment, CommitmentStatus,
+    ConflictCaseRecord, LinkStatus, LinkedNodeRecord, ProjectId, ProjectRecord, ProjectStatus,
+    ReviewSnapshot, WritebackOperationRecord, WritebackStatus,
 };
 use vel_storage::{InterventionRecord, Storage};
 
@@ -67,6 +68,13 @@ pub struct ActionQueueSnapshot {
     pub conflicts: Vec<ConflictCaseRecord>,
 }
 
+#[derive(Debug, Clone)]
+struct ProjectLookupEntry {
+    id: ProjectId,
+    label: String,
+    family: vel_core::ProjectFamily,
+}
+
 pub async fn build_action_items(
     storage: &Storage,
     config: &AppConfig,
@@ -98,9 +106,12 @@ pub async fn build_action_items(
         &integrations,
     ));
     items.extend(build_linking_items(linked_nodes));
-    items.extend(build_execution_handoff_items(&pending_handoffs));
-    items.extend(build_writeback_items(&pending_writebacks));
-    items.extend(build_conflict_items(&conflicts));
+    items.extend(build_execution_handoff_items(
+        &pending_handoffs,
+        &project_lookup,
+    ));
+    items.extend(build_writeback_items(&pending_writebacks, &project_lookup));
+    items.extend(build_conflict_items(&conflicts, &project_lookup));
     items.extend(build_intervention_items(interventions));
     items.extend(build_project_items(now, &projects));
     items.extend(build_commitment_items(now, commitments, &project_lookup));
@@ -128,6 +139,7 @@ pub async fn build_action_items(
             .iter()
             .filter(|item| item.kind == ActionKind::Review && item.project_id.is_some())
             .count() as u32,
+        pending_execution_reviews: pending_handoffs.len() as u32,
     };
 
     Ok(ActionQueueSnapshot {
@@ -140,35 +152,44 @@ pub async fn build_action_items(
 
 fn build_execution_handoff_items(
     records: &[crate::services::execution_routing::ExecutionHandoffRecordData],
+    project_lookup: &HashMap<String, ProjectLookupEntry>,
 ) -> Vec<ActionItem> {
     records
         .iter()
-        .map(|record| ActionItem {
-            id: ActionItemId::from(format!("act_handoff_{}", record.id)),
-            surface: ActionSurface::Now,
-            kind: ActionKind::Review,
-            title: format!(
-                "Review execution handoff: {}",
-                record.handoff.handoff.objective
-            ),
-            summary: format!(
-                "{} -> {} | review gate {} | {}",
-                record.handoff.handoff.from_agent,
-                record.handoff.handoff.to_agent,
-                review_gate_label(record.routing.review_gate),
-                record
-                    .routing
-                    .reasons
-                    .first()
-                    .map(|reason| reason.message.as_str())
-                    .unwrap_or("routing reasons available")
-            ),
-            project_id: Some(record.project_id.clone()),
-            state: ActionState::Active,
-            rank: EXECUTION_HANDOFF_RANK,
-            surfaced_at: record.updated_at,
-            snoozed_until: None,
-            evidence: execution_handoff_evidence(record),
+        .map(|record| {
+            let (project_label, project_family) =
+                project_identity(project_lookup, Some(record.project_id.as_ref()));
+            ActionItem {
+                id: ActionItemId::from(format!("act_handoff_{}", record.id)),
+                surface: ActionSurface::Now,
+                kind: ActionKind::Review,
+                permission_mode: ActionPermissionMode::UserConfirm,
+                scope_affinity: ActionScopeAffinity::Project,
+                title: format!(
+                    "Review execution handoff: {}",
+                    record.handoff.handoff.objective
+                ),
+                summary: format!(
+                    "{} -> {} | review gate {} | {}",
+                    record.handoff.handoff.from_agent,
+                    record.handoff.handoff.to_agent,
+                    review_gate_label(record.routing.review_gate),
+                    record
+                        .routing
+                        .reasons
+                        .first()
+                        .map(|reason| reason.message.as_str())
+                        .unwrap_or("routing reasons available")
+                ),
+                project_id: Some(record.project_id.clone()),
+                project_label,
+                project_family,
+                state: ActionState::Active,
+                rank: EXECUTION_HANDOFF_RANK,
+                surfaced_at: record.updated_at,
+                snoozed_until: None,
+                evidence: execution_handoff_evidence(record),
+            }
         })
         .collect()
 }
@@ -206,47 +227,89 @@ fn execution_handoff_evidence(
     evidence
 }
 
-fn build_writeback_items(records: &[WritebackOperationRecord]) -> Vec<ActionItem> {
+fn build_writeback_items(
+    records: &[WritebackOperationRecord],
+    project_lookup: &HashMap<String, ProjectLookupEntry>,
+) -> Vec<ActionItem> {
     records
         .iter()
         .filter(|record| !matches!(record.status, WritebackStatus::Conflicted))
-        .map(|record| ActionItem {
-            id: ActionItemId::from(format!("act_writeback_{}", record.id.as_ref())),
-            surface: ActionSurface::Now,
-            kind: ActionKind::NextStep,
-            title: format!("Queued write: {}", record.kind),
-            summary: format!(
-                "Status is {} for {}:{}.",
-                record.status, record.target.family, record.target.provider_key
-            ),
-            project_id: record.target.project_id.clone(),
-            state: ActionState::Active,
-            rank: WRITEBACK_PENDING_RANK,
-            surfaced_at: record.updated_at,
-            snoozed_until: None,
-            evidence: writeback_evidence(record),
+        .map(|record| {
+            let (project_label, project_family) = project_identity(
+                project_lookup,
+                record
+                    .target
+                    .project_id
+                    .as_ref()
+                    .map(|value| value.as_ref()),
+            );
+            ActionItem {
+                id: ActionItemId::from(format!("act_writeback_{}", record.id.as_ref())),
+                surface: ActionSurface::Now,
+                kind: ActionKind::NextStep,
+                permission_mode: ActionPermissionMode::UserConfirm,
+                scope_affinity: if record.target.project_id.is_some() {
+                    ActionScopeAffinity::Project
+                } else {
+                    ActionScopeAffinity::Global
+                },
+                title: format!("Queued write: {}", record.kind),
+                summary: format!(
+                    "Status is {} for {}:{}.",
+                    record.status, record.target.family, record.target.provider_key
+                ),
+                project_id: record.target.project_id.clone(),
+                project_label,
+                project_family,
+                state: ActionState::Active,
+                rank: WRITEBACK_PENDING_RANK,
+                surfaced_at: record.updated_at,
+                snoozed_until: None,
+                evidence: writeback_evidence(record),
+            }
         })
         .collect()
 }
 
-fn build_conflict_items(records: &[ConflictCaseRecord]) -> Vec<ActionItem> {
+fn build_conflict_items(
+    records: &[ConflictCaseRecord],
+    project_lookup: &HashMap<String, ProjectLookupEntry>,
+) -> Vec<ActionItem> {
     records
         .iter()
-        .map(|record| ActionItem {
-            id: ActionItemId::from(format!("act_conflict_{}", record.id.as_ref())),
-            surface: ActionSurface::Now,
-            kind: ActionKind::Conflict,
-            title: format!("Conflict needs review: {}", record.summary),
-            summary: format!(
-                "{}:{} has an open {} case.",
-                record.target.family, record.target.provider_key, record.kind
-            ),
-            project_id: record.target.project_id.clone(),
-            state: ActionState::Active,
-            rank: LINKING_ALERT_RANK + 1,
-            surfaced_at: record.updated_at,
-            snoozed_until: None,
-            evidence: conflict_evidence(record),
+        .map(|record| {
+            let (project_label, project_family) = project_identity(
+                project_lookup,
+                record
+                    .target
+                    .project_id
+                    .as_ref()
+                    .map(|value| value.as_ref()),
+            );
+            ActionItem {
+                id: ActionItemId::from(format!("act_conflict_{}", record.id.as_ref())),
+                surface: ActionSurface::Now,
+                kind: ActionKind::Conflict,
+                permission_mode: ActionPermissionMode::UserConfirm,
+                scope_affinity: if record.target.project_id.is_some() {
+                    ActionScopeAffinity::Project
+                } else {
+                    ActionScopeAffinity::Global
+                },
+                title: format!("Conflict needs review: {}", record.summary),
+                summary: format!(
+                    "{}:{} has an open {} case.",
+                    record.target.family, record.target.provider_key, record.kind
+                ),
+                project_id: record.target.project_id.clone(),
+                project_label,
+                project_family,
+                state: ActionState::Active,
+                rank: LINKING_ALERT_RANK + 1,
+                surfaced_at: record.updated_at,
+                snoozed_until: None,
+                evidence: conflict_evidence(record),
+            }
         })
         .collect()
 }
@@ -353,9 +416,13 @@ fn build_freshness_items(
             id: ActionItemId::from("act_freshness_context".to_string()),
             surface: ActionSurface::Inbox,
             kind: ActionKind::Freshness,
+            permission_mode: ActionPermissionMode::UserConfirm,
+            scope_affinity: ActionScopeAffinity::Global,
             title: "Context is missing".to_string(),
             summary: "Run evaluate or sync the affected sources before relying on Now.".to_string(),
             project_id: None,
+            project_label: None,
+            project_family: None,
             state: ActionState::Active,
             rank: FRESHNESS_ALERT_RANK,
             surfaced_at: now,
@@ -465,9 +532,13 @@ fn push_integration_alert(
         id: ActionItemId::from(format!("act_freshness_{key}")),
         surface: ActionSurface::Inbox,
         kind: ActionKind::Freshness,
+        permission_mode: ActionPermissionMode::UserConfirm,
+        scope_affinity: ActionScopeAffinity::Connector,
         title: format!("{label} needs attention"),
         summary: detail.clone(),
         project_id: None,
+        project_label: None,
+        project_family: None,
         state: ActionState::Active,
         rank: FRESHNESS_ALERT_RANK,
         surfaced_at: timestamp_or_now(last_sync_at, now),
@@ -507,12 +578,16 @@ fn build_linking_items(linked_nodes: Vec<LinkedNodeRecord>) -> Vec<ActionItem> {
                     id: ActionItemId::from(format!("act_linking_{}", node_id)),
                     surface: ActionSurface::Inbox,
                     kind: ActionKind::Linking,
+                    permission_mode: ActionPermissionMode::UserConfirm,
+                    scope_affinity: ActionScopeAffinity::Global,
                     title: format!("Linked node {} needs review", node.node_display_name),
                     summary: format!(
                         "Link state is {}. Inspect granted scopes before trusting cross-client continuity.",
                         node.status
                     ),
                     project_id: None,
+                    project_label: None,
+                    project_family: None,
                     state: ActionState::Active,
                     rank: LINKING_ALERT_RANK,
                     surfaced_at: node.last_seen_at.unwrap_or(node.linked_at),
@@ -556,9 +631,13 @@ fn build_intervention_items(interventions: Vec<InterventionRecord>) -> Vec<Actio
                 id: ActionItemId::from(format!("act_intervention_{}", record.id.as_ref())),
                 surface: ActionSurface::Inbox,
                 kind: ActionKind::Intervention,
+                permission_mode: ActionPermissionMode::UserConfirm,
+                scope_affinity: ActionScopeAffinity::Global,
                 title,
                 summary,
                 project_id: None,
+                project_label: None,
+                project_family: None,
                 state,
                 rank: if matches!(state, ActionState::Snoozed) {
                     SNOOZED_INTERVENTION_RANK
@@ -587,6 +666,8 @@ fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<A
                 id: ActionItemId::from(format!("act_project_blocked_{}", project.id.as_ref())),
                 surface: ActionSurface::Inbox,
                 kind: ActionKind::Blocked,
+                permission_mode: ActionPermissionMode::UserConfirm,
+                scope_affinity: ActionScopeAffinity::Project,
                 title: format!("Project {} needs provisioning review", project.name),
                 summary: format!(
                     "Pending local-first provision flags: repo={}, notes_root={}.",
@@ -594,6 +675,8 @@ fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<A
                     project.pending_provision.create_notes_root
                 ),
                 project_id: Some(project.id.clone()),
+                project_label: Some(project.name.clone()),
+                project_family: Some(project.family),
                 state: ActionState::Active,
                 rank: PROJECT_BLOCKED_RANK,
                 surfaced_at: project.updated_at,
@@ -612,9 +695,13 @@ fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<A
                 id: ActionItemId::from(format!("act_project_review_{}", project.id.as_ref())),
                 surface: ActionSurface::Now,
                 kind: ActionKind::Review,
+                permission_mode: ActionPermissionMode::UserConfirm,
+                scope_affinity: ActionScopeAffinity::Project,
                 title: format!("Review project {}", project.name),
                 summary: "Weekly review keeps the project anchored in Now and Inbox.".to_string(),
                 project_id: Some(project.id.clone()),
+                project_label: Some(project.name.clone()),
+                project_family: Some(project.family),
                 state: ActionState::Active,
                 rank: PROJECT_REVIEW_RANK,
                 surfaced_at: if project.updated_at > project.created_at {
@@ -665,12 +752,26 @@ fn build_commitment_items(
                 id: ActionItemId::from(format!("act_commitment_{}", commitment.id.as_ref())),
                 surface: ActionSurface::Now,
                 kind: ActionKind::NextStep,
+                permission_mode: ActionPermissionMode::UserConfirm,
+                scope_affinity: if project_id.is_some() {
+                    ActionScopeAffinity::Project
+                } else {
+                    ActionScopeAffinity::Global
+                },
                 title: commitment.text.clone(),
                 summary: if due_at < now {
                     "This commitment is overdue and should be handled or rescheduled.".to_string()
                 } else {
                     "This commitment is due within the next 24 hours.".to_string()
                 },
+                project_label: project_id
+                    .as_ref()
+                    .and_then(|id| project_lookup.get(id.as_ref()))
+                    .map(|entry| entry.label.clone()),
+                project_family: project_id
+                    .as_ref()
+                    .and_then(|id| project_lookup.get(id.as_ref()))
+                    .map(|entry| entry.family),
                 project_id,
                 state: ActionState::Active,
                 rank,
@@ -695,11 +796,27 @@ fn build_project_lookup(projects: &[ProjectRecord]) -> HashMap<String, ProjectLo
     for project in projects {
         let entry = ProjectLookupEntry {
             id: project.id.clone(),
+            label: project.name.clone(),
+            family: project.family,
         };
         lookup.insert(project.slug.to_lowercase(), entry.clone());
-        lookup.insert(project.name.to_lowercase(), entry);
+        lookup.insert(project.name.to_lowercase(), entry.clone());
+        lookup.insert(project.id.as_ref().to_lowercase(), entry);
     }
     lookup
+}
+
+fn project_identity(
+    project_lookup: &HashMap<String, ProjectLookupEntry>,
+    project_id: Option<&str>,
+) -> (Option<String>, Option<vel_core::ProjectFamily>) {
+    let Some(project_id) = project_id.map(str::trim).filter(|value| !value.is_empty()) else {
+        return (None, None);
+    };
+    let Some(entry) = project_lookup.get(&project_id.to_lowercase()) else {
+        return (None, None);
+    };
+    (Some(entry.label.clone()), Some(entry.family))
 }
 
 fn action_state_from_str(value: &str) -> ActionState {
@@ -718,11 +835,6 @@ fn timestamp_or_now(timestamp: Option<i64>, now: OffsetDateTime) -> OffsetDateTi
 
 fn offset_datetime(timestamp: i64) -> Option<OffsetDateTime> {
     OffsetDateTime::from_unix_timestamp(timestamp).ok()
-}
-
-#[derive(Debug, Clone)]
-struct ProjectLookupEntry {
-    id: ProjectId,
 }
 
 #[cfg(test)]

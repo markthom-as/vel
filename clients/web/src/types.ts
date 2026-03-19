@@ -597,6 +597,7 @@ export type ActionSurfaceData = 'now' | 'inbox';
 export type ActionKindData =
   | 'next_step'
   | 'intervention'
+  | 'check_in'
   | 'review'
   | 'freshness'
   | 'blocked'
@@ -608,6 +609,17 @@ export type ActionStateData =
   | 'resolved'
   | 'dismissed'
   | 'snoozed';
+export type ActionPermissionModeData =
+  | 'auto_allowed'
+  | 'user_confirm'
+  | 'blocked'
+  | 'unavailable';
+export type ActionScopeAffinityData =
+  | 'global'
+  | 'project'
+  | 'thread'
+  | 'connector'
+  | 'daily_loop';
 export type AvailableActionData =
   | 'acknowledge'
   | 'resolve'
@@ -629,9 +641,13 @@ export interface ActionItemData {
   id: string;
   surface: ActionSurfaceData;
   kind: ActionKindData;
+  permission_mode: ActionPermissionModeData;
+  scope_affinity: ActionScopeAffinityData;
   title: string;
   summary: string;
   project_id: string | null;
+  project_label: string | null;
+  project_family: ProjectFamilyData | null;
   state: ActionStateData;
   rank: number;
   surfaced_at: Rfc3339Timestamp;
@@ -643,6 +659,87 @@ export interface ReviewSnapshotData {
   open_action_count: number;
   triage_count: number;
   projects_needing_review: number;
+  pending_execution_reviews: number;
+}
+
+export type CheckInSourceKindData = 'daily_loop';
+export type CheckInSubmitTargetKindData = 'daily_loop_turn';
+export type CheckInEscalationTargetData = 'threads';
+
+export interface CheckInSubmitTargetData {
+  kind: CheckInSubmitTargetKindData;
+  reference_id: string;
+}
+
+export interface CheckInEscalationData {
+  target: CheckInEscalationTargetData;
+  label: string;
+}
+
+export interface CheckInCardData {
+  id: string;
+  source_kind: CheckInSourceKindData;
+  phase: DailyLoopPhaseData;
+  session_id: string;
+  title: string;
+  summary: string;
+  prompt_id: string;
+  prompt_text: string;
+  suggested_action_label: string | null;
+  suggested_response: string | null;
+  allow_skip: boolean;
+  blocking: boolean;
+  submit_target: CheckInSubmitTargetData;
+  escalation: CheckInEscalationData | null;
+}
+
+export type ReflowTriggerKindData =
+  | 'stale_schedule'
+  | 'missed_event'
+  | 'slipped_planned_block'
+  | 'major_sync_change'
+  | 'task_no_longer_fits';
+export type ReflowSeverityData = 'medium' | 'high' | 'critical';
+export type ReflowAcceptModeData = 'direct_accept' | 'confirm_required';
+
+export interface ReflowEditTargetData {
+  target: CheckInEscalationTargetData;
+  label: string;
+}
+
+export interface ReflowCardData {
+  id: string;
+  title: string;
+  summary: string;
+  trigger: ReflowTriggerKindData;
+  severity: ReflowSeverityData;
+  accept_mode: ReflowAcceptModeData;
+  suggested_action_label: string;
+  preview_lines: string[];
+  edit_target: ReflowEditTargetData;
+}
+
+export interface TrustReadinessFacetData {
+  level: string;
+  label: string;
+  detail: string;
+}
+
+export interface TrustReadinessReviewData {
+  open_action_count: number;
+  pending_execution_reviews: number;
+  pending_writeback_count: number;
+  conflict_count: number;
+}
+
+export interface TrustReadinessData {
+  level: string;
+  headline: string;
+  summary: string;
+  backup: TrustReadinessFacetData;
+  freshness: TrustReadinessFacetData;
+  review: TrustReadinessReviewData;
+  guidance: string[];
 }
 
 export type LinkStatusData = 'pending' | 'linked' | 'revoked' | 'expired';
@@ -994,6 +1091,9 @@ export interface NowData {
   attention: NowAttentionData;
   sources: NowSourcesData;
   freshness: NowFreshnessData;
+  trust_readiness: TrustReadinessData;
+  check_in: CheckInCardData | null;
+  reflow: ReflowCardData | null;
   action_items: ActionItemData[];
   review_snapshot: ReviewSnapshotData;
   pending_writebacks: WritebackOperationData[];
@@ -1745,6 +1845,7 @@ export function decodeActionKindData(value: unknown): ActionKindData {
   return expectEnumString(value, 'action kind', [
     'next_step',
     'intervention',
+    'check_in',
     'review',
     'freshness',
     'blocked',
@@ -1792,9 +1893,14 @@ export function decodeActionItemData(value: unknown): ActionItemData {
     id: expectString(record.id, 'action item.id'),
     surface: decodeActionSurfaceData(record.surface),
     kind: decodeActionKindData(record.kind),
+    permission_mode: decodeActionPermissionModeData(record.permission_mode),
+    scope_affinity: decodeActionScopeAffinityData(record.scope_affinity),
     title: expectString(record.title, 'action item.title'),
     summary: expectString(record.summary, 'action item.summary'),
     project_id: expectNullableString(record.project_id, 'action item.project_id'),
+    project_label: expectNullableString(record.project_label, 'action item.project_label'),
+    project_family:
+      record.project_family == null ? null : decodeProjectFamilyData(record.project_family),
     state: decodeActionStateData(record.state),
     rank: expectNumber(record.rank, 'action item.rank'),
     surfaced_at: expectRfc3339Timestamp(record.surfaced_at, 'action item.surfaced_at'),
@@ -1806,6 +1912,33 @@ export function decodeActionItemData(value: unknown): ActionItemData {
   };
 }
 
+export function decodeActionPermissionModeData(value: unknown): ActionPermissionModeData {
+  const mode = expectString(value, 'action item.permission_mode');
+  switch (mode) {
+    case 'auto_allowed':
+    case 'user_confirm':
+    case 'blocked':
+    case 'unavailable':
+      return mode;
+    default:
+      throw new Error(`Unsupported action permission mode: ${mode}`);
+  }
+}
+
+export function decodeActionScopeAffinityData(value: unknown): ActionScopeAffinityData {
+  const affinity = expectString(value, 'action item.scope_affinity');
+  switch (affinity) {
+    case 'global':
+    case 'project':
+    case 'thread':
+    case 'connector':
+    case 'daily_loop':
+      return affinity;
+    default:
+      throw new Error(`Unsupported action scope affinity: ${affinity}`);
+  }
+}
+
 export function decodeReviewSnapshotData(value: unknown): ReviewSnapshotData {
   const record = expectRecord(value, 'review snapshot');
   return {
@@ -1815,6 +1948,153 @@ export function decodeReviewSnapshotData(value: unknown): ReviewSnapshotData {
       record.projects_needing_review,
       'review snapshot.projects_needing_review',
     ),
+    pending_execution_reviews: expectNumber(
+      record.pending_execution_reviews ?? 0,
+      'review snapshot.pending_execution_reviews',
+    ),
+  };
+}
+
+export function decodeTrustReadinessFacetData(value: unknown): TrustReadinessFacetData {
+  const record = expectRecord(value, 'trust readiness facet');
+  return {
+    level: expectString(record.level, 'trust readiness facet.level'),
+    label: expectString(record.label, 'trust readiness facet.label'),
+    detail: expectString(record.detail, 'trust readiness facet.detail'),
+  };
+}
+
+export function decodeTrustReadinessReviewData(value: unknown): TrustReadinessReviewData {
+  const record = expectRecord(value, 'trust readiness review');
+  return {
+    open_action_count: expectNumber(
+      record.open_action_count,
+      'trust readiness review.open_action_count',
+    ),
+    pending_execution_reviews: expectNumber(
+      record.pending_execution_reviews ?? 0,
+      'trust readiness review.pending_execution_reviews',
+    ),
+    pending_writeback_count: expectNumber(
+      record.pending_writeback_count,
+      'trust readiness review.pending_writeback_count',
+    ),
+    conflict_count: expectNumber(record.conflict_count, 'trust readiness review.conflict_count'),
+  };
+}
+
+export function decodeTrustReadinessData(value: unknown): TrustReadinessData {
+  const record = expectRecord(value, 'trust readiness');
+  return {
+    level: expectString(record.level, 'trust readiness.level'),
+    headline: expectString(record.headline, 'trust readiness.headline'),
+    summary: expectString(record.summary, 'trust readiness.summary'),
+    backup: decodeTrustReadinessFacetData(record.backup),
+    freshness: decodeTrustReadinessFacetData(record.freshness),
+    review: decodeTrustReadinessReviewData(record.review),
+    guidance: decodeArray(record.guidance ?? [], (item) =>
+      expectString(item, 'trust readiness.guidance'),
+    ),
+  };
+}
+
+export function decodeCheckInSourceKindData(value: unknown): CheckInSourceKindData {
+  return expectEnumString(value, 'check-in source kind', ['daily_loop']);
+}
+
+export function decodeCheckInSubmitTargetKindData(value: unknown): CheckInSubmitTargetKindData {
+  return expectEnumString(value, 'check-in submit target kind', ['daily_loop_turn']);
+}
+
+export function decodeCheckInEscalationTargetData(value: unknown): CheckInEscalationTargetData {
+  return expectEnumString(value, 'check-in escalation target', ['threads']);
+}
+
+export function decodeCheckInSubmitTargetData(value: unknown): CheckInSubmitTargetData {
+  const record = expectRecord(value, 'check-in submit target');
+  return {
+    kind: decodeCheckInSubmitTargetKindData(record.kind),
+    reference_id: expectString(record.reference_id, 'check-in submit target.reference_id'),
+  };
+}
+
+export function decodeCheckInEscalationData(value: unknown): CheckInEscalationData {
+  const record = expectRecord(value, 'check-in escalation');
+  return {
+    target: decodeCheckInEscalationTargetData(record.target),
+    label: expectString(record.label, 'check-in escalation.label'),
+  };
+}
+
+export function decodeCheckInCardData(value: unknown): CheckInCardData {
+  const record = expectRecord(value, 'check-in card');
+  return {
+    id: expectString(record.id, 'check-in card.id'),
+    source_kind: decodeCheckInSourceKindData(record.source_kind),
+    phase: decodeDailyLoopPhaseData(record.phase),
+    session_id: expectString(record.session_id, 'check-in card.session_id'),
+    title: expectString(record.title, 'check-in card.title'),
+    summary: expectString(record.summary, 'check-in card.summary'),
+    prompt_id: expectString(record.prompt_id, 'check-in card.prompt_id'),
+    prompt_text: expectString(record.prompt_text, 'check-in card.prompt_text'),
+    suggested_action_label: expectNullableString(
+      record.suggested_action_label,
+      'check-in card.suggested_action_label',
+    ),
+    suggested_response: expectNullableString(
+      record.suggested_response,
+      'check-in card.suggested_response',
+    ),
+    allow_skip: expectBoolean(record.allow_skip, 'check-in card.allow_skip'),
+    blocking: expectBoolean(record.blocking, 'check-in card.blocking'),
+    submit_target: decodeCheckInSubmitTargetData(record.submit_target),
+    escalation: decodeNullable(record.escalation ?? null, decodeCheckInEscalationData),
+  };
+}
+
+export function decodeReflowTriggerKindData(value: unknown): ReflowTriggerKindData {
+  return expectEnumString(value, 'reflow trigger', [
+    'stale_schedule',
+    'missed_event',
+    'slipped_planned_block',
+    'major_sync_change',
+    'task_no_longer_fits',
+  ]);
+}
+
+export function decodeReflowSeverityData(value: unknown): ReflowSeverityData {
+  return expectEnumString(value, 'reflow severity', ['medium', 'high', 'critical']);
+}
+
+export function decodeReflowAcceptModeData(value: unknown): ReflowAcceptModeData {
+  return expectEnumString(value, 'reflow accept mode', ['direct_accept', 'confirm_required']);
+}
+
+export function decodeReflowEditTargetData(value: unknown): ReflowEditTargetData {
+  const record = expectRecord(value, 'reflow edit target');
+  return {
+    target: decodeCheckInEscalationTargetData(record.target),
+    label: expectString(record.label, 'reflow edit target.label'),
+  };
+}
+
+export function decodeReflowCardData(value: unknown): ReflowCardData {
+  const record = expectRecord(value, 'reflow card');
+  return {
+    id: expectString(record.id, 'reflow card.id'),
+    title: expectString(record.title, 'reflow card.title'),
+    summary: expectString(record.summary, 'reflow card.summary'),
+    trigger: decodeReflowTriggerKindData(record.trigger),
+    severity: decodeReflowSeverityData(record.severity),
+    accept_mode: decodeReflowAcceptModeData(record.accept_mode),
+    suggested_action_label: expectString(
+      record.suggested_action_label,
+      'reflow card.suggested_action_label',
+    ),
+    preview_lines: decodeArray(record.preview_lines ?? [], (item) =>
+      expectString(item, 'reflow card.preview_lines'),
+    ),
+    edit_target: decodeReflowEditTargetData(record.edit_target),
   };
 }
 
@@ -2132,12 +2412,16 @@ export function decodeNowData(value: unknown): NowData {
         };
       }),
     },
+    trust_readiness: decodeTrustReadinessData(record.trust_readiness),
+    check_in: decodeNullable(record.check_in ?? null, decodeCheckInCardData),
+    reflow: decodeNullable(record.reflow ?? null, decodeReflowCardData),
     action_items: decodeArray(record.action_items ?? [], decodeActionItemData),
     review_snapshot: decodeReviewSnapshotData(
       record.review_snapshot ?? {
         open_action_count: 0,
         triage_count: 0,
         projects_needing_review: 0,
+        pending_execution_reviews: 0,
       },
     ),
     pending_writebacks: decodeArray(

@@ -39,7 +39,10 @@ fn format_agent_inspect(inspect: &AgentInspectData) -> String {
         lines.push(format!(
             "current_context: {} / {}",
             current_context.mode.as_deref().unwrap_or("unknown"),
-            current_context.morning_state.as_deref().unwrap_or("unknown"),
+            current_context
+                .morning_state
+                .as_deref()
+                .unwrap_or("unknown"),
         ));
     }
 
@@ -52,7 +55,10 @@ fn format_agent_inspect(inspect: &AgentInspectData) -> String {
         "- pending writebacks: {}",
         grounding.review.pending_writebacks.len()
     ));
-    lines.push(format!("- open conflicts: {}", grounding.review.conflicts.len()));
+    lines.push(format!(
+        "- open conflicts: {}",
+        grounding.review.conflicts.len()
+    ));
     lines.push(format!(
         "- pending execution handoffs: {}",
         grounding.review.pending_execution_handoffs.len()
@@ -164,8 +170,8 @@ mod tests {
         AgentCapabilityGroupKindData, AgentCapabilitySummaryData, AgentContextRefData,
         AgentGroundingPackData, AgentInspectData, AgentInspectExplainabilityData,
         AgentReviewObligationsData, CommitmentData, ExecutionReviewGateData, NowAttentionData,
-        NowData, NowDebugData, NowFreshnessData, NowLabelData, NowRiskSummaryData,
-        NowScheduleData, NowSourcesData, NowSummaryData, NowTasksData, ReviewSnapshotData,
+        NowData, NowDebugData, NowFreshnessData, NowLabelData, NowRiskSummaryData, NowScheduleData,
+        NowSourcesData, NowSummaryData, NowTasksData, ReviewSnapshotData,
     };
 
     fn sample_inspect() -> AgentInspectData {

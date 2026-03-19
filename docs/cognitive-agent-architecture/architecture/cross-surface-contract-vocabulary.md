@@ -167,6 +167,28 @@ Current examples:
 
 # Ownership Rules
 
+## Operator Action Contract Migration Rule
+
+The current migration seam for operator action semantics is:
+
+- domain contract in `vel-core::operator_queue`
+- synthesized queue ownership in `veld::services::operator_queue`
+- read-model composition in backend services such as `Now`
+- DTO mapping in `vel-api-types`
+
+Future action-model work should therefore prefer:
+
+1. extend core action semantics first
+2. teach the backend queue how to synthesize or project those semantics
+3. map them into transport DTOs
+4. let shells consume the result
+
+Avoid skipping directly from a product idea to:
+
+- route-local JSON
+- shell-only filter labels
+- frontend-owned action categories
+
 ## `vel-core`
 
 Owns:

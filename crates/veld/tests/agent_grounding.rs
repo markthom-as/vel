@@ -229,7 +229,10 @@ async fn agent_grounding_inspect_returns_typed_grounding_and_explicit_blockers()
 
     assert_eq!(data["grounding"]["projects"].as_array().unwrap().len(), 1);
     assert_eq!(data["grounding"]["people"].as_array().unwrap().len(), 1);
-    assert_eq!(data["grounding"]["commitments"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        data["grounding"]["commitments"].as_array().unwrap().len(),
+        1
+    );
     assert_eq!(
         data["grounding"]["review"]["pending_execution_handoffs"]
             .as_array()
@@ -271,13 +274,11 @@ async fn agent_grounding_inspect_returns_typed_grounding_and_explicit_blockers()
         Some("handoff_review_pending")
     );
 
-    assert!(
-        data["blockers"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|blocker| blocker["code"] == "writeback_disabled")
-    );
+    assert!(data["blockers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|blocker| blocker["code"] == "writeback_disabled"));
 }
 
 #[tokio::test]
@@ -335,13 +336,11 @@ async fn agent_grounding_inspect_reports_no_matching_write_grant_when_none_exist
         repo_entry["blocked_reason"]["code"].as_str(),
         Some("no_matching_write_grant")
     );
-    assert!(
-        data["blockers"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|blocker| blocker["code"] == "no_matching_write_grant")
-    );
+    assert!(data["blockers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|blocker| blocker["code"] == "no_matching_write_grant"));
 }
 
 #[tokio::test]
@@ -365,33 +364,23 @@ async fn execution_context_preview_and_export_include_agent_grounding_artifacts(
     .await
     .unwrap();
 
-    let preview = veld::services::execution_context::preview_gsd_artifacts(
-        &state,
-        project.id.as_ref(),
-        None,
-    )
-    .await
-    .unwrap();
-    assert!(
-        preview
-            .files
-            .iter()
-            .any(|file| file.relative_path.ends_with("agent-grounding.md"))
-    );
-    assert!(
-        preview
-            .files
-            .iter()
-            .any(|file| file.relative_path.ends_with("agent-inspect.json"))
-    );
+    let preview =
+        veld::services::execution_context::preview_gsd_artifacts(&state, project.id.as_ref(), None)
+            .await
+            .unwrap();
+    assert!(preview
+        .files
+        .iter()
+        .any(|file| file.relative_path.ends_with("agent-grounding.md")));
+    assert!(preview
+        .files
+        .iter()
+        .any(|file| file.relative_path.ends_with("agent-inspect.json")));
 
-    let exported = veld::services::execution_context::export_gsd_artifacts(
-        &state,
-        project.id.as_ref(),
-        None,
-    )
-    .await
-    .unwrap();
+    let exported =
+        veld::services::execution_context::export_gsd_artifacts(&state, project.id.as_ref(), None)
+            .await
+            .unwrap();
     let inspect_path = exported
         .written_paths
         .iter()

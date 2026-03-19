@@ -39,6 +39,17 @@ The canonical model should not be defined by:
 - a specific UI card type
 - one shell's layout
 
+## Phase 15 Migration Rule
+
+The implementation migration seam for this taxonomy is now:
+
+1. core contract in `vel-core::operator_queue`
+2. backend queue synthesis in `veld::services::operator_queue`
+3. read-model composition in backend services such as `Now`
+4. DTO mapping in `vel-api-types`
+
+That keeps action semantics backend-owned while still letting different shells render the same action differently.
+
 ## Draft Canonical Fields
 
 The exact DTO or Rust type name is for later phases, but the discovery-level schema should include these concepts.
@@ -196,6 +207,7 @@ This points to what the action is about, such as:
 Cross-surface display rule:
 
 - if an action is project-scoped, that project identity should usually remain visible through a tag, color, or similar compact marker wherever the action appears
+- the typed action seam should carry compact project identity directly rather than forcing shells to rediscover project labels or families from a separate lookup before they can render that marker
 
 ### `explainability`
 

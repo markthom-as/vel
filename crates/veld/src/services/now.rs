@@ -2,8 +2,8 @@ use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{
-    normalize_risk_level, ActionItem, Commitment, CommitmentStatus, ConflictCaseRecord,
-    CurrentContextV1, ReviewSnapshot, WritebackOperationRecord,
+    normalize_risk_level, ActionItem, CheckInCard, Commitment, CommitmentStatus,
+    ConflictCaseRecord, CurrentContextV1, ReflowCard, ReviewSnapshot, WritebackOperationRecord,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -19,6 +19,9 @@ pub struct NowOutput {
     pub attention: NowAttentionOutput,
     pub sources: NowSourcesOutput,
     pub freshness: NowFreshnessOutput,
+    pub trust_readiness: TrustReadinessOutput,
+    pub check_in: Option<CheckInCard>,
+    pub reflow: Option<ReflowCard>,
     pub action_items: Vec<ActionItem>,
     pub review_snapshot: ReviewSnapshot,
     pub pending_writebacks: Vec<WritebackOperationRecord>,
@@ -127,6 +130,32 @@ pub struct NowFreshnessOutput {
 }
 
 #[derive(Debug, Clone)]
+pub struct TrustReadinessFacetOutput {
+    pub level: String,
+    pub label: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct TrustReadinessReviewOutput {
+    pub open_action_count: u32,
+    pub pending_execution_reviews: u32,
+    pub pending_writeback_count: u32,
+    pub conflict_count: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct TrustReadinessOutput {
+    pub level: String,
+    pub headline: String,
+    pub summary: String,
+    pub backup: TrustReadinessFacetOutput,
+    pub freshness: TrustReadinessFacetOutput,
+    pub review: TrustReadinessReviewOutput,
+    pub guidance: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct NowDebugOutput {
     pub raw_context: JsonValue,
     pub signals_used: Vec<String>,
@@ -168,10 +197,11 @@ struct IntegrationSnapshotOutput {
 pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput, AppError> {
     let now_ts = OffsetDateTime::now_utc().unix_timestamp();
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
+    let check_in = crate::services::check_in::get_current_check_in(storage, &timezone).await?;
     let apple_behavior_summary =
         crate::services::apple_behavior::get_summary(storage, config).await?;
     let Some((computed_at, context)) = storage.get_current_context().await? else {
-        return Ok(empty_now(now_ts, &timezone.name));
+        return Ok(empty_now(now_ts, &timezone.name, check_in));
     };
 
     let commitments = storage
@@ -282,10 +312,12 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
     };
     let freshness = build_freshness(now_ts, computed_at, &integrations, &calendar_selection);
     let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
+    let trust_readiness = build_trust_readiness(storage, &freshness, &action_queue).await?;
     let people = storage.list_people().await?;
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
     let attention_reasons = context.attention_reasons.clone();
     let reasons = build_reasons_typed(&context, &attention_reasons);
+    let reflow = crate::services::reflow::derive_reflow(&context, now_ts);
 
     Ok(NowOutput {
         computed_at,
@@ -364,6 +396,9 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
             ),
         },
         freshness,
+        trust_readiness,
+        check_in,
+        reflow,
         action_items: action_queue.action_items.into_iter().take(5).collect(),
         review_snapshot: action_queue.review_snapshot,
         pending_writebacks: action_queue.pending_writebacks,
@@ -416,7 +451,152 @@ fn context_source_activity_typed(
     })
 }
 
-fn empty_now(now_ts: i64, timezone: &str) -> NowOutput {
+async fn build_trust_readiness(
+    storage: &Storage,
+    freshness: &NowFreshnessOutput,
+    action_queue: &crate::services::operator_queue::ActionQueueSnapshot,
+) -> Result<TrustReadinessOutput, AppError> {
+    let backup = crate::services::backup::backup_trust_for_storage(storage).await?;
+    Ok(build_trust_readiness_from_parts(
+        Some(&backup),
+        freshness,
+        &action_queue.review_snapshot,
+        action_queue.pending_writebacks.len() as u32,
+        action_queue.conflicts.len() as u32,
+    ))
+}
+
+fn build_trust_readiness_from_parts(
+    backup: Option<&vel_api_types::BackupTrustData>,
+    freshness: &NowFreshnessOutput,
+    review_snapshot: &ReviewSnapshot,
+    pending_writeback_count: u32,
+    conflict_count: u32,
+) -> TrustReadinessOutput {
+    let backup_level = backup
+        .map(|value| match value.level {
+            vel_api_types::BackupTrustLevelData::Ok => "ok",
+            vel_api_types::BackupTrustLevelData::Warn => "warn",
+            vel_api_types::BackupTrustLevelData::Fail => "fail",
+        })
+        .unwrap_or("warn");
+    let freshness_level = match freshness.overall_status.as_str() {
+        "fresh" => "ok",
+        "stale" => "warn",
+        "missing" | "degraded" => "warn",
+        _ => "warn",
+    };
+    let review_level = if conflict_count > 0 || review_snapshot.pending_execution_reviews > 0 {
+        "warn"
+    } else {
+        "ok"
+    };
+    let overall_level = fold_levels([backup_level, freshness_level, review_level]);
+
+    let backup_facet = TrustReadinessFacetOutput {
+        level: backup_level.to_string(),
+        label: "Backup".to_string(),
+        detail: backup
+            .map(|value| {
+                value
+                    .guidance
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| "Backup trust is available.".to_string())
+            })
+            .unwrap_or_else(|| "Backup trust status is unavailable.".to_string()),
+    };
+    let freshness_facet = TrustReadinessFacetOutput {
+        level: freshness_level.to_string(),
+        label: "Freshness".to_string(),
+        detail: match freshness.overall_status.as_str() {
+            "fresh" => "Current context and integrations look fresh enough to trust.".to_string(),
+            "stale" => "Some context inputs are stale and may need recovery.".to_string(),
+            "missing" => "Some context inputs are missing and need recovery.".to_string(),
+            _ => "Current context freshness is degraded.".to_string(),
+        },
+    };
+    let review = TrustReadinessReviewOutput {
+        open_action_count: review_snapshot.open_action_count,
+        pending_execution_reviews: review_snapshot.pending_execution_reviews,
+        pending_writeback_count,
+        conflict_count,
+    };
+
+    let (headline, summary) = if overall_level == "fail" {
+        (
+            "Trust needs attention".to_string(),
+            "Backup trust is not yet strong enough for risky maintenance.".to_string(),
+        )
+    } else if conflict_count > 0 || review_snapshot.pending_execution_reviews > 0 {
+        (
+            "Review is pending".to_string(),
+            format!(
+                "{} conflict(s) and {} supervised review(s) still need operator attention.",
+                conflict_count, review_snapshot.pending_execution_reviews
+            ),
+        )
+    } else if freshness_level == "warn" {
+        (
+            "Readiness is degraded".to_string(),
+            "Some context inputs are stale enough that recovery may be needed before trusting the day plan."
+                .to_string(),
+        )
+    } else {
+        (
+            "Ready".to_string(),
+            "Backup, freshness, and review pressure look healthy enough for normal operation."
+                .to_string(),
+        )
+    };
+
+    let mut guidance = vec![backup_facet.detail.clone()];
+    if freshness_level != "ok" {
+        guidance.push(freshness_facet.detail.clone());
+    }
+    if review.pending_execution_reviews > 0 || review.conflict_count > 0 {
+        guidance.push(
+            "Review the remaining conflicts or supervised execution handoffs before risky actions."
+                .to_string(),
+        );
+    }
+    guidance.truncate(3);
+
+    TrustReadinessOutput {
+        level: overall_level.to_string(),
+        headline,
+        summary,
+        backup: backup_facet,
+        freshness: freshness_facet,
+        review,
+        guidance,
+    }
+}
+
+fn fold_levels<'a>(levels: impl IntoIterator<Item = &'a str>) -> &'a str {
+    let mut current = "ok";
+    for level in levels {
+        current = match (current, level) {
+            ("fail", _) | (_, "fail") => "fail",
+            ("warn", _) | (_, "warn") => "warn",
+            _ => "ok",
+        };
+    }
+    current
+}
+
+fn empty_now(now_ts: i64, timezone: &str, check_in: Option<CheckInCard>) -> NowOutput {
+    let freshness = NowFreshnessOutput {
+        overall_status: "stale".to_string(),
+        sources: vec![NowFreshnessEntryOutput {
+            key: "context".to_string(),
+            label: "Context".to_string(),
+            status: "missing".to_string(),
+            last_sync_at: None,
+            age_seconds: None,
+            guidance: None,
+        }],
+    };
     NowOutput {
         computed_at: now_ts,
         timezone: timezone.to_string(),
@@ -453,17 +633,16 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowOutput {
             note_document: None,
             assistant_message: None,
         },
-        freshness: NowFreshnessOutput {
-            overall_status: "stale".to_string(),
-            sources: vec![NowFreshnessEntryOutput {
-                key: "context".to_string(),
-                label: "Context".to_string(),
-                status: "missing".to_string(),
-                last_sync_at: None,
-                age_seconds: None,
-                guidance: None,
-            }],
-        },
+        freshness: freshness.clone(),
+        trust_readiness: build_trust_readiness_from_parts(
+            None,
+            &freshness,
+            &ReviewSnapshot::default(),
+            0,
+            0,
+        ),
+        check_in,
+        reflow: None,
         action_items: Vec::new(),
         review_snapshot: ReviewSnapshot::default(),
         pending_writebacks: Vec::new(),
@@ -834,6 +1013,27 @@ mod tests {
 
         assert_eq!(summary.level, "unknown");
         assert_eq!(summary.label, "unknown · 40%");
+    }
+
+    #[test]
+    fn trust_readiness_warns_when_review_pressure_exists() {
+        let freshness = NowFreshnessOutput {
+            overall_status: "fresh".to_string(),
+            sources: Vec::new(),
+        };
+        let review = ReviewSnapshot {
+            open_action_count: 2,
+            triage_count: 1,
+            projects_needing_review: 0,
+            pending_execution_reviews: 1,
+        };
+
+        let output = build_trust_readiness_from_parts(None, &freshness, &review, 1, 1);
+
+        assert_eq!(output.level, "warn");
+        assert_eq!(output.headline, "Review is pending");
+        assert_eq!(output.review.pending_execution_reviews, 1);
+        assert_eq!(output.review.conflict_count, 1);
     }
 
     #[test]

@@ -2193,6 +2193,7 @@ impl From<vel_core::ActionSurface> for ActionSurfaceData {
 pub enum ActionKindData {
     NextStep,
     Intervention,
+    CheckIn,
     Review,
     Freshness,
     Blocked,
@@ -2205,11 +2206,54 @@ impl From<vel_core::ActionKind> for ActionKindData {
         match value {
             vel_core::ActionKind::NextStep => Self::NextStep,
             vel_core::ActionKind::Intervention => Self::Intervention,
+            vel_core::ActionKind::CheckIn => Self::CheckIn,
             vel_core::ActionKind::Review => Self::Review,
             vel_core::ActionKind::Freshness => Self::Freshness,
             vel_core::ActionKind::Blocked => Self::Blocked,
             vel_core::ActionKind::Conflict => Self::Conflict,
             vel_core::ActionKind::Linking => Self::Linking,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionPermissionModeData {
+    AutoAllowed,
+    UserConfirm,
+    Blocked,
+    Unavailable,
+}
+
+impl From<vel_core::ActionPermissionMode> for ActionPermissionModeData {
+    fn from(value: vel_core::ActionPermissionMode) -> Self {
+        match value {
+            vel_core::ActionPermissionMode::AutoAllowed => Self::AutoAllowed,
+            vel_core::ActionPermissionMode::UserConfirm => Self::UserConfirm,
+            vel_core::ActionPermissionMode::Blocked => Self::Blocked,
+            vel_core::ActionPermissionMode::Unavailable => Self::Unavailable,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionScopeAffinityData {
+    Global,
+    Project,
+    Thread,
+    Connector,
+    DailyLoop,
+}
+
+impl From<vel_core::ActionScopeAffinity> for ActionScopeAffinityData {
+    fn from(value: vel_core::ActionScopeAffinity) -> Self {
+        match value {
+            vel_core::ActionScopeAffinity::Global => Self::Global,
+            vel_core::ActionScopeAffinity::Project => Self::Project,
+            vel_core::ActionScopeAffinity::Thread => Self::Thread,
+            vel_core::ActionScopeAffinity::Connector => Self::Connector,
+            vel_core::ActionScopeAffinity::DailyLoop => Self::DailyLoop,
         }
     }
 }
@@ -2269,14 +2313,233 @@ impl From<vel_core::ActionEvidenceRef> for ActionEvidenceRefData {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckInSourceKindData {
+    DailyLoop,
+}
+
+impl From<vel_core::CheckInSourceKind> for CheckInSourceKindData {
+    fn from(value: vel_core::CheckInSourceKind) -> Self {
+        match value {
+            vel_core::CheckInSourceKind::DailyLoop => Self::DailyLoop,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckInSubmitTargetKindData {
+    DailyLoopTurn,
+}
+
+impl From<vel_core::CheckInSubmitTargetKind> for CheckInSubmitTargetKindData {
+    fn from(value: vel_core::CheckInSubmitTargetKind) -> Self {
+        match value {
+            vel_core::CheckInSubmitTargetKind::DailyLoopTurn => Self::DailyLoopTurn,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckInSubmitTargetData {
+    pub kind: CheckInSubmitTargetKindData,
+    pub reference_id: String,
+}
+
+impl From<vel_core::CheckInSubmitTarget> for CheckInSubmitTargetData {
+    fn from(value: vel_core::CheckInSubmitTarget) -> Self {
+        Self {
+            kind: value.kind.into(),
+            reference_id: value.reference_id,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckInEscalationTargetData {
+    Threads,
+}
+
+impl From<vel_core::CheckInEscalationTarget> for CheckInEscalationTargetData {
+    fn from(value: vel_core::CheckInEscalationTarget) -> Self {
+        match value {
+            vel_core::CheckInEscalationTarget::Threads => Self::Threads,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckInEscalationData {
+    pub target: CheckInEscalationTargetData,
+    pub label: String,
+}
+
+impl From<vel_core::CheckInEscalation> for CheckInEscalationData {
+    fn from(value: vel_core::CheckInEscalation) -> Self {
+        Self {
+            target: value.target.into(),
+            label: value.label,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckInCardData {
+    pub id: ActionItemId,
+    pub source_kind: CheckInSourceKindData,
+    pub phase: DailyLoopPhaseData,
+    pub session_id: String,
+    pub title: String,
+    pub summary: String,
+    pub prompt_id: String,
+    pub prompt_text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested_action_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested_response: Option<String>,
+    pub allow_skip: bool,
+    pub blocking: bool,
+    pub submit_target: CheckInSubmitTargetData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub escalation: Option<CheckInEscalationData>,
+}
+
+impl From<vel_core::CheckInCard> for CheckInCardData {
+    fn from(value: vel_core::CheckInCard) -> Self {
+        Self {
+            id: value.id,
+            source_kind: value.source_kind.into(),
+            phase: value.phase.into(),
+            session_id: value.session_id,
+            title: value.title,
+            summary: value.summary,
+            prompt_id: value.prompt_id,
+            prompt_text: value.prompt_text,
+            suggested_action_label: value.suggested_action_label,
+            suggested_response: value.suggested_response,
+            allow_skip: value.allow_skip,
+            blocking: value.blocking,
+            submit_target: value.submit_target.into(),
+            escalation: value.escalation.map(Into::into),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowTriggerKindData {
+    StaleSchedule,
+    MissedEvent,
+    SlippedPlannedBlock,
+    MajorSyncChange,
+    TaskNoLongerFits,
+}
+
+impl From<vel_core::ReflowTriggerKind> for ReflowTriggerKindData {
+    fn from(value: vel_core::ReflowTriggerKind) -> Self {
+        match value {
+            vel_core::ReflowTriggerKind::StaleSchedule => Self::StaleSchedule,
+            vel_core::ReflowTriggerKind::MissedEvent => Self::MissedEvent,
+            vel_core::ReflowTriggerKind::SlippedPlannedBlock => Self::SlippedPlannedBlock,
+            vel_core::ReflowTriggerKind::MajorSyncChange => Self::MajorSyncChange,
+            vel_core::ReflowTriggerKind::TaskNoLongerFits => Self::TaskNoLongerFits,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowSeverityData {
+    Medium,
+    High,
+    Critical,
+}
+
+impl From<vel_core::ReflowSeverity> for ReflowSeverityData {
+    fn from(value: vel_core::ReflowSeverity) -> Self {
+        match value {
+            vel_core::ReflowSeverity::Medium => Self::Medium,
+            vel_core::ReflowSeverity::High => Self::High,
+            vel_core::ReflowSeverity::Critical => Self::Critical,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowAcceptModeData {
+    DirectAccept,
+    ConfirmRequired,
+}
+
+impl From<vel_core::ReflowAcceptMode> for ReflowAcceptModeData {
+    fn from(value: vel_core::ReflowAcceptMode) -> Self {
+        match value {
+            vel_core::ReflowAcceptMode::DirectAccept => Self::DirectAccept,
+            vel_core::ReflowAcceptMode::ConfirmRequired => Self::ConfirmRequired,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflowEditTargetData {
+    pub target: CheckInEscalationTargetData,
+    pub label: String,
+}
+
+impl From<vel_core::ReflowEditTarget> for ReflowEditTargetData {
+    fn from(value: vel_core::ReflowEditTarget) -> Self {
+        Self {
+            target: value.target.into(),
+            label: value.label,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflowCardData {
+    pub id: ActionItemId,
+    pub title: String,
+    pub summary: String,
+    pub trigger: ReflowTriggerKindData,
+    pub severity: ReflowSeverityData,
+    pub accept_mode: ReflowAcceptModeData,
+    pub suggested_action_label: String,
+    #[serde(default)]
+    pub preview_lines: Vec<String>,
+    pub edit_target: ReflowEditTargetData,
+}
+
+impl From<vel_core::ReflowCard> for ReflowCardData {
+    fn from(value: vel_core::ReflowCard) -> Self {
+        Self {
+            id: value.id,
+            title: value.title,
+            summary: value.summary,
+            trigger: value.trigger.into(),
+            severity: value.severity.into(),
+            accept_mode: value.accept_mode.into(),
+            suggested_action_label: value.suggested_action_label,
+            preview_lines: value.preview_lines,
+            edit_target: value.edit_target.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionItemData {
     pub id: ActionItemId,
     pub surface: ActionSurfaceData,
     pub kind: ActionKindData,
+    pub permission_mode: ActionPermissionModeData,
+    pub scope_affinity: ActionScopeAffinityData,
     pub title: String,
     pub summary: String,
     pub project_id: Option<ProjectId>,
+    pub project_label: Option<String>,
+    pub project_family: Option<ProjectFamilyData>,
     pub state: ActionStateData,
     pub rank: i64,
     #[serde(with = "time::serde::rfc3339")]
@@ -2293,9 +2556,13 @@ impl From<vel_core::ActionItem> for ActionItemData {
             id: value.id,
             surface: value.surface.into(),
             kind: value.kind.into(),
+            permission_mode: value.permission_mode.into(),
+            scope_affinity: value.scope_affinity.into(),
             title: value.title,
             summary: value.summary,
             project_id: value.project_id,
+            project_label: value.project_label,
+            project_family: value.project_family.map(Into::into),
             state: value.state.into(),
             rank: value.rank,
             surfaced_at: value.surfaced_at,
@@ -2313,6 +2580,8 @@ pub struct ReviewSnapshotData {
     pub triage_count: u32,
     #[serde(default)]
     pub projects_needing_review: u32,
+    #[serde(default)]
+    pub pending_execution_reviews: u32,
 }
 
 impl From<vel_core::ReviewSnapshot> for ReviewSnapshotData {
@@ -2321,6 +2590,7 @@ impl From<vel_core::ReviewSnapshot> for ReviewSnapshotData {
             open_action_count: value.open_action_count,
             triage_count: value.triage_count,
             projects_needing_review: value.projects_needing_review,
+            pending_execution_reviews: value.pending_execution_reviews,
         }
     }
 }
@@ -4717,6 +4987,33 @@ pub struct NowFreshnessData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustReadinessFacetData {
+    pub level: String,
+    pub label: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustReadinessReviewData {
+    pub open_action_count: u32,
+    pub pending_execution_reviews: u32,
+    pub pending_writeback_count: u32,
+    pub conflict_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrustReadinessData {
+    pub level: String,
+    pub headline: String,
+    pub summary: String,
+    pub backup: TrustReadinessFacetData,
+    pub freshness: TrustReadinessFacetData,
+    pub review: TrustReadinessReviewData,
+    #[serde(default)]
+    pub guidance: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowDebugData {
     pub raw_context: JsonValue,
     pub signals_used: Vec<String>,
@@ -4734,6 +5031,11 @@ pub struct NowData {
     pub attention: NowAttentionData,
     pub sources: NowSourcesData,
     pub freshness: NowFreshnessData,
+    pub trust_readiness: TrustReadinessData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub check_in: Option<CheckInCardData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reflow: Option<ReflowCardData>,
     #[serde(default)]
     pub action_items: Vec<ActionItemData>,
     #[serde(default)]
@@ -4892,23 +5194,23 @@ pub struct NudgeEventData {
 #[cfg(test)]
 mod tests {
     use super::{
-        ActionEvidenceRefData, ActionItemData, ActionKindData, ActionStateData, ActionSurfaceData,
-        AgentBlockerData, AgentCapabilityEntryData, AgentCapabilityGroupKindData,
-        AgentInspectData, AgentProfileData, AppleBehaviorMetricData, AppleBehaviorSummaryData,
-        AppleBehaviorSummaryScopeData, AppleClientSurfaceData, AppleRequestedOperationData,
-        AppleResponseEvidenceData, AppleResponseModeData, AppleScheduleEventData,
-        AppleScheduleSnapshotData, AppleTurnProvenanceData, AppleVoiceIntentData,
-        AppleVoiceTurnQueuedMutationSummaryData, AppleVoiceTurnRequestData,
-        AppleVoiceTurnResponseData, DailyCommitmentDraftData, DailyDeferredTaskData,
-        DailyFocusBlockProposalData, DailyLoopPhaseData, DailyLoopSessionData,
-        DailyLoopSessionOutcomeData, DailyLoopStartMetadataData, DailyLoopStartRequestData,
-        DailyLoopStartSourceData, DailyLoopSurfaceData, DailyLoopTurnActionData,
-        DailyLoopTurnRequestData, DailyStandupBucketData, DailyStandupOutcomeData,
-        ExecutionHandoffData, ExecutionHandoffReviewStateData, ExecutionReviewGateData,
-        ExecutionTaskKindData, LocalRuntimeKindData, MorningIntentSignalData, NowTaskData,
-        ProjectExecutionContextData, ProjectFamilyData, ProjectProvisionRequestData,
-        ProjectRecordData, ProjectRootRefData, ProjectStatusData, ReviewSnapshotData,
-        TokenBudgetClassData,
+        ActionEvidenceRefData, ActionItemData, ActionKindData, ActionPermissionModeData,
+        ActionScopeAffinityData, ActionStateData, ActionSurfaceData, AgentBlockerData,
+        AgentCapabilityEntryData, AgentCapabilityGroupKindData, AgentInspectData, AgentProfileData,
+        AppleBehaviorMetricData, AppleBehaviorSummaryData, AppleBehaviorSummaryScopeData,
+        AppleClientSurfaceData, AppleRequestedOperationData, AppleResponseEvidenceData,
+        AppleResponseModeData, AppleScheduleEventData, AppleScheduleSnapshotData,
+        AppleTurnProvenanceData, AppleVoiceIntentData, AppleVoiceTurnQueuedMutationSummaryData,
+        AppleVoiceTurnRequestData, AppleVoiceTurnResponseData, DailyCommitmentDraftData,
+        DailyDeferredTaskData, DailyFocusBlockProposalData, DailyLoopPhaseData,
+        DailyLoopSessionData, DailyLoopSessionOutcomeData, DailyLoopStartMetadataData,
+        DailyLoopStartRequestData, DailyLoopStartSourceData, DailyLoopSurfaceData,
+        DailyLoopTurnActionData, DailyLoopTurnRequestData, DailyStandupBucketData,
+        DailyStandupOutcomeData, ExecutionHandoffData, ExecutionHandoffReviewStateData,
+        ExecutionReviewGateData, ExecutionTaskKindData, LocalRuntimeKindData,
+        MorningIntentSignalData, NowTaskData, ProjectExecutionContextData, ProjectFamilyData,
+        ProjectProvisionRequestData, ProjectRecordData, ProjectRootRefData, ProjectStatusData,
+        ReviewSnapshotData, TokenBudgetClassData,
     };
     use std::collections::BTreeMap;
     use time::macros::datetime;
@@ -4917,11 +5219,10 @@ mod tests {
         DailyFocusBlockProposal, DailyLoopPhase, DailyLoopPrompt, DailyLoopPromptKind,
         DailyLoopSession, DailyLoopSessionId, DailyLoopSessionOutcome, DailyLoopStartMetadata,
         DailyLoopStartSource, DailyLoopStatus, DailyLoopSurface, DailyLoopTurnState,
-        DailyStandupBucket, DailyStandupOutcome, ExecutionHandoff,
-        ExecutionReviewGate, ExecutionTaskKind, HandoffEnvelope, LocalAgentManifest,
-        LocalRuntimeKind, MorningFrictionCallout, MorningIntentSignal, MorningOverviewState,
-        ProjectExecutionContext, ProjectId, ProjectRootRef, RepoWorktreeRef, TokenBudgetClass,
-        TraceId,
+        DailyStandupBucket, DailyStandupOutcome, ExecutionHandoff, ExecutionReviewGate,
+        ExecutionTaskKind, HandoffEnvelope, LocalAgentManifest, LocalRuntimeKind,
+        MorningFrictionCallout, MorningIntentSignal, MorningOverviewState, ProjectExecutionContext,
+        ProjectId, ProjectRootRef, RepoWorktreeRef, TokenBudgetClass, TraceId,
     };
 
     #[test]
@@ -4962,6 +5263,7 @@ mod tests {
         assert_eq!(value["open_action_count"], 0);
         assert_eq!(value["triage_count"], 0);
         assert_eq!(value["projects_needing_review"], 0);
+        assert_eq!(value["pending_execution_reviews"], 0);
     }
 
     #[test]
@@ -4970,9 +5272,13 @@ mod tests {
             id: ActionItemId::from("act_1".to_string()),
             surface: ActionSurfaceData::Now,
             kind: ActionKindData::NextStep,
+            permission_mode: ActionPermissionModeData::UserConfirm,
+            scope_affinity: ActionScopeAffinityData::Global,
             title: "Ship patch".to_string(),
             summary: "Due soon".to_string(),
             project_id: None,
+            project_label: None,
+            project_family: None,
             state: ActionStateData::Active,
             rank: 70,
             surfaced_at: datetime!(2026-03-19 02:10:00 UTC),
@@ -4988,6 +5294,8 @@ mod tests {
         let value = serde_json::to_value(item).expect("action item should serialize");
         assert_eq!(value["surfaced_at"], "2026-03-19T02:10:00Z");
         assert_eq!(value["snoozed_until"], "2026-03-19T02:20:00Z");
+        assert_eq!(value["permission_mode"], "user_confirm");
+        assert_eq!(value["scope_affinity"], "global");
     }
 
     #[test]
@@ -5440,7 +5748,10 @@ mod tests {
             value["grounding"]["review"]["pending_execution_handoffs"][0]["routing"]["task_kind"],
             "implementation"
         );
-        assert_eq!(value["capabilities"]["groups"][2]["kind"], "mutation_actions");
+        assert_eq!(
+            value["capabilities"]["groups"][2]["kind"],
+            "mutation_actions"
+        );
         assert_eq!(
             value["capabilities"]["groups"][2]["entries"][0]["blocked_reason"]["code"],
             "safe_mode_enabled"
@@ -5497,10 +5808,9 @@ mod tests {
         .expect("inspect schema should parse");
         assert_eq!(inspect_schema["title"], "AgentInspect");
 
-        let manifest: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../config/contracts-manifest.json"
-        ))
-        .expect("contracts manifest should parse");
+        let manifest: serde_json::Value =
+            serde_json::from_str(include_str!("../../../config/contracts-manifest.json"))
+                .expect("contracts manifest should parse");
         let examples = manifest["contract_examples"]
             .as_array()
             .expect("contract examples should be an array");

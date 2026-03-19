@@ -101,6 +101,11 @@ Examples of summary-level trust state:
 - stale or degraded source data
 - pending supervised review
 
+Implementation rule for the current migration lane:
+
+- the first backend-owned trust/readiness seam may compose backup trust, freshness, pending writebacks/conflicts, and supervised execution review pressure into one typed `Now` summary
+- that projection should stay summary-first and action-oriented, with deeper inspection still routed through advanced surfaces
+
 ### 4. Freshness Recovery
 
 Goal:
@@ -165,6 +170,12 @@ Default path:
 - visually heavier than routine nudges or check-ins
 - editable through `Threads` when the operator wants to shape the recalculation instead of simply accepting it
 - severity-aware in how much confirmation it requires before applying
+
+Implementation rule for the current migration lane:
+
+- the first backend-owned `reflow` seam may derive from typed current-context drift plus schedule freshness/event timing inputs
+- this seam should stay daily-loop-adjacent and `Now`-consumable rather than becoming a broad planner abstraction
+- `Accept` and `Edit` branching should remain typed backend metadata, with `Edit` escalating toward `Threads`
 
 Likely triggers:
 
