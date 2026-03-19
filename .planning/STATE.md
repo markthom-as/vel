@@ -4,14 +4,12 @@ milestone: v1.0
 milestone_name: milestone
 status: in-progress
 stopped_at: Completed 04-05-PLAN.md
-last_updated: "2026-03-19T00:03:16Z"
-last_activity: 2026-03-19 — completed-claim audit found unfinished original-scope work in historical Phase 2 and Phase 4; residuals were re-scoped into Phases 5, 6, and 8
+last_updated: "2026-03-19T01:52:07Z"
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 17
-  completed_plans: 11
-  percent: 65
+  total_plans: 27
+  completed_plans: 13
 ---
 
 # Project State
@@ -21,21 +19,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 5 planning — Now + Inbox core and project substrate (historical Phases 2-4 are closed; next active step is creating Phase 5 context and plans on disk)
+**Current focus:** Phase 05 execution — 05-03 linking backend is next
 
 ## Current Position
 
-Phase: 5 of 9 (Now + Inbox core and project substrate)
-Plan: 0 of 0 in current phase (planning not yet created on disk)
-Status: In progress
-Last activity: 2026-03-19 — completed-claim audit closed historical Phase 2 and Phase 4 as re-scoped baselines and moved unfinished original-scope work into Phases 5, 6, and 8
-
-Progress: [███████▒▒▒] 65%
+Phase: 05 (now-inbox-core-and-project-substrate) — EXECUTING
+Plan: 2 of 9
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
+
+- Total plans completed: 13
 - Average duration: 22m
 - Total execution time: 153m
 
@@ -52,6 +47,7 @@ Progress: [███████▒▒▒] 65%
 | 03 P05 | 1 | 23m | 23m |
 
 **Recent Trend:**
+
 - Last 5 plans: 23m
 - Trend: stable
 
@@ -117,6 +113,7 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 0 todos remaining (8 completed in 02-01/04-04):
+
 - DONE: Ticket 006: add Current Baseline section (02-01)
 - DONE: Ticket 016: add broker scope decision record (agents-only) (02-01)
 - DONE: Ticket 005: add NodeIdentity prereq + WAL mode step (02-01)

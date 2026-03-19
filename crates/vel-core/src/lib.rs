@@ -5,8 +5,11 @@ pub mod connect;
 pub mod context;
 pub mod integration;
 pub mod intervention;
+pub mod linking;
 pub mod loops;
 pub mod message;
+pub mod operator_queue;
+pub mod project;
 pub mod protocol;
 pub mod provenance;
 pub mod risk;
@@ -38,10 +41,18 @@ pub use integration::{
     IntegrationProvider, IntegrationSourceRef,
 };
 pub use intervention::{Intervention, InterventionState};
+pub use linking::{LinkScope, LinkStatus, LinkedNodeRecord, PairingTokenRecord};
 pub use loops::LoopKind;
 pub use message::{
     Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
+};
+pub use operator_queue::{
+    ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionState, ActionSurface,
+    ReviewSnapshot,
+};
+pub use project::{
+    ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus,
 };
 pub use protocol::{
     CapabilityRequest as ProtocolCapabilityRequest, ProtocolEnvelope, ProtocolPayload,

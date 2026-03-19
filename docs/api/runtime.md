@@ -132,6 +132,15 @@ These are mounted as `future_external` and currently return `403` (deny-by-defau
 
 - commitment CRUD plus dependency management
 
+### `GET /v1/projects`
+### `GET /v1/projects/:id`
+### `POST /v1/projects`
+### `GET /v1/projects/families`
+
+- typed project workspace list/detail/create surfaces
+- project creation is local-first and stores pending upstream confirmation only
+- no repo, notes root, or external upstream record is created by this phase
+
 ### `GET /v1/risk`
 ### `GET /v1/risk/:id`
 

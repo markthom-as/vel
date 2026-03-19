@@ -178,6 +178,18 @@
       "path": "config/examples/swarm-protocol-envelope.example.json",
       "kind": "swarm_protocol_envelope",
       "schema": "config/schemas/swarm-protocol-envelope.schema.json"
+    },
+    {
+      "id": "project_workspace_example",
+      "path": "config/examples/project-workspace.example.json",
+      "kind": "project_workspace",
+      "schema": "config/schemas/project-workspace.schema.json"
+    },
+    {
+      "id": "operator_action_item_example",
+      "path": "config/examples/operator-action-item.example.json",
+      "kind": "operator_action_item",
+      "schema": "config/schemas/operator-action-item.schema.json"
     }
   ],
   "authority_docs": [
@@ -188,6 +200,7 @@
     "docs/cognitive-agent-architecture/cognition/semantic-memory-contract.md",
     "docs/cognitive-agent-architecture/agents/sandbox-host-abi.md",
     "docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md",
+    "docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md",
     "docs/tickets/phase-1/021-canonical-schema-and-config-contracts.md",
     "docs/tickets/phase-1/022-data-sources-and-connector-architecture.md",
     "docs/tickets/phase-1/023-self-awareness-and-supervised-self-modification.md",

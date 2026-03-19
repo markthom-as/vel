@@ -69,6 +69,25 @@ Today it shows:
 
 Treat it as a decision surface, not as magic truth. If freshness is degraded, use the recovery actions before trusting it.
 
+## Projects
+
+Projects are a supporting coordination surface, not the home screen.
+
+They are backed by typed project records in the runtime and currently exist to anchor:
+
+- stable project IDs,
+- family grouping,
+- primary repo and notes-root context,
+- pending upstream creation intent.
+
+The stable project families are:
+
+- `Personal`
+- `Creative`
+- `Work`
+
+Use Projects to inspect or create a local-first workspace record. Keep `Now` and `Inbox` as the primary operating loop.
+
 ## Nudges
 
 Nudges are lightweight prompts generated from context and policy.

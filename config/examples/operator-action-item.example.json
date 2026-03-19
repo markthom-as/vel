@@ -1,0 +1,27 @@
+{
+  "id": "act_nowinboxlink",
+  "surface": "inbox",
+  "kind": "intervention",
+  "title": "Link this device to the authority node",
+  "summary": "This node still needs a scoped pairing token before it can participate in shared action and project continuity.",
+  "project_id": "proj_nowinboxcore",
+  "state": "active",
+  "rank": 10,
+  "surfaced_at": "2026-03-18T16:10:00Z",
+  "snoozed_until": null,
+  "available_actions": ["link_node", "dismiss", "snooze", "open_thread"],
+  "evidence": [
+    {
+      "source_kind": "cluster_bootstrap",
+      "source_id": "node_laptop",
+      "label": "Laptop status",
+      "detail": "This node is visible to the authority runtime but has not been granted a scoped pairing token."
+    },
+    {
+      "source_kind": "policy_rule",
+      "source_id": "phase05_guided_linking",
+      "label": "Guided linking rule",
+      "detail": "Phase 05 requires explicit read/write/execute scope disclosure before linking completes."
+    }
+  ]
+}

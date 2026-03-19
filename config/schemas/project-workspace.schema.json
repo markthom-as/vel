@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/project-workspace.schema.json",
+  "title": "Vel Project Workspace",
+  "description": "Canonical Phase 05 project workspace contract for local-first projects, families, roots, and pending provisioning intent.",
+  "type": "object",
+  "$defs": {
+    "ProjectFamily": {
+      "type": "string",
+      "enum": ["personal", "creative", "work"]
+    },
+    "ProjectStatus": {
+      "type": "string",
+      "enum": ["active", "paused", "archived"]
+    },
+    "ProjectRootRef": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 }
+      },
+      "required": ["path", "label", "kind"],
+      "additionalProperties": false
+    },
+    "ProjectProvisionRequest": {
+      "type": "object",
+      "properties": {
+        "create_repo": { "type": "boolean" },
+        "create_notes_root": { "type": "boolean" }
+      },
+      "required": ["create_repo", "create_notes_root"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^proj_[A-Za-z0-9]+$"
+    },
+    "slug": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "family": { "$ref": "#/$defs/ProjectFamily" },
+    "status": { "$ref": "#/$defs/ProjectStatus" },
+    "primary_repo": { "$ref": "#/$defs/ProjectRootRef" },
+    "primary_notes_root": { "$ref": "#/$defs/ProjectRootRef" },
+    "secondary_repos": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ProjectRootRef" }
+    },
+    "secondary_notes_roots": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ProjectRootRef" }
+    },
+    "upstream_ids": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "pending_provision": { "$ref": "#/$defs/ProjectProvisionRequest" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "archived_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "id",
+    "slug",
+    "name",
+    "family",
+    "status",
+    "primary_repo",
+    "primary_notes_root",
+    "secondary_repos",
+    "secondary_notes_roots",
+    "upstream_ids",
+    "pending_provision",
+    "created_at",
+    "updated_at",
+    "archived_at"
+  ],
+  "additionalProperties": false
+}

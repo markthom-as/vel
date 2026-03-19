@@ -60,6 +60,15 @@ fn operator_authenticated_routes() -> Router<AppState> {
             get(routes::commitments::list_commitment_dependencies)
                 .post(routes::commitments::add_commitment_dependency),
         )
+        .route(
+            "/v1/projects/families",
+            get(routes::projects::list_project_families),
+        )
+        .route(
+            "/v1/projects",
+            get(routes::projects::list_projects).post(routes::projects::create_project),
+        )
+        .route("/v1/projects/:id", get(routes::projects::get_project))
         .route("/v1/risk", get(routes::risk::list_risk))
         .route("/v1/risk/:id", get(routes::risk::get_commitment_risk))
         .route("/v1/suggestions", get(routes::suggestions::list))
@@ -356,6 +365,10 @@ mod tests {
     };
     use time::OffsetDateTime;
     use tower::util::ServiceExt;
+    use vel_api_types::{
+        ProjectCreateRequestData, ProjectFamilyData, ProjectProvisionRequestData,
+        ProjectRootRefData,
+    };
     use vel_core::{ArtifactId, CurrentContextV1};
 
     fn test_policy_config() -> PolicyConfig {
@@ -10912,6 +10925,139 @@ END:VCALENDAR
                 auth
             );
         }
+    }
+
+    #[tokio::test]
+    async fn project_routes_create_list_and_get_records() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        let payload = serde_json::to_vec(&ProjectCreateRequestData {
+            slug: "vel-phase5".to_string(),
+            name: "Vel Phase 5".to_string(),
+            family: ProjectFamilyData::Work,
+            status: None,
+            primary_repo: ProjectRootRefData {
+                path: "/tmp/vel-phase5".to_string(),
+                label: "vel-phase5".to_string(),
+                kind: "repo".to_string(),
+            },
+            primary_notes_root: ProjectRootRefData {
+                path: "/tmp/notes/vel-phase5".to_string(),
+                label: "vel-phase5".to_string(),
+                kind: "notes_root".to_string(),
+            },
+            secondary_repos: vec![],
+            secondary_notes_roots: vec![],
+            upstream_ids: std::collections::BTreeMap::new(),
+            pending_provision: ProjectProvisionRequestData {
+                create_repo: true,
+                create_notes_root: false,
+            },
+        })
+        .unwrap();
+
+        let create = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/projects")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(payload))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+
+        let create_body = axum::body::to_bytes(create.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let create_json: serde_json::Value = serde_json::from_slice(&create_body).unwrap();
+        let project_id = create_json["data"]["project"]["id"]
+            .as_str()
+            .expect("project id should be present")
+            .to_string();
+        assert_eq!(create_json["data"]["project"]["family"], "work");
+        assert_eq!(
+            create_json["data"]["project"]["pending_provision"]["create_repo"],
+            true
+        );
+
+        let list = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/projects")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list.status(), StatusCode::OK);
+        let list_body = axum::body::to_bytes(list.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
+        assert_eq!(list_json["data"]["projects"][0]["slug"], "vel-phase5");
+
+        let get = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/v1/projects/{project_id}"))
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(get.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn project_families_route_returns_stable_family_vocabulary() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/projects/families")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            json["data"],
+            serde_json::json!(["personal", "creative", "work"])
+        );
     }
 
     #[tokio::test]

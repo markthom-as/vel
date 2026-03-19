@@ -25,6 +25,7 @@ pub mod journal;
 pub mod now;
 pub mod nudge_engine;
 pub(crate) mod operator_settings;
+pub mod projects;
 pub mod risk;
 pub mod sandbox;
 pub mod suggestions;

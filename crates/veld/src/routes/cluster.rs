@@ -41,6 +41,9 @@ pub async fn bootstrap(
                 environment: profile.environment,
             })
             .collect(),
+        linked_nodes: vec![],
+        projects: vec![],
+        action_items: vec![],
     };
     Ok(response::success(data))
 }

@@ -3,7 +3,7 @@ use crate::{
     repositories::{
         artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
         cluster_workers_repo, commitment_risk_repo, commitments_repo, connect_runs_repo,
-        context_timeline_repo, current_context_repo, inferred_state_repo,
+        context_timeline_repo, current_context_repo, inferred_state_repo, projects_repo,
         integration_connections_repo, nudges_repo, processing_jobs_repo, run_refs_repo, runs_repo,
         runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
         suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
@@ -21,9 +21,9 @@ use vel_core::{
     ContextCapture, ConversationId, EventId, IntegrationConnection, IntegrationConnectionEvent,
     IntegrationConnectionEventType, IntegrationConnectionId, IntegrationConnectionSettingRef,
     IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, InterventionId, JobId,
-    JobStatus, MessageId, OrientationSnapshot, PrivacyClass, Ref, Run, RunEvent, RunEventType,
-    RunId, RunKind, RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
-    SyncClass,
+    JobStatus, MessageId, OrientationSnapshot, PrivacyClass, ProjectFamily, ProjectId,
+    ProjectRecord, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult,
+    SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -767,6 +767,41 @@ impl Storage {
     ) -> Result<Vec<(String, String, String, i64)>, StorageError> {
         commitments_repo::list_commitment_dependencies_by_child(self.pool(), child_commitment_id)
             .await
+    }
+
+    pub async fn create_project(
+        &self,
+        project: ProjectRecord,
+    ) -> Result<ProjectRecord, StorageError> {
+        projects_repo::create_project(self.pool(), project).await
+    }
+
+    pub async fn list_projects(&self) -> Result<Vec<ProjectRecord>, StorageError> {
+        projects_repo::list_projects(self.pool()).await
+    }
+
+    pub async fn get_project(&self, id: &str) -> Result<Option<ProjectRecord>, StorageError> {
+        projects_repo::get_project(self.pool(), id).await
+    }
+
+    pub async fn get_project_by_slug(
+        &self,
+        slug: &str,
+    ) -> Result<Option<ProjectRecord>, StorageError> {
+        projects_repo::get_project_by_slug(self.pool(), slug).await
+    }
+
+    pub async fn upsert_project_alias(
+        &self,
+        alias: &str,
+        project_id: &ProjectId,
+        source: &str,
+    ) -> Result<(), StorageError> {
+        projects_repo::upsert_project_alias(self.pool(), alias, project_id, source).await
+    }
+
+    pub async fn list_project_families(&self) -> Result<Vec<ProjectFamily>, StorageError> {
+        projects_repo::list_project_families(self.pool()).await
     }
 
     // --- Signals (Phase B) ---

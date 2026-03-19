@@ -1,9 +1,10 @@
 use axum::extract::State;
 use axum::Json;
 use vel_api_types::{
-    ApiResponse, NowAttentionData, NowData, NowDebugData, NowEventData, NowFreshnessData,
-    NowFreshnessEntryData, NowLabelData, NowRiskSummaryData, NowScheduleData,
+    ActionItemData, ApiResponse, NowAttentionData, NowData, NowDebugData, NowEventData,
+    NowFreshnessData, NowFreshnessEntryData, NowLabelData, NowRiskSummaryData, NowScheduleData,
     NowSourceActivityData, NowSourcesData, NowSummaryData, NowTaskData, NowTasksData,
+    ReviewSnapshotData,
 };
 
 use crate::{errors::AppError, routes::response, services, state::AppState};
@@ -26,6 +27,8 @@ impl From<services::now::NowOutput> for NowData {
             attention: value.attention.into(),
             sources: value.sources.into(),
             freshness: value.freshness.into(),
+            action_items: Vec::<ActionItemData>::new(),
+            review_snapshot: ReviewSnapshotData::default(),
             reasons: value.reasons,
             debug: value.debug.into(),
         }

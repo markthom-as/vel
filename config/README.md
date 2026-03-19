@@ -33,6 +33,8 @@ Use it to answer four questions quickly:
   - `schemas/self-model-envelope.schema.json`
   - `schemas/semantic-query.schema.json`
   - `schemas/semantic-memory-record.schema.json`
+  - `schemas/project-workspace.schema.json`
+  - `schemas/operator-action-item.schema.json`
   - `schemas/sandbox-policy.schema.json`
   - `schemas/sandbox-host-call.schema.json`
   - `schemas/swarm-protocol-envelope.schema.json`
@@ -46,6 +48,8 @@ Use it to answer four questions quickly:
   - `examples/self-model-envelope.example.json`
   - `examples/semantic-query.example.json`
   - `examples/semantic-memory-record.example.json`
+  - `examples/project-workspace.example.json`
+  - `examples/operator-action-item.example.json`
   - `examples/sandbox-host-call.example.json`
   - `examples/swarm-protocol-envelope.example.json`
   - `contracts-manifest.json`
@@ -57,6 +61,7 @@ Use it to answer four questions quickly:
 - `docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md` owns the contract map and schema-governance rules.
 - `docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md` owns connector vocabulary and manifest semantics.
 - `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md` owns self-model and writable-scope semantics.
+- `docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md` owns the Phase 05 typed project, operator-action, and linking vocabulary.
 
 ## Scientific Substrate vs Symbolic Layer
 

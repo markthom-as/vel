@@ -174,6 +174,9 @@ fn sync_bootstrap_cluster_to_api(
                 environment: p.environment,
             })
             .collect(),
+        linked_nodes: vec![],
+        projects: vec![],
+        action_items: vec![],
     }
 }
 
@@ -201,6 +204,9 @@ fn sync_bootstrap_to_api(data: crate::services::client_sync::SyncBootstrap) -> S
             .into_iter()
             .map(vel_api_types::CommitmentData::from)
             .collect(),
+        linked_nodes: vec![],
+        projects: vec![],
+        action_items: vec![],
     }
 }
 

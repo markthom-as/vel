@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/operator-action-item.schema.json",
+  "title": "Vel Operator Action Item",
+  "description": "Canonical Phase 05 surfaced action/intervention contract for Now and Inbox queues.",
+  "type": "object",
+  "$defs": {
+    "ActionSurface": {
+      "type": "string",
+      "enum": ["now", "inbox"]
+    },
+    "ActionKind": {
+      "type": "string",
+      "enum": [
+        "next_step",
+        "intervention",
+        "review",
+        "freshness",
+        "blocked",
+        "conflict",
+        "linking"
+      ]
+    },
+    "ActionState": {
+      "type": "string",
+      "enum": ["active", "acknowledged", "resolved", "dismissed", "snoozed"]
+    },
+    "AvailableAction": {
+      "type": "string",
+      "enum": [
+        "acknowledge",
+        "resolve",
+        "dismiss",
+        "snooze",
+        "open_thread",
+        "open_project",
+        "sync_now",
+        "link_node"
+      ]
+    },
+    "ActionEvidenceRef": {
+      "type": "object",
+      "properties": {
+        "source_kind": { "type": "string", "minLength": 1 },
+        "source_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "detail": { "type": ["string", "null"] }
+      },
+      "required": ["source_kind", "source_id", "label", "detail"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^act_[A-Za-z0-9]+$"
+    },
+    "surface": { "$ref": "#/$defs/ActionSurface" },
+    "kind": { "$ref": "#/$defs/ActionKind" },
+    "title": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "project_id": {
+      "type": ["string", "null"],
+      "pattern": "^proj_[A-Za-z0-9]+$"
+    },
+    "state": { "$ref": "#/$defs/ActionState" },
+    "rank": { "type": "integer" },
+    "surfaced_at": { "type": "string", "format": "date-time" },
+    "snoozed_until": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "available_actions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AvailableAction" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ActionEvidenceRef" }
+    }
+  },
+  "required": [
+    "id",
+    "surface",
+    "kind",
+    "title",
+    "summary",
+    "project_id",
+    "state",
+    "rank",
+    "surfaced_at",
+    "snoozed_until",
+    "available_actions",
+    "evidence"
+  ],
+  "additionalProperties": false
+}

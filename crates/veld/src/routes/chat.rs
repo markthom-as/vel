@@ -9,9 +9,9 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, ConversationCreateRequest, ConversationData, ConversationUpdateRequest,
-    CreateMessageResponse, InboxItemData, InterventionActionData, MessageCreateRequest,
-    MessageData, ProvenanceData, ProvenanceEvent,
+    ActionEvidenceRefData, ApiResponse, AvailableActionData, ConversationCreateRequest,
+    ConversationData, ConversationUpdateRequest, CreateMessageResponse, InboxItemData,
+    InterventionActionData, MessageCreateRequest, MessageData, ProvenanceData, ProvenanceEvent,
 };
 
 use crate::services::chat::{
@@ -85,7 +85,23 @@ fn map_inbox_item_data(data: crate::services::chat::reads::InboxItem) -> InboxIt
         surfaced_at: data.surfaced_at,
         snoozed_until: data.snoozed_until,
         confidence: data.confidence,
+        conversation_id: None,
+        title: "Intervention".to_string(),
+        summary: "Needs operator review from the current inbox/intervention queue.".to_string(),
+        project_id: None,
+        project_label: None,
+        available_actions: default_available_actions(),
+        evidence: Vec::<ActionEvidenceRefData>::new(),
     }
+}
+
+fn default_available_actions() -> Vec<AvailableActionData> {
+    vec![
+        AvailableActionData::Resolve,
+        AvailableActionData::Dismiss,
+        AvailableActionData::Snooze,
+        AvailableActionData::OpenThread,
+    ]
 }
 
 fn map_provenance_event(event: ProvenanceMessageEvent) -> ProvenanceEvent {

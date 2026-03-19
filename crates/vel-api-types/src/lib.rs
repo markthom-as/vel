@@ -1,9 +1,11 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
-    ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass, ResolvedCommand,
-    RiskFactors, RiskSnapshot, RunId, SyncClass,
+    ActionItemId, ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass,
+    ProjectId, ResolvedCommand, RiskFactors, RiskSnapshot, RunId, SyncClass,
 };
 
 /// Wire-level timestamp for resource DTO fields that use Unix seconds.
@@ -223,6 +225,398 @@ pub struct ClusterBootstrapData {
     pub branch_sync: Option<BranchSyncCapabilityData>,
     #[serde(default)]
     pub validation_profiles: Vec<ValidationProfileData>,
+    #[serde(default)]
+    pub linked_nodes: Vec<LinkedNodeData>,
+    #[serde(default)]
+    pub projects: Vec<ProjectRecordData>,
+    #[serde(default)]
+    pub action_items: Vec<ActionItemData>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectFamilyData {
+    Personal,
+    Creative,
+    Work,
+}
+
+impl From<vel_core::ProjectFamily> for ProjectFamilyData {
+    fn from(value: vel_core::ProjectFamily) -> Self {
+        match value {
+            vel_core::ProjectFamily::Personal => Self::Personal,
+            vel_core::ProjectFamily::Creative => Self::Creative,
+            vel_core::ProjectFamily::Work => Self::Work,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectStatusData {
+    Active,
+    Paused,
+    Archived,
+}
+
+impl From<vel_core::ProjectStatus> for ProjectStatusData {
+    fn from(value: vel_core::ProjectStatus) -> Self {
+        match value {
+            vel_core::ProjectStatus::Active => Self::Active,
+            vel_core::ProjectStatus::Paused => Self::Paused,
+            vel_core::ProjectStatus::Archived => Self::Archived,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectRootRefData {
+    pub path: String,
+    pub label: String,
+    pub kind: String,
+}
+
+impl From<vel_core::ProjectRootRef> for ProjectRootRefData {
+    fn from(value: vel_core::ProjectRootRef) -> Self {
+        Self {
+            path: value.path,
+            label: value.label,
+            kind: value.kind,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct ProjectProvisionRequestData {
+    #[serde(default)]
+    pub create_repo: bool,
+    #[serde(default)]
+    pub create_notes_root: bool,
+}
+
+impl From<vel_core::ProjectProvisionRequest> for ProjectProvisionRequestData {
+    fn from(value: vel_core::ProjectProvisionRequest) -> Self {
+        Self {
+            create_repo: value.create_repo,
+            create_notes_root: value.create_notes_root,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectRecordData {
+    pub id: ProjectId,
+    pub slug: String,
+    pub name: String,
+    pub family: ProjectFamilyData,
+    pub status: ProjectStatusData,
+    pub primary_repo: ProjectRootRefData,
+    pub primary_notes_root: ProjectRootRefData,
+    #[serde(default)]
+    pub secondary_repos: Vec<ProjectRootRefData>,
+    #[serde(default)]
+    pub secondary_notes_roots: Vec<ProjectRootRefData>,
+    #[serde(default)]
+    pub upstream_ids: BTreeMap<String, String>,
+    #[serde(default)]
+    pub pending_provision: ProjectProvisionRequestData,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+    pub archived_at: Option<OffsetDateTime>,
+}
+
+impl From<vel_core::ProjectRecord> for ProjectRecordData {
+    fn from(value: vel_core::ProjectRecord) -> Self {
+        Self {
+            id: value.id,
+            slug: value.slug,
+            name: value.name,
+            family: value.family.into(),
+            status: value.status.into(),
+            primary_repo: value.primary_repo.into(),
+            primary_notes_root: value.primary_notes_root.into(),
+            secondary_repos: value.secondary_repos.into_iter().map(Into::into).collect(),
+            secondary_notes_roots: value
+                .secondary_notes_roots
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            upstream_ids: value.upstream_ids,
+            pending_provision: value.pending_provision.into(),
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+            archived_at: value.archived_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectCreateRequestData {
+    pub slug: String,
+    pub name: String,
+    pub family: ProjectFamilyData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<ProjectStatusData>,
+    pub primary_repo: ProjectRootRefData,
+    pub primary_notes_root: ProjectRootRefData,
+    #[serde(default)]
+    pub secondary_repos: Vec<ProjectRootRefData>,
+    #[serde(default)]
+    pub secondary_notes_roots: Vec<ProjectRootRefData>,
+    #[serde(default)]
+    pub upstream_ids: BTreeMap<String, String>,
+    #[serde(default)]
+    pub pending_provision: ProjectProvisionRequestData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectCreateResponseData {
+    pub project: ProjectRecordData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectListResponseData {
+    #[serde(default)]
+    pub projects: Vec<ProjectRecordData>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionSurfaceData {
+    Now,
+    Inbox,
+}
+
+impl From<vel_core::ActionSurface> for ActionSurfaceData {
+    fn from(value: vel_core::ActionSurface) -> Self {
+        match value {
+            vel_core::ActionSurface::Now => Self::Now,
+            vel_core::ActionSurface::Inbox => Self::Inbox,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionKindData {
+    NextStep,
+    Intervention,
+    Review,
+    Freshness,
+    Blocked,
+    Conflict,
+    Linking,
+}
+
+impl From<vel_core::ActionKind> for ActionKindData {
+    fn from(value: vel_core::ActionKind) -> Self {
+        match value {
+            vel_core::ActionKind::NextStep => Self::NextStep,
+            vel_core::ActionKind::Intervention => Self::Intervention,
+            vel_core::ActionKind::Review => Self::Review,
+            vel_core::ActionKind::Freshness => Self::Freshness,
+            vel_core::ActionKind::Blocked => Self::Blocked,
+            vel_core::ActionKind::Conflict => Self::Conflict,
+            vel_core::ActionKind::Linking => Self::Linking,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionStateData {
+    Active,
+    Acknowledged,
+    Resolved,
+    Dismissed,
+    Snoozed,
+}
+
+impl From<vel_core::ActionState> for ActionStateData {
+    fn from(value: vel_core::ActionState) -> Self {
+        match value {
+            vel_core::ActionState::Active => Self::Active,
+            vel_core::ActionState::Acknowledged => Self::Acknowledged,
+            vel_core::ActionState::Resolved => Self::Resolved,
+            vel_core::ActionState::Dismissed => Self::Dismissed,
+            vel_core::ActionState::Snoozed => Self::Snoozed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AvailableActionData {
+    Acknowledge,
+    Resolve,
+    Dismiss,
+    Snooze,
+    OpenThread,
+    OpenProject,
+    SyncNow,
+    LinkNode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionEvidenceRefData {
+    pub source_kind: String,
+    pub source_id: String,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+impl From<vel_core::ActionEvidenceRef> for ActionEvidenceRefData {
+    fn from(value: vel_core::ActionEvidenceRef) -> Self {
+        Self {
+            source_kind: value.source_kind,
+            source_id: value.source_id,
+            label: value.label,
+            detail: value.detail,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionItemData {
+    pub id: ActionItemId,
+    pub surface: ActionSurfaceData,
+    pub kind: ActionKindData,
+    pub title: String,
+    pub summary: String,
+    pub project_id: Option<ProjectId>,
+    pub state: ActionStateData,
+    pub rank: i64,
+    pub surfaced_at: OffsetDateTime,
+    pub snoozed_until: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub evidence: Vec<ActionEvidenceRefData>,
+}
+
+impl From<vel_core::ActionItem> for ActionItemData {
+    fn from(value: vel_core::ActionItem) -> Self {
+        Self {
+            id: value.id,
+            surface: value.surface.into(),
+            kind: value.kind.into(),
+            title: value.title,
+            summary: value.summary,
+            project_id: value.project_id,
+            state: value.state.into(),
+            rank: value.rank,
+            surfaced_at: value.surfaced_at,
+            snoozed_until: value.snoozed_until,
+            evidence: value.evidence.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct ReviewSnapshotData {
+    #[serde(default)]
+    pub open_action_count: u32,
+    #[serde(default)]
+    pub triage_count: u32,
+    #[serde(default)]
+    pub projects_needing_review: u32,
+}
+
+impl From<vel_core::ReviewSnapshot> for ReviewSnapshotData {
+    fn from(value: vel_core::ReviewSnapshot) -> Self {
+        Self {
+            open_action_count: value.open_action_count,
+            triage_count: value.triage_count,
+            projects_needing_review: value.projects_needing_review,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkStatusData {
+    Pending,
+    Linked,
+    Revoked,
+    Expired,
+}
+
+impl From<vel_core::LinkStatus> for LinkStatusData {
+    fn from(value: vel_core::LinkStatus) -> Self {
+        match value {
+            vel_core::LinkStatus::Pending => Self::Pending,
+            vel_core::LinkStatus::Linked => Self::Linked,
+            vel_core::LinkStatus::Revoked => Self::Revoked,
+            vel_core::LinkStatus::Expired => Self::Expired,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct LinkScopeData {
+    #[serde(default)]
+    pub read_context: bool,
+    #[serde(default)]
+    pub write_safe_actions: bool,
+    #[serde(default)]
+    pub execute_repo_tasks: bool,
+}
+
+impl From<vel_core::LinkScope> for LinkScopeData {
+    fn from(value: vel_core::LinkScope) -> Self {
+        Self {
+            read_context: value.read_context,
+            write_safe_actions: value.write_safe_actions,
+            execute_repo_tasks: value.execute_repo_tasks,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PairingTokenData {
+    pub token_id: String,
+    pub token_code: String,
+    pub issued_at: OffsetDateTime,
+    pub expires_at: OffsetDateTime,
+    pub issued_by_node_id: String,
+    pub scopes: LinkScopeData,
+}
+
+impl From<vel_core::PairingTokenRecord> for PairingTokenData {
+    fn from(value: vel_core::PairingTokenRecord) -> Self {
+        Self {
+            token_id: value.token_id,
+            token_code: value.token_code,
+            issued_at: value.issued_at,
+            expires_at: value.expires_at,
+            issued_by_node_id: value.issued_by_node_id,
+            scopes: value.scopes.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkedNodeData {
+    pub node_id: String,
+    pub node_display_name: String,
+    pub status: LinkStatusData,
+    pub scopes: LinkScopeData,
+    pub linked_at: OffsetDateTime,
+    pub last_seen_at: Option<OffsetDateTime>,
+    pub transport_hint: Option<String>,
+}
+
+impl From<vel_core::LinkedNodeRecord> for LinkedNodeData {
+    fn from(value: vel_core::LinkedNodeRecord) -> Self {
+        Self {
+            node_id: value.node_id,
+            node_display_name: value.node_display_name,
+            status: value.status.into(),
+            scopes: value.scopes.into(),
+            linked_at: value.linked_at,
+            last_seen_at: value.last_seen_at,
+            transport_hint: value.transport_hint,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1310,6 +1704,20 @@ pub struct InboxItemData {
     pub surfaced_at: UnixSeconds,
     pub snoozed_until: Option<UnixSeconds>,
     pub confidence: Option<f64>,
+    #[serde(default)]
+    pub conversation_id: Option<String>,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub summary: String,
+    #[serde(default)]
+    pub project_id: Option<ProjectId>,
+    #[serde(default)]
+    pub project_label: Option<String>,
+    #[serde(default)]
+    pub available_actions: Vec<AvailableActionData>,
+    #[serde(default)]
+    pub evidence: Vec<ActionEvidenceRefData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1908,6 +2316,12 @@ pub struct SyncBootstrapData {
     pub current_context: Option<CurrentContextData>,
     pub nudges: Vec<NudgeData>,
     pub commitments: Vec<CommitmentData>,
+    #[serde(default)]
+    pub linked_nodes: Vec<LinkedNodeData>,
+    #[serde(default)]
+    pub projects: Vec<ProjectRecordData>,
+    #[serde(default)]
+    pub action_items: Vec<ActionItemData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2027,6 +2441,10 @@ pub struct NowData {
     pub attention: NowAttentionData,
     pub sources: NowSourcesData,
     pub freshness: NowFreshnessData,
+    #[serde(default)]
+    pub action_items: Vec<ActionItemData>,
+    #[serde(default)]
+    pub review_snapshot: ReviewSnapshotData,
     pub reasons: Vec<String>,
     pub debug: NowDebugData,
 }
@@ -2174,7 +2592,7 @@ pub struct NudgeEventData {
 
 #[cfg(test)]
 mod tests {
-    use super::NowTaskData;
+    use super::{NowTaskData, ReviewSnapshotData};
     use time::macros::datetime;
 
     #[test]
@@ -2205,5 +2623,15 @@ mod tests {
 
         let value = serde_json::to_value(task).expect("now task should serialize");
         assert!(value["due_at"].is_null());
+    }
+
+    #[test]
+    fn review_snapshot_default_serializes_named_counts() {
+        let value = serde_json::to_value(ReviewSnapshotData::default())
+            .expect("review snapshot should serialize");
+
+        assert_eq!(value["open_action_count"], 0);
+        assert_eq!(value["triage_count"], 0);
+        assert_eq!(value["projects_needing_review"], 0);
     }
 }
