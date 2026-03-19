@@ -124,7 +124,7 @@ Remaining execution order: 5 → 6 → 7 → 8 → 9
 | 2. Distributed State, Offline Clients & System-of-Systems | 1/7 | Closed / Re-scoped | 2026-03-19 |
 | 3. Deterministic Verification & Continuous Alignment | 5/5 | Complete | 2026-03-18 |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 5/5 | Closed / Re-scoped | 2026-03-19 |
-| 5. Now + Inbox core and project substrate | 0/0 | Not planned | - |
+| 5. Now + Inbox core and project substrate | 0/8 | Planned | - |
 | 6. High-value write-back integrations and lightweight people graph | 0/0 | Not planned | - |
 | 7. Apple action loops and behavioral signal ingestion | 0/0 | Not planned | - |
 | 8. Coding-centric supervised execution with GSD and local agents | 0/0 | Not planned | - |
@@ -135,15 +135,17 @@ Remaining execution order: 5 → 6 → 7 → 8 → 9
 **Goal:** Keep `Now + Inbox` as the primary operator shell while establishing a typed project substrate, project families, and a unified action/intervention model that can safely anchor work across tasks, notes, messages, suggestions, conflicts, multi-client continuity, and future execution flows.
 **Requirements**: NOW-01, NOW-02, INBOX-01, INBOX-02, ACTION-01, REVIEW-01, CONTINUITY-01, CONTINUITY-02, PROJ-01, PROJ-02, PROJ-03, FAMILY-01
 **Depends on:** Phase 4
-**Plans:** 6 plans
+**Plans:** 8 plans
 
 Plans:
 - [ ] 05-01-PLAN.md — Publish typed Phase 05 contracts for projects, action items, and linking scopes
 - [ ] 05-02-PLAN.md — Implement the persisted project substrate and local-first project workspace API
-- [ ] 05-03-PLAN.md — Close guided linking and continuity with scoped pairing tokens, bootstrap status, and CLI fallback
-- [ ] 05-04-PLAN.md — Build the backend action/intervention projection for Now, Inbox, and review flows
-- [ ] 05-05-PLAN.md — Ship the web Now/Inbox/Projects/linking shell on top of the new backend contracts
-- [ ] 05-06-PLAN.md — Bring Apple clients to Phase 05 continuity parity without adding client-owned policy
+- [ ] 05-03-PLAN.md — Close the backend linking and continuity path with scoped pairing tokens and bootstrap status
+- [ ] 05-04-PLAN.md — Add the CLI fallback and runtime docs for guided node linking
+- [ ] 05-05-PLAN.md — Build the backend action/intervention projection plus Inbox triage mutations and review outputs
+- [ ] 05-06-PLAN.md — Add typed web data contracts, project/linking loaders, and Inbox mutation helpers
+- [ ] 05-07-PLAN.md — Ship the web Now/Inbox/Projects/linking views on top of the new data layer
+- [ ] 05-08-PLAN.md — Bring Apple clients to Phase 05 continuity parity without adding client-owned policy
 
 ### Phase 6: High-value write-back integrations and lightweight people graph
 

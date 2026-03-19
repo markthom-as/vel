@@ -19,7 +19,7 @@ created: 2026-03-18
 |----------|-------|
 | **Framework** | `cargo test` + Vitest 2.1.x + Apple compile check |
 | **Config file** | `clients/web/vitest.config.ts`; Rust uses Cargo defaults |
-| **Quick run command** | `cargo test -p veld now_service_output_maps_to_existing_now_dto_shape -- --nocapture && npm --prefix clients/web test -- --run src/components/NowView.test.tsx src/components/InboxView.test.tsx` |
+| **Quick run command** | `cargo test -p veld now -- --nocapture && npm --prefix clients/web test -- --run src/types.test.ts src/components/NowView.test.tsx src/components/InboxView.test.tsx` |
 | **Full suite command** | `make verify && npm --prefix clients/web test && make check-apple-swift` |
 | **Estimated runtime** | ~240 seconds |
 
@@ -41,10 +41,12 @@ created: 2026-03-18
 | 05-01-01 | 01 | 1 | PROJ-01, PROJ-02, FAMILY-01, ACTION-01 | unit/schema | `cargo test -p vel-core -- --nocapture && cargo test -p vel-api-types -- --nocapture` | ✅ partial | ⬜ pending |
 | 05-02-01 | 02 | 2 | PROJ-01, PROJ-02, FAMILY-01 | repository | `cargo test -p vel-storage projects_repo -- --nocapture` | ❌ W0 | ⬜ pending |
 | 05-02-02 | 02 | 2 | PROJ-03 | route/service | `cargo test -p veld project -- --nocapture` | ❌ W0 | ⬜ pending |
-| 05-03-01 | 03 | 3 | CONTINUITY-02 | integration | `cargo test -p veld pairing_ -- --nocapture` | ❌ W0 | ⬜ pending |
-| 05-04-01 | 04 | 4 | NOW-01, NOW-02, INBOX-01, INBOX-02, ACTION-01, REVIEW-01 | service/integration | `cargo test -p veld now inbox synthesis -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ✅ partial | ⬜ pending |
-| 05-05-01 | 05 | 5 | NOW-01, NOW-02, INBOX-01, INBOX-02, CONTINUITY-01, PROJ-03 | web component | `npm --prefix clients/web test -- --run src/components/NowView.test.tsx src/components/InboxView.test.tsx src/components/MainPanel.test.tsx src/components/Sidebar.test.tsx src/components/ProjectsView.test.tsx` | ✅ partial | ⬜ pending |
-| 05-06-01 | 06 | 5 | CONTINUITY-01, CONTINUITY-02 | Apple compile | `make check-apple-swift` | ✅ partial | ⬜ pending |
+| 05-03-01 | 03 | 3 | CONTINUITY-01, CONTINUITY-02 | integration | `cargo test -p vel-storage linking -- --nocapture && cargo test -p veld linking -- --nocapture` | ❌ W0 | ⬜ pending |
+| 05-04-01 | 04 | 4 | CONTINUITY-02 | cli/doc | `cargo test -p vel-cli node -- --nocapture && rg -n "vel node link issue|/v1/linking/status" docs/api/runtime.md` | ❌ W0 | ⬜ pending |
+| 05-05-01 | 05 | 4 | NOW-01, NOW-02, INBOX-01, INBOX-02, ACTION-01, REVIEW-01 | service/integration | `cargo test -p veld now -- --nocapture && cargo test -p veld inbox -- --nocapture && cargo test -p veld intervention -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ❌ W0 | ⬜ pending |
+| 05-06-01 | 06 | 5 | NOW-01, NOW-02, INBOX-01, INBOX-02, CONTINUITY-01, PROJ-03 | web data | `npm --prefix clients/web test -- --run src/types.test.ts src/data/chat.test.ts` | ❌ W0 | ⬜ pending |
+| 05-07-01 | 07 | 6 | NOW-01, NOW-02, INBOX-01, INBOX-02, CONTINUITY-01, PROJ-03 | web component | `npm --prefix clients/web test -- --run src/components/NowView.test.tsx src/components/InboxView.test.tsx src/components/MainPanel.test.tsx src/components/Sidebar.test.tsx src/components/ProjectsView.test.tsx` | ✅ partial | ⬜ pending |
+| 05-08-01 | 08 | 6 | CONTINUITY-01, CONTINUITY-02 | Apple compile | `make check-apple-swift` | ✅ partial | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -56,6 +58,8 @@ created: 2026-03-18
 - [ ] `crates/vel-storage/src/repositories/projects_repo.rs` tests for create/list/get and legacy alias compatibility
 - [ ] `crates/veld/src/services/projects.rs` tests for local-first project creation and pending-upstream confirmation behavior
 - [ ] `crates/veld/src/services/linking.rs` or equivalent tests for pairing token TTL, scope enforcement, redeem, and revoke
+- [ ] `crates/veld/src/services/chat/interventions.rs` and `crates/veld/src/routes/chat.rs` tests for `acknowledge`, `snooze`, `dismiss`, and Inbox `conversation_id` reuse
+- [ ] `clients/web/src/data/chat.test.ts` for Inbox triage mutation helpers and `getInboxThreadPath`
 - [ ] `crates/veld/src/routes/projects.rs` tests for DTO parity across list/detail/create flows
 - [ ] `clients/web/src/components/ProjectsView.test.tsx` for the first real Projects surface
 - [ ] `clients/web/src/components/NowView.test.tsx` additions covering ranked action items and project labels
@@ -70,6 +74,7 @@ created: 2026-03-18
 |----------|-------------|------------|-------------------|
 | Guided node-linking copy clearly states granted read/write/execute scope before confirmation | CONTINUITY-02 | Scope comprehension and trust wording are operator-facing semantics | Run the web or CLI linking flow, issue a token, and confirm the scope disclosure text appears before redeem/confirm |
 | `Now` keeps the ranked action stack visually primary above schedule and source panels | NOW-01, NOW-02 | Visual hierarchy is easiest to confirm in the real UI | Load the web `Now` view and confirm the action stack appears first below the header/freshness banner |
+| Inbox `Open thread` takes the operator to the existing thread surface instead of a new inbox-only detail screen | INBOX-01, INBOX-02 | Requires a real navigation interaction across surfaces | Load Inbox, click `Open thread` on a row with `conversation_id`, and confirm the shell switches to Threads for that conversation |
 | Apple clients display cached project/action/linking continuity without re-ranking locally | CONTINUITY-01 | Thin-client behavior is easiest to validate in simulator/device | Hydrate via `/v1/sync/bootstrap`, go offline, and confirm cached projects/action items/linked nodes still render without new local ranking behavior |
 
 ---
