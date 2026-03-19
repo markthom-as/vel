@@ -303,14 +303,18 @@ Plans:
 **Goal:** Incrementally migrate the codebase toward the Phase 13 architecture by sharpening application-service seams, transport boundaries, and cross-surface read-model ownership, so new logic lands in canonical Rust-owned surfaces instead of being rederived in shells.
 **Requirements**: MIGRATE-01, MIGRATE-02, SERVICE-01, DTO-01, READMODEL-01
 **Depends on:** Phase 14
-**Plans:** 0 plans
+**Plans:** 3/5 plans executed
 
 **Migration note:** This phase should favor a sequence of proof-bearing seam migrations over a broad crate shuffle. Structural moves are justified only when they materially reduce shell-owned logic, boundary confusion, or transport coupling.
 **Included from thread decisions:** do the minimum structural work needed for the next real logic slices, avoid refactor theater, and move seams only when the result clearly improves product-core ownership or portability.
 **Phase 14 carry-forward:** migration should create the backend-owned seams needed for canonical action records, summary-first trust/readiness projections, check-in flows, and reflow planning without re-opening shell-boundary debates.
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 15 to break down)
+- [x] 15-01-PLAN.md — Tighten the canonical operator-action/read-model contract and migration map before behavior widens
+- [x] 15-02-PLAN.md — Introduce the first backend-owned `check_in` seam through core, service, and `Now` read-model boundaries
+- [x] 15-03-PLAN.md — Introduce the first backend-owned `reflow` seam near daily-loop ownership and drift inputs
+- [ ] 15-04-PLAN.md — Compose summary-first trust/readiness projections from existing backup, freshness, and review evidence
+- [ ] 15-05-PLAN.md — Preserve project-scoped operator-action ownership across core, storage/service, DTO, and read-model seams
 
 ### Phase 16: Logic-first product closure on canonical core surfaces
 
