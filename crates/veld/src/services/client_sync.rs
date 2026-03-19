@@ -4,6 +4,7 @@ use std::{
 };
 
 use time::OffsetDateTime;
+use tokio::time::{timeout, Duration};
 use uuid::Uuid;
 use vel_api_types::{ApiResponse, SyncBootstrapData};
 
@@ -355,12 +356,12 @@ pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkers, Ap
             worker
         })
         .collect();
-    let workers = merge_discovered_workers(
-        workers,
-        discover_tailscale_workers(state, &bootstrap, now).await,
+    let (tailscale_workers, lan_workers) = tokio::join!(
+        discover_tailscale_workers_bounded(state, &bootstrap, now),
+        discover_lan_workers_bounded(state, &bootstrap, now)
     );
-    let workers =
-        merge_discovered_workers(workers, discover_lan_workers(state, &bootstrap, now).await);
+    let workers = merge_discovered_workers(workers, tailscale_workers);
+    let workers = merge_discovered_workers(workers, lan_workers);
 
     Ok(ClusterWorkers {
         active_authority_node_id: bootstrap.active_authority_node_id.clone(),
@@ -368,6 +369,44 @@ pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkers, Ap
         generated_at: now,
         workers,
     })
+}
+
+async fn discover_tailscale_workers_bounded(
+    state: &AppState,
+    local_bootstrap: &ClusterBootstrap,
+    now: i64,
+) -> Vec<WorkerPresence> {
+    match timeout(
+        Duration::from_millis(1500),
+        discover_tailscale_workers(state, local_bootstrap, now),
+    )
+    .await
+    {
+        Ok(workers) => workers,
+        Err(_) => {
+            tracing::warn!("tailscale worker discovery timed out");
+            Vec::new()
+        }
+    }
+}
+
+async fn discover_lan_workers_bounded(
+    state: &AppState,
+    local_bootstrap: &ClusterBootstrap,
+    now: i64,
+) -> Vec<WorkerPresence> {
+    match timeout(
+        Duration::from_millis(750),
+        discover_lan_workers(state, local_bootstrap, now),
+    )
+    .await
+    {
+        Ok(workers) => workers,
+        Err(_) => {
+            tracing::warn!("lan worker discovery timed out");
+            Vec::new()
+        }
+    }
 }
 
 async fn discover_tailscale_workers(
