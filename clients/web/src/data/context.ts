@@ -8,6 +8,7 @@ import {
   decodeDriftExplainData,
   decodeNowData,
   decodeNullable,
+  decodeSyncBootstrapData,
   decodeSuggestionData,
   decodeUncertaintyData,
   type ApiResponse,
@@ -16,6 +17,7 @@ import {
   type CurrentContextData,
   type DriftExplainData,
   type NowData,
+  type SyncBootstrapData,
   type SuggestionData,
   type UncertaintyData,
 } from '../types';
@@ -26,6 +28,7 @@ export const contextQueryKeys = {
   uncertainty: (status: string) => ['uncertainty', status] as const,
   now: () => ['now'] as const,
   currentContext: () => ['context', 'current'] as const,
+  syncBootstrap: () => ['sync', 'bootstrap'] as const,
   contextExplain: () => ['context', 'explain'] as const,
   driftExplain: () => ['context', 'drift-explain'] as const,
   commitments: (limit: number) => ['commitments', limit] as const,
@@ -79,9 +82,18 @@ export function loadCurrentContext(): Promise<ApiResponse<CurrentContextData | n
 }
 
 export function loadNow(): Promise<ApiResponse<NowData>> {
+  // Phase 05 decode path includes Now review_snapshot plus ranked action_items.
   return apiGet<ApiResponse<NowData>>(
     '/v1/now',
     (value) => decodeApiResponse(value, decodeNowData),
+  );
+}
+
+export function loadSyncBootstrap(): Promise<ApiResponse<SyncBootstrapData>> {
+  // Phase 05 sync bootstrap carries linked_nodes, projects, and action_items for thin clients.
+  return apiGet<ApiResponse<SyncBootstrapData>>(
+    '/v1/sync/bootstrap',
+    (value) => decodeApiResponse(value, decodeSyncBootstrapData),
   );
 }
 

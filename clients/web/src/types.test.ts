@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  decodeActionItemData,
   decodeApiResponse,
   decodeCommitmentData,
   decodeCreateMessageResponse,
@@ -7,17 +8,22 @@ import {
   decodeCurrentContextData,
   decodeComponentData,
   decodeComponentLogEventData,
+  decodeInboxItemData,
   decodeIntegrationConnectionData,
   decodeIntegrationConnectionEventData,
   decodeIntegrationsData,
+  decodeLinkedNodeData,
   decodeLoopData,
   decodeNowData,
   decodeNullable,
   decodeArray,
+  decodeProjectRecordData,
+  decodeReviewSnapshotData,
   decodeRiskCardContent,
   decodeRunSummaryData,
   decodeSettingsData,
   decodeSuggestionData,
+  decodeSyncBootstrapData,
   decodeUncertaintyData,
   decodeWsEvent,
 } from './types'
@@ -415,6 +421,33 @@ describe('transport decoders', () => {
             },
           ],
         },
+        action_items: [
+          {
+            id: 'act_1',
+            surface: 'inbox',
+            kind: 'intervention',
+            title: 'Inbox intervention',
+            summary: 'Review operator intervention',
+            project_id: 'proj_1',
+            state: 'active',
+            rank: 80,
+            surfaced_at: '2026-03-19T02:10:00Z',
+            snoozed_until: null,
+            evidence: [
+              {
+                source_kind: 'intervention',
+                source_id: 'intv_1',
+                label: 'risk',
+                detail: 'message_id=msg_1',
+              },
+            ],
+          },
+        ],
+        review_snapshot: {
+          open_action_count: 3,
+          triage_count: 2,
+          projects_needing_review: 1,
+        },
         reasons: ['Prep window active'],
         debug: {
           raw_context: { mode: 'day_mode' },
@@ -484,6 +517,33 @@ describe('transport decoders', () => {
           },
         ],
       },
+      action_items: [
+        {
+          id: 'act_1',
+          surface: 'inbox',
+          kind: 'intervention',
+          title: 'Inbox intervention',
+          summary: 'Review operator intervention',
+          project_id: 'proj_1',
+          state: 'active',
+          rank: 80,
+          surfaced_at: '2026-03-19T02:10:00Z',
+          snoozed_until: null,
+          evidence: [
+            {
+              source_kind: 'intervention',
+              source_id: 'intv_1',
+              label: 'risk',
+              detail: 'message_id=msg_1',
+            },
+          ],
+        },
+      ],
+      review_snapshot: {
+        open_action_count: 3,
+        triage_count: 2,
+        projects_needing_review: 1,
+      },
       reasons: ['Prep window active'],
       debug: {
         raw_context: { mode: 'day_mode' },
@@ -491,6 +551,239 @@ describe('transport decoders', () => {
         commitments_used: ['commit_1'],
         risk_used: ['risk_1'],
       },
+    })
+  })
+
+  it('decodes expanded inbox items with conversation_id, available_actions, and evidence', () => {
+    expect(
+      decodeInboxItemData({
+        id: 'intv_1',
+        message_id: 'msg_1',
+        kind: 'risk',
+        state: 'active',
+        surfaced_at: 1710000000,
+        snoozed_until: null,
+        confidence: 0.9,
+        conversation_id: 'conv_1',
+        title: 'Link trust degraded',
+        summary: 'Inspect the degraded trust state',
+        project_id: 'proj_1',
+        project_label: 'Vel',
+        available_actions: ['acknowledge', 'snooze', 'dismiss', 'open_thread'],
+        evidence: [
+          {
+            source_kind: 'intervention',
+            source_id: 'intv_1',
+            label: 'risk',
+            detail: null,
+          },
+        ],
+      }),
+    ).toEqual({
+      id: 'intv_1',
+      message_id: 'msg_1',
+      kind: 'risk',
+      state: 'active',
+      surfaced_at: 1710000000,
+      snoozed_until: null,
+      confidence: 0.9,
+      conversation_id: 'conv_1',
+      title: 'Link trust degraded',
+      summary: 'Inspect the degraded trust state',
+      project_id: 'proj_1',
+      project_label: 'Vel',
+      available_actions: ['acknowledge', 'snooze', 'dismiss', 'open_thread'],
+      evidence: [
+        {
+          source_kind: 'intervention',
+          source_id: 'intv_1',
+          label: 'risk',
+          detail: null,
+        },
+      ],
+    })
+  })
+
+  it('decodes named review snapshot and action item contracts', () => {
+    expect(
+      decodeReviewSnapshotData({
+        open_action_count: 4,
+        triage_count: 2,
+        projects_needing_review: 1,
+      }),
+    ).toEqual({
+      open_action_count: 4,
+      triage_count: 2,
+      projects_needing_review: 1,
+    })
+
+    expect(
+      decodeActionItemData({
+        id: 'act_review',
+        surface: 'now',
+        kind: 'review',
+        title: 'Review project Vel',
+        summary: 'Weekly review keeps the project anchored.',
+        project_id: 'proj_1',
+        state: 'active',
+        rank: 60,
+        surfaced_at: '2026-03-19T02:11:00Z',
+        snoozed_until: null,
+        evidence: [
+          {
+            source_kind: 'project',
+            source_id: 'proj_1',
+            label: 'Vel',
+            detail: 'family=work',
+          },
+        ],
+      }),
+    ).toEqual({
+      id: 'act_review',
+      surface: 'now',
+      kind: 'review',
+      title: 'Review project Vel',
+      summary: 'Weekly review keeps the project anchored.',
+      project_id: 'proj_1',
+      state: 'active',
+      rank: 60,
+      surfaced_at: '2026-03-19T02:11:00Z',
+      snoozed_until: null,
+      evidence: [
+        {
+          source_kind: 'project',
+          source_id: 'proj_1',
+          label: 'Vel',
+          detail: 'family=work',
+        },
+      ],
+    })
+  })
+
+  it('decodes expanded project, linking, and sync bootstrap payloads', () => {
+    const project = decodeProjectRecordData({
+      id: 'proj_1',
+      slug: 'vel',
+      name: 'Vel',
+      family: 'work',
+      status: 'active',
+      primary_repo: { path: '/tmp/vel', label: 'vel', kind: 'repo' },
+      primary_notes_root: { path: '/tmp/notes/vel', label: 'vel', kind: 'notes_root' },
+      secondary_repos: [],
+      secondary_notes_roots: [],
+      upstream_ids: { github: 'vel' },
+      pending_provision: { create_repo: true, create_notes_root: false },
+      created_at: '2026-03-19T02:00:00Z',
+      updated_at: '2026-03-19T02:05:00Z',
+      archived_at: null,
+    })
+
+    expect(project.slug).toBe('vel')
+
+    const linkedNode = decodeLinkedNodeData({
+      node_id: 'node_remote',
+      node_display_name: 'Remote',
+      status: 'pending',
+      scopes: {
+        read_context: true,
+        write_safe_actions: false,
+        execute_repo_tasks: false,
+      },
+      linked_at: '2026-03-19T02:01:00Z',
+      last_seen_at: '2026-03-19T02:02:00Z',
+      transport_hint: 'tailscale',
+    })
+
+    expect(linkedNode.status).toBe('pending')
+
+    expect(
+      decodeSyncBootstrapData({
+        cluster: {
+          node_id: 'vel-desktop',
+          node_display_name: 'Vel Desktop',
+          active_authority_node_id: 'vel-desktop',
+          active_authority_epoch: 1,
+          sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+          sync_transport: 'tailscale',
+          tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+          lan_base_url: 'http://192.168.1.50:4130',
+          localhost_base_url: 'http://127.0.0.1:4130',
+          capabilities: ['build_test_profiles'],
+          linked_nodes: [linkedNode],
+          projects: [project],
+          action_items: [
+            {
+              id: 'act_1',
+              surface: 'inbox',
+              kind: 'linking',
+              title: 'Linked node Remote needs review',
+              summary: 'Review linked node trust',
+              project_id: null,
+              state: 'active',
+              rank: 85,
+              surfaced_at: '2026-03-19T02:12:00Z',
+              snoozed_until: null,
+              evidence: [
+                {
+                  source_kind: 'linked_node',
+                  source_id: 'node_remote',
+                  label: 'Remote',
+                  detail: 'status=pending',
+                },
+              ],
+            },
+          ],
+        },
+        current_context: null,
+        nudges: [],
+        commitments: [],
+        linked_nodes: [linkedNode],
+        projects: [project],
+        action_items: [],
+      }),
+    ).toEqual({
+      cluster: {
+        node_id: 'vel-desktop',
+        node_display_name: 'Vel Desktop',
+        active_authority_node_id: 'vel-desktop',
+        active_authority_epoch: 1,
+        sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        sync_transport: 'tailscale',
+        tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        lan_base_url: 'http://192.168.1.50:4130',
+        localhost_base_url: 'http://127.0.0.1:4130',
+        capabilities: ['build_test_profiles'],
+        linked_nodes: [linkedNode],
+        projects: [project],
+        action_items: [
+          {
+            id: 'act_1',
+            surface: 'inbox',
+            kind: 'linking',
+            title: 'Linked node Remote needs review',
+            summary: 'Review linked node trust',
+            project_id: null,
+            state: 'active',
+            rank: 85,
+            surfaced_at: '2026-03-19T02:12:00Z',
+            snoozed_until: null,
+            evidence: [
+              {
+                source_kind: 'linked_node',
+                source_id: 'node_remote',
+                label: 'Remote',
+                detail: 'status=pending',
+              },
+            ],
+          },
+        ],
+      },
+      current_context: null,
+      nudges: [],
+      commitments: [],
+      linked_nodes: [linkedNode],
+      projects: [project],
+      action_items: [],
     })
   })
 

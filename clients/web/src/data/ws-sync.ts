@@ -10,6 +10,7 @@ import type {
 import { subscribeWs } from '../realtime/ws';
 import { chatQueryKeys } from './chat';
 import { contextQueryKeys } from './context';
+import { operatorQueryKeys } from './operator';
 import {
   getQueryData,
   invalidateQuery,
@@ -24,6 +25,14 @@ import {
   upsertInboxItem,
   type PendingInterventionAction,
 } from './chat-state';
+
+function invalidatePhase05Queries() {
+  invalidateQuery(contextQueryKeys.now(), { refetch: true });
+  invalidateQuery(contextQueryKeys.syncBootstrap(), { refetch: true });
+  invalidateQuery(operatorQueryKeys.projects(), { refetch: true });
+  invalidateQuery(operatorQueryKeys.linkingStatus(), { refetch: true });
+  invalidateQuery(operatorQueryKeys.clusterBootstrap(), { refetch: true });
+}
 
 let refCount = 0;
 let unsubscribe: (() => void) | null = null;
@@ -100,6 +109,7 @@ function applyMessageEvent(message: MessageData) {
 }
 
 function applyInterventionCreated(inboxItem: InboxItemData) {
+  invalidatePhase05Queries();
   const pendingActions = pendingInterventionActions();
   setQueryData<InboxItemData[]>(chatQueryKeys.inbox(), (current = []) =>
     upsertInboxItem(current, inboxItem, pendingActions),
@@ -124,6 +134,7 @@ function applyInterventionCreated(inboxItem: InboxItemData) {
 }
 
 function applyInterventionUpdated(id: string, state: string) {
+  invalidatePhase05Queries();
   setQueryData<Record<string, PendingInterventionAction>>(
     chatQueryKeys.pendingInterventionActions(),
     (current = {}) => markPendingInterventionActionConfirmed(current, id, state),
@@ -138,7 +149,7 @@ function applyInterventionUpdated(id: string, state: string) {
 
 function applyContextUpdated(currentContext: CurrentContextData) {
   setQueryData(contextQueryKeys.currentContext(), currentContext);
-  invalidateQuery(contextQueryKeys.now(), { refetch: true });
+  invalidatePhase05Queries();
   invalidateQuery(contextQueryKeys.contextExplain(), { refetch: true });
   invalidateQuery(contextQueryKeys.driftExplain(), { refetch: true });
 

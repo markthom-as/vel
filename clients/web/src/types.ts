@@ -64,6 +64,13 @@ export interface InboxItemData {
   surfaced_at: UnixSeconds;
   snoozed_until: UnixSeconds | null;
   confidence: number | null;
+  conversation_id: string | null;
+  title: string;
+  summary: string;
+  project_id: string | null;
+  project_label: string | null;
+  available_actions: AvailableActionData[];
+  evidence: ActionEvidenceRefData[];
 }
 
 export interface InterventionActionData {
@@ -220,6 +227,163 @@ export interface ClusterBootstrapData {
   tailscale_base_url: string | null;
   lan_base_url: string | null;
   localhost_base_url: string | null;
+  capabilities: string[];
+  linked_nodes: LinkedNodeData[];
+  projects: ProjectRecordData[];
+  action_items: ActionItemData[];
+}
+
+export type ProjectFamilyData = 'personal' | 'creative' | 'work';
+export type ProjectStatusData = 'active' | 'paused' | 'archived';
+
+export interface ProjectRootRefData {
+  path: string;
+  label: string;
+  kind: string;
+}
+
+export interface ProjectProvisionRequestData {
+  create_repo: boolean;
+  create_notes_root: boolean;
+}
+
+export interface ProjectRecordData {
+  id: string;
+  slug: string;
+  name: string;
+  family: ProjectFamilyData;
+  status: ProjectStatusData;
+  primary_repo: ProjectRootRefData;
+  primary_notes_root: ProjectRootRefData;
+  secondary_repos: ProjectRootRefData[];
+  secondary_notes_roots: ProjectRootRefData[];
+  upstream_ids: Record<string, string>;
+  pending_provision: ProjectProvisionRequestData;
+  created_at: Rfc3339Timestamp;
+  updated_at: Rfc3339Timestamp;
+  archived_at: Rfc3339Timestamp | null;
+}
+
+export interface ProjectCreateRequestData {
+  slug: string;
+  name: string;
+  family: ProjectFamilyData;
+  status?: ProjectStatusData | null;
+  primary_repo: ProjectRootRefData;
+  primary_notes_root: ProjectRootRefData;
+  secondary_repos: ProjectRootRefData[];
+  secondary_notes_roots: ProjectRootRefData[];
+  upstream_ids: Record<string, string>;
+  pending_provision: ProjectProvisionRequestData;
+}
+
+export interface ProjectCreateResponseData {
+  project: ProjectRecordData;
+}
+
+export interface ProjectListResponseData {
+  projects: ProjectRecordData[];
+}
+
+export type ActionSurfaceData = 'now' | 'inbox';
+export type ActionKindData =
+  | 'next_step'
+  | 'intervention'
+  | 'review'
+  | 'freshness'
+  | 'blocked'
+  | 'conflict'
+  | 'linking';
+export type ActionStateData =
+  | 'active'
+  | 'acknowledged'
+  | 'resolved'
+  | 'dismissed'
+  | 'snoozed';
+export type AvailableActionData =
+  | 'acknowledge'
+  | 'resolve'
+  | 'dismiss'
+  | 'snooze'
+  | 'open_thread'
+  | 'open_project'
+  | 'sync_now'
+  | 'link_node';
+
+export interface ActionEvidenceRefData {
+  source_kind: string;
+  source_id: string;
+  label: string;
+  detail: string | null;
+}
+
+export interface ActionItemData {
+  id: string;
+  surface: ActionSurfaceData;
+  kind: ActionKindData;
+  title: string;
+  summary: string;
+  project_id: string | null;
+  state: ActionStateData;
+  rank: number;
+  surfaced_at: Rfc3339Timestamp;
+  snoozed_until: Rfc3339Timestamp | null;
+  evidence: ActionEvidenceRefData[];
+}
+
+export interface ReviewSnapshotData {
+  open_action_count: number;
+  triage_count: number;
+  projects_needing_review: number;
+}
+
+export type LinkStatusData = 'pending' | 'linked' | 'revoked' | 'expired';
+
+export interface LinkScopeData {
+  read_context: boolean;
+  write_safe_actions: boolean;
+  execute_repo_tasks: boolean;
+}
+
+export interface PairingTokenData {
+  token_id: string;
+  token_code: string;
+  issued_at: Rfc3339Timestamp;
+  expires_at: Rfc3339Timestamp;
+  issued_by_node_id: string;
+  scopes: LinkScopeData;
+}
+
+export interface LinkedNodeData {
+  node_id: string;
+  node_display_name: string;
+  status: LinkStatusData;
+  scopes: LinkScopeData;
+  linked_at: Rfc3339Timestamp;
+  last_seen_at: Rfc3339Timestamp | null;
+  transport_hint: string | null;
+}
+
+export interface NudgeData {
+  nudge_id: string;
+  nudge_type: string;
+  level: string;
+  state: string;
+  related_commitment_id: string | null;
+  message: string;
+  created_at: UnixSeconds;
+  snoozed_until: UnixSeconds | null;
+  resolved_at: UnixSeconds | null;
+}
+
+export interface SyncBootstrapData {
+  cluster: ClusterBootstrapData;
+  current_context: CurrentContextData | null;
+  nudges: NudgeData[];
+  commitments: CommitmentData[];
+  linked_nodes: LinkedNodeData[];
+  projects: ProjectRecordData[];
+  action_items: ActionItemData[];
 }
 
 export interface ComponentLogEventData {
@@ -441,6 +605,8 @@ export interface NowData {
   attention: NowAttentionData;
   sources: NowSourcesData;
   freshness: NowFreshnessData;
+  action_items: ActionItemData[];
+  review_snapshot: ReviewSnapshotData;
   reasons: string[];
   debug: NowDebugData;
 }
@@ -681,6 +847,244 @@ export function decodeCreateMessageResponse(value: unknown): CreateMessageRespon
   };
 }
 
+export function decodeProjectFamilyData(value: unknown): ProjectFamilyData {
+  return expectEnumString(value, 'project family', ['personal', 'creative', 'work']);
+}
+
+export function decodeProjectStatusData(value: unknown): ProjectStatusData {
+  return expectEnumString(value, 'project status', ['active', 'paused', 'archived']);
+}
+
+export function decodeProjectRootRefData(value: unknown): ProjectRootRefData {
+  const record = expectRecord(value, 'project root ref');
+  return {
+    path: expectString(record.path, 'project root ref.path'),
+    label: expectString(record.label, 'project root ref.label'),
+    kind: expectString(record.kind, 'project root ref.kind'),
+  };
+}
+
+export function decodeProjectProvisionRequestData(value: unknown): ProjectProvisionRequestData {
+  const record = expectRecord(value, 'project provision request');
+  return {
+    create_repo: expectBoolean(record.create_repo, 'project provision request.create_repo'),
+    create_notes_root: expectBoolean(
+      record.create_notes_root,
+      'project provision request.create_notes_root',
+    ),
+  };
+}
+
+export function decodeProjectRecordData(value: unknown): ProjectRecordData {
+  const record = expectRecord(value, 'project record');
+  return {
+    id: expectString(record.id, 'project record.id'),
+    slug: expectString(record.slug, 'project record.slug'),
+    name: expectString(record.name, 'project record.name'),
+    family: decodeProjectFamilyData(record.family),
+    status: decodeProjectStatusData(record.status),
+    primary_repo: decodeProjectRootRefData(record.primary_repo),
+    primary_notes_root: decodeProjectRootRefData(record.primary_notes_root),
+    secondary_repos: decodeArray(record.secondary_repos ?? [], decodeProjectRootRefData),
+    secondary_notes_roots: decodeArray(
+      record.secondary_notes_roots ?? [],
+      decodeProjectRootRefData,
+    ),
+    upstream_ids: decodeStringRecord(record.upstream_ids, 'project record.upstream_ids'),
+    pending_provision: decodeProjectProvisionRequestData(
+      record.pending_provision ?? { create_repo: false, create_notes_root: false },
+    ),
+    created_at: expectRfc3339Timestamp(record.created_at, 'project record.created_at'),
+    updated_at: expectRfc3339Timestamp(record.updated_at, 'project record.updated_at'),
+    archived_at: expectNullableRfc3339Timestamp(record.archived_at, 'project record.archived_at'),
+  };
+}
+
+export function decodeProjectCreateRequestData(value: unknown): ProjectCreateRequestData {
+  const record = expectRecord(value, 'project create request');
+  return {
+    slug: expectString(record.slug, 'project create request.slug'),
+    name: expectString(record.name, 'project create request.name'),
+    family: decodeProjectFamilyData(record.family),
+    status:
+      record.status === undefined
+        ? undefined
+        : expectNullableEnumString(record.status, 'project create request.status', [
+            'active',
+            'paused',
+            'archived',
+          ]),
+    primary_repo: decodeProjectRootRefData(record.primary_repo),
+    primary_notes_root: decodeProjectRootRefData(record.primary_notes_root),
+    secondary_repos: decodeArray(record.secondary_repos ?? [], decodeProjectRootRefData),
+    secondary_notes_roots: decodeArray(
+      record.secondary_notes_roots ?? [],
+      decodeProjectRootRefData,
+    ),
+    upstream_ids: decodeStringRecord(record.upstream_ids, 'project create request.upstream_ids'),
+    pending_provision: decodeProjectProvisionRequestData(
+      record.pending_provision ?? { create_repo: false, create_notes_root: false },
+    ),
+  };
+}
+
+export function decodeProjectCreateResponseData(value: unknown): ProjectCreateResponseData {
+  const record = expectRecord(value, 'project create response');
+  return {
+    project: decodeProjectRecordData(record.project),
+  };
+}
+
+export function decodeProjectListResponseData(value: unknown): ProjectListResponseData {
+  const record = expectRecord(value, 'project list response');
+  return {
+    projects: decodeArray(record.projects ?? [], decodeProjectRecordData),
+  };
+}
+
+export function decodeActionSurfaceData(value: unknown): ActionSurfaceData {
+  return expectEnumString(value, 'action surface', ['now', 'inbox']);
+}
+
+export function decodeActionKindData(value: unknown): ActionKindData {
+  return expectEnumString(value, 'action kind', [
+    'next_step',
+    'intervention',
+    'review',
+    'freshness',
+    'blocked',
+    'conflict',
+    'linking',
+  ]);
+}
+
+export function decodeActionStateData(value: unknown): ActionStateData {
+  return expectEnumString(value, 'action state', [
+    'active',
+    'acknowledged',
+    'resolved',
+    'dismissed',
+    'snoozed',
+  ]);
+}
+
+export function decodeAvailableActionData(value: unknown): AvailableActionData {
+  return expectEnumString(value, 'available action', [
+    'acknowledge',
+    'resolve',
+    'dismiss',
+    'snooze',
+    'open_thread',
+    'open_project',
+    'sync_now',
+    'link_node',
+  ]);
+}
+
+export function decodeActionEvidenceRefData(value: unknown): ActionEvidenceRefData {
+  const record = expectRecord(value, 'action evidence');
+  return {
+    source_kind: expectString(record.source_kind, 'action evidence.source_kind'),
+    source_id: expectString(record.source_id, 'action evidence.source_id'),
+    label: expectString(record.label, 'action evidence.label'),
+    detail: expectNullableString(record.detail, 'action evidence.detail'),
+  };
+}
+
+export function decodeActionItemData(value: unknown): ActionItemData {
+  const record = expectRecord(value, 'action item');
+  return {
+    id: expectString(record.id, 'action item.id'),
+    surface: decodeActionSurfaceData(record.surface),
+    kind: decodeActionKindData(record.kind),
+    title: expectString(record.title, 'action item.title'),
+    summary: expectString(record.summary, 'action item.summary'),
+    project_id: expectNullableString(record.project_id, 'action item.project_id'),
+    state: decodeActionStateData(record.state),
+    rank: expectNumber(record.rank, 'action item.rank'),
+    surfaced_at: expectRfc3339Timestamp(record.surfaced_at, 'action item.surfaced_at'),
+    snoozed_until: expectNullableRfc3339Timestamp(
+      record.snoozed_until,
+      'action item.snoozed_until',
+    ),
+    evidence: decodeArray(record.evidence ?? [], decodeActionEvidenceRefData),
+  };
+}
+
+export function decodeReviewSnapshotData(value: unknown): ReviewSnapshotData {
+  const record = expectRecord(value, 'review snapshot');
+  return {
+    open_action_count: expectNumber(record.open_action_count, 'review snapshot.open_action_count'),
+    triage_count: expectNumber(record.triage_count, 'review snapshot.triage_count'),
+    projects_needing_review: expectNumber(
+      record.projects_needing_review,
+      'review snapshot.projects_needing_review',
+    ),
+  };
+}
+
+export function decodeLinkStatusData(value: unknown): LinkStatusData {
+  return expectEnumString(value, 'link status', ['pending', 'linked', 'revoked', 'expired']);
+}
+
+export function decodeLinkScopeData(value: unknown): LinkScopeData {
+  const record = expectRecord(value, 'link scope');
+  return {
+    read_context: expectBoolean(record.read_context, 'link scope.read_context'),
+    write_safe_actions: expectBoolean(record.write_safe_actions, 'link scope.write_safe_actions'),
+    execute_repo_tasks: expectBoolean(
+      record.execute_repo_tasks,
+      'link scope.execute_repo_tasks',
+    ),
+  };
+}
+
+export function decodePairingTokenData(value: unknown): PairingTokenData {
+  const record = expectRecord(value, 'pairing token');
+  return {
+    token_id: expectString(record.token_id, 'pairing token.token_id'),
+    token_code: expectString(record.token_code, 'pairing token.token_code'),
+    issued_at: expectRfc3339Timestamp(record.issued_at, 'pairing token.issued_at'),
+    expires_at: expectRfc3339Timestamp(record.expires_at, 'pairing token.expires_at'),
+    issued_by_node_id: expectString(
+      record.issued_by_node_id,
+      'pairing token.issued_by_node_id',
+    ),
+    scopes: decodeLinkScopeData(record.scopes),
+  };
+}
+
+export function decodeLinkedNodeData(value: unknown): LinkedNodeData {
+  const record = expectRecord(value, 'linked node');
+  return {
+    node_id: expectString(record.node_id, 'linked node.node_id'),
+    node_display_name: expectString(record.node_display_name, 'linked node.node_display_name'),
+    status: decodeLinkStatusData(record.status),
+    scopes: decodeLinkScopeData(record.scopes),
+    linked_at: expectRfc3339Timestamp(record.linked_at, 'linked node.linked_at'),
+    last_seen_at: expectNullableRfc3339Timestamp(record.last_seen_at, 'linked node.last_seen_at'),
+    transport_hint: expectNullableString(record.transport_hint, 'linked node.transport_hint'),
+  };
+}
+
+export function decodeNudgeData(value: unknown): NudgeData {
+  const record = expectRecord(value, 'nudge');
+  return {
+    nudge_id: expectString(record.nudge_id, 'nudge.nudge_id'),
+    nudge_type: expectString(record.nudge_type, 'nudge.nudge_type'),
+    level: expectString(record.level, 'nudge.level'),
+    state: expectString(record.state, 'nudge.state'),
+    related_commitment_id: expectNullableString(
+      record.related_commitment_id,
+      'nudge.related_commitment_id',
+    ),
+    message: expectString(record.message, 'nudge.message'),
+    created_at: expectUnixSeconds(record.created_at, 'nudge.created_at'),
+    snoozed_until: expectNullableUnixSeconds(record.snoozed_until, 'nudge.snoozed_until'),
+    resolved_at: expectNullableUnixSeconds(record.resolved_at, 'nudge.resolved_at'),
+  };
+}
+
 export function decodeInboxItemData(value: unknown): InboxItemData {
   const record = expectRecord(value, 'inbox item');
   return {
@@ -691,6 +1095,16 @@ export function decodeInboxItemData(value: unknown): InboxItemData {
     surfaced_at: expectUnixSeconds(record.surfaced_at, 'inbox item.surfaced_at'),
     snoozed_until: expectNullableUnixSeconds(record.snoozed_until, 'inbox item.snoozed_until'),
     confidence: expectNullableNumber(record.confidence, 'inbox item.confidence'),
+    conversation_id: expectNullableString(record.conversation_id, 'inbox item.conversation_id'),
+    title: expectString(record.title, 'inbox item.title'),
+    summary: expectString(record.summary, 'inbox item.summary'),
+    project_id: expectNullableString(record.project_id, 'inbox item.project_id'),
+    project_label: expectNullableString(record.project_label, 'inbox item.project_label'),
+    available_actions: decodeArray(
+      record.available_actions ?? [],
+      decodeAvailableActionData,
+    ),
+    evidence: decodeArray(record.evidence ?? [], decodeActionEvidenceRefData),
   };
 }
 
@@ -831,6 +1245,14 @@ export function decodeNowData(value: unknown): NowData {
         };
       }),
     },
+    action_items: decodeArray(record.action_items ?? [], decodeActionItemData),
+    review_snapshot: decodeReviewSnapshotData(
+      record.review_snapshot ?? {
+        open_action_count: 0,
+        triage_count: 0,
+        projects_needing_review: 0,
+      },
+    ),
     reasons: decodeArray(record.reasons ?? [], (item) => expectString(item, 'now data.reasons')),
     debug: {
       raw_context: decodeJsonValue(debug.raw_context),
@@ -1081,6 +1503,25 @@ export function decodeClusterBootstrapData(value: unknown): ClusterBootstrapData
       record.localhost_base_url,
       'cluster bootstrap.localhost_base_url',
     ),
+    capabilities: decodeArray(record.capabilities ?? [], (item) =>
+      expectString(item, 'cluster bootstrap.capabilities'),
+    ),
+    linked_nodes: decodeArray(record.linked_nodes ?? [], decodeLinkedNodeData),
+    projects: decodeArray(record.projects ?? [], decodeProjectRecordData),
+    action_items: decodeArray(record.action_items ?? [], decodeActionItemData),
+  };
+}
+
+export function decodeSyncBootstrapData(value: unknown): SyncBootstrapData {
+  const record = expectRecord(value, 'sync bootstrap');
+  return {
+    cluster: decodeClusterBootstrapData(record.cluster),
+    current_context: decodeNullable(record.current_context, decodeCurrentContextData),
+    nudges: decodeArray(record.nudges ?? [], decodeNudgeData),
+    commitments: decodeArray(record.commitments ?? [], decodeCommitmentData),
+    linked_nodes: decodeArray(record.linked_nodes ?? [], decodeLinkedNodeData),
+    projects: decodeArray(record.projects ?? [], decodeProjectRecordData),
+    action_items: decodeArray(record.action_items ?? [], decodeActionItemData),
   };
 }
 
@@ -1151,7 +1592,10 @@ export function decodeIntegrationsData(value: unknown): IntegrationsData {
     health: decodeLocalIntegrationData(record.health ?? {}),
     git: decodeLocalIntegrationData(record.git ?? {}),
     messaging: decodeLocalIntegrationData(record.messaging ?? {}),
-    reminders: decodeLocalIntegrationData(record.reminders ?? {}),
+    reminders:
+      record.reminders === undefined
+        ? undefined
+        : decodeLocalIntegrationData(record.reminders),
     notes: decodeLocalIntegrationData(record.notes ?? {}),
     transcripts: decodeLocalIntegrationData(record.transcripts ?? {}),
   };
@@ -1738,6 +2182,38 @@ function expectBoolean(value: unknown, label: string): boolean {
     throw new Error(`Expected ${label} to be a boolean`);
   }
   return value;
+}
+
+function expectEnumString<T extends string>(
+  value: unknown,
+  label: string,
+  allowed: readonly T[],
+): T {
+  const next = expectString(value, label);
+  if (!allowed.includes(next as T)) {
+    throw new Error(`Expected ${label} to be one of: ${allowed.join(', ')}`);
+  }
+  return next as T;
+}
+
+function expectNullableEnumString<T extends string>(
+  value: unknown,
+  label: string,
+  allowed: readonly T[],
+): T | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return expectEnumString(value, label, allowed);
+}
+
+function decodeStringRecord(value: unknown, label: string): Record<string, string> {
+  const record = expectRecord(value ?? {}, label);
+  const next: Record<string, string> = {};
+  for (const [key, item] of Object.entries(record)) {
+    next[key] = expectString(item, `${label}.${key}`);
+  }
+  return next;
 }
 
 function optionalString(value: JsonValue | undefined): string | undefined {

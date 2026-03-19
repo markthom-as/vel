@@ -8,7 +8,11 @@ import {
   decodeGoogleCalendarAuthStartData,
   decodeIntegrationLogEventData,
   decodeIntegrationsData,
+  decodeLinkedNodeData,
   decodeLoopData,
+  decodePairingTokenData,
+  decodeProjectCreateResponseData,
+  decodeProjectListResponseData,
   decodeRunSummaryData,
   decodeSettingsData,
   type ApiResponse,
@@ -18,7 +22,13 @@ import {
   type GoogleCalendarAuthStartData,
   type IntegrationLogEventData,
   type IntegrationsData,
+  type LinkScopeData,
+  type LinkedNodeData,
   type LoopData,
+  type PairingTokenData,
+  type ProjectCreateRequestData,
+  type ProjectCreateResponseData,
+  type ProjectListResponseData,
   type RunSummaryData,
   type SettingsData,
 } from '../types';
@@ -60,6 +70,8 @@ function decodeEvaluateResultData(value: unknown): EvaluateResultData {
 
 export const operatorQueryKeys = {
   clusterBootstrap: () => ['cluster', 'bootstrap'] as const,
+  projects: () => ['projects'] as const,
+  linkingStatus: () => ['linking', 'status'] as const,
   settings: () => ['settings'] as const,
   integrations: () => ['integrations'] as const,
   loops: () => ['loops'] as const,
@@ -73,6 +85,56 @@ export function loadClusterBootstrap(): Promise<ApiResponse<ClusterBootstrapData
   return apiGet<ApiResponse<ClusterBootstrapData>>(
     '/v1/cluster/bootstrap',
     (value) => decodeApiResponse(value, decodeClusterBootstrapData),
+  );
+}
+
+export function loadProjects(): Promise<ApiResponse<ProjectListResponseData>> {
+  return apiGet<ApiResponse<ProjectListResponseData>>(
+    '/v1/projects',
+    (value) => decodeApiResponse(value, decodeProjectListResponseData),
+  );
+}
+
+export function createProject(
+  payload: ProjectCreateRequestData,
+): Promise<ApiResponse<ProjectCreateResponseData>> {
+  return apiPost<ApiResponse<ProjectCreateResponseData>>(
+    '/v1/projects',
+    payload,
+    (value) => decodeApiResponse(value, decodeProjectCreateResponseData),
+  );
+}
+
+export function issuePairingToken(payload: {
+  issued_by_node_id: string;
+  ttl_seconds?: number;
+  scopes: LinkScopeData;
+}): Promise<ApiResponse<PairingTokenData>> {
+  return apiPost<ApiResponse<PairingTokenData>>(
+    '/v1/linking/tokens',
+    payload,
+    (value) => decodeApiResponse(value, decodePairingTokenData),
+  );
+}
+
+export function redeemPairingToken(payload: {
+  token_code: string;
+  node_id: string;
+  node_display_name: string;
+  transport_hint?: string | null;
+  requested_scopes?: LinkScopeData | null;
+}): Promise<ApiResponse<LinkedNodeData>> {
+  return apiPost<ApiResponse<LinkedNodeData>>(
+    '/v1/linking/redeem',
+    payload,
+    (value) => decodeApiResponse(value, decodeLinkedNodeData),
+  );
+}
+
+export function loadLinkingStatus(): Promise<ApiResponse<LinkedNodeData[]>> {
+  return apiGet<ApiResponse<LinkedNodeData[]>>(
+    '/v1/linking/status',
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeLinkedNodeData)),
   );
 }
 

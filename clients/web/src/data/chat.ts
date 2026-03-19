@@ -61,7 +61,7 @@ export function loadProvenance(messageId: string): Promise<ApiResponse<Provenanc
 
 export function mutateIntervention(
   interventionId: string,
-  action: 'snooze' | 'resolve' | 'dismiss',
+  action: 'acknowledge' | 'snooze' | 'resolve' | 'dismiss',
   body: Record<string, unknown>,
 ): Promise<ApiResponse<InterventionActionData>> {
   return apiPost<ApiResponse<InterventionActionData>>(
@@ -69,4 +69,30 @@ export function mutateIntervention(
     body,
     (value) => decodeApiResponse(value, decodeInterventionActionData),
   );
+}
+
+export function acknowledgeInboxItem(
+  interventionId: string,
+): Promise<ApiResponse<InterventionActionData>> {
+  return mutateIntervention(interventionId, 'acknowledge', {});
+}
+
+export function snoozeInboxItem(
+  interventionId: string,
+  minutes: number,
+): Promise<ApiResponse<InterventionActionData>> {
+  return mutateIntervention(interventionId, 'snooze', { minutes });
+}
+
+export function dismissInboxItem(
+  interventionId: string,
+): Promise<ApiResponse<InterventionActionData>> {
+  return mutateIntervention(interventionId, 'dismiss', {});
+}
+
+export function getInboxThreadPath(item: InboxItemData): string | null {
+  if (!item.conversation_id || !item.available_actions.includes('open_thread')) {
+    return null;
+  }
+  return `/api/conversations/${item.conversation_id}`;
 }
