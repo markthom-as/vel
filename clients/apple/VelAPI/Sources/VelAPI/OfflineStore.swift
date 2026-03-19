@@ -36,12 +36,14 @@ public struct QueuedAction: Codable, Sendable, Identifiable {
 public final class VelOfflineStore {
     private enum Keys {
         static let currentContext = "vel.cached.current_context"
+        static let now = "vel.cached.now"
         static let nudges = "vel.cached.nudges"
         static let commitments = "vel.cached.commitments"
         static let signals = "vel.cached.signals"
         static let projects = "vel.cached.projects"
         static let actionItems = "vel.cached.action_items"
         static let linkedNodes = "vel.cached.linked_nodes"
+        static let appleBehaviorSummary = "vel.cached.apple_behavior_summary"
         static let queuedActions = "vel.queued.actions"
     }
 
@@ -61,6 +63,14 @@ public final class VelOfflineStore {
 
     public func saveCachedContext(_ context: CurrentContextData) {
         encode(context, forKey: Keys.currentContext)
+    }
+
+    public func cachedNow() -> NowData? {
+        decode(NowData.self, forKey: Keys.now)
+    }
+
+    public func saveCachedNow(_ now: NowData) {
+        encode(now, forKey: Keys.now)
     }
 
     public func cachedNudges() -> [NudgeData] {
@@ -109,6 +119,14 @@ public final class VelOfflineStore {
 
     public func saveCachedLinkedNodes(_ linkedNodes: [LinkedNodeData]) {
         encode(linkedNodes, forKey: Keys.linkedNodes)
+    }
+
+    public func cachedAppleBehaviorSummary() -> AppleBehaviorSummaryData? {
+        decode(AppleBehaviorSummaryData.self, forKey: Keys.appleBehaviorSummary)
+    }
+
+    public func saveCachedAppleBehaviorSummary(_ summary: AppleBehaviorSummaryData) {
+        encode(summary, forKey: Keys.appleBehaviorSummary)
     }
 
     public func queuedActions() -> [QueuedAction] {

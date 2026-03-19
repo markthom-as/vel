@@ -114,6 +114,7 @@ public struct HealthData: Codable, Sendable {
 
 public typealias AppleVoiceTurnResponse = APIEnvelope<AppleVoiceTurnResponseData>
 public typealias AppleBehaviorSummaryResponse = APIEnvelope<AppleBehaviorSummaryData>
+public typealias NowResponse = APIEnvelope<NowData>
 
 public enum AppleClientSurfaceData: String, Codable, Sendable {
     case iosVoice = "ios_voice"
@@ -230,6 +231,116 @@ public struct AppleVoiceTurnResponseData: Codable, Sendable {
     public let queued_mutation: AppleVoiceTurnQueuedMutationSummaryData?
     public let schedule: AppleScheduleSnapshotData?
     public let behavior_summary: AppleBehaviorSummaryData?
+}
+
+// MARK: - Now
+
+public struct NowLabelData: Codable, Sendable {
+    public let key: String
+    public let label: String
+}
+
+public struct NowRiskSummaryData: Codable, Sendable {
+    public let level: String
+    public let score: Double?
+    public let label: String
+}
+
+public struct NowSummaryData: Codable, Sendable {
+    public let mode: NowLabelData
+    public let phase: NowLabelData
+    public let meds: NowLabelData
+    public let risk: NowRiskSummaryData
+}
+
+public struct NowEventData: Codable, Sendable {
+    public let title: String
+    public let start_ts: Int
+    public let end_ts: Int?
+    public let location: String?
+    public let prep_minutes: Int?
+    public let travel_minutes: Int?
+    public let leave_by_ts: Int?
+}
+
+public struct NowTaskData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let text: String
+    public let source_type: String
+    public let due_at: String?
+    public let project: String?
+    public let commitment_kind: String?
+}
+
+public struct NowScheduleData: Codable, Sendable {
+    public let empty_message: String?
+    public let next_event: NowEventData?
+    public let upcoming_events: [NowEventData]
+}
+
+public struct NowTasksData: Codable, Sendable {
+    public let todoist: [NowTaskData]
+    public let other_open: [NowTaskData]
+    public let next_commitment: NowTaskData?
+}
+
+public struct NowAttentionData: Codable, Sendable {
+    public let state: NowLabelData
+    public let drift: NowLabelData
+    public let severity: NowLabelData
+    public let confidence: Double?
+    public let reasons: [String]
+}
+
+public struct NowSourceActivityData: Codable, Sendable {
+    public let label: String
+    public let timestamp: Int
+    public let summary: JSONValue
+}
+
+public struct NowSourcesData: Codable, Sendable {
+    public let git_activity: NowSourceActivityData?
+    public let health: NowSourceActivityData?
+    public let mood: NowSourceActivityData?
+    public let pain: NowSourceActivityData?
+    public let note_document: NowSourceActivityData?
+    public let assistant_message: NowSourceActivityData?
+}
+
+public struct NowFreshnessEntryData: Codable, Sendable, Identifiable {
+    public var id: String { key }
+    public let key: String
+    public let label: String
+    public let status: String
+    public let last_sync_at: Int?
+    public let age_seconds: Int?
+    public let guidance: String?
+}
+
+public struct NowFreshnessData: Codable, Sendable {
+    public let overall_status: String
+    public let sources: [NowFreshnessEntryData]
+}
+
+public struct NowDebugData: Codable, Sendable {
+    public let raw_context: JSONValue
+    public let signals_used: [String]
+    public let commitments_used: [String]
+    public let risk_used: [String]
+}
+
+public struct NowData: Codable, Sendable {
+    public let computed_at: Int
+    public let timezone: String
+    public let summary: NowSummaryData
+    public let schedule: NowScheduleData
+    public let tasks: NowTasksData
+    public let attention: NowAttentionData
+    public let sources: NowSourcesData
+    public let freshness: NowFreshnessData
+    public let action_items: [ActionItemData]
+    public let reasons: [String]
+    public let debug: NowDebugData
 }
 
 // MARK: - Cluster bootstrap

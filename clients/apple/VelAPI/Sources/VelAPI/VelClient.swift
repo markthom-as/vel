@@ -7,11 +7,17 @@ import FoundationNetworking
 /// Configure baseURL (default http://localhost:4130) before use.
 public final class VelClient {
     public var baseURL: URL
+    public var configuration: VelClientConfiguration
     private let session: URLSession
 
-    public init(baseURL: URL = URL(string: "http://localhost:4130")!, session: URLSession = .shared) {
+    public init(
+        baseURL: URL = URL(string: "http://localhost:4130")!,
+        session: URLSession = .shared,
+        configuration: VelClientConfiguration = .shared()
+    ) {
         self.baseURL = baseURL
         self.session = session
+        self.configuration = configuration
     }
 
     // MARK: - Health
@@ -32,6 +38,10 @@ public final class VelClient {
 
     public func currentContext() async throws -> CurrentContextData {
         try await get("/v1/context/current")
+    }
+
+    public func now() async throws -> NowData {
+        try await get("/v1/now")
     }
 
     // MARK: - Signals / activity
@@ -114,6 +124,16 @@ public final class VelClient {
         try await post("/v1/sync/actions", body: request)
     }
 
+    // MARK: - Apple quick loops
+
+    public func appleVoiceTurn(_ request: AppleVoiceTurnRequestData) async throws -> AppleVoiceTurnResponseData {
+        try await post("/v1/apple/voice/turn", body: request)
+    }
+
+    public func appleBehaviorSummary() async throws -> AppleBehaviorSummaryData {
+        try await get("/v1/apple/behavior-summary")
+    }
+
     // MARK: - Private
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
@@ -152,6 +172,7 @@ public final class VelClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        applyAuthHeaders(to: &request)
         if method == "POST" || method == "PATCH" {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
@@ -180,6 +201,46 @@ public final class VelClient {
             }
             task.resume()
         }
+    }
+
+    private func applyAuthHeaders(to request: inout URLRequest) {
+        if let bearerToken = configuration.bearerToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !bearerToken.isEmpty {
+            request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        }
+
+        if let operatorToken = configuration.operatorToken?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !operatorToken.isEmpty {
+            request.setValue(operatorToken, forHTTPHeaderField: "x-vel-operator-token")
+        }
+    }
+}
+
+public struct VelClientConfiguration: Sendable {
+    public let operatorToken: String?
+    public let bearerToken: String?
+
+    public init(operatorToken: String? = nil, bearerToken: String? = nil) {
+        self.operatorToken = operatorToken
+        self.bearerToken = bearerToken
+    }
+
+    public static func shared(userDefaults: UserDefaults = .standard) -> VelClientConfiguration {
+        func value(for keys: [String]) -> String? {
+            for key in keys {
+                if let raw = userDefaults.string(forKey: key)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                   !raw.isEmpty {
+                    return raw
+                }
+            }
+            return nil
+        }
+
+        return VelClientConfiguration(
+            operatorToken: value(for: ["vel_operator_token", "vel_operator_api_token"]),
+            bearerToken: value(for: ["vel_bearer_token", "vel_api_bearer_token"])
+        )
     }
 }
 
