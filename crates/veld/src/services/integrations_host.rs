@@ -853,6 +853,11 @@ mod tests {
 
     #[test]
     fn suggested_activity_paths_prioritize_existing_host_sources() {
+        let _env_guard = ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("env lock should be acquired");
+
         let home = unique_temp_dir("activity-source-home");
         let zsh_history = home.join(".zsh_history");
         let internal_snapshot = home.join(".local/share/vel/activity/snapshot.json");

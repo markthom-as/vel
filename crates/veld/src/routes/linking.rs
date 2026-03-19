@@ -38,7 +38,10 @@ pub async fn issue_pairing_token(
         },
     )
     .await?;
-    Ok(response::success(PairingTokenData::from(token)))
+    let mut data = PairingTokenData::from(token.clone());
+    data.suggested_targets =
+        services::linking::suggested_targets(&state, &token.token_code).await?;
+    Ok(response::success(data))
 }
 
 pub async fn redeem_pairing_token(

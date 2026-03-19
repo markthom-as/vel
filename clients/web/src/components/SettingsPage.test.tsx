@@ -85,6 +85,7 @@ describe('SettingsPage', () => {
             toggle_reminders: true,
             timezone: 'America/Denver',
             node_display_name: 'Vel Desktop',
+            tailscale_preferred: true,
             tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
             lan_base_url: 'http://192.168.1.50:4130',
             adaptive_policy_overrides: {
@@ -585,6 +586,7 @@ describe('SettingsPage', () => {
         '/api/settings',
         {
           node_display_name: 'Vel NAS',
+          tailscale_preferred: true,
           tailscale_base_url: 'http://vel-nas.tailnet.ts.net:4130',
           lan_base_url: 'http://192.168.1.50:4130',
         },
@@ -2138,6 +2140,16 @@ describe('SettingsPage', () => {
           write_safe_actions: true,
           execute_repo_tasks: false,
         },
+        suggested_targets: [
+          {
+            label: 'Tailscale',
+            base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            transport_hint: 'tailscale',
+            recommended: true,
+            redeem_command_hint:
+              'vel --base-url http://vel-desktop.tailnet.ts.net:4130 node link redeem VEL-PAIR-123 --node-id <node_id> --node-display-name <name> --transport-hint tailscale',
+          },
+        ],
       },
       meta: { request_id: 'req_pairing' },
     } as never)
@@ -2171,6 +2183,9 @@ describe('SettingsPage', () => {
 
     expect(within(root).getByText('Granted scopes')).toBeInTheDocument()
     expect(within(root).getByText('VEL-PAIR-123')).toBeInTheDocument()
+    expect(within(root).getByText('Suggested link targets')).toBeInTheDocument()
+    expect(within(root).getByText('Tailscale')).toBeInTheDocument()
+    expect(within(root).getByText(/--transport-hint tailscale/)).toBeInTheDocument()
   })
 
 })

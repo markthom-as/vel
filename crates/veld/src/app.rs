@@ -286,6 +286,30 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::integrations::reminders_complete),
         )
         .route(
+            "/api/integrations/github/create-issue",
+            post(routes::integrations::github_create_issue),
+        )
+        .route(
+            "/api/integrations/github/add-comment",
+            post(routes::integrations::github_add_comment),
+        )
+        .route(
+            "/api/integrations/github/close-issue",
+            post(routes::integrations::github_close_issue),
+        )
+        .route(
+            "/api/integrations/github/reopen-issue",
+            post(routes::integrations::github_reopen_issue),
+        )
+        .route(
+            "/api/integrations/email/create-draft-reply",
+            post(routes::integrations::email_create_draft_reply),
+        )
+        .route(
+            "/api/integrations/email/send-draft",
+            post(routes::integrations::email_send_draft),
+        )
+        .route(
             "/v1/synthesis/week",
             post(routes::synthesis::synthesis_week),
         )
@@ -9404,6 +9428,11 @@ END:VCALENDAR
             .await
             .unwrap();
         assert_eq!(get_resp.status(), StatusCode::OK);
+        let get_body = axum::body::to_bytes(get_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let get_json: serde_json::Value = serde_json::from_slice(&get_body).unwrap();
+        assert_eq!(get_json["data"]["tailscale_preferred"], true);
 
         let patch_resp = app
             .oneshot(
@@ -9425,6 +9454,73 @@ END:VCALENDAR
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["data"]["disable_proactive"].as_bool().unwrap());
         assert_eq!(json["data"]["timezone"], "America/Denver");
+        assert_eq!(json["data"]["tailscale_preferred"], true);
+    }
+
+    #[tokio::test]
+    async fn chat_settings_return_effective_sync_preferences() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut config = AppConfig::default();
+        config.node_display_name = Some("Vel Desktop".to_string());
+        config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/settings")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["node_display_name"], "Vel Desktop");
+        assert_eq!(
+            json["data"]["tailscale_base_url"],
+            "http://vel-desktop.tailnet.ts.net:4130"
+        );
+        assert_eq!(json["data"]["tailscale_preferred"], true);
+    }
+
+    #[tokio::test]
+    async fn cluster_bootstrap_can_disable_tailscale_preference_via_settings() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .set_setting("tailscale_preferred", &serde_json::json!(false))
+            .await
+            .unwrap();
+        let mut config = AppConfig::default();
+        config.node_id = Some("vel-desktop".to_string());
+        config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
+        config.lan_base_url = Some("http://192.168.1.50:4130".to_string());
+        let app = build_app(storage, config, test_policy_config(), None, None);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/cluster/bootstrap")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["sync_transport"], "localhost");
+        assert_eq!(
+            json["data"]["tailscale_base_url"],
+            "http://vel-desktop.tailnet.ts.net:4130"
+        );
     }
 
     #[tokio::test]
@@ -11327,6 +11423,14 @@ END:VCALENDAR
             .as_str()
             .expect("token code should exist")
             .to_string();
+        assert!(issue_json["data"]["suggested_targets"]
+            .as_array()
+            .map(|targets| !targets.is_empty())
+            .unwrap_or(false));
+        assert_eq!(
+            issue_json["data"]["suggested_targets"][0]["transport_hint"],
+            "localhost"
+        );
 
         let redeem = app
             .clone()

@@ -15,7 +15,9 @@ use vel_api_types::{
 
 use crate::{
     errors::AppError,
-    services::{integrations, integrations_todoist, writeback},
+    services::{
+        integrations, integrations_email, integrations_github, integrations_todoist, writeback,
+    },
     state::AppState,
 };
 
@@ -435,6 +437,53 @@ pub struct ReminderActionRequest {
     pub reminder_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GithubCreateIssueRequest {
+    pub repository: String,
+    pub title: String,
+    pub body: Option<String>,
+    pub project_id: Option<String>,
+    pub assignee_handles: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GithubCommentRequest {
+    pub repository: String,
+    pub issue_number: u64,
+    pub body: String,
+    pub project_id: Option<String>,
+    pub participant_handles: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GithubIssueActionRequest {
+    pub repository: String,
+    pub issue_number: u64,
+    pub project_id: Option<String>,
+    pub participant_handles: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EmailCreateDraftReplyRequest {
+    pub thread_id: String,
+    pub subject: Option<String>,
+    pub body: String,
+    pub sender: Option<String>,
+    pub to: Option<Vec<String>>,
+    pub cc: Option<Vec<String>>,
+    pub project_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EmailSendDraftRequest {
+    pub draft_id: String,
+    pub sender: Option<String>,
+    pub to: Option<Vec<String>>,
+    pub cc: Option<Vec<String>>,
+    pub project_id: Option<String>,
+    pub confirm: Option<bool>,
+}
+
 pub async fn todoist_create_task(
     State(state): State<AppState>,
     Json(payload): Json<TodoistCreateTaskRequest>,
@@ -614,6 +663,127 @@ pub async fn reminders_complete(
             priority: None,
             tags: None,
             metadata: None,
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn github_create_issue(
+    State(state): State<AppState>,
+    Json(payload): Json<GithubCreateIssueRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::github_create_issue(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        integrations_github::GithubCreateIssueRequest {
+            repository: payload.repository,
+            title: payload.title,
+            body: payload.body,
+            project_id: payload.project_id,
+            assignee_handles: payload.assignee_handles.unwrap_or_default(),
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn github_add_comment(
+    State(state): State<AppState>,
+    Json(payload): Json<GithubCommentRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::github_add_comment(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        integrations_github::GithubCommentRequest {
+            repository: payload.repository,
+            issue_number: payload.issue_number,
+            body: payload.body,
+            project_id: payload.project_id,
+            participant_handles: payload.participant_handles.unwrap_or_default(),
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn github_close_issue(
+    State(state): State<AppState>,
+    Json(payload): Json<GithubIssueActionRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::github_close_issue(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        integrations_github::GithubIssueActionRequest {
+            repository: payload.repository,
+            issue_number: payload.issue_number,
+            project_id: payload.project_id,
+            participant_handles: payload.participant_handles.unwrap_or_default(),
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn github_reopen_issue(
+    State(state): State<AppState>,
+    Json(payload): Json<GithubIssueActionRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::github_reopen_issue(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        integrations_github::GithubIssueActionRequest {
+            repository: payload.repository,
+            issue_number: payload.issue_number,
+            project_id: payload.project_id,
+            participant_handles: payload.participant_handles.unwrap_or_default(),
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn email_create_draft_reply(
+    State(state): State<AppState>,
+    Json(payload): Json<EmailCreateDraftReplyRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::email_create_draft_reply(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        integrations_email::EmailCreateDraftReplyRequest {
+            thread_id: payload.thread_id,
+            subject: payload.subject,
+            body: payload.body,
+            sender: payload.sender,
+            to: payload.to.unwrap_or_default(),
+            cc: payload.cc.unwrap_or_default(),
+            project_id: payload.project_id,
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn email_send_draft(
+    State(state): State<AppState>,
+    Json(payload): Json<EmailSendDraftRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::email_send_draft(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        integrations_email::EmailSendDraftRequest {
+            draft_id: payload.draft_id,
+            sender: payload.sender,
+            to: payload.to.unwrap_or_default(),
+            cc: payload.cc.unwrap_or_default(),
+            project_id: payload.project_id,
+            confirm: payload.confirm.unwrap_or(false),
         },
     )
     .await?;

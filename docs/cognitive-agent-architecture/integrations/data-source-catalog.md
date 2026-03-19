@@ -45,7 +45,9 @@ Provide one concrete inventory of currently known Vel source providers and modes
 | `health` | `health_snapshot` | `local_snapshot` | shipped | Health snapshot ingestion. |
 | `health` | `apple_export` | `device_export` | planned | Apple-export oriented adapter lane. |
 | `git` | `git_snapshot` | `local_snapshot` | shipped | Repository activity snapshot ingestion. |
+| `git` | `github` | `brokered_tool` | shipped | Bounded issue/comment/state write lane with typed project and people linkage. |
 | `messaging` | `messaging_snapshot` | `local_snapshot` | shipped | Messaging snapshot ingestion. |
+| `messaging` | `email` | `brokered_tool` | shipped | Draft-first reply lane with confirm-required send and typed people linkage. |
 | `messaging` | `apple_export` | `device_export` | planned | Apple-export oriented adapter lane. |
 | `notes` | `notes_path` | `local_directory` | shipped | File or directory-backed notes ingestion. |
 | `transcripts` | `transcript_snapshot` | `local_snapshot` | shipped | Transcript snapshot ingestion. |
@@ -59,6 +61,7 @@ Provide one concrete inventory of currently known Vel source providers and modes
 - Shipped status means available or represented in current runtime behavior; planned means architecture lane only.
 - Local-source entries remain preferred defaults for reliability and inspectability.
 - Credential-backed and delegated entries must follow capability mediation and explicit allowlists.
+- `github` and `email` remain bounded write surfaces. They do not grant arbitrary provider mutation beyond the named Phase 06 operations.
 
 # Acceptance Criteria
 

@@ -5,6 +5,7 @@ This section covers the currently shipped integration paths that materially affe
 Vel currently uses a mix of:
 
 - dedicated credential-backed integrations,
+- bounded brokered-tool write lanes,
 - local file-backed integrations,
 - local snapshot-backed integrations,
 - macOS auto-discovery for certain local sources.
@@ -15,6 +16,11 @@ Start with:
 2. [Todoist](todoist.md) for API-token-backed task sync.
 3. [Local sources](local-sources.md) for file and snapshot-backed inputs.
 4. [Apple and macOS local sources](apple-macos.md) for the current Apple-linked path.
+
+Current bounded write lanes:
+
+- GitHub is limited to `github_create_issue`, `github_add_comment`, `github_close_issue`, and `github_reopen_issue`. Those writes carry typed `project_id` and person-alias linkage when Vel can resolve them.
+- Email is draft-first. `email_create_draft_reply` is the safe default and `email_send_draft` is confirm-required before the runtime marks it applied.
 
 Important truth:
 

@@ -4,7 +4,8 @@ use super::{
     integration_runtime::{
         canonical_integration_id, integration_log_limit, map_integration_log_event,
     },
-    integrations_google, integrations_host, integrations_todoist,
+    integrations_email, integrations_github, integrations_google, integrations_host,
+    integrations_todoist,
 };
 use crate::{adapters, errors::AppError};
 use serde::{Deserialize, Serialize};
@@ -713,14 +714,20 @@ fn foundation_connection_seeds() -> &'static [FoundationConnectionSeed] {
         },
         FoundationConnectionSeed {
             family: IntegrationFamily::Git,
-            provider_key: "gh",
-            display_name: "GitHub (gh)",
+            provider_key: integrations_github::GITHUB_PROVIDER_KEY,
+            display_name: "GitHub",
             status: IntegrationConnectionStatus::Connected,
         },
         FoundationConnectionSeed {
             family: IntegrationFamily::Messaging,
             provider_key: "messaging",
             display_name: "Messaging",
+            status: IntegrationConnectionStatus::Connected,
+        },
+        FoundationConnectionSeed {
+            family: IntegrationFamily::Messaging,
+            provider_key: integrations_email::EMAIL_PROVIDER_KEY,
+            display_name: "Email",
             status: IntegrationConnectionStatus::Connected,
         },
         FoundationConnectionSeed {
@@ -1725,7 +1732,8 @@ mod tests {
             .collect();
         assert!(provider_keys.contains(&"activity"));
         assert!(provider_keys.contains(&"git"));
-        assert!(provider_keys.contains(&"gh"));
+        assert!(provider_keys.contains(&integrations_github::GITHUB_PROVIDER_KEY));
+        assert!(provider_keys.contains(&integrations_email::EMAIL_PROVIDER_KEY));
         assert!(provider_keys.contains(&"health"));
         assert!(provider_keys.contains(&"messaging"));
         assert!(provider_keys.contains(&"reminders"));
@@ -1761,7 +1769,8 @@ mod tests {
             .collect();
         assert!(provider_keys.contains(&"signal"));
         assert!(provider_keys.contains(&"git"));
-        assert!(provider_keys.contains(&"gh"));
+        assert!(provider_keys.contains(&integrations_github::GITHUB_PROVIDER_KEY));
+        assert!(provider_keys.contains(&integrations_email::EMAIL_PROVIDER_KEY));
     }
 
     #[tokio::test]

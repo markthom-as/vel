@@ -972,6 +972,17 @@ pub struct PairingTokenData {
     pub expires_at: OffsetDateTime,
     pub issued_by_node_id: String,
     pub scopes: LinkScopeData,
+    #[serde(default)]
+    pub suggested_targets: Vec<LinkTargetSuggestionData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkTargetSuggestionData {
+    pub label: String,
+    pub base_url: String,
+    pub transport_hint: String,
+    pub recommended: bool,
+    pub redeem_command_hint: String,
 }
 
 impl From<vel_core::PairingTokenRecord> for PairingTokenData {
@@ -983,6 +994,7 @@ impl From<vel_core::PairingTokenRecord> for PairingTokenData {
             expires_at: value.expires_at,
             issued_by_node_id: value.issued_by_node_id,
             scopes: value.scopes.into(),
+            suggested_targets: Vec::new(),
         }
     }
 }

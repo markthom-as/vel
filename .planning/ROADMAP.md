@@ -153,7 +153,7 @@ Plans:
 **Goal:** Deliver safe write-back for the highest-value integrations, make upstream systems authoritative with explicit conflict prompts, translate Todoist label syntax into Vel-native typed fields, and add a practical people registry tied to commitments, scheduling, messages, intervention loops, and cross-client reconciliation.
 **Requirements**: WB-01, WB-02, WB-03, CONFLICT-01, PROV-01, RECON-01, TODO-01, NOTES-01, REMIND-01, GH-01, EMAIL-01, PEOPLE-01, PEOPLE-02
 **Depends on:** Phase 5
-**Plans:** 5/7 plans executed
+**Plans:** 6/7 plans executed
 
 Plans:
 - [x] 06-01-PLAN.md — Publish typed Phase 06 contracts, schemas, and owner docs for write-back, conflicts, and people
@@ -161,7 +161,7 @@ Plans:
 - [x] 06-03-PLAN.md — Close the Todoist lane with typed write-back, project linkage, and conflict handling
 - [x] 06-04-PLAN.md — Add scoped notes write-back, transcript-under-notes folding, and reminder intent execution tracking
 - [x] 06-05-PLAN.md — Ship the minimal people registry and provenance-bearing graph expansion over durable Phase 06 entities
-- [ ] 06-06-PLAN.md — Add bounded GitHub and email provider slices with typed project/people linkage
+- [x] 06-06-PLAN.md — Add bounded GitHub and email provider slices with typed project/people linkage
 - [ ] 06-07-PLAN.md — Surface write-back, conflicts, provenance, and people status through operator views, CLI, and docs
 
 ### Phase 7: Apple action loops and behavioral signal ingestion

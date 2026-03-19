@@ -12,7 +12,7 @@ use vel_storage::{IntegrationConnectionFilters, IntegrationConnectionInsert, Sto
 use crate::{
     adapters::{notes, reminders},
     errors::AppError,
-    services::integrations_todoist,
+    services::{integrations_email, integrations_github, integrations_todoist},
 };
 
 const NOTES_PROVIDER_KEY: &str = "notes";
@@ -239,6 +239,54 @@ pub(crate) async fn reminders_complete(
         reminders::ReminderWriteKind::Complete,
     )
     .await
+}
+
+pub(crate) async fn github_create_issue(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    request: integrations_github::GithubCreateIssueRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    integrations_github::github_create_issue(storage, requested_by_node_id, request).await
+}
+
+pub(crate) async fn github_add_comment(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    request: integrations_github::GithubCommentRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    integrations_github::github_add_comment(storage, requested_by_node_id, request).await
+}
+
+pub(crate) async fn github_close_issue(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    request: integrations_github::GithubIssueActionRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    integrations_github::github_close_issue(storage, requested_by_node_id, request).await
+}
+
+pub(crate) async fn github_reopen_issue(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    request: integrations_github::GithubIssueActionRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    integrations_github::github_reopen_issue(storage, requested_by_node_id, request).await
+}
+
+pub(crate) async fn email_create_draft_reply(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    request: integrations_email::EmailCreateDraftReplyRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    integrations_email::email_create_draft_reply(storage, requested_by_node_id, request).await
+}
+
+pub(crate) async fn email_send_draft(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    request: integrations_email::EmailSendDraftRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    integrations_email::email_send_draft(storage, requested_by_node_id, request).await
 }
 
 async fn execute_notes_writeback(

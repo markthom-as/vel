@@ -45,6 +45,19 @@ pub async fn run_link_issue(
     println!("issued_by_node_id: {}", token.issued_by_node_id);
     println!("expires_at: {}", token.expires_at);
     println!("granted scopes: {}", format_scope_summary(&token.scopes));
+    if !token.suggested_targets.is_empty() {
+        println!("suggested targets:");
+        for target in &token.suggested_targets {
+            let marker = if target.recommended {
+                "recommended"
+            } else {
+                "fallback"
+            };
+            println!("- {} [{}]: {}", target.label, marker, target.base_url);
+            println!("  transport_hint: {}", target.transport_hint);
+            println!("  redeem: {}", target.redeem_command_hint);
+        }
+    }
     println!(
         "next: vel node link redeem {} --node-id <node_id> --node-display-name <name>",
         token.token_code

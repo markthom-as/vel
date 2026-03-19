@@ -303,6 +303,14 @@ Notes and reminders write boundary:
 - Reminder intents persist explicit lifecycle state through durable writeback and conflict records: `queued`, `applied`, `executor_unavailable`, and `conflicted`.
 - If no approved local reminder executor is available, the runtime opens an `executor_unavailable` conflict instead of pretending the write succeeded.
 
+GitHub and email write boundary:
+
+- The allowed GitHub write surface is bounded to `github_create_issue`, `github_add_comment`, `github_close_issue`, and `github_reopen_issue` through `/api/integrations/github/create-issue`, `/api/integrations/github/add-comment`, `/api/integrations/github/close-issue`, and `/api/integrations/github/reopen-issue`.
+- GitHub writeback records persist typed `project_id` linkage, provider-scoped provenance, and `PersonAlias`-compatible assignee or participant handles where Vel can resolve them from the people registry.
+- The allowed email write surface is bounded to `email_create_draft_reply` and `email_send_draft` through `/api/integrations/email/create-draft-reply` and `/api/integrations/email/send-draft`.
+- Email remains draft-first: `email_create_draft_reply` is the safe default, while `email_send_draft` is confirm-required and is denied with durable writeback history until the operator explicitly confirms send.
+- Both GitHub and email routes are `operator_authenticated` and use the same writeback/conflict vocabulary as the other Phase 06 write lanes.
+
 ### `POST /v1/evaluate`
 
 - orchestrated recompute-and-persist path for context, risk, and downstream outputs

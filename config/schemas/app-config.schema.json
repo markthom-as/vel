@@ -33,6 +33,9 @@
       "type": "string",
       "minLength": 1
     },
+    "tailscale_preferred": {
+      "type": "boolean"
+    },
     "tailscale_base_url": {
       "type": "string",
       "minLength": 1

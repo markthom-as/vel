@@ -40,6 +40,7 @@ pub struct AppConfig {
     pub base_url: String,
     pub node_id: Option<String>,
     pub node_display_name: Option<String>,
+    pub tailscale_preferred: bool,
     pub tailscale_base_url: Option<String>,
     pub lan_base_url: Option<String>,
     pub agent_spec_path: Option<String>,
@@ -226,6 +227,7 @@ impl Default for AppConfig {
             base_url: DEFAULT_BASE_URL.to_string(),
             node_id: None,
             node_display_name: None,
+            tailscale_preferred: true,
             tailscale_base_url: None,
             lan_base_url: None,
             agent_spec_path: Some(default_agent_spec_path()),
@@ -281,6 +283,7 @@ struct FileConfig {
     base_url: Option<String>,
     node_id: Option<String>,
     node_display_name: Option<String>,
+    tailscale_preferred: Option<bool>,
     tailscale_base_url: Option<String>,
     lan_base_url: Option<String>,
     agent_spec_path: Option<String>,
@@ -372,6 +375,9 @@ impl AppConfig {
         if file.node_display_name.is_some() {
             self.node_display_name = file.node_display_name;
         }
+        if let Some(value) = file.tailscale_preferred {
+            self.tailscale_preferred = value;
+        }
         if file.tailscale_base_url.is_some() {
             self.tailscale_base_url = file.tailscale_base_url;
         }
@@ -441,6 +447,11 @@ impl AppConfig {
         if let Some(value) = env_map.get("VEL_NODE_DISPLAY_NAME") {
             self.node_display_name = Some(value.clone());
         }
+        if let Some(value) = env_map.get("VEL_TAILSCALE_PREFERRED") {
+            if let Some(value) = parse_env_bool(value) {
+                self.tailscale_preferred = value;
+            }
+        }
         if let Some(value) = env_map.get("VEL_TAILSCALE_BASE_URL") {
             self.tailscale_base_url = Some(value.clone());
         }
@@ -486,6 +497,14 @@ impl AppConfig {
         if let Some(value) = env_map.get("VEL_TRANSCRIPT_SNAPSHOT_PATH") {
             self.transcript_snapshot_path = Some(value.clone());
         }
+    }
+}
+
+fn parse_env_bool(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => Some(true),
+        "0" | "false" | "no" | "off" => Some(false),
+        _ => None,
     }
 }
 
@@ -553,6 +572,7 @@ mod tests {
             ("VEL_BIND_ADDR".to_string(), "0.0.0.0:9999".to_string()),
             ("VEL_DB_PATH".to_string(), "/tmp/vel.sqlite".to_string()),
             ("VEL_NODE_ID".to_string(), "vel-desktop".to_string()),
+            ("VEL_TAILSCALE_PREFERRED".to_string(), "false".to_string()),
             (
                 "VEL_TAILSCALE_BASE_URL".to_string(),
                 "http://vel-desktop.tailnet.ts.net:4130".to_string(),
@@ -588,6 +608,7 @@ mod tests {
         assert_eq!(config.bind_addr, "0.0.0.0:9999");
         assert_eq!(config.db_path, "/tmp/vel.sqlite");
         assert_eq!(config.node_id.as_deref(), Some("vel-desktop"));
+        assert!(!config.tailscale_preferred);
         assert_eq!(
             config.tailscale_base_url.as_deref(),
             Some("http://vel-desktop.tailnet.ts.net:4130")
@@ -653,6 +674,7 @@ budgets:
         let template = fs::read_to_string(repo_path("config/templates/vel.toml.template")).unwrap();
         let parsed = toml::from_str::<FileConfig>(&template).unwrap();
         assert_eq!(parsed.bind_addr.as_deref(), Some("127.0.0.1:4130"));
+        assert_eq!(parsed.tailscale_preferred, Some(true));
         assert_eq!(
             parsed.agent_spec_path.as_deref(),
             Some("config/agent-specs.yaml")
@@ -669,6 +691,7 @@ budgets:
             AppConfig::load_from_path(repo_path("config/examples/app-config.example.toml"))
                 .unwrap();
         assert_eq!(config.node_id.as_deref(), Some("vel-local"));
+        assert!(config.tailscale_preferred);
         assert_eq!(
             config.agent_spec_path.as_deref(),
             Some("config/examples/agent-specs.example.yaml")
@@ -684,6 +707,7 @@ budgets:
         let schema =
             fs::read_to_string(repo_path("config/schemas/app-config.schema.json")).unwrap();
         assert!(schema.contains("\"reminders_snapshot_path\""));
+        assert!(schema.contains("\"tailscale_preferred\""));
     }
 
     #[test]

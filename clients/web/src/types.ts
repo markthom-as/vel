@@ -105,6 +105,7 @@ export interface SettingsData {
   toggle_reminders?: boolean;
   timezone?: string | null;
   node_display_name?: string | null;
+  tailscale_preferred?: boolean;
   tailscale_base_url?: string | null;
   lan_base_url?: string | null;
   adaptive_policy_overrides?: {
@@ -361,6 +362,15 @@ export interface PairingTokenData {
   expires_at: Rfc3339Timestamp;
   issued_by_node_id: string;
   scopes: LinkScopeData;
+  suggested_targets: LinkTargetSuggestionData[];
+}
+
+export interface LinkTargetSuggestionData {
+  label: string;
+  base_url: string;
+  transport_hint: string;
+  recommended: boolean;
+  redeem_command_hint: string;
 }
 
 export interface LinkedNodeData {
@@ -1108,6 +1118,24 @@ export function decodePairingTokenData(value: unknown): PairingTokenData {
       'pairing token.issued_by_node_id',
     ),
     scopes: decodeLinkScopeData(record.scopes),
+    suggested_targets: decodeArray(
+      record.suggested_targets ?? [],
+      decodeLinkTargetSuggestionData,
+    ),
+  };
+}
+
+export function decodeLinkTargetSuggestionData(value: unknown): LinkTargetSuggestionData {
+  const record = expectRecord(value, 'link target suggestion');
+  return {
+    label: expectString(record.label, 'link target suggestion.label'),
+    base_url: expectString(record.base_url, 'link target suggestion.base_url'),
+    transport_hint: expectString(record.transport_hint, 'link target suggestion.transport_hint'),
+    recommended: expectBoolean(record.recommended, 'link target suggestion.recommended'),
+    redeem_command_hint: expectString(
+      record.redeem_command_hint,
+      'link target suggestion.redeem_command_hint',
+    ),
   };
 }
 
@@ -1439,6 +1467,10 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.node_display_name === undefined
         ? undefined
         : expectNullableString(record.node_display_name, 'settings.node_display_name'),
+    tailscale_preferred:
+      record.tailscale_preferred === undefined
+        ? undefined
+        : expectBoolean(record.tailscale_preferred, 'settings.tailscale_preferred'),
     tailscale_base_url:
       record.tailscale_base_url === undefined
         ? undefined
@@ -1906,11 +1938,11 @@ export function decodeRunSummaryData(value: unknown): RunSummaryData {
       record.unsupported_retry_override_reason,
       'run summary.unsupported_retry_override_reason',
     ),
-    created_at: expectRfc3339Timestamp(record.created_at, 'run summary.created_at'),
-    started_at: expectNullableRfc3339Timestamp(record.started_at, 'run summary.started_at'),
-    finished_at: expectNullableRfc3339Timestamp(record.finished_at, 'run summary.finished_at'),
+    created_at: decodeFlexibleDateTimeString(record.created_at, 'run summary.created_at'),
+    started_at: decodeNullableFlexibleDateTimeString(record.started_at, 'run summary.started_at'),
+    finished_at: decodeNullableFlexibleDateTimeString(record.finished_at, 'run summary.finished_at'),
     duration_ms: expectNullableNumber(record.duration_ms, 'run summary.duration_ms'),
-    retry_scheduled_at: expectNullableRfc3339Timestamp(
+    retry_scheduled_at: decodeNullableFlexibleDateTimeString(
       record.retry_scheduled_at,
       'run summary.retry_scheduled_at',
     ),
@@ -2065,6 +2097,20 @@ function decodeNullableDateTimeString(value: unknown, label: string): string | n
     return null;
   }
   return decodeDateTimeString(value, label);
+}
+
+function decodeFlexibleDateTimeString(value: unknown, label: string): string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Date(value * 1000).toISOString();
+  }
+  return expectRfc3339Timestamp(value, label);
+}
+
+function decodeNullableFlexibleDateTimeString(value: unknown, label: string): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return decodeFlexibleDateTimeString(value, label);
 }
 
 export function decodeProvenanceEvent(value: unknown): ProvenanceEvent {

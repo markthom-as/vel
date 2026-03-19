@@ -372,6 +372,7 @@ fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBoots
         .unwrap_or_else(|| node_id.clone());
     let localhost_base_url = localhost_base_url(&config.bind_addr);
     let (sync_base_url, sync_transport) = preferred_sync_target(
+        config.tailscale_preferred,
         config.tailscale_base_url.as_deref(),
         config.base_url.as_str(),
         config.lan_base_url.as_deref(),
@@ -517,7 +518,7 @@ pub(crate) async fn refresh_local_worker_presence(state: &AppState) -> Result<()
             compute_class: Some(compute_class_for_capacity(runtime.max_concurrency)),
             power_class: Some(infer_power_class(&bootstrap.node_id)),
             recent_failure_rate: Some(0.0),
-            tailscale_preferred: tailscale_reachable,
+            tailscale_preferred: bootstrap.sync_transport == "tailscale",
             sync_base_url: Some(bootstrap.sync_base_url),
             sync_transport: Some(Some(bootstrap.sync_transport)),
             tailscale_base_url: bootstrap.tailscale_base_url.clone(),
@@ -1372,13 +1373,16 @@ async fn build_existing_routing_response(
 }
 
 pub fn preferred_sync_target(
+    tailscale_preferred: bool,
     tailscale_base_url: Option<&str>,
     base_url: &str,
     lan_base_url: Option<&str>,
     localhost_base_url: Option<&str>,
 ) -> (String, String) {
-    if let Some(url) = tailscale_base_url.filter(|value| !value.trim().is_empty()) {
-        return (url.to_string(), "tailscale".to_string());
+    if tailscale_preferred {
+        if let Some(url) = tailscale_base_url.filter(|value| !value.trim().is_empty()) {
+            return (url.to_string(), "tailscale".to_string());
+        }
     }
     if is_localhost(base_url) {
         if let Some(url) = localhost_base_url {
@@ -2104,6 +2108,7 @@ mod tests {
     #[test]
     fn preferred_sync_target_prioritizes_tailscale_when_configured() {
         let (url, transport) = preferred_sync_target(
+            true,
             Some("https://vel.tailnet.ts.net"),
             "https://vel.example.com",
             Some("http://192.168.1.12:4130"),
@@ -2117,7 +2122,22 @@ mod tests {
     #[test]
     fn preferred_sync_target_falls_back_when_tailscale_missing() {
         let (url, transport) = preferred_sync_target(
+            true,
             Some("   "),
+            "http://127.0.0.1:4130",
+            Some("http://192.168.1.12:4130"),
+            Some("http://127.0.0.1:4130"),
+        );
+
+        assert_eq!(url, "http://127.0.0.1:4130");
+        assert_eq!(transport, "localhost");
+    }
+
+    #[test]
+    fn preferred_sync_target_respects_non_tailscale_preference() {
+        let (url, transport) = preferred_sync_target(
+            false,
+            Some("https://vel.tailnet.ts.net"),
             "http://127.0.0.1:4130",
             Some("http://192.168.1.12:4130"),
             Some("http://127.0.0.1:4130"),

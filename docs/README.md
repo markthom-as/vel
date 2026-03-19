@@ -32,6 +32,7 @@ These files drive ongoing implementation work:
 - `.planning/BACKLOG.md`: non-phase future work that is worth preserving but not yet committed
 - `.planning/todos/pending/*.md`: execution-ready micro-task queue used by GSD todo workflows
 - `.planning/phases/05-*` through `.planning/phases/09-*`: active phase-planning directories
+- `docs/future/*.md`: future-facing product and architecture specs that are explicitly not shipped-behavior authority
 - [tickets/README.md](tickets/README.md): queue index and phase navigation
 - [tickets/architecture-first-parallel-queue.md](tickets/architecture-first-parallel-queue.md): documentation/contracts-first execution order and parallel work waves
 - `docs/tickets/phase-1/*.md`

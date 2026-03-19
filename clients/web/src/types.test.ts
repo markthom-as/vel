@@ -18,6 +18,7 @@ import {
   decodeNowData,
   decodeNullable,
   decodeArray,
+  decodePairingTokenData,
   decodeProjectRecordData,
   decodeReviewSnapshotData,
   decodeRiskCardContent,
@@ -374,6 +375,7 @@ describe('transport decoders', () => {
         toggle_reminders: true,
         timezone: 'America/Denver',
         node_display_name: 'Vel Desktop',
+        tailscale_preferred: true,
         tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
         lan_base_url: 'http://192.168.1.50:4130',
         adaptive_policy_overrides: {
@@ -393,6 +395,7 @@ describe('transport decoders', () => {
       toggle_reminders: true,
       timezone: 'America/Denver',
       node_display_name: 'Vel Desktop',
+      tailscale_preferred: true,
       tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
       lan_base_url: 'http://192.168.1.50:4130',
       adaptive_policy_overrides: {
@@ -405,6 +408,54 @@ describe('transport decoders', () => {
         default_prep_source_title: 'Increase prep window',
         default_prep_source_accepted_at: 1710000200,
       },
+    })
+  })
+
+  it('decodes pairing token suggestions', () => {
+    expect(
+      decodePairingTokenData({
+        token_id: 'token_1',
+        token_code: 'VEL-PAIR-123',
+        issued_at: '2026-03-16T18:20:00Z',
+        expires_at: '2026-03-16T18:35:00Z',
+        issued_by_node_id: 'vel-desktop',
+        scopes: {
+          read_context: true,
+          write_safe_actions: false,
+          execute_repo_tasks: false,
+        },
+        suggested_targets: [
+          {
+            label: 'Tailscale',
+            base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            transport_hint: 'tailscale',
+            recommended: true,
+            redeem_command_hint:
+              'vel --base-url http://vel-desktop.tailnet.ts.net:4130 node link redeem VEL-PAIR-123 --node-id <node_id> --node-display-name <name> --transport-hint tailscale',
+          },
+        ],
+      }),
+    ).toEqual({
+      token_id: 'token_1',
+      token_code: 'VEL-PAIR-123',
+      issued_at: '2026-03-16T18:20:00Z',
+      expires_at: '2026-03-16T18:35:00Z',
+      issued_by_node_id: 'vel-desktop',
+      scopes: {
+        read_context: true,
+        write_safe_actions: false,
+        execute_repo_tasks: false,
+      },
+      suggested_targets: [
+        {
+          label: 'Tailscale',
+          base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+          transport_hint: 'tailscale',
+          recommended: true,
+          redeem_command_hint:
+            'vel --base-url http://vel-desktop.tailnet.ts.net:4130 node link redeem VEL-PAIR-123 --node-id <node_id> --node-display-name <name> --transport-hint tailscale',
+        },
+      ],
     })
   })
 
@@ -1194,8 +1245,8 @@ describe('transport decoders', () => {
     }
   })
 
-  it('requires RFC3339 run summary datetime fields', () => {
-    expect(() =>
+  it('normalizes unix timestamp run summary datetime fields', () => {
+    expect(
       decodeRunSummaryData({
         id: 'run_1',
         kind: 'search',
@@ -1204,15 +1255,32 @@ describe('transport decoders', () => {
         automatic_retry_reason: 'search runs do not have an automatic retry executor',
         unsupported_retry_override: false,
         unsupported_retry_override_reason: null,
-        created_at: [2026, 76, 12, 0, 0, 0],
+        created_at: 1710590400,
         started_at: null,
-        finished_at: '2026-03-16T12:04:00Z',
+        finished_at: 1710590640,
         duration_ms: 240000,
-        retry_scheduled_at: null,
+        retry_scheduled_at: 1710590700,
         retry_reason: null,
         blocked_reason: 'waiting_on_dependency',
       }),
-    ).toThrow(/run summary\.created_at/)
+    ).toEqual({
+      id: 'run_1',
+      kind: 'search',
+      status: 'blocked',
+      trace_id: 'run_1',
+      parent_run_id: null,
+      automatic_retry_supported: false,
+      automatic_retry_reason: 'search runs do not have an automatic retry executor',
+      unsupported_retry_override: false,
+      unsupported_retry_override_reason: null,
+      created_at: '2024-03-16T12:00:00.000Z',
+      started_at: null,
+      finished_at: '2024-03-16T12:04:00.000Z',
+      duration_ms: 240000,
+      retry_scheduled_at: '2024-03-16T12:05:00.000Z',
+      retry_reason: null,
+      blocked_reason: 'waiting_on_dependency',
+    })
   })
 
   it('decodes canonical risk card payloads', () => {

@@ -628,6 +628,7 @@ export function SettingsPage({
   const [todoistToken, setTodoistToken] = useState('');
   const [timezoneDraft, setTimezoneDraft] = useState('');
   const [nodeDisplayNameDraft, setNodeDisplayNameDraft] = useState('');
+  const [tailscalePreferredDraft, setTailscalePreferredDraft] = useState(true);
   const [tailscaleBaseUrlDraft, setTailscaleBaseUrlDraft] = useState('');
   const [lanBaseUrlDraft, setLanBaseUrlDraft] = useState('');
   const [syncNetworkFeedback, setSyncNetworkFeedback] = useState<{
@@ -806,6 +807,10 @@ export function SettingsPage({
   }, [settings.node_display_name]);
 
   useEffect(() => {
+    setTailscalePreferredDraft(settings.tailscale_preferred !== false);
+  }, [settings.tailscale_preferred]);
+
+  useEffect(() => {
     setTailscaleBaseUrlDraft(settings.tailscale_base_url ?? '');
   }, [settings.tailscale_base_url]);
 
@@ -961,6 +966,7 @@ export function SettingsPage({
     try {
       const response = await updateSettings({
         node_display_name: nodeDisplayNameDraft.trim() || null,
+        tailscale_preferred: tailscalePreferredDraft,
         tailscale_base_url: tailscaleBaseUrlDraft.trim() || null,
         lan_base_url: lanBaseUrlDraft.trim() || null,
       });
@@ -1727,6 +1733,21 @@ export function SettingsPage({
                   Commitments are the global task authority across Vel clients. Prefer a Tailscale endpoint so Apple clients and other nodes resolve the same daemon consistently.
                 </p>
               </div>
+              <label className="flex items-center justify-between gap-4 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <div className="space-y-1">
+                  <span className="text-sm font-medium text-zinc-200">Prefer Tailscale when available</span>
+                  <p className="text-sm text-zinc-500">
+                    Vel will auto-detect the local Tailscale daemon and use it by default, but you can force LAN or localhost routing without deleting the discovered Tailscale URL.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={tailscalePreferredDraft}
+                  onChange={(event) => setTailscalePreferredDraft(event.target.checked)}
+                  disabled={saving}
+                  className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
+                />
+              </label>
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-1">
                   <span className="text-xs uppercase tracking-wide text-zinc-500">Node display name</span>
@@ -1770,6 +1791,7 @@ export function SettingsPage({
                     saving
                     || (
                       nodeDisplayNameDraft.trim() === (settings.node_display_name ?? '')
+                      && tailscalePreferredDraft === (settings.tailscale_preferred !== false)
                       && tailscaleBaseUrlDraft.trim() === (settings.tailscale_base_url ?? '')
                       && lanBaseUrlDraft.trim() === (settings.lan_base_url ?? '')
                     )
@@ -1894,6 +1916,33 @@ export function SettingsPage({
                       </span>
                     ))}
                   </div>
+                  {pairingToken.suggested_targets.length ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm font-medium text-emerald-100">Suggested link targets</p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {pairingToken.suggested_targets.map((target) => (
+                          <article
+                            key={`${target.transport_hint}-${target.base_url}`}
+                            className="rounded-lg border border-emerald-500/20 bg-zinc-950/40 p-3"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium text-zinc-100">{target.label}</p>
+                              <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
+                                {target.recommended ? 'recommended' : 'fallback'}
+                              </span>
+                            </div>
+                            <p className="mt-2 break-all text-sm text-zinc-300">{target.base_url}</p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              Transport hint: {target.transport_hint}
+                            </p>
+                            <p className="mt-2 break-all font-mono text-xs text-zinc-400">
+                              {target.redeem_command_hint}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               {pairingFeedback ? (

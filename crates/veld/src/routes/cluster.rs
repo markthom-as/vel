@@ -187,6 +187,7 @@ mod tests {
     #[test]
     fn preferred_sync_target_prefers_tailscale() {
         let (url, transport) = crate::services::client_sync::preferred_sync_target(
+            true,
             Some("http://vel.tailnet.ts.net:4130"),
             "http://127.0.0.1:4130",
             Some("http://192.168.1.10:4130"),
@@ -199,7 +200,21 @@ mod tests {
     #[test]
     fn preferred_sync_target_prefers_localhost_when_no_tailscale() {
         let (url, transport) = crate::services::client_sync::preferred_sync_target(
+            true,
             None,
+            "http://127.0.0.1:4130",
+            Some("http://192.168.1.10:4130"),
+            Some("http://127.0.0.1:4130"),
+        );
+        assert_eq!(url, "http://127.0.0.1:4130");
+        assert_eq!(transport, "localhost");
+    }
+
+    #[test]
+    fn preferred_sync_target_can_disable_tailscale_preference() {
+        let (url, transport) = crate::services::client_sync::preferred_sync_target(
+            false,
+            Some("http://vel.tailnet.ts.net:4130"),
             "http://127.0.0.1:4130",
             Some("http://192.168.1.10:4130"),
             Some("http://127.0.0.1:4130"),

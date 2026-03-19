@@ -327,7 +327,7 @@ pub async fn get_message_provenance(
 pub async fn get_settings(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    let data = settings_payload(&state.storage).await?;
+    let data = settings_payload(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -340,6 +340,7 @@ pub struct SettingsUpdateRequest {
     pub toggle_reminders: Option<bool>,
     pub timezone: Option<String>,
     pub node_display_name: Option<String>,
+    pub tailscale_preferred: Option<bool>,
     pub tailscale_base_url: Option<String>,
     pub lan_base_url: Option<String>,
 }
@@ -387,13 +388,19 @@ pub async fn patch_settings(
     if let Some(value) = payload.node_display_name {
         write_optional_string_setting(&state, "node_display_name", &value).await?;
     }
+    if let Some(value) = payload.tailscale_preferred {
+        state
+            .storage
+            .set_setting("tailscale_preferred", &serde_json::json!(value))
+            .await?;
+    }
     if let Some(value) = payload.tailscale_base_url {
         write_optional_url_setting(&state, "tailscale_base_url", &value).await?;
     }
     if let Some(value) = payload.lan_base_url {
         write_optional_url_setting(&state, "lan_base_url", &value).await?;
     }
-    let data = settings_payload(&state.storage).await?;
+    let data = settings_payload(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }

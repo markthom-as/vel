@@ -1,5 +1,5 @@
 use time::{Duration, OffsetDateTime};
-use vel_api_types::LinkScopeData;
+use vel_api_types::{LinkScopeData, LinkTargetSuggestionData};
 use vel_core::{LinkScope, LinkStatus, LinkedNodeRecord, PairingTokenRecord};
 
 use crate::{errors::AppError, state::AppState};
@@ -129,6 +129,86 @@ pub async fn revoke_linked_node(
         .revoke_linked_node(node_id.trim(), revoked_at)
         .await?
         .ok_or_else(|| AppError::not_found("linked node not found"))
+}
+
+pub async fn suggested_targets(
+    state: &AppState,
+    token_code: &str,
+) -> Result<Vec<LinkTargetSuggestionData>, AppError> {
+    let bootstrap = crate::services::client_sync::effective_cluster_bootstrap(state).await?;
+    Ok(build_suggested_targets(&bootstrap, token_code))
+}
+
+fn build_suggested_targets(
+    bootstrap: &crate::services::client_sync::ClusterBootstrap,
+    token_code: &str,
+) -> Vec<LinkTargetSuggestionData> {
+    let mut targets = Vec::new();
+    push_suggested_target(
+        &mut targets,
+        "Recommended",
+        &bootstrap.sync_base_url,
+        &bootstrap.sync_transport,
+        true,
+        token_code,
+    );
+
+    if let Some(url) = bootstrap.tailscale_base_url.as_deref() {
+        push_suggested_target(
+            &mut targets,
+            "Tailscale",
+            url,
+            "tailscale",
+            bootstrap.sync_transport == "tailscale",
+            token_code,
+        );
+    }
+    if let Some(url) = bootstrap.lan_base_url.as_deref() {
+        push_suggested_target(
+            &mut targets,
+            "LAN",
+            url,
+            "lan",
+            bootstrap.sync_transport == "lan",
+            token_code,
+        );
+    }
+    if let Some(url) = bootstrap.localhost_base_url.as_deref() {
+        push_suggested_target(
+            &mut targets,
+            "Localhost",
+            url,
+            "localhost",
+            bootstrap.sync_transport == "localhost",
+            token_code,
+        );
+    }
+
+    targets
+}
+
+fn push_suggested_target(
+    targets: &mut Vec<LinkTargetSuggestionData>,
+    label: &str,
+    base_url: &str,
+    transport_hint: &str,
+    recommended: bool,
+    token_code: &str,
+) {
+    let trimmed_url = base_url.trim();
+    if trimmed_url.is_empty() || targets.iter().any(|target| target.base_url == trimmed_url) {
+        return;
+    }
+
+    targets.push(LinkTargetSuggestionData {
+        label: label.to_string(),
+        base_url: trimmed_url.to_string(),
+        transport_hint: transport_hint.to_string(),
+        recommended,
+        redeem_command_hint: format!(
+            "vel --base-url {trimmed_url} node link redeem {token_code} --node-id <node_id> --node-display-name <name> --transport-hint {transport_hint}"
+        ),
+    });
 }
 
 fn validate_requested_scopes(scopes: &LinkScope) -> Result<(), AppError> {
@@ -274,5 +354,35 @@ mod tests {
             error.to_string(),
             "requested scopes are out of scope for token"
         );
+    }
+
+    #[tokio::test]
+    async fn linking_service_builds_suggested_targets_from_cluster_bootstrap() {
+        let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let mut config = AppConfig::default();
+        config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
+        config.lan_base_url = Some("http://192.168.1.50:4130".to_string());
+        let (broadcast_tx, _) = broadcast::channel(8);
+        let state = AppState::new(
+            storage,
+            config,
+            crate::policy_config::PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        );
+
+        let targets = suggested_targets(&state, "VEL-PAIR-123").await.unwrap();
+
+        assert!(!targets.is_empty());
+        assert_eq!(targets[0].transport_hint, "tailscale");
+        assert!(targets[0].recommended);
+        assert!(targets
+            .iter()
+            .any(|target| target.transport_hint == "lan" && !target.recommended));
+        assert!(targets[0]
+            .redeem_command_hint
+            .contains("node link redeem VEL-PAIR-123"));
     }
 }

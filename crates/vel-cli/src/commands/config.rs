@@ -12,6 +12,7 @@ pub fn run(config: &AppConfig, json: bool) -> anyhow::Result<()> {
         "node_display_name: {}",
         config.node_display_name.as_deref().unwrap_or("-")
     );
+    println!("tailscale_preferred: {}", config.tailscale_preferred);
     println!(
         "tailscale_base_url: {}",
         config.tailscale_base_url.as_deref().unwrap_or("-")
