@@ -478,6 +478,42 @@ describe('transport decoders', () => {
           default_prep_source_title: 'Increase prep window',
           default_prep_source_accepted_at: 1710000200,
         },
+        backup: {
+          default_output_root: 'var/backups',
+          trust: {
+            level: 'warn',
+            status: {
+              state: 'stale',
+              last_backup_id: 'bkp_123',
+              last_backup_at: '2026-03-18T18:20:00Z',
+              output_root: '/tmp/backups/bkp_123',
+              artifact_coverage: {
+                included: ['artifacts/captures'],
+                omitted: ['artifacts/cache'],
+                notes: ['Transient cache directories are excluded.'],
+              },
+              config_coverage: {
+                included: ['config/public-settings.json', 'config/runtime-config.json'],
+                omitted: ['integration_google_calendar_secrets'],
+                notes: ['Secret-bearing settings are omitted.'],
+              },
+              verification_summary: {
+                verified: true,
+                checksum_algorithm: 'sha256',
+                checksum: 'abc123',
+                checked_paths: ['/tmp/backups/bkp_123/manifest.json'],
+                notes: ['Verified from the snapshot and manifest.'],
+              },
+              warnings: ['last successful backup is stale'],
+            },
+            freshness: {
+              state: 'stale',
+              age_seconds: 200000,
+              stale_after_seconds: 172800,
+            },
+            guidance: ['Create or verify a fresh backup before risky maintenance.'],
+          },
+        },
       }),
     ).toEqual({
       disable_proactive: false,
@@ -500,6 +536,42 @@ describe('transport decoders', () => {
         default_prep_source_suggestion_id: 'sug_prep',
         default_prep_source_title: 'Increase prep window',
         default_prep_source_accepted_at: 1710000200,
+      },
+      backup: {
+        default_output_root: 'var/backups',
+        trust: {
+          level: 'warn',
+          status: {
+            state: 'stale',
+            last_backup_id: 'bkp_123',
+            last_backup_at: '2026-03-18T18:20:00Z',
+            output_root: '/tmp/backups/bkp_123',
+            artifact_coverage: {
+              included: ['artifacts/captures'],
+              omitted: ['artifacts/cache'],
+              notes: ['Transient cache directories are excluded.'],
+            },
+            config_coverage: {
+              included: ['config/public-settings.json', 'config/runtime-config.json'],
+              omitted: ['integration_google_calendar_secrets'],
+              notes: ['Secret-bearing settings are omitted.'],
+            },
+            verification_summary: {
+              verified: true,
+              checksum_algorithm: 'sha256',
+              checksum: 'abc123',
+              checked_paths: ['/tmp/backups/bkp_123/manifest.json'],
+              notes: ['Verified from the snapshot and manifest.'],
+            },
+            warnings: ['last successful backup is stale'],
+          },
+          freshness: {
+            state: 'stale',
+            age_seconds: 200000,
+            stale_after_seconds: 172800,
+          },
+          guidance: ['Create or verify a fresh backup before risky maintenance.'],
+        },
       },
     })
   })

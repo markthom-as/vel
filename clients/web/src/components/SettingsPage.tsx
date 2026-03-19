@@ -14,6 +14,7 @@ import type {
   IntegrationLogEventData,
   IntegrationsData,
   LinkScopeData,
+  LinkedNodeData,
   LocalIntegrationData,
   LoopData,
   PairingTokenData,
@@ -25,9 +26,12 @@ import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type { QueryKey } from '../data/query';
 import {
   approveExecutionHandoff,
+  buildBackupTrustProjection,
   buildOperatorReviewStatus,
   issuePairingToken,
   loadExecutionHandoffs,
+  loadLinkingStatus,
+  operatorQueryKeys,
   redeemPairingToken,
   rejectExecutionHandoff,
   revokeLinkedNode,
@@ -440,6 +444,7 @@ function secondarySuggestedPathHosts(
   source: LocalIntegrationSource,
   clusterBootstrap: ClusterBootstrapData | undefined,
   clusterWorkers: ClusterWorkersData | undefined,
+  linkedNodes: LinkedNodeData[],
 ): SuggestedPathHostSection[] {
   if (!clusterBootstrap) {
     return [];
@@ -457,7 +462,7 @@ function secondarySuggestedPathHosts(
 
   const sections: SuggestedPathHostSection[] = [];
   const seen = new Set<string>();
-  for (const linkedNode of clusterBootstrap.linked_nodes ?? []) {
+  for (const linkedNode of linkedNodes) {
     if (linkedNode.node_id === currentNodeId || seen.has(linkedNode.node_id)) {
       continue;
     }
@@ -746,6 +751,7 @@ export function SettingsPage({
   const loopsKey = useMemo(() => queryKeys.loops(), []);
   const nowKey = useMemo(() => queryKeys.now(), []);
   const currentContextKey = useMemo(() => queryKeys.currentContext(), []);
+  const linkingStatusKey = useMemo(() => operatorQueryKeys.linkingStatus(), []);
   const executionHandoffsKey = useMemo(
     () => queryKeys.executionHandoffs('pending_review'),
     [],
@@ -775,6 +781,13 @@ export function SettingsPage({
     async () => {
       const response = await loadClusterWorkers();
       return response.data ?? { active_authority_node_id: '', active_authority_epoch: 0, generated_at: 0, workers: [] };
+    },
+  );
+  const { data: linkedNodes = [] } = useQuery<LinkedNodeData[]>(
+    linkingStatusKey,
+    async () => {
+      const response = await loadLinkingStatus();
+      return response.data ?? [];
     },
   );
   const { data: clusterBootstrap, error: clusterBootstrapError } = useQuery<ClusterBootstrapData>(
@@ -897,6 +910,10 @@ export function SettingsPage({
   const operatorReviewStatus = useMemo(
     () => buildOperatorReviewStatus(nowData, settings, pendingExecutionHandoffs),
     [nowData, pendingExecutionHandoffs, settings],
+  );
+  const backupTrust = useMemo(
+    () => buildBackupTrustProjection(settings.backup),
+    [settings.backup],
   );
 
   const runExecutionHandoffReview = async (
@@ -1127,7 +1144,7 @@ export function SettingsPage({
     if (!clusterBootstrap) {
       return [];
     }
-    const linkedNodeIds = new Set((clusterBootstrap.linked_nodes ?? []).map((node) => node.node_id));
+    const linkedNodeIds = new Set(linkedNodes.map((node) => node.node_id));
     const seen = new Set<string>();
     return (clusterWorkers?.workers ?? []).filter((worker) => {
       if (worker.node_id === clusterBootstrap.node_id) {
@@ -1139,7 +1156,7 @@ export function SettingsPage({
       seen.add(worker.node_id);
       return true;
     });
-  }, [clusterBootstrap, clusterWorkers]);
+  }, [clusterBootstrap, clusterWorkers, linkedNodes]);
   const selectedDiscoveredNode = useMemo(
     () => discoveredNodes.find((worker) => worker.node_id === selectedDiscoveredNodeId) ?? null,
     [discoveredNodes, selectedDiscoveredNodeId],
@@ -1154,7 +1171,6 @@ export function SettingsPage({
   const localIncomingLinkingPrompt = localWorker?.incoming_linking_prompt ?? null;
 
   useEffect(() => {
-    const linkedNodes = clusterBootstrap?.linked_nodes ?? [];
     if (linkedNodes.length === 0) {
       setLinkedPermissionDrafts({});
       return;
@@ -1206,11 +1222,12 @@ export function SettingsPage({
       setPairingFeedback({
         status: 'success',
         message: selectedDiscoveredNode
-          ? `Pairing token issued. ${selectedDiscoveredNode.node_display_name} has been prompted to enter it on that client.`
-          : 'Pairing token issued. Redeem it on the companion node, then refresh this page to confirm linked status.',
+          ? `Pair nodes code created. ${selectedDiscoveredNode.node_display_name} has been prompted to enter it on that client.`
+          : 'Pair nodes code created. Redeem it on the companion node to save the link on both clients.',
       });
       invalidateQuery(clusterWorkersKey, { refetch: true });
       invalidateQuery(clusterBootstrapKey, { refetch: true });
+      invalidateQuery(linkingStatusKey, { refetch: true });
     } catch (error) {
       setPairingFeedback({
         status: 'error',
@@ -1325,10 +1342,11 @@ export function SettingsPage({
       setPairingToken(response.data);
       setPairingFeedback({
         status: 'success',
-        message: `Permission update token issued for ${node.node_display_name}. That client has been prompted to approve the new access.`,
+        message: `Pair nodes code created for ${node.node_display_name}. That client has been prompted to approve the new access.`,
       });
       invalidateQuery(clusterWorkersKey, { refetch: true });
       invalidateQuery(clusterBootstrapKey, { refetch: true });
+      invalidateQuery(linkingStatusKey, { refetch: true });
     } catch (error) {
       setPairingFeedback({
         status: 'error',
@@ -1350,6 +1368,17 @@ export function SettingsPage({
       if (!response.ok || !response.data) {
         throw new Error(response.error?.message ?? 'Failed to unpair linked node');
       }
+      setQueryData<LinkedNodeData[]>(linkingStatusKey, (current = []) =>
+        current.filter((linkedNode) => linkedNode.node_id !== node.node_id),
+      );
+      setQueryData<ClusterBootstrapData | undefined>(clusterBootstrapKey, (current) =>
+        current
+          ? {
+            ...current,
+            linked_nodes: (current.linked_nodes ?? []).filter((linkedNode) => linkedNode.node_id !== node.node_id),
+          }
+          : current,
+      );
       setConfirmUnpairNodeId(null);
       setLinkedNodeActionFeedback({
         status: 'success',
@@ -1357,6 +1386,7 @@ export function SettingsPage({
       });
       invalidateQuery(clusterWorkersKey, { refetch: true });
       invalidateQuery(clusterBootstrapKey, { refetch: true });
+      invalidateQuery(linkingStatusKey, { refetch: true });
     } catch (error) {
       setLinkedNodeActionFeedback({
         status: 'error',
@@ -1403,13 +1433,29 @@ export function SettingsPage({
       if (!response.ok || !response.data) {
         throw new Error(response.error?.message ?? 'Failed to redeem pairing token');
       }
+      setQueryData<LinkedNodeData[]>(linkingStatusKey, (current = []) => {
+        const next = current.filter((linkedNode) => linkedNode.node_id !== response.data!.node_id);
+        return [response.data!, ...next];
+      });
+      setQueryData<ClusterBootstrapData | undefined>(clusterBootstrapKey, (current) =>
+        current
+          ? {
+            ...current,
+            linked_nodes: [
+              response.data!,
+              ...(current.linked_nodes ?? []).filter((linkedNode) => linkedNode.node_id !== response.data!.node_id),
+            ],
+          }
+          : current,
+      );
       setRedeemTokenCode('');
       setRedeemPairingFeedback({
         status: 'success',
-        message: `Linked as ${response.data.node_display_name}. This client can now participate in cross-device sync.`,
+        message: `Linked as ${response.data.node_display_name}. The link has been saved locally and the issuing client has been notified.`,
       });
       invalidateQuery(clusterWorkersKey, { refetch: true });
       invalidateQuery(clusterBootstrapKey, { refetch: true });
+      invalidateQuery(linkingStatusKey, { refetch: true });
     } catch (error) {
       setRedeemPairingFeedback({
         status: 'error',
@@ -2549,7 +2595,7 @@ export function SettingsPage({
                   disabled={issuingPairingToken || !clusterBootstrap}
                   className="min-h-[44px] rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
                 >
-                  {issuingPairingToken ? 'Issuing…' : 'Issue pairing token'}
+                  {issuingPairingToken ? 'Pairing…' : 'Pair nodes'}
                 </button>
                 <p className="text-sm text-zinc-500">
                   CLI fallback: `vel node link issue --scope-read-context --scope-write-safe-actions`
@@ -2661,9 +2707,9 @@ export function SettingsPage({
               ) : null}
               <div className="space-y-3">
                 <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">linkedNodes</p>
-                {clusterBootstrap?.linked_nodes?.length ? (
+                {linkedNodes.length ? (
                   <div className="grid gap-3 md:grid-cols-2">
-                    {clusterBootstrap.linked_nodes.map((node) => {
+                    {linkedNodes.map((node) => {
                       const draftScopes = linkedNodeScopesDraft(node.node_id, node.scopes);
                       const targetBaseUrl = resolveLinkedNodeTargetBaseUrl(node);
                       const routes = linkedNodeRoutes(node);
@@ -2837,6 +2883,85 @@ export function SettingsPage({
                   </p>
                 ) : null}
               </div>
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-zinc-200">Backup trust</h3>
+                  <p className="text-sm text-zinc-500">
+                    This card reflects the backend-owned backup trust state from Settings. Recovery stays manual-first, so inspect and verify a pack before copying anything back into the live runtime.
+                  </p>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                  backupTrust?.level === 'ok'
+                    ? 'bg-emerald-950/60 text-emerald-200'
+                    : backupTrust?.level === 'warn'
+                      ? 'bg-amber-950/50 text-amber-100'
+                      : 'bg-rose-950/50 text-rose-100'
+                }`}>
+                  {backupTrust?.statusLabel ?? 'No backup state'}
+                </span>
+              </div>
+              {backupTrust ? (
+                <>
+                  <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                      <dt className="text-zinc-500">Freshness</dt>
+                      <dd className="mt-1 text-base text-zinc-100">{backupTrust.freshnessLabel}</dd>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                      <dt className="text-zinc-500">Last backup</dt>
+                      <dd className="mt-1 text-base text-zinc-100">
+                        {backupTrust.lastBackupAt ? formatRuntimeTimestamp(backupTrust.lastBackupAt) : 'None recorded'}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3 md:col-span-2">
+                      <dt className="text-zinc-500">Destination</dt>
+                      <dd className="mt-1 break-all text-base text-zinc-100">{backupTrust.outputRoot}</dd>
+                    </div>
+                  </dl>
+                  <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2">
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                      <dt className="text-zinc-500">Coverage</dt>
+                      <dd className="mt-1 text-base text-zinc-100">{backupTrust.artifactSummary}</dd>
+                      <dd className="mt-1 text-sm text-zinc-400">{backupTrust.configSummary}</dd>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                      <dt className="text-zinc-500">Shipped CLI flow</dt>
+                      <dd className="mt-1 space-y-1 text-sm text-zinc-100">
+                        {backupTrust.commandHints.map((command) => (
+                          <div key={command}>
+                            <code>{command}</code>
+                          </div>
+                        ))}
+                      </dd>
+                    </div>
+                  </dl>
+                  {backupTrust.warnings.length > 0 ? (
+                    <div className="rounded-md border border-amber-700/40 bg-amber-950/20 p-3 text-sm text-amber-100">
+                      {backupTrust.warnings.map((warning) => (
+                        <p key={warning}>{warning}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="space-y-2 text-sm text-zinc-400">
+                    {backupTrust.guidance.map((line) => (
+                      <p key={line}>{line}</p>
+                    ))}
+                    {backupTrust.level !== 'ok' ? (
+                      <p className="text-zinc-300">
+                        Use <code>vel backup create</code>, <code>vel backup inspect</code>, and <code>vel backup verify</code> before any manual restore step.
+                      </p>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-zinc-500">
+                  No backup trust payload has been published yet.
+                </p>
+              )}
             </div>
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
@@ -3176,7 +3301,12 @@ export function SettingsPage({
             const syncActionKey = `${spec.key}-sync` as IntegrationActionKey;
             const saveActionKey = `${spec.key}-save` as IntegrationActionKey;
             const sourceDraft = localSourceDrafts[spec.key];
-            const extraHostSections = secondarySuggestedPathHosts(spec.key, clusterBootstrap, clusterWorkers);
+            const extraHostSections = secondarySuggestedPathHosts(
+              spec.key,
+              clusterBootstrap,
+              clusterWorkers,
+              linkedNodes,
+            );
             const availablePaths = dedupePaths(
               (integration.available_paths ?? []).length > 0
                 ? (integration.available_paths ?? [])

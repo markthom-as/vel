@@ -554,6 +554,16 @@ public struct LinkScopeData: Codable, Sendable {
     public let read_context: Bool
     public let write_safe_actions: Bool
     public let execute_repo_tasks: Bool
+
+    public init(
+        read_context: Bool,
+        write_safe_actions: Bool,
+        execute_repo_tasks: Bool
+    ) {
+        self.read_context = read_context
+        self.write_safe_actions = write_safe_actions
+        self.execute_repo_tasks = execute_repo_tasks
+    }
 }
 
 public enum LinkStatusData: String, Codable, Sendable {
@@ -572,6 +582,96 @@ public struct LinkedNodeData: Codable, Sendable, Identifiable {
     public let linked_at: String
     public let last_seen_at: String?
     public let transport_hint: String?
+    public let sync_base_url: String?
+    public let tailscale_base_url: String?
+    public let lan_base_url: String?
+    public let localhost_base_url: String?
+    public let public_base_url: String?
+}
+
+public struct LinkTargetSuggestionData: Codable, Sendable, Identifiable {
+    public var id: String { "\(label):\(base_url)" }
+    public let label: String
+    public let base_url: String
+    public let transport_hint: String
+    public let recommended: Bool
+    public let redeem_command_hint: String
+}
+
+public struct PairingTokenData: Codable, Sendable {
+    public let token_id: String
+    public let token_code: String
+    public let issued_at: String
+    public let expires_at: String
+    public let issued_by_node_id: String
+    public let scopes: LinkScopeData
+    public let suggested_targets: [LinkTargetSuggestionData]
+}
+
+public struct LinkingPromptData: Codable, Sendable {
+    public let target_node_id: String
+    public let target_node_display_name: String?
+    public let issued_by_node_id: String
+    public let issued_by_node_display_name: String?
+    public let issued_at: String
+    public let expires_at: String
+    public let scopes: LinkScopeData
+    public let issuer_sync_base_url: String
+    public let issuer_sync_transport: String
+    public let issuer_tailscale_base_url: String?
+    public let issuer_lan_base_url: String?
+    public let issuer_localhost_base_url: String?
+    public let issuer_public_base_url: String?
+}
+
+public struct WorkerCapacityData: Codable, Sendable {
+    public let max_concurrency: Int
+    public let current_load: Int
+    public let available_concurrency: Int
+}
+
+public struct WorkerPresenceData: Codable, Sendable, Identifiable {
+    public var id: String { worker_id }
+    public let worker_id: String
+    public let node_id: String
+    public let node_display_name: String
+    public let client_kind: String?
+    public let client_version: String?
+    public let protocol_version: String?
+    public let build_id: String?
+    public let worker_classes: [String]
+    public let capabilities: [String]
+    public let status: String
+    public let queue_depth: Int
+    public let reachability: String
+    public let latency_class: String
+    public let compute_class: String
+    public let power_class: String
+    public let recent_failure_rate: Double
+    public let tailscale_preferred: Bool
+    public let last_heartbeat_at: Int
+    public let started_at: Int?
+    public let sync_base_url: String
+    public let sync_transport: String
+    public let tailscale_base_url: String?
+    public let preferred_tailnet_endpoint: String?
+    public let tailscale_reachable: Bool
+    public let lan_base_url: String?
+    public let localhost_base_url: String?
+    public let ping_ms: Int?
+    public let sync_status: String?
+    public let last_upstream_sync_at: Int?
+    public let last_downstream_sync_at: Int?
+    public let last_sync_error: String?
+    public let incoming_linking_prompt: LinkingPromptData?
+    public let capacity: WorkerCapacityData
+}
+
+public struct ClusterWorkersData: Codable, Sendable {
+    public let active_authority_node_id: String
+    public let active_authority_epoch: Int
+    public let generated_at: Int
+    public let workers: [WorkerPresenceData]
 }
 
 public struct BranchSyncCapabilityData: Codable, Sendable {
@@ -638,6 +738,68 @@ public struct SyncActionRequestData: Codable, Sendable {
 
 public struct SyncActionsRequestData: Codable, Sendable {
     public let actions: [SyncActionRequestData]
+}
+
+public struct PairingTokenIssueRequestData: Codable, Sendable {
+    public let issued_by_node_id: String
+    public let ttl_seconds: Int?
+    public let scopes: LinkScopeData
+    public let target_node_id: String?
+    public let target_node_display_name: String?
+    public let target_base_url: String?
+
+    public init(
+        issued_by_node_id: String,
+        ttl_seconds: Int?,
+        scopes: LinkScopeData,
+        target_node_id: String?,
+        target_node_display_name: String?,
+        target_base_url: String?
+    ) {
+        self.issued_by_node_id = issued_by_node_id
+        self.ttl_seconds = ttl_seconds
+        self.scopes = scopes
+        self.target_node_id = target_node_id
+        self.target_node_display_name = target_node_display_name
+        self.target_base_url = target_base_url
+    }
+}
+
+public struct PairingTokenRedeemRequestData: Codable, Sendable {
+    public let token_code: String
+    public let node_id: String
+    public let node_display_name: String
+    public let transport_hint: String?
+    public let requested_scopes: LinkScopeData?
+    public let sync_base_url: String?
+    public let tailscale_base_url: String?
+    public let lan_base_url: String?
+    public let localhost_base_url: String?
+    public let public_base_url: String?
+
+    public init(
+        token_code: String,
+        node_id: String,
+        node_display_name: String,
+        transport_hint: String?,
+        requested_scopes: LinkScopeData?,
+        sync_base_url: String?,
+        tailscale_base_url: String?,
+        lan_base_url: String?,
+        localhost_base_url: String?,
+        public_base_url: String?
+    ) {
+        self.token_code = token_code
+        self.node_id = node_id
+        self.node_display_name = node_display_name
+        self.transport_hint = transport_hint
+        self.requested_scopes = requested_scopes
+        self.sync_base_url = sync_base_url
+        self.tailscale_base_url = tailscale_base_url
+        self.lan_base_url = lan_base_url
+        self.localhost_base_url = localhost_base_url
+        self.public_base_url = public_base_url
+    }
 }
 
 public struct SyncActionResultData: Codable, Sendable {

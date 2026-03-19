@@ -121,6 +121,61 @@ export interface SettingsData {
     commute_buffer_source_title?: string | null;
     commute_buffer_source_accepted_at?: UnixSeconds | null;
   };
+  backup?: BackupSettingsData;
+}
+
+export type BackupStatusStateData = 'ready' | 'stale' | 'missing' | 'degraded';
+export type BackupTrustLevelData = 'ok' | 'warn' | 'fail';
+export type BackupFreshnessStateData = 'current' | 'stale' | 'missing';
+
+export interface BackupCoverageData {
+  included: string[];
+  omitted: string[];
+  notes: string[];
+}
+
+export interface BackupSecretOmissionFlagsData {
+  settings_secrets_omitted: boolean;
+  integration_tokens_omitted: boolean;
+  local_key_material_omitted: boolean;
+  notes: string[];
+}
+
+export interface BackupVerificationData {
+  verified: boolean;
+  checksum_algorithm: string;
+  checksum: string;
+  checked_paths: string[];
+  notes: string[];
+}
+
+export interface BackupStatusData {
+  state: BackupStatusStateData;
+  last_backup_id: string | null;
+  last_backup_at: Rfc3339Timestamp | null;
+  output_root: string | null;
+  artifact_coverage: BackupCoverageData | null;
+  config_coverage: BackupCoverageData | null;
+  verification_summary: BackupVerificationData | null;
+  warnings: string[];
+}
+
+export interface BackupFreshnessData {
+  state: BackupFreshnessStateData;
+  age_seconds: number | null;
+  stale_after_seconds: number;
+}
+
+export interface BackupTrustData {
+  level: BackupTrustLevelData;
+  status: BackupStatusData;
+  freshness: BackupFreshnessData;
+  guidance: string[];
+}
+
+export interface BackupSettingsData {
+  default_output_root: string;
+  trust: BackupTrustData;
 }
 
 export interface IntegrationCalendarData {
@@ -1891,6 +1946,82 @@ export function decodeDriftExplainData(value: unknown): DriftExplainData {
   };
 }
 
+export function decodeBackupCoverageData(value: unknown): BackupCoverageData {
+  const record = expectRecord(value, 'backup coverage');
+  return {
+    included: decodeArray(record.included ?? [], (item) => expectString(item, 'backup coverage.included')),
+    omitted: decodeArray(record.omitted ?? [], (item) => expectString(item, 'backup coverage.omitted')),
+    notes: decodeArray(record.notes ?? [], (item) => expectString(item, 'backup coverage.notes')),
+  };
+}
+
+export function decodeBackupVerificationData(value: unknown): BackupVerificationData {
+  const record = expectRecord(value, 'backup verification');
+  return {
+    verified: expectBoolean(record.verified, 'backup verification.verified'),
+    checksum_algorithm: expectString(
+      record.checksum_algorithm,
+      'backup verification.checksum_algorithm',
+    ),
+    checksum: expectString(record.checksum, 'backup verification.checksum'),
+    checked_paths: decodeArray(
+      record.checked_paths ?? [],
+      (item) => expectString(item, 'backup verification.checked_paths'),
+    ),
+    notes: decodeArray(record.notes ?? [], (item) => expectString(item, 'backup verification.notes')),
+  };
+}
+
+export function decodeBackupStatusData(value: unknown): BackupStatusData {
+  const record = expectRecord(value, 'backup status');
+  return {
+    state: expectString(record.state, 'backup status.state') as BackupStatusStateData,
+    last_backup_id: expectNullableString(record.last_backup_id, 'backup status.last_backup_id'),
+    last_backup_at: expectNullableString(record.last_backup_at, 'backup status.last_backup_at'),
+    output_root: expectNullableString(record.output_root, 'backup status.output_root'),
+    artifact_coverage: decodeNullable(record.artifact_coverage, decodeBackupCoverageData),
+    config_coverage: decodeNullable(record.config_coverage, decodeBackupCoverageData),
+    verification_summary: decodeNullable(
+      record.verification_summary,
+      decodeBackupVerificationData,
+    ),
+    warnings: decodeArray(record.warnings ?? [], (item) => expectString(item, 'backup status.warnings')),
+  };
+}
+
+export function decodeBackupFreshnessData(value: unknown): BackupFreshnessData {
+  const record = expectRecord(value, 'backup freshness');
+  return {
+    state: expectString(record.state, 'backup freshness.state') as BackupFreshnessStateData,
+    age_seconds: expectNullableNumber(record.age_seconds, 'backup freshness.age_seconds'),
+    stale_after_seconds: expectNumber(
+      record.stale_after_seconds,
+      'backup freshness.stale_after_seconds',
+    ),
+  };
+}
+
+export function decodeBackupTrustData(value: unknown): BackupTrustData {
+  const record = expectRecord(value, 'backup trust');
+  return {
+    level: expectString(record.level, 'backup trust.level') as BackupTrustLevelData,
+    status: decodeBackupStatusData(record.status),
+    freshness: decodeBackupFreshnessData(record.freshness),
+    guidance: decodeArray(record.guidance ?? [], (item) => expectString(item, 'backup trust.guidance')),
+  };
+}
+
+export function decodeBackupSettingsData(value: unknown): BackupSettingsData {
+  const record = expectRecord(value, 'backup settings');
+  return {
+    default_output_root: expectString(
+      record.default_output_root,
+      'backup settings.default_output_root',
+    ),
+    trust: decodeBackupTrustData(record.trust),
+  };
+}
+
 export function decodeSettingsData(value: unknown): SettingsData {
   const record = expectRecord(value, 'settings');
   const adaptiveOverrides =
@@ -2011,6 +2142,10 @@ export function decodeSettingsData(value: unknown): SettingsData {
                     'settings.adaptive_policy_overrides.commute_buffer_source_accepted_at',
                   ),
           },
+    backup:
+      record.backup === undefined
+        ? undefined
+        : decodeBackupSettingsData(record.backup),
   };
 }
 

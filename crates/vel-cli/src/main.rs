@@ -142,7 +142,20 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    Backup {},
+    Backup {
+        #[arg(long)]
+        create: bool,
+        #[arg(long)]
+        output_root: Option<String>,
+        #[arg(long)]
+        inspect: Option<String>,
+        #[arg(long)]
+        verify: Option<String>,
+        #[arg(long = "dry-run-restore")]
+        dry_run_restore: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
     Synthesize {
         #[command(subcommand)]
         command: SynthesizeCommand,
@@ -907,7 +920,26 @@ async fn main() -> anyhow::Result<()> {
         } => {
             commands::export_::run(&client, captures, runs, artifacts, format.as_str(), json).await
         }
-        Command::Backup {} => commands::backup::run(&config).await,
+        Command::Backup {
+            create,
+            output_root,
+            inspect,
+            verify,
+            dry_run_restore,
+            json,
+        } => {
+            commands::backup::run(
+                &client,
+                &config,
+                create,
+                output_root.as_deref(),
+                inspect.as_deref(),
+                verify.as_deref(),
+                dry_run_restore.as_deref(),
+                json,
+            )
+            .await
+        }
         Command::Synthesize { command } => match command {
             SynthesizeCommand::Week { json } => commands::synthesize::run_week(&client, json).await,
             SynthesizeCommand::Project { name, json } => {

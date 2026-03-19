@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildOperatorReviewStatus } from './operator'
+import { buildBackupTrustProjection, buildOperatorReviewStatus } from './operator'
 
 describe('buildOperatorReviewStatus', () => {
   it('derives writeback, handoff, conflict, and people review state from now plus settings', () => {
@@ -219,5 +219,64 @@ describe('buildOperatorReviewStatus', () => {
     expect(status.open_conflicts).toHaveLength(1)
     expect(status.people_needing_review.map((person) => person.display_name)).toEqual(['Annie Case'])
     expect(status.pending_execution_handoffs).toHaveLength(1)
+  })
+})
+
+describe('buildBackupTrustProjection', () => {
+  it('summarizes backend-owned backup trust for settings surfaces', () => {
+    const projection = buildBackupTrustProjection({
+      default_output_root: 'var/backups',
+      trust: {
+        level: 'warn',
+        status: {
+          state: 'stale',
+          last_backup_id: 'bkp_123',
+          last_backup_at: '2026-03-18T18:20:00Z',
+          output_root: '/tmp/backups/bkp_123',
+          artifact_coverage: {
+            included: ['artifacts/captures', 'artifacts/exports'],
+            omitted: ['artifacts/cache'],
+            notes: [],
+          },
+          config_coverage: {
+            included: ['config/public-settings.json', 'config/runtime-config.json'],
+            omitted: ['integration_google_calendar_secrets'],
+            notes: [],
+          },
+          verification_summary: {
+            verified: true,
+            checksum_algorithm: 'sha256',
+            checksum: 'abc123',
+            checked_paths: [],
+            notes: [],
+          },
+          warnings: ['last successful backup is stale'],
+        },
+        freshness: {
+          state: 'stale',
+          age_seconds: 60 * 60 * 50,
+          stale_after_seconds: 60 * 60 * 48,
+        },
+        guidance: ['Create or verify a fresh backup before risky maintenance.'],
+      },
+    })
+
+    expect(projection).toEqual({
+      level: 'warn',
+      statusLabel: 'Backup trust needs attention',
+      freshnessLabel: 'stale (50h old)',
+      outputRoot: '/tmp/backups/bkp_123',
+      lastBackupAt: '2026-03-18T18:20:00Z',
+      artifactSummary: 'Artifacts: 2 included, 1 omitted',
+      configSummary: 'Config: 2 included, 1 omitted',
+      warnings: ['last successful backup is stale'],
+      guidance: ['Create or verify a fresh backup before risky maintenance.'],
+      commandHints: [
+        'vel backup create',
+        'vel backup inspect <backup_root>',
+        'vel backup verify <backup_root>',
+        'vel backup restore-check <backup_root>',
+      ],
+    })
   })
 })

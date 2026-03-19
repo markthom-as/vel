@@ -101,6 +101,42 @@ describe('SettingsPage', () => {
               default_prep_source_title: 'Increase prep window',
               default_prep_source_accepted_at: 1_710_000_200,
             },
+            backup: {
+              default_output_root: 'var/backups',
+              trust: {
+                level: 'warn',
+                status: {
+                  state: 'stale',
+                  last_backup_id: 'bkp_123',
+                  last_backup_at: '2026-03-18T18:20:00Z',
+                  output_root: '/tmp/backups/bkp_123',
+                  artifact_coverage: {
+                    included: ['artifacts/captures', 'artifacts/exports'],
+                    omitted: ['artifacts/cache'],
+                    notes: ['Transient cache directories are excluded.'],
+                  },
+                  config_coverage: {
+                    included: ['config/public-settings.json', 'config/runtime-config.json'],
+                    omitted: ['integration_google_calendar_secrets'],
+                    notes: ['Secret-bearing settings are omitted.'],
+                  },
+                  verification_summary: {
+                    verified: true,
+                    checksum_algorithm: 'sha256',
+                    checksum: 'abc123',
+                    checked_paths: ['/tmp/backups/bkp_123/manifest.json'],
+                    notes: ['Verified from the snapshot and manifest.'],
+                  },
+                  warnings: ['last successful backup is stale'],
+                },
+                freshness: {
+                  state: 'stale',
+                  age_seconds: 60 * 60 * 50,
+                  stale_after_seconds: 60 * 60 * 48,
+                },
+                guidance: ['Create or verify a fresh backup before risky maintenance.'],
+              },
+            },
           },
           meta: { request_id: 'req_1' },
         } as never
@@ -452,6 +488,32 @@ describe('SettingsPage', () => {
             ],
           },
           meta: { request_id: 'req_cluster_workers' },
+        } as never
+      }
+      if (path === '/v1/linking/status') {
+        return {
+          ok: true,
+          data: [
+            {
+              node_id: 'vel-air',
+              node_display_name: 'Vel Air',
+              status: 'linked',
+              scopes: {
+                read_context: true,
+                write_safe_actions: true,
+                execute_repo_tasks: false,
+              },
+              linked_at: '2026-03-16T18:00:00Z',
+              last_seen_at: '2026-03-16T18:15:00Z',
+              transport_hint: 'tailscale',
+              sync_base_url: 'http://vel-air.tailnet.ts.net:4130',
+              tailscale_base_url: 'http://vel-air.tailnet.ts.net:4130',
+              lan_base_url: 'http://192.168.1.70:4130',
+              localhost_base_url: null,
+              public_base_url: null,
+            },
+          ],
+          meta: { request_id: 'req_linking_status' },
         } as never
       }
       if (path === '/api/integrations') {
@@ -968,6 +1030,25 @@ describe('SettingsPage', () => {
     expect(within(root).getByText('45 min')).toBeInTheDocument()
     expect(within(root).getByText(/from increase commute buffer/i)).toBeInTheDocument()
     expect(within(root).getByText(/from increase prep window/i)).toBeInTheDocument()
+  })
+
+  it('renders the backend-owned backup trust card in general settings', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+
+    await waitFor(() => {
+      const root = getSettingsRoot(container)
+      expect(within(root).getByRole('heading', { name: /backup trust/i })).toBeInTheDocument()
+    })
+
+    const root = getSettingsRoot(container)
+    expect(within(root).getByText('Backup trust needs attention')).toBeInTheDocument()
+    expect(within(root).getByText('stale (50h old)')).toBeInTheDocument()
+    expect(within(root).getByText('/tmp/backups/bkp_123')).toBeInTheDocument()
+    expect(within(root).getByText('Artifacts: 2 included, 1 omitted')).toBeInTheDocument()
+    expect(within(root).getByText('Config: 2 included, 1 omitted')).toBeInTheDocument()
+    expect(within(root).getAllByText('vel backup create').length).toBeGreaterThan(0)
+    expect(within(root).getByText('vel backup inspect <backup_root>')).toBeInTheDocument()
+    expect(within(root).getByText('vel backup verify <backup_root>')).toBeInTheDocument()
   })
 
   it('renders documentation entrypoints in general settings', async () => {
@@ -2689,7 +2770,7 @@ describe('SettingsPage', () => {
     expect(within(root).getByText(/CLI fallback/i)).toBeInTheDocument()
 
     fireEvent.click(within(root).getByRole('button', { name: /Remote Mac/i }))
-    fireEvent.click(within(root).getByRole('button', { name: /Issue pairing token/i }))
+    fireEvent.click(within(root).getByRole('button', { name: /Pair nodes/i }))
 
     await waitFor(() => {
       expect(vi.mocked(client.apiPost)).toHaveBeenCalledWith(
@@ -2712,7 +2793,7 @@ describe('SettingsPage', () => {
     expect(within(root).getByText('Granted scopes')).toBeInTheDocument()
     expect(within(root).getByText('ABC-123')).toBeInTheDocument()
     expect(within(root).queryByText('Suggested link targets')).not.toBeInTheDocument()
-    expect(within(root).getByText(/Remote Mac has been prompted to enter it on that client/i)).toBeInTheDocument()
+    expect(within(root).getByText(/Pair nodes code created\. Remote Mac has been prompted to enter it on that client/i)).toBeInTheDocument()
     expect(within(root).getAllByText('Routes').length).toBeGreaterThan(0)
     expect(within(root).getByText('http://vel-air.tailnet.ts.net:4130')).toBeInTheDocument()
     expect(within(root).getByText('http://192.168.1.70:4130')).toBeInTheDocument()
@@ -2767,7 +2848,7 @@ describe('SettingsPage', () => {
       )
     })
 
-    expect(within(root).getByText(/Permission update token issued for Vel Air/i)).toBeInTheDocument()
+    expect(within(root).getByText(/Pair nodes code created for Vel Air/i)).toBeInTheDocument()
     expect(within(root).getByText('WXY-789')).toBeInTheDocument()
   })
 

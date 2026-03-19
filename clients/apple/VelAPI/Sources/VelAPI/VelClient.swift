@@ -30,6 +30,10 @@ public final class VelClient {
         try await get("/v1/cluster/bootstrap")
     }
 
+    public func clusterWorkers() async throws -> ClusterWorkersData {
+        try await get("/v1/cluster/workers")
+    }
+
     public func syncBootstrap() async throws -> SyncBootstrapData {
         try await get("/v1/sync/bootstrap")
     }
@@ -122,6 +126,24 @@ public final class VelClient {
 
     public func syncActions(_ request: SyncActionsRequestData) async throws -> SyncActionsResultData {
         try await post("/v1/sync/actions", body: request)
+    }
+
+    // MARK: - Linking
+
+    public func issuePairingToken(_ request: PairingTokenIssueRequestData) async throws -> PairingTokenData {
+        try await post("/v1/linking/tokens", body: request)
+    }
+
+    public func redeemPairingToken(_ request: PairingTokenRedeemRequestData) async throws -> LinkedNodeData {
+        try await post("/v1/linking/redeem", body: request)
+    }
+
+    public func revokeLinkedNode(nodeID: String) async throws -> LinkedNodeData {
+        try await post("/v1/linking/revoke/\(nodeID)", body: Optional<String>.none)
+    }
+
+    public func linkingStatus() async throws -> [LinkedNodeData] {
+        try await get("/v1/linking/status")
     }
 
     // MARK: - Apple quick loops

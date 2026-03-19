@@ -19,6 +19,7 @@ import {
   decodeRunSummaryData,
   decodeSettingsData,
   type ApiResponse,
+  type BackupSettingsData,
   type ClusterBootstrapData,
   type ClusterWorkersData,
   type ComponentData,
@@ -60,6 +61,19 @@ export interface OperatorReviewStatusData {
   open_conflicts: ConflictCaseData[];
   people_needing_review: PersonRecordData[];
   pending_execution_handoffs: ExecutionHandoffRecordData[];
+}
+
+export interface BackupTrustProjectionData {
+  level: 'ok' | 'warn' | 'fail';
+  statusLabel: string;
+  freshnessLabel: string;
+  outputRoot: string;
+  lastBackupAt: string | null;
+  artifactSummary: string;
+  configSummary: string;
+  warnings: string[];
+  guidance: string[];
+  commandHints: string[];
 }
 
 function decodeSyncResultData(value: unknown): SyncResultData {
@@ -131,6 +145,70 @@ export function buildOperatorReviewStatus(
     open_conflicts: now?.conflicts ?? [],
     people_needing_review: [...peopleNeedingReview.values()],
     pending_execution_handoffs: handoffs ?? [],
+  };
+}
+
+function formatCoverageSummary(
+  label: string,
+  coverage: BackupSettingsData['trust']['status']['artifact_coverage'] | BackupSettingsData['trust']['status']['config_coverage'],
+): string {
+  if (!coverage) {
+    return `${label}: not recorded`;
+  }
+  return `${label}: ${coverage.included.length} included, ${coverage.omitted.length} omitted`;
+}
+
+function backupStatusLabel(level: BackupTrustProjectionData['level']): string {
+  switch (level) {
+    case 'ok':
+      return 'Healthy backup trust';
+    case 'warn':
+      return 'Backup trust needs attention';
+    case 'fail':
+      return 'No trustworthy backup';
+  }
+}
+
+function backupFreshnessLabel(backup: BackupSettingsData): string {
+  const { freshness } = backup.trust;
+  if (freshness.state === 'missing') {
+    return 'Missing';
+  }
+  if (freshness.age_seconds == null) {
+    return freshness.state;
+  }
+  const hours = Math.floor(freshness.age_seconds / 3600);
+  if (hours < 1) {
+    const minutes = Math.max(1, Math.floor(freshness.age_seconds / 60));
+    return `${freshness.state} (${minutes}m old)`;
+  }
+  return `${freshness.state} (${hours}h old)`;
+}
+
+export function buildBackupTrustProjection(
+  backup: BackupSettingsData | null | undefined,
+): BackupTrustProjectionData | null {
+  if (!backup) {
+    return null;
+  }
+  const level = backup.trust.level;
+  const outputRoot = backup.trust.status.output_root ?? backup.default_output_root;
+  return {
+    level,
+    statusLabel: backupStatusLabel(level),
+    freshnessLabel: backupFreshnessLabel(backup),
+    outputRoot,
+    lastBackupAt: backup.trust.status.last_backup_at,
+    artifactSummary: formatCoverageSummary('Artifacts', backup.trust.status.artifact_coverage),
+    configSummary: formatCoverageSummary('Config', backup.trust.status.config_coverage),
+    warnings: backup.trust.status.warnings,
+    guidance: backup.trust.guidance,
+    commandHints: [
+      'vel backup create',
+      'vel backup inspect <backup_root>',
+      'vel backup verify <backup_root>',
+      'vel backup restore-check <backup_root>',
+    ],
   };
 }
 

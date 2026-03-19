@@ -2,16 +2,17 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vel_api_types::{
-    ApiResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
-    ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
-    CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
-    CommitmentUpdateRequest, ConnectInstanceData, DoctorData, EndOfDayData, EvaluateResultData,
-    ExecutionHandoffData, HealthData, IntegrationConnectionData, IntegrationConnectionEventData,
-    LinkScopeData, LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest,
-    MorningData, NowData, NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest,
-    PairingTokenData, ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest,
-    SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData, SyncResultData,
-    SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
+    ApiResponse, BackupManifestData, BackupStatusData, BranchSyncRequestData,
+    CaptureCreateRequest, CaptureCreateResponse, ClusterBootstrapData, CommandExecuteRequest,
+    CommandExecutionPlanData, CommandExecutionResultData, CommandPlanRequest,
+    CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, ConnectInstanceData,
+    DoctorData, EndOfDayData, EvaluateResultData, ExecutionHandoffData, HealthData,
+    IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData, LinkedNodeData,
+    LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NowData, NudgeData,
+    NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData, ProjectListResponseData,
+    QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData,
+    SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData, UncertaintyData,
+    ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -32,6 +33,35 @@ struct RedeemPairingTokenRequestData {
     transport_hint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     requested_scopes: Option<LinkScopeData>,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct CreateBackupRequestData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_root: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BackupRootRequestData {
+    pub backup_root: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupCreateResultData {
+    pub manifest: BackupManifestData,
+    pub status: BackupStatusData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupInspectResultData {
+    pub manifest: BackupManifestData,
+    pub status: BackupStatusData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupVerifyResultData {
+    pub manifest: BackupManifestData,
+    pub status: BackupStatusData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -221,6 +251,49 @@ impl ApiClient {
 
     pub async fn doctor(&self) -> anyhow::Result<ApiResponse<DoctorData>> {
         self.get("/v1/doctor").await
+    }
+
+    pub async fn backup_status(&self) -> anyhow::Result<ApiResponse<BackupStatusData>> {
+        self.get("/v1/backup/status").await
+    }
+
+    pub async fn create_backup(
+        &self,
+        output_root: Option<&str>,
+    ) -> anyhow::Result<ApiResponse<BackupCreateResultData>> {
+        self.post_json(
+            "/v1/backup/create",
+            &CreateBackupRequestData {
+                output_root: output_root.map(ToString::to_string),
+            },
+        )
+        .await
+    }
+
+    pub async fn inspect_backup(
+        &self,
+        backup_root: &str,
+    ) -> anyhow::Result<ApiResponse<BackupInspectResultData>> {
+        self.post_json(
+            "/v1/backup/inspect",
+            &BackupRootRequestData {
+                backup_root: backup_root.to_string(),
+            },
+        )
+        .await
+    }
+
+    pub async fn verify_backup(
+        &self,
+        backup_root: &str,
+    ) -> anyhow::Result<ApiResponse<BackupVerifyResultData>> {
+        self.post_json(
+            "/v1/backup/verify",
+            &BackupRootRequestData {
+                backup_root: backup_root.to_string(),
+            },
+        )
+        .await
     }
 
     pub async fn get_capture(

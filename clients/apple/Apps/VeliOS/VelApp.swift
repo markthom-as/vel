@@ -26,6 +26,9 @@ final class VelClientStore: ObservableObject {
     @Published var authorityLabel: String?
     @Published var pendingActionCount = 0
     @Published var lastSyncAt: Date?
+    @Published var clusterBootstrap: ClusterBootstrapData?
+    @Published var clusterWorkers: ClusterWorkersData?
+    @Published var linkedNodes: [LinkedNodeData] = []
 
     @Published var context: CurrentContextData?
     @Published var nudges: [NudgeData] = []
@@ -53,7 +56,10 @@ final class VelClientStore: ObservableObject {
                 _ = await offlineStore.drainQueuedActions(using: client)
 
                 let bootstrap = try await client.syncBootstrap()
+                let workers = try? await client.clusterWorkers()
+                let linkedNodes = (try? await client.linkingStatus()) ?? bootstrap.linked_nodes
                 offlineStore.hydrate(from: bootstrap)
+                offlineStore.saveCachedLinkedNodes(linkedNodes)
 
                 let recentSignals = try await client.signals(limit: 80)
                 offlineStore.saveCachedSignals(recentSignals)
@@ -64,10 +70,13 @@ final class VelClientStore: ObservableObject {
                 activeTransport = bootstrap.cluster.sync_transport
                 authorityLabel = bootstrap.cluster.node_display_name
                 lastSyncAt = Date()
+                clusterBootstrap = bootstrap.cluster
+                clusterWorkers = workers
 
                 context = bootstrap.current_context ?? offlineStore.cachedContext()
                 nudges = offlineStore.cachedNudgesApplyingPendingActions()
                 commitments = offlineStore.cachedCommitmentsApplyingPendingActions()
+                self.linkedNodes = linkedNodes
                 signals = recentSignals
                 pendingActionCount = offlineStore.pendingActionCount()
                 return
@@ -81,6 +90,8 @@ final class VelClientStore: ObservableObject {
         activeBaseURL = nil
         activeTransport = nil
         authorityLabel = nil
+        clusterBootstrap = nil
+        clusterWorkers = nil
         applyCachedState()
 
         if let lastError {
@@ -187,6 +198,80 @@ final class VelClientStore: ObservableObject {
         errorMessage = nil
     }
 
+    func issuePairingToken(
+        scopes: LinkScopeData,
+        targetWorker: WorkerPresenceData?
+    ) async throws -> PairingTokenData {
+        guard let bootstrap = clusterBootstrap else {
+            throw VelClientError.apiError("Cluster bootstrap must load before issuing a pairing token.")
+        }
+        let request = PairingTokenIssueRequestData(
+            issued_by_node_id: bootstrap.node_id,
+            ttl_seconds: nil,
+            scopes: scopes,
+            target_node_id: targetWorker?.node_id,
+            target_node_display_name: targetWorker?.node_display_name,
+            target_base_url: preferredRemoteBaseURL(
+                syncBaseURL: targetWorker?.sync_base_url,
+                tailscaleBaseURL: targetWorker?.tailscale_base_url,
+                lanBaseURL: targetWorker?.lan_base_url,
+                publicBaseURL: nil
+            )
+        )
+        let token = try await client.issuePairingToken(request)
+        await refresh()
+        return token
+    }
+
+    func redeemPairingToken(
+        tokenCode: String,
+        requestedScopes: LinkScopeData
+    ) async throws -> LinkedNodeData {
+        guard let bootstrap = clusterBootstrap else {
+            throw VelClientError.apiError("Cluster bootstrap must load before redeeming a pairing token.")
+        }
+        let linkedNode = try await client.redeemPairingToken(
+            PairingTokenRedeemRequestData(
+                token_code: tokenCode,
+                node_id: bootstrap.node_id,
+                node_display_name: bootstrap.node_display_name,
+                transport_hint: bootstrap.sync_transport,
+                requested_scopes: requestedScopes,
+                sync_base_url: bootstrap.sync_base_url,
+                tailscale_base_url: bootstrap.tailscale_base_url,
+                lan_base_url: bootstrap.lan_base_url,
+                localhost_base_url: bootstrap.localhost_base_url,
+                public_base_url: nil
+            )
+        )
+        let updatedLinkedNodes = [linkedNode] + linkedNodes.filter { $0.node_id != linkedNode.node_id }
+        self.linkedNodes = updatedLinkedNodes
+        offlineStore.saveCachedLinkedNodes(updatedLinkedNodes)
+        await refresh()
+        return linkedNode
+    }
+
+    func revokeLinkedNode(nodeID: String) async throws {
+        _ = try await client.revokeLinkedNode(nodeID: nodeID)
+        let updatedLinkedNodes = linkedNodes.filter { $0.node_id != nodeID }
+        linkedNodes = updatedLinkedNodes
+        offlineStore.saveCachedLinkedNodes(updatedLinkedNodes)
+        await refresh()
+    }
+
+    var discoveredWorkers: [WorkerPresenceData] {
+        guard let bootstrap = clusterBootstrap else { return [] }
+        let linkedNodeIDs = Set(linkedNodes.map(\.node_id))
+        return (clusterWorkers?.workers ?? []).filter { worker in
+            worker.node_id != bootstrap.node_id && !linkedNodeIDs.contains(worker.node_id)
+        }
+    }
+
+    var localIncomingLinkingPrompt: LinkingPromptData? {
+        guard let bootstrap = clusterBootstrap else { return nil }
+        return clusterWorkers?.workers.first(where: { $0.node_id == bootstrap.node_id })?.incoming_linking_prompt
+    }
+
     private func performAction(
         queuedMessage: String,
         remote: () async throws -> Void,
@@ -207,6 +292,7 @@ final class VelClientStore: ObservableObject {
         context = offlineStore.cachedContext()
         nudges = offlineStore.cachedNudgesApplyingPendingActions()
         commitments = offlineStore.cachedCommitmentsApplyingPendingActions()
+        linkedNodes = offlineStore.cachedLinkedNodes()
         signals = offlineStore.cachedSignals()
         pendingActionCount = offlineStore.pendingActionCount()
     }
@@ -225,5 +311,20 @@ final class VelClientStore: ObservableObject {
             "",
             text
         ].joined(separator: "\n")
+    }
+
+    private func preferredRemoteBaseURL(
+        syncBaseURL: String?,
+        tailscaleBaseURL: String?,
+        lanBaseURL: String?,
+        publicBaseURL: String?
+    ) -> String? {
+        for value in [syncBaseURL, tailscaleBaseURL, lanBaseURL, publicBaseURL] {
+            let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let trimmed, !trimmed.isEmpty, !trimmed.contains("127.0.0.1"), !trimmed.contains("localhost") {
+                return trimmed
+            }
+        }
+        return nil
     }
 }
