@@ -5,7 +5,9 @@ use time::format_description::well_known::Rfc3339;
 use vel_api_types::{BackupManifestData, BackupStatusData, BackupTrustLevelData};
 use vel_config::AppConfig;
 
-use crate::client::{ApiClient, BackupCreateResultData, BackupInspectResultData, BackupVerifyResultData};
+use crate::client::{
+    ApiClient, BackupCreateResultData, BackupInspectResultData, BackupVerifyResultData,
+};
 
 pub async fn run(
     client: &ApiClient,
@@ -51,7 +53,9 @@ pub async fn run(
 
     if let Some(root) = dry_run_restore {
         let response = client.inspect_backup(root).await?;
-        let data = response.data.context("backup dry-run inspect missing data")?;
+        let data = response
+            .data
+            .context("backup dry-run inspect missing data")?;
         return print_dry_run_restore(&data.manifest, &data.status, json);
     }
 
@@ -69,7 +73,10 @@ fn print_create(data: &BackupCreateResultData, json: bool) -> anyhow::Result<()>
     println!("backup create: {}", data.manifest.backup_id);
     println!("created_at: {}", format_timestamp(data.manifest.created_at));
     println!("output_root: {}", data.manifest.output_root);
-    println!("database_snapshot: {}", data.manifest.database_snapshot_path);
+    println!(
+        "database_snapshot: {}",
+        data.manifest.database_snapshot_path
+    );
     print_status_lines(&data.status);
     Ok(())
 }
@@ -83,7 +90,10 @@ fn print_inspect(data: &BackupInspectResultData, json: bool) -> anyhow::Result<(
     println!("backup inspect: {}", data.manifest.backup_id);
     println!("created_at: {}", format_timestamp(data.manifest.created_at));
     println!("output_root: {}", data.manifest.output_root);
-    println!("database_snapshot: {}", data.manifest.database_snapshot_path);
+    println!(
+        "database_snapshot: {}",
+        data.manifest.database_snapshot_path
+    );
     print_manifest_lines(&data.manifest);
     print_status_lines(&data.status);
     Ok(())
@@ -177,7 +187,7 @@ fn print_status(status: &BackupStatusData, config: &AppConfig, json: bool) -> an
             },
             guidance: Vec::new(),
         })[0]
-        .trim_start_matches("backup_trust: ")
+            .trim_start_matches("backup_trust: ")
     );
     print_status_lines(status);
     println!("commands:");
@@ -245,9 +255,7 @@ fn manual_restore_steps(manifest: &BackupManifestData) -> Vec<String> {
 }
 
 fn format_timestamp(value: time::OffsetDateTime) -> String {
-    value
-        .format(&Rfc3339)
-        .unwrap_or_else(|_| value.to_string())
+    value.format(&Rfc3339).unwrap_or_else(|_| value.to_string())
 }
 
 #[cfg(test)]
@@ -308,7 +316,9 @@ mod tests {
     #[test]
     fn backup_manual_restore_steps_reference_verify_and_copy_targets() {
         let steps = manual_restore_steps(&sample_manifest());
-        assert!(steps.iter().any(|step| step.contains("vel backup --verify")));
+        assert!(steps
+            .iter()
+            .any(|step| step.contains("vel backup --verify")));
         assert!(steps.iter().any(|step| step.contains("data/vel.sqlite")));
         assert!(steps.iter().any(|step| step.contains("artifacts")));
     }

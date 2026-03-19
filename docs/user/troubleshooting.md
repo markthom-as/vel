@@ -203,6 +203,25 @@ What to do:
 - use `Re-run evaluate` when the context itself is stale
 - open Settings when the UI tells you the problem is configuration or credentials
 
+## Backup trust is degraded or missing
+
+Symptoms:
+
+- `vel doctor` reports backup `warn` or `fail`
+- Settings shows backup trust warnings
+- the backup card says the last successful backup is stale or missing
+
+What to do:
+
+```bash
+vel backup --create
+vel backup --inspect <backup_root>
+vel backup --verify <backup_root>
+vel backup --dry-run-restore <backup_root>
+```
+
+Use `--dry-run-restore` before touching the live database. Restore remains manual-first in this phase.
+
 ## I need to inspect why Vel said something
 
 Use the inspect and explain surfaces instead of guessing:

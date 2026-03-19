@@ -86,6 +86,18 @@ cargo run -p vel-cli -- evaluate
 
 On macOS, if local source snapshots are already in `~/Library/Application Support/Vel/...`, `veld` may bootstrap them automatically at startup. Manual sync is still useful when you want an immediate refresh.
 
+## Backup and trust check
+
+Before risky local changes, confirm backup trust:
+
+```bash
+cargo run -p vel-cli -- doctor
+cargo run -p vel-cli -- backup --create
+cargo run -p vel-cli -- backup --verify <backup_root>
+```
+
+Use `cargo run -p vel-cli -- backup --dry-run-restore <backup_root>` if you need to rehearse recovery without touching live state.
+
 ## End of day
 
 Use the end-of-day and review flows:

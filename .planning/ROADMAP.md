@@ -19,7 +19,7 @@ Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical base
 - [x] **Phase 6: High-value write-back integrations and lightweight people graph** - Add notes, reminders, GitHub, email, transcripts, and minimal people identity with upstream write-back (COMPLETE)
 - [x] **Phase 7: Apple action loops and behavioral signal ingestion** - Prioritize fast iOS/watch actions and directly useful behavior signals (COMPLETE)
 - [x] **Phase 8: Coding-centric supervised execution with GSD and local agents** - Launch and supervise coding-first runtimes with direct GSD integration and local-agent support (COMPLETE)
-- [ ] **Phase 9: Backup-first trust surfaces and simple operator control** - Add backup-first trust workflows and keep control/config surfaces simple
+- [x] **Phase 9: Backup-first trust surfaces and simple operator control** - Add backup-first trust workflows and keep control/config surfaces simple (COMPLETE)
 - [ ] **Phase 10: Daily-loop morning overview and standup commitment engine** - Turn `Now`, calendar, Todoist, commitments, and voice into a bounded daily prioritization loop
 - [ ] **Phase 11: Agent grounding and operator-relevant data/tool awareness** - Make supervised agents aware of real Vel state, projects, people, commitments, and bounded tool surfaces
 - [ ] **Phase 12: Operator shell, onboarding, and connector ergonomics** - Make the daily loop and integration surfaces easier to adopt, navigate, and trust
@@ -118,7 +118,7 @@ Residual work moved forward:
 ## Progress
 
 **Execution Order:**
-Remaining execution order: 9 → 10 → 11 → 12
+Remaining execution order: 10 → 11 → 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -131,7 +131,7 @@ Remaining execution order: 9 → 10 → 11 → 12
 | 6. High-value write-back integrations and lightweight people graph | 7/7 | Complete | 2026-03-19 |
 | 7. Apple action loops and behavioral signal ingestion | 4/4 | Complete | 2026-03-19 |
 | 8. Coding-centric supervised execution with GSD and local agents | 6/6 | Complete | 2026-03-19 |
-| 9. Backup-first trust surfaces and simple operator control | 2/4 | Executing | 2026-03-19 |
+| 9. Backup-first trust surfaces and simple operator control | 4/4 | Complete | 2026-03-19 |
 | 10. Daily-loop morning overview and standup commitment engine | 0/5 | Planned | - |
 | 11. Agent grounding and operator-relevant data/tool awareness | 0/3 | Planned | - |
 | 12. Operator shell, onboarding, and connector ergonomics | 0/0 | Not planned | - |
@@ -211,7 +211,7 @@ Plans:
 - [x] 09-01-PLAN.md — Ratify Phase 09 requirements and publish backup manifest/trust contracts before runtime work widens
 - [x] 09-02-PLAN.md — Implement the snapshot-backed backup service, persisted history, and real CLI/API trust path
 - [x] 09-03-PLAN.md — Surface backup freshness and safety state through doctor, settings, CLI, and web runtime views
-- [ ] 09-04-PLAN.md — Close with manual restore guidance, non-destructive verification, and narrow validation evidence
+- [x] 09-04-PLAN.md — Close with manual restore guidance, non-destructive verification, and narrow validation evidence
 
 ### Phase 10: Daily-loop morning overview and standup commitment engine
 

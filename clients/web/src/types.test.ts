@@ -576,6 +576,126 @@ describe('transport decoders', () => {
     })
   })
 
+  it('decodes legacy backup coverage arrays in settings payloads', () => {
+    expect(
+      decodeSettingsData({
+        backup: {
+          default_output_root: 'var/backups',
+          trust: {
+            level: 'warn',
+            status: {
+              state: 'stale',
+              last_backup_id: 'bkp_123',
+              last_backup_at: '2026-03-18T18:20:00Z',
+              output_root: '/tmp/backups/bkp_123',
+              artifact_coverage: ['artifacts/captures', 'artifacts/threads'],
+              config_coverage: ['config/runtime-config.json'],
+              verification_summary: null,
+              warnings: [],
+            },
+            freshness: {
+              state: 'stale',
+              age_seconds: 200000,
+              stale_after_seconds: 172800,
+            },
+            guidance: [],
+          },
+        },
+      }),
+    ).toEqual({
+      backup: {
+        default_output_root: 'var/backups',
+        trust: {
+          level: 'warn',
+          status: {
+            state: 'stale',
+            last_backup_id: 'bkp_123',
+            last_backup_at: '2026-03-18T18:20:00Z',
+            output_root: '/tmp/backups/bkp_123',
+            artifact_coverage: {
+              included: ['artifacts/captures', 'artifacts/threads'],
+              omitted: [],
+              notes: [],
+            },
+            config_coverage: {
+              included: ['config/runtime-config.json'],
+              omitted: [],
+              notes: [],
+            },
+            verification_summary: null,
+            warnings: [],
+          },
+          freshness: {
+            state: 'stale',
+            age_seconds: 200000,
+            stale_after_seconds: 172800,
+          },
+          guidance: [],
+        },
+      },
+    })
+  })
+
+  it('decodes legacy backup coverage strings in settings payloads', () => {
+    expect(
+      decodeSettingsData({
+        backup: {
+          default_output_root: 'var/backups',
+          trust: {
+            level: 'warn',
+            status: {
+              state: 'stale',
+              last_backup_id: 'bkp_123',
+              last_backup_at: '2026-03-18T18:20:00Z',
+              output_root: '/tmp/backups/bkp_123',
+              artifact_coverage: 'legacy summary only',
+              config_coverage: 0,
+              verification_summary: null,
+              warnings: [],
+            },
+            freshness: {
+              state: 'stale',
+              age_seconds: 200000,
+              stale_after_seconds: 172800,
+            },
+            guidance: [],
+          },
+        },
+      }),
+    ).toEqual({
+      backup: {
+        default_output_root: 'var/backups',
+        trust: {
+          level: 'warn',
+          status: {
+            state: 'stale',
+            last_backup_id: 'bkp_123',
+            last_backup_at: '2026-03-18T18:20:00Z',
+            output_root: '/tmp/backups/bkp_123',
+            artifact_coverage: {
+              included: [],
+              omitted: [],
+              notes: ['legacy summary only'],
+            },
+            config_coverage: {
+              included: [],
+              omitted: [],
+              notes: [],
+            },
+            verification_summary: null,
+            warnings: [],
+          },
+          freshness: {
+            state: 'stale',
+            age_seconds: 200000,
+            stale_after_seconds: 172800,
+          },
+          guidance: [],
+        },
+      },
+    })
+  })
+
   it('decodes pairing token suggestions', () => {
     expect(
       decodePairingTokenData({

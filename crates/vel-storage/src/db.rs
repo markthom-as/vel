@@ -4,7 +4,7 @@ use crate::{
         artifacts_repo, assistant_transcripts_repo, backup_runs_repo, broker_events_repo,
         captures_repo, chat_repo, cluster_workers_repo, commitment_risk_repo, commitments_repo,
         conflict_cases_repo, connect_runs_repo, context_timeline_repo, current_context_repo,
-        execution_contexts_repo, execution_handoffs_repo, inferred_state_repo,
+        daily_sessions_repo, execution_contexts_repo, execution_handoffs_repo, inferred_state_repo,
         integration_connections_repo, linking_repo, nudges_repo, people_repo, processing_jobs_repo,
         projects_repo, run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo,
         settings_repo, signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
@@ -20,14 +20,15 @@ use vel_core::context::CurrentContextV1;
 pub use vel_core::WorkAssignmentStatus;
 use vel_core::{
     ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus,
-    ConflictCaseRecord, ContextCapture, ConversationId, EventId, IntegrationConnection,
-    IntegrationConnectionEvent, IntegrationConnectionEventType, IntegrationConnectionId,
-    IntegrationConnectionSettingRef, IntegrationConnectionStatus, IntegrationFamily,
-    IntegrationProvider, InterventionId, JobId, JobStatus, LinkedNodeRecord, MessageId,
-    OrderingStamp, OrientationSnapshot, PairingTokenRecord, PersonAlias, PersonId, PersonRecord,
-    PrivacyClass, ProjectFamily, ProjectId, ProjectRecord, Ref, Run, RunEvent, RunEventType, RunId,
-    RunKind, RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass,
-    WritebackOperationRecord, WritebackStatus,
+    ConflictCaseRecord, ContextCapture, ConversationId, DailyLoopPhase, DailyLoopPrompt,
+    DailyLoopSession, DailyLoopSessionOutcome, DailyLoopSessionState, DailyLoopStatus,
+    DailyLoopTurnState, EventId, IntegrationConnection, IntegrationConnectionEvent,
+    IntegrationConnectionEventType, IntegrationConnectionId, IntegrationConnectionSettingRef,
+    IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, InterventionId, JobId,
+    JobStatus, LinkedNodeRecord, MessageId, OrderingStamp, OrientationSnapshot, PairingTokenRecord,
+    PersonAlias, PersonId, PersonRecord, PrivacyClass, ProjectFamily, ProjectId, ProjectRecord,
+    Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult, SemanticHit,
+    SemanticMemoryRecord, SemanticQuery, SyncClass, WritebackOperationRecord, WritebackStatus,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -156,6 +157,15 @@ pub struct BackupRunRecord {
     pub completed_at: Option<OffsetDateTime>,
     pub verified_at: Option<OffsetDateTime>,
     pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DailySessionRecord {
+    pub session: DailyLoopSession,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+    pub completed_at: Option<OffsetDateTime>,
+    pub cancelled_at: Option<OffsetDateTime>,
 }
 
 pub struct SignalInsert {
@@ -994,6 +1004,75 @@ impl Storage {
 
     pub async fn create_sqlite_snapshot(&self, destination: &str) -> Result<(), StorageError> {
         backup_runs_repo::create_sqlite_snapshot(self.pool(), destination).await
+    }
+
+    pub async fn create_daily_session(
+        &self,
+        session: &DailyLoopSession,
+        now: OffsetDateTime,
+    ) -> Result<DailySessionRecord, StorageError> {
+        daily_sessions_repo::create_daily_session(self.pool(), session, now).await
+    }
+
+    pub async fn get_daily_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<DailySessionRecord>, StorageError> {
+        daily_sessions_repo::get_daily_session(self.pool(), session_id).await
+    }
+
+    pub async fn get_active_daily_session_for_date(
+        &self,
+        session_date: &str,
+        phase: DailyLoopPhase,
+    ) -> Result<Option<DailySessionRecord>, StorageError> {
+        daily_sessions_repo::get_active_daily_session_for_date(self.pool(), session_date, phase)
+            .await
+    }
+
+    pub async fn update_daily_session_state(
+        &self,
+        session_id: &str,
+        status: DailyLoopStatus,
+        turn_state: DailyLoopTurnState,
+        current_prompt: Option<&DailyLoopPrompt>,
+        state: &DailyLoopSessionState,
+        outcome: Option<&DailyLoopSessionOutcome>,
+        now: OffsetDateTime,
+    ) -> Result<Option<DailySessionRecord>, StorageError> {
+        daily_sessions_repo::update_daily_session_state(
+            self.pool(),
+            session_id,
+            status,
+            turn_state,
+            current_prompt,
+            state,
+            outcome,
+            now,
+        )
+        .await
+    }
+
+    pub async fn complete_daily_session(
+        &self,
+        session_id: &str,
+        state: &DailyLoopSessionState,
+        outcome: &DailyLoopSessionOutcome,
+        now: OffsetDateTime,
+    ) -> Result<Option<DailySessionRecord>, StorageError> {
+        daily_sessions_repo::complete_daily_session(self.pool(), session_id, state, outcome, now)
+            .await
+    }
+
+    pub async fn cancel_daily_session(
+        &self,
+        session_id: &str,
+        state: &DailyLoopSessionState,
+        outcome: Option<&DailyLoopSessionOutcome>,
+        now: OffsetDateTime,
+    ) -> Result<Option<DailySessionRecord>, StorageError> {
+        daily_sessions_repo::cancel_daily_session(self.pool(), session_id, state, outcome, now)
+            .await
     }
 
     pub async fn update_execution_handoff_review(

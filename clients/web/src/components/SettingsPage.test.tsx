@@ -3032,6 +3032,13 @@ describe('SettingsPage', () => {
           meta: { request_id: 'req_cluster_bootstrap_prompt' },
         } as never
       }
+      if (path === '/v1/linking/status') {
+        return {
+          ok: true,
+          data: [],
+          meta: { request_id: 'req_linking_status_prompt' },
+        } as never
+      }
       if (path === '/api/settings') {
         return {
           ok: true,

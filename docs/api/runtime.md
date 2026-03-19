@@ -77,6 +77,24 @@ Exposure:
 - `GET /v1/health`: `local_public`
 - `GET /v1/doctor`: `operator_authenticated`
 
+### `GET /v1/backup/status`
+### `POST /v1/backup/create`
+### `POST /v1/backup/inspect`
+### `POST /v1/backup/verify`
+
+- authenticated backup trust surfaces
+- `status` returns the backend-owned backup state used by doctor, settings, CLI, and web trust cards
+- `create` writes a typed local backup pack with manifest, SQLite snapshot, bounded artifact/config coverage, and explicit omissions
+- `inspect` reads a pack non-destructively
+- `verify` re-checks manifest path boundaries and checksum state fail-closed
+
+CLI projection:
+
+- `vel backup --create [--output-root <dir>]`
+- `vel backup --inspect <backup_root>`
+- `vel backup --verify <backup_root>`
+- `vel backup --dry-run-restore <backup_root>`
+
 ### `POST /v1/command/plan`
 ### `POST /v1/command/execute`
 

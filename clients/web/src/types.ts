@@ -1947,6 +1947,27 @@ export function decodeDriftExplainData(value: unknown): DriftExplainData {
 }
 
 export function decodeBackupCoverageData(value: unknown): BackupCoverageData {
+  if (Array.isArray(value)) {
+    return {
+      included: decodeArray(value, (item) => expectString(item, 'backup coverage')),
+      omitted: [],
+      notes: [],
+    };
+  }
+  if (typeof value === 'string') {
+    return {
+      included: [],
+      omitted: [],
+      notes: value.trim() === '' ? [] : [value.trim()],
+    };
+  }
+  if (typeof value !== 'object' || value === null) {
+    return {
+      included: [],
+      omitted: [],
+      notes: [],
+    };
+  }
   const record = expectRecord(value, 'backup coverage');
   return {
     included: decodeArray(record.included ?? [], (item) => expectString(item, 'backup coverage.included')),

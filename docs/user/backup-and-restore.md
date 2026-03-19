@@ -72,13 +72,68 @@ That manual-first posture is deliberate. It keeps the operator in control and av
 
 ## Current Operator Guidance
 
-At the time this contract was published, `vel backup` is still a guidance surface rather than a full export engine. Use it as a reminder of the local database and artifact roots that matter, and use this document as the trust model for any later snapshot/export implementation.
+Phase 09 now ships a bounded backup workflow:
+
+- `vel backup --create [--output-root <dir>]`
+- `vel backup --inspect <backup_root>`
+- `vel backup --verify <backup_root>`
+- `vel backup --dry-run-restore <backup_root>`
+
+### Create A Backup Pack
+
+```bash
+vel backup --create
+vel backup --create --output-root ~/vel-backups
+```
+
+The create flow asks the backend to:
+
+1. create a SQLite-safe snapshot
+2. copy only durable artifact/config files
+3. record explicit omissions
+4. write `manifest.json`
+5. persist the last-success backup status for doctor/settings/web surfaces
 
 ### Backup Inspect And Verify
 
-- `backup inspect`: read the manifest, coverage, and omission lists before trusting the pack.
-- `backup verify`: confirm the checksum and verification summary before treating the pack as usable.
-- `manual restore`: stop the daemon, restore the snapshot and artifacts, then re-check the pack before daily use.
+Use inspect before trusting a pack:
+
+```bash
+vel backup --inspect ~/vel-backups/<backup_id>
+```
+
+Use verify before trusting a pack for recovery:
+
+```bash
+vel backup --verify ~/vel-backups/<backup_id>
+```
+
+These commands surface:
+
+- backup ID and created timestamp
+- output root and database snapshot path
+- artifact/config coverage counts
+- omission lists
+- verification checksum state
+
+### Manual Restore
+
+Use the dry-run helper first:
+
+```bash
+vel backup --dry-run-restore ~/vel-backups/<backup_id>
+```
+
+That command is intentionally non-destructive. It prints the manual restore sequence without mutating the live environment.
+
+The real manual restore sequence is:
+
+1. stop `veld`
+2. confirm the backup root matches the manifest `output_root`
+3. copy `data/vel.sqlite` back to the live database path
+4. copy `artifacts/` back to the live artifact root if you want those durable artifacts restored
+5. rehydrate omitted secrets from their original local sources
+6. run `vel backup --verify <backup_root>` before trusting the restored environment
 
 ## Restore Caution
 

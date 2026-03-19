@@ -361,6 +361,670 @@ pub struct ClusterBootstrapData {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum DailyLoopPhaseData {
+    MorningOverview,
+    Standup,
+}
+
+impl From<vel_core::DailyLoopPhase> for DailyLoopPhaseData {
+    fn from(value: vel_core::DailyLoopPhase) -> Self {
+        match value {
+            vel_core::DailyLoopPhase::MorningOverview => Self::MorningOverview,
+            vel_core::DailyLoopPhase::Standup => Self::Standup,
+        }
+    }
+}
+
+impl From<DailyLoopPhaseData> for vel_core::DailyLoopPhase {
+    fn from(value: DailyLoopPhaseData) -> Self {
+        match value {
+            DailyLoopPhaseData::MorningOverview => Self::MorningOverview,
+            DailyLoopPhaseData::Standup => Self::Standup,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopStatusData {
+    Active,
+    WaitingForInput,
+    Completed,
+    Cancelled,
+}
+
+impl From<vel_core::DailyLoopStatus> for DailyLoopStatusData {
+    fn from(value: vel_core::DailyLoopStatus) -> Self {
+        match value {
+            vel_core::DailyLoopStatus::Active => Self::Active,
+            vel_core::DailyLoopStatus::WaitingForInput => Self::WaitingForInput,
+            vel_core::DailyLoopStatus::Completed => Self::Completed,
+            vel_core::DailyLoopStatus::Cancelled => Self::Cancelled,
+        }
+    }
+}
+
+impl From<DailyLoopStatusData> for vel_core::DailyLoopStatus {
+    fn from(value: DailyLoopStatusData) -> Self {
+        match value {
+            DailyLoopStatusData::Active => Self::Active,
+            DailyLoopStatusData::WaitingForInput => Self::WaitingForInput,
+            DailyLoopStatusData::Completed => Self::Completed,
+            DailyLoopStatusData::Cancelled => Self::Cancelled,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopStartSourceData {
+    Manual,
+    Automatic,
+}
+
+impl From<vel_core::DailyLoopStartSource> for DailyLoopStartSourceData {
+    fn from(value: vel_core::DailyLoopStartSource) -> Self {
+        match value {
+            vel_core::DailyLoopStartSource::Manual => Self::Manual,
+            vel_core::DailyLoopStartSource::Automatic => Self::Automatic,
+        }
+    }
+}
+
+impl From<DailyLoopStartSourceData> for vel_core::DailyLoopStartSource {
+    fn from(value: DailyLoopStartSourceData) -> Self {
+        match value {
+            DailyLoopStartSourceData::Manual => Self::Manual,
+            DailyLoopStartSourceData::Automatic => Self::Automatic,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopSurfaceData {
+    Cli,
+    Web,
+    AppleVoice,
+    AppleText,
+}
+
+impl From<vel_core::DailyLoopSurface> for DailyLoopSurfaceData {
+    fn from(value: vel_core::DailyLoopSurface) -> Self {
+        match value {
+            vel_core::DailyLoopSurface::Cli => Self::Cli,
+            vel_core::DailyLoopSurface::Web => Self::Web,
+            vel_core::DailyLoopSurface::AppleVoice => Self::AppleVoice,
+            vel_core::DailyLoopSurface::AppleText => Self::AppleText,
+        }
+    }
+}
+
+impl From<DailyLoopSurfaceData> for vel_core::DailyLoopSurface {
+    fn from(value: DailyLoopSurfaceData) -> Self {
+        match value {
+            DailyLoopSurfaceData::Cli => Self::Cli,
+            DailyLoopSurfaceData::Web => Self::Web,
+            DailyLoopSurfaceData::AppleVoice => Self::AppleVoice,
+            DailyLoopSurfaceData::AppleText => Self::AppleText,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopTurnActionData {
+    Submit,
+    Skip,
+    Resume,
+}
+
+impl From<vel_core::DailyLoopTurnAction> for DailyLoopTurnActionData {
+    fn from(value: vel_core::DailyLoopTurnAction) -> Self {
+        match value {
+            vel_core::DailyLoopTurnAction::Submit => Self::Submit,
+            vel_core::DailyLoopTurnAction::Skip => Self::Skip,
+            vel_core::DailyLoopTurnAction::Resume => Self::Resume,
+        }
+    }
+}
+
+impl From<DailyLoopTurnActionData> for vel_core::DailyLoopTurnAction {
+    fn from(value: DailyLoopTurnActionData) -> Self {
+        match value {
+            DailyLoopTurnActionData::Submit => Self::Submit,
+            DailyLoopTurnActionData::Skip => Self::Skip,
+            DailyLoopTurnActionData::Resume => Self::Resume,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopTurnStateData {
+    InProgress,
+    WaitingForInput,
+    Completed,
+}
+
+impl From<vel_core::DailyLoopTurnState> for DailyLoopTurnStateData {
+    fn from(value: vel_core::DailyLoopTurnState) -> Self {
+        match value {
+            vel_core::DailyLoopTurnState::InProgress => Self::InProgress,
+            vel_core::DailyLoopTurnState::WaitingForInput => Self::WaitingForInput,
+            vel_core::DailyLoopTurnState::Completed => Self::Completed,
+        }
+    }
+}
+
+impl From<DailyLoopTurnStateData> for vel_core::DailyLoopTurnState {
+    fn from(value: DailyLoopTurnStateData) -> Self {
+        match value {
+            DailyLoopTurnStateData::InProgress => Self::InProgress,
+            DailyLoopTurnStateData::WaitingForInput => Self::WaitingForInput,
+            DailyLoopTurnStateData::Completed => Self::Completed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopStartMetadataData {
+    pub source: DailyLoopStartSourceData,
+    pub surface: DailyLoopSurfaceData,
+}
+
+impl From<vel_core::DailyLoopStartMetadata> for DailyLoopStartMetadataData {
+    fn from(value: vel_core::DailyLoopStartMetadata) -> Self {
+        Self {
+            source: value.source.into(),
+            surface: value.surface.into(),
+        }
+    }
+}
+
+impl From<DailyLoopStartMetadataData> for vel_core::DailyLoopStartMetadata {
+    fn from(value: DailyLoopStartMetadataData) -> Self {
+        Self {
+            source: value.source.into(),
+            surface: value.surface.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopStartRequestData {
+    pub phase: DailyLoopPhaseData,
+    pub session_date: String,
+    pub start: DailyLoopStartMetadataData,
+}
+
+impl From<vel_core::DailyLoopStartRequest> for DailyLoopStartRequestData {
+    fn from(value: vel_core::DailyLoopStartRequest) -> Self {
+        Self {
+            phase: value.phase.into(),
+            session_date: value.session_date,
+            start: value.start.into(),
+        }
+    }
+}
+
+impl From<DailyLoopStartRequestData> for vel_core::DailyLoopStartRequest {
+    fn from(value: DailyLoopStartRequestData) -> Self {
+        Self {
+            phase: value.phase.into(),
+            session_date: value.session_date,
+            start: value.start.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopTurnRequestData {
+    pub session_id: String,
+    pub action: DailyLoopTurnActionData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_text: Option<String>,
+}
+
+impl From<vel_core::DailyLoopTurnRequest> for DailyLoopTurnRequestData {
+    fn from(value: vel_core::DailyLoopTurnRequest) -> Self {
+        Self {
+            session_id: value.session_id.to_string(),
+            action: value.action.into(),
+            response_text: value.response_text,
+        }
+    }
+}
+
+impl From<DailyLoopTurnRequestData> for vel_core::DailyLoopTurnRequest {
+    fn from(value: DailyLoopTurnRequestData) -> Self {
+        Self {
+            session_id: value.session_id.into(),
+            action: value.action.into(),
+            response_text: value.response_text,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopPromptKindData {
+    IntentQuestion,
+    CommitmentReduction,
+    ConstraintCheck,
+}
+
+impl From<vel_core::DailyLoopPromptKind> for DailyLoopPromptKindData {
+    fn from(value: vel_core::DailyLoopPromptKind) -> Self {
+        match value {
+            vel_core::DailyLoopPromptKind::IntentQuestion => Self::IntentQuestion,
+            vel_core::DailyLoopPromptKind::CommitmentReduction => Self::CommitmentReduction,
+            vel_core::DailyLoopPromptKind::ConstraintCheck => Self::ConstraintCheck,
+        }
+    }
+}
+
+impl From<DailyLoopPromptKindData> for vel_core::DailyLoopPromptKind {
+    fn from(value: DailyLoopPromptKindData) -> Self {
+        match value {
+            DailyLoopPromptKindData::IntentQuestion => Self::IntentQuestion,
+            DailyLoopPromptKindData::CommitmentReduction => Self::CommitmentReduction,
+            DailyLoopPromptKindData::ConstraintCheck => Self::ConstraintCheck,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopPromptData {
+    pub prompt_id: String,
+    pub kind: DailyLoopPromptKindData,
+    pub text: String,
+    pub ordinal: u8,
+    pub allow_skip: bool,
+}
+
+impl From<vel_core::DailyLoopPrompt> for DailyLoopPromptData {
+    fn from(value: vel_core::DailyLoopPrompt) -> Self {
+        Self {
+            prompt_id: value.prompt_id,
+            kind: value.kind.into(),
+            text: value.text,
+            ordinal: value.ordinal,
+            allow_skip: value.allow_skip,
+        }
+    }
+}
+
+impl From<DailyLoopPromptData> for vel_core::DailyLoopPrompt {
+    fn from(value: DailyLoopPromptData) -> Self {
+        Self {
+            prompt_id: value.prompt_id,
+            kind: value.kind.into(),
+            text: value.text,
+            ordinal: value.ordinal,
+            allow_skip: value.allow_skip,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MorningFrictionCalloutData {
+    pub label: String,
+    pub detail: String,
+}
+
+impl From<vel_core::MorningFrictionCallout> for MorningFrictionCalloutData {
+    fn from(value: vel_core::MorningFrictionCallout) -> Self {
+        Self {
+            label: value.label,
+            detail: value.detail,
+        }
+    }
+}
+
+impl From<MorningFrictionCalloutData> for vel_core::MorningFrictionCallout {
+    fn from(value: MorningFrictionCalloutData) -> Self {
+        Self {
+            label: value.label,
+            detail: value.detail,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MorningIntentSignalKindData {
+    MustDoHint,
+    FocusIntent,
+    MeetingDoubt,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum MorningIntentSignalData {
+    MustDoHint { text: String },
+    FocusIntent { text: String },
+    MeetingDoubt { text: String },
+}
+
+impl From<vel_core::MorningIntentSignal> for MorningIntentSignalData {
+    fn from(value: vel_core::MorningIntentSignal) -> Self {
+        match value {
+            vel_core::MorningIntentSignal::MustDoHint { text } => Self::MustDoHint { text },
+            vel_core::MorningIntentSignal::FocusIntent { text } => Self::FocusIntent { text },
+            vel_core::MorningIntentSignal::MeetingDoubt { text } => Self::MeetingDoubt { text },
+        }
+    }
+}
+
+impl From<MorningIntentSignalData> for vel_core::MorningIntentSignal {
+    fn from(value: MorningIntentSignalData) -> Self {
+        match value {
+            MorningIntentSignalData::MustDoHint { text } => Self::MustDoHint { text },
+            MorningIntentSignalData::FocusIntent { text } => Self::FocusIntent { text },
+            MorningIntentSignalData::MeetingDoubt { text } => Self::MeetingDoubt { text },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MorningOverviewStateData {
+    pub snapshot: String,
+    #[serde(default)]
+    pub friction_callouts: Vec<MorningFrictionCalloutData>,
+    #[serde(default)]
+    pub signals: Vec<MorningIntentSignalData>,
+}
+
+impl From<vel_core::MorningOverviewState> for MorningOverviewStateData {
+    fn from(value: vel_core::MorningOverviewState) -> Self {
+        Self {
+            snapshot: value.snapshot,
+            friction_callouts: value
+                .friction_callouts
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            signals: value.signals.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<MorningOverviewStateData> for vel_core::MorningOverviewState {
+    fn from(value: MorningOverviewStateData) -> Self {
+        Self {
+            snapshot: value.snapshot,
+            friction_callouts: value
+                .friction_callouts
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            signals: value.signals.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyStandupBucketData {
+    Must,
+    Should,
+    Stretch,
+}
+
+impl From<vel_core::DailyStandupBucket> for DailyStandupBucketData {
+    fn from(value: vel_core::DailyStandupBucket) -> Self {
+        match value {
+            vel_core::DailyStandupBucket::Must => Self::Must,
+            vel_core::DailyStandupBucket::Should => Self::Should,
+            vel_core::DailyStandupBucket::Stretch => Self::Stretch,
+        }
+    }
+}
+
+impl From<DailyStandupBucketData> for vel_core::DailyStandupBucket {
+    fn from(value: DailyStandupBucketData) -> Self {
+        match value {
+            DailyStandupBucketData::Must => Self::Must,
+            DailyStandupBucketData::Should => Self::Should,
+            DailyStandupBucketData::Stretch => Self::Stretch,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyCommitmentDraftData {
+    pub title: String,
+    pub bucket: DailyStandupBucketData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_ref: Option<String>,
+}
+
+impl From<vel_core::DailyCommitmentDraft> for DailyCommitmentDraftData {
+    fn from(value: vel_core::DailyCommitmentDraft) -> Self {
+        Self {
+            title: value.title,
+            bucket: value.bucket.into(),
+            source_ref: value.source_ref,
+        }
+    }
+}
+
+impl From<DailyCommitmentDraftData> for vel_core::DailyCommitmentDraft {
+    fn from(value: DailyCommitmentDraftData) -> Self {
+        Self {
+            title: value.title,
+            bucket: value.bucket.into(),
+            source_ref: value.source_ref,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyDeferredTaskData {
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_ref: Option<String>,
+    pub reason: String,
+}
+
+impl From<vel_core::DailyDeferredTask> for DailyDeferredTaskData {
+    fn from(value: vel_core::DailyDeferredTask) -> Self {
+        Self {
+            title: value.title,
+            source_ref: value.source_ref,
+            reason: value.reason,
+        }
+    }
+}
+
+impl From<DailyDeferredTaskData> for vel_core::DailyDeferredTask {
+    fn from(value: DailyDeferredTaskData) -> Self {
+        Self {
+            title: value.title,
+            source_ref: value.source_ref,
+            reason: value.reason,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyFocusBlockProposalData {
+    pub label: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub start_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub end_at: OffsetDateTime,
+    pub reason: String,
+}
+
+impl From<vel_core::DailyFocusBlockProposal> for DailyFocusBlockProposalData {
+    fn from(value: vel_core::DailyFocusBlockProposal) -> Self {
+        Self {
+            label: value.label,
+            start_at: value.start_at,
+            end_at: value.end_at,
+            reason: value.reason,
+        }
+    }
+}
+
+impl From<DailyFocusBlockProposalData> for vel_core::DailyFocusBlockProposal {
+    fn from(value: DailyFocusBlockProposalData) -> Self {
+        Self {
+            label: value.label,
+            start_at: value.start_at,
+            end_at: value.end_at,
+            reason: value.reason,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyStandupOutcomeData {
+    #[serde(default)]
+    pub commitments: Vec<DailyCommitmentDraftData>,
+    #[serde(default)]
+    pub deferred_tasks: Vec<DailyDeferredTaskData>,
+    #[serde(default)]
+    pub confirmed_calendar: Vec<String>,
+    #[serde(default)]
+    pub focus_blocks: Vec<DailyFocusBlockProposalData>,
+}
+
+impl From<vel_core::DailyStandupOutcome> for DailyStandupOutcomeData {
+    fn from(value: vel_core::DailyStandupOutcome) -> Self {
+        Self {
+            commitments: value.commitments.into_iter().map(Into::into).collect(),
+            deferred_tasks: value.deferred_tasks.into_iter().map(Into::into).collect(),
+            confirmed_calendar: value.confirmed_calendar,
+            focus_blocks: value.focus_blocks.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<DailyStandupOutcomeData> for vel_core::DailyStandupOutcome {
+    fn from(value: DailyStandupOutcomeData) -> Self {
+        Self {
+            commitments: value.commitments.into_iter().map(Into::into).collect(),
+            deferred_tasks: value.deferred_tasks.into_iter().map(Into::into).collect(),
+            confirmed_calendar: value.confirmed_calendar,
+            focus_blocks: value.focus_blocks.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "phase", rename_all = "snake_case")]
+pub enum DailyLoopSessionOutcomeData {
+    MorningOverview {
+        signals: Vec<MorningIntentSignalData>,
+    },
+    Standup(DailyStandupOutcomeData),
+}
+
+impl From<vel_core::DailyLoopSessionOutcome> for DailyLoopSessionOutcomeData {
+    fn from(value: vel_core::DailyLoopSessionOutcome) -> Self {
+        match value {
+            vel_core::DailyLoopSessionOutcome::MorningOverview { signals } => {
+                Self::MorningOverview {
+                    signals: signals.into_iter().map(Into::into).collect(),
+                }
+            }
+            vel_core::DailyLoopSessionOutcome::Standup(outcome) => Self::Standup(outcome.into()),
+        }
+    }
+}
+
+impl From<DailyLoopSessionOutcomeData> for vel_core::DailyLoopSessionOutcome {
+    fn from(value: DailyLoopSessionOutcomeData) -> Self {
+        match value {
+            DailyLoopSessionOutcomeData::MorningOverview { signals } => Self::MorningOverview {
+                signals: signals.into_iter().map(Into::into).collect(),
+            },
+            DailyLoopSessionOutcomeData::Standup(outcome) => Self::Standup(outcome.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "phase", rename_all = "snake_case")]
+pub enum DailyLoopSessionStateData {
+    MorningOverview(MorningOverviewStateData),
+    Standup(DailyStandupOutcomeData),
+}
+
+impl From<vel_core::DailyLoopSessionState> for DailyLoopSessionStateData {
+    fn from(value: vel_core::DailyLoopSessionState) -> Self {
+        match value {
+            vel_core::DailyLoopSessionState::MorningOverview(state) => {
+                Self::MorningOverview(state.into())
+            }
+            vel_core::DailyLoopSessionState::Standup(state) => Self::Standup(state.into()),
+        }
+    }
+}
+
+impl From<DailyLoopSessionStateData> for vel_core::DailyLoopSessionState {
+    fn from(value: DailyLoopSessionStateData) -> Self {
+        match value {
+            DailyLoopSessionStateData::MorningOverview(state) => {
+                Self::MorningOverview(state.into())
+            }
+            DailyLoopSessionStateData::Standup(state) => Self::Standup(state.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopSessionData {
+    pub id: String,
+    pub session_date: String,
+    pub phase: DailyLoopPhaseData,
+    pub status: DailyLoopStatusData,
+    pub start: DailyLoopStartMetadataData,
+    pub turn_state: DailyLoopTurnStateData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_prompt: Option<DailyLoopPromptData>,
+    pub state: DailyLoopSessionStateData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<DailyLoopSessionOutcomeData>,
+}
+
+impl From<vel_core::DailyLoopSession> for DailyLoopSessionData {
+    fn from(value: vel_core::DailyLoopSession) -> Self {
+        Self {
+            id: value.id.to_string(),
+            session_date: value.session_date,
+            phase: value.phase.into(),
+            status: value.status.into(),
+            start: value.start.into(),
+            turn_state: value.turn_state.into(),
+            current_prompt: value.current_prompt.map(Into::into),
+            state: value.state.into(),
+            outcome: value.outcome.map(Into::into),
+        }
+    }
+}
+
+impl From<DailyLoopSessionData> for vel_core::DailyLoopSession {
+    fn from(value: DailyLoopSessionData) -> Self {
+        Self {
+            id: value.id.into(),
+            session_date: value.session_date,
+            phase: value.phase.into(),
+            status: value.status.into(),
+            start: value.start.into(),
+            turn_state: value.turn_state.into(),
+            current_prompt: value.current_prompt.map(Into::into),
+            state: value.state.into(),
+            outcome: value.outcome.map(Into::into),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AppleClientSurfaceData {
     IosVoice,
     IosCapture,
@@ -4068,16 +4732,29 @@ mod tests {
         AppleResponseEvidenceData, AppleResponseModeData, AppleScheduleEventData,
         AppleScheduleSnapshotData, AppleTurnProvenanceData, AppleVoiceIntentData,
         AppleVoiceTurnQueuedMutationSummaryData, AppleVoiceTurnRequestData,
-        AppleVoiceTurnResponseData, ExecutionHandoffData, ExecutionReviewGateData,
-        ExecutionTaskKindData, LocalRuntimeKindData, NowTaskData, ProjectExecutionContextData,
-        ProjectFamilyData, ProjectProvisionRequestData, ProjectRecordData, ProjectRootRefData,
-        ProjectStatusData, ReviewSnapshotData, TokenBudgetClassData,
+        AppleVoiceTurnResponseData, DailyCommitmentDraftData, DailyDeferredTaskData,
+        DailyFocusBlockProposalData, DailyLoopPhaseData, DailyLoopPromptData,
+        DailyLoopPromptKindData, DailyLoopSessionData, DailyLoopSessionOutcomeData,
+        DailyLoopStartMetadataData, DailyLoopStartRequestData, DailyLoopStartSourceData,
+        DailyLoopStatusData, DailyLoopSurfaceData, DailyLoopTurnActionData,
+        DailyLoopTurnRequestData, DailyLoopTurnStateData, DailyStandupBucketData,
+        DailyStandupOutcomeData, ExecutionHandoffData, ExecutionReviewGateData,
+        ExecutionTaskKindData, LocalRuntimeKindData, MorningFrictionCalloutData,
+        MorningIntentSignalData, MorningIntentSignalKindData, MorningOverviewStateData,
+        NowTaskData, ProjectExecutionContextData, ProjectFamilyData, ProjectProvisionRequestData,
+        ProjectRecordData, ProjectRootRefData, ProjectStatusData, ReviewSnapshotData,
+        TokenBudgetClassData,
     };
     use std::collections::BTreeMap;
     use time::macros::datetime;
     use vel_core::{
-        ActionItemId, AgentProfile, CapabilityDescriptor, ExecutionHandoff, ExecutionReviewGate,
-        ExecutionTaskKind, HandoffEnvelope, LocalAgentManifest, LocalRuntimeKind,
+        ActionItemId, AgentProfile, CapabilityDescriptor, DailyCommitmentDraft, DailyDeferredTask,
+        DailyFocusBlockProposal, DailyLoopPhase, DailyLoopPrompt, DailyLoopPromptKind,
+        DailyLoopSession, DailyLoopSessionId, DailyLoopSessionOutcome, DailyLoopStartMetadata,
+        DailyLoopStartSource, DailyLoopStatus, DailyLoopSurface, DailyLoopTurnAction,
+        DailyLoopTurnState, DailyStandupBucket, DailyStandupOutcome, ExecutionHandoff,
+        ExecutionReviewGate, ExecutionTaskKind, HandoffEnvelope, LocalAgentManifest,
+        LocalRuntimeKind, MorningFrictionCallout, MorningIntentSignal, MorningOverviewState,
         ProjectExecutionContext, ProjectId, ProjectRootRef, RepoWorktreeRef, TokenBudgetClass,
         TraceId,
     };
@@ -4394,5 +5071,182 @@ mod tests {
             value["behavior_summary"]["metrics"][0]["metric_key"],
             "step_count"
         );
+    }
+
+    #[test]
+    fn daily_loop_session_data_round_trips_morning_and_standup_payloads() {
+        let morning_session = DailyLoopSession {
+            id: DailyLoopSessionId::from("dls_1".to_string()),
+            session_date: "2026-03-19".to_string(),
+            phase: DailyLoopPhase::MorningOverview,
+            status: DailyLoopStatus::WaitingForInput,
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::AppleVoice,
+            },
+            turn_state: DailyLoopTurnState::WaitingForInput,
+            current_prompt: Some(DailyLoopPrompt {
+                prompt_id: "prompt_morning_1".to_string(),
+                kind: DailyLoopPromptKind::IntentQuestion,
+                text: "What most needs to happen before noon?".to_string(),
+                ordinal: 1,
+                allow_skip: true,
+            }),
+            state: MorningOverviewState {
+                snapshot: "You have two meetings before lunch.".to_string(),
+                friction_callouts: vec![MorningFrictionCallout {
+                    label: "Prep debt".to_string(),
+                    detail: "Design review starts in 45 minutes.".to_string(),
+                }],
+                signals: vec![MorningIntentSignal::MustDoHint {
+                    text: "Finish review notes".to_string(),
+                }],
+            }
+            .into(),
+            outcome: Some(DailyLoopSessionOutcome::MorningOverview {
+                signals: vec![MorningIntentSignal::FocusIntent {
+                    text: "Protect a deep-work block".to_string(),
+                }],
+            }),
+        };
+
+        let standup_session = DailyLoopSession {
+            id: DailyLoopSessionId::from("dls_2".to_string()),
+            session_date: "2026-03-19".to_string(),
+            phase: DailyLoopPhase::Standup,
+            status: DailyLoopStatus::Completed,
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::Cli,
+            },
+            turn_state: DailyLoopTurnState::Completed,
+            current_prompt: Some(DailyLoopPrompt {
+                prompt_id: "prompt_standup_1".to_string(),
+                kind: DailyLoopPromptKind::CommitmentReduction,
+                text: "Reduce this to three commitments.".to_string(),
+                ordinal: 2,
+                allow_skip: false,
+            }),
+            state: DailyStandupOutcome {
+                commitments: vec![DailyCommitmentDraft {
+                    title: "Ship Phase 10 contract slice".to_string(),
+                    bucket: DailyStandupBucket::Must,
+                    source_ref: Some("ticket:10-01".to_string()),
+                }],
+                deferred_tasks: vec![DailyDeferredTask {
+                    title: "Triage lower-priority inbox items".to_string(),
+                    source_ref: Some("todoist:42".to_string()),
+                    reason: "Not part of the top three".to_string(),
+                }],
+                confirmed_calendar: vec!["Design review at 10:00 remains on".to_string()],
+                focus_blocks: vec![DailyFocusBlockProposal {
+                    label: "Contract implementation".to_string(),
+                    start_at: datetime!(2026-03-19 15:00:00 UTC),
+                    end_at: datetime!(2026-03-19 16:00:00 UTC),
+                    reason: "Best uninterrupted slot before review".to_string(),
+                }],
+            }
+            .into(),
+            outcome: Some(DailyLoopSessionOutcome::Standup(DailyStandupOutcome {
+                commitments: vec![DailyCommitmentDraft {
+                    title: "Ship Phase 10 contract slice".to_string(),
+                    bucket: DailyStandupBucket::Must,
+                    source_ref: Some("ticket:10-01".to_string()),
+                }],
+                deferred_tasks: vec![DailyDeferredTask {
+                    title: "Triage lower-priority inbox items".to_string(),
+                    source_ref: Some("todoist:42".to_string()),
+                    reason: "Not part of the top three".to_string(),
+                }],
+                confirmed_calendar: vec!["Design review at 10:00 remains on".to_string()],
+                focus_blocks: vec![DailyFocusBlockProposal {
+                    label: "Contract implementation".to_string(),
+                    start_at: datetime!(2026-03-19 15:00:00 UTC),
+                    end_at: datetime!(2026-03-19 16:00:00 UTC),
+                    reason: "Best uninterrupted slot before review".to_string(),
+                }],
+            })),
+        };
+
+        let morning_data = DailyLoopSessionData::from(morning_session.clone());
+        let morning_json =
+            serde_json::to_value(&morning_data).expect("morning session should serialize");
+        assert_eq!(morning_json["phase"], "morning_overview");
+        assert_eq!(morning_json["status"], "waiting_for_input");
+        assert_eq!(morning_json["current_prompt"]["kind"], "intent_question");
+        assert_eq!(morning_json["outcome"]["phase"], "morning_overview");
+
+        let round_trip_morning: DailyLoopSession =
+            DailyLoopSessionData::from(morning_session).into();
+        assert_eq!(round_trip_morning.phase, DailyLoopPhase::MorningOverview);
+
+        let standup_json = serde_json::to_value(DailyLoopSessionData::from(standup_session))
+            .expect("standup session should serialize");
+        assert_eq!(standup_json["phase"], "standup");
+        assert_eq!(standup_json["outcome"]["phase"], "standup");
+        assert_eq!(standup_json["outcome"]["commitments"][0]["bucket"], "must");
+    }
+
+    #[test]
+    fn daily_loop_morning_signals_stay_distinct_from_standup_commitments() {
+        let morning = DailyLoopSessionOutcomeData::MorningOverview {
+            signals: vec![MorningIntentSignalData::MustDoHint {
+                text: "Handle payroll first".to_string(),
+            }],
+        };
+        let standup = DailyLoopSessionOutcomeData::Standup(DailyStandupOutcomeData {
+            commitments: vec![DailyCommitmentDraftData {
+                title: "Close payroll".to_string(),
+                bucket: DailyStandupBucketData::Must,
+                source_ref: Some("todoist:payroll".to_string()),
+            }],
+            deferred_tasks: vec![DailyDeferredTaskData {
+                title: "Draft roadmap notes".to_string(),
+                source_ref: None,
+                reason: "Deferred until after payroll".to_string(),
+            }],
+            confirmed_calendar: vec!["11:00 payroll check-in".to_string()],
+            focus_blocks: vec![DailyFocusBlockProposalData {
+                label: "Payroll close".to_string(),
+                start_at: datetime!(2026-03-19 16:00:00 UTC),
+                end_at: datetime!(2026-03-19 16:30:00 UTC),
+                reason: "Smallest uninterrupted slot".to_string(),
+            }],
+        });
+
+        let morning_json = serde_json::to_value(morning).expect("morning outcome should serialize");
+        let standup_json = serde_json::to_value(standup).expect("standup outcome should serialize");
+
+        assert!(morning_json.get("commitments").is_none());
+        assert_eq!(morning_json["phase"], "morning_overview");
+        assert_eq!(morning_json["signals"][0]["kind"], "must_do_hint");
+        assert_eq!(standup_json["phase"], "standup");
+        assert_eq!(standup_json["commitments"][0]["title"], "Close payroll");
+    }
+
+    #[test]
+    fn daily_loop_start_metadata_keeps_source_and_surface_for_manual_and_future_auto_starts() {
+        let start = DailyLoopStartRequestData {
+            phase: DailyLoopPhaseData::MorningOverview,
+            session_date: "2026-03-19".to_string(),
+            start: DailyLoopStartMetadataData {
+                source: DailyLoopStartSourceData::Automatic,
+                surface: DailyLoopSurfaceData::Web,
+            },
+        };
+        let turn = DailyLoopTurnRequestData {
+            session_id: "dls_3".to_string(),
+            action: DailyLoopTurnActionData::Resume,
+            response_text: None,
+        };
+
+        let core_start: vel_core::DailyLoopStartRequest = start.clone().into();
+        let round_trip = DailyLoopStartRequestData::from(core_start);
+        let start_json = serde_json::to_value(round_trip).expect("start request should serialize");
+        let turn_json = serde_json::to_value(turn).expect("turn request should serialize");
+
+        assert_eq!(start_json["start"]["source"], "automatic");
+        assert_eq!(start_json["start"]["surface"], "web");
+        assert_eq!(turn_json["action"], "resume");
     }
 }
