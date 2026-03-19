@@ -373,7 +373,10 @@ mod tests {
         ProjectCreateRequestData, ProjectFamilyData, ProjectProvisionRequestData,
         ProjectRootRefData,
     };
-    use vel_core::{ArtifactId, CurrentContextV1};
+    use vel_core::{
+        ArtifactId, CurrentContextV1, LinkScope, LinkStatus, LinkedNodeRecord, ProjectFamily,
+        ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus,
+    };
 
     fn test_policy_config() -> PolicyConfig {
         PolicyConfig::default()
@@ -1529,6 +1532,53 @@ mod tests {
     async fn sync_bootstrap_endpoint_returns_ok() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
+        let now = OffsetDateTime::now_utc();
+        storage
+            .upsert_linked_node(&LinkedNodeRecord {
+                node_id: "node_remote".to_string(),
+                node_display_name: "Remote".to_string(),
+                status: LinkStatus::Pending,
+                scopes: LinkScope {
+                    read_context: true,
+                    write_safe_actions: false,
+                    execute_repo_tasks: false,
+                },
+                linked_at: now,
+                last_seen_at: Some(now),
+                transport_hint: Some("tailscale".to_string()),
+            })
+            .await
+            .unwrap();
+        storage
+            .create_project(ProjectRecord {
+                id: ProjectId::from("proj_sync_bootstrap".to_string()),
+                slug: "vel".to_string(),
+                name: "Vel".to_string(),
+                family: ProjectFamily::Work,
+                status: ProjectStatus::Active,
+                primary_repo: ProjectRootRef {
+                    path: "/tmp/vel".to_string(),
+                    label: "vel".to_string(),
+                    kind: "repo".to_string(),
+                },
+                primary_notes_root: ProjectRootRef {
+                    path: "/tmp/notes/vel".to_string(),
+                    label: "vel".to_string(),
+                    kind: "notes_root".to_string(),
+                },
+                secondary_repos: vec![],
+                secondary_notes_roots: vec![],
+                upstream_ids: std::collections::BTreeMap::new(),
+                pending_provision: ProjectProvisionRequest {
+                    create_repo: true,
+                    create_notes_root: false,
+                },
+                created_at: now,
+                updated_at: now,
+                archived_at: None,
+            })
+            .await
+            .unwrap();
         let mut config = AppConfig::default();
         config.node_id = Some("vel-desktop".to_string());
         config.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
@@ -1545,6 +1595,25 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["linked_nodes"][0]["node_id"], "node_remote");
+        assert_eq!(json["data"]["projects"][0]["slug"], "vel");
+        assert!(json["data"]["action_items"]
+            .as_array()
+            .map(|items| !items.is_empty())
+            .unwrap_or(false));
+        assert_eq!(
+            json["data"]["cluster"]["linked_nodes"][0]["node_id"],
+            "node_remote"
+        );
+        assert_eq!(json["data"]["cluster"]["projects"][0]["slug"], "vel");
+        assert!(json["data"]["cluster"]["action_items"]
+            .as_array()
+            .map(|items| !items.is_empty())
+            .unwrap_or(false));
     }
 
     #[tokio::test]
@@ -7549,7 +7618,7 @@ mod tests {
                 conversation_id: conversation_id.id.to_string(),
                 role: "assistant".to_string(),
                 kind: "reminder_card".to_string(),
-                content_json: r#"{"title":"Reminder"}"#.to_string(),
+                content_json: r#"{"title":"Reminder","summary":"Review the linked follow-up","project_id":"proj_inbox","project_label":"Vel","project":"Vel"}"#.to_string(),
                 status: None,
                 importance: None,
             })
@@ -7565,7 +7634,13 @@ mod tests {
                 resolved_at: None,
                 snoozed_until: None,
                 confidence: None,
-                source_json: None,
+                source_json: Some(
+                    serde_json::json!({
+                        "title": "Reminder",
+                        "reason": "Review the linked follow-up"
+                    })
+                    .to_string(),
+                ),
                 provenance_json: None,
             })
             .await
@@ -7596,6 +7671,19 @@ mod tests {
         assert_eq!(data.len(), 1);
         assert_eq!(data[0]["id"].as_str().unwrap(), "intv_test");
         assert_eq!(data[0]["message_id"].as_str().unwrap(), "msg_test");
+        assert_eq!(data[0]["conversation_id"].as_str().unwrap(), "conv_test");
+        assert_eq!(data[0]["title"].as_str().unwrap(), "Reminder");
+        assert_eq!(
+            data[0]["summary"].as_str().unwrap(),
+            "Review the linked follow-up"
+        );
+        assert_eq!(data[0]["project_id"].as_str().unwrap(), "proj_inbox");
+        assert_eq!(data[0]["project_label"].as_str().unwrap(), "Vel");
+        assert_eq!(
+            data[0]["available_actions"],
+            serde_json::json!(["acknowledge", "snooze", "dismiss", "open_thread"])
+        );
+        assert_eq!(data[0]["evidence"][0]["source_kind"], "intervention");
     }
 
     #[tokio::test]
@@ -10335,6 +10423,7 @@ END:VCALENDAR
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        let project_now = OffsetDateTime::now_utc();
 
         storage
             .insert_signal(vel_storage::SignalInsert {
@@ -10411,6 +10500,36 @@ END:VCALENDAR
             )
             .await
             .unwrap();
+        storage
+            .create_project(ProjectRecord {
+                id: ProjectId::from("proj_now".to_string()),
+                slug: "vel".to_string(),
+                name: "Vel".to_string(),
+                family: ProjectFamily::Work,
+                status: ProjectStatus::Active,
+                primary_repo: ProjectRootRef {
+                    path: "/tmp/vel".to_string(),
+                    label: "vel".to_string(),
+                    kind: "repo".to_string(),
+                },
+                primary_notes_root: ProjectRootRef {
+                    path: "/tmp/notes/vel".to_string(),
+                    label: "vel".to_string(),
+                    kind: "notes_root".to_string(),
+                },
+                secondary_repos: vec![],
+                secondary_notes_roots: vec![],
+                upstream_ids: std::collections::BTreeMap::new(),
+                pending_provision: ProjectProvisionRequest {
+                    create_repo: true,
+                    create_notes_root: false,
+                },
+                created_at: project_now,
+                updated_at: project_now,
+                archived_at: None,
+            })
+            .await
+            .unwrap();
 
         let app = build_app(
             storage,
@@ -10462,6 +10581,30 @@ END:VCALENDAR
             "conv_external"
         );
         assert_eq!(json["data"]["freshness"]["sources"][0]["key"], "context");
+        assert!(json["data"]["action_items"]
+            .as_array()
+            .map(|items| !items.is_empty())
+            .unwrap_or(false));
+        assert!(json["data"]["action_items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["title"]
+                .as_str()
+                .map(|title| title.contains("Vel"))
+                .unwrap_or(false)));
+        assert!(json["data"]["review_snapshot"]["open_action_count"]
+            .as_u64()
+            .unwrap_or_default()
+            > 0);
+        assert!(json["data"]["review_snapshot"]["triage_count"]
+            .as_u64()
+            .unwrap_or_default()
+            > 0);
+        assert!(json["data"]["review_snapshot"]["projects_needing_review"]
+            .as_u64()
+            .unwrap_or_default()
+            > 0);
     }
 
     #[tokio::test]
@@ -11266,6 +11409,77 @@ END:VCALENDAR
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn chat_intervention_acknowledge_updates_state() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let conversation_id = storage
+            .create_conversation(vel_storage::ConversationInsert {
+                id: "conv_ack".to_string(),
+                title: Some("Ack".to_string()),
+                kind: "general".to_string(),
+                pinned: false,
+                archived: false,
+            })
+            .await
+            .unwrap();
+        let message_id = storage
+            .create_message(vel_storage::MessageInsert {
+                id: "msg_ack".to_string(),
+                conversation_id: conversation_id.id.to_string(),
+                role: "assistant".to_string(),
+                kind: "risk_card".to_string(),
+                content_json: r#"{"title":"Link trust degraded"}"#.to_string(),
+                status: None,
+                importance: None,
+            })
+            .await
+            .unwrap();
+        storage
+            .create_intervention(vel_storage::InterventionInsert {
+                id: "intv_ack".to_string(),
+                message_id: message_id.as_ref().to_string(),
+                kind: "risk".to_string(),
+                state: "active".to_string(),
+                surfaced_at: 100,
+                resolved_at: None,
+                snoozed_until: None,
+                confidence: None,
+                source_json: None,
+                provenance_json: None,
+            })
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/interventions/intv_ack/acknowledge")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["id"], "intv_ack");
+        assert_eq!(json["data"]["state"], "acknowledged");
+
+        let intervention = storage.get_intervention("intv_ack").await.unwrap().unwrap();
+        assert_eq!(intervention.state, "acknowledged");
     }
 
     #[tokio::test]

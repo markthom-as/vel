@@ -141,6 +141,23 @@ These are mounted as `future_external` and currently return `403` (deny-by-defau
 - project creation is local-first and stores pending upstream confirmation only
 - no repo, notes root, or external upstream record is created by this phase
 
+### `POST /v1/linking/tokens`
+### `POST /v1/linking/redeem`
+### `GET /v1/linking/status`
+### `POST /v1/linking/revoke/:node_id`
+
+- guided linking backend for short-lived scoped pairing tokens and durable linked-node trust state
+- operators can inspect current linked-node status plus granted scopes before trusting a link
+- redemption fails closed for malformed, expired, already-redeemed, or out-of-scope tokens
+
+CLI fallback when the web shell is unavailable:
+
+- `vel node link issue --read-context --write-safe-actions --expires-seconds 900`
+- `vel node link redeem <token_code> --node-id <node_id> --node-display-name "<display name>"`
+- `vel node status`
+
+`vel node status` exposes granted scopes so the operator can inspect read/write/execute access before trusting a link.
+
 ### `GET /v1/risk`
 ### `GET /v1/risk/:id`
 

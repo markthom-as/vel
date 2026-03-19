@@ -1,4 +1,6 @@
 use crate::errors::AppError;
+use vel_api_types::AvailableActionData;
+use vel_core::{ActionEvidenceRef, ProjectId};
 
 #[derive(Debug, Clone)]
 pub(crate) struct ConversationServiceData {
@@ -33,6 +35,14 @@ pub(crate) struct InboxItemServiceData {
     pub surfaced_at: i64,
     pub snoozed_until: Option<i64>,
     pub confidence: Option<f64>,
+    pub rank: i64,
+    pub conversation_id: Option<String>,
+    pub title: String,
+    pub summary: String,
+    pub project_id: Option<ProjectId>,
+    pub project_label: Option<String>,
+    pub available_actions: Vec<AvailableActionData>,
+    pub evidence: Vec<ActionEvidenceRef>,
 }
 
 pub(crate) fn conversation_record_to_data(
@@ -82,8 +92,64 @@ pub(crate) fn message_record_to_llm_content(r: &vel_storage::MessageRecord) -> S
     }
 }
 
+pub(crate) fn message_title_summary(message: &MessageServiceData) -> (String, String) {
+    let title = message
+        .content
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .or_else(|| message.content.get("text").and_then(serde_json::Value::as_str))
+        .unwrap_or("Inbox intervention")
+        .to_string();
+    let summary = message
+        .content
+        .get("reason")
+        .or_else(|| message.content.get("summary"))
+        .or_else(|| message.content.get("text"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("Needs operator review from the current inbox/intervention queue.")
+        .to_string();
+    (title, summary)
+}
+
+pub(crate) fn message_project_details(
+    message: &MessageServiceData,
+) -> (Option<ProjectId>, Option<String>) {
+    let project_id = message
+        .content
+        .get("project_id")
+        .and_then(serde_json::Value::as_str)
+        .map(|value| ProjectId::from(value.to_string()));
+    let project_label = message
+        .content
+        .get("project_label")
+        .or_else(|| message.content.get("project"))
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string);
+    (project_id, project_label)
+}
+
+pub(crate) fn inbox_available_actions(has_conversation: bool) -> Vec<AvailableActionData> {
+    // available_actions: acknowledge, snooze, dismiss, open_thread
+    let mut actions = vec![
+        AvailableActionData::Acknowledge,
+        AvailableActionData::Snooze,
+        AvailableActionData::Dismiss,
+    ];
+    if has_conversation {
+        actions.push(AvailableActionData::OpenThread);
+    }
+    actions
+}
+
 pub(crate) fn intervention_record_to_inbox_item(
     r: vel_storage::InterventionRecord,
+    rank: i64,
+    conversation_id: Option<String>,
+    title: String,
+    summary: String,
+    project_id: Option<ProjectId>,
+    project_label: Option<String>,
+    evidence: Vec<ActionEvidenceRef>,
 ) -> InboxItemServiceData {
     InboxItemServiceData {
         id: r.id.as_ref().to_string(),
@@ -93,5 +159,13 @@ pub(crate) fn intervention_record_to_inbox_item(
         surfaced_at: r.surfaced_at,
         snoozed_until: r.snoozed_until,
         confidence: r.confidence,
+        rank,
+        conversation_id: conversation_id.clone(),
+        title,
+        summary,
+        project_id,
+        project_label,
+        available_actions: inbox_available_actions(conversation_id.is_some()),
+        evidence,
     }
 }

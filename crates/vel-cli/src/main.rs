@@ -114,6 +114,10 @@ enum Command {
         #[command(subcommand)]
         command: ConnectCommand,
     },
+    Node {
+        #[command(subcommand)]
+        command: NodeCommand,
+    },
     Integration {
         #[command(subcommand)]
         command: IntegrationCommand,
@@ -414,6 +418,47 @@ enum LoopCommand {
 }
 
 #[derive(Debug, Subcommand)]
+enum NodeCommand {
+    Link {
+        #[command(subcommand)]
+        command: NodeLinkCommand,
+    },
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum NodeLinkCommand {
+    Issue {
+        #[arg(long)]
+        issued_by_node_id: Option<String>,
+        #[arg(long = "expires-seconds")]
+        expires_seconds: Option<i64>,
+        #[arg(long)]
+        read_context: bool,
+        #[arg(long)]
+        write_safe_actions: bool,
+        #[arg(long)]
+        execute_repo_tasks: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    Redeem {
+        token_code: String,
+        #[arg(long)]
+        node_id: String,
+        #[arg(long)]
+        node_display_name: String,
+        #[arg(long)]
+        transport_hint: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum ArtifactCommand {
     Latest {
         #[arg(long)]
@@ -708,6 +753,48 @@ async fn main() -> anyhow::Result<()> {
             ConnectCommand::Inspect { id, json } => {
                 commands::connect::run_inspect_instance(&client, &id, json).await
             }
+        },
+        Command::Node { command } => match command {
+            NodeCommand::Link { command } => match command {
+                NodeLinkCommand::Issue {
+                    issued_by_node_id,
+                    expires_seconds,
+                    read_context,
+                    write_safe_actions,
+                    execute_repo_tasks,
+                    json,
+                } => {
+                    commands::node::run_link_issue(
+                        &client,
+                        issued_by_node_id.as_deref(),
+                        config.node_id.as_deref(),
+                        expires_seconds,
+                        read_context,
+                        write_safe_actions,
+                        execute_repo_tasks,
+                        json,
+                    )
+                    .await
+                }
+                NodeLinkCommand::Redeem {
+                    token_code,
+                    node_id,
+                    node_display_name,
+                    transport_hint,
+                    json,
+                } => {
+                    commands::node::run_link_redeem(
+                        &client,
+                        &token_code,
+                        &node_id,
+                        &node_display_name,
+                        transport_hint.as_deref(),
+                        json,
+                    )
+                    .await
+                }
+            },
+            NodeCommand::Status { json } => commands::node::run_status(&client, json).await,
         },
         Command::Integration { command } => match command {
             IntegrationCommand::Inspect {
@@ -1246,6 +1333,99 @@ mod tests {
                 assert!(include_disabled);
                 assert!(json);
             }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_node_link_issue() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "node",
+            "link",
+            "issue",
+            "--issued-by-node-id",
+            "node_alpha",
+            "--expires-seconds",
+            "900",
+            "--read-context",
+            "--write-safe-actions",
+            "--json",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Node {
+                command:
+                    NodeCommand::Link {
+                        command:
+                            NodeLinkCommand::Issue {
+                                issued_by_node_id,
+                                expires_seconds,
+                                read_context,
+                                write_safe_actions,
+                                execute_repo_tasks,
+                                json,
+                            },
+                    },
+            } => {
+                assert_eq!(issued_by_node_id.as_deref(), Some("node_alpha"));
+                assert_eq!(expires_seconds, Some(900));
+                assert!(read_context);
+                assert!(write_safe_actions);
+                assert!(!execute_repo_tasks);
+                assert!(json);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_node_link_redeem() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "node",
+            "link",
+            "redeem",
+            "paircode_123",
+            "--node-id",
+            "node_beta",
+            "--node-display-name",
+            "Beta",
+            "--transport-hint",
+            "tailscale",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Node {
+                command:
+                    NodeCommand::Link {
+                        command:
+                            NodeLinkCommand::Redeem {
+                                token_code,
+                                node_id,
+                                node_display_name,
+                                transport_hint,
+                                json,
+                            },
+                    },
+            } => {
+                assert_eq!(token_code, "paircode_123");
+                assert_eq!(node_id, "node_beta");
+                assert_eq!(node_display_name, "Beta");
+                assert_eq!(transport_hint.as_deref(), Some("tailscale"));
+                assert!(!json);
+            }
+            other => panic!("unexpected command: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cli_parses_node_status() {
+        let cli = Cli::try_parse_from(["vel", "node", "status", "--json"]).unwrap();
+        match cli.command {
+            Command::Node {
+                command: NodeCommand::Status { json },
+            } => assert!(json),
             other => panic!("unexpected command: {:?}", other),
         }
     }

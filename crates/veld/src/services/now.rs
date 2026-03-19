@@ -1,7 +1,10 @@
 use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_config::AppConfig;
-use vel_core::{normalize_risk_level, Commitment, CommitmentStatus, CurrentContextV1};
+use vel_core::{
+    normalize_risk_level, ActionItem, Commitment, CommitmentStatus, CurrentContextV1,
+    ReviewSnapshot,
+};
 use vel_storage::{SignalRecord, Storage};
 
 use crate::{errors::AppError, services::integrations};
@@ -16,6 +19,8 @@ pub struct NowOutput {
     pub attention: NowAttentionOutput,
     pub sources: NowSourcesOutput,
     pub freshness: NowFreshnessOutput,
+    pub action_items: Vec<ActionItem>,
+    pub review_snapshot: ReviewSnapshot,
     pub reasons: Vec<String>,
     pub debug: NowDebugOutput,
 }
@@ -271,6 +276,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         },
     };
     let freshness = build_freshness(now_ts, computed_at, &integrations, &calendar_selection);
+    let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
     let attention_reasons = context.attention_reasons.clone();
     let reasons = build_reasons_typed(&context, &attention_reasons);
@@ -343,6 +349,8 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
             ),
         },
         freshness,
+        action_items: action_queue.action_items.into_iter().take(5).collect(),
+        review_snapshot: action_queue.review_snapshot,
         reasons,
         debug: NowDebugOutput {
             raw_context: context.clone().into_json(),
@@ -438,6 +446,8 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowOutput {
                 guidance: None,
             }],
         },
+        action_items: Vec::new(),
+        review_snapshot: ReviewSnapshot::default(),
         reasons: vec!["No current context yet. Sync integrations or run evaluate.".to_string()],
         debug: NowDebugOutput {
             raw_context: json!({}),

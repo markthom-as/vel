@@ -1,18 +1,38 @@
 use anyhow::{bail, Context};
 use reqwest::Client;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use vel_api_types::{
     ApiResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
     ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
     CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
     CommitmentUpdateRequest, ConnectInstanceData, DoctorData, EndOfDayData, EvaluateResultData,
-    HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LoopData,
-    LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NudgeData, NudgeSnoozeRequest,
-    PainJournalCreateRequest, QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults,
-    SyncBootstrapData, SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData,
-    UncertaintyData, ValidationRequestData,
+    HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
+    LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData,
+    NudgeData, NudgeSnoozeRequest, PairingTokenData, PainJournalCreateRequest,
+    QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData,
+    SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData, UncertaintyData,
+    ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
+
+#[derive(Debug, Serialize)]
+struct IssuePairingTokenRequestData {
+    issued_by_node_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ttl_seconds: Option<i64>,
+    scopes: LinkScopeData,
+}
+
+#[derive(Debug, Serialize)]
+struct RedeemPairingTokenRequestData {
+    token_code: String,
+    node_id: String,
+    node_display_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    transport_hint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    requested_scopes: Option<LinkScopeData>,
+}
 
 #[derive(Clone)]
 pub struct ApiClient {
@@ -386,6 +406,41 @@ impl ApiClient {
 
     pub async fn cluster_bootstrap(&self) -> anyhow::Result<ApiResponse<ClusterBootstrapData>> {
         self.get("/v1/cluster/bootstrap").await
+    }
+
+    pub async fn issue_pairing_token(
+        &self,
+        issued_by_node_id: &str,
+        ttl_seconds: Option<i64>,
+        scopes: LinkScopeData,
+    ) -> anyhow::Result<ApiResponse<PairingTokenData>> {
+        let body = IssuePairingTokenRequestData {
+            issued_by_node_id: issued_by_node_id.to_string(),
+            ttl_seconds,
+            scopes,
+        };
+        self.post_json("/v1/linking/tokens", &body).await
+    }
+
+    pub async fn redeem_pairing_token(
+        &self,
+        token_code: &str,
+        node_id: &str,
+        node_display_name: &str,
+        transport_hint: Option<&str>,
+    ) -> anyhow::Result<ApiResponse<LinkedNodeData>> {
+        let body = RedeemPairingTokenRequestData {
+            token_code: token_code.to_string(),
+            node_id: node_id.to_string(),
+            node_display_name: node_display_name.to_string(),
+            transport_hint: transport_hint.map(ToString::to_string),
+            requested_scopes: None,
+        };
+        self.post_json("/v1/linking/redeem", &body).await
+    }
+
+    pub async fn load_linking_status(&self) -> anyhow::Result<ApiResponse<Vec<LinkedNodeData>>> {
+        self.get("/v1/linking/status").await
     }
 
     pub async fn list_connect_instances(

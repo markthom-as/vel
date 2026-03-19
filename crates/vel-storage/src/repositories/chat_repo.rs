@@ -304,6 +304,19 @@ pub(crate) async fn snooze_intervention(
     Ok(())
 }
 
+pub(crate) async fn acknowledge_intervention(
+    pool: &SqlitePool,
+    id: &str,
+) -> Result<(), StorageError> {
+    sqlx::query(
+        r#"UPDATE interventions SET state = 'acknowledged', resolved_at = NULL, snoozed_until = NULL WHERE id = ?"#,
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub(crate) async fn resolve_intervention(pool: &SqlitePool, id: &str) -> Result<(), StorageError> {
     let now = OffsetDateTime::now_utc().unix_timestamp();
     sqlx::query(

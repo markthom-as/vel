@@ -18,6 +18,7 @@ pub mod integrations;
 pub mod journal;
 pub mod loops;
 pub mod morning;
+pub mod node;
 pub mod nudges;
 pub mod recent;
 pub mod review;

@@ -146,6 +146,37 @@ pub(crate) async fn snooze_intervention(
     Ok(payload)
 }
 
+pub(crate) async fn acknowledge_intervention(
+    state: &AppState,
+    id: &str,
+) -> Result<InterventionAction, AppError> {
+    let id = id.trim();
+    let _ = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    state.storage.acknowledge_intervention(id).await?;
+    emit_chat_event(
+        state,
+        "intervention.acknowledged",
+        "intervention",
+        id,
+        serde_json::json!({ "id": id }),
+    )
+    .await;
+    let payload = InterventionAction {
+        id: id.to_string(),
+        state: "acknowledged".to_string(),
+    };
+    broadcast_chat_ws_event(
+        state,
+        WS_EVENT_INTERVENTIONS_UPDATED,
+        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+    );
+    Ok(payload)
+}
+
 pub(crate) async fn resolve_intervention(
     state: &AppState,
     id: &str,

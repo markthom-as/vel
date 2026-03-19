@@ -29,6 +29,8 @@ These files drive ongoing implementation work:
 
 - `.planning/ROADMAP.md`: active roadmap beginning at Phase 5
 - `.planning/PROJECT.md`: active product definition and accepted planning decisions
+- `.planning/BACKLOG.md`: non-phase future work that is worth preserving but not yet committed
+- `.planning/todos/pending/*.md`: execution-ready micro-task queue used by GSD todo workflows
 - `.planning/phases/05-*` through `.planning/phases/09-*`: active phase-planning directories
 - [tickets/README.md](tickets/README.md): queue index and phase navigation
 - [tickets/architecture-first-parallel-queue.md](tickets/architecture-first-parallel-queue.md): documentation/contracts-first execution order and parallel work waves

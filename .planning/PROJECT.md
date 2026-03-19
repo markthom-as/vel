@@ -66,7 +66,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 This is a mid-migration brownfield project. The codebase has been structurally decomposed (Phase 1 complete): layered Rust crates (`vel-core` → `vel-storage` → `vel-api-types` → `veld`), auth hardening, canonical schemas, and self-awareness contracts are all in place. Phase 3 is complete; Phases 2 and 4 shipped meaningful baselines but had unfinished original-scope work. That unfinished work has been explicitly re-scoped into Phases 5, 6, and 8 so no active roadmap work remains before Phase 5. The active planning lane is the product-shaping sequence centered on `Now + Inbox`, typed project substrate, safe write-back, Apple action loops, supervised execution, and backup-first trust.
 
-The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implementation specifications for the shipped architecture queue. For active future work, `.planning/ROADMAP.md` and subsequent phase plans are the requirements source starting at Phase 5.
+The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implementation specifications for the shipped architecture queue. For active future work, `.planning/ROADMAP.md` and subsequent phase plans are the requirements source starting at Phase 5. For non-phase future work that is not yet scheduled, use `.planning/BACKLOG.md`. For execution-ready small work items, use `.planning/todos/pending/`.
 
 **Existing source of truth:** `docs/MASTER_PLAN.md` — canonical status tracker
 **Active tickets:** `docs/tickets/` — agent-optimized implementation specs

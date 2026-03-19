@@ -1674,6 +1674,10 @@ impl Storage {
         chat_repo::snooze_intervention(self.pool(), id, snoozed_until_ts).await
     }
 
+    pub async fn acknowledge_intervention(&self, id: &str) -> Result<(), StorageError> {
+        chat_repo::acknowledge_intervention(self.pool(), id).await
+    }
+
     pub async fn resolve_intervention(&self, id: &str) -> Result<(), StorageError> {
         chat_repo::resolve_intervention(self.pool(), id).await
     }

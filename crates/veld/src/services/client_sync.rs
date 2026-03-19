@@ -7,7 +7,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{errors::AppError, state::AppState};
-use vel_core::{Commitment, CommitmentStatus, PrivacyClass};
+use vel_core::{
+    ActionItem, Commitment, CommitmentStatus, LinkedNodeRecord, PrivacyClass, ProjectRecord,
+};
 use vel_storage::{
     CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert, SignalInsert,
     SignalRecord, WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentStatus,
@@ -20,6 +22,9 @@ pub struct SyncBootstrap {
     pub current_context: Option<CurrentContext>,
     pub nudges: Vec<vel_storage::NudgeRecord>,
     pub commitments: Vec<Commitment>,
+    pub linked_nodes: Vec<LinkedNodeRecord>,
+    pub projects: Vec<ProjectRecord>,
+    pub action_items: Vec<ActionItem>,
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +41,9 @@ pub struct ClusterBootstrap {
     pub capabilities: Vec<String>,
     pub branch_sync: Option<BranchSyncCapability>,
     pub validation_profiles: Vec<ValidationProfile>,
+    pub linked_nodes: Vec<LinkedNodeRecord>,
+    pub projects: Vec<ProjectRecord>,
+    pub action_items: Vec<ActionItem>,
 }
 
 #[derive(Debug, Clone)]
@@ -219,6 +227,10 @@ const WORKER_HEARTBEAT_TTL_SECONDS: i64 = 90;
 const WORK_ASSIGNMENT_STALE_SECONDS: i64 = 300;
 
 pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrap, AppError> {
+    let linked_nodes = state.storage.list_linked_nodes().await?;
+    let projects = state.storage.list_projects().await?;
+    let action_queue =
+        crate::services::operator_queue::build_action_items(&state.storage, &state.config).await?;
     let current_context =
         state
             .storage
@@ -240,12 +252,19 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrap, App
         .storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
         .await?;
+    let mut cluster = effective_cluster_bootstrap(state).await?;
+    cluster.linked_nodes = linked_nodes.clone();
+    cluster.projects = projects.clone();
+    cluster.action_items = action_queue.action_items.clone();
 
     Ok(SyncBootstrap {
-        cluster: effective_cluster_bootstrap(state).await?,
+        cluster,
         current_context,
         nudges,
         commitments,
+        linked_nodes,
+        projects,
+        action_items: action_queue.action_items,
     })
 }
 
@@ -359,6 +378,9 @@ fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBoots
         capabilities: execution_capabilities(&repo_root),
         branch_sync: branch_sync_capability(&repo_root),
         validation_profiles: validation_profiles(&repo_root),
+        linked_nodes: vec![],
+        projects: vec![],
+        action_items: vec![],
     }
 }
 

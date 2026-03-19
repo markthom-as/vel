@@ -9,9 +9,9 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 use vel_api_types::{
-    ActionEvidenceRefData, ApiResponse, AvailableActionData, ConversationCreateRequest,
-    ConversationData, ConversationUpdateRequest, CreateMessageResponse, InboxItemData,
-    InterventionActionData, MessageCreateRequest, MessageData, ProvenanceData, ProvenanceEvent,
+    ActionEvidenceRefData, ApiResponse, ConversationCreateRequest, ConversationData,
+    ConversationUpdateRequest, CreateMessageResponse, InboxItemData, InterventionActionData,
+    MessageCreateRequest, MessageData, ProvenanceData, ProvenanceEvent,
 };
 
 use crate::services::chat::{
@@ -20,6 +20,7 @@ use crate::services::chat::{
         update_conversation as update_conversation_data, ConversationCreateInput,
         ConversationUpdateInput,
     },
+    interventions::acknowledge_intervention,
     interventions::InterventionAction,
     interventions::{dismiss_intervention, resolve_intervention, snooze_intervention},
     mapping::{conversation_record_to_data, message_record_to_data},
@@ -85,23 +86,14 @@ fn map_inbox_item_data(data: crate::services::chat::reads::InboxItem) -> InboxIt
         surfaced_at: data.surfaced_at,
         snoozed_until: data.snoozed_until,
         confidence: data.confidence,
-        conversation_id: None,
-        title: "Intervention".to_string(),
-        summary: "Needs operator review from the current inbox/intervention queue.".to_string(),
-        project_id: None,
-        project_label: None,
-        available_actions: default_available_actions(),
-        evidence: Vec::<ActionEvidenceRefData>::new(),
+        conversation_id: data.conversation_id,
+        title: data.title,
+        summary: data.summary,
+        project_id: data.project_id,
+        project_label: data.project_label,
+        available_actions: data.available_actions,
+        evidence: data.evidence.into_iter().map(ActionEvidenceRefData::from).collect(),
     }
-}
-
-fn default_available_actions() -> Vec<AvailableActionData> {
-    vec![
-        AvailableActionData::Resolve,
-        AvailableActionData::Dismiss,
-        AvailableActionData::Snooze,
-        AvailableActionData::OpenThread,
-    ]
 }
 
 fn map_provenance_event(event: ProvenanceMessageEvent) -> ProvenanceEvent {
@@ -472,6 +464,18 @@ pub struct SnoozeRequest {
     pub minutes: Option<u32>,
 }
 
+pub async fn intervention_acknowledge(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
+    let res = acknowledge_intervention(&state, id.trim()).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(
+        map_intervention_action(res),
+        request_id,
+    )))
+}
+
 pub async fn intervention_resolve(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -521,6 +525,10 @@ pub fn chat_routes() -> Router<AppState> {
         )
         .route("/api/messages/:id/provenance", get(get_message_provenance))
         .route("/api/settings", get(get_settings).patch(patch_settings))
+        .route(
+            "/api/interventions/:id/acknowledge",
+            post(intervention_acknowledge),
+        )
         .route("/api/interventions/:id/snooze", post(intervention_snooze))
         .route("/api/interventions/:id/resolve", post(intervention_resolve))
         .route("/api/interventions/:id/dismiss", post(intervention_dismiss))

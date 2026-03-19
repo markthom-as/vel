@@ -4,7 +4,6 @@ use vel_api_types::{
     ActionItemData, ApiResponse, NowAttentionData, NowData, NowDebugData, NowEventData,
     NowFreshnessData, NowFreshnessEntryData, NowLabelData, NowRiskSummaryData, NowScheduleData,
     NowSourceActivityData, NowSourcesData, NowSummaryData, NowTaskData, NowTasksData,
-    ReviewSnapshotData,
 };
 
 use crate::{errors::AppError, routes::response, services, state::AppState};
@@ -27,8 +26,8 @@ impl From<services::now::NowOutput> for NowData {
             attention: value.attention.into(),
             sources: value.sources.into(),
             freshness: value.freshness.into(),
-            action_items: Vec::<ActionItemData>::new(),
-            review_snapshot: ReviewSnapshotData::default(),
+            action_items: value.action_items.into_iter().map(ActionItemData::from).collect(),
+            review_snapshot: value.review_snapshot.into(),
             reasons: value.reasons,
             debug: value.debug.into(),
         }
@@ -276,6 +275,29 @@ mod tests {
                     guidance: None,
                 }],
             },
+            action_items: vec![vel_core::ActionItem {
+                id: vel_core::ActionItemId::from("act_1".to_string()),
+                surface: vel_core::ActionSurface::Now,
+                kind: vel_core::ActionKind::NextStep,
+                title: "Ship patch".to_string(),
+                summary: "Due soon".to_string(),
+                project_id: None,
+                state: vel_core::ActionState::Active,
+                rank: 70,
+                surfaced_at: due_at,
+                snoozed_until: None,
+                evidence: vec![vel_core::ActionEvidenceRef {
+                    source_kind: "commitment".to_string(),
+                    source_id: "com_1".to_string(),
+                    label: "Ship patch".to_string(),
+                    detail: None,
+                }],
+            }],
+            review_snapshot: vel_core::ReviewSnapshot {
+                open_action_count: 1,
+                triage_count: 0,
+                projects_needing_review: 0,
+            },
             reasons: vec!["Mode: Day".to_string()],
             debug: services::now::NowDebugOutput {
                 raw_context: json!({"mode":"day_mode"}),
@@ -299,5 +321,7 @@ mod tests {
             "Recent commit"
         );
         assert_eq!(json["freshness"]["sources"][0]["key"], "context");
+        assert_eq!(json["action_items"][0]["rank"], 70);
+        assert_eq!(json["review_snapshot"]["open_action_count"], 1);
     }
 }

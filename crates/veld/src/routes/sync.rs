@@ -3,8 +3,8 @@ use axum::Json;
 use vel_api_types::{
     ApiResponse, BranchSyncRequestData, ClientActionBatchRequest, ClientActionBatchResultData,
     ClientActionData, ClientActionResultData, PlacementRecommendationData, QueuedWorkItemData,
-    QueuedWorkRoutingData, SyncBootstrapData, SyncClusterStateData, SyncHeartbeatRequestData,
-    SyncHeartbeatResponseData, SyncResultData, ValidationRequestData,
+    ProjectRecordData, QueuedWorkRoutingData, SyncBootstrapData, SyncClusterStateData,
+    SyncHeartbeatRequestData, SyncHeartbeatResponseData, SyncResultData, ValidationRequestData,
     WorkAssignmentClaimNextRequestData, WorkAssignmentClaimNextResponseData,
     WorkAssignmentClaimRequestData, WorkAssignmentClaimedWorkData, WorkAssignmentReceiptData,
     WorkAssignmentUpdateRequest,
@@ -174,9 +174,21 @@ fn sync_bootstrap_cluster_to_api(
                 environment: p.environment,
             })
             .collect(),
-        linked_nodes: vec![],
-        projects: vec![],
-        action_items: vec![],
+        linked_nodes: cluster
+            .linked_nodes
+            .into_iter()
+            .map(vel_api_types::LinkedNodeData::from)
+            .collect(),
+        projects: cluster
+            .projects
+            .into_iter()
+            .map(ProjectRecordData::from)
+            .collect(),
+        action_items: cluster
+            .action_items
+            .into_iter()
+            .map(vel_api_types::ActionItemData::from)
+            .collect(),
     }
 }
 
@@ -204,9 +216,21 @@ fn sync_bootstrap_to_api(data: crate::services::client_sync::SyncBootstrap) -> S
             .into_iter()
             .map(vel_api_types::CommitmentData::from)
             .collect(),
-        linked_nodes: vec![],
-        projects: vec![],
-        action_items: vec![],
+        linked_nodes: data
+            .linked_nodes
+            .into_iter()
+            .map(vel_api_types::LinkedNodeData::from)
+            .collect(),
+        projects: data
+            .projects
+            .into_iter()
+            .map(ProjectRecordData::from)
+            .collect(),
+        action_items: data
+            .action_items
+            .into_iter()
+            .map(vel_api_types::ActionItemData::from)
+            .collect(),
     }
 }
 
