@@ -1,5 +1,6 @@
 import { InboxView } from './InboxView';
 import { NowView } from './NowView';
+import { ProjectsView } from './ProjectsView';
 import type { SettingsTab } from './SettingsPage';
 import { SettingsPage } from './SettingsPage';
 import { SuggestionsView } from './SuggestionsView';
@@ -16,6 +17,7 @@ interface MainPanelProps {
   conversationId: string | null;
   mainView: MainView;
   onNavigate: (view: MainView) => void;
+  onOpenThread: (conversationId: string) => void;
   settingsTarget: SettingsNavigationTarget;
   onOpenSettings: (target?: {
     tab: SettingsTab;
@@ -27,6 +29,7 @@ export function MainPanel({
   conversationId,
   mainView,
   onNavigate,
+  onOpenThread,
   settingsTarget,
   onOpenSettings,
 }: MainPanelProps) {
@@ -40,7 +43,7 @@ export function MainPanel({
   if (mainView === 'inbox') {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <InboxView />
+        <InboxView onOpenThread={onOpenThread} />
       </div>
     );
   }
@@ -71,11 +74,9 @@ export function MainPanel({
   }
   if (mainView === 'projects') {
     return (
-      <SurfacePlaceholder
-        title="Projects"
-        subtitle="Project registry and workspace contracts are not wired in this web shell yet."
-        body="This placeholder is intentional: the backend project workspace contract is still pending. Until that lands, use commitments, threads, and suggestions to operate active work."
-      />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ProjectsView />
+      </div>
     );
   }
 

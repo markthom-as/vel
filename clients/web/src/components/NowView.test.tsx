@@ -141,6 +141,53 @@ describe('NowView', () => {
                 },
               ],
             },
+            action_items: [
+              {
+                id: 'action_1',
+                surface: 'now',
+                kind: 'next_step',
+                title: 'Confirm the design review agenda',
+                summary: 'Prep materials and confirm the current owner before the meeting starts.',
+                project_id: 'proj_ops',
+                state: 'active',
+                rank: 1,
+                surfaced_at: '2026-03-16T18:30:00Z',
+                snoozed_until: null,
+                evidence: [
+                  {
+                    source_kind: 'calendar_event',
+                    source_id: 'evt_1',
+                    label: 'Design review at 10:00',
+                    detail: null,
+                  },
+                ],
+              },
+              {
+                id: 'action_2',
+                surface: 'now',
+                kind: 'review',
+                title: 'Clear Todoist follow-ups',
+                summary: 'The open backlog still contains overdue outreach work.',
+                project_id: null,
+                state: 'active',
+                rank: 2,
+                surfaced_at: '2026-03-16T19:00:00Z',
+                snoozed_until: null,
+                evidence: [
+                  {
+                    source_kind: 'todoist_task',
+                    source_id: 'task_1',
+                    label: 'Reply to Dimitri',
+                    detail: null,
+                  },
+                ],
+              },
+            ],
+            review_snapshot: {
+              open_action_count: 2,
+              triage_count: 1,
+              projects_needing_review: 1,
+            },
             reasons: ['Prep window active', 'recent git activity indicates active work'],
             debug: {
               raw_context: {},
@@ -224,8 +271,18 @@ describe('NowView', () => {
     expect(screen.getByText('Room 4B')).toBeInTheDocument()
     expect(screen.getByText(/prep 15m/i)).toBeInTheDocument()
     expect(screen.getByText(/travel 0m/i)).toBeInTheDocument()
-    expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()
+    expect(screen.getAllByText('Reply to Dimitri').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
+    expect(screen.getByText('Action stack')).toBeInTheDocument()
+    expect(screen.getByText('Confirm the design review agenda')).toBeInTheDocument()
+    expect(screen.getByText('Clear Todoist follow-ups')).toBeInTheDocument()
+    expect(screen.getByText('Design review at 10:00')).toBeInTheDocument()
+    expect(screen.getByText('2 open actions')).toBeInTheDocument()
+    expect(
+      screen
+        .getByText('Confirm the design review agenda')
+        .compareDocumentPosition(screen.getByText('Clear Todoist follow-ups')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(screen.getByText('Prep window active')).toBeInTheDocument()
     expect(screen.getByText('recent git activity indicates active work')).toBeInTheDocument()
     expect(screen.getByText('Recent source activity')).toBeInTheDocument()

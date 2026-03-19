@@ -35,6 +35,11 @@ function App() {
     }
   }
 
+  function openConversationThread(conversationId: string) {
+    setSelectedConversationId(conversationId);
+    setMainView('threads');
+  }
+
   return (
     <AppShell
       sidebar={(
@@ -54,6 +59,7 @@ function App() {
           conversationId={selectedConversationId}
           mainView={mainView}
           onNavigate={setMainView}
+          onOpenThread={openConversationThread}
           onOpenSettings={openSettings}
           settingsTarget={settingsTarget}
         />

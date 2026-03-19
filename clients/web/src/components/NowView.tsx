@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { contextQueryKeys, loadNow } from '../data/context';
 import { operatorQueryKeys, runEvaluate, syncSource } from '../data/operator';
 import { invalidateQuery, useQuery } from '../data/query';
-import type { NowData, NowTaskData } from '../types';
+import type { ActionItemData, NowData, NowTaskData } from '../types';
 import { SurfaceState } from './SurfaceState';
 
 type SettingsIntegrationTarget =
@@ -138,6 +138,15 @@ export function NowView({ onOpenSettings }: NowViewProps) {
     );
   }
 
+  const actionItems = [...(data.action_items ?? [])]
+    .filter((item) => item.surface === 'now')
+    .sort((left, right) => left.rank - right.rank);
+  const reviewSnapshot = data.review_snapshot ?? {
+    open_action_count: 0,
+    triage_count: 0,
+    projects_needing_review: 0,
+  };
+
   return (
     <div className="flex-1 overflow-y-auto bg-zinc-950">
       <div className="mx-auto max-w-5xl px-6 py-8">
@@ -163,7 +172,33 @@ export function NowView({ onOpenSettings }: NowViewProps) {
           onRunAction={runFreshnessAction}
         />
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <Panel
+          title="Action stack"
+          subtitle="Ranked actions derived from persisted evidence and the current review snapshot"
+        >
+          <div className="mb-4 flex flex-wrap gap-2 text-xs text-zinc-400">
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+              {reviewSnapshot.open_action_count} open actions
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+              {reviewSnapshot.triage_count} waiting for Inbox triage
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+              {reviewSnapshot.projects_needing_review} projects need review
+            </span>
+          </div>
+          {actionItems.length === 0 ? (
+            <SurfaceState message="No ranked actions yet. Re-run evaluate after syncing sources." />
+          ) : (
+            <div className="space-y-3">
+              {actionItems.map((item) => (
+                <ActionItemRow key={item.id} item={item} timezone={data.timezone} />
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <section className="mt-8 grid gap-4 md:grid-cols-4">
           <FocusCard label="Mode" value={data.summary.mode.label} />
           <FocusCard label="Phase" value={data.summary.phase.label} />
           <FocusCard label="Meds" value={data.summary.meds.label} />
@@ -531,6 +566,51 @@ function TaskCard({ task, timezone }: { task: NowTaskData; timezone: string }) {
   );
 }
 
+function ActionItemRow({ item, timezone }: { item: ActionItemData; timezone: string }) {
+  return (
+    <article className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+              {formatActionKind(item.kind)}
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-500">
+              Rank {item.rank}
+            </span>
+            {item.project_id ? (
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-emerald-300">
+                {item.project_id}
+              </span>
+            ) : null}
+          </div>
+          <h3 className="mt-3 text-lg font-medium text-zinc-100">{item.title}</h3>
+          <p className="mt-2 text-sm leading-6 text-zinc-300">{item.summary}</p>
+        </div>
+        <div className="shrink-0 text-sm text-zinc-500">
+          Surfaced {formatRfc3339(item.surfaced_at, timezone)}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {item.evidence.length === 0 ? (
+          <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-500">
+            Evidence pending
+          </span>
+        ) : (
+          item.evidence.map((evidence) => (
+            <span
+              key={`${item.id}-${evidence.source_id}-${evidence.label}`}
+              className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-400"
+            >
+              {evidence.label}
+            </span>
+          ))
+        )}
+      </div>
+    </article>
+  );
+}
+
 function SourceActivityCard({
   title,
   timestamp,
@@ -601,6 +681,14 @@ function formatTimestamp(timestamp: number, timezone: string): string {
 
 function formatDateTime(value: string, timezone: string): string {
   return new Date(value).toLocaleString(undefined, { timeZone: timezone });
+}
+
+function formatRfc3339(value: string, timezone: string): string {
+  return new Date(value).toLocaleString(undefined, { timeZone: timezone });
+}
+
+function formatActionKind(kind: string): string {
+  return kind.replaceAll('_', ' ');
 }
 
 function findFreshnessSource(data: NowData, key: string) {

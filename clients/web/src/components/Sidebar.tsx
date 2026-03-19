@@ -27,9 +27,9 @@ export function Sidebar({
   const navigationItems: Array<{ view: MainView; label: string }> = [
     { view: 'now', label: 'Now' },
     { view: 'inbox', label: 'Inbox' },
+    { view: 'projects', label: 'Projects' },
     { view: 'threads', label: 'Threads' },
     { view: 'suggestions', label: 'Suggestions' },
-    { view: 'projects', label: 'Projects' },
     { view: 'stats', label: 'Stats' },
     { view: 'settings', label: 'Settings' },
   ];

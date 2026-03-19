@@ -10,6 +10,10 @@ vi.mock('./InboxView', () => ({
   InboxView: () => <div>Inbox view</div>,
 }))
 
+vi.mock('./ProjectsView', () => ({
+  ProjectsView: () => <div>Projects view</div>,
+}))
+
 vi.mock('./ThreadView', () => ({
   ThreadView: ({ conversationId }: { conversationId: string | null }) => (
     <div>{conversationId ? `Thread ${conversationId}` : 'Thread empty'}</div>
@@ -35,6 +39,7 @@ describe('MainPanel', () => {
         conversationId={mainView === 'threads' ? 'conv_1' : null}
         mainView={mainView}
         onNavigate={() => {}}
+        onOpenThread={() => {}}
         onOpenSettings={() => {}}
         settingsTarget={{ tab: 'general' }}
       />,
@@ -63,10 +68,9 @@ describe('MainPanel', () => {
     expect(screen.getByText('Suggestions view')).toBeInTheDocument()
   })
 
-  it('shows the Projects placeholder when mainView is projects', () => {
+  it('shows the Projects view when mainView is projects', () => {
     renderMainPanel('projects')
-    expect(screen.getByText('Projects')).toBeInTheDocument()
-    expect(screen.getByText(/not wired in this web shell yet/i)).toBeInTheDocument()
+    expect(screen.getByText('Projects view')).toBeInTheDocument()
   })
 
   it('shows the Stats surface when mainView is stats', () => {

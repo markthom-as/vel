@@ -13,11 +13,13 @@ import type {
   IntegrationsData,
   LocalIntegrationData,
   LoopData,
+  PairingTokenData,
   SettingsData,
   RunSummaryData,
 } from '../types';
 import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type { QueryKey } from '../data/query';
+import { issuePairingToken } from '../data/operator';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import {
   disconnectGoogleCalendar,
@@ -305,6 +307,17 @@ export function SettingsPage({
     status: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [pairingScopes, setPairingScopes] = useState({
+    read_context: true,
+    write_safe_actions: false,
+    execute_repo_tasks: false,
+  });
+  const [pairingToken, setPairingToken] = useState<PairingTokenData | null>(null);
+  const [pairingFeedback, setPairingFeedback] = useState<{
+    status: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  const [issuingPairingToken, setIssuingPairingToken] = useState(false);
   const [localSourceDrafts, setLocalSourceDrafts] = useState<Record<LocalIntegrationSource, string>>({
     activity: '',
     health: '',
@@ -592,6 +605,40 @@ export function SettingsPage({
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleIssuePairingToken = async () => {
+    if (!clusterBootstrap) {
+      setPairingFeedback({
+        status: 'error',
+        message: 'Cluster bootstrap must load before Vel can issue a pairing token.',
+      });
+      return;
+    }
+
+    setIssuingPairingToken(true);
+    setPairingFeedback(null);
+    try {
+      const response = await issuePairingToken({
+        issued_by_node_id: clusterBootstrap.node_id,
+        scopes: pairingScopes,
+      });
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to issue pairing token');
+      }
+      setPairingToken(response.data);
+      setPairingFeedback({
+        status: 'success',
+        message: 'Pairing token issued. Redeem it on the companion node, then refresh this page to confirm linked status.',
+      });
+    } catch (error) {
+      setPairingFeedback({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIssuingPairingToken(false);
     }
   };
 
@@ -1318,6 +1365,152 @@ export function SettingsPage({
                   {syncNetworkFeedback.message}
                 </p>
               ) : null}
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-zinc-200">Linked devices</h3>
+                <p className="text-sm text-zinc-500">
+                  Guided linking stays linear: issue pairing token, disclose the granted scopes,
+                  redeem the token on the companion node, then confirm continuity from the linked
+                  status cards below.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                  <input
+                    type="checkbox"
+                    checked={pairingScopes.read_context}
+                    onChange={(event) =>
+                      setPairingScopes((current) => ({
+                        ...current,
+                        read_context: event.target.checked,
+                      }))}
+                    disabled={issuingPairingToken}
+                    className="mt-1 rounded border-zinc-600 bg-zinc-900 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-zinc-300">Read context</span>
+                </label>
+                <label className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                  <input
+                    type="checkbox"
+                    checked={pairingScopes.write_safe_actions}
+                    onChange={(event) =>
+                      setPairingScopes((current) => ({
+                        ...current,
+                        write_safe_actions: event.target.checked,
+                      }))}
+                    disabled={issuingPairingToken}
+                    className="mt-1 rounded border-zinc-600 bg-zinc-900 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-zinc-300">Write safe actions</span>
+                </label>
+                <label className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                  <input
+                    type="checkbox"
+                    checked={pairingScopes.execute_repo_tasks}
+                    onChange={(event) =>
+                      setPairingScopes((current) => ({
+                        ...current,
+                        execute_repo_tasks: event.target.checked,
+                      }))}
+                    disabled={issuingPairingToken}
+                    className="mt-1 rounded border-zinc-600 bg-zinc-900 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-zinc-300">Execute repo tasks</span>
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleIssuePairingToken()}
+                  disabled={issuingPairingToken || !clusterBootstrap}
+                  className="min-h-[44px] rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
+                >
+                  {issuingPairingToken ? 'Issuing…' : 'Issue pairing token'}
+                </button>
+                <p className="text-sm text-zinc-500">
+                  CLI fallback: `vel node link issue --scope-read-context --scope-write-safe-actions`
+                </p>
+              </div>
+              {pairingToken ? (
+                <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
+                  <p className="text-sm font-medium text-emerald-200">Granted scopes</p>
+                  <p className="mt-2 break-all font-mono text-sm text-zinc-100">{pairingToken.token_code}</p>
+                  <p className="mt-2 text-sm text-zinc-300">
+                    Expires {formatRuntimeTimestamp(pairingToken.expires_at)}.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {scopeSummaryEntries(pairingToken.scopes).map((scope) => (
+                      <span
+                        key={scope.label}
+                        className={`rounded-full px-2.5 py-1 text-xs ${
+                          scope.enabled
+                            ? 'bg-emerald-900/60 text-emerald-200'
+                            : 'bg-zinc-800 text-zinc-500'
+                        }`}
+                      >
+                        {scope.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {pairingFeedback ? (
+                <p className={`text-sm ${pairingFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {pairingFeedback.message}
+                </p>
+              ) : null}
+              <div className="space-y-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">linkedNodes</p>
+                {clusterBootstrap?.linked_nodes?.length ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {clusterBootstrap.linked_nodes.map((node) => (
+                      <article
+                        key={node.node_id}
+                        className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h4 className="text-sm font-medium text-zinc-100">{node.node_display_name}</h4>
+                            <p className="mt-1 text-xs text-zinc-500">{node.node_id}</p>
+                          </div>
+                          <span className={linkStatusClassName(node.status)}>
+                            {node.status}
+                          </span>
+                        </div>
+                        <div className="mt-3 space-y-2 text-sm text-zinc-400">
+                          <p>Transport: {node.transport_hint ?? 'No transport hint'}</p>
+                          <p>
+                            Last seen:{' '}
+                            {node.last_seen_at ? formatRuntimeTimestamp(node.last_seen_at) : 'Not observed yet'}
+                          </p>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {scopeSummaryEntries(node.scopes).map((scope) => (
+                            <span
+                              key={`${node.node_id}-${scope.label}`}
+                              className={`rounded-full px-2.5 py-1 text-xs ${
+                                scope.enabled
+                                  ? 'bg-emerald-900/50 text-emerald-200'
+                                  : 'bg-zinc-800 text-zinc-500'
+                              }`}
+                            >
+                              {scope.label}
+                            </span>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-500">
+                    No linked devices yet. Issue a token here or use the CLI fallback to pair a
+                    companion node.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
@@ -2620,6 +2813,36 @@ function localGuidanceActions(
       ];
     default:
       return [];
+  }
+}
+
+function formatRuntimeTimestamp(timestamp: string): string {
+  return new Date(timestamp).toLocaleString();
+}
+
+function scopeSummaryEntries(scopes: {
+  read_context: boolean;
+  write_safe_actions: boolean;
+  execute_repo_tasks: boolean;
+}) {
+  return [
+    { label: 'read_context', enabled: scopes.read_context },
+    { label: 'write_safe_actions', enabled: scopes.write_safe_actions },
+    { label: 'execute_repo_tasks', enabled: scopes.execute_repo_tasks },
+  ];
+}
+
+function linkStatusClassName(status: string): string {
+  switch (status) {
+    case 'linked':
+      return 'rounded-full bg-emerald-900/50 px-2.5 py-1 text-xs uppercase tracking-wide text-emerald-200';
+    case 'pending':
+      return 'rounded-full bg-amber-900/50 px-2.5 py-1 text-xs uppercase tracking-wide text-amber-200';
+    case 'revoked':
+    case 'expired':
+      return 'rounded-full bg-rose-900/50 px-2.5 py-1 text-xs uppercase tracking-wide text-rose-200';
+    default:
+      return 'rounded-full bg-zinc-800 px-2.5 py-1 text-xs uppercase tracking-wide text-zinc-300';
   }
 }
 

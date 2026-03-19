@@ -104,6 +104,24 @@ describe('SettingsPage', () => {
             tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
             lan_base_url: 'http://192.168.1.50:4130',
             localhost_base_url: 'http://127.0.0.1:4130',
+            capabilities: ['read_context', 'write_safe_actions'],
+            linked_nodes: [
+              {
+                node_id: 'vel-air',
+                node_display_name: 'Vel Air',
+                status: 'linked',
+                scopes: {
+                  read_context: true,
+                  write_safe_actions: true,
+                  execute_repo_tasks: false,
+                },
+                linked_at: '2026-03-16T18:00:00Z',
+                last_seen_at: '2026-03-16T18:15:00Z',
+                transport_hint: 'tailscale',
+              },
+            ],
+            projects: [],
+            action_items: [],
           },
           meta: { request_id: 'req_cluster_bootstrap' },
         } as never
@@ -1686,6 +1704,55 @@ describe('SettingsPage', () => {
     })
 
     expect(scrollIntoView).toHaveBeenCalled()
+  })
+
+  it('renders linked node status and issues a pairing token from the general tab', async () => {
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        token_id: 'token_1',
+        token_code: 'VEL-PAIR-123',
+        issued_at: '2026-03-16T18:20:00Z',
+        expires_at: '2026-03-16T18:35:00Z',
+        issued_by_node_id: 'vel-desktop',
+        scopes: {
+          read_context: true,
+          write_safe_actions: true,
+          execute_repo_tasks: false,
+        },
+      },
+      meta: { request_id: 'req_pairing' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = getSettingsRoot(container)
+
+    await waitFor(() => {
+      expect(within(root).getByText('linkedNodes')).toBeInTheDocument()
+    })
+
+    expect(within(root).getByText('Vel Air')).toBeInTheDocument()
+    expect(within(root).getByText(/CLI fallback/i)).toBeInTheDocument()
+
+    fireEvent.click(within(root).getByRole('button', { name: /Issue pairing token/i }))
+
+    await waitFor(() => {
+      expect(vi.mocked(client.apiPost)).toHaveBeenCalledWith(
+        '/v1/linking/tokens',
+        {
+          issued_by_node_id: 'vel-desktop',
+          scopes: {
+            read_context: true,
+            write_safe_actions: false,
+            execute_repo_tasks: false,
+          },
+        },
+        expect.any(Function),
+      )
+    })
+
+    expect(within(root).getByText('Granted scopes')).toBeInTheDocument()
+    expect(within(root).getByText('VEL-PAIR-123')).toBeInTheDocument()
   })
 
 })

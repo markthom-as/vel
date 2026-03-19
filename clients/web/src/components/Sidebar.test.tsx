@@ -30,6 +30,25 @@ describe('Sidebar', () => {
     expect(onSelectView).toHaveBeenCalledWith('settings')
   })
 
+  it('keeps now, inbox, then projects at the front of navigation order', () => {
+    render(
+      <Sidebar
+        activeView="now"
+        onSelectView={() => {}}
+        selectedConversationId={null}
+        onSelectConversation={() => {}}
+      />,
+    )
+
+    const topLevelButtons = screen
+      .getAllByRole('button')
+      .map((button) => button.textContent)
+      .filter((label): label is string => Boolean(label))
+
+    expect(topLevelButtons.indexOf('Now')).toBeLessThan(topLevelButtons.indexOf('Inbox'))
+    expect(topLevelButtons.indexOf('Inbox')).toBeLessThan(topLevelButtons.indexOf('Projects'))
+  })
+
   it('shows conversation list only while on the Threads surface', () => {
     const { rerender } = render(
       <Sidebar
