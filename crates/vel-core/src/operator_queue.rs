@@ -58,6 +58,7 @@ impl Display for ActionSurface {
 #[serde(rename_all = "snake_case")]
 pub enum ActionKind {
     NextStep,
+    Recovery,
     Intervention,
     CheckIn,
     Review,
@@ -71,6 +72,7 @@ impl Display for ActionKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let value = match self {
             Self::NextStep => "next_step",
+            Self::Recovery => "recovery",
             Self::Intervention => "intervention",
             Self::CheckIn => "check_in",
             Self::Review => "review",

@@ -173,6 +173,7 @@ Current migration note:
 
 - the first backend-owned trust/readiness seam is allowed to compose backup trust, freshness state, pending writebacks/conflicts, and pending execution review pressure into one summary-first `Now` projection
 - shells should consume that typed readiness summary instead of independently recomputing trust posture from lower-level fields
+- when readiness is degraded, shells should render backend-provided follow-through actions from the same canonical action model instead of inventing separate recovery semantics
 
 ## `Check_in` Policy
 

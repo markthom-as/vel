@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 16
 current_phase_name: logic-first-product-closure-on-canonical-core-surfaces
-current_plan: 2
+current_plan: 4
 status: executing
-stopped_at: Completed Phase 16-02; next logical step is execute 16-03
-last_updated: "2026-03-19T22:26:00Z"
+stopped_at: Completed Phase 16-04; next logical step is execute 16-05
+last_updated: "2026-03-19T22:42:08Z"
 last_activity: 2026-03-19
 progress:
   total_phases: 17
   completed_phases: 12
   total_plans: 73
-  completed_plans: 63
-  percent: 69
+  completed_plans: 65
+  percent: 71
 ---
 
 # Project State
@@ -26,19 +26,19 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** Phase 16 execution — logic-first-product-closure-on-canonical-core-surfaces
 
-Status: Phase 16 in progress; 16-01 and 16-02 are complete and 16-03 is next
+Status: Phase 16 in progress; 16-01 through 16-04 are complete and 16-05 is next
 Current Phase: 16
 Current Phase Name: logic-first-product-closure-on-canonical-core-surfaces
-Current Plan: 2
+Current Plan: 4
 Total Plans in Phase: 5
-Progress: 40%
+Progress: 80%
 Last Activity: 2026-03-19
-Last Activity Description: Completed 16-02 by implementing backend-owned `check_in` submit and bypass lifecycle behavior over daily-loop state, outcome, and shell contracts
+Last Activity Description: Completed 16-04 by adding canonical backend-owned trust/readiness follow-through actions for degraded recovery and review posture
 
 ## Current Position
 
 Phase: 16 (logic-first-product-closure-on-canonical-core-surfaces) — IN PROGRESS
-Plan: 1 of 5
+Plan: 4 of 5
 
 ## Performance Metrics
 
@@ -176,6 +176,8 @@ Recent decisions affecting current work:
 - Phase 16 planning created (2026-03-19): 5-plan rollout covering transition contracts, backend-owned `check_in`, backend-owned `reflow`, trust/readiness follow-through, and project-scoped action behavior
 - Phase 16 execution started (2026-03-19): 16-01 completed by publishing typed backend-owned `check_in` and `reflow` transitions and wiring them through the `Now`/web contract
 - Phase 16 execution advanced (2026-03-19): 16-02 completed by implementing backend-owned `check_in` submit/bypass validation, typed resolution history, and daily-loop persistence through API, web, and Apple boundaries
+- Phase 16 execution advanced (2026-03-19): 16-03 completed by implementing backend-owned `reflow` apply/edit handling, typed persisted follow-up status on current context, and thread-backed edit escalation surfaced through `Now`
+- Phase 16 execution advanced (2026-03-19): 16-04 completed by surfacing canonical backend-owned trust/readiness follow-through actions for degraded backup, freshness, conflict, and review posture
 - Phase 17 planning created (2026-03-19): 4-plan rollout covering web shell classification, default-surface embodiment, advanced/support disclosure, and Apple/CLI alignment
 
 ### Pending Todos
@@ -201,10 +203,10 @@ Recent decisions affecting current work:
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 - Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
-- Phase 16 is active; the next lane is 16-03 execution
+- Phase 16 is active; the next lane is 16-05 execution
 
 ## Session Continuity
 
 Last session: 2026-03-19T07:35:55.445Z
-Stopped at: Completed Phase 16-02; next logical step is 16-03 execution
+Stopped at: Completed Phase 16-04; next logical step is 16-05 execution
 Resume file: None

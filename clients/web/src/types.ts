@@ -596,6 +596,7 @@ export interface ProjectListResponseData {
 export type ActionSurfaceData = 'now' | 'inbox';
 export type ActionKindData =
   | 'next_step'
+  | 'recovery'
   | 'intervention'
   | 'check_in'
   | 'review'
@@ -741,6 +742,19 @@ export interface ReflowCardData {
   transitions: ReflowTransitionData[];
 }
 
+export type CurrentContextReflowStatusKindData = 'applied' | 'editing';
+
+export interface CurrentContextReflowStatusData {
+  kind: CurrentContextReflowStatusKindData;
+  trigger: ReflowTriggerKindData;
+  severity: ReflowSeverityData;
+  headline: string;
+  detail: string;
+  recorded_at: UnixSeconds;
+  preview_lines: string[];
+  thread_id: string | null;
+}
+
 export interface TrustReadinessFacetData {
   level: string;
   label: string;
@@ -762,6 +776,7 @@ export interface TrustReadinessData {
   freshness: TrustReadinessFacetData;
   review: TrustReadinessReviewData;
   guidance: string[];
+  follow_through: ActionItemData[];
 }
 
 export type LinkStatusData = 'pending' | 'linked' | 'revoked' | 'expired';
@@ -1116,6 +1131,7 @@ export interface NowData {
   trust_readiness: TrustReadinessData;
   check_in: CheckInCardData | null;
   reflow: ReflowCardData | null;
+  reflow_status: CurrentContextReflowStatusData | null;
   action_items: ActionItemData[];
   review_snapshot: ReviewSnapshotData;
   pending_writebacks: WritebackOperationData[];
@@ -1881,6 +1897,7 @@ export function decodeActionSurfaceData(value: unknown): ActionSurfaceData {
 export function decodeActionKindData(value: unknown): ActionKindData {
   return expectEnumString(value, 'action kind', [
     'next_step',
+    'recovery',
     'intervention',
     'check_in',
     'review',
@@ -2032,6 +2049,7 @@ export function decodeTrustReadinessData(value: unknown): TrustReadinessData {
     guidance: decodeArray(record.guidance ?? [], (item) =>
       expectString(item, 'trust readiness.guidance'),
     ),
+    follow_through: decodeArray(record.follow_through ?? [], decodeActionItemData),
   };
 }
 
@@ -2182,6 +2200,32 @@ export function decodeReflowCardData(value: unknown): ReflowCardData {
     ),
     edit_target: decodeReflowEditTargetData(record.edit_target),
     transitions: decodeArray(record.transitions ?? [], decodeReflowTransitionData),
+  };
+}
+
+export function decodeCurrentContextReflowStatusKindData(
+  value: unknown,
+): CurrentContextReflowStatusKindData {
+  return expectEnumString(value, 'reflow status kind', ['applied', 'editing']);
+}
+
+export function decodeCurrentContextReflowStatusData(
+  value: unknown,
+): CurrentContextReflowStatusData {
+  const record = expectRecord(value, 'reflow status');
+  return {
+    kind: decodeCurrentContextReflowStatusKindData(record.kind),
+    trigger: decodeReflowTriggerKindData(record.trigger),
+    severity: decodeReflowSeverityData(record.severity),
+    headline: expectString(record.headline, 'reflow status.headline'),
+    detail: expectString(record.detail, 'reflow status.detail'),
+    recorded_at: expectNumber(record.recorded_at, 'reflow status.recorded_at'),
+    preview_lines: decodeArray(record.preview_lines ?? [], (item) =>
+      expectString(item, 'reflow status.preview_lines'),
+    ),
+    thread_id: decodeNullable(record.thread_id ?? null, (item) =>
+      expectString(item, 'reflow status.thread_id'),
+    ),
   };
 }
 
@@ -2502,6 +2546,10 @@ export function decodeNowData(value: unknown): NowData {
     trust_readiness: decodeTrustReadinessData(record.trust_readiness),
     check_in: decodeNullable(record.check_in ?? null, decodeCheckInCardData),
     reflow: decodeNullable(record.reflow ?? null, decodeReflowCardData),
+    reflow_status: decodeNullable(
+      record.reflow_status ?? null,
+      decodeCurrentContextReflowStatusData,
+    ),
     action_items: decodeArray(record.action_items ?? [], decodeActionItemData),
     review_snapshot: decodeReviewSnapshotData(
       record.review_snapshot ?? {

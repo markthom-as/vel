@@ -161,15 +161,25 @@ fn backup_check(backup: &BackupTrustData) -> DoctorCheck {
     };
     let message = if let Some(last_backup_at) = backup.status.last_backup_at {
         format!(
-            "{}; last backup at {}; warnings={}",
+            "{}; last backup at {}; warnings={}; next={}",
             backup_status_label(backup.level),
             last_backup_at,
-            backup.status.warnings.len()
+            backup.status.warnings.len(),
+            backup
+                .guidance
+                .first()
+                .map(String::as_str)
+                .unwrap_or("inspect backup posture")
         )
     } else {
         format!(
-            "{}; no successful backup recorded",
-            backup_status_label(backup.level)
+            "{}; no successful backup recorded; next={}",
+            backup_status_label(backup.level),
+            backup
+                .guidance
+                .first()
+                .map(String::as_str)
+                .unwrap_or("inspect backup posture")
         )
     };
 

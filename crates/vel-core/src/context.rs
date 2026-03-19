@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use time::OffsetDateTime;
 
-use crate::{CaptureId, VelCoreError};
+use crate::{CaptureId, ReflowSeverity, ReflowTriggerKind, VelCoreError};
 
 /// A single capture as used in context snapshots and lists.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +33,28 @@ pub struct OrientationSnapshot {
     pub recent_today: Vec<ContextCapture>,
     pub recent_week: Vec<ContextCapture>,
     pub recent_signal_summaries: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CurrentContextReflowStatusKind {
+    Applied,
+    Editing,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CurrentContextReflowStatus {
+    pub source_context_computed_at: i64,
+    pub recorded_at: i64,
+    pub kind: CurrentContextReflowStatusKind,
+    pub trigger: ReflowTriggerKind,
+    pub severity: ReflowSeverity,
+    pub headline: String,
+    pub detail: String,
+    #[serde(default)]
+    pub preview_lines: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
 }
 
 /// Versioned typed representation for current context state.
@@ -109,6 +131,8 @@ pub struct CurrentContextV1 {
     pub leave_by_ts: Option<i64>,
     #[serde(default)]
     pub next_event_start_ts: Option<i64>,
+    #[serde(default)]
+    pub reflow_status: Option<CurrentContextReflowStatus>,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
@@ -136,7 +160,11 @@ impl ContextMigrator {
 
 #[cfg(test)]
 mod tests {
-    use super::{ContextMigrator, CurrentContextV1};
+    use super::{
+        ContextMigrator, CurrentContextReflowStatus, CurrentContextReflowStatusKind,
+        CurrentContextV1,
+    };
+    use crate::{ReflowSeverity, ReflowTriggerKind};
 
     #[test]
     fn context_migrator_parses_known_context_shape() {
@@ -176,10 +204,22 @@ mod tests {
         let context = CurrentContextV1 {
             mode: "today_mode".to_string(),
             meds_status: "done".to_string(),
+            reflow_status: Some(CurrentContextReflowStatus {
+                source_context_computed_at: 1_710_000_000,
+                recorded_at: 1_710_000_600,
+                kind: CurrentContextReflowStatusKind::Applied,
+                trigger: ReflowTriggerKind::StaleSchedule,
+                severity: ReflowSeverity::High,
+                headline: "Reflow accepted".to_string(),
+                detail: "Vel marked the current schedule for reflow review.".to_string(),
+                preview_lines: vec!["Current context is 30 minutes old.".to_string()],
+                thread_id: None,
+            }),
             ..CurrentContextV1::default()
         };
         let value = context.into_json();
         assert_eq!(value["mode"], "today_mode");
         assert_eq!(value["meds_status"], "done");
+        assert_eq!(value["reflow_status"]["kind"], "applied");
     }
 }

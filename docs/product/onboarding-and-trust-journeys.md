@@ -105,6 +105,7 @@ Implementation rule for the current migration lane:
 
 - the first backend-owned trust/readiness seam may compose backup trust, freshness, pending writebacks/conflicts, and supervised execution review pressure into one typed `Now` summary
 - that projection should stay summary-first and action-oriented, with deeper inspection still routed through advanced surfaces
+- degraded trust/readiness should also expose typed backend-owned follow-through actions, reusing the canonical queue/action model rather than inventing shell-specific recovery buttons
 
 ### 4. Freshness Recovery
 
@@ -176,6 +177,7 @@ Implementation rule for the current migration lane:
 - the first backend-owned `reflow` seam may derive from typed current-context drift plus schedule freshness/event timing inputs
 - this seam should stay daily-loop-adjacent and `Now`-consumable rather than becoming a broad planner abstraction
 - `Accept` and `Edit` branching should remain typed backend metadata, with `Edit` escalating toward `Threads`
+- once handled, the backend should persist a typed reflow follow-up status so shells can suppress the original card and render durable applied/editing consequences without inferring them locally
 
 Likely triggers:
 

@@ -2268,6 +2268,7 @@ impl From<vel_core::ActionSurface> for ActionSurfaceData {
 #[serde(rename_all = "snake_case")]
 pub enum ActionKindData {
     NextStep,
+    Recovery,
     Intervention,
     CheckIn,
     Review,
@@ -2281,6 +2282,7 @@ impl From<vel_core::ActionKind> for ActionKindData {
     fn from(value: vel_core::ActionKind) -> Self {
         match value {
             vel_core::ActionKind::NextStep => Self::NextStep,
+            vel_core::ActionKind::Recovery => Self::Recovery,
             vel_core::ActionKind::Intervention => Self::Intervention,
             vel_core::ActionKind::CheckIn => Self::CheckIn,
             vel_core::ActionKind::Review => Self::Review,
@@ -2715,6 +2717,51 @@ impl From<vel_core::ReflowCard> for ReflowCardData {
             preview_lines: value.preview_lines,
             edit_target: value.edit_target.into(),
             transitions: value.transitions.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CurrentContextReflowStatusKindData {
+    Applied,
+    Editing,
+}
+
+impl From<vel_core::CurrentContextReflowStatusKind> for CurrentContextReflowStatusKindData {
+    fn from(value: vel_core::CurrentContextReflowStatusKind) -> Self {
+        match value {
+            vel_core::CurrentContextReflowStatusKind::Applied => Self::Applied,
+            vel_core::CurrentContextReflowStatusKind::Editing => Self::Editing,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentContextReflowStatusData {
+    pub kind: CurrentContextReflowStatusKindData,
+    pub trigger: ReflowTriggerKindData,
+    pub severity: ReflowSeverityData,
+    pub headline: String,
+    pub detail: String,
+    pub recorded_at: UnixSeconds,
+    #[serde(default)]
+    pub preview_lines: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+}
+
+impl From<vel_core::CurrentContextReflowStatus> for CurrentContextReflowStatusData {
+    fn from(value: vel_core::CurrentContextReflowStatus) -> Self {
+        Self {
+            kind: value.kind.into(),
+            trigger: value.trigger.into(),
+            severity: value.severity.into(),
+            headline: value.headline,
+            detail: value.detail,
+            recorded_at: value.recorded_at,
+            preview_lines: value.preview_lines,
+            thread_id: value.thread_id,
         }
     }
 }
@@ -5202,6 +5249,8 @@ pub struct TrustReadinessData {
     pub review: TrustReadinessReviewData,
     #[serde(default)]
     pub guidance: Vec<String>,
+    #[serde(default)]
+    pub follow_through: Vec<ActionItemData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -5227,6 +5276,8 @@ pub struct NowData {
     pub check_in: Option<CheckInCardData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reflow: Option<ReflowCardData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reflow_status: Option<CurrentContextReflowStatusData>,
     #[serde(default)]
     pub action_items: Vec<ActionItemData>,
     #[serde(default)]

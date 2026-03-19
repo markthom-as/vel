@@ -48,7 +48,8 @@ pub use connect::{
     ConnectRuntimeCapability,
 };
 pub use context::{
-    ContextCapture, ContextMigrator, CurrentContextV1, OrientationSnapshot, SearchResult,
+    ContextCapture, ContextMigrator, CurrentContextReflowStatus, CurrentContextReflowStatusKind,
+    CurrentContextV1, OrientationSnapshot, SearchResult,
 };
 pub use daily_loop::{
     DailyCommitmentDraft, DailyDeferredTask, DailyFocusBlockProposal, DailyLoopCheckInResolution,

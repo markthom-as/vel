@@ -2,8 +2,9 @@ use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{
-    normalize_risk_level, ActionItem, CheckInCard, Commitment, CommitmentStatus,
-    ConflictCaseRecord, CurrentContextV1, ReflowCard, ReviewSnapshot, WritebackOperationRecord,
+    normalize_risk_level, ActionItem, ActionKind, CheckInCard, Commitment, CommitmentStatus,
+    ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, ReflowCard, ReviewSnapshot,
+    WritebackOperationRecord,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -22,6 +23,7 @@ pub struct NowOutput {
     pub trust_readiness: TrustReadinessOutput,
     pub check_in: Option<CheckInCard>,
     pub reflow: Option<ReflowCard>,
+    pub reflow_status: Option<CurrentContextReflowStatus>,
     pub action_items: Vec<ActionItem>,
     pub review_snapshot: ReviewSnapshot,
     pub pending_writebacks: Vec<WritebackOperationRecord>,
@@ -153,6 +155,7 @@ pub struct TrustReadinessOutput {
     pub freshness: TrustReadinessFacetOutput,
     pub review: TrustReadinessReviewOutput,
     pub guidance: Vec<String>,
+    pub follow_through: Vec<ActionItem>,
 }
 
 #[derive(Debug, Clone)]
@@ -317,6 +320,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
     let attention_reasons = context.attention_reasons.clone();
     let reasons = build_reasons_typed(&context, &attention_reasons);
+    let reflow_status = crate::services::reflow::current_status_for_snapshot(&context).cloned();
     let reflow = crate::services::reflow::derive_reflow(&context, now_ts);
 
     Ok(NowOutput {
@@ -399,6 +403,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         trust_readiness,
         check_in,
         reflow,
+        reflow_status,
         action_items: action_queue.action_items.into_iter().take(5).collect(),
         review_snapshot: action_queue.review_snapshot,
         pending_writebacks: action_queue.pending_writebacks,
@@ -463,6 +468,7 @@ async fn build_trust_readiness(
         &action_queue.review_snapshot,
         action_queue.pending_writebacks.len() as u32,
         action_queue.conflicts.len() as u32,
+        &action_queue.action_items,
     ))
 }
 
@@ -472,6 +478,7 @@ fn build_trust_readiness_from_parts(
     review_snapshot: &ReviewSnapshot,
     pending_writeback_count: u32,
     conflict_count: u32,
+    action_items: &[ActionItem],
 ) -> TrustReadinessOutput {
     let backup_level = backup
         .map(|value| match value.level {
@@ -561,6 +568,7 @@ fn build_trust_readiness_from_parts(
         );
     }
     guidance.truncate(3);
+    let follow_through = trust_follow_through_items(action_items);
 
     TrustReadinessOutput {
         level: overall_level.to_string(),
@@ -570,7 +578,25 @@ fn build_trust_readiness_from_parts(
         freshness: freshness_facet,
         review,
         guidance,
+        follow_through,
     }
+}
+
+fn trust_follow_through_items(action_items: &[ActionItem]) -> Vec<ActionItem> {
+    action_items
+        .iter()
+        .filter(|item| {
+            matches!(
+                item.kind,
+                ActionKind::Recovery
+                    | ActionKind::Freshness
+                    | ActionKind::Review
+                    | ActionKind::Conflict
+            )
+        })
+        .take(3)
+        .cloned()
+        .collect()
 }
 
 fn fold_levels<'a>(levels: impl IntoIterator<Item = &'a str>) -> &'a str {
@@ -640,9 +666,11 @@ fn empty_now(now_ts: i64, timezone: &str, check_in: Option<CheckInCard>) -> NowO
             &ReviewSnapshot::default(),
             0,
             0,
+            &[],
         ),
         check_in,
         reflow: None,
+        reflow_status: None,
         action_items: Vec::new(),
         review_snapshot: ReviewSnapshot::default(),
         pending_writebacks: Vec::new(),
@@ -1028,7 +1056,7 @@ mod tests {
             pending_execution_reviews: 1,
         };
 
-        let output = build_trust_readiness_from_parts(None, &freshness, &review, 1, 1);
+        let output = build_trust_readiness_from_parts(None, &freshness, &review, 1, 1, &[]);
 
         assert_eq!(output.level, "warn");
         assert_eq!(output.headline, "Review is pending");

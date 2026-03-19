@@ -386,14 +386,15 @@ describe('transport decoders', () => {
               label: 'Freshness',
               detail: 'Current context and integrations look fresh enough to trust.',
             },
-            review: {
-              open_action_count: 1,
-              pending_execution_reviews: 0,
-              pending_writeback_count: 0,
-              conflict_count: 0,
-            },
-            guidance: ['Backup trust is healthy.'],
+          review: {
+            open_action_count: 1,
+            pending_execution_reviews: 0,
+            pending_writeback_count: 0,
+            conflict_count: 0,
           },
+          guidance: ['Backup trust is healthy.'],
+          follow_through: [],
+        },
           people: [],
           reasons: [],
           debug: { raw_context: {}, signals_used: [], commitments_used: [], risk_used: [] },
@@ -1174,7 +1175,7 @@ describe('transport decoders', () => {
             detail: 'Current context and integrations look fresh enough to trust.',
           },
           review: {
-            open_action_count: 3,
+            open_action_count: 1,
             pending_execution_reviews: 1,
             pending_writeback_count: 1,
             conflict_count: 1,
@@ -1182,6 +1183,34 @@ describe('transport decoders', () => {
           guidance: [
             'Backup trust is healthy.',
             'Review the remaining conflicts or supervised execution handoffs before risky actions.',
+          ],
+          follow_through: [
+            {
+              id: 'act_recovery_backup',
+              surface: 'inbox',
+              kind: 'recovery',
+              permission_mode: 'user_confirm',
+              scope_affinity: 'global',
+              title: 'Backup is stale',
+              summary:
+                'Backup trust is degraded. Create or verify a fresh backup before risky maintenance.',
+              project_id: null,
+              project_label: null,
+              project_family: null,
+              state: 'active',
+              rank: 88,
+              surfaced_at: '2023-11-14T22:13:20Z',
+              snoozed_until: null,
+              evidence: [
+                {
+                  source_kind: 'backup_trust',
+                  source_id: 'warn',
+                  label: 'Backup trust',
+                  detail:
+                    'Backup trust is degraded. Create or verify a fresh backup before risky maintenance.',
+                },
+              ],
+            },
           ],
         },
         check_in: {
@@ -1263,6 +1292,17 @@ describe('transport decoders', () => {
               confirm_required: false,
             },
           ],
+        },
+        reflow_status: {
+          kind: 'editing',
+          trigger: 'missed_event',
+          severity: 'critical',
+          headline: 'Reflow moved to Threads',
+          detail:
+            'Vel opened a thread-backed reflow follow-up so the day plan can be shaped before anything else changes.',
+          recorded_at: 1700000300,
+          preview_lines: ['Next scheduled event started 20 minutes ago.'],
+          thread_id: 'thr_reflow_1',
         },
         action_items: [
           {
@@ -1439,7 +1479,7 @@ describe('transport decoders', () => {
           detail: 'Current context and integrations look fresh enough to trust.',
         },
         review: {
-          open_action_count: 3,
+          open_action_count: 1,
           pending_execution_reviews: 1,
           pending_writeback_count: 1,
           conflict_count: 1,
@@ -1447,6 +1487,34 @@ describe('transport decoders', () => {
         guidance: [
           'Backup trust is healthy.',
           'Review the remaining conflicts or supervised execution handoffs before risky actions.',
+        ],
+        follow_through: [
+          {
+            id: 'act_recovery_backup',
+            surface: 'inbox',
+            kind: 'recovery',
+            permission_mode: 'user_confirm',
+            scope_affinity: 'global',
+            title: 'Backup is stale',
+            summary:
+              'Backup trust is degraded. Create or verify a fresh backup before risky maintenance.',
+            project_id: null,
+            project_label: null,
+            project_family: null,
+            state: 'active',
+            rank: 88,
+            surfaced_at: '2023-11-14T22:13:20Z',
+            snoozed_until: null,
+            evidence: [
+              {
+                source_kind: 'backup_trust',
+                source_id: 'warn',
+                label: 'Backup trust',
+                detail:
+                  'Backup trust is degraded. Create or verify a fresh backup before risky maintenance.',
+              },
+            ],
+          },
         ],
       },
       check_in: {
@@ -1528,6 +1596,17 @@ describe('transport decoders', () => {
             confirm_required: false,
           },
         ],
+      },
+      reflow_status: {
+        kind: 'editing',
+        trigger: 'missed_event',
+        severity: 'critical',
+        headline: 'Reflow moved to Threads',
+        detail:
+          'Vel opened a thread-backed reflow follow-up so the day plan can be shaped before anything else changes.',
+        recorded_at: 1700000300,
+        preview_lines: ['Next scheduled event started 20 minutes ago.'],
+        thread_id: 'thr_reflow_1',
       },
       action_items: [
         {

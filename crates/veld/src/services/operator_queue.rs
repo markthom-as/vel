@@ -13,6 +13,7 @@ use vel_storage::{InterventionRecord, Storage};
 use crate::{errors::AppError, services::integrations};
 
 const FRESHNESS_ALERT_RANK: i64 = 90;
+const BACKUP_RECOVERY_RANK: i64 = 88;
 const LINKING_ALERT_RANK: i64 = 85;
 const INTERVENTION_RANK: i64 = 80;
 const EXECUTION_HANDOFF_RANK: i64 = 78;
@@ -96,10 +97,12 @@ pub async fn build_action_items(
     let pending_writebacks =
         crate::services::writeback::list_pending_writebacks(storage, 32).await?;
     let conflicts = crate::services::writeback::list_open_conflicts(storage, 32).await?;
+    let backup_trust = crate::services::backup::backup_trust_for_storage(storage).await?;
     let integrations = integrations::get_integrations_with_config(storage, config).await?;
     let current_context = storage.get_current_context().await?;
 
     let mut items = Vec::new();
+    items.extend(build_backup_recovery_items(now, &backup_trust));
     items.extend(build_freshness_items(
         now,
         current_context.map(|(computed_at, _)| computed_at),
@@ -148,6 +151,64 @@ pub async fn build_action_items(
         pending_writebacks,
         conflicts,
     })
+}
+
+fn build_backup_recovery_items(
+    now: OffsetDateTime,
+    backup: &vel_api_types::BackupTrustData,
+) -> Vec<ActionItem> {
+    use vel_api_types::BackupTrustLevelData;
+
+    let (source_id, title, summary) = match backup.level {
+        BackupTrustLevelData::Ok => return Vec::new(),
+        BackupTrustLevelData::Warn => (
+            "warn",
+            "Backup is stale".to_string(),
+            backup
+                .guidance
+                .first()
+                .cloned()
+                .unwrap_or_else(|| {
+                    "Backup trust is degraded. Create or verify a fresh backup before risky maintenance."
+                        .to_string()
+                }),
+        ),
+        BackupTrustLevelData::Fail => (
+            "fail",
+            "Backup is missing".to_string(),
+            backup
+                .guidance
+                .first()
+                .cloned()
+                .unwrap_or_else(|| {
+                    "No trustworthy backup is currently available. Create a fresh backup before destructive actions."
+                        .to_string()
+                }),
+        ),
+    };
+
+    vec![ActionItem {
+        id: ActionItemId::from("act_recovery_backup".to_string()),
+        surface: ActionSurface::Inbox,
+        kind: ActionKind::Recovery,
+        permission_mode: ActionPermissionMode::UserConfirm,
+        scope_affinity: ActionScopeAffinity::Global,
+        title,
+        summary: summary.clone(),
+        project_id: None,
+        project_label: None,
+        project_family: None,
+        state: ActionState::Active,
+        rank: BACKUP_RECOVERY_RANK,
+        surfaced_at: backup.status.last_backup_at.unwrap_or(now),
+        snoozed_until: None,
+        evidence: vec![ActionEvidenceRef {
+            source_kind: "backup_trust".to_string(),
+            source_id: source_id.to_string(),
+            label: "Backup trust".to_string(),
+            detail: Some(summary),
+        }],
+    }]
 }
 
 fn build_execution_handoff_items(
@@ -1024,6 +1085,7 @@ mod tests {
             .unwrap();
 
         assert!(snapshot.action_items.iter().any(|item| item.rank == 90));
+        assert!(snapshot.action_items.iter().any(|item| item.rank == 88));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 85));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 80));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 75));
@@ -1036,6 +1098,17 @@ mod tests {
             .action_items
             .iter()
             .all(|item| !item.evidence.is_empty()));
+        let backup_item = snapshot
+            .action_items
+            .iter()
+            .find(|item| item.id.as_ref() == "act_recovery_backup")
+            .expect("backup recovery item should exist");
+        assert_eq!(backup_item.kind, ActionKind::Recovery);
+        assert_eq!(backup_item.surface, ActionSurface::Inbox);
+        assert!(backup_item
+            .evidence
+            .iter()
+            .any(|evidence| evidence.source_kind == "backup_trust"));
         let writeback_item = snapshot
             .action_items
             .iter()
