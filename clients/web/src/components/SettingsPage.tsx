@@ -131,6 +131,11 @@ interface SuggestedPathHostSection {
   paths: string[];
 }
 
+interface LocalSourceOptionDescriptor {
+  title: string;
+  detail: string;
+}
+
 type LegacySettingsTab = 'components' | 'runs' | 'loops';
 export type SettingsTab = 'general' | 'integrations' | 'runtime';
 
@@ -458,6 +463,84 @@ function secondarySuggestedPathHosts(
   return sections;
 }
 
+function pathBasename(path: string): string {
+  const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '');
+  const parts = normalized.split('/');
+  return parts[parts.length - 1] || path;
+}
+
+function describeLocalSourcePath(
+  source: LocalIntegrationSource,
+  path: string,
+  internal: boolean,
+): LocalSourceOptionDescriptor {
+  const normalized = path.toLowerCase();
+  if (source === 'activity') {
+    if (normalized.includes('activitywatch')) {
+      return {
+        title: 'ActivityWatch local data',
+        detail: internal ? 'Vel fallback path' : 'Host activity database or config',
+      };
+    }
+    if (normalized.endsWith('.zsh_history') || normalized.endsWith('.histfile') || normalized.includes('/zsh/')) {
+      return {
+        title: 'Zsh shell history',
+        detail: 'Command history source on this host',
+      };
+    }
+    return {
+      title: internal ? 'Vel activity snapshot' : 'Activity snapshot',
+      detail: internal ? 'Vel-managed/default location' : 'Current-host activity export',
+    };
+  }
+  if (source === 'notes') {
+    if (normalized.includes('obsidian')) {
+      return {
+        title: 'Obsidian vault',
+        detail: internal ? 'Vel mirror/default location' : `Vault root: ${pathBasename(path)}`,
+      };
+    }
+    return {
+      title: internal ? 'Vel notes path' : 'Notes directory',
+      detail: internal ? 'Vel-managed/default location' : `Directory: ${pathBasename(path)}`,
+    };
+  }
+  if (source === 'messaging') {
+    return {
+      title: internal ? 'Vel messages snapshot' : 'Messaging snapshot',
+      detail: internal ? 'VelMac export/default location' : 'Current-host message export',
+    };
+  }
+  if (source === 'health') {
+    return {
+      title: internal ? 'Vel health snapshot' : 'Health snapshot',
+      detail: internal ? 'VelMac export/default location' : 'Current-host health export',
+    };
+  }
+  if (source === 'reminders') {
+    return {
+      title: internal ? 'Vel reminders snapshot' : 'Reminders snapshot',
+      detail: internal ? 'VelMac export/default location' : 'Current-host reminders export',
+    };
+  }
+  if (source === 'git') {
+    return {
+      title: internal ? 'Vel git snapshot' : 'Git activity snapshot',
+      detail: internal ? 'Vel-managed/default location' : 'Current-host git export',
+    };
+  }
+  if (source === 'transcripts') {
+    return {
+      title: internal ? 'Vel transcripts snapshot' : 'Transcript snapshot',
+      detail: internal ? 'Vel-managed/default location' : 'Current-host transcript export',
+    };
+  }
+  return {
+    title: internal ? 'Vel source path' : 'Local source path',
+    detail: internal ? 'Vel-managed/default location' : 'Discovered on this host',
+  };
+}
+
 function updateRunsCache(
   runsKey: QueryKey,
   runLimit: number,
@@ -530,6 +613,15 @@ export function SettingsPage({
     reminders: '',
     notes: '',
     transcripts: '',
+  });
+  const [selectedHostPaths, setSelectedHostPaths] = useState<Record<LocalIntegrationSource, string[]>>({
+    activity: [],
+    health: [],
+    git: [],
+    messaging: [],
+    reminders: [],
+    notes: [],
+    transcripts: [],
   });
   const [integrationFeedback, setIntegrationFeedback] = useState<Record<string, IntegrationFeedbackState>>({});
   const [componentActions, setComponentActions] = useState<Record<string, ComponentActionState>>({});
@@ -685,6 +777,26 @@ export function SettingsPage({
             next[spec.key] = configuredPath;
             changed = true;
           }
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [integrations]);
+
+  useEffect(() => {
+    setSelectedHostPaths((current) => {
+      let changed = false;
+      const next = { ...current };
+      for (const spec of LOCAL_INTEGRATION_SPECS) {
+        const configuredPath = integrations[spec.key].source_path;
+        const nextSelection = configuredPath ? [configuredPath] : [];
+        const currentSelection = current[spec.key];
+        if (
+          currentSelection.length !== nextSelection.length
+          || currentSelection.some((path, index) => path !== nextSelection[index])
+        ) {
+          next[spec.key] = nextSelection;
+          changed = true;
         }
       }
       return changed ? next : current;
@@ -1202,6 +1314,26 @@ export function SettingsPage({
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  };
+
+  const toggleSuggestedPathSelection = (
+    source: LocalIntegrationSource,
+    path: string,
+  ) => {
+    setSelectedHostPaths((current) => {
+      const selected = current[source];
+      const nextSelected = selected.includes(path)
+        ? selected.filter((entry) => entry !== path)
+        : [...selected, path];
+      return {
+        ...current,
+        [source]: nextSelected,
+      };
+    });
+    setLocalSourceDrafts((current) => ({
+      ...current,
+      [source]: path,
+    }));
   };
 
   const openIntegrationHistory = (integrationId: IntegrationLogSource) => {
@@ -2104,6 +2236,7 @@ export function SettingsPage({
                 : integration.suggested_paths,
             );
             const internalPaths = dedupePaths(integration.internal_paths ?? []);
+            const selectedPaths = selectedHostPaths[spec.key] ?? [];
             return (
               <div
                 key={spec.key}
@@ -2157,21 +2290,35 @@ export function SettingsPage({
                         ? `This host: ${clusterBootstrap.node_display_name}`
                         : 'This host'}
                     </p>
+                    {selectedPaths.length > 0 ? (
+                      <p className="text-xs text-zinc-500">
+                        {selectedPaths.length} selected
+                      </p>
+                    ) : null}
                     {availablePaths.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid gap-2">
                         {availablePaths.map((path) => (
                           <button
                             key={path}
                             type="button"
+                            aria-pressed={selectedPaths.includes(path)}
                             onClick={() => {
-                              setLocalSourceDrafts((current) => ({
-                                ...current,
-                                [spec.key]: path,
-                              }));
+                              toggleSuggestedPathSelection(spec.key, path);
                             }}
-                            className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                            className={`rounded-md border px-3 py-2 text-left transition ${
+                              selectedPaths.includes(path)
+                                ? 'border-zinc-500 bg-zinc-800/70 text-white'
+                                : 'border-zinc-700 bg-zinc-950/40 text-zinc-300 hover:border-zinc-500 hover:text-white'
+                            }`}
                           >
-                            {path}
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm">{describeLocalSourcePath(spec.key, path, false).title}</p>
+                                <p className="text-xs text-zinc-500">{describeLocalSourcePath(spec.key, path, false).detail}</p>
+                              </div>
+                              <span className="text-xs text-zinc-500">{selectedPaths.includes(path) ? 'Selected' : 'Select'}</span>
+                            </div>
+                            <p className="mt-1 text-xs text-zinc-600">{path}</p>
                           </button>
                         ))}
                       </div>
@@ -2181,20 +2328,29 @@ export function SettingsPage({
                     {internalPaths.length > 0 ? (
                       <div className="space-y-2 pt-1">
                         <p className="text-xs text-zinc-600">Vel internal/default paths</p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid gap-2">
                           {internalPaths.map((path) => (
                             <button
                               key={`internal:${path}`}
                               type="button"
+                              aria-pressed={selectedPaths.includes(path)}
                               onClick={() => {
-                                setLocalSourceDrafts((current) => ({
-                                  ...current,
-                                  [spec.key]: path,
-                                }));
+                                toggleSuggestedPathSelection(spec.key, path);
                               }}
-                              className="rounded-full border border-zinc-800 px-3 py-1 text-xs text-zinc-500 transition hover:border-zinc-700 hover:text-zinc-300"
+                              className={`rounded-md border px-3 py-2 text-left transition ${
+                                selectedPaths.includes(path)
+                                  ? 'border-zinc-700 bg-zinc-900/70 text-zinc-300'
+                                  : 'border-zinc-800 bg-zinc-950/20 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
+                              }`}
                             >
-                              {path}
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm">{describeLocalSourcePath(spec.key, path, true).title}</p>
+                                  <p className="text-xs text-zinc-600">{describeLocalSourcePath(spec.key, path, true).detail}</p>
+                                </div>
+                                <span className="text-xs text-zinc-600">{selectedPaths.includes(path) ? 'Selected' : 'Select'}</span>
+                              </div>
+                              <p className="mt-1 text-xs text-zinc-700">{path}</p>
                             </button>
                           ))}
                         </div>
@@ -2219,15 +2375,24 @@ export function SettingsPage({
                               <button
                                 key={`${section.nodeId}:${path}`}
                                 type="button"
+                                aria-pressed={selectedPaths.includes(path)}
                                 onClick={() => {
-                                  setLocalSourceDrafts((current) => ({
-                                    ...current,
-                                    [spec.key]: path,
-                                  }));
+                                  toggleSuggestedPathSelection(spec.key, path);
                                 }}
-                                className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                                className={`rounded-md border px-3 py-2 text-left transition ${
+                                  selectedPaths.includes(path)
+                                    ? 'border-zinc-500 bg-zinc-800/70 text-white'
+                                    : 'border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white'
+                                }`}
                               >
-                                {path}
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm">{describeLocalSourcePath(spec.key, path, true).title}</p>
+                                    <p className="text-xs text-zinc-500">{section.caption}</p>
+                                  </div>
+                                  <span className="text-xs text-zinc-500">{selectedPaths.includes(path) ? 'Selected' : 'Select'}</span>
+                                </div>
+                                <p className="mt-1 text-xs text-zinc-600">{path}</p>
                               </button>
                             ))}
                           </div>

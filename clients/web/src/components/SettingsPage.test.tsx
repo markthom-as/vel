@@ -735,12 +735,12 @@ describe('SettingsPage', () => {
     expect(within(root).getByRole('heading', { name: /obsidian vault/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /transcripts/i })).toBeInTheDocument()
     expect(within(root).getByText('Source: /tmp/activity.json')).toBeInTheDocument()
-    expect(within(root).getByRole('button', { name: '/Users/test/Vault' })).toBeInTheDocument()
-    expect(within(root).getByRole('button', { name: '/home/test/.zsh_history' })).toBeInTheDocument()
+    expect(within(root).getByText('Obsidian vault')).toBeInTheDocument()
+    expect(within(root).getByText('Zsh shell history')).toBeInTheDocument()
+    expect(within(root).getByText('/Users/test/Vault')).toBeInTheDocument()
+    expect(within(root).getByText('/home/test/.zsh_history')).toBeInTheDocument()
     expect(within(root).getAllByText('Vel internal/default paths').length).toBeGreaterThan(0)
-    expect(
-      within(root).getAllByRole('button', { name: '~/Library/Application Support/Vel/notes' }).length,
-    ).toBeGreaterThan(0)
+    expect(within(root).getAllByText('Vel notes path').length).toBeGreaterThan(0)
     expect(within(root).queryByText('Remote Mac')).not.toBeInTheDocument()
 
     const notesSyncButton = within(root).getAllByRole('button', { name: /sync now/i }).find((button) =>
@@ -885,11 +885,25 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       expect(within(notesCard as HTMLElement).getByText('Vel Air')).toBeInTheDocument()
     })
-    expect(
-      within(notesCard as HTMLElement).getAllByRole('button', {
-        name: '~/Library/Application Support/Vel/notes',
-      }).length,
-    ).toBeGreaterThan(0)
+    expect(within(notesCard as HTMLElement).getAllByText('Linked macOS client').length).toBeGreaterThan(0)
+    expect(within(notesCard as HTMLElement).getAllByText('Vel notes path').length).toBeGreaterThan(0)
+  })
+
+  it('allows selecting multiple discovered paths on the same integration card', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+    const activityCard = within(root).getByRole('heading', { name: /computer activity/i }).closest('.rounded-lg')
+    expect(activityCard).not.toBeNull()
+
+    const zshOption = within(activityCard as HTMLElement).getByRole('button', { name: /zsh shell history/i })
+    const snapshotOption = within(activityCard as HTMLElement).getByRole('button', { name: /activity snapshot/i })
+
+    expect(snapshotOption).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(zshOption)
+
+    expect(zshOption).toHaveAttribute('aria-pressed', 'true')
+    expect(snapshotOption).toHaveAttribute('aria-pressed', 'true')
+    expect(within(activityCard as HTMLElement).getByText('2 selected')).toBeInTheDocument()
   })
 
   it('saves a local integration source path from the settings card', async () => {
