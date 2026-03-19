@@ -2,7 +2,7 @@
 
 ## Overview
 
-Phase 1 (structural decomposition, auth hardening, canonical schemas, self-awareness contracts) is complete. The remaining roadmap now covers nine ordered phases: distributed state and offline-capable clients with agent supervision (Phase 2), deterministic verification and continuous alignment (Phase 3), autonomous swarm execution with semantic memory and zero-trust sandboxing (Phase 4), then a product-shaping sequence focused on `Now + Inbox`, project substrate, high-value write-back integrations, Apple action loops, coding-centric supervised execution, and backup-first trust surfaces (Phases 5-9). Each phase produces a verifiable capability boundary before the next begins.
+Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical baselines with unfinished original-scope work explicitly re-scoped into Phases 5, 6, and 8. There is no remaining active roadmap work before Phase 5. The active roadmap now begins with the product-shaping sequence focused on `Now + Inbox`, project substrate, high-value write-back integrations, Apple action loops, coding-centric supervised execution, and backup-first trust surfaces (Phases 5-9). Each remaining phase produces a verifiable capability boundary before the next begins.
 
 ## Phases
 
@@ -12,9 +12,9 @@ Phase 1 (structural decomposition, auth hardening, canonical schemas, self-aware
 
 - [x] **Phase 1: Structural Foundation** - Layered crates, auth hardening, canonical schemas, self-awareness (COMPLETE)
 - [x] **Phase 1.1: Preflight — Pre-Phase 2 Hardening** (INSERTED) - Integration startup panic fixes, SQLite WAL mode, app.rs decomposition (COMPLETE)
-- [ ] **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Signal ingestion, HLC sync, agent connect, capability brokering, operator accessibility
+- **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Closed historical baseline; unfinished sync ordering, external connect transport, and guided node-linking work moved to Phases 5, 6, and 8
 - [x] **Phase 3: Deterministic Verification & Continuous Alignment** - Day-simulation harness, LLM-as-a-Judge eval, execution tracing, user documentation (COMPLETE)
-- [ ] **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Semantic memory graph, WASM sandboxing, swarm execution SDK
+- **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Closed historical baseline; unfinished semantic graph expansion, direct WASM guest runtime, and external limb transport work moved to Phases 6 and 8
 - [ ] **Phase 5: Now + Inbox core and project substrate** - Keep `Now + Inbox` primary while adding durable project structure and shared workspace contracts
 - [ ] **Phase 6: High-value write-back integrations and lightweight people graph** - Add notes, reminders, GitHub, email, transcripts, and minimal people identity with upstream write-back
 - [ ] **Phase 7: Apple action loops and behavioral signal ingestion** - Prioritize fast iOS/watch actions and directly useful behavior signals
@@ -36,7 +36,7 @@ Phase 1 (structural decomposition, auth hardening, canonical schemas, self-aware
   - Extract auth middleware + `HttpExposurePolicy` from `app.rs` to `crates/veld/src/middleware/`
 **Plans**: 1 plan
 Plans:
-- [ ] 1.1-01-PLAN.md — TDD: Wave 0 failing tests + WAL mode + integration settings hardening + middleware extraction
+- [x] 1.1-01-PLAN.md — TDD: Wave 0 failing tests + WAL mode + integration settings hardening + middleware extraction
 
 ### Phase 2: Distributed State, Offline Clients & System-of-Systems
 **Goal**: The system can ingest signals from pluggable sources, maintain consistent distributed state across nodes, launch and supervise agent processes, broker capabilities without exposing raw credentials, and present clear effective configuration to the operator.
@@ -44,6 +44,7 @@ Plans:
 **Requirements**: SIG-01, SIG-02, SYNC-01, SYNC-02, CONN-01, CONN-02, CONN-03, CONN-04, CAP-01, CAP-02, OPS-01, OPS-02
 **Tickets**: `docs/tickets/phase-2/` — 004, 005, 006, 012, 016, 019
 **Parallel board**: `docs/tickets/phase-2/parallel-execution-board.md`
+**Status**: Closed and re-scoped — partial baseline shipped; unfinished original-scope work moved forward so no active roadmap work remains before Phase 5
 **Success Criteria** (what must be TRUE):
   1. Operator can register a new signal source and see its data flowing into unified context state without code changes to the core pipeline
   2. Two nodes with divergent event logs converge to the same state after sync, with no manual conflict resolution required
@@ -53,7 +54,7 @@ Plans:
   6. The operator CLI and web dashboard both display effective (resolved) configuration state, not raw config file values
 **Plans**: 7 plans
 Plans:
-- [ ] 02-01-PLAN.md — SP1: Contract alignment, operator diagnostics, connect surface consistency (Wave 1)
+- [x] 02-01-PLAN.md — SP1: Contract alignment, operator diagnostics, connect surface consistency (Wave 1)
 - [ ] 02-02-PLAN.md — SP2 Lane A: Signal reducer extraction — SignalReducer trait + ReducerRegistry (Wave 2, TDD)
 - [ ] 02-03-PLAN.md — SP2 Lane B: Connect lifecycle MVP — launch/heartbeat/terminate/expiry (Wave 2)
 - [ ] 02-04-PLAN.md — SP2 Lane C: Capability broker MVP — CapabilityDescriptor + BrokerService (Wave 2, TDD)
@@ -61,12 +62,18 @@ Plans:
 - [ ] 02-05b-PLAN.md — SP3 Pairing backend: POST /api/node/pair/issue token generation + storage (Wave 3, after 02-05)
 - [ ] 02-06-PLAN.md — SP3 Lane C: Accessibility/config clarity — vel config show + canonical terminology (Wave 4)
 
+Residual work moved forward:
+- Phase 5 absorbs guided node-linking, cross-surface continuity, and user-facing multi-client setup closure.
+- Phase 6 absorbs deterministic reconciliation follow-on (`NodeIdentity`/ordering/conflict policy) and upstream-vs-local conflict handling.
+- Phase 8 absorbs external `/v1/connect` transport exposure and explicit delegated-runtime launch/handoff surfaces.
+
 ### Phase 3: Deterministic Verification & Continuous Alignment
 **Goal**: The system can replay any recorded day deterministically to verify correctness, evaluate agent reasoning outputs via an LLM judge, and expose complete execution traces to the operator — giving the operator confidence that agent behavior is auditable and regressions are detectable.
 **Depends on**: Phase 2
 **Requirements**: VERIFY-01, VERIFY-02, EVAL-01, EVAL-02, TRACE-01, TRACE-02, TRACE-03, DOCS-01, DOCS-02
 **Tickets**: `docs/tickets/phase-3/` — 007, 008, 017, 013
 **Parallel board**: `docs/tickets/phase-3/parallel-execution-board.md`
+**Status**: Complete and closed — retained as historical implementation record only; no remaining roadmap work precedes Phase 5
 **Success Criteria** (what must be TRUE):
   1. Running the day-simulation harness twice against the same recorded event log produces identical output both times
   2. Operator can submit an agent reasoning output for evaluation and receive a structured judge verdict stored in the database
@@ -87,6 +94,7 @@ Plans:
 **Requirements**: MEM-01, MEM-02, SAND-01, SAND-02, SDK-01, SDK-02, SDK-03
 **Tickets**: `docs/tickets/phase-4/` — 009, 010, 014
 **Parallel board**: `docs/tickets/phase-4/parallel-execution-board.md`
+**Status**: Closed and re-scoped — baseline contracts/runtime slices shipped, but unfinished original-scope work moved forward so no active roadmap work remains before Phase 5
 **Success Criteria** (what must be TRUE):
   1. Captured entities are reflected in the semantic memory graph; a reasoning step can retrieve contextually relevant memories via graph RAG
   2. An untrusted agent binary executes inside the WASM sandbox and can only interact with veld through declared capability contracts — any attempt to exceed declared permissions is rejected at the boundary
@@ -97,21 +105,25 @@ Plans:
 - [x] 04-01-PLAN.md — SP1: semantic-memory, sandbox-ABI, and swarm-protocol contract foundations
 - [x] 04-02-PLAN.md — SP2 Lane A: semantic index backend seam, provenance-preserving records, and retrieval lifecycle
 - [x] 04-03-PLAN.md — SP2 Lane B: WASM sandbox runtime, deny-by-default policies, and operator-visible decisions
-- [ ] 04-04-PLAN.md — SP3 Lane A: swarm protocol crate, fixtures, and versioned serialization/validation
-- [ ] 04-05-PLAN.md — SP3 Lane B: reference SDK limb and end-to-end scoped capability flow
+- [x] 04-04-PLAN.md — SP3 Lane A: swarm protocol crate, fixtures, and versioned serialization/validation
+- [x] 04-05-PLAN.md — SP3 Lane B: reference SDK limb and end-to-end scoped capability flow
+
+Residual work moved forward:
+- Phase 6 absorbs semantic graph expansion beyond the shipped capture-backed baseline, including richer entity/link indexing for projects, notes, GitHub, and people.
+- Phase 8 absorbs direct WASM guest runtime embedding, external connect/auth transport exposure, and broader external-limb execution hardening beyond the shipped host-executor baseline.
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
+Remaining execution order: 5 → 6 → 7 → 8 → 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Structural Foundation | - | Complete | 2026-03-18 |
 | 1.1. Preflight — Pre-Phase 2 Hardening | 1/1 | Complete | 2026-03-18 |
-| 2. Distributed State, Offline Clients & System-of-Systems | 0/7 | Not started | - |
+| 2. Distributed State, Offline Clients & System-of-Systems | 1/7 | Closed / Re-scoped | 2026-03-19 |
 | 3. Deterministic Verification & Continuous Alignment | 5/5 | Complete | 2026-03-18 |
-| 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 3/5 | In progress | - |
+| 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 5/5 | Closed / Re-scoped | 2026-03-19 |
 | 5. Now + Inbox core and project substrate | 0/0 | Not planned | - |
 | 6. High-value write-back integrations and lightweight people graph | 0/0 | Not planned | - |
 | 7. Apple action loops and behavioral signal ingestion | 0/0 | Not planned | - |
@@ -120,50 +132,50 @@ Phases execute in numeric order: 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
 
 ### Phase 5: Now + Inbox core and project substrate
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Keep `Now + Inbox` as the primary operator shell while establishing a typed project substrate, project families, and a unified action/intervention model that can safely anchor work across tasks, notes, messages, suggestions, conflicts, multi-client continuity, and future execution flows.
+**Requirements**: NOW-01, NOW-02, INBOX-01, INBOX-02, ACTION-01, REVIEW-01, CONTINUITY-01, CONTINUITY-02, PROJ-01, PROJ-02, PROJ-03, FAMILY-01
 **Depends on:** Phase 4
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 5 to break down)
+- [ ] TBD (phase should define the unified action/intervention model, daily and weekly review loops, cross-surface continuity rules for web/Apple/CLI, the project family/project registry contract, the operator-confirmed new-project workflow, and the re-scoped guided node-linking/multi-client setup flow before broad UI implementation)
 
 ### Phase 6: High-value write-back integrations and lightweight people graph
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Deliver safe write-back for the highest-value integrations, make upstream systems authoritative with explicit conflict prompts, translate Todoist label syntax into Vel-native typed fields, and add a practical people registry tied to commitments, scheduling, messages, intervention loops, and cross-client reconciliation.
+**Requirements**: WB-01, WB-02, WB-03, CONFLICT-01, PROV-01, RECON-01, TODO-01, NOTES-01, REMIND-01, GH-01, EMAIL-01, PEOPLE-01, PEOPLE-02
 **Depends on:** Phase 5
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 6 to break down)
+- [ ] TBD (phase should define safe autonomous writes, conflict queue/reconciliation, provenance and freshness visibility, upstream-versus-local reconciliation across clients, deterministic sync ordering follow-on for multi-client state, semantic graph expansion for notes/GitHub/people/project recall, Todoist adapter ownership rules, and GitHub/notes/reminders/email/people slices)
 
 ### Phase 7: Apple action loops and behavioral signal ingestion
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Make Vel useful from iPhone/watch first through fast capture and response loops, while ingesting lightweight behavioral signals that improve daily orientation without making health or astrology core dependencies.
+**Requirements**: IOS-01, IOS-02, IOS-03, HEALTH-01, HEALTH-02, APPLE-01
 **Depends on:** Phase 6
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 7 to break down)
+- [ ] TBD (phase should prioritize voice capture, current schedule retrieval, nudge response, and step/stand/exercise signal ingestion with explainable summaries)
 
 ### Phase 8: Coding-centric supervised execution with GSD and local agents
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Extend Vel from daily orientation into supervised execution for coding-first work by letting projects carry repo/GSD context, generating repo-local planning artifacts that GSD can consume, and routing work by token budget, agent profile, task type, and explicit handoff boundaries.
+**Requirements**: EXEC-01, EXEC-02, GSD-01, GSD-02, HANDOFF-01, HANDOFF-02, LOCAL-01, POLICY-01
 **Depends on:** Phase 7
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 8 to break down)
+- [ ] TBD (phase should define project execution context, human-to-agent and agent-to-agent handoff contracts for coding work, GSD handoff docs/contracts, token-budget-aware launch policy, supervised local coding-agent support, the re-scoped external connect transport/auth surface, and direct WASM-guest/runtime follow-on beyond the shipped host-executor baseline)
 
 ### Phase 9: Backup-first trust surfaces and simple operator control
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Add lightweight backup/export and simple control surfaces that reduce fear of loss, while keeping restore/recovery and advanced policy surfaces intentionally smaller than the core daily loop.
+**Requirements**: BACKUP-01, BACKUP-02, CTRL-01, CTRL-02
 **Depends on:** Phase 8
 **Plans:** 0 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 9 to break down)
+- [ ] TBD (phase should prioritize backup/export trust, inspectable control surfaces, and operator-visible safety state before deeper recovery automation)

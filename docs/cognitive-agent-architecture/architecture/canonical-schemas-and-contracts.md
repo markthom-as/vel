@@ -82,7 +82,7 @@ Today the contract surface is partially explicit but not yet unified.
 | Self-model | architecture pack | `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md`, `config/examples/self-model-envelope.example.json`, `config/schemas/self-model-envelope.schema.json` | repo/runtime introspection boundary | versioned self-model contract | doc, example, and schema exist; runtime enforcement is still future work |
 | Semantic query + record | `vel-core` | `crates/vel-core/src/semantic.rs`, `docs/cognitive-agent-architecture/cognition/semantic-memory-contract.md`, `config/schemas/semantic-query.schema.json`, `config/schemas/semantic-memory-record.schema.json` | semantic retrieval boundary | additive fields with explicit embedding revision | contract published; runtime indexing remains future phase work |
 | Sandbox host ABI + policy | `vel-core` | `crates/vel-core/src/sandbox.rs`, `docs/cognitive-agent-architecture/agents/sandbox-host-abi.md`, `config/schemas/sandbox-policy.schema.json`, `config/schemas/sandbox-host-call.schema.json` | sandbox-to-host boundary | explicit ABI version field | contract published; runtime host still unimplemented |
-| Swarm protocol envelope | `vel-core` now, `vel-protocol` later | `crates/vel-core/src/protocol.rs`, `docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md`, `config/schemas/swarm-protocol-envelope.schema.json` | external limb protocol boundary | protocol version in every envelope | contract published now; dedicated protocol crate remains future phase work |
+| Swarm protocol envelope | `vel-protocol` with `vel-core` compatibility re-export | `crates/vel-protocol/src/lib.rs`, `crates/vel-core/src/protocol.rs`, `docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md`, `config/schemas/swarm-protocol-envelope.schema.json` | external limb protocol boundary | protocol version in every envelope | dedicated protocol crate now validates example/template fixtures; transport integration remains later phase work |
 
 ## Schema Governance Rules
 
@@ -132,8 +132,8 @@ Templates and fixtures are examples and scaffolds, not hidden sources of truth. 
 Contract surfaces should be publishable in machine-readable form for clients and tooling.
 
 Current published artifacts live under `config/schemas/` and are indexed by `config/contracts-manifest.json`.
-Shared consumers now include `vel-cli` docs output and runtime doctor diagnostics through `vel-config`'s published-manifest loader; additional client surface adoption can extend the same registry.
-Phase 4 contract publications for semantic memory, sandbox ABI, and swarm protocol should follow the same manifest-backed pattern before runtime implementations widen.
+Shared consumers now include `vel-cli` docs output, runtime doctor diagnostics through `vel-config`'s published-manifest loader, and the shipped `vel-protocol` / `vel-agent-sdk` surfaces that rely on the same explicit contract publication pattern.
+Phase 4 contract publications for semantic memory, sandbox ABI, and swarm protocol now form the baseline machine-readable boundary for retrieval, sandbox mediation, and external SDK/runtime protocol flows.
 
 ### Scientific Substrate And Symbolic Layer
 

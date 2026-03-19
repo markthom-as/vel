@@ -1,6 +1,6 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v1.0.5)
-**Last Updated**: 2026-03-17
+**Status**: Canonical Truth (v1.0.6)
+**Last Updated**: 2026-03-19
 
 ---
 
@@ -10,9 +10,11 @@
 | :--- | :--- | :--- |
 | **v0: MVP** | **[75% - BLOCKED]** | Local core functionality and reliable capture. |
 | **Phase 1** | **[COMPLETE]** | Monolith decomposition and structural foundations. |
-| **Phase 2** | **[PARTIAL]** | Distributed swarm, offline sync, and agent connect. |
-| **Phase 3** | **[PARTIAL]** | Deterministic verification, tracing, and reasoning eval closure. |
-| **Phase 4** | **[PLANNED]** | Semantic memory, WASM sandboxing, and P2P sync. |
+| **Phase 2** | **[CLOSED / RE-SCOPED]** | Distributed swarm baseline shipped; unfinished sync ordering, guided onboarding, and external connect work moved to Phases 5, 6, and 8. |
+| **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
+| **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
+
+Active future roadmap work begins at Phase 5 in `.planning/ROADMAP.md`. There is no remaining active roadmap work before Phase 5; unfinished original-scope work from historical Phase 2 and Phase 4 has been explicitly re-scoped into later phases.
 
 ---
 
@@ -100,72 +102,75 @@ Primary outcome:
 ---
 
 ## Phase 2: Distributed State, Offline Clients & System-of-Systems
-**Current Status: [IN PROGRESS — SP1 active]**
+**Current Status: [CLOSED / RE-SCOPED]**
 
 Execution board: `docs/tickets/phase-2/parallel-execution-board.md`
 
-Phase 2 is organized into three sub-phases (SP1/SP2/SP3). See the parallel execution board for current lane ownership and merge gates.
+Phase 2 shipped meaningful baseline work but did not fully close its original scope. The execution board and ticket files remain as historical implementation records only. Unfinished original-scope work is re-scoped into later phases so no active roadmap work remains before Phase 5.
 
-- **SP1 (Contract Alignment & Visibility Closure)** — active: normalize ticket scope, close operator diagnostics gaps, align CLI/runtime behavior.
-- **SP2 (Core Runtime Delivery)** — queued: reducer extraction, connect lifecycle MVP, capability broker MVP.
-- **SP3 (Onboarding, Conflict Hardening & Cross-Surface Closure)** — queued: depends on SP2 seams.
-
-### 2.1 Pluggable Signal Ingestion & Context Reducer Pipeline **[PLANNED]**
+### 2.1 Pluggable Signal Ingestion & Context Reducer Pipeline **[COMPLETE]**
 *   *Ticket*: `004-signal-reducer-pipeline.md`
-*   *Status*: planned — no reducer infrastructure shipped yet. SP2 Lane A.
+*   *Status*: complete — historical implementation lane only.
 
-### 2.2 Sync Ordering & Conflict Resolution Baseline **[PLANNED]**
+### 2.2 Sync Ordering & Conflict Resolution Baseline **[RE-SCOPED]**
 *   *Ticket*: `005-hlc-sync-implementation.md`
-*   *Status*: planned — ordering primitive not yet implemented. SP3 Lane B. Requires `NodeIdentity` type (vel-core) and WAL mode (confirmed in Phase 1.1).
+*   *Status*: re-scoped — the live tree does not show the promised `NodeIdentity` / ordering primitive baseline. Deterministic multi-client reconciliation follow-on now belongs to Phase 6.
 
-### 2.3 Agent Connect Launch Protocol & Supervision **[IN PROGRESS — shell only]**
+### 2.3 Agent Connect Launch Protocol & Supervision **[RE-SCOPED]**
 *   *Ticket*: `006-connect-launch-protocol.md`
-*   *Status*: in-progress (shell only) — heartbeat infra exists in client_sync.rs, connect routes registered in app.rs but all return 403 via deny_undefined_route. CLI stubs exist. All 4 acceptance criteria unmet. SP2 Lane B.
+*   *Status*: re-scoped — live `/v1/connect` routes still return `deny_undefined_route`. External connect/auth transport and delegated-runtime launch closure now belong to Phase 8.
 
-### 2.4 Tester-Readiness Onboarding & Node Discovery **[IN PROGRESS — Slice A partial]**
+### 2.4 Tester-Readiness Onboarding & Node Discovery **[RE-SCOPED]**
 *   *Ticket*: `012-tester-readiness-onboarding.md`
-*   *Status*: in-progress — Slice A (source discovery, freshness visibility) partial. Slice B (vel node link, pairing tokens, guided wizard) not started. SP3 Lane A.
+*   *Status*: re-scoped — guided linking (`vel node link`, pairing token flow, web/CLI wizard) is not present in the live tree. User-facing multi-client linking closure now belongs to Phase 5.
 
-### 2.5 Capability Broker & Secret Mediation **[PLANNED]**
+### 2.5 Capability Broker & Secret Mediation **[COMPLETE]**
 *   *Ticket*: `016-capability-broker-secret-mediation.md`
-*   *Status*: planned — scope: agents-only (integration-level brokering deferred per 2026-03-18 decision). SP2 Lane C.
+*   *Status*: complete — historical implementation lane only.
 
-### 2.6 Operator Surface Accessibility & Effective Config Clarity **[IN PROGRESS — baseline present]**
+### 2.6 Operator Surface Accessibility & Effective Config Clarity **[COMPLETE]**
 *   *Ticket*: `019-operator-accessibility-config-clarity.md`
-*   *Status*: in-progress — baseline operator clarity exists (freshness/degraded state in web, readable config in CLI, endpoint resolution in Apple). Remaining work: terminology alignment, accessibility gap closure, config discoverability. SP1 Lane B (diagnostics) + SP3 Lane C (full closure).
+*   *Status*: complete — historical implementation lane only.
 
 ---
 
 ## Phase 3: Deterministic Verification & Continuous Alignment
-**Current Status: [PARTIAL]**
+**Current Status: [COMPLETE]**
 
 Execution board: `docs/tickets/phase-3/parallel-execution-board.md`
 
-### 3.1 The Deterministic Replay Engine (Day-Simulation Harness) **[PLANNED]**
+Phase 3 is complete and closed. The execution board and ticket files remain as historical implementation records only. No remaining roadmap work exists before Phase 5.
+
+### 3.1 The Deterministic Replay Engine (Day-Simulation Harness) **[COMPLETE]**
 *   *Ticket*: `007-day-simulation-harness.md`
 
-### 3.2 LLM-as-a-Judge Evaluation Pipeline (Evals) **[PLANNED]**
+### 3.2 LLM-as-a-Judge Evaluation Pipeline (Evals) **[COMPLETE]**
 *   *Ticket*: `008-llm-eval-pipeline.md`
 
-### 3.3 Execution Tracing, Handoff Telemetry & Reviewability **[PARTIAL]**
+### 3.3 Execution Tracing, Handoff Telemetry & Reviewability **[COMPLETE]**
 *   *Ticket*: `017-execution-tracing-reviewability.md`
 
-### 3.4 Comprehensive User Documentation & Support Wiki **[PARTIAL]**
+### 3.4 Comprehensive User Documentation & Support Wiki **[COMPLETE]**
 *   *Ticket*: `013-user-documentation-architecture.md`
 
 ---
 
 ## Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution
-**Current Status: [PLANNED]**
+**Current Status: [CLOSED / RE-SCOPED]**
 
 Execution board: `docs/tickets/phase-4/parallel-execution-board.md`
 
-### 4.1 Semantic Memory & Graph RAG **[PLANNED]**
+Phase 4 shipped contract and runtime baselines, but did not fully close the original scope of graph memory, direct WASM guest execution, or external SDK/connect transport. The execution board and ticket files remain as historical implementation records only. That unfinished work is re-scoped into later phases so no active roadmap work remains before Phase 5.
+
+### 4.1 Semantic Memory & Graph RAG **[RE-SCOPED]**
 *   *Ticket*: `009-semantic-memory-rag.md`
+*   *Status*: re-scoped — the live tree ships a capture-backed local semantic baseline with provenance, not full graph expansion. Richer entity/link indexing now belongs to Phase 6.
 
-### 4.2 Zero-Trust WASM Agent Sandboxing **[PLANNED]**
+### 4.2 Zero-Trust WASM Agent Sandboxing **[RE-SCOPED]**
 *   *Ticket*: `010-wasm-agent-sandboxing.md`
+*   *Status*: re-scoped — the live tree ships a deny-by-default host executor over decoded ABI envelopes, not the direct WASM guest runtime promised by the ticket. That follow-on now belongs to Phase 8.
 
-### 4.3 Swarm Execution SDK & Contract **[PLANNED]**
+### 4.3 Swarm Execution SDK & Contract **[RE-SCOPED]**
 *   **Goal**: Provide a first-class SDK for external agents to communicate with Vel.
 *   **Ticket**: `014-swarm-execution-sdk.md`
+*   *Status*: re-scoped — the Rust SDK/protocol baseline exists, but live external connect/auth transport is not exposed. External limb runtime closure now belongs to Phase 8.

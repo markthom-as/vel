@@ -11,12 +11,13 @@ Vel is a **local-first personal executive system** and **autonomous cognition ru
 
 ## 🚀 The Master Plan
 
-Vel is currently transitioning from a prototype to a bulletproof distributed swarm. Our development is guided by a **four-phase Master Plan** that consolidates all architectural and feature requirements:
+Vel’s architecture program through Phases 1-4 established the current baseline. Some unfinished original-scope items from historical Phase 2 and Phase 4 were explicitly re-scoped into Phase 5+ work. Active future work begins at Phase 5 in the planning roadmap.
 
 1.  **Phase 1: Foundations** — Monolith decomposition, modular storage, and typed context. **[COMPLETE]**
-2.  **Phase 2: Swarm & Sync** — Distributed state, deterministic sync ordering, and Agent Connect. **[PARTIAL]**
-3.  **Phase 3: Verification** — Deterministic simulation, reasoning evals, and tracing. **[PARTIAL]**
-4.  **Phase 4: Autonomy** — Semantic Graph RAG, WASM sandboxing, and P2P sync. **[PLANNED]**
+2.  **Phase 2: Swarm & Sync** — Closed historical baseline; residual ordering/onboarding/connect work moved forward. **[CLOSED / RE-SCOPED]**
+3.  **Phase 3: Verification** — Deterministic simulation, reasoning evals, and tracing. **[COMPLETE]**
+4.  **Phase 4: Autonomy** — Closed historical baseline; residual graph/sandbox transport work moved forward. **[CLOSED / RE-SCOPED]**
+5.  **Phase 5+: Product Direction** — `Now + Inbox`, projects, write-back, Apple loops, supervised execution, and backup-first trust. **[ACTIVE]**
 
 **Full Roadmap & Status**: [docs/MASTER_PLAN.md](docs/MASTER_PLAN.md)  
 **Active Tickets**: [docs/tickets/README.md](docs/tickets/README.md)
@@ -25,10 +26,10 @@ Vel is currently transitioning from a prototype to a bulletproof distributed swa
 
 ## Current Status (MVP)
 
-The **Vel v0 (MVP)** is 75% complete and currently blocked on remaining hardening/contract closure outside the shipped core.
+The active roadmap is now focused on post-architecture product work beginning at Phase 5.
 
 - **Implemented**: Capture storage (CLI/Web), Lexical search (FTS5), Commitment CRUD, SQLite migration engine, Context runs (Today/Morning/End-of-Day), and Cluster worker heartbeats.
-- **Active Development**: Connect agent launch protocol, distributed sync foundations, and operator-surface accessibility clarity.
+- **Active Development**: `Now + Inbox` core, project substrate, safe write-back, Apple action loops, and coding-centric supervised execution.
 
 ---
 

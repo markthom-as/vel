@@ -27,6 +27,9 @@ These are the current authoritative entrypoints:
 
 These files drive ongoing implementation work:
 
+- `.planning/ROADMAP.md`: active roadmap beginning at Phase 5
+- `.planning/PROJECT.md`: active product definition and accepted planning decisions
+- `.planning/phases/05-*` through `.planning/phases/09-*`: active phase-planning directories
 - [tickets/README.md](tickets/README.md): queue index and phase navigation
 - [tickets/architecture-first-parallel-queue.md](tickets/architecture-first-parallel-queue.md): documentation/contracts-first execution order and parallel work waves
 - `docs/tickets/phase-1/*.md`
@@ -34,7 +37,9 @@ These files drive ongoing implementation work:
 - `docs/tickets/phase-3/*.md`
 - `docs/tickets/phase-4/*.md`
 
-Use the ticket closest to the boundary you are changing.
+Phase 1 and Phase 3 are complete historical implementation lanes. Phase 2 and Phase 4 also remain historical, but some unfinished original-scope work from those lanes was explicitly re-scoped into Phase 5+ planning. Active future planning starts at Phase 5 in `.planning/ROADMAP.md`.
+
+Use the ticket closest to the boundary you are changing when touching historical architecture surfaces, and use the active phase planning files for future product work.
 
 ## Historical And Secondary Material
 

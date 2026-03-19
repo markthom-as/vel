@@ -46,25 +46,29 @@ Execution evidence: [phase-1/phase-1-evidence-matrix.md](phase-1/phase-1-evidenc
 
 ## Phase 2: Distributed State, Offline Clients & System-Of-Systems
 
-- [004-signal-reducer-pipeline.md](phase-2/004-signal-reducer-pipeline.md) `[planned]` Pluggable signal ingestion and context reducer pipeline
-- [005-hlc-sync-implementation.md](phase-2/005-hlc-sync-implementation.md) `[planned]` Sync ordering primitive and deterministic conflict resolution baseline
-- [006-connect-launch-protocol.md](phase-2/006-connect-launch-protocol.md) `[partial]` Agent connect launch protocol and supervision
-- [012-tester-readiness-onboarding.md](phase-2/012-tester-readiness-onboarding.md) `[partial]` Tester-readiness onboarding and node discovery closure
-- [016-capability-broker-secret-mediation.md](phase-2/016-capability-broker-secret-mediation.md) `[planned]` Capability broker and secret mediation
-- [019-operator-accessibility-config-clarity.md](phase-2/019-operator-accessibility-config-clarity.md) `[partial]` Operator-surface accessibility and effective-config clarity closure
+Historical lane. Some unfinished original-scope work from this phase was re-scoped into active Phases 5, 6, and 8.
+
+- [004-signal-reducer-pipeline.md](phase-2/004-signal-reducer-pipeline.md) `[baseline shipped]` Pluggable signal ingestion and context reducer pipeline
+- [005-hlc-sync-implementation.md](phase-2/005-hlc-sync-implementation.md) `[re-scoped to Phase 6]` Sync ordering primitive and deterministic conflict resolution baseline
+- [006-connect-launch-protocol.md](phase-2/006-connect-launch-protocol.md) `[re-scoped to Phase 8]` Agent connect launch protocol and supervision
+- [012-tester-readiness-onboarding.md](phase-2/012-tester-readiness-onboarding.md) `[re-scoped to Phase 5]` Tester-readiness onboarding and node discovery closure
+- [016-capability-broker-secret-mediation.md](phase-2/016-capability-broker-secret-mediation.md) `[baseline shipped]` Capability broker and secret mediation
+- [019-operator-accessibility-config-clarity.md](phase-2/019-operator-accessibility-config-clarity.md) `[baseline shipped]` Operator-surface accessibility and effective-config clarity closure
 
 ## Phase 3: Deterministic Verification & Continuous Alignment
 
-- [007-day-simulation-harness.md](phase-3/007-day-simulation-harness.md) `[planned]` Deterministic replay engine and day simulation harness
-- [008-llm-eval-pipeline.md](phase-3/008-llm-eval-pipeline.md) `[planned]` LLM-as-a-judge evaluation pipeline
-- [013-user-documentation-architecture.md](phase-3/013-user-documentation-architecture.md) `[partial]` Comprehensive user documentation and support wiki closure
-- [017-execution-tracing-reviewability.md](phase-3/017-execution-tracing-reviewability.md) `[partial]` Execution tracing, handoff telemetry, and reviewability closure
+- [007-day-simulation-harness.md](phase-3/007-day-simulation-harness.md) `[complete]` Deterministic replay engine and day simulation harness
+- [008-llm-eval-pipeline.md](phase-3/008-llm-eval-pipeline.md) `[complete]` LLM-as-a-judge evaluation pipeline
+- [013-user-documentation-architecture.md](phase-3/013-user-documentation-architecture.md) `[complete]` Comprehensive user documentation and support wiki closure
+- [017-execution-tracing-reviewability.md](phase-3/017-execution-tracing-reviewability.md) `[complete]` Execution tracing, handoff telemetry, and reviewability closure
 
 ## Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution
 
-- [009-semantic-memory-rag.md](phase-4/009-semantic-memory-rag.md) `[planned]` Semantic memory and graph RAG
-- [010-wasm-agent-sandboxing.md](phase-4/010-wasm-agent-sandboxing.md) `[planned]` Zero-trust WASM agent sandboxing
-- [014-swarm-execution-sdk.md](phase-4/014-swarm-execution-sdk.md) `[planned]` Swarm execution SDK and contract
+Historical lane. Some unfinished original-scope work from this phase was re-scoped into active Phases 6 and 8.
+
+- [009-semantic-memory-rag.md](phase-4/009-semantic-memory-rag.md) `[re-scoped follow-on in Phase 6]` Semantic memory and graph RAG
+- [010-wasm-agent-sandboxing.md](phase-4/010-wasm-agent-sandboxing.md) `[re-scoped follow-on in Phase 8]` Zero-trust WASM agent sandboxing
+- [014-swarm-execution-sdk.md](phase-4/014-swarm-execution-sdk.md) `[re-scoped follow-on in Phase 8]` Swarm execution SDK and contract
 
 ## Queue Maintenance Rules
 
