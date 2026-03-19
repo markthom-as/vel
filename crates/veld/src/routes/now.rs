@@ -380,13 +380,14 @@ mod tests {
                     rank: 88,
                     surfaced_at: due_at,
                     snoozed_until: None,
-                    evidence: vec![vel_core::ActionEvidenceRef {
-                        source_kind: "backup_trust".to_string(),
-                        source_id: "warn".to_string(),
-                        label: "Backup trust".to_string(),
-                        detail: Some("Backup trust is degraded. Create or verify a fresh backup before risky maintenance.".to_string()),
-                    }],
+                evidence: vec![vel_core::ActionEvidenceRef {
+                    source_kind: "backup_trust".to_string(),
+                    source_id: "warn".to_string(),
+                    label: "Backup trust".to_string(),
+                    detail: Some("Backup trust is degraded. Create or verify a fresh backup before risky maintenance.".to_string()),
                 }],
+                thread_route: None,
+            }],
             },
             check_in: Some(vel_core::CheckInCard {
                 id: vel_core::ActionItemId::from("act_check_in_1".to_string()),
@@ -502,6 +503,13 @@ mod tests {
                     label: "Ship patch".to_string(),
                     detail: None,
                 }],
+                thread_route: Some(vel_core::ActionThreadRoute {
+                    target: vel_core::ActionThreadRouteTarget::FilteredThreads,
+                    label: "Open related threads".to_string(),
+                    thread_id: None,
+                    thread_type: Some("project_review".to_string()),
+                    project_id: Some("proj_vel".to_string().into()),
+                }),
             }],
             review_snapshot: vel_core::ReviewSnapshot {
                 open_action_count: 1,
@@ -561,6 +569,10 @@ mod tests {
         );
         assert_eq!(json["reflow"]["transitions"][1]["kind"], "edit");
         assert_eq!(json["action_items"][0]["rank"], 70);
+        assert_eq!(
+            json["action_items"][0]["thread_route"]["target"],
+            "filtered_threads"
+        );
         assert_eq!(json["review_snapshot"]["open_action_count"], 1);
     }
 }

@@ -2393,6 +2393,46 @@ impl From<vel_core::ActionEvidenceRef> for ActionEvidenceRefData {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum ActionThreadRouteTargetData {
+    ExistingThread,
+    FilteredThreads,
+}
+
+impl From<vel_core::ActionThreadRouteTarget> for ActionThreadRouteTargetData {
+    fn from(value: vel_core::ActionThreadRouteTarget) -> Self {
+        match value {
+            vel_core::ActionThreadRouteTarget::ExistingThread => Self::ExistingThread,
+            vel_core::ActionThreadRouteTarget::FilteredThreads => Self::FilteredThreads,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionThreadRouteData {
+    pub target: ActionThreadRouteTargetData,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<ProjectId>,
+}
+
+impl From<vel_core::ActionThreadRoute> for ActionThreadRouteData {
+    fn from(value: vel_core::ActionThreadRoute) -> Self {
+        Self {
+            target: value.target.into(),
+            label: value.label,
+            thread_id: value.thread_id,
+            thread_type: value.thread_type,
+            project_id: value.project_id,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CheckInSourceKindData {
     DailyLoop,
 }
@@ -2786,6 +2826,8 @@ pub struct ActionItemData {
     pub snoozed_until: Option<OffsetDateTime>,
     #[serde(default)]
     pub evidence: Vec<ActionEvidenceRefData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_route: Option<ActionThreadRouteData>,
 }
 
 impl From<vel_core::ActionItem> for ActionItemData {
@@ -2806,6 +2848,7 @@ impl From<vel_core::ActionItem> for ActionItemData {
             surfaced_at: value.surfaced_at,
             snoozed_until: value.snoozed_until,
             evidence: value.evidence.into_iter().map(Into::into).collect(),
+            thread_route: value.thread_route.map(Into::into),
         }
     }
 }
@@ -5437,8 +5480,9 @@ pub struct NudgeEventData {
 mod tests {
     use super::{
         ActionEvidenceRefData, ActionItemData, ActionKindData, ActionPermissionModeData,
-        ActionScopeAffinityData, ActionStateData, ActionSurfaceData, AgentBlockerData,
-        AgentCapabilityEntryData, AgentCapabilityGroupKindData, AgentInspectData, AgentProfileData,
+        ActionScopeAffinityData, ActionStateData, ActionSurfaceData, ActionThreadRouteData,
+        ActionThreadRouteTargetData, AgentBlockerData, AgentCapabilityEntryData,
+        AgentCapabilityGroupKindData, AgentInspectData, AgentProfileData,
         AppleBehaviorMetricData, AppleBehaviorSummaryData, AppleBehaviorSummaryScopeData,
         AppleClientSurfaceData, AppleRequestedOperationData, AppleResponseEvidenceData,
         AppleResponseModeData, AppleScheduleEventData, AppleScheduleSnapshotData,
@@ -5532,6 +5576,13 @@ mod tests {
                 label: "Ship patch".to_string(),
                 detail: None,
             }],
+            thread_route: Some(ActionThreadRouteData {
+                target: ActionThreadRouteTargetData::FilteredThreads,
+                label: "Open related threads".to_string(),
+                thread_id: None,
+                thread_type: Some("project_review".to_string()),
+                project_id: Some(ProjectId::from("proj_1".to_string())),
+            }),
         };
 
         let value = serde_json::to_value(item).expect("action item should serialize");
@@ -5539,6 +5590,8 @@ mod tests {
         assert_eq!(value["snoozed_until"], "2026-03-19T02:20:00Z");
         assert_eq!(value["permission_mode"], "user_confirm");
         assert_eq!(value["scope_affinity"], "global");
+        assert_eq!(value["thread_route"]["target"], "filtered_threads");
+        assert_eq!(value["thread_route"]["thread_type"], "project_review");
     }
 
     #[test]

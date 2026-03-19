@@ -162,6 +162,35 @@ pub struct ActionEvidenceRef {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum ActionThreadRouteTarget {
+    ExistingThread,
+    FilteredThreads,
+}
+
+impl Display for ActionThreadRouteTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::ExistingThread => "existing_thread",
+            Self::FilteredThreads => "filtered_threads",
+        };
+        f.write_str(value)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActionThreadRoute {
+    pub target: ActionThreadRouteTarget,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<ProjectId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CheckInSourceKind {
     DailyLoop,
 }
@@ -426,6 +455,8 @@ pub struct ActionItem {
     pub snoozed_until: Option<OffsetDateTime>,
     #[serde(default)]
     pub evidence: Vec<ActionEvidenceRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_route: Option<ActionThreadRoute>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -443,9 +474,9 @@ pub struct ReviewSnapshot {
 #[cfg(test)]
 mod tests {
     use super::{
-        ActionItem, ActionKind, ActionPermissionMode, ActionScopeAffinity, CheckInCard,
-        CheckInEscalationTarget, CheckInSourceKind, CheckInSubmitTargetKind, CheckInTransitionKind,
-        ReflowCard, ReflowTransitionKind,
+        ActionItem, ActionKind, ActionPermissionMode, ActionScopeAffinity, ActionThreadRouteTarget,
+        CheckInCard, CheckInEscalationTarget, CheckInSourceKind, CheckInSubmitTargetKind,
+        CheckInTransitionKind, ReflowCard, ReflowTransitionKind,
     };
 
     #[test]
@@ -459,6 +490,10 @@ mod tests {
         assert_eq!(item.permission_mode, ActionPermissionMode::UserConfirm);
         assert_eq!(item.scope_affinity, ActionScopeAffinity::Project);
         assert_eq!(item.evidence.len(), 2);
+        assert_eq!(
+            item.thread_route.as_ref().map(|route| route.target),
+            Some(ActionThreadRouteTarget::FilteredThreads)
+        );
         assert_eq!(item.rank, 10);
     }
 

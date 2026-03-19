@@ -89,6 +89,7 @@ It should contain:
 Project identity rule:
 
 - when an inbox or now item is project-scoped, the compact project marker should come from the backend-owned action seam instead of being reconstructed in the shell from a separate projects query
+- when a project-scoped item needs longer-form follow-up, the backend-owned action seam should also carry a typed thread-routing hint so shells can deep-link into filtered `Threads` views without inventing routing semantics locally
 
 Rendering rule:
 
@@ -143,6 +144,7 @@ Rule of thumb:
 - `Threads` is for continuity, parallelism, and searchable history.
 - It should be powerful on desktop in particular.
 - `Now` and `Inbox` may deep-link into specific thread messages or filtered thread views when attention is needed, without making `Threads` itself the main triage surface.
+- Those deep links should come from typed backend routing hints where possible, especially for project-scoped actions.
 
 ## Shared Entry, Distinct Destinations
 

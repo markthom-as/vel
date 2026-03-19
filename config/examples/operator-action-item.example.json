@@ -13,6 +13,13 @@
   "rank": 10,
   "surfaced_at": "2026-03-18T16:10:00Z",
   "snoozed_until": null,
+  "thread_route": {
+    "target": "filtered_threads",
+    "label": "Open related threads",
+    "thread_id": null,
+    "thread_type": "project_review",
+    "project_id": "proj_nowinboxcore"
+  },
   "available_actions": ["link_node", "dismiss", "snooze", "open_thread"],
   "evidence": [
     {

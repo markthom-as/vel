@@ -76,6 +76,13 @@ struct ProjectLookupEntry {
     family: vel_core::ProjectFamily,
 }
 
+fn project_thread_route(
+    project: &ProjectRecord,
+    purpose: crate::services::projects::ProjectThreadPurpose,
+) -> vel_core::ActionThreadRoute {
+    crate::services::projects::project_thread_route(project, purpose)
+}
+
 pub async fn build_action_items(
     storage: &Storage,
     config: &AppConfig,
@@ -208,6 +215,7 @@ fn build_backup_recovery_items(
             label: "Backup trust".to_string(),
             detail: Some(summary),
         }],
+        thread_route: None,
     }]
 }
 
@@ -250,6 +258,13 @@ fn build_execution_handoff_items(
                 surfaced_at: record.updated_at,
                 snoozed_until: None,
                 evidence: execution_handoff_evidence(record),
+                thread_route: Some(vel_core::ActionThreadRoute {
+                    target: vel_core::ActionThreadRouteTarget::FilteredThreads,
+                    label: format!("Open execution review threads for {}", record.project_id),
+                    thread_id: None,
+                    thread_type: Some("execution_handoff_review".to_string()),
+                    project_id: Some(record.project_id.clone()),
+                }),
             }
         })
         .collect()
@@ -327,6 +342,7 @@ fn build_writeback_items(
                 surfaced_at: record.updated_at,
                 snoozed_until: None,
                 evidence: writeback_evidence(record),
+                thread_route: None,
             }
         })
         .collect()
@@ -370,6 +386,7 @@ fn build_conflict_items(
                 surfaced_at: record.updated_at,
                 snoozed_until: None,
                 evidence: conflict_evidence(record),
+                thread_route: None,
             }
         })
         .collect()
@@ -494,6 +511,7 @@ fn build_freshness_items(
                 label: "Context freshness".to_string(),
                 detail: Some("No current context snapshot is persisted.".to_string()),
             }],
+            thread_route: None,
         });
     }
 
@@ -610,6 +628,7 @@ fn push_integration_alert(
             label: format!("{label} freshness"),
             detail: Some(detail),
         }],
+        thread_route: None,
     });
 }
 
@@ -659,6 +678,7 @@ fn build_linking_items(linked_nodes: Vec<LinkedNodeRecord>) -> Vec<ActionItem> {
                         label: node.node_display_name,
                         detail: Some(format!("status={}, scopes={:?}", node.status, node.scopes)),
                     }],
+                    thread_route: None,
                 })
             }
             LinkStatus::Linked => None,
@@ -713,6 +733,7 @@ fn build_intervention_items(interventions: Vec<InterventionRecord>) -> Vec<Actio
                     label: record.kind,
                     detail: Some(format!("message_id={}", record.message_id)),
                 }],
+                thread_route: None,
             }
         })
         .collect()
@@ -748,6 +769,10 @@ fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<A
                     label: project.name.clone(),
                     detail: Some("pending_provision".to_string()),
                 }],
+                thread_route: Some(project_thread_route(
+                    project,
+                    crate::services::projects::ProjectThreadPurpose::Provisioning,
+                )),
             });
         }
 
@@ -777,6 +802,10 @@ fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<A
                     label: project.name.clone(),
                     detail: Some(format!("family={}", project.family)),
                 }],
+                thread_route: Some(project_thread_route(
+                    project,
+                    crate::services::projects::ProjectThreadPurpose::Review,
+                )),
             });
         }
     }
@@ -847,6 +876,7 @@ fn build_commitment_items(
                         .clone()
                         .or_else(|| commitment.project.clone()),
                 }],
+                thread_route: None,
             })
         })
         .collect()

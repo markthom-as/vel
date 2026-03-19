@@ -212,6 +212,22 @@ Transition rule:
 - shells should not invent their own semantic next-step vocabulary for `check_in` or `reflow`
 - later lifecycle handlers may widen behavior, but they should do so by extending backend-owned transition handling rather than replacing the transition contract
 
+### `thread_route`
+
+Longer-form follow-up should use a typed thread-routing hint instead of shell-local guesswork.
+
+Examples:
+
+- open an existing thread
+- open filtered threads for one project
+- open filtered execution-review threads for a project
+
+Routing rule:
+
+- project-scoped actions may surface in `Now` or `Inbox`, but if they need longer-form follow-up the backend seam should carry the thread-routing hint directly
+- shells should consume that typed route instead of reconstructing thread destinations from sidebar labels or ad hoc query rules
+- `Threads` remains archive/search-first, but backend-owned action semantics can still point into filtered thread views when escalation is warranted
+
 ### `source_ref`
 
 This points to what produced the action, such as:

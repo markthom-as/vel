@@ -5,7 +5,8 @@ use vel_api_types::{
     ProjectCreateRequestData, ProjectFamilyData, ProjectRootRefData, ProjectStatusData,
 };
 use vel_core::{
-    ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus,
+    ActionThreadRoute, ActionThreadRouteTarget, ProjectFamily, ProjectId, ProjectProvisionRequest,
+    ProjectRecord, ProjectRootRef, ProjectStatus,
 };
 
 use crate::{errors::AppError, state::AppState};
@@ -87,6 +88,36 @@ pub async fn create_project(
         .create_project(project)
         .await
         .map_err(map_project_storage_error)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProjectThreadPurpose {
+    Provisioning,
+    Review,
+}
+
+pub fn project_thread_route(
+    project: &ProjectRecord,
+    purpose: ProjectThreadPurpose,
+) -> ActionThreadRoute {
+    let (thread_type, label) = match purpose {
+        ProjectThreadPurpose::Provisioning => (
+            "project_provisioning",
+            format!("Open provisioning thread for {}", project.name),
+        ),
+        ProjectThreadPurpose::Review => (
+            "project_review",
+            format!("Open related threads for {}", project.name),
+        ),
+    };
+
+    ActionThreadRoute {
+        target: ActionThreadRouteTarget::FilteredThreads,
+        label,
+        thread_id: None,
+        thread_type: Some(thread_type.to_string()),
+        project_id: Some(project.id.clone()),
+    }
 }
 
 fn root_from_data(
@@ -194,5 +225,41 @@ mod tests {
         assert_eq!(project.family, ProjectFamily::Work);
         assert!(project.pending_provision.create_repo);
         assert!(project.pending_provision.create_notes_root);
+    }
+
+    #[test]
+    fn project_thread_route_preserves_project_scope() {
+        let project = ProjectRecord {
+            id: ProjectId::from("proj_vel".to_string()),
+            slug: "vel".to_string(),
+            name: "Vel".to_string(),
+            family: ProjectFamily::Work,
+            status: ProjectStatus::Active,
+            primary_repo: ProjectRootRef {
+                path: "/tmp/vel".to_string(),
+                label: "vel".to_string(),
+                kind: "repo".to_string(),
+            },
+            primary_notes_root: ProjectRootRef {
+                path: "/tmp/notes/vel".to_string(),
+                label: "vel".to_string(),
+                kind: "notes_root".to_string(),
+            },
+            secondary_repos: vec![],
+            secondary_notes_roots: vec![],
+            upstream_ids: BTreeMap::new(),
+            pending_provision: ProjectProvisionRequest {
+                create_repo: false,
+                create_notes_root: false,
+            },
+            created_at: OffsetDateTime::UNIX_EPOCH,
+            updated_at: OffsetDateTime::UNIX_EPOCH,
+            archived_at: None,
+        };
+
+        let route = project_thread_route(&project, ProjectThreadPurpose::Review);
+        assert_eq!(route.target, ActionThreadRouteTarget::FilteredThreads);
+        assert_eq!(route.thread_type.as_deref(), Some("project_review"));
+        assert_eq!(route.project_id.as_ref(), Some(&project.id));
     }
 }

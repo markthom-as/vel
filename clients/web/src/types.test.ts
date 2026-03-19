@@ -95,6 +95,37 @@ describe('transport decoders', () => {
     })
   })
 
+  it('decodes action items with typed thread routing hints', () => {
+    const item = decodeActionItemData({
+      id: 'act_project_review_1',
+      surface: 'now',
+      kind: 'review',
+      permission_mode: 'user_confirm',
+      scope_affinity: 'project',
+      title: 'Review project Vel',
+      summary: 'Weekly review keeps the project anchored in Now and Inbox.',
+      project_id: 'proj_vel',
+      project_label: 'Vel',
+      project_family: 'work',
+      state: 'active',
+      rank: 60,
+      surfaced_at: '2026-03-19T02:10:00Z',
+      snoozed_until: null,
+      evidence: [],
+      thread_route: {
+        target: 'filtered_threads',
+        label: 'Open related threads',
+        thread_id: null,
+        thread_type: 'project_review',
+        project_id: 'proj_vel',
+      },
+    })
+
+    expect(item.thread_route?.target).toBe('filtered_threads')
+    expect(item.thread_route?.thread_type).toBe('project_review')
+    expect(item.thread_route?.project_id).toBe('proj_vel')
+  })
+
   it('decodes integrations responses with local adapter sections', () => {
     const response = decodeApiResponse(
       {
@@ -1201,6 +1232,7 @@ describe('transport decoders', () => {
               rank: 88,
               surfaced_at: '2023-11-14T22:13:20Z',
               snoozed_until: null,
+              thread_route: null,
               evidence: [
                 {
                   source_kind: 'backup_trust',
@@ -1320,6 +1352,7 @@ describe('transport decoders', () => {
             rank: 80,
             surfaced_at: '2026-03-19T02:10:00Z',
             snoozed_until: null,
+            thread_route: null,
             evidence: [
               {
                 source_kind: 'intervention',
@@ -1505,6 +1538,7 @@ describe('transport decoders', () => {
             rank: 88,
             surfaced_at: '2023-11-14T22:13:20Z',
             snoozed_until: null,
+            thread_route: null,
             evidence: [
               {
                 source_kind: 'backup_trust',
@@ -1624,6 +1658,7 @@ describe('transport decoders', () => {
           rank: 80,
           surfaced_at: '2026-03-19T02:10:00Z',
           snoozed_until: null,
+          thread_route: null,
           evidence: [
             {
               source_kind: 'intervention',
@@ -1812,6 +1847,7 @@ describe('transport decoders', () => {
       rank: 60,
       surfaced_at: '2026-03-19T02:11:00Z',
       snoozed_until: null,
+      thread_route: null,
       evidence: [
         {
           source_kind: 'project',
@@ -1890,6 +1926,7 @@ describe('transport decoders', () => {
               rank: 85,
               surfaced_at: '2026-03-19T02:12:00Z',
               snoozed_until: null,
+              thread_route: null,
               evidence: [
                 {
                   source_kind: 'linked_node',
@@ -1938,6 +1975,7 @@ describe('transport decoders', () => {
             rank: 85,
             surfaced_at: '2026-03-19T02:12:00Z',
             snoozed_until: null,
+            thread_route: null,
             evidence: [
               {
                 source_kind: 'linked_node',

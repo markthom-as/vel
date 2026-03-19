@@ -638,6 +638,16 @@ export interface ActionEvidenceRefData {
   detail: string | null;
 }
 
+export type ActionThreadRouteTargetData = 'existing_thread' | 'filtered_threads';
+
+export interface ActionThreadRouteData {
+  target: ActionThreadRouteTargetData;
+  label: string;
+  thread_id: string | null;
+  thread_type: string | null;
+  project_id: string | null;
+}
+
 export interface ActionItemData {
   id: string;
   surface: ActionSurfaceData;
@@ -654,6 +664,7 @@ export interface ActionItemData {
   surfaced_at: Rfc3339Timestamp;
   snoozed_until: Rfc3339Timestamp | null;
   evidence: ActionEvidenceRefData[];
+  thread_route: ActionThreadRouteData | null;
 }
 
 export interface ReviewSnapshotData {
@@ -1941,6 +1952,21 @@ export function decodeActionEvidenceRefData(value: unknown): ActionEvidenceRefDa
   };
 }
 
+export function decodeActionThreadRouteTargetData(value: unknown): ActionThreadRouteTargetData {
+  return expectEnumString(value, 'action thread route target', ['existing_thread', 'filtered_threads']);
+}
+
+export function decodeActionThreadRouteData(value: unknown): ActionThreadRouteData {
+  const record = expectRecord(value, 'action thread route');
+  return {
+    target: decodeActionThreadRouteTargetData(record.target),
+    label: expectString(record.label, 'action thread route.label'),
+    thread_id: expectNullableString(record.thread_id, 'action thread route.thread_id'),
+    thread_type: expectNullableString(record.thread_type, 'action thread route.thread_type'),
+    project_id: expectNullableString(record.project_id, 'action thread route.project_id'),
+  };
+}
+
 export function decodeActionItemData(value: unknown): ActionItemData {
   const record = expectRecord(value, 'action item');
   return {
@@ -1963,6 +1989,7 @@ export function decodeActionItemData(value: unknown): ActionItemData {
       'action item.snoozed_until',
     ),
     evidence: decodeArray(record.evidence ?? [], decodeActionEvidenceRefData),
+    thread_route: decodeNullable(record.thread_route ?? null, decodeActionThreadRouteData),
   };
 }
 
