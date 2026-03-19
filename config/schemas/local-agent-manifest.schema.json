@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/local-agent-manifest.schema.json",
+  "title": "LocalAgentManifest",
+  "description": "Canonical Phase 08 contract for supervised local coding runtime manifests and their explicit tool, capability, and review boundaries.",
+  "type": "object",
+  "$defs": {
+    "LocalRuntimeKind": {
+      "type": "string",
+      "enum": ["local_cli", "wasm_guest"]
+    },
+    "ExecutionReviewGate": {
+      "type": "string",
+      "enum": ["none", "operator_approval", "operator_preview", "post_run_review"]
+    },
+    "CapabilityDescriptor": {
+      "type": "object",
+      "properties": {
+        "scope": { "type": "string", "minLength": 1 },
+        "resource": { "type": ["string", "null"], "minLength": 1 },
+        "action": { "type": "string", "minLength": 1 }
+      },
+      "required": ["scope", "resource", "action"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "manifest_id": { "type": "string", "minLength": 1 },
+    "runtime_kind": { "$ref": "#/$defs/LocalRuntimeKind" },
+    "entrypoint": { "type": "string", "minLength": 1 },
+    "working_directory": { "type": "string", "minLength": 1 },
+    "args": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "env_keys": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "read_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "write_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "allowed_tools": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "capabilities": { "type": "array", "items": { "$ref": "#/$defs/CapabilityDescriptor" } },
+    "review_gate": { "$ref": "#/$defs/ExecutionReviewGate" }
+  },
+  "required": [
+    "manifest_id",
+    "runtime_kind",
+    "entrypoint",
+    "working_directory",
+    "args",
+    "env_keys",
+    "read_roots",
+    "write_roots",
+    "allowed_tools",
+    "capabilities",
+    "review_gate"
+  ],
+  "additionalProperties": false
+}

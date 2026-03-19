@@ -855,6 +855,347 @@ impl From<vel_core::ProjectRecord> for ProjectRecordData {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionTaskKindData {
+    Planning,
+    Implementation,
+    Debugging,
+    Review,
+    Research,
+    Documentation,
+}
+
+impl From<vel_core::ExecutionTaskKind> for ExecutionTaskKindData {
+    fn from(value: vel_core::ExecutionTaskKind) -> Self {
+        match value {
+            vel_core::ExecutionTaskKind::Planning => Self::Planning,
+            vel_core::ExecutionTaskKind::Implementation => Self::Implementation,
+            vel_core::ExecutionTaskKind::Debugging => Self::Debugging,
+            vel_core::ExecutionTaskKind::Review => Self::Review,
+            vel_core::ExecutionTaskKind::Research => Self::Research,
+            vel_core::ExecutionTaskKind::Documentation => Self::Documentation,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentProfileData {
+    Budget,
+    Balanced,
+    Quality,
+    Inherit,
+}
+
+impl From<vel_core::AgentProfile> for AgentProfileData {
+    fn from(value: vel_core::AgentProfile) -> Self {
+        match value {
+            vel_core::AgentProfile::Budget => Self::Budget,
+            vel_core::AgentProfile::Balanced => Self::Balanced,
+            vel_core::AgentProfile::Quality => Self::Quality,
+            vel_core::AgentProfile::Inherit => Self::Inherit,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TokenBudgetClassData {
+    Small,
+    Medium,
+    Large,
+    Xlarge,
+}
+
+impl From<vel_core::TokenBudgetClass> for TokenBudgetClassData {
+    fn from(value: vel_core::TokenBudgetClass) -> Self {
+        match value {
+            vel_core::TokenBudgetClass::Small => Self::Small,
+            vel_core::TokenBudgetClass::Medium => Self::Medium,
+            vel_core::TokenBudgetClass::Large => Self::Large,
+            vel_core::TokenBudgetClass::Xlarge => Self::Xlarge,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionReviewGateData {
+    None,
+    OperatorApproval,
+    OperatorPreview,
+    PostRunReview,
+}
+
+impl From<vel_core::ExecutionReviewGate> for ExecutionReviewGateData {
+    fn from(value: vel_core::ExecutionReviewGate) -> Self {
+        match value {
+            vel_core::ExecutionReviewGate::None => Self::None,
+            vel_core::ExecutionReviewGate::OperatorApproval => Self::OperatorApproval,
+            vel_core::ExecutionReviewGate::OperatorPreview => Self::OperatorPreview,
+            vel_core::ExecutionReviewGate::PostRunReview => Self::PostRunReview,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LocalRuntimeKindData {
+    LocalCli,
+    WasmGuest,
+}
+
+impl From<vel_core::LocalRuntimeKind> for LocalRuntimeKindData {
+    fn from(value: vel_core::LocalRuntimeKind) -> Self {
+        match value {
+            vel_core::LocalRuntimeKind::LocalCli => Self::LocalCli,
+            vel_core::LocalRuntimeKind::WasmGuest => Self::WasmGuest,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoWorktreeRefData {
+    pub path: String,
+    pub label: String,
+    pub branch: Option<String>,
+    pub head_rev: Option<String>,
+}
+
+impl From<vel_core::RepoWorktreeRef> for RepoWorktreeRefData {
+    fn from(value: vel_core::RepoWorktreeRef) -> Self {
+        Self {
+            path: value.path,
+            label: value.label,
+            branch: value.branch,
+            head_rev: value.head_rev,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityDescriptorData {
+    pub scope: String,
+    pub resource: Option<String>,
+    pub action: String,
+}
+
+impl From<vel_core::CapabilityDescriptor> for CapabilityDescriptorData {
+    fn from(value: vel_core::CapabilityDescriptor) -> Self {
+        Self {
+            scope: value.scope,
+            resource: value.resource,
+            action: value.action,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalAgentManifestData {
+    pub manifest_id: String,
+    pub runtime_kind: LocalRuntimeKindData,
+    pub entrypoint: String,
+    pub working_directory: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env_keys: Vec<String>,
+    #[serde(default)]
+    pub read_roots: Vec<String>,
+    #[serde(default)]
+    pub write_roots: Vec<String>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub capabilities: Vec<CapabilityDescriptorData>,
+    pub review_gate: ExecutionReviewGateData,
+}
+
+impl From<vel_core::LocalAgentManifest> for LocalAgentManifestData {
+    fn from(value: vel_core::LocalAgentManifest) -> Self {
+        Self {
+            manifest_id: value.manifest_id,
+            runtime_kind: value.runtime_kind.into(),
+            entrypoint: value.entrypoint,
+            working_directory: value.working_directory,
+            args: value.args,
+            env_keys: value.env_keys,
+            read_roots: value.read_roots,
+            write_roots: value.write_roots,
+            allowed_tools: value.allowed_tools,
+            capabilities: value.capabilities.into_iter().map(Into::into).collect(),
+            review_gate: value.review_gate.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionPolicyInputData {
+    pub task_kind: ExecutionTaskKindData,
+    pub agent_profile: AgentProfileData,
+    pub token_budget: TokenBudgetClassData,
+    #[serde(default)]
+    pub read_roots: Vec<String>,
+    #[serde(default)]
+    pub write_roots: Vec<String>,
+    pub review_gate: ExecutionReviewGateData,
+    #[serde(default)]
+    pub requires_network: bool,
+}
+
+impl From<vel_core::ExecutionPolicyInput> for ExecutionPolicyInputData {
+    fn from(value: vel_core::ExecutionPolicyInput) -> Self {
+        Self {
+            task_kind: value.task_kind.into(),
+            agent_profile: value.agent_profile.into(),
+            token_budget: value.token_budget.into(),
+            read_roots: value.read_roots,
+            write_roots: value.write_roots,
+            review_gate: value.review_gate.into(),
+            requires_network: value.requires_network,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectExecutionContextData {
+    pub project_id: ProjectId,
+    pub repo: RepoWorktreeRefData,
+    pub notes_root: ProjectRootRefData,
+    pub gsd_artifact_dir: String,
+    pub default_task_kind: ExecutionTaskKindData,
+    pub default_agent_profile: AgentProfileData,
+    pub default_token_budget: TokenBudgetClassData,
+    pub review_gate: ExecutionReviewGateData,
+    #[serde(default)]
+    pub read_roots: Vec<String>,
+    #[serde(default)]
+    pub write_roots: Vec<String>,
+    #[serde(default)]
+    pub local_manifests: Vec<LocalAgentManifestData>,
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub updated_at: OffsetDateTime,
+}
+
+impl From<vel_core::ProjectExecutionContext> for ProjectExecutionContextData {
+    fn from(value: vel_core::ProjectExecutionContext) -> Self {
+        Self {
+            project_id: value.project_id,
+            repo: value.repo.into(),
+            notes_root: value.notes_root.into(),
+            gsd_artifact_dir: value.gsd_artifact_dir,
+            default_task_kind: value.default_task_kind.into(),
+            default_agent_profile: value.default_agent_profile.into(),
+            default_token_budget: value.default_token_budget.into(),
+            review_gate: value.review_gate.into(),
+            read_roots: value.read_roots,
+            write_roots: value.write_roots,
+            local_manifests: value.local_manifests.into_iter().map(Into::into).collect(),
+            metadata: value.metadata,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HandoffEnvelopeData {
+    pub task_id: String,
+    pub trace_id: vel_core::TraceId,
+    pub from_agent: String,
+    pub to_agent: String,
+    pub objective: String,
+    #[serde(default)]
+    pub inputs: JsonValue,
+    #[serde(default)]
+    pub constraints: Vec<String>,
+    #[serde(default)]
+    pub read_scopes: Vec<String>,
+    #[serde(default)]
+    pub write_scopes: Vec<String>,
+    #[serde(default)]
+    pub project_id: Option<ProjectId>,
+    #[serde(default)]
+    pub task_kind: Option<ExecutionTaskKindData>,
+    #[serde(default)]
+    pub agent_profile: Option<AgentProfileData>,
+    #[serde(default)]
+    pub token_budget: Option<TokenBudgetClassData>,
+    #[serde(default)]
+    pub review_gate: Option<ExecutionReviewGateData>,
+    #[serde(default)]
+    pub repo_root: Option<RepoWorktreeRefData>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub capability_scope: JsonValue,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub deadline: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub expected_output_schema: JsonValue,
+}
+
+impl From<vel_core::HandoffEnvelope> for HandoffEnvelopeData {
+    fn from(value: vel_core::HandoffEnvelope) -> Self {
+        Self {
+            task_id: value.task_id,
+            trace_id: value.trace_id,
+            from_agent: value.from_agent,
+            to_agent: value.to_agent,
+            objective: value.objective,
+            inputs: value.inputs,
+            constraints: value.constraints,
+            read_scopes: value.read_scopes,
+            write_scopes: value.write_scopes,
+            project_id: value.project_id,
+            task_kind: value.task_kind.map(Into::into),
+            agent_profile: value.agent_profile.map(Into::into),
+            token_budget: value.token_budget.map(Into::into),
+            review_gate: value.review_gate.map(Into::into),
+            repo_root: value.repo_root.map(Into::into),
+            allowed_tools: value.allowed_tools,
+            capability_scope: value.capability_scope,
+            deadline: value.deadline,
+            expected_output_schema: value.expected_output_schema,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionHandoffData {
+    pub handoff: HandoffEnvelopeData,
+    pub project_id: ProjectId,
+    pub task_kind: ExecutionTaskKindData,
+    pub agent_profile: AgentProfileData,
+    pub token_budget: TokenBudgetClassData,
+    pub review_gate: ExecutionReviewGateData,
+    pub repo: RepoWorktreeRefData,
+    pub notes_root: ProjectRootRefData,
+    #[serde(default)]
+    pub manifest_id: Option<String>,
+}
+
+impl From<vel_core::ExecutionHandoff> for ExecutionHandoffData {
+    fn from(value: vel_core::ExecutionHandoff) -> Self {
+        Self {
+            handoff: value.handoff.into(),
+            project_id: value.project_id,
+            task_kind: value.task_kind.into(),
+            agent_profile: value.agent_profile.into(),
+            token_budget: value.token_budget.into(),
+            review_gate: value.review_gate.into(),
+            repo: value.repo.into(),
+            notes_root: value.notes_root.into(),
+            manifest_id: value.manifest_id,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectCreateRequestData {
     pub slug: String,
@@ -2723,12 +3064,16 @@ pub struct RunSummaryData {
     pub automatic_retry_reason: Option<String>,
     pub unsupported_retry_override: bool,
     pub unsupported_retry_override_reason: Option<String>,
+    #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub started_at: Option<OffsetDateTime>,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub finished_at: Option<OffsetDateTime>,
     /// Duration in milliseconds; present when run has started_at and finished_at.
     pub duration_ms: Option<i64>,
     /// Optional retry schedule metadata for operator workflows.
+    #[serde(with = "time::serde::rfc3339::option")]
     pub retry_scheduled_at: Option<OffsetDateTime>,
     /// Optional operator reason attached when scheduling a retry.
     pub retry_reason: Option<String>,
@@ -2742,6 +3087,7 @@ pub struct RunEventData {
     pub event_type: String,
     pub trace_id: Option<String>,
     pub payload: JsonValue,
+    #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
 }
 
@@ -2785,12 +3131,16 @@ pub struct RunDetailData {
     pub input: JsonValue,
     pub output: Option<JsonValue>,
     pub error: Option<JsonValue>,
+    #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub started_at: Option<OffsetDateTime>,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub finished_at: Option<OffsetDateTime>,
     /// Duration in milliseconds; present when run has started_at and finished_at.
     pub duration_ms: Option<i64>,
     /// Optional retry schedule metadata for operator workflows.
+    #[serde(with = "time::serde::rfc3339::option")]
     pub retry_scheduled_at: Option<OffsetDateTime>,
     /// Optional operator reason attached when scheduling a retry.
     pub retry_reason: Option<String>,
@@ -2798,6 +3148,40 @@ pub struct RunDetailData {
     pub blocked_reason: Option<String>,
     pub events: Vec<RunEventData>,
     pub artifacts: Vec<ArtifactSummaryData>,
+}
+
+#[cfg(test)]
+mod run_datetime_contract_tests {
+    use super::*;
+
+    #[test]
+    fn run_summary_datetimes_serialize_as_rfc3339_strings() {
+        let created_at = OffsetDateTime::from_unix_timestamp(1_710_590_400).unwrap();
+        let finished_at = OffsetDateTime::from_unix_timestamp(1_710_590_640).unwrap();
+        let value = serde_json::to_value(RunSummaryData {
+            id: "run_1".to_string().into(),
+            kind: "search".to_string(),
+            status: "completed".to_string(),
+            trace_id: "trace_1".to_string(),
+            parent_run_id: None,
+            automatic_retry_supported: false,
+            automatic_retry_reason: None,
+            unsupported_retry_override: false,
+            unsupported_retry_override_reason: None,
+            created_at,
+            started_at: Some(created_at),
+            finished_at: Some(finished_at),
+            duration_ms: Some(240_000),
+            retry_scheduled_at: None,
+            retry_reason: None,
+            blocked_reason: None,
+        })
+        .unwrap();
+
+        assert!(value["created_at"].is_string());
+        assert!(value["started_at"].is_string());
+        assert!(value["finished_at"].is_string());
+    }
 }
 
 // --- Commitments ---
@@ -3458,17 +3842,24 @@ pub struct NudgeEventData {
 mod tests {
     use super::{
         ActionEvidenceRefData, ActionItemData, ActionKindData, ActionStateData, ActionSurfaceData,
-        AppleBehaviorMetricData, AppleBehaviorSummaryData, AppleBehaviorSummaryScopeData,
-        AppleClientSurfaceData, AppleRequestedOperationData, AppleResponseEvidenceData,
-        AppleResponseModeData, AppleScheduleEventData, AppleScheduleSnapshotData,
-        AppleTurnProvenanceData, AppleVoiceIntentData, AppleVoiceTurnQueuedMutationSummaryData,
-        AppleVoiceTurnRequestData, AppleVoiceTurnResponseData, NowTaskData, ProjectFamilyData,
-        ProjectProvisionRequestData, ProjectRecordData, ProjectRootRefData, ProjectStatusData,
-        ReviewSnapshotData,
+        AgentProfileData, AppleBehaviorMetricData, AppleBehaviorSummaryData,
+        AppleBehaviorSummaryScopeData, AppleClientSurfaceData, AppleRequestedOperationData,
+        AppleResponseEvidenceData, AppleResponseModeData, AppleScheduleEventData,
+        AppleScheduleSnapshotData, AppleTurnProvenanceData, AppleVoiceIntentData,
+        AppleVoiceTurnQueuedMutationSummaryData, AppleVoiceTurnRequestData,
+        AppleVoiceTurnResponseData, ExecutionHandoffData, ExecutionReviewGateData,
+        ExecutionTaskKindData, LocalRuntimeKindData, NowTaskData, ProjectExecutionContextData,
+        ProjectFamilyData, ProjectProvisionRequestData, ProjectRecordData, ProjectRootRefData,
+        ProjectStatusData, ReviewSnapshotData, TokenBudgetClassData,
     };
     use std::collections::BTreeMap;
     use time::macros::datetime;
-    use vel_core::{ActionItemId, ProjectId};
+    use vel_core::{
+        ActionItemId, AgentProfile, CapabilityDescriptor, ExecutionHandoff, ExecutionReviewGate,
+        ExecutionTaskKind, HandoffEnvelope, LocalAgentManifest, LocalRuntimeKind,
+        ProjectExecutionContext, ProjectId, ProjectRootRef, RepoWorktreeRef, TokenBudgetClass,
+        TraceId,
+    };
 
     #[test]
     fn now_task_due_at_serializes_as_rfc3339_string() {
@@ -3570,6 +3961,128 @@ mod tests {
         assert_eq!(value["created_at"], "2026-03-19T02:10:00Z");
         assert_eq!(value["updated_at"], "2026-03-19T02:20:00Z");
         assert!(value["archived_at"].is_null());
+    }
+
+    #[test]
+    fn project_execution_context_converts_from_core() {
+        let context = ProjectExecutionContext {
+            project_id: ProjectId::from("proj_velruntime".to_string()),
+            repo: RepoWorktreeRef {
+                path: "/home/jove/code/vel".to_string(),
+                label: "vel".to_string(),
+                branch: Some("main".to_string()),
+                head_rev: Some("abc1234".to_string()),
+            },
+            notes_root: ProjectRootRef {
+                path: "/home/jove/notes/vel".to_string(),
+                label: "Vel Notes".to_string(),
+                kind: "notes_root".to_string(),
+            },
+            gsd_artifact_dir: ".planning/vel".to_string(),
+            default_task_kind: ExecutionTaskKind::Implementation,
+            default_agent_profile: AgentProfile::Balanced,
+            default_token_budget: TokenBudgetClass::Large,
+            review_gate: ExecutionReviewGate::OperatorPreview,
+            read_roots: vec!["/home/jove/code/vel".to_string()],
+            write_roots: vec!["/home/jove/code/vel/.planning/vel".to_string()],
+            local_manifests: vec![LocalAgentManifest {
+                manifest_id: "manifest_local_cli".to_string(),
+                runtime_kind: LocalRuntimeKind::LocalCli,
+                entrypoint: "cargo".to_string(),
+                working_directory: "/home/jove/code/vel".to_string(),
+                args: vec!["run".to_string(), "-p".to_string(), "vel-cli".to_string()],
+                env_keys: vec!["VEL_OPERATOR_TOKEN".to_string()],
+                read_roots: vec!["/home/jove/code/vel".to_string()],
+                write_roots: vec!["/home/jove/code/vel/.planning/vel".to_string()],
+                allowed_tools: vec!["rg".to_string(), "cargo".to_string()],
+                capabilities: vec![CapabilityDescriptor {
+                    scope: "repo.read".to_string(),
+                    resource: Some("/home/jove/code/vel".to_string()),
+                    action: "read".to_string(),
+                }],
+                review_gate: ExecutionReviewGate::OperatorPreview,
+            }],
+            metadata: BTreeMap::from([("phase".to_string(), "08".to_string())]),
+            created_at: datetime!(2026-03-19 10:00:00 UTC),
+            updated_at: datetime!(2026-03-19 10:05:00 UTC),
+        };
+
+        let data = ProjectExecutionContextData::from(context);
+        assert_eq!(
+            data.project_id,
+            ProjectId::from("proj_velruntime".to_string())
+        );
+        assert_eq!(
+            data.default_task_kind,
+            ExecutionTaskKindData::Implementation
+        );
+        assert_eq!(data.default_agent_profile, AgentProfileData::Balanced);
+        assert_eq!(data.default_token_budget, TokenBudgetClassData::Large);
+        assert_eq!(data.review_gate, ExecutionReviewGateData::OperatorPreview);
+        assert_eq!(
+            data.local_manifests[0].runtime_kind,
+            LocalRuntimeKindData::LocalCli
+        );
+    }
+
+    #[test]
+    fn execution_handoff_converts_from_core() {
+        let handoff = ExecutionHandoff {
+            handoff: HandoffEnvelope {
+                task_id: "task_1".to_string(),
+                trace_id: TraceId::from("trace_1".to_string()),
+                from_agent: "planner".to_string(),
+                to_agent: "executor".to_string(),
+                objective: "Implement Phase 08 contracts".to_string(),
+                inputs: serde_json::json!({ "ticket": "08-01" }),
+                constraints: vec!["stay within write scope".to_string()],
+                read_scopes: vec!["docs/".to_string(), "crates/".to_string()],
+                write_scopes: vec!["crates/vel-core/".to_string()],
+                project_id: Some(ProjectId::from("proj_velruntime".to_string())),
+                task_kind: Some(ExecutionTaskKind::Implementation),
+                agent_profile: Some(AgentProfile::Balanced),
+                token_budget: Some(TokenBudgetClass::Large),
+                review_gate: Some(ExecutionReviewGate::OperatorPreview),
+                repo_root: Some(RepoWorktreeRef {
+                    path: "/home/jove/code/vel".to_string(),
+                    label: "vel".to_string(),
+                    branch: Some("main".to_string()),
+                    head_rev: Some("abc1234".to_string()),
+                }),
+                allowed_tools: vec!["rg".to_string(), "cargo".to_string()],
+                capability_scope: serde_json::json!({ "mode": "scoped" }),
+                deadline: Some(datetime!(2026-03-19 12:00:00 UTC)),
+                expected_output_schema: serde_json::json!({ "type": "object" }),
+            },
+            project_id: ProjectId::from("proj_velruntime".to_string()),
+            task_kind: ExecutionTaskKind::Implementation,
+            agent_profile: AgentProfile::Balanced,
+            token_budget: TokenBudgetClass::Large,
+            review_gate: ExecutionReviewGate::OperatorPreview,
+            repo: RepoWorktreeRef {
+                path: "/home/jove/code/vel".to_string(),
+                label: "vel".to_string(),
+                branch: Some("main".to_string()),
+                head_rev: Some("abc1234".to_string()),
+            },
+            notes_root: ProjectRootRef {
+                path: "/home/jove/notes/vel".to_string(),
+                label: "Vel Notes".to_string(),
+                kind: "notes_root".to_string(),
+            },
+            manifest_id: Some("manifest_local_cli".to_string()),
+        };
+
+        let data = ExecutionHandoffData::from(handoff);
+        assert_eq!(data.task_kind, ExecutionTaskKindData::Implementation);
+        assert_eq!(data.agent_profile, AgentProfileData::Balanced);
+        assert_eq!(data.token_budget, TokenBudgetClassData::Large);
+        assert_eq!(data.review_gate, ExecutionReviewGateData::OperatorPreview);
+        assert_eq!(
+            data.handoff.task_kind,
+            Some(ExecutionTaskKindData::Implementation)
+        );
+        assert_eq!(data.handoff.repo_root.unwrap().label, "vel");
     }
 
     #[test]

@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/execution-handoff.schema.json",
+  "title": "ExecutionHandoff",
+  "description": "Canonical Phase 08 handoff contract for repo-aware coding work with explicit project, scope, budget, and review metadata.",
+  "type": "object",
+  "$defs": {
+    "ExecutionTaskKind": {
+      "type": "string",
+      "enum": ["planning", "implementation", "debugging", "review", "research", "documentation"]
+    },
+    "AgentProfile": {
+      "type": "string",
+      "enum": ["budget", "balanced", "quality", "inherit"]
+    },
+    "TokenBudgetClass": {
+      "type": "string",
+      "enum": ["small", "medium", "large", "xlarge"]
+    },
+    "ExecutionReviewGate": {
+      "type": "string",
+      "enum": ["none", "operator_approval", "operator_preview", "post_run_review"]
+    },
+    "RepoWorktreeRef": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "branch": { "type": ["string", "null"], "minLength": 1 },
+        "head_rev": { "type": ["string", "null"], "minLength": 1 }
+      },
+      "required": ["path", "label", "branch", "head_rev"],
+      "additionalProperties": false
+    },
+    "ProjectRootRef": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 }
+      },
+      "required": ["path", "label", "kind"],
+      "additionalProperties": false
+    },
+    "HandoffEnvelope": {
+      "type": "object",
+      "properties": {
+        "task_id": { "type": "string", "minLength": 1 },
+        "trace_id": { "type": "string", "minLength": 1 },
+        "from_agent": { "type": "string", "minLength": 1 },
+        "to_agent": { "type": "string", "minLength": 1 },
+        "objective": { "type": "string", "minLength": 1 },
+        "inputs": { "type": "object" },
+        "constraints": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "read_scopes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "write_scopes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "project_id": { "type": ["string", "null"], "pattern": "^proj_[A-Za-z0-9]+$" },
+        "task_kind": {
+          "oneOf": [
+            { "$ref": "#/$defs/ExecutionTaskKind" },
+            { "type": "null" }
+          ]
+        },
+        "agent_profile": {
+          "oneOf": [
+            { "$ref": "#/$defs/AgentProfile" },
+            { "type": "null" }
+          ]
+        },
+        "token_budget": {
+          "oneOf": [
+            { "$ref": "#/$defs/TokenBudgetClass" },
+            { "type": "null" }
+          ]
+        },
+        "review_gate": {
+          "oneOf": [
+            { "$ref": "#/$defs/ExecutionReviewGate" },
+            { "type": "null" }
+          ]
+        },
+        "repo_root": {
+          "oneOf": [
+            { "$ref": "#/$defs/RepoWorktreeRef" },
+            { "type": "null" }
+          ]
+        },
+        "allowed_tools": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "capability_scope": { "type": "object" },
+        "deadline": { "type": ["string", "null"], "format": "date-time" },
+        "expected_output_schema": { "type": "object" }
+      },
+      "required": [
+        "task_id",
+        "trace_id",
+        "from_agent",
+        "to_agent",
+        "objective",
+        "inputs",
+        "constraints",
+        "read_scopes",
+        "write_scopes",
+        "project_id",
+        "task_kind",
+        "agent_profile",
+        "token_budget",
+        "review_gate",
+        "repo_root",
+        "allowed_tools",
+        "capability_scope",
+        "deadline",
+        "expected_output_schema"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "handoff": { "$ref": "#/$defs/HandoffEnvelope" },
+    "project_id": {
+      "type": "string",
+      "pattern": "^proj_[A-Za-z0-9]+$"
+    },
+    "task_kind": { "$ref": "#/$defs/ExecutionTaskKind" },
+    "agent_profile": { "$ref": "#/$defs/AgentProfile" },
+    "token_budget": { "$ref": "#/$defs/TokenBudgetClass" },
+    "review_gate": { "$ref": "#/$defs/ExecutionReviewGate" },
+    "repo": { "$ref": "#/$defs/RepoWorktreeRef" },
+    "notes_root": { "$ref": "#/$defs/ProjectRootRef" },
+    "manifest_id": { "type": ["string", "null"], "minLength": 1 }
+  },
+  "required": [
+    "handoff",
+    "project_id",
+    "task_kind",
+    "agent_profile",
+    "token_budget",
+    "review_gate",
+    "repo",
+    "notes_root",
+    "manifest_id"
+  ],
+  "additionalProperties": false
+}

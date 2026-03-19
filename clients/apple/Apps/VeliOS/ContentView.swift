@@ -1084,6 +1084,7 @@ private struct VoiceTab: View {
 private struct SettingsTab: View {
     @ObservedObject var store: VelClientStore
     @State private var baseURLOverride = UserDefaults.standard.string(forKey: "vel_base_url") ?? ""
+    @State private var operatorToken = UserDefaults.standard.string(forKey: "vel_operator_token") ?? ""
 
     var body: some View {
         List {
@@ -1120,6 +1121,28 @@ private struct SettingsTab: View {
                 .buttonStyle(.bordered)
 
                 Text("Resolution order: vel_tailscale_url, vel_base_url, vel_lan_base_url, localhost.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Section("Operator auth") {
+                SecureField("x-vel-operator-token", text: $operatorToken)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+
+                Button("Save auth and reconnect") {
+                    let trimmed = operatorToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.isEmpty {
+                        UserDefaults.standard.removeObject(forKey: "vel_operator_token")
+                    } else {
+                        UserDefaults.standard.set(trimmed, forKey: "vel_operator_token")
+                    }
+                    store.client.configuration = .shared()
+                    Task { await store.refresh() }
+                }
+                .buttonStyle(.bordered)
+
+                Text("Operator-authenticated /v1 routes send x-vel-operator-token when configured.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -1266,10 +1289,11 @@ private struct VoiceIntent: Codable, Equatable {
         case nudgeDone = "nudge_done"
         case nudgeSnooze = "nudge_snooze"
         case morningBriefing = "morning_briefing"
-        case queryContext = "query_context"
+        case currentSchedule = "current_schedule"
         case queryNextCommitment = "query_next_commitment"
         case queryNudges = "query_nudges"
-        case explainContext = "explain_context"
+        case explainWhy = "explain_why"
+        case behaviorSummary = "behavior_summary"
     }
 
     let kind: Kind
@@ -1280,10 +1304,11 @@ private struct VoiceIntent: Codable, Equatable {
     static let commitmentDone = VoiceIntent(kind: .commitmentDone, minutes: nil)
     static let nudgeDone = VoiceIntent(kind: .nudgeDone, minutes: nil)
     static let morningBriefing = VoiceIntent(kind: .morningBriefing, minutes: nil)
-    static let queryContext = VoiceIntent(kind: .queryContext, minutes: nil)
+    static let currentSchedule = VoiceIntent(kind: .currentSchedule, minutes: nil)
     static let queryNextCommitment = VoiceIntent(kind: .queryNextCommitment, minutes: nil)
     static let queryNudges = VoiceIntent(kind: .queryNudges, minutes: nil)
-    static let explainContext = VoiceIntent(kind: .explainContext, minutes: nil)
+    static let explainWhy = VoiceIntent(kind: .explainWhy, minutes: nil)
+    static let behaviorSummary = VoiceIntent(kind: .behaviorSummary, minutes: nil)
     static func nudgeSnooze(_ minutes: Int) -> VoiceIntent {
         VoiceIntent(kind: .nudgeSnooze, minutes: minutes)
     }
@@ -1302,14 +1327,16 @@ private struct VoiceIntent: Codable, Equatable {
             return "Snooze top nudge (\(minutes ?? 10)m)"
         case .morningBriefing:
             return "Morning briefing"
-        case .queryContext:
-            return "Query current context"
+        case .currentSchedule:
+            return "Current schedule"
         case .queryNextCommitment:
             return "Query next commitment"
         case .queryNudges:
-            return "Query active nudges"
-        case .explainContext:
+            return "Active nudges"
+        case .explainWhy:
             return "Explain why now"
+        case .behaviorSummary:
+            return "Behavior summary"
         }
     }
 
@@ -1327,14 +1354,16 @@ private struct VoiceIntent: Codable, Equatable {
             return "nudge_snooze_\(minutes ?? 10)m"
         case .morningBriefing:
             return "morning_briefing"
-        case .queryContext:
-            return "query_context"
+        case .currentSchedule:
+            return "current_schedule"
         case .queryNextCommitment:
             return "query_next_commitment"
         case .queryNudges:
             return "query_nudges"
-        case .explainContext:
-            return "explain_context"
+        case .explainWhy:
+            return "explain_why"
+        case .behaviorSummary:
+            return "behavior_summary"
         }
     }
 
@@ -1348,11 +1377,55 @@ private struct VoiceIntent: Codable, Equatable {
 
     var isQuery: Bool {
         switch kind {
-        case .morningBriefing, .queryContext, .queryNextCommitment, .queryNudges, .explainContext:
+        case .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary:
             return true
         case .captureCreate, .commitmentCreate, .commitmentDone, .nudgeDone, .nudgeSnooze:
             return false
         }
+    }
+
+    var appleIntent: AppleVoiceIntentData? {
+        switch kind {
+        case .captureCreate:
+            return .capture
+        case .commitmentCreate:
+            return nil
+        case .commitmentDone:
+            return .completeCommitment
+        case .nudgeDone:
+            return .activeNudges
+        case .nudgeSnooze:
+            return .snoozeNudge
+        case .morningBriefing:
+            return .morningBriefing
+        case .currentSchedule:
+            return .currentSchedule
+        case .queryNextCommitment:
+            return .nextCommitment
+        case .queryNudges:
+            return .activeNudges
+        case .explainWhy:
+            return .explainWhy
+        case .behaviorSummary:
+            return .behaviorSummary
+        }
+    }
+
+    var appleOperation: AppleRequestedOperationData? {
+        switch kind {
+        case .captureCreate:
+            return .captureOnly
+        case .commitmentCreate:
+            return nil
+        case .commitmentDone, .nudgeDone, .nudgeSnooze:
+            return .mutation
+        case .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary:
+            return .queryOnly
+        }
+    }
+
+    var usesBackendVoiceTurn: Bool {
+        appleIntent != nil && appleOperation != nil
     }
 
     var submitButtonLabel: String {
@@ -1421,7 +1494,7 @@ private enum VoiceIntentParser {
         }
 
         if isContextQuery(normalized) {
-            return VoiceIntentSuggestion(intent: .queryContext, cleanedText: clean)
+            return VoiceIntentSuggestion(intent: .currentSchedule, cleanedText: clean)
         }
 
         if isNextCommitmentQuery(normalized) {
@@ -1433,7 +1506,11 @@ private enum VoiceIntentParser {
         }
 
         if isExplainQuery(normalized) {
-            return VoiceIntentSuggestion(intent: .explainContext, cleanedText: clean)
+            return VoiceIntentSuggestion(intent: .explainWhy, cleanedText: clean)
+        }
+
+        if isBehaviorSummaryQuery(normalized) {
+            return VoiceIntentSuggestion(intent: .behaviorSummary, cleanedText: clean)
         }
 
         if normalized.contains("snooze") {
@@ -1576,6 +1653,16 @@ private enum VoiceIntentParser {
         return false
     }
 
+    private static func isBehaviorSummaryQuery(_ text: String) -> Bool {
+        [
+            "behavior summary",
+            "behaviour summary",
+            "activity summary",
+            "health summary",
+            "how am i moving"
+        ].contains(where: { text.contains($0) })
+    }
+
     private static func isNudgeDoneCommand(_ text: String) -> Bool {
         if text == "done" {
             return true
@@ -1671,6 +1758,7 @@ private struct VoiceCommandExample: Identifiable {
         VoiceCommandExample(id: "context", label: "What matters", command: "What matters right now?"),
         VoiceCommandExample(id: "next", label: "What is next", command: "What's my next commitment?"),
         VoiceCommandExample(id: "nudges", label: "Active nudges", command: "What are my active nudges?"),
+        VoiceCommandExample(id: "behavior", label: "Behavior summary", command: "Give me a behavior summary"),
         VoiceCommandExample(id: "done", label: "Mark meds done", command: "Mark meds done"),
         VoiceCommandExample(id: "snooze", label: "Snooze 10", command: "Snooze that 10 minutes")
     ]

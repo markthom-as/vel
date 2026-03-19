@@ -168,7 +168,8 @@ struct IntegrationSnapshotOutput {
 pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput, AppError> {
     let now_ts = OffsetDateTime::now_utc().unix_timestamp();
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
-    let apple_behavior_summary = crate::services::apple_behavior::get_summary(storage, config).await?;
+    let apple_behavior_summary =
+        crate::services::apple_behavior::get_summary(storage, config).await?;
     let Some((computed_at, context)) = storage.get_current_context().await? else {
         return Ok(empty_now(now_ts, &timezone.name));
     };

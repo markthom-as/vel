@@ -4,9 +4,11 @@ import { decodeWsEvent, type WsEvent } from '../types';
 type Listener = (event: WsEvent) => void;
 
 const RECONNECT_DELAY_MS = 1000;
+const IDLE_CLOSE_DELAY_MS = 250;
 
 let socket: WebSocket | null = null;
 let reconnectTimer: number | null = null;
+let idleCloseTimer: number | null = null;
 const listeners = new Set<Listener>();
 
 function notify(event: WsEvent) {
@@ -22,6 +24,13 @@ function clearReconnectTimer() {
   }
 }
 
+function clearIdleCloseTimer() {
+  if (idleCloseTimer != null) {
+    window.clearTimeout(idleCloseTimer);
+    idleCloseTimer = null;
+  }
+}
+
 function scheduleReconnect() {
   if (reconnectTimer != null || listeners.size === 0) {
     return;
@@ -33,6 +42,7 @@ function scheduleReconnect() {
 }
 
 function teardownSocket() {
+  clearIdleCloseTimer();
   if (!socket) {
     return;
   }
@@ -45,6 +55,7 @@ function teardownSocket() {
 }
 
 function ensureSocket() {
+  clearIdleCloseTimer();
   if (socket || listeners.size === 0) {
     return;
   }
@@ -70,13 +81,20 @@ function ensureSocket() {
 export function subscribeWs(listener: Listener): () => void {
   listeners.add(listener);
   clearReconnectTimer();
+  clearIdleCloseTimer();
   ensureSocket();
 
   return () => {
     listeners.delete(listener);
     if (listeners.size === 0) {
       clearReconnectTimer();
-      teardownSocket();
+      clearIdleCloseTimer();
+      idleCloseTimer = window.setTimeout(() => {
+        idleCloseTimer = null;
+        if (listeners.size === 0) {
+          teardownSocket();
+        }
+      }, IDLE_CLOSE_DELAY_MS);
     }
   };
 }

@@ -198,6 +198,24 @@
       "schema": "config/schemas/project-workspace.schema.json"
     },
     {
+      "id": "project_execution_context_example",
+      "path": "config/examples/project-execution-context.example.json",
+      "kind": "project_execution_context",
+      "schema": "config/schemas/project-execution-context.schema.json"
+    },
+    {
+      "id": "execution_handoff_example",
+      "path": "config/examples/execution-handoff.example.json",
+      "kind": "execution_handoff",
+      "schema": "config/schemas/execution-handoff.schema.json"
+    },
+    {
+      "id": "local_agent_manifest_example",
+      "path": "config/examples/local-agent-manifest.example.json",
+      "kind": "local_agent_manifest",
+      "schema": "config/schemas/local-agent-manifest.schema.json"
+    },
+    {
       "id": "operator_action_item_example",
       "path": "config/examples/operator-action-item.example.json",
       "kind": "operator_action_item",
@@ -223,6 +241,7 @@
     "docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md",
     "docs/cognitive-agent-architecture/cognition/semantic-memory-contract.md",
     "docs/cognitive-agent-architecture/apple/apple-action-loop-contracts.md",
+    "docs/cognitive-agent-architecture/agents/coding-execution-contracts.md",
     "docs/cognitive-agent-architecture/agents/sandbox-host-abi.md",
     "docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md",
     "docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md",

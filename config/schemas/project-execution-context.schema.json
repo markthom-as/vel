@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/project-execution-context.schema.json",
+  "title": "ProjectExecutionContext",
+  "description": "Canonical Phase 08 contract for repo-aware coding execution context rooted in a project's declared repo and notes roots.",
+  "type": "object",
+  "$defs": {
+    "ExecutionTaskKind": {
+      "type": "string",
+      "enum": ["planning", "implementation", "debugging", "review", "research", "documentation"]
+    },
+    "AgentProfile": {
+      "type": "string",
+      "enum": ["budget", "balanced", "quality", "inherit"]
+    },
+    "TokenBudgetClass": {
+      "type": "string",
+      "enum": ["small", "medium", "large", "xlarge"]
+    },
+    "ExecutionReviewGate": {
+      "type": "string",
+      "enum": ["none", "operator_approval", "operator_preview", "post_run_review"]
+    },
+    "LocalRuntimeKind": {
+      "type": "string",
+      "enum": ["local_cli", "wasm_guest"]
+    },
+    "RepoWorktreeRef": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "branch": { "type": ["string", "null"], "minLength": 1 },
+        "head_rev": { "type": ["string", "null"], "minLength": 1 }
+      },
+      "required": ["path", "label", "branch", "head_rev"],
+      "additionalProperties": false
+    },
+    "ProjectRootRef": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 }
+      },
+      "required": ["path", "label", "kind"],
+      "additionalProperties": false
+    },
+    "CapabilityDescriptor": {
+      "type": "object",
+      "properties": {
+        "scope": { "type": "string", "minLength": 1 },
+        "resource": { "type": ["string", "null"], "minLength": 1 },
+        "action": { "type": "string", "minLength": 1 }
+      },
+      "required": ["scope", "resource", "action"],
+      "additionalProperties": false
+    },
+    "LocalAgentManifest": {
+      "type": "object",
+      "properties": {
+        "manifest_id": { "type": "string", "minLength": 1 },
+        "runtime_kind": { "$ref": "#/$defs/LocalRuntimeKind" },
+        "entrypoint": { "type": "string", "minLength": 1 },
+        "working_directory": { "type": "string", "minLength": 1 },
+        "args": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "env_keys": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "read_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "write_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "allowed_tools": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "capabilities": { "type": "array", "items": { "$ref": "#/$defs/CapabilityDescriptor" } },
+        "review_gate": { "$ref": "#/$defs/ExecutionReviewGate" }
+      },
+      "required": [
+        "manifest_id",
+        "runtime_kind",
+        "entrypoint",
+        "working_directory",
+        "args",
+        "env_keys",
+        "read_roots",
+        "write_roots",
+        "allowed_tools",
+        "capabilities",
+        "review_gate"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "pattern": "^proj_[A-Za-z0-9]+$"
+    },
+    "repo": { "$ref": "#/$defs/RepoWorktreeRef" },
+    "notes_root": { "$ref": "#/$defs/ProjectRootRef" },
+    "gsd_artifact_dir": { "type": "string", "minLength": 1 },
+    "default_task_kind": { "$ref": "#/$defs/ExecutionTaskKind" },
+    "default_agent_profile": { "$ref": "#/$defs/AgentProfile" },
+    "default_token_budget": { "$ref": "#/$defs/TokenBudgetClass" },
+    "review_gate": { "$ref": "#/$defs/ExecutionReviewGate" },
+    "read_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "write_roots": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "local_manifests": { "type": "array", "items": { "$ref": "#/$defs/LocalAgentManifest" } },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": [
+    "project_id",
+    "repo",
+    "notes_root",
+    "gsd_artifact_dir",
+    "default_task_kind",
+    "default_agent_profile",
+    "default_token_budget",
+    "review_gate",
+    "read_roots",
+    "write_roots",
+    "local_manifests",
+    "metadata",
+    "created_at",
+    "updated_at"
+  ],
+  "additionalProperties": false
+}

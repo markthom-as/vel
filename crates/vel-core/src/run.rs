@@ -115,7 +115,7 @@ pub struct HandoffEnvelope {
     pub allowed_tools: Vec<String>,
     #[serde(default)]
     pub capability_scope: Value,
-    #[serde(default)]
+    #[serde(default, with = "time::serde::rfc3339::option")]
     pub deadline: Option<OffsetDateTime>,
     #[serde(default)]
     pub expected_output_schema: Value,
@@ -779,11 +779,11 @@ pub struct RunEvent {
 
 #[cfg(test)]
 mod tests {
+    use super::{HandoffEnvelope, TraceId, TraceLink};
     use crate::{
         AgentProfile, ExecutionReviewGate, ExecutionTaskKind, ProjectId, RepoWorktreeRef,
         TokenBudgetClass,
     };
-    use super::{HandoffEnvelope, TraceId, TraceLink};
     use serde_json::json;
     use time::OffsetDateTime;
 

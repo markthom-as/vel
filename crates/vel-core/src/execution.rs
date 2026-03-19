@@ -110,7 +110,8 @@ impl LocalAgentManifest {
         for capability in &self.capabilities {
             validate_non_empty("capability scope", &capability.scope)?;
             validate_non_empty("capability action", &capability.action)?;
-            if matches!(capability.resource.as_deref(), Some(resource) if resource.trim().is_empty()) {
+            if matches!(capability.resource.as_deref(), Some(resource) if resource.trim().is_empty())
+            {
                 return Err(VelCoreError::Validation(
                     "capability resource must not be empty when present".to_string(),
                 ));
@@ -244,7 +245,9 @@ mod tests {
         let raw = repo_file("config/examples/project-execution-context.example.json");
         let context: ProjectExecutionContext =
             serde_json::from_str(&raw).expect("project execution context should parse");
-        context.validate().expect("project execution context should validate");
+        context
+            .validate()
+            .expect("project execution context should validate");
     }
 
     #[test]
@@ -252,7 +255,9 @@ mod tests {
         let raw = repo_file("config/examples/local-agent-manifest.example.json");
         let manifest: LocalAgentManifest =
             serde_json::from_str(&raw).expect("local agent manifest should parse");
-        manifest.validate().expect("local agent manifest should validate");
+        manifest
+            .validate()
+            .expect("local agent manifest should validate");
     }
 
     #[test]
@@ -260,6 +265,8 @@ mod tests {
         let raw = repo_file("config/examples/execution-handoff.example.json");
         let handoff: ExecutionHandoff =
             serde_json::from_str(&raw).expect("execution handoff should parse");
-        handoff.validate().expect("execution handoff should validate");
+        handoff
+            .validate()
+            .expect("execution handoff should validate");
     }
 }

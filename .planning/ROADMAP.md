@@ -126,7 +126,7 @@ Remaining execution order: 7 → 8 → 9
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 5/5 | Closed / Re-scoped | 2026-03-19 |
 | 5. Now + Inbox core and project substrate | 9/9 | Complete | 2026-03-19 |
 | 6. High-value write-back integrations and lightweight people graph | 7/7 | Complete | 2026-03-19 |
-| 7. Apple action loops and behavioral signal ingestion | 1/4 | Executing | - |
+| 7. Apple action loops and behavioral signal ingestion | 3/4 | Executing | - |
 | 8. Coding-centric supervised execution with GSD and local agents | 0/6 | Planned | - |
 | 9. Backup-first trust surfaces and simple operator control | 0/0 | Not planned | - |
 
@@ -173,8 +173,8 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md — Publish typed Apple voice, schedule, and behavior-summary contracts before implementation widens
-- [ ] 07-02-PLAN.md — Move Apple voice, schedule answers, and safe action execution into backend-owned routes/services
-- [ ] 07-03-PLAN.md — Add bounded step/stand/exercise ingestion and explainable backend behavior summaries
+- [x] 07-02-PLAN.md — Move Apple voice, schedule answers, and safe action execution into backend-owned routes/services
+- [x] 07-03-PLAN.md — Add bounded step/stand/exercise ingestion and explainable backend behavior summaries
 - [ ] 07-04-PLAN.md — Wire Apple clients and docs to the new backend-owned loops while removing local query synthesis authority
 
 ### Phase 8: Coding-centric supervised execution with GSD and local agents

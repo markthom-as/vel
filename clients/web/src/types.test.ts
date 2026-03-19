@@ -1432,6 +1432,44 @@ describe('transport decoders', () => {
     })
   })
 
+  it('falls back when run summary created_at is missing', () => {
+    expect(
+      decodeRunSummaryData({
+        id: 'run_legacy',
+        kind: 'search',
+        status: 'completed',
+        automatic_retry_supported: false,
+        automatic_retry_reason: null,
+        unsupported_retry_override: false,
+        unsupported_retry_override_reason: null,
+        created_at: null,
+        started_at: 1710590400,
+        finished_at: 1710590640,
+        duration_ms: 240000,
+        retry_scheduled_at: null,
+        retry_reason: null,
+        blocked_reason: null,
+      }),
+    ).toEqual({
+      id: 'run_legacy',
+      kind: 'search',
+      status: 'completed',
+      trace_id: 'run_legacy',
+      parent_run_id: null,
+      automatic_retry_supported: false,
+      automatic_retry_reason: null,
+      unsupported_retry_override: false,
+      unsupported_retry_override_reason: null,
+      created_at: '2024-03-16T12:00:00.000Z',
+      started_at: '2024-03-16T12:00:00.000Z',
+      finished_at: '2024-03-16T12:04:00.000Z',
+      duration_ms: 240000,
+      retry_scheduled_at: null,
+      retry_reason: null,
+      blocked_reason: null,
+    })
+  })
+
   it('decodes canonical risk card payloads', () => {
     expect(
       decodeRiskCardContent({

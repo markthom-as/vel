@@ -28,7 +28,9 @@ pub async fn get_summary(
         let signal = signals
             .iter()
             .filter(|signal| signal.timestamp >= start_of_day)
-            .filter(|signal| is_supported_metric(metric_type(signal)) && metric_type(signal) == metric_key)
+            .filter(|signal| {
+                is_supported_metric(metric_type(signal)) && metric_type(signal) == metric_key
+            })
             .filter_map(|signal| {
                 OffsetDateTime::from_unix_timestamp(signal.timestamp)
                     .ok()
@@ -86,7 +88,10 @@ pub fn summary_to_source_activity(summary: &AppleBehaviorSummary) -> JsonValue {
     })
 }
 
-fn metric_from_signal(metric_key: &str, signal: &SignalRecord) -> Result<AppleBehaviorMetric, AppError> {
+fn metric_from_signal(
+    metric_key: &str,
+    signal: &SignalRecord,
+) -> Result<AppleBehaviorMetric, AppError> {
     let payload = &signal.payload_json;
     let value = numeric_value(payload.get("value"))
         .ok_or_else(|| AppError::internal(format!("health metric {metric_key} is not numeric")))?;
@@ -166,7 +171,10 @@ fn headline_for_metrics(metrics: &[AppleBehaviorMetric]) -> String {
         .iter()
         .map(|metric| metric.display_label.to_lowercase())
         .collect::<Vec<_>>();
-    format!("Today's Apple behavior summary covers {}.", labels.join(", "))
+    format!(
+        "Today's Apple behavior summary covers {}.",
+        labels.join(", ")
+    )
 }
 
 fn summary_reasons(metrics: &[AppleBehaviorMetric], freshness_seconds: Option<i64>) -> Vec<String> {
@@ -177,12 +185,15 @@ fn summary_reasons(metrics: &[AppleBehaviorMetric], freshness_seconds: Option<i6
             freshness_seconds
         ));
     }
-    reasons.extend(metrics.iter().map(|metric| {
-        format!(
+    for metric in metrics {
+        reasons.push(format!(
             "{} is included because a persisted {} signal was recorded at {}.",
             metric.display_label, metric.metric_key, metric.recorded_at
-        )
-    }));
+        ));
+        if let Some(source_reason) = metric.reasons.first() {
+            reasons.push(source_reason.clone());
+        }
+    }
     reasons
 }
 

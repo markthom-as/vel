@@ -57,9 +57,7 @@ pub async fn apple_voice_turn(
         AppleVoiceIntent::BehaviorSummary => {
             behavior_summary_response(state, request.operation, capture_id).await
         }
-        AppleVoiceIntent::Capture => {
-            Ok(capture_only_response(request.operation, capture_id))
-        }
+        AppleVoiceIntent::Capture => Ok(capture_only_response(request.operation, capture_id)),
     }
 }
 

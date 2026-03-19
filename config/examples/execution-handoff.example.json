@@ -1,0 +1,51 @@
+{
+  "handoff": {
+    "task_id": "task_08_01",
+    "trace_id": "trace_08_01",
+    "from_agent": "planner",
+    "to_agent": "executor",
+    "objective": "Implement the Phase 08 execution contract slice",
+    "inputs": {
+      "ticket": "08-01"
+    },
+    "constraints": ["stay within declared write scope"],
+    "read_scopes": ["docs/", "crates/"],
+    "write_scopes": ["crates/vel-core/", "config/"],
+    "project_id": "proj_velruntime",
+    "task_kind": "implementation",
+    "agent_profile": "balanced",
+    "token_budget": "large",
+    "review_gate": "operator_preview",
+    "repo_root": {
+      "path": "/home/jove/code/vel",
+      "label": "vel",
+      "branch": "main",
+      "head_rev": "abc1234"
+    },
+    "allowed_tools": ["rg", "cargo"],
+    "capability_scope": {
+      "mode": "scoped"
+    },
+    "deadline": "2026-03-19T12:00:00Z",
+    "expected_output_schema": {
+      "type": "object"
+    }
+  },
+  "project_id": "proj_velruntime",
+  "task_kind": "implementation",
+  "agent_profile": "balanced",
+  "token_budget": "large",
+  "review_gate": "operator_preview",
+  "repo": {
+    "path": "/home/jove/code/vel",
+    "label": "vel",
+    "branch": "main",
+    "head_rev": "abc1234"
+  },
+  "notes_root": {
+    "path": "/home/jove/notes/vel",
+    "label": "Vel Notes",
+    "kind": "notes_root"
+  },
+  "manifest_id": "manifest_local_cli"
+}

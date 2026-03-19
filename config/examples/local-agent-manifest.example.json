@@ -1,0 +1,19 @@
+{
+  "manifest_id": "manifest_local_cli",
+  "runtime_kind": "local_cli",
+  "entrypoint": "cargo",
+  "working_directory": "/home/jove/code/vel",
+  "args": ["run", "-p", "vel-cli"],
+  "env_keys": ["VEL_OPERATOR_TOKEN"],
+  "read_roots": ["/home/jove/code/vel"],
+  "write_roots": ["/home/jove/code/vel/.planning/vel"],
+  "allowed_tools": ["rg", "cargo"],
+  "capabilities": [
+    {
+      "scope": "repo.read",
+      "resource": "/home/jove/code/vel",
+      "action": "read"
+    }
+  ],
+  "review_gate": "operator_preview"
+}

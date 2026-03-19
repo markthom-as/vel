@@ -2162,6 +2162,7 @@ export function decodeGoogleCalendarAuthStartData(value: unknown): GoogleCalenda
 export function decodeRunSummaryData(value: unknown): RunSummaryData {
   const record = expectRecord(value, 'run summary');
   const id = expectString(record.id, 'run summary.id');
+  const createdAt = decodeRunSummaryCreatedAt(record);
   return {
     id,
     kind: expectString(record.kind, 'run summary.kind'),
@@ -2184,7 +2185,7 @@ export function decodeRunSummaryData(value: unknown): RunSummaryData {
       record.unsupported_retry_override_reason,
       'run summary.unsupported_retry_override_reason',
     ),
-    created_at: decodeFlexibleDateTimeString(record.created_at, 'run summary.created_at'),
+    created_at: createdAt,
     started_at: decodeNullableFlexibleDateTimeString(record.started_at, 'run summary.started_at'),
     finished_at: decodeNullableFlexibleDateTimeString(record.finished_at, 'run summary.finished_at'),
     duration_ms: expectNullableNumber(record.duration_ms, 'run summary.duration_ms'),
@@ -2195,6 +2196,31 @@ export function decodeRunSummaryData(value: unknown): RunSummaryData {
     retry_reason: expectNullableString(record.retry_reason, 'run summary.retry_reason'),
     blocked_reason: expectNullableString(record.blocked_reason, 'run summary.blocked_reason'),
   };
+}
+
+function decodeRunSummaryCreatedAt(record: Record<string, unknown>): string {
+  const explicitCreatedAt = record.created_at;
+  if (explicitCreatedAt !== null && explicitCreatedAt !== undefined) {
+    return decodeFlexibleDateTimeString(explicitCreatedAt, 'run summary.created_at');
+  }
+
+  const startedAt = decodeNullableFlexibleDateTimeString(
+    record.started_at,
+    'run summary.started_at',
+  );
+  if (startedAt) {
+    return startedAt;
+  }
+
+  const finishedAt = decodeNullableFlexibleDateTimeString(
+    record.finished_at,
+    'run summary.finished_at',
+  );
+  if (finishedAt) {
+    return finishedAt;
+  }
+
+  return new Date(0).toISOString();
 }
 
 export function decodeLoopData(value: unknown): LoopData {

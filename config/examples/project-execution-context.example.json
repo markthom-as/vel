@@ -1,0 +1,53 @@
+{
+  "project_id": "proj_velruntime",
+  "repo": {
+    "path": "/home/jove/code/vel",
+    "label": "vel",
+    "branch": "main",
+    "head_rev": "abc1234"
+  },
+  "notes_root": {
+    "path": "/home/jove/notes/vel",
+    "label": "Vel Notes",
+    "kind": "notes_root"
+  },
+  "gsd_artifact_dir": ".planning/vel",
+  "default_task_kind": "implementation",
+  "default_agent_profile": "balanced",
+  "default_token_budget": "large",
+  "review_gate": "operator_preview",
+  "read_roots": [
+    "/home/jove/code/vel",
+    "/home/jove/notes/vel"
+  ],
+  "write_roots": [
+    "/home/jove/code/vel/.planning/vel"
+  ],
+  "local_manifests": [
+    {
+      "manifest_id": "manifest_local_cli",
+      "runtime_kind": "local_cli",
+      "entrypoint": "cargo",
+      "working_directory": "/home/jove/code/vel",
+      "args": ["run", "-p", "vel-cli"],
+      "env_keys": ["VEL_OPERATOR_TOKEN"],
+      "read_roots": ["/home/jove/code/vel"],
+      "write_roots": ["/home/jove/code/vel/.planning/vel"],
+      "allowed_tools": ["rg", "cargo"],
+      "capabilities": [
+        {
+          "scope": "repo.read",
+          "resource": "/home/jove/code/vel",
+          "action": "read"
+        }
+      ],
+      "review_gate": "operator_preview"
+    }
+  ],
+  "metadata": {
+    "phase": "08",
+    "source": "phase_08_contracts"
+  },
+  "created_at": "2026-03-19T10:00:00Z",
+  "updated_at": "2026-03-19T10:05:00Z"
+}
