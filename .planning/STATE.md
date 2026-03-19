@@ -2,18 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "06"
-current_phase_name: high-value-write-back-integrations-and-lightweight-people-graph
-current_plan: "7"
-status: ready_to_verify
-stopped_at: Completed 06-07-PLAN.md; phase ready to verify
-last_updated: "2026-03-19T05:56:33Z"
-last_activity: "2026-03-19"
+current_phase: 07
+current_phase_name: apple-action-loops-and-behavioral-signal-ingestion
+current_plan: 2
+status: ready_to_execute
+stopped_at: Completed 07-01-PLAN.md; 07-02 is next
+last_updated: "2026-03-19T06:58:44Z"
+last_activity: 2026-03-19
 progress:
   total_phases: 9
-  completed_phases: 4
-  total_plans: 34
-  completed_plans: 28
+  completed_phases: 5
+  total_plans: 44
+  completed_plans: 29
+  percent: 25
 ---
 
 # Project State
@@ -23,30 +24,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 06 — high-value-write-back-integrations-and-lightweight-people-graph
+**Current focus:** Phase 07 — apple-action-loops-and-behavioral-signal-ingestion
 
-Status: Phase 06 ready to verify
-Current Phase: 06
-Current Phase Name: high-value-write-back-integrations-and-lightweight-people-graph
-Current Plan: 7
-Total Plans in Phase: 7
-Progress: 100%
+Status: Phase 07 ready to execute
+Current Phase: 07
+Current Phase Name: apple-action-loops-and-behavioral-signal-ingestion
+Current Plan: 2
+Total Plans in Phase: 4
+Progress: 25%
 Last Activity: 2026-03-19
-Last Activity Description: Completed 06-07 operator-surface closure with SAFE MODE writeback disabled by default and typed writeback/conflict/people status across CLI and web
+Last Activity Description: Completed 07-01 contract publication; 07-02 backend Apple voice loop is next
 
 ## Current Position
 
-Phase: 06 (high-value-write-back-integrations-and-lightweight-people-graph) — READY TO VERIFY
-Plan: 7 of 7 complete
-Next: $gsd-verify-work
+Phase: 07 (apple-action-loops-and-behavioral-signal-ingestion) — READY TO EXECUTE
+Plan: 2 of 4 pending
+Next: $gsd-execute-phase 07
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 28
+- Total plans completed: 29
 - Average duration: 22m
-- Total execution time: 175m
+- Total execution time: 186m
 
 **By Phase:**
 
@@ -66,6 +67,7 @@ Next: $gsd-verify-work
 - Trend: stable
 
 *Updated after each plan completion*
+| Phase 07 P1 | 11m | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -124,6 +126,8 @@ Recent decisions affecting current work:
 - Phase 5-9 refined (2026-03-18): concrete scope now captures project families, typed project substrate, safe write-back/conflict rules, action-plus-intervention loops, multi-client continuity, Apple quick loops, GSD-aware execution context, explicit handoff boundaries, and backup-first trust priorities
 - Pre-Phase-5 audit and re-scope (2026-03-19): Phase 2 and Phase 4 completion claims were too broad; unfinished original-scope work was moved into Phases 5, 6, and 8 while keeping the old phases closed as historical baselines
 - Phase 6 planning created (2026-03-18): 7-plan rollout covering contracts, reconciliation, Todoist write-back, notes/reminders, people/graph expansion, GitHub/email, and operator-surface closure
+- Phase 7 planning created (2026-03-19): 4-plan rollout covering Apple contracts, backend-owned voice loops, bounded behavior ingestion, and Apple client/doc closure
+- Phase 8 planning created (2026-03-19): 6-plan rollout covering execution contracts, repo-local GSD artifacts, connect transport closure, routing/handoff review, direct guest runtime, and SDK/docs closure
 
 ### Pending Todos
 
@@ -144,12 +148,12 @@ Recent decisions affecting current work:
 - Phase 2 residual gaps identified by audit: live `/v1/connect` routes still stubbed; `vel node link` / pairing flow absent; `NodeIdentity` / ordering primitive not found in live code
 - Phase 4 residual gaps identified by audit: sandbox is a host-executor baseline rather than direct WASM guest runtime; semantic memory is capture-backed rather than full graph expansion; external SDK/connect transport exposure is still absent
 - There is no remaining active future roadmap work before Phase 5 because those gaps were re-scoped into Phases 5, 6, and 8
-- Phase 6 execution is complete and waiting on verification/UAT
+- Phase 06 is complete; the next active implementation lane is Phase 07 execution
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 
 ## Session Continuity
 
-Last session: 2026-03-19T05:56:33Z
-Stopped at: Completed 06-07-PLAN.md; phase ready to verify
+Last session: 2026-03-19T06:58:44Z
+Stopped at: Completed 07-01-PLAN.md; 07-02 is next
 Resume file: None

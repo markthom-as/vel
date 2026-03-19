@@ -15,8 +15,8 @@ Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical base
 - **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Closed historical baseline; unfinished sync ordering, external connect transport, and guided node-linking work moved to Phases 5, 6, and 8
 - [x] **Phase 3: Deterministic Verification & Continuous Alignment** - Day-simulation harness, LLM-as-a-Judge eval, execution tracing, user documentation (COMPLETE)
 - **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Closed historical baseline; unfinished semantic graph expansion, direct WASM guest runtime, and external limb transport work moved to Phases 6 and 8
-- [ ] **Phase 5: Now + Inbox core and project substrate** - Keep `Now + Inbox` primary while adding durable project structure and shared workspace contracts
-- [ ] **Phase 6: High-value write-back integrations and lightweight people graph** - Add notes, reminders, GitHub, email, transcripts, and minimal people identity with upstream write-back
+- [x] **Phase 5: Now + Inbox core and project substrate** - Keep `Now + Inbox` primary while adding durable project structure and shared workspace contracts (COMPLETE)
+- [x] **Phase 6: High-value write-back integrations and lightweight people graph** - Add notes, reminders, GitHub, email, transcripts, and minimal people identity with upstream write-back (COMPLETE)
 - [ ] **Phase 7: Apple action loops and behavioral signal ingestion** - Prioritize fast iOS/watch actions and directly useful behavior signals
 - [ ] **Phase 8: Coding-centric supervised execution with GSD and local agents** - Launch and supervise coding-first runtimes with direct GSD integration and local-agent support
 - [ ] **Phase 9: Backup-first trust surfaces and simple operator control** - Add backup-first trust workflows and keep control/config surfaces simple
@@ -115,7 +115,7 @@ Residual work moved forward:
 ## Progress
 
 **Execution Order:**
-Remaining execution order: 5 → 6 → 7 → 8 → 9
+Remaining execution order: 7 → 8 → 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -125,9 +125,9 @@ Remaining execution order: 5 → 6 → 7 → 8 → 9
 | 3. Deterministic Verification & Continuous Alignment | 5/5 | Complete | 2026-03-18 |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 5/5 | Closed / Re-scoped | 2026-03-19 |
 | 5. Now + Inbox core and project substrate | 9/9 | Complete | 2026-03-19 |
-| 6. High-value write-back integrations and lightweight people graph | 7/7 | Ready to verify | - |
-| 7. Apple action loops and behavioral signal ingestion | 0/4 | Planned | - |
-| 8. Coding-centric supervised execution with GSD and local agents | 0/0 | Not planned | - |
+| 6. High-value write-back integrations and lightweight people graph | 7/7 | Complete | 2026-03-19 |
+| 7. Apple action loops and behavioral signal ingestion | 1/4 | Executing | - |
+| 8. Coding-centric supervised execution with GSD and local agents | 0/6 | Planned | - |
 | 9. Backup-first trust surfaces and simple operator control | 0/0 | Not planned | - |
 
 ### Phase 5: Now + Inbox core and project substrate
@@ -172,7 +172,7 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Publish typed Apple voice, schedule, and behavior-summary contracts before implementation widens
+- [x] 07-01-PLAN.md — Publish typed Apple voice, schedule, and behavior-summary contracts before implementation widens
 - [ ] 07-02-PLAN.md — Move Apple voice, schedule answers, and safe action execution into backend-owned routes/services
 - [ ] 07-03-PLAN.md — Add bounded step/stand/exercise ingestion and explainable backend behavior summaries
 - [ ] 07-04-PLAN.md — Wire Apple clients and docs to the new backend-owned loops while removing local query synthesis authority
@@ -182,10 +182,17 @@ Plans:
 **Goal:** Extend Vel from daily orientation into supervised execution for coding-first work by letting projects carry repo/GSD context, generating repo-local planning artifacts that GSD can consume, and routing work by token budget, agent profile, task type, and explicit handoff boundaries.
 **Requirements**: EXEC-01, EXEC-02, GSD-01, GSD-02, HANDOFF-01, HANDOFF-02, LOCAL-01, POLICY-01
 **Depends on:** Phase 7
-**Plans:** 0 plans
+**Plans:** 6 plans
+
+**Parallelization note:** `08-01` through `08-03` are intentionally scoped to project/protocol/runtime seams and can be executed in parallel with Phase 07 implementation after its contract slice (`07-01`) is in place. Final Phase 08 closure still waits on its own later slices and the overall roadmap order.
 
 Plans:
-- [ ] TBD (phase should define project execution context, human-to-agent and agent-to-agent handoff contracts for coding work, GSD handoff docs/contracts, token-budget-aware launch policy, supervised local coding-agent support, the re-scoped external connect transport/auth surface, and direct WASM-guest/runtime follow-on beyond the shipped host-executor baseline)
+- [ ] 08-01-PLAN.md — Publish typed execution-context, handoff, routing-policy, and local-agent manifest contracts
+- [ ] 08-02-PLAN.md — Persist project execution context and generate bounded repo-local GSD artifact packs
+- [ ] 08-03-PLAN.md — Activate authenticated `/v1/connect` transport and supervised local runtime lifecycle
+- [ ] 08-04-PLAN.md — Surface explicit routing and handoff review across operator CLI/web surfaces
+- [ ] 08-05-PLAN.md — Add direct WASM guest-runtime execution behind the same mediated connect boundary
+- [ ] 08-06-PLAN.md — Close the loop with SDK, repo-local workflow docs, and execution-backed operator guidance
 
 ### Phase 9: Backup-first trust surfaces and simple operator control
 
