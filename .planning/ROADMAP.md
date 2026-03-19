@@ -131,9 +131,9 @@ Remaining execution order: 9 → 10 → 11 → 12
 | 6. High-value write-back integrations and lightweight people graph | 7/7 | Complete | 2026-03-19 |
 | 7. Apple action loops and behavioral signal ingestion | 4/4 | Complete | 2026-03-19 |
 | 8. Coding-centric supervised execution with GSD and local agents | 6/6 | Complete | 2026-03-19 |
-| 9. Backup-first trust surfaces and simple operator control | 0/4 | Ready to execute | - |
-| 10. Daily-loop morning overview and standup commitment engine | 0/0 | Not planned | - |
-| 11. Agent grounding and operator-relevant data/tool awareness | 0/0 | Not planned | - |
+| 9. Backup-first trust surfaces and simple operator control | 2/4 | Executing | 2026-03-19 |
+| 10. Daily-loop morning overview and standup commitment engine | 0/5 | Planned | - |
+| 11. Agent grounding and operator-relevant data/tool awareness | 0/3 | Planned | - |
 | 12. Operator shell, onboarding, and connector ergonomics | 0/0 | Not planned | - |
 
 ### Phase 5: Now + Inbox core and project substrate
@@ -208,8 +208,8 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — Ratify Phase 09 requirements and publish backup manifest/trust contracts before runtime work widens
-- [ ] 09-02-PLAN.md — Implement the snapshot-backed backup service, persisted history, and real CLI/API trust path
+- [x] 09-01-PLAN.md — Ratify Phase 09 requirements and publish backup manifest/trust contracts before runtime work widens
+- [x] 09-02-PLAN.md — Implement the snapshot-backed backup service, persisted history, and real CLI/API trust path
 - [ ] 09-03-PLAN.md — Surface backup freshness and safety state through doctor, settings, CLI, and web runtime views
 - [ ] 09-04-PLAN.md — Close with manual restore guidance, non-destructive verification, and narrow validation evidence
 
@@ -218,26 +218,33 @@ Plans:
 **Goal:** Turn the existing `Now`, commitments, calendar/Todoist input, and Apple/backend voice seams into a strict daily loop: a short morning overview that produces signals but no commitments, followed by a bounded standup that compresses work into 1-3 daily commitments, explicit deferrals, and focus-time protection.
 **Requirements**: MORNING-01, MORNING-02, MORNING-03, STANDUP-01, STANDUP-02, STANDUP-03, SESSION-01, VOICE-01
 **Depends on:** Phase 7 foundations; sequenced after Phase 9 in roadmap order
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 **Priority note:** This is the highest-value product phase after the current backup/trust lane because the repo already has partial `Now`, commitment, calendar, Todoist, and Apple voice primitives, but not yet one coherent <3 minute daily decision loop.
 **Included from CSV triage:** morning overview, standup/commitment compression, focus-time shaping, bounded voice-or-text flow, and action-stack quality work such as deduplicating repeated suggestions so the daily loop stays trustworthy.
+**Parallelization note:** `10-04` and `10-05` can run in parallel after the shared backend standup engine in `10-03` is in place.
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 10 to break down)
+- [ ] 10-01-PLAN.md — Publish typed daily-loop session contracts and durable persistence before behavior widens
+- [ ] 10-02-PLAN.md — Implement the backend-owned Morning Overview engine, bounded inputs, and dedicated daily-loop routes
+- [ ] 10-03-PLAN.md — Build the bounded standup engine plus CLI text fallback over the shared session-turn API
+- [ ] 10-04-PLAN.md — Expose daily-loop start/resume/outcome rendering through the existing web `Now` shell
+- [ ] 10-05-PLAN.md — Extend the transcript-first Apple voice seam and docs to the shared daily-loop authority
 
 ### Phase 11: Agent grounding and operator-relevant data/tool awareness
 
 **Goal:** Make supervised agents meaningfully aware of the operator's real Vel state by grounding them in current context, projects, people, commitments, review queues, and bounded tool affordances, so they can act on actual product data rather than behaving like generic assistants with weak repo-only context.
 **Requirements**: AGENT-CTX-01, AGENT-CTX-02, AGENT-TOOLS-01, AGENT-TOOLS-02, AGENT-REVIEW-01, AGENT-TRUST-01
 **Depends on:** Phase 10
-**Plans:** 0 plans
+**Plans:** 3 plans
 
 **Priority note:** This phase is promoted ahead of shell ergonomics because the current codebase already has the raw ingredients for grounding agents in real Vel state (`/v1/now`, projects, people, review data, execution context, and handoff review), but it does not yet package that into a trustworthy operator-visible agent product path.
 **Included from CSV triage:** stronger agent awareness of Vel data, tighter operator-relevant tool access, and grounding over shipped product state rather than generic ambient assistant behavior.
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 11 to break down)
+- [ ] 11-01-PLAN.md — Publish typed grounding and capability-inspect contracts, schemas, examples, and owner docs
+- [ ] 11-02-PLAN.md — Build the backend grounding service, authenticated inspect route, and supervised execution export reuse
+- [ ] 11-03-PLAN.md — Add thin CLI/web trust surfaces over the shared inspect contract without moving policy client-side
 
 ### Phase 12: Operator shell, onboarding, and connector ergonomics
 

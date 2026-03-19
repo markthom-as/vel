@@ -379,8 +379,8 @@ export function buildOperatorReviewStatus(now, settings, handoffs = []) {
 | AGENT-CTX-02 | Grounding pack exposes typed refs, freshness, and evidence instead of raw unbounded dumps | integration | `cargo test -p veld agent_grounding_provenance -- --nocapture` | ❌ Wave 0 |
 | AGENT-TOOLS-01 | Capability summary groups read, review, and mutation affordances with operator labels | unit/integration | `cargo test -p veld agent_capability_summary -- --nocapture` | ❌ Wave 0 |
 | AGENT-TOOLS-02 | Unsupported or missing grants fail closed and surface narrow escalation reasons | unit/integration | `cargo test -p veld agent_capability_summary -- --nocapture` | ❌ Wave 0 |
-| AGENT-REVIEW-01 | Settings/CLI surface pending handoffs, review gates, SAFE MODE, and other review obligations from the same inspect model | web + integration | `cd clients/web && npm run test -- src/components/SettingsPage.test.tsx src/components/NowView.test.tsx` | ⚠️ Extend existing |
-| AGENT-TRUST-01 | The new agent-facing path uses the grounding contract instead of the current generic assistant-only prompt path | integration/manual | `cargo test -p veld agent_grounding_assistant_path -- --nocapture` | ❌ Wave 0 |
+| AGENT-REVIEW-01 | Settings/CLI surface pending handoffs, review gates, SAFE MODE, and other review obligations from the same inspect model | CLI + web | `cargo test -p vel-cli agent_inspect -- --nocapture && cd clients/web && npm run test -- src/components/SettingsPage.test.tsx` | ❌ Wave 0 |
+| AGENT-TRUST-01 | The runtime inspect route and execution export share one grounding contract without widening `/api/chat` first | integration/manual | `cargo test -p veld execution_context -- --nocapture` | ⚠️ Extend existing |
 
 ### Sampling Rate
 - **Per task commit:** quick Rust target for the touched service/route plus the targeted web inspect tests
@@ -392,8 +392,8 @@ export function buildOperatorReviewStatus(now, settings, handoffs = []) {
 - [ ] `/home/jove/code/vel/crates/veld/tests/agent_capability_summary.rs` — read/review/write blockers, SAFE MODE, and fail-closed grants for AGENT-TOOLS-01 and AGENT-TOOLS-02
 - [ ] Extend `/home/jove/code/vel/clients/web/src/components/SettingsPage.test.tsx` — render new inspect/capability summary without duplicating policy for AGENT-REVIEW-01
 - [ ] Extend `/home/jove/code/vel/clients/web/src/components/NowView.test.tsx` — confirm agent-relevant review counts remain aligned with `Now` for AGENT-REVIEW-01
-- [ ] Optional `/home/jove/code/vel/crates/vel-cli/src/commands/agent.rs` tests if CLI inspect ships in this phase
-- [ ] Fix current unrelated Rust compile regression in linking before relying on targeted `cargo test -p veld ...` checks; `cargo test -p veld execution_routing -- --nocapture` currently fails in `routes/linking.rs` and `services/linking.rs`
+- [ ] `/home/jove/code/vel/crates/vel-cli/src/commands/agent.rs` tests if CLI inspect ships in this phase
+- [ ] Keep the focused validation suite aligned to the new inspect/export targets; older linking-regression notes are no longer the gating Phase 11 risk
 
 ## Sources
 
