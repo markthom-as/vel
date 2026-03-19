@@ -1296,7 +1296,7 @@ export function decodeApiResponse<T>(value: unknown, decodeData: Decoder<T>): Ap
 }
 
 export function decodeNullable<T>(value: unknown, decode: Decoder<T>): T | null {
-  return value === null ? null : decode(value);
+  return value === null || value === undefined ? null : decode(value);
 }
 
 export function decodeArray<T>(value: unknown, decodeItem: Decoder<T>): T[] {

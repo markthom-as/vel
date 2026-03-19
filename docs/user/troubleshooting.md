@@ -59,6 +59,12 @@ If you are using the Docker/Podman NAS path, use:
 
 If the daemon still does not start cleanly, use `vel doctor` and inspect the configured `db_path` and `artifact_root`.
 
+If the failure starts from Settings:
+
+- use the `Onboarding and recovery` card first
+- if linking is blocked, check `docs/api/runtime.md` for `/v1/linking/*` behavior
+- if Apple or local-source setup is blocked, continue to `docs/user/integrations/apple-macos.md` or `docs/user/integrations/local-sources.md`
+
 ## Current context is empty or stale
 
 Symptoms:
@@ -131,6 +137,25 @@ Expected current locations:
 - `transcripts/snapshot.json`
 
 If these files do not exist, auto-discovery has nothing to ingest.
+
+The web Settings integration cards now treat these paths as operator-facing setup data and demote Vel internal defaults to read-only diagnostics. If no operator path is selected, choose or confirm the real host path first, then sync.
+
+## Apple clients say no reachable endpoint
+
+Symptoms:
+
+- iPhone, watch, or macOS client cannot load `Now`
+- token redemption or sync cannot find a daemon
+- the client falls back to cached data only
+
+What to check:
+
+1. verify endpoint order on the client: `vel_tailscale_url`, then `vel_base_url`, then `vel_lan_base_url`, then localhost fallbacks
+2. confirm the chosen endpoint matches the daemon routes shown in Settings
+3. if the daemon moved, update the saved Apple endpoint before retrying pairing or sync
+4. if the daemon is reachable only locally, expect cached fallback while off-host
+
+Use `docs/user/setup.md` for the canonical endpoint order and `docs/user/integrations/apple-macos.md` for the macOS export path expectations.
 
 ## VelMac is running but messages, reminders, or health still do not appear
 

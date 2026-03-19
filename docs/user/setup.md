@@ -157,6 +157,34 @@ The web Settings page now also exposes the daemon-side sync metadata that cluste
 
 Set `tailscale_base_url` to the stable tailnet address for the daemon you want every client to prefer. Apple clients should use the same URL for `vel_tailscale_url`.
 
+When Settings shows linking or Apple recovery friction, follow this order:
+
+1. confirm `veld` is reachable and cluster bootstrap has loaded
+2. confirm the Apple client endpoint order still resolves to the same daemon
+3. confirm local snapshot or notes paths exist on the daemon host
+4. only then retry pairing, sync, or evaluate
+
+This keeps setup grounded in the shipped trust model: endpoint resolution first, local path discovery second, then sync.
+
+## Which guide to open from the shell
+
+When the web shell or Settings tells you something needs setup, use this path:
+
+- `Now` freshness or stale connector warning:
+  open the matching integration guide under `docs/user/integrations/` and then rerun the relevant sync.
+- linking or paired-node trust question:
+  use the linking routes in Settings first, then `docs/api/runtime.md` for `/v1/linking/*` behavior and `docs/user/troubleshooting.md` for recovery.
+- Todoist token or sync question:
+  open `docs/user/integrations/todoist.md`.
+- Apple endpoint, `vel_tailscale_url`, or local-source path question:
+  stay in this setup guide first, then continue to `docs/user/integrations/apple-macos.md` or `docs/user/integrations/local-sources.md`.
+
+Phase 12 decision note:
+
+- the current shell/help path reuses existing typed runtime routes and user docs
+- there is not yet a dedicated backend `help` payload
+- if a later shell slice needs one, it must land as a typed contract before UI-only behavior depends on it
+
 ## Obsidian vault setup
 
 If you use Obsidian Sync for notes across devices, point Vel's `notes` integration at the local vault root on the machine running `veld`.

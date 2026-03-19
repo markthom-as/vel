@@ -365,9 +365,9 @@ export function NowView({ onOpenSettings }: NowViewProps) {
               <FreshnessNotice
                 source={findFreshnessSource(data, 'calendar')}
                 message={{
-                  aging: 'Calendar is aging. Confirm event timing before acting on it.',
-                  stale: 'Calendar is stale. Upcoming events may be out of date.',
-                  error: 'Calendar sync last failed. Treat this schedule as degraded.',
+                  aging: 'Calendar is a bit behind. Confirm event timing before acting on it.',
+                  stale: 'Calendar needs a refresh. Upcoming events may be out of date.',
+                  error: 'Calendar sync last failed. Keep this schedule visible, but confirm details before relying on it.',
                   disconnected: 'Calendar is disconnected. Events shown here may be incomplete.',
                   missing: 'Calendar has not synced yet. This schedule may be empty.',
                 }}
@@ -414,9 +414,9 @@ export function NowView({ onOpenSettings }: NowViewProps) {
               <FreshnessNotice
                 source={findFreshnessSource(data, 'todoist')}
                 message={{
-                  aging: 'Todoist is aging. Task ordering may lag behind recent changes.',
-                  stale: 'Todoist is stale. Open tasks may not reflect current urgency.',
-                  error: 'Todoist sync last failed. Backlog state may be incomplete.',
+                  aging: 'Todoist is a bit behind. Task ordering may lag recent changes.',
+                  stale: 'Todoist needs a refresh. Open tasks may not reflect current urgency.',
+                  error: 'Todoist sync last failed. Keep the backlog visible, but refresh before trusting it.',
                   disconnected: 'Todoist is disconnected. This backlog may be missing tasks.',
                   missing: 'Todoist has not synced yet. No backlog can be trusted yet.',
                 }}
@@ -482,8 +482,8 @@ export function NowView({ onOpenSettings }: NowViewProps) {
               <FreshnessNotice
                 source={findFreshnessSource(data, 'context')}
                 message={{
-                  aging: 'Current context is aging. Evaluate soon if you need fresher state.',
-                  stale: 'Current context is stale. Re-run evaluate before trusting this view.',
+                  aging: 'Current context is a bit behind. Re-run evaluate if you need fresher state.',
+                  stale: 'Current context needs a refresh. Re-run evaluate before trusting this view.',
                   error: 'Current context is degraded. Re-run evaluate and inspect logs.',
                   disconnected: 'Current context is disconnected from a required source.',
                   missing: 'Current context has not been computed yet.',
@@ -851,15 +851,14 @@ function FreshnessBanner({
 
   const summary = degraded
     .map((source) => {
-      const guidance = source.guidance ? ` · ${source.guidance}` : ''
-      return `${source.label}: ${labelFreshness(source.status)}${guidance}`
+      return `${source.label}: ${labelFreshness(source.status)}`
     })
     .join(' • ');
 
   return (
-    <div className="mb-6 rounded-2xl border border-amber-700/50 bg-amber-950/40 px-4 py-3">
+    <div className="mb-6 rounded-2xl border border-amber-700/40 bg-amber-950/25 px-4 py-3">
       <p className="text-sm font-medium text-amber-100">
-        Some inputs are degraded. Keep the current snapshot visible, but verify before acting.
+        Some inputs need a refresh. Keep this snapshot visible, then refresh the source you need before acting.
       </p>
       <p className="mt-1 text-xs text-amber-200/80">{summary}</p>
       <div className="mt-3 space-y-2">
@@ -896,7 +895,7 @@ function FreshnessNotice({
 
   const copy = message[source.status] ?? `${source.label} is ${labelFreshness(source.status).toLowerCase()}.`;
   return (
-    <div className="mb-4 rounded-xl border border-amber-700/40 bg-amber-950/30 px-3 py-2">
+    <div className="mb-4 rounded-xl border border-amber-700/30 bg-amber-950/20 px-3 py-2">
       <p className="text-sm text-amber-100">{copy}</p>
       <FreshnessActionControls
         source={source}

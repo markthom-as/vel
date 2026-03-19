@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildBackupTrustProjection, buildOperatorReviewStatus } from './operator'
+import type { IntegrationsData } from '../types'
+import { buildBackupTrustProjection, buildOperatorReviewStatus, buildSettingsOnboardingGuide } from './operator'
 
 describe('buildOperatorReviewStatus', () => {
   it('derives writeback, handoff, conflict, and people review state from now plus settings', () => {
@@ -280,3 +281,189 @@ describe('buildBackupTrustProjection', () => {
     })
   })
 })
+
+describe('buildSettingsOnboardingGuide', () => {
+  it('surfaces the next linking and source-path action from existing operator payloads', () => {
+    const guide = buildSettingsOnboardingGuide({
+      clusterBootstrap: {
+        node_id: 'vel-desktop',
+        node_display_name: 'Vel Desktop',
+        active_authority_node_id: 'vel-desktop',
+        active_authority_epoch: 1,
+        sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        sync_transport: 'tailscale',
+        tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        lan_base_url: 'http://192.168.1.50:4130',
+        localhost_base_url: 'http://127.0.0.1:4130',
+        capabilities: ['read_context'],
+        linked_nodes: [],
+        projects: [],
+        action_items: [],
+      },
+      clusterWorkers: {
+        active_authority_node_id: 'vel-desktop',
+        active_authority_epoch: 1,
+        generated_at: 1710000000,
+        workers: [
+          {
+            worker_id: 'vel-desktop',
+            node_id: 'vel-desktop',
+            node_display_name: 'Vel Desktop',
+            client_kind: 'veld',
+            client_version: '0.1.0',
+            protocol_version: '1',
+            build_id: 'build_local',
+            worker_classes: ['sync'],
+            capabilities: ['sync_bootstrap'],
+            status: 'ok',
+            queue_depth: 0,
+            reachability: 'reachable',
+            latency_class: 'low',
+            compute_class: 'standard',
+            power_class: 'ac_or_unknown',
+            recent_failure_rate: 0,
+            tailscale_preferred: true,
+            last_heartbeat_at: 1710000000,
+            started_at: 1709999900,
+            sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            sync_transport: 'tailscale',
+            tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            preferred_tailnet_endpoint: null,
+            tailscale_reachable: true,
+            lan_base_url: 'http://192.168.1.50:4130',
+            localhost_base_url: 'http://127.0.0.1:4130',
+            ping_ms: 5,
+            sync_status: 'ready',
+            last_upstream_sync_at: null,
+            last_downstream_sync_at: null,
+            last_sync_error: null,
+            incoming_linking_prompt: null,
+            capacity: {
+              max_concurrency: 2,
+              current_load: 0,
+              available_concurrency: 2,
+            },
+          },
+          {
+            worker_id: 'worker_remote',
+            node_id: 'node_remote',
+            node_display_name: 'Remote Mac',
+            client_kind: 'vel_macos',
+            client_version: '0.1.0',
+            protocol_version: '1',
+            build_id: 'build_remote',
+            worker_classes: ['sync'],
+            capabilities: ['sync_bootstrap'],
+            status: 'ok',
+            queue_depth: 0,
+            reachability: 'reachable',
+            latency_class: 'low',
+            compute_class: 'standard',
+            power_class: 'ac_or_unknown',
+            recent_failure_rate: 0,
+            tailscale_preferred: true,
+            last_heartbeat_at: 1710000000,
+            started_at: 1709999900,
+            sync_base_url: 'http://remote.tailnet.ts.net:4130',
+            sync_transport: 'tailscale',
+            tailscale_base_url: 'http://remote.tailnet.ts.net:4130',
+            preferred_tailnet_endpoint: null,
+            tailscale_reachable: true,
+            lan_base_url: null,
+            localhost_base_url: null,
+            ping_ms: 12,
+            sync_status: 'ready',
+            last_upstream_sync_at: null,
+            last_downstream_sync_at: null,
+            last_sync_error: null,
+            incoming_linking_prompt: null,
+            capacity: {
+              max_concurrency: 2,
+              current_load: 0,
+              available_concurrency: 2,
+            },
+          },
+        ],
+      },
+      linkedNodes: [],
+      integrations: buildIntegrations({
+        notes: {
+          configured: false,
+          source_path: null,
+          selected_paths: [],
+          available_paths: ['/Users/test/Vault'],
+          internal_paths: ['/Users/test/Library/Application Support/Vel/notes'],
+          suggested_paths: ['/Users/test/Vault'],
+          source_kind: 'directory',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+      }),
+    })
+
+    expect(guide.headline).toMatch(/next unfinished step/i)
+    expect(guide.nextAction).toMatch(/Link a companion device/i)
+    expect(guide.steps.map((step) => step.title)).toEqual([
+      'Reach the daemon',
+      'Link a companion device',
+      'Confirm local source paths',
+      'Validate Apple and macOS export paths',
+    ])
+    expect(guide.steps.find((step) => step.id === 'linking')?.status).toBe('ready')
+    expect(guide.steps.find((step) => step.id === 'local-sources')?.supportPath).toBe('docs/user/integrations/local-sources.md')
+  })
+})
+
+function buildIntegrations(overrides: Partial<IntegrationsData> = {}): IntegrationsData {
+  const baseLocal = {
+    configured: false,
+    source_path: null,
+    selected_paths: [],
+    available_paths: [],
+    internal_paths: [],
+    suggested_paths: [],
+    source_kind: 'file',
+    last_sync_at: null,
+    last_sync_status: null,
+    last_error: null,
+    last_item_count: null,
+    guidance: null,
+  }
+
+  return {
+    google_calendar: {
+      configured: false,
+      connected: false,
+      has_client_id: false,
+      has_client_secret: false,
+      calendars: [],
+      all_calendars_selected: true,
+      last_sync_at: null,
+      last_sync_status: null,
+      last_error: null,
+      last_item_count: null,
+      guidance: null,
+    },
+    todoist: {
+      configured: false,
+      connected: false,
+      has_api_token: false,
+      last_sync_at: null,
+      last_sync_status: null,
+      last_error: null,
+      last_item_count: null,
+      guidance: null,
+    },
+    activity: { ...baseLocal },
+    health: { ...baseLocal },
+    git: { ...baseLocal },
+    messaging: { ...baseLocal },
+    reminders: { ...baseLocal },
+    notes: { ...baseLocal, source_kind: 'directory' },
+    transcripts: { ...baseLocal },
+    ...overrides,
+  }
+}

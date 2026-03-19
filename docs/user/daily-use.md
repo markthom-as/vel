@@ -2,6 +2,8 @@
 
 Vel is strongest when used as a repeated local loop, not as a one-shot assistant.
 
+For the architecture proof that this workflow is backend-owned across CLI, web, and Apple, see [cross-surface proof flows](../cognitive-agent-architecture/architecture/cross-surface-proof-flows.md).
+
 ## Morning
 
 Start by orienting:
@@ -13,6 +15,13 @@ cargo run -p vel-cli -- nudges
 ```
 
 Use `vel morning` for the bounded morning overview loop and `vel standup` for the one-to-three commitment pass. `vel context` and `GET /v1/context/morning` still help as legacy context briefs, but they are no longer the primary authority for the repeated morning/standup workflow.
+
+If you are using the web shell and need the fastest path to the right help:
+
+- `Now` is the primary surface for daily orientation, freshness warnings, and the current daily-loop entry path.
+- `Settings` is the primary surface for Todoist, linking, writeback trust, and Apple/local-source setup guidance.
+- `Threads` is the conversation/history surface, not the setup authority.
+- if a shell card points you to setup or troubleshooting work, follow the matching guide in `docs/user/setup.md`, `docs/user/integrations/`, or `docs/user/troubleshooting.md` instead of guessing from stale UI state.
 
 What you are looking for:
 
@@ -59,6 +68,7 @@ If you use the Apple clients during the day:
 - iPhone Voice morning briefing should start or resume the backend daily-loop session, not a client-side morning heuristic.
 - Apple Watch quick loops should reflect backend `/v1/now` schedule state plus the bounded Apple behavior summary.
 - When offline, treat Apple surfaces as cached-render + queued-safe-action shells. Wait for reconnect before trusting new schedule or explainability answers, and do not treat cached morning/standup state as permission to invent a new local standup.
+- for endpoint or local-source setup questions, use `docs/user/setup.md` first and then the Apple/local-source integration guides rather than inferring behavior from cached client state.
 
 ## Commitments and review
 

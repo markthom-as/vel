@@ -76,6 +76,20 @@ export interface BackupTrustProjectionData {
   commandHints: string[];
 }
 
+export interface OperatorOnboardingStepData {
+  id: string;
+  title: string;
+  status: 'attention' | 'ready' | 'done';
+  detail: string;
+  supportPath: string;
+}
+
+export interface OperatorOnboardingGuideData {
+  headline: string;
+  nextAction: string;
+  steps: OperatorOnboardingStepData[];
+}
+
 function decodeSyncResultData(value: unknown): SyncResultData {
   const record = value as { source?: unknown; signals_ingested?: unknown };
   if (typeof record?.source !== 'string' || typeof record?.signals_ingested !== 'number') {
@@ -210,6 +224,168 @@ export function buildBackupTrustProjection(
       'vel backup verify <backup_root>',
       'vel backup restore-check <backup_root>',
     ],
+  };
+}
+
+export function buildSettingsOnboardingGuide({
+  clusterBootstrap,
+  clusterWorkers,
+  linkedNodes,
+  integrations,
+}: {
+  clusterBootstrap: ClusterBootstrapData | null | undefined;
+  clusterWorkers: ClusterWorkersData | null | undefined;
+  linkedNodes: LinkedNodeData[] | null | undefined;
+  integrations: IntegrationsData | null | undefined;
+}): OperatorOnboardingGuideData {
+  const workers = clusterWorkers?.workers ?? [];
+  const activeLinkedNodes = (linkedNodes ?? []).filter((node) => node.status === 'linked');
+  const localWorker = clusterBootstrap
+    ? workers.find((worker) => worker.node_id === clusterBootstrap.node_id) ?? null
+    : null;
+  const hasIncomingPrompt = localWorker?.incoming_linking_prompt != null;
+  const discoveredCompanions = clusterBootstrap
+    ? workers.filter(
+      (worker) =>
+        worker.node_id !== clusterBootstrap.node_id
+        && !activeLinkedNodes.some((node) => node.node_id === worker.node_id),
+    )
+    : [];
+  const localIntegrations = integrations
+    ? [
+      integrations.activity,
+      integrations.health,
+      integrations.git,
+      integrations.messaging,
+      integrations.reminders,
+      integrations.notes,
+      integrations.transcripts,
+    ]
+    : [];
+  const configuredLocalSources = localIntegrations.filter((integration) => integration.configured).length;
+  const discoverableLocalSources = localIntegrations.filter(
+    (integration) =>
+      (integration.available_paths?.length ?? 0) > 0
+      || integration.suggested_paths.length > 0
+      || (integration.internal_paths?.length ?? 0) > 0,
+  ).length;
+  const appleDiscoveryVisible = workers.some((worker) =>
+    ['vel_macos', 'vel_ios', 'vel_watch'].includes(worker.client_kind ?? ''),
+  )
+    || localIntegrations.some((integration) =>
+      [
+        ...(integration.available_paths ?? []),
+        ...(integration.suggested_paths ?? []),
+        ...(integration.internal_paths ?? []),
+      ].some((path) => path.includes('Application Support/Vel')),
+    );
+
+  const daemonStep: OperatorOnboardingStepData = clusterBootstrap
+    ? {
+      id: 'daemon',
+      title: 'Reach the daemon',
+      status: 'done',
+      detail: `This shell is connected to ${clusterBootstrap.node_display_name}. Use the saved sync routes below when another client needs a stable endpoint.`,
+      supportPath: 'docs/user/setup.md',
+    }
+    : {
+      id: 'daemon',
+      title: 'Reach the daemon',
+      status: 'attention',
+      detail: 'Cluster bootstrap is unavailable. Start `veld`, confirm the base URL, then retry linking or connector setup.',
+      supportPath: 'docs/user/troubleshooting.md',
+    };
+
+  let linkingStep: OperatorOnboardingStepData;
+  if (!clusterBootstrap) {
+    linkingStep = {
+      id: 'linking',
+      title: 'Link a companion device',
+      status: 'attention',
+      detail: 'Linking stays blocked until the local daemon publishes bootstrap metadata.',
+      supportPath: 'docs/api/runtime.md',
+    };
+  } else if (hasIncomingPrompt) {
+    linkingStep = {
+      id: 'linking',
+      title: 'Link a companion device',
+      status: 'ready',
+      detail: 'This node already has an incoming pairing prompt. Enter the token here, then confirm the linked status card.',
+      supportPath: 'docs/user/troubleshooting.md',
+    };
+  } else if (activeLinkedNodes.length > 0) {
+    linkingStep = {
+      id: 'linking',
+      title: 'Link a companion device',
+      status: 'done',
+      detail: `${activeLinkedNodes.length} linked device${activeLinkedNodes.length === 1 ? '' : 's'} already share continuity with this node. Use scope renegotiation only when you need to widen or narrow access.`,
+      supportPath: 'docs/api/runtime.md',
+    };
+  } else if (discoveredCompanions.length > 0) {
+    linkingStep = {
+      id: 'linking',
+      title: 'Link a companion device',
+      status: 'ready',
+      detail: `Select one of the ${discoveredCompanions.length} discovered companion node${discoveredCompanions.length === 1 ? '' : 's'}, issue a token, then redeem it on that client before it expires.`,
+      supportPath: 'docs/api/runtime.md',
+    };
+  } else {
+    linkingStep = {
+      id: 'linking',
+      title: 'Link a companion device',
+      status: 'attention',
+      detail: 'No unlinked companion node is visible yet. Open Vel on the other client or use the CLI fallback to issue and redeem a token manually.',
+      supportPath: 'docs/user/troubleshooting.md',
+    };
+  }
+
+  const sourcesStep: OperatorOnboardingStepData = configuredLocalSources > 0
+    ? {
+      id: 'local-sources',
+      title: 'Confirm local source paths',
+      status: 'done',
+      detail: `${configuredLocalSources} local source${configuredLocalSources === 1 ? '' : 's'} already have saved paths. Use the integration cards to validate sync freshness or swap paths when the host changes.`,
+      supportPath: 'docs/user/integrations/local-sources.md',
+    }
+    : discoverableLocalSources > 0
+      ? {
+        id: 'local-sources',
+        title: 'Confirm local source paths',
+        status: 'ready',
+        detail: 'Suggested or host-discovered paths are available in Integrations. Pick the real source path first, then run Sync now and evaluate.',
+        supportPath: 'docs/user/integrations/local-sources.md',
+      }
+      : {
+        id: 'local-sources',
+        title: 'Confirm local source paths',
+        status: 'attention',
+        detail: 'No local source path is configured yet. Use Integrations to choose a path manually before expecting notes, activity, messaging, or reminders to refresh.',
+        supportPath: 'docs/user/setup.md',
+      };
+
+  const appleStep: OperatorOnboardingStepData = appleDiscoveryVisible
+    ? {
+      id: 'apple',
+      title: 'Validate Apple and macOS export paths',
+      status: 'ready',
+      detail: 'Apple-oriented routes or Application Support paths are visible. Confirm endpoint order on the device and keep snapshot exports in the daemon-side Vel folder.',
+      supportPath: 'docs/user/integrations/apple-macos.md',
+    }
+    : {
+      id: 'apple',
+      title: 'Validate Apple and macOS export paths',
+      status: 'attention',
+      detail: 'No Apple bridge path is visible yet. Check endpoint resolution and the macOS Application Support export locations before assuming sync is broken.',
+      supportPath: 'docs/user/integrations/apple-macos.md',
+    };
+
+  const steps = [daemonStep, linkingStep, sourcesStep, appleStep];
+  const nextStep = steps.find((step) => step.status !== 'done') ?? steps[steps.length - 1];
+
+  return {
+    headline: 'Use the next unfinished step, not the whole checklist.',
+    nextAction: `${nextStep.title}: ${nextStep.detail}`,
+    steps,
   };
 }
 

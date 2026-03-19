@@ -16,6 +16,8 @@
 
 Active future roadmap work begins at Phase 5 in `.planning/ROADMAP.md`. There is no remaining active roadmap work before Phase 5; unfinished original-scope work from historical Phase 2 and Phase 4 has been explicitly re-scoped into later phases.
 
+The current post-Phase-12 architecture lane is Phase 13 in `.planning/ROADMAP.md`: cross-surface core architecture and adapter boundaries. Authority for that lane lives in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`.
+
 ---
 
 ## Agentic Infrastructure & Developer Experience (ADX)

@@ -44,6 +44,41 @@ describe('ProjectsView', () => {
     expect(screen.getByRole('button', { name: /Launch Train/i })).toBeInTheDocument()
     expect(screen.getByText('/workspace/home-ops')).toBeInTheDocument()
     expect(screen.getByText('/notes/home-ops')).toBeInTheDocument()
+    expect(screen.getByText('Local roots ready')).toBeInTheDocument()
+    expect(screen.getByText('0 extra repos and 0 extra notes roots.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Use project as draft' })).toBeInTheDocument()
+  })
+
+  it('can prefill the create draft from the selected project without inventing inline edits', async () => {
+    vi.mocked(api.apiGet).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        projects: [
+          buildProject({
+            id: 'proj_work',
+            name: 'Launch Train',
+            slug: 'launch-train',
+            family: 'work',
+          }),
+        ],
+      },
+      meta: { request_id: 'req_projects_prefill' },
+    } as never)
+
+    render(<ProjectsView />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Use project as draft' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use project as draft' }))
+
+    expect(screen.getByLabelText('Name')).toHaveValue('Launch Train')
+    expect(screen.getByLabelText('Slug')).toHaveValue('launch-train')
+    expect(screen.getByLabelText('Family')).toHaveValue('work')
+    expect(screen.getByLabelText('Primary repo path')).toHaveValue('/workspace/launch-train')
+    expect(screen.getByLabelText('Primary notes root')).toHaveValue('/notes/launch-train')
+    expect(screen.getByText(/the create form is also the supported edit handoff today/i)).toBeInTheDocument()
   })
 
   it('creates a project with explicit local-first confirmations', async () => {

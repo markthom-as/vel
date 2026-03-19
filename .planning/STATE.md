@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 10
-current_phase_name: daily-loop-morning-overview-and-standup-commitment-engine
+current_phase: 14
+current_phase_name: product-discovery-operator-modes-and-milestone-shaping
 current_plan: 1
-status: ready_to_execute
-stopped_at: Completed Phase 09 after skipped manual UAT; Phase 10 remains the next active lane
-last_updated: "2026-03-19T09:44:26Z"
+status: executing
+stopped_at: Phase 13 closed; Phase 14 execution started from the first taxonomy slice
+last_updated: "2026-03-19T20:15:00Z"
 last_activity: 2026-03-19
 progress:
-  total_phases: 12
-  completed_phases: 9
-  total_plans: 56
-  completed_plans: 42
-  percent: 0
+  total_phases: 17
+  completed_phases: 11
+  total_plans: 69
+  completed_plans: 58
+  percent: 64
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 10 — daily-loop-morning-overview-and-standup-commitment-engine
+**Current focus:** Phase 14 — product-discovery-operator-modes-and-milestone-shaping
 
-Status: Phase 10 ready to execute
-Current Phase: 10
-Current Phase Name: daily-loop-morning-overview-and-standup-commitment-engine
+Status: Phase 14 executing
+Current Phase: 14
+Current Phase Name: product-discovery-operator-modes-and-milestone-shaping
 Current Plan: 1
-Total Plans in Phase: 5
+Total Plans in Phase: 4
 Progress: 0%
 Last Activity: 2026-03-19
-Last Activity Description: Phase 09 completed after skipped manual UAT; Phase 10 remains next
+Last Activity Description: Closed Phase 13 and started Phase 14 plan 01 (operator-surface taxonomy)
 
 ## Current Position
 
-Phase: 10 (daily-loop-morning-overview-and-standup-commitment-engine) — READY TO EXECUTE
-Plan: 0 of 5 complete
+Phase: 14 (product-discovery-operator-modes-and-milestone-shaping) — EXECUTING
+Plan: 1 of 4
 
 ## Performance Metrics
 
@@ -148,6 +148,21 @@ Recent decisions affecting current work:
 - Phase 10 planning created (2026-03-19): 5-plan rollout covering typed session contracts, morning backend, standup/CLI closure, web shell, and transcript-first Apple voice closure
 - Phase 11 planning created (2026-03-19): 3-plan rollout covering contract publication, backend inspect/export grounding, and thin CLI/web trust surfaces
 - Phase 12 planning created (2026-03-19): 4-plan rollout covering shell/help contracts, shell navigation/freshness polish, project/settings ergonomics, and onboarding/linking/path-discovery closure
+- Phase 12 execution started (2026-03-19): 12-01 completed with a docs-first decision to reuse existing typed runtime routes and user guides for contextual help/setup routing
+- Phase 12 execution advanced (2026-03-19): 12-02 completed with primary/support shell grouping, latest-thread fallback, and calmer freshness wording over the same backend-owned actions
+- Phase 12 execution advanced (2026-03-19): 12-03 completed with bounded project draft handoff, clearer Settings help framing, and explicit operator-versus-internal path separation
+- Phase 12 completed (2026-03-19): 12-04 closed onboarding, linking, Apple/macOS path discovery, and setup/troubleshooting doc alignment
+- Phase 13 added (2026-03-19): Cross-surface core architecture and adapter boundaries
+- Phase 14 added (2026-03-19): Product discovery, operator modes, and milestone shaping
+- Phase 15 added (2026-03-19): Incremental core migration and canonical Rust service seams
+- Phase 16 added (2026-03-19): Logic-first product closure on canonical core surfaces
+- Phase 17 added (2026-03-19): Shell embodiment, operator-mode application, and surface simplification
+- Phase 13 planning created (2026-03-19): 4-plan rollout covering architecture truth, contract vocabulary, future Apple/desktop migration paths, and one shipped proof flow
+- Phase 13 execution started (2026-03-19): 13-01 began with the canonical cross-surface architecture authority doc and current-to-target mapping
+- Phase 14 discovery started (2026-03-19): parallel research launched to shape operator modes, advanced/dev gating, milestone boundaries, and possible new follow-on phases
+- Phase 14 planning created (2026-03-19): 4-plan rollout covering surface taxonomy, onboarding/trust journeys, operator-mode policy, and milestone reshaping
+- Phase 13 completed (2026-03-19): cross-surface architecture, contract vocabulary, future Apple/desktop paths, and proof flows are all documented and Phase 14 is now the active lane
+- Phase 14 execution started (2026-03-19): 14-01 began with the canonical operator-surface taxonomy
 
 ### Pending Todos
 
@@ -172,7 +187,7 @@ Recent decisions affecting current work:
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 - Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
-- Future work now extends through Phase 12; Phase 10 is the next product-value phase after the active Phase 09 backup/trust lane, with Phase 11 agent grounding now planned behind it and Phase 12 still deferred
+- Phase 13 is complete; the active implementation lane is now Phase 14 product discovery, operator modes, and milestone shaping
 
 ## Session Continuity
 

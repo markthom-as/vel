@@ -52,8 +52,14 @@ The Settings page now surfaces two faster setup aids for local-source integratio
 
 - suggested paths from the host platform when Vel can infer likely locations
 - a `Choose path` or `Choose vault` dialog from the integration card
+- an operator-first path-selection card that points back to setup and troubleshooting docs when discovery is not enough
 
 For Obsidian-backed notes, Vel also suggests locally configured vault roots when it can read the host Obsidian config.
+
+When the web shell shows both operator paths and internal/default paths, treat them differently:
+
+- operator paths are the ones you should select, save, and sync from
+- internal/default paths are read-only diagnostics that explain how Vel is bootstrapping or where it would look automatically
 
 ## How to sync a local source
 

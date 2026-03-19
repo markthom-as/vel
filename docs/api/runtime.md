@@ -3,6 +3,8 @@
 This document describes the currently mounted runtime API exposed by `veld` under `/v1`.
 
 For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md). For route-level authority, inspect `crates/veld/src/app.rs`.
+For cross-surface command/query/read-model vocabulary, see [`../cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md`](../cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md).
+For a shipped proof flow over these boundaries, see [`../cognitive-agent-architecture/architecture/cross-surface-proof-flows.md`](../cognitive-agent-architecture/architecture/cross-surface-proof-flows.md).
 
 ## Exposure Classes And Auth Boundary
 
@@ -308,6 +310,12 @@ CLI fallback when the web shell is unavailable:
 - local search across supported runtime entities
 
 ## Threads, signals, nudges, uncertainty, and loops
+
+Phase 12 shell/help contract note:
+
+- there is no separate contextual-help runtime payload yet
+- operator shell and settings help should route through the existing typed surfaces in this document plus the user guides under `docs/user/`
+- if a later Phase 12 slice needs new shell/help metadata, add it as a typed contract first instead of hiding it in client-only state
 
 ### `GET /v1/threads`
 ### `POST /v1/threads`

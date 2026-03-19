@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { InboxItemData, MessageData } from '../types';
 import {
   chatQueryKeys,
+  loadConversationList,
   loadConversationInterventions,
   loadConversationMessages,
   mutateIntervention,
@@ -28,12 +29,31 @@ interface ThreadViewProps {
 export function ThreadView({ conversationId }: ThreadViewProps) {
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const messagesKey = useMemo(() => chatQueryKeys.conversationMessages(conversationId), [conversationId]);
-  const interventionsKey = useMemo(
-    () => chatQueryKeys.conversationInterventions(conversationId),
-    [conversationId],
-  );
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
+  const { data: conversations = [], loading: conversationsLoading, error: conversationsError } = useQuery(
+    conversationsKey,
+    async () => {
+      const response = await loadConversationList();
+      return response.ok && response.data ? response.data : [];
+    },
+    { enabled: !conversationId },
+  );
+  const fallbackConversationId = useMemo(() => {
+    if (conversationId || conversations.length === 0) {
+      return null;
+    }
+    return [...conversations]
+      .sort((left, right) => right.updated_at - left.updated_at)[0]?.id ?? null;
+  }, [conversationId, conversations]);
+  const resolvedConversationId = conversationId ?? fallbackConversationId;
+  const messagesKey = useMemo(
+    () => chatQueryKeys.conversationMessages(resolvedConversationId),
+    [resolvedConversationId],
+  );
+  const interventionsKey = useMemo(
+    () => chatQueryKeys.conversationInterventions(resolvedConversationId),
+    [resolvedConversationId],
+  );
   const inboxKey = useMemo(() => chatQueryKeys.inbox(), []);
   const pendingInterventionActionsKey = useMemo(
     () => chatQueryKeys.pendingInterventionActions(),
@@ -48,13 +68,13 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   } = useQuery<MessageData[]>(
     messagesKey,
     async () => {
-      if (!conversationId) {
+      if (!resolvedConversationId) {
         return [];
       }
-      const response = await loadConversationMessages(conversationId);
+      const response = await loadConversationMessages(resolvedConversationId);
       return response.ok && response.data ? response.data : [];
     },
-    { enabled: Boolean(conversationId) },
+    { enabled: Boolean(resolvedConversationId) },
   );
   const {
     data: interventions = [],
@@ -62,13 +82,13 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
   } = useQuery<InboxItemData[]>(
     interventionsKey,
     async () => {
-      if (!conversationId) {
+      if (!resolvedConversationId) {
         return [];
       }
-      const response = await loadConversationInterventions(conversationId);
+      const response = await loadConversationInterventions(resolvedConversationId);
       return response.ok && response.data ? response.data : [];
     },
-    { enabled: Boolean(conversationId) },
+    { enabled: Boolean(resolvedConversationId) },
   );
   const { data: pendingInterventionActions = {} } = useQuery<Record<string, PendingInterventionAction>>(
     pendingInterventionActionsKey,
@@ -186,11 +206,17 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     }
   }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
 
-  if (!conversationId) {
-    return <SurfaceState message="Select a conversation" layout="centered" />;
+  if (!resolvedConversationId) {
+    if (conversationsLoading) {
+      return <SurfaceState message="Loading latest conversation…" layout="centered" />;
+    }
+    if (conversationsError) {
+      return <SurfaceState message={conversationsError} layout="centered" tone="danger" />;
+    }
+    return <SurfaceState message="No conversations yet." layout="centered" />;
   }
 
-  const error = messagesError ?? interventionsError;
+  const error = conversationsError ?? messagesError ?? interventionsError;
   if (messagesLoading) {
     return <SurfaceState message="Loading conversation…" layout="centered" />;
   }
@@ -228,12 +254,12 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
         To get assistant replies, configure a chat model in configs/models/routing.toml and run the model backend.
       </p>
       <MessageComposer
-        conversationId={conversationId}
+        conversationId={resolvedConversationId}
         onOptimisticSend={(text) => {
           const clientMessageId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
           const optimisticMessage: MessageData = {
             id: clientMessageId,
-            conversation_id: conversationId,
+            conversation_id: resolvedConversationId,
             role: 'user',
             kind: 'text',
             content: { text },

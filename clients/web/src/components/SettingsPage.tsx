@@ -29,6 +29,7 @@ import type { QueryKey } from '../data/query';
 import {
   approveExecutionHandoff,
   buildBackupTrustProjection,
+  buildSettingsOnboardingGuide,
   buildOperatorReviewStatus,
   issuePairingToken,
   loadExecutionHandoffs,
@@ -931,6 +932,16 @@ export function SettingsPage({
   const backupTrust = useMemo(
     () => buildBackupTrustProjection(settings.backup),
     [settings.backup],
+  );
+  const onboardingGuide = useMemo(
+    () =>
+      buildSettingsOnboardingGuide({
+        clusterBootstrap,
+        clusterWorkers,
+        linkedNodes,
+        integrations,
+      }),
+    [clusterBootstrap, clusterWorkers, integrations, linkedNodes],
   );
 
   const runExecutionHandoffReview = async (
@@ -2185,6 +2196,44 @@ export function SettingsPage({
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
             <div className="space-y-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-zinc-200">Onboarding and recovery</h3>
+                  <p className="text-sm text-zinc-500">
+                    Follow the next unfinished step instead of reverse-engineering diagnostics. This
+                    summary stays grounded in the same bootstrap, linking, and integration payloads
+                    already backing Settings.
+                  </p>
+                </div>
+                <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
+                  {onboardingGuide.headline}
+                </span>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Next action</p>
+                <p className="mt-2 text-sm text-zinc-300">{onboardingGuide.nextAction}</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {onboardingGuide.steps.map((step) => (
+                  <article
+                    key={step.id}
+                    className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-zinc-100">{step.title}</p>
+                      <span className={onboardingStepStatusClassName(step.status)}>
+                        {step.status}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-400">{step.detail}</p>
+                    <p className="mt-3 font-mono text-xs text-zinc-500">{step.supportPath}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-zinc-200">Cross-client Sync</h3>
                 <p className="text-sm text-zinc-500">
@@ -3132,16 +3181,27 @@ export function SettingsPage({
               <div>
                 <h3 className="text-sm font-medium text-zinc-200">Documentation</h3>
                 <p className="text-sm text-zinc-500">
-                  Core Vel docs and user-specific operating docs are part of the product surface. Open these repo paths locally when you need authoritative guidance.
+                  Core Vel docs and your local operating docs are part of the shipped shell. Use
+                  them as the fastest path for setup, connector recovery, and surface-specific
+                  guidance.
+                </p>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Use this first</p>
+                <p className="mt-2 text-sm text-zinc-300">
+                  Open the user docs when you need operator steps. Open core docs when you need
+                  contract or architecture truth.
                 </p>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <DocumentationCard
                   title="Core documentation"
+                  hint="Contract and implementation authority"
                   docs={CORE_DOCUMENTATION_ENTRIES}
                 />
                 <DocumentationCard
                   title="Your Vel documentation"
+                  hint="Day-to-day setup and recovery"
                   docs={USER_DOCUMENTATION_ENTRIES}
                 />
               </div>
@@ -3494,6 +3554,28 @@ export function SettingsPage({
                 ) : null}
                 {availablePaths.length > 0 || internalPaths.length > 0 ? (
                   <div className="mt-3 space-y-2">
+                    <div className="rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        Operator path selection
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-400">
+                        Select the source paths you want Vel to ingest from this host. Internal
+                        defaults stay visible below as read-only diagnostic paths.
+                      </p>
+                      <div className="mt-3 space-y-1">
+                        <p className="font-mono text-xs text-zinc-500">
+                          docs/user/integrations/local-sources.md
+                        </p>
+                        {localIntegrationHelpPaths(spec.key).includes('docs/user/integrations/apple-macos.md') ? (
+                          <p className="font-mono text-xs text-zinc-500">
+                            docs/user/integrations/apple-macos.md
+                          </p>
+                        ) : null}
+                        <p className="font-mono text-xs text-zinc-500">
+                          docs/user/troubleshooting.md
+                        </p>
+                      </div>
+                    </div>
                     <p className="text-xs uppercase tracking-wide text-zinc-500">
                       Available on this host
                     </p>
@@ -3560,7 +3642,7 @@ export function SettingsPage({
                     )}
                     {internalPaths.length > 0 ? (
                       <div className="space-y-2 pt-1">
-                        <p className="text-xs text-zinc-600">Vel internal/default paths</p>
+                        <p className="text-xs text-zinc-600">Internal/default paths (read only)</p>
                         <div className="grid gap-2">
                           {internalPaths.map((path) => (
                             <div
@@ -4792,16 +4874,50 @@ function linkStatusClassName(status: string): string {
   }
 }
 
+function onboardingStepStatusClassName(status: 'attention' | 'ready' | 'done'): string {
+  switch (status) {
+    case 'done':
+      return 'rounded-full bg-emerald-900/50 px-2.5 py-1 text-xs uppercase tracking-wide text-emerald-200';
+    case 'ready':
+      return 'rounded-full bg-sky-900/50 px-2.5 py-1 text-xs uppercase tracking-wide text-sky-200';
+    case 'attention':
+      return 'rounded-full bg-amber-900/50 px-2.5 py-1 text-xs uppercase tracking-wide text-amber-200';
+  }
+}
+
+function localIntegrationHelpPaths(key: IntegrationSectionKey): string[] {
+  switch (key) {
+    case 'activity':
+    case 'health':
+    case 'messaging':
+    case 'reminders':
+    case 'notes':
+    case 'transcripts':
+      return [
+        'docs/user/integrations/local-sources.md',
+        'docs/user/integrations/apple-macos.md',
+      ];
+    case 'git':
+      return ['docs/user/integrations/local-sources.md'];
+    case 'google':
+    case 'todoist':
+      return [];
+  }
+}
+
 function DocumentationCard({
   title,
+  hint,
   docs,
 }: {
   title: string;
+  hint: string;
   docs: Array<[string, string, string]>;
 }) {
   return (
     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
       <h4 className="text-sm font-medium text-zinc-100">{title}</h4>
+      <p className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-500">{hint}</p>
       <div className="mt-3 space-y-3">
         {docs.map(([label, path, summary]) => (
           <div key={path}>

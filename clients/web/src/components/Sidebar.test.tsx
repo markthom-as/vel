@@ -21,9 +21,9 @@ describe('Sidebar', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Stats' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Projects' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Stats$/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Projects/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Settings$/ }))
 
     expect(onSelectView).toHaveBeenCalledWith('stats')
     expect(onSelectView).toHaveBeenCalledWith('projects')
@@ -45,8 +45,12 @@ describe('Sidebar', () => {
       .map((button) => button.textContent)
       .filter((label): label is string => Boolean(label))
 
-    expect(topLevelButtons.indexOf('Now')).toBeLessThan(topLevelButtons.indexOf('Inbox'))
-    expect(topLevelButtons.indexOf('Inbox')).toBeLessThan(topLevelButtons.indexOf('Projects'))
+    const nowIndex = topLevelButtons.findIndex((label) => label.includes('Now'))
+    const inboxIndex = topLevelButtons.findIndex((label) => label.includes('Inbox'))
+    const projectsIndex = topLevelButtons.findIndex((label) => label.includes('Projects'))
+
+    expect(nowIndex).toBeLessThan(inboxIndex)
+    expect(inboxIndex).toBeLessThan(projectsIndex)
   })
 
   it('shows conversation list only while on the Threads surface', () => {
@@ -70,5 +74,19 @@ describe('Sidebar', () => {
       />,
     )
     expect(screen.getByText('Conversation list conv_1')).toBeInTheDocument()
+  })
+
+  it('groups primary navigation ahead of support surfaces', () => {
+    render(
+      <Sidebar
+        activeView="now"
+        onSelectView={() => {}}
+        selectedConversationId={null}
+        onSelectConversation={() => {}}
+      />,
+    )
+
+    expect(screen.getAllByText('Primary').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Support').length).toBeGreaterThan(0)
   })
 })

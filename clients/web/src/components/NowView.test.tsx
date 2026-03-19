@@ -730,21 +730,21 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Some inputs are degraded/i)).toBeInTheDocument()
+      expect(screen.getByText(/Some inputs need a refresh/i)).toBeInTheDocument()
     })
 
     expect(screen.getByText(/Calendar: Stale/i)).toBeInTheDocument()
     expect(screen.getByText(/Todoist: Error/i)).toBeInTheDocument()
     expect(
-      screen.getByText('Calendar is stale. Upcoming events may be out of date.'),
+      screen.getByText('Calendar needs a refresh. Upcoming events may be out of date.'),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('Todoist sync last failed. Backlog state may be incomplete.'),
+      screen.getByText('Todoist sync last failed. Keep the backlog visible, but refresh before trusting it.'),
     ).toBeInTheDocument()
-    expect(screen.getAllByText(/Calendar sync failed earlier\. Inspect history and retry sync\./i).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Todoist sync failed\. Inspect history and retry sync\./i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Calendar sync failed earlier\. Inspect history and retry sync\./i)).toBeInTheDocument()
+    expect(screen.getByText(/Todoist sync failed\. Inspect history and retry sync\./i)).toBeInTheDocument()
     expect(
-      screen.getByText('Current context is aging. Evaluate soon if you need fresher state.'),
+      screen.getByText('Current context is a bit behind. Re-run evaluate if you need fresher state.'),
     ).toBeInTheDocument()
     expect(screen.getByText('Design review')).toBeInTheDocument()
     expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()

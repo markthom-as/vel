@@ -47,6 +47,13 @@ Expected current locations:
 
 When these files exist, `veld` can bootstrap them on startup so they influence current context immediately.
 
+The web Settings surface now routes Apple/macOS setup through the same boundary:
+
+- confirm the daemon endpoint the Apple client should use
+- confirm the exported file or notes path exists on the daemon host
+- use the local-source integration card to select or verify the actionable path
+- use troubleshooting when the path is visible but sync still fails
+
 ## What VelMac exports
 
 Current exported behavior:
@@ -114,6 +121,8 @@ cargo run -p vel-cli -- sync messaging
 cargo run -p vel-cli -- sync reminders
 cargo run -p vel-cli -- evaluate
 ```
+
+If an Apple client says no reachable endpoint, fix endpoint resolution before debugging snapshot export. If the endpoint is reachable but the integration still looks stale, check the exported file path next.
 
 ## What this is not
 

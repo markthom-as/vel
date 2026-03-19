@@ -17,6 +17,22 @@ Start with:
 3. [Local sources](local-sources.md) for file and snapshot-backed inputs.
 4. [Apple and macOS local sources](apple-macos.md) for the current Apple-linked path.
 
+Use the guide that matches the shell problem you are actually seeing:
+
+- `Now` shows stale or missing Todoist-backed work:
+  open [Todoist](todoist.md).
+- `Settings` is asking you for a local path, notes root, snapshot file, or vault location:
+  open [Local sources](local-sources.md).
+- an Apple client cannot reach the daemon or macOS snapshot export/discovery is unclear:
+  open [Apple and macOS local sources](apple-macos.md) and then [Vel Setup](../setup.md).
+- the shell is healthy but you need implementation truth:
+  use [MASTER_PLAN.md](../../MASTER_PLAN.md) first, then [runtime API](../../api/runtime.md) or the specific integration guide.
+
+Phase 12 contract note:
+
+- the web shell should route operators to these guides from existing typed shell and settings state
+- there is no separate contextual-help API payload yet
+
 Current bounded write lanes:
 
 - Writeback starts disabled by default in SAFE MODE. Enable it from Settings only when you want Vel to move from read-only review into applying bounded external mutations.

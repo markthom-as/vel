@@ -278,6 +278,70 @@ describe('ThreadView realtime sync', () => {
     })
   })
 
+  it('falls back to the latest updated conversation when no thread is explicitly selected', async () => {
+    subscribeWs.mockImplementation(() => () => {})
+
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'conv_old',
+              title: 'Old thread',
+              kind: 'general',
+              pinned: false,
+              created_at: 1,
+              updated_at: 10,
+            },
+            {
+              id: 'conv_latest',
+              title: 'Latest thread',
+              kind: 'general',
+              pinned: false,
+              created_at: 2,
+              updated_at: 20,
+            },
+          ],
+          meta: { request_id: 'req_conversations' },
+        }
+      }
+      if (path === '/api/conversations/conv_latest/messages') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'msg_1',
+              conversation_id: 'conv_latest',
+              role: 'assistant',
+              kind: 'text',
+              content: { text: 'latest reply' },
+              status: null,
+              importance: null,
+              created_at: 0,
+              updated_at: null,
+            },
+          ],
+          meta: { request_id: 'req_messages_latest' },
+        }
+      }
+      if (path === '/api/conversations/conv_latest/interventions') {
+        return { ok: true, data: [], meta: { request_id: 'req_interventions_latest' } }
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    const { container } = render(<ThreadView conversationId={null} />)
+    const thread = requireHtmlElement(container as HTMLElement | null)
+
+    await waitFor(() => {
+      expect(within(thread).getByText('latest reply')).toBeInTheDocument()
+    })
+
+    expect(vi.mocked(api.apiGet)).toHaveBeenCalledWith('/api/conversations', expect.any(Function))
+    expect(vi.mocked(api.apiGet)).toHaveBeenCalledWith('/api/conversations/conv_latest/messages', expect.any(Function))
+  })
+
   it('keeps an optimistically resolved intervention hidden when a stale active refetch arrives', async () => {
     let wsListener: ((event: WsEnvelope) => void) | null = null
     subscribeWs.mockImplementation((listener) => {

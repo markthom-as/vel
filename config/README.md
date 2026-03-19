@@ -75,6 +75,7 @@ Use it to answer four questions quickly:
 - `crates/vel-config` owns runtime config, agent specs, model profiles, and routing config.
 - `crates/veld/src/policy_config.rs` owns policy config loading and runtime interpretation.
 - `docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md` owns the contract map and schema-governance rules.
+- `docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md` owns the cross-surface command/query/read-model versus transport vocabulary used by Apple, web, CLI, and future desktop shells.
 - `docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md` owns connector vocabulary and manifest semantics.
 - `docs/cognitive-agent-architecture/integrations/writeback-and-conflict-contracts.md` owns the Phase 06 write-back, conflict, and people contract vocabulary.
 - `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md` owns self-model and writable-scope semantics.

@@ -624,6 +624,35 @@ describe('transport decoders', () => {
     expect(session.outcome?.commitments[0]?.title).toBe('Ship Phase 10')
   })
 
+  it('treats omitted daily-loop outcome payloads as null', () => {
+    const session = decodeDailyLoopSessionData({
+      id: 'dls_pending_1',
+      session_date: '2026-03-19',
+      phase: 'morning_overview',
+      status: 'waiting_for_input',
+      start: {
+        source: 'manual',
+        surface: 'web',
+      },
+      turn_state: 'waiting_for_input',
+      current_prompt: {
+        prompt_id: 'prompt_pending_1',
+        kind: 'intent_question',
+        text: 'What most needs to happen before noon?',
+        ordinal: 1,
+        allow_skip: true,
+      },
+      state: {
+        phase: 'morning_overview',
+        snapshot: 'Two meetings before noon.',
+        friction_callouts: [],
+        signals: [],
+      },
+    })
+
+    expect(session.outcome).toBeNull()
+  })
+
   it('decodes canonical integration connection data', () => {
     expect(
       decodeIntegrationConnectionData({

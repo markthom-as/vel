@@ -1231,12 +1231,35 @@ describe('SettingsPage', () => {
     const root = getSettingsRoot(container)
     expect(within(root).getByText('Core documentation')).toBeInTheDocument()
     expect(within(root).getByText('Your Vel documentation')).toBeInTheDocument()
+    expect(within(root).getByText('Open the user docs when you need operator steps. Open core docs when you need contract or architecture truth.')).toBeInTheDocument()
+    expect(within(root).getByText('Contract and implementation authority')).toBeInTheDocument()
+    expect(within(root).getByText('Day-to-day setup and recovery')).toBeInTheDocument()
     expect(within(root).getByText('docs/README.md')).toBeInTheDocument()
     expect(within(root).getByText('docs/MASTER_PLAN.md')).toBeInTheDocument()
     expect(within(root).queryByText('docs/status.md')).not.toBeInTheDocument()
     expect(within(root).queryByText('docs/architecture.md')).not.toBeInTheDocument()
     expect(within(root).getByText('docs/user/README.md')).toBeInTheDocument()
     expect(within(root).getByText('docs/user/quickstart.md')).toBeInTheDocument()
+  })
+
+  it('renders onboarding next steps from existing linking and integration payloads', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+
+    await waitFor(() => {
+      const root = getSettingsRoot(container)
+      expect(within(root).getByRole('heading', { name: 'Onboarding and recovery' })).toBeInTheDocument()
+    })
+
+    const root = getSettingsRoot(container)
+    expect(within(root).getByText(/follow the next unfinished step instead of reverse-engineering diagnostics/i)).toBeInTheDocument()
+    expect(within(root).getByText(/Next action/i)).toBeInTheDocument()
+    expect(within(root).getByText('Reach the daemon')).toBeInTheDocument()
+    expect(within(root).getByText('Link a companion device')).toBeInTheDocument()
+    expect(within(root).getByText('Confirm local source paths')).toBeInTheDocument()
+    expect(within(root).getByText('Validate Apple and macOS export paths')).toBeInTheDocument()
+    expect(within(root).getAllByText('docs/user/setup.md').length).toBeGreaterThan(0)
+    expect(within(root).getByText('docs/api/runtime.md')).toBeInTheDocument()
+    expect(within(root).getByText('docs/user/integrations/apple-macos.md')).toBeInTheDocument()
   })
 
   it('keeps todoist sync active while google credential save is pending', async () => {
@@ -1383,7 +1406,10 @@ describe('SettingsPage', () => {
     expect(within(root).getByText('Zsh shell history')).toBeInTheDocument()
     expect(within(root).getByText('/Users/test/Vault')).toBeInTheDocument()
     expect(within(root).getByText('/home/test/.zsh_history')).toBeInTheDocument()
-    expect(within(root).getAllByText('Vel internal/default paths').length).toBeGreaterThan(0)
+    expect(within(root).getAllByText('Operator path selection').length).toBeGreaterThan(0)
+    expect(within(root).getAllByText('Internal/default paths (read only)').length).toBeGreaterThan(0)
+    expect(within(root).getAllByText('docs/user/integrations/local-sources.md').length).toBeGreaterThan(0)
+    expect(within(root).getAllByText('docs/user/integrations/apple-macos.md').length).toBeGreaterThan(0)
     expect(within(root).getAllByText('Vel notes path').length).toBeGreaterThan(0)
     expect(within(root).queryByText('Remote Mac')).not.toBeInTheDocument()
 

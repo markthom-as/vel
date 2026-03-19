@@ -64,6 +64,19 @@ export function ProjectsView() {
     projects: projects.filter((project) => project.family === family),
   }));
 
+  function useProjectAsDraft(project: ProjectRecordData) {
+    setDraft({
+      name: project.name,
+      slug: project.slug,
+      family: project.family,
+      primaryRepoPath: project.primary_repo.path,
+      primaryNotesPath: project.primary_notes_root.path,
+      createRepoLater: project.pending_provision.create_repo,
+      createNotesRootLater: project.pending_provision.create_notes_root,
+    });
+    setSubmitMessage(null);
+  }
+
   async function handleCreateProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
@@ -198,6 +211,28 @@ export function ProjectsView() {
                     <p className="text-xl font-medium text-zinc-100">{selectedProject.name}</p>
                     <p className="mt-1 text-zinc-500">{selectedProject.slug}</p>
                   </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <DetailCard
+                      label="Family"
+                      value={familyLabel(selectedProject.family)}
+                      detail="Matches the canonical project grouping shared across the runtime."
+                    />
+                    <DetailCard
+                      label="Status"
+                      value={selectedProject.status}
+                      detail={`Updated ${formatProjectTimestamp(selectedProject.updated_at)}.`}
+                    />
+                    <DetailCard
+                      label="Extra roots"
+                      value={`${selectedProject.secondary_repos.length + selectedProject.secondary_notes_roots.length}`}
+                      detail={`${selectedProject.secondary_repos.length} extra repos and ${selectedProject.secondary_notes_roots.length} extra notes roots.`}
+                    />
+                    <DetailCard
+                      label="Upstream follow-up"
+                      value={projectProvisionSummary(selectedProject)}
+                      detail="Provisioning intent stays explicit instead of assuming remote creation."
+                    />
+                  </div>
                   <dl className="space-y-3">
                     <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
                       <dt className="text-zinc-500">Primary repo</dt>
@@ -208,6 +243,25 @@ export function ProjectsView() {
                       <dd className="mt-2 text-zinc-100">{selectedProject.primary_notes_root.path}</dd>
                     </div>
                   </dl>
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-100">Bounded edit path</p>
+                        <p className="mt-1 text-sm text-zinc-500">
+                          Reuse this record as a draft when you want a nearby project with the
+                          same local roots or provisioning intent. Durable edits still stay on the
+                          typed project contract.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => useProjectAsDraft(selectedProject)}
+                        className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+                      >
+                        Use project as draft
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <SurfaceState message="Select a project to inspect its local roots." />
@@ -220,6 +274,10 @@ export function ProjectsView() {
                 <p className="mt-1 text-sm text-zinc-500">
                   Draft the local record first. Upstream repo and notes-root work stays opt-in.
                 </p>
+              </div>
+              <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 text-sm text-zinc-400">
+                The create form is also the supported edit handoff today. Start from a blank draft
+                or prefill from an existing project, then submit a new bounded project record.
               </div>
               <form className="space-y-4" onSubmit={(event) => void handleCreateProject(event)}>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -346,4 +404,44 @@ function familyLabel(family: ProjectFamilyData): string {
     case 'work':
       return 'Work';
   }
+}
+
+function projectProvisionSummary(project: ProjectRecordData): string {
+  if (project.pending_provision.create_repo && project.pending_provision.create_notes_root) {
+    return 'Create repo and notes root later';
+  }
+  if (project.pending_provision.create_repo) {
+    return 'Create repo later';
+  }
+  if (project.pending_provision.create_notes_root) {
+    return 'Create notes root later';
+  }
+  return 'Local roots ready';
+}
+
+function formatProjectTimestamp(value: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function DetailCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
+      <dt className="text-zinc-500">{label}</dt>
+      <dd className="mt-2 text-base text-zinc-100">{value}</dd>
+      <dd className="mt-1 text-xs text-zinc-500">{detail}</dd>
+    </div>
+  );
 }

@@ -2,6 +2,12 @@
 
 Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel daemon (veld)** over HTTP; no business logic in the client.
 
+Cross-surface architecture authority:
+
+- runtime topology and shell boundaries: [cross-surface core and adapters](../../docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md)
+- command/query/read-model vocabulary: [cross-surface contract vocabulary](../../docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md)
+- shipped architecture proof flow: [cross-surface proof flows](../../docs/cognitive-agent-architecture/architecture/cross-surface-proof-flows.md)
+
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VelAppleModules** — shared Apple scaffold package for domain/application/infrastructure/platform/capability seams.
 - **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
@@ -137,6 +143,13 @@ The Apple clients resolve endpoint candidates in this order:
 
 Use `vel_tailscale_url` for day-to-day multi-device use. Keep `vel_base_url` as a fallback target.
 
+Practical recovery order:
+
+1. confirm the same daemon route appears in web Settings
+2. prefer `vel_tailscale_url` when the device is off-host
+3. fall back to `vel_base_url` or `vel_lan_base_url` only when that route is actually reachable from the device
+4. if the app still renders only cached state, treat it as an endpoint or daemon reachability issue before debugging local export
+
 ## Offline cache + queue behavior
 
 When the daemon is unreachable, clients keep rendering cached backend data and queue low-risk actions:
@@ -215,6 +228,12 @@ Current caveats:
 - Messages export reads `~/Library/Messages/chat.db` via `sqlite3`; on macOS this may require Full Disk Access depending on host policy
 - Reminders export requires EventKit reminders authorization
 - when `veld` is unreachable, `VelMac` still writes snapshots locally but cannot trigger daemon sync until a later reachability check
+
+For the operator-facing setup path, the matching docs are:
+
+- `docs/user/setup.md` for endpoint order and daemon-side route expectations
+- `docs/user/integrations/apple-macos.md` for snapshot/export behavior
+- `docs/user/integrations/local-sources.md` for local path selection and sync expectations
 
 ## 1. Open the project in Xcode
 

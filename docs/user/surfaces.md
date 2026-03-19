@@ -88,6 +88,12 @@ The stable project families are:
 
 Use Projects to inspect or create a local-first workspace record. Keep `Now` and `Inbox` as the primary operating loop.
 
+The shipped Projects surface now makes the bounded edit path explicit:
+
+- inspect a selected project's family, status, root coverage, and provisioning intent
+- reuse an existing project as a prefilled draft when creating a nearby project record
+- keep durable edits grounded in the typed project contract instead of ad hoc local UI state
+
 ## Nudges
 
 Nudges are lightweight prompts generated from context and policy.
@@ -167,6 +173,8 @@ Today it includes:
 - Todoist token save/disconnect/sync
 - local path-backed integrations for activity, git, messaging, reminders, notes, and transcripts
 - integration history, last sync state, and guidance
+- documentation entrypoints that separate operator help from implementation authority
+- a clear split between selectable operator source paths and read-only internal/default paths
 
 Use Settings when the issue is configuration, credentials, or source path, not when the issue is just stale derived context.
 

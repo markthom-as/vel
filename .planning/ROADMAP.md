@@ -22,7 +22,7 @@ Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical base
 - [x] **Phase 9: Backup-first trust surfaces and simple operator control** - Add backup-first trust workflows and keep control/config surfaces simple (COMPLETE)
 - [x] **Phase 10: Daily-loop morning overview and standup commitment engine** - Turn `Now`, calendar, Todoist, commitments, and voice into a bounded daily prioritization loop (completed 2026-03-19)
 - [x] **Phase 11: Agent grounding and operator-relevant data/tool awareness** - Make supervised agents aware of real Vel state, projects, people, commitments, and bounded tool surfaces (completed 2026-03-19)
-- [ ] **Phase 12: Operator shell, onboarding, and connector ergonomics** - Make the daily loop and integration surfaces easier to adopt, navigate, and trust
+- [x] **Phase 12: Operator shell, onboarding, and connector ergonomics** - Make the daily loop and integration surfaces easier to adopt, navigate, and trust (completed 2026-03-19)
 
 ## Phase Details
 
@@ -118,7 +118,7 @@ Residual work moved forward:
 ## Progress
 
 **Execution Order:**
-Remaining execution order: 10 → 11 → 12
+Remaining execution order: 13 → 14 → 15 → 16
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -134,7 +134,7 @@ Remaining execution order: 10 → 11 → 12
 | 9. Backup-first trust surfaces and simple operator control | 4/4 | Complete | 2026-03-19 |
 | 10. Daily-loop morning overview and standup commitment engine | 5/5 | Complete   | 2026-03-19 |
 | 11. Agent grounding and operator-relevant data/tool awareness | 3/3 | Complete   | 2026-03-19 |
-| 12. Operator shell, onboarding, and connector ergonomics | 0/4 | Planned | - |
+| 12. Operator shell, onboarding, and connector ergonomics | 4/4 | Complete | 2026-03-19 |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -251,13 +251,86 @@ Plans:
 **Goal:** Make Vel easier to adopt and operate daily by tightening the web/operator shell, onboarding path, contextual docs/help, project detail surfaces, integration/status affordances, and path-discovery ergonomics around the daily-loop product direction.
 **Requirements**: SHELL-01, SHELL-02, DOCS-01, ONBOARD-01, INTEGR-UX-01, PROJ-UX-01
 **Depends on:** Phase 11
-**Plans:** 4 plans
+**Plans:** 4/4 plans executed
 
 **Scope note:** This phase intentionally narrows the raw backlog to operator-shell and integration ergonomics. Broad new-provider expansion (full Google suite, LLM-provider routing, Dropbox-style picker proliferation, SaaS auth scaffolding, client-to-client file transfer, and reading/media systems) remains deferred until the daily loop and agent grounding are clearly working.
 **Included from CSV triage:** app routes, top-nav/shell polish, icon-driven and collapsible navigation, softer auto-refresh freshness UX, project detail/edit surfaces, template viewing/editing in Settings, contextual docs/help routing, threads defaulting to the latest thread, upcoming-event ordering/pagination, richer Todoist rendering, connected-service icons, hidden internal integration paths, Apple/local-source path discovery/validation, and guided onboarding/linking/autodiscovery ergonomics.
 
 Plans:
-- [ ] 12-01-PLAN.md — Publish the Phase 12 shell/help/onboarding contract and contextual-docs baseline before UI work widens
-- [ ] 12-02-PLAN.md — Tighten shell navigation, latest-thread entry behavior, and calmer freshness/connector UX in the daily shell
-- [ ] 12-03-PLAN.md — Add project detail/edit ergonomics and clarify Settings templates, connector status, and contextual help
-- [ ] 12-04-PLAN.md — Close guided onboarding, linking, and Apple/local-source path discovery with aligned setup/troubleshooting docs
+- [x] 12-01-PLAN.md — Publish the Phase 12 shell/help/onboarding contract and contextual-docs baseline before UI work widens
+- [x] 12-02-PLAN.md — Tighten shell navigation, latest-thread entry behavior, and calmer freshness/connector UX in the daily shell
+- [x] 12-03-PLAN.md — Add project detail/edit ergonomics and clarify Settings templates, connector status, and contextual help
+- [x] 12-04-PLAN.md — Close guided onboarding, linking, and Apple/local-source path discovery with aligned setup/troubleshooting docs
+
+### Phase 13: Cross-surface core architecture and adapter boundaries
+
+**Goal:** Lock the cross-surface product-core architecture so Vel can keep one canonical Rust-owned behavior layer across Apple, web, and future desktop shells, with explicit adapter boundaries, migration seams, and future embedded/daemon/server topology guidance before broader shell expansion continues.
+**Requirements**: ARCH-XS-01, ARCH-XS-02, ADAPT-01, ADAPT-02, APPLE-ARCH-01, API-ARCH-01
+**Depends on:** Phase 12
+**Plans:** 4/4 plans complete
+
+**Architecture note:** This phase is explicitly about defining and proving the durable seams, not about mass crate renaming or immediate shell rewrites. The current `vel-core`/`vel-storage`/`vel-api-types`/`veld` split should evolve incrementally unless a narrower migration step proves a concrete structural defect.
+**Future-topology note:** Tauri/desktop packaging should be planned here as a consumer of the same core/runtime contracts, but not treated as a required shipped shell in this phase.
+**Included from thread decisions:** one canonical Rust-owned product core, command/query/read-model ownership rules, a truthful current-state-to-target-state map, a documented future Apple FFI path, a documented future desktop/Tauri path, and one proof flow over existing backend-owned architecture.
+
+Plans:
+- [ ] 13-01-PLAN.md — Ratify the canonical cross-surface architecture, topology modes, and current-to-target responsibility map
+- [ ] 13-02-PLAN.md — Publish canonical command/query/read-model and transport ownership rules across core, runtime, and shell boundaries
+- [ ] 13-03-PLAN.md — Document the future Apple embedded/FFI path and future desktop/Tauri adapter path without changing current authority
+- [ ] 13-04-PLAN.md — Prove the architecture against one shipped multi-surface flow and record migration guardrails
+
+### Phase 14: Product discovery, operator modes, and milestone shaping
+
+**Goal:** Define the actual operator product shape after the architectural seams are clear: what belongs in the default daily-use experience, what moves behind advanced or developer modes, how onboarding and trust ergonomics should work, and which future milestones deserve investment before broader UI proliferation.
+**Requirements**: PROD-01, MODE-01, UX-CORE-01, TRUST-UX-01, ONBOARD-02, ROADMAP-01
+**Depends on:** Phase 13
+**Plans:** 1/4 plans executed
+
+**Discovery note:** This phase should reduce accidental product sprawl by deciding which currently exposed surfaces are core, advanced, internal, or deferred rather than letting those boundaries emerge ad hoc from current web or Apple UI.
+**Included from thread decisions:** define the default core feature set, decide what moves behind menus or advanced/dev mode, settle onboarding/trust/help priorities, and produce milestone structure before broader UI or logic investment widens.
+**Discovery follow-on note:** Early discovery indicates Phase 14 should evaluate adding a dedicated post-16 shell embodiment and surface-simplification phase instead of forcing that UI work into Phase 16.
+**Taxonomy note:** The first discovery slice should ratify `Now`, `Inbox`, `Projects`, and the daily loop as the default operator story, with Settings/Stats/runtime detail classified under advanced or internal surfaces rather than left as implicit equals.
+
+Plans:
+- [ ] 14-01-PLAN.md — Publish the canonical operator-surface taxonomy for default, advanced operator, and internal/developer surfaces
+- [ ] 14-02-PLAN.md — Define onboarding, trust, and recovery journeys as summary-first operator flows
+- [ ] 14-03-PLAN.md — Publish the operator-mode and progressive-disclosure policy across web, CLI, and Apple assumptions
+- [ ] 14-04-PLAN.md — Close with milestone reshaping, roadmap updates, and any new future phase needed for shell embodiment
+
+### Phase 15: Incremental core migration and canonical Rust service seams
+
+**Goal:** Incrementally migrate the codebase toward the Phase 13 architecture by sharpening application-service seams, transport boundaries, and cross-surface read-model ownership, so new logic lands in canonical Rust-owned surfaces instead of being rederived in shells.
+**Requirements**: MIGRATE-01, MIGRATE-02, SERVICE-01, DTO-01, READMODEL-01
+**Depends on:** Phase 14
+**Plans:** 0 plans
+
+**Migration note:** This phase should favor a sequence of proof-bearing seam migrations over a broad crate shuffle. Structural moves are justified only when they materially reduce shell-owned logic, boundary confusion, or transport coupling.
+**Included from thread decisions:** do the minimum structural work needed for the next real logic slices, avoid refactor theater, and move seams only when the result clearly improves product-core ownership or portability.
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 15 to break down)
+
+### Phase 16: Logic-first product closure on canonical core surfaces
+
+**Goal:** Implement the next wave of operator product behavior as Rust-owned commands, queries, policies, and read models on top of the migrated seams, so later Apple/web/desktop UI phases become embodiment work rather than product-logic design work.
+**Requirements**: LOGIC-01, FLOW-01, MODE-02, READMODEL-02, SHELL-ARCH-01
+**Depends on:** Phase 15
+**Plans:** 0 plans
+
+**Delivery note:** This phase is where the product logic discovered in Phase 14 should become canonical backend/application behavior, with UI phases following behind instead of leading product definition.
+**Included from thread decisions:** business logic should be defined and implemented before broad shell expansion, with later UI phases focused on embodiment, interaction quality, and surface-specific affordances rather than inventing product semantics.
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 16 to break down)
+
+### Phase 17: Shell embodiment, operator-mode application, and surface simplification
+
+**Goal:** Apply the Phase 14 product taxonomy and Phase 15-16 backend ownership decisions across web, Apple, CLI, and future desktop-ready shells so the default operator experience is simpler, advanced/runtime concerns are progressively disclosed, and internal implementation categories stop leaking into everyday use.
+**Requirements**: SHELL-MODE-01, SHELL-MODE-02, TRUST-SUMMARY-01, APPLE-SHELL-01
+**Depends on:** Phase 16
+**Plans:** 0 plans
+
+**Embodiment note:** This phase exists so UI/surface simplification does not get mixed into migration or backend logic closure. It should apply the approved product-mode policy and shell boundaries rather than invent new product semantics.
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 17 to break down)
