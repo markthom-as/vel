@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/agent-inspect.schema.json",
+  "title": "AgentInspect",
+  "description": "Canonical Phase 11 operator-facing inspect payload for grounded agent state, bounded affordances, and explicit blockers.",
+  "type": "object",
+  "$defs": {
+    "AgentBlocker": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "escalation_hint": { "type": ["string", "null"] }
+      },
+      "required": ["code", "message", "escalation_hint"],
+      "additionalProperties": false
+    },
+    "AgentCapabilityEntry": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "available": { "type": "boolean" },
+        "blocked_reason": {
+          "anyOf": [
+            { "$ref": "#/$defs/AgentBlocker" },
+            { "type": "null" }
+          ]
+        },
+        "requires_review_gate": {
+          "type": ["string", "null"],
+          "enum": ["none", "operator_approval", "operator_preview", "post_run_review", null]
+        },
+        "requires_writeback_enabled": { "type": "boolean" }
+      },
+      "required": [
+        "key",
+        "label",
+        "summary",
+        "available",
+        "blocked_reason",
+        "requires_review_gate",
+        "requires_writeback_enabled"
+      ],
+      "additionalProperties": false
+    },
+    "AgentCapabilityGroup": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["read_context", "review_actions", "mutation_actions"]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AgentCapabilityEntry" }
+        }
+      },
+      "required": ["kind", "label", "entries"],
+      "additionalProperties": false
+    },
+    "AgentCapabilitySummary": {
+      "type": "object",
+      "properties": {
+        "groups": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AgentCapabilityGroup" }
+        }
+      },
+      "required": ["groups"],
+      "additionalProperties": false
+    },
+    "AgentInspectExplainability": {
+      "type": "object",
+      "properties": {
+        "persisted_record_kinds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "supporting_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "raw_context_json_supporting_only": { "type": "boolean" }
+      },
+      "required": [
+        "persisted_record_kinds",
+        "supporting_paths",
+        "raw_context_json_supporting_only"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "grounding": { "type": "object" },
+    "capabilities": { "$ref": "#/$defs/AgentCapabilitySummary" },
+    "blockers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AgentBlocker" }
+    },
+    "explainability": { "$ref": "#/$defs/AgentInspectExplainability" }
+  },
+  "required": ["grounding", "capabilities", "blockers", "explainability"],
+  "additionalProperties": false
+}

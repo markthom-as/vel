@@ -155,15 +155,21 @@ Repo-local supervised workflow:
 - persist/export context with `vel exec save|preview|export`
 - review persisted handoffs with `vel exec review`, `vel exec launch-preview`, `vel exec approve`, and `vel exec reject`
 - launch the approved runtime through authenticated `POST /v1/connect/instances`
+- `vel exec preview|export` now includes `agent-grounding.md` and `agent-inspect.json` under the bounded `.planning/vel` output directory so repo-local agents receive the same backend-owned grounding contract exposed by `GET /v1/agent/inspect`
 
 ## Execution handoff review
 
+### `GET /v1/agent/inspect`
 ### `GET /v1/execution/handoffs`
 ### `POST /v1/execution/handoffs`
 ### `GET /v1/execution/handoffs/:id/launch-preview`
 ### `POST /v1/execution/handoffs/:id/approve`
 ### `POST /v1/execution/handoffs/:id/reject`
 
+- operator-authenticated backend-owned inspect surface for grounded agents and operator tooling
+- returns one typed grounding bundle over current `Now`, current context references, projects, people, open commitments, review pressure, and pending execution handoffs
+- capability groups are summarized server-side and fail closed with explicit blockers when SAFE MODE keeps writeback disabled, handoff review is still pending, or no approved repo-local write grant exists
+- this route does not widen `/api/chat` behavior or create a second persisted agent-state blob
 - typed human-to-agent and agent-to-agent handoff persistence for coding work
 - routing decisions keep task kind, agent profile, token budget, review gate, scopes, and explicit reasons first-class
 - launch preview reports whether review state still blocks execution

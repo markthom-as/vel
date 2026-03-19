@@ -1,4 +1,5 @@
 pub mod apple;
+pub mod agent_grounding;
 pub mod artifacts;
 pub mod backup;
 pub mod captures;

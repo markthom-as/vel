@@ -238,6 +238,18 @@
       "path": "config/examples/person-record.example.json",
       "kind": "person_record",
       "schema": "config/schemas/person-record.schema.json"
+    },
+    {
+      "id": "agent_grounding_pack_example",
+      "path": "config/examples/agent-grounding-pack.example.json",
+      "kind": "agent_grounding_pack",
+      "schema": "config/schemas/agent-grounding-pack.schema.json"
+    },
+    {
+      "id": "agent_inspect_example",
+      "path": "config/examples/agent-inspect.example.json",
+      "kind": "agent_inspect",
+      "schema": "config/schemas/agent-inspect.schema.json"
     }
   ],
   "authority_docs": [
@@ -248,6 +260,7 @@
     "docs/cognitive-agent-architecture/cognition/semantic-memory-contract.md",
     "docs/cognitive-agent-architecture/apple/apple-action-loop-contracts.md",
     "docs/cognitive-agent-architecture/agents/coding-execution-contracts.md",
+    "docs/cognitive-agent-architecture/agents/agent-grounding-contracts.md",
     "docs/cognitive-agent-architecture/agents/sandbox-host-abi.md",
     "docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md",
     "docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md",

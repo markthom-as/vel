@@ -1979,6 +1979,169 @@ impl From<vel_core::ExecutionHandoff> for ExecutionHandoffData {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionHandoffOriginKindData {
+    HumanToAgent,
+    AgentToAgent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionHandoffReviewStateData {
+    PendingReview,
+    Approved,
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutionRoutingReasonData {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExecutionRoutingDecisionData {
+    pub task_kind: ExecutionTaskKindData,
+    pub agent_profile: AgentProfileData,
+    pub token_budget: TokenBudgetClassData,
+    pub review_gate: ExecutionReviewGateData,
+    #[serde(default)]
+    pub read_scopes: Vec<String>,
+    #[serde(default)]
+    pub write_scopes: Vec<String>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub reasons: Vec<ExecutionRoutingReasonData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionHandoffRecordData {
+    pub id: String,
+    pub project_id: ProjectId,
+    pub origin_kind: ExecutionHandoffOriginKindData,
+    pub review_state: ExecutionHandoffReviewStateData,
+    pub handoff: ExecutionHandoffData,
+    pub routing: ExecutionRoutingDecisionData,
+    #[serde(default)]
+    pub manifest_id: Option<String>,
+    pub requested_by: String,
+    #[serde(default)]
+    pub reviewed_by: Option<String>,
+    #[serde(default)]
+    pub decision_reason: Option<String>,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub reviewed_at: Option<OffsetDateTime>,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub launched_at: Option<OffsetDateTime>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub updated_at: OffsetDateTime,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentCapabilityGroupKindData {
+    ReadContext,
+    ReviewActions,
+    MutationActions,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentBlockerData {
+    pub code: String,
+    pub message: String,
+    #[serde(default)]
+    pub escalation_hint: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentCapabilityEntryData {
+    pub key: String,
+    pub label: String,
+    pub summary: String,
+    pub available: bool,
+    #[serde(default)]
+    pub blocked_reason: Option<AgentBlockerData>,
+    #[serde(default)]
+    pub requires_review_gate: Option<ExecutionReviewGateData>,
+    #[serde(default)]
+    pub requires_writeback_enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentCapabilityGroupData {
+    pub kind: AgentCapabilityGroupKindData,
+    pub label: String,
+    #[serde(default)]
+    pub entries: Vec<AgentCapabilityEntryData>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentCapabilitySummaryData {
+    #[serde(default)]
+    pub groups: Vec<AgentCapabilityGroupData>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentContextRefData {
+    pub computed_at: UnixSeconds,
+    #[serde(default)]
+    pub mode: Option<String>,
+    #[serde(default)]
+    pub morning_state: Option<String>,
+    pub current_context_path: String,
+    pub explain_context_path: String,
+    pub explain_drift_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentReviewObligationsData {
+    #[serde(default)]
+    pub review_snapshot: ReviewSnapshotData,
+    #[serde(default)]
+    pub pending_writebacks: Vec<WritebackOperationData>,
+    #[serde(default)]
+    pub conflicts: Vec<ConflictCaseData>,
+    #[serde(default)]
+    pub pending_execution_handoffs: Vec<ExecutionHandoffRecordData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentGroundingPackData {
+    pub generated_at: UnixSeconds,
+    pub now: NowData,
+    #[serde(default)]
+    pub current_context: Option<AgentContextRefData>,
+    #[serde(default)]
+    pub projects: Vec<ProjectRecordData>,
+    #[serde(default)]
+    pub people: Vec<PersonRecordData>,
+    #[serde(default)]
+    pub commitments: Vec<CommitmentData>,
+    pub review: AgentReviewObligationsData,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentInspectExplainabilityData {
+    #[serde(default)]
+    pub persisted_record_kinds: Vec<String>,
+    #[serde(default)]
+    pub supporting_paths: Vec<String>,
+    pub raw_context_json_supporting_only: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentInspectData {
+    pub grounding: AgentGroundingPackData,
+    pub capabilities: AgentCapabilitySummaryData,
+    #[serde(default)]
+    pub blockers: Vec<AgentBlockerData>,
+    pub explainability: AgentInspectExplainabilityData,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectCreateRequestData {
     pub slug: String,
@@ -4095,10 +4258,13 @@ pub struct CommitmentData {
     pub source_type: String,
     pub source_id: Option<String>,
     pub status: String,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub due_at: Option<OffsetDateTime>,
     pub project: Option<String>,
     pub commitment_kind: Option<String>,
+    #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub resolved_at: Option<OffsetDateTime>,
     pub metadata: JsonValue,
 }
@@ -4727,21 +4893,20 @@ pub struct NudgeEventData {
 mod tests {
     use super::{
         ActionEvidenceRefData, ActionItemData, ActionKindData, ActionStateData, ActionSurfaceData,
-        AgentProfileData, AppleBehaviorMetricData, AppleBehaviorSummaryData,
+        AgentBlockerData, AgentCapabilityEntryData, AgentCapabilityGroupKindData,
+        AgentInspectData, AgentProfileData, AppleBehaviorMetricData, AppleBehaviorSummaryData,
         AppleBehaviorSummaryScopeData, AppleClientSurfaceData, AppleRequestedOperationData,
         AppleResponseEvidenceData, AppleResponseModeData, AppleScheduleEventData,
         AppleScheduleSnapshotData, AppleTurnProvenanceData, AppleVoiceIntentData,
         AppleVoiceTurnQueuedMutationSummaryData, AppleVoiceTurnRequestData,
         AppleVoiceTurnResponseData, DailyCommitmentDraftData, DailyDeferredTaskData,
-        DailyFocusBlockProposalData, DailyLoopPhaseData, DailyLoopPromptData,
-        DailyLoopPromptKindData, DailyLoopSessionData, DailyLoopSessionOutcomeData,
-        DailyLoopStartMetadataData, DailyLoopStartRequestData, DailyLoopStartSourceData,
-        DailyLoopStatusData, DailyLoopSurfaceData, DailyLoopTurnActionData,
-        DailyLoopTurnRequestData, DailyLoopTurnStateData, DailyStandupBucketData,
-        DailyStandupOutcomeData, ExecutionHandoffData, ExecutionReviewGateData,
-        ExecutionTaskKindData, LocalRuntimeKindData, MorningFrictionCalloutData,
-        MorningIntentSignalData, MorningIntentSignalKindData, MorningOverviewStateData,
-        NowTaskData, ProjectExecutionContextData, ProjectFamilyData, ProjectProvisionRequestData,
+        DailyFocusBlockProposalData, DailyLoopPhaseData, DailyLoopSessionData,
+        DailyLoopSessionOutcomeData, DailyLoopStartMetadataData, DailyLoopStartRequestData,
+        DailyLoopStartSourceData, DailyLoopSurfaceData, DailyLoopTurnActionData,
+        DailyLoopTurnRequestData, DailyStandupBucketData, DailyStandupOutcomeData,
+        ExecutionHandoffData, ExecutionHandoffReviewStateData, ExecutionReviewGateData,
+        ExecutionTaskKindData, LocalRuntimeKindData, MorningIntentSignalData, NowTaskData,
+        ProjectExecutionContextData, ProjectFamilyData, ProjectProvisionRequestData,
         ProjectRecordData, ProjectRootRefData, ProjectStatusData, ReviewSnapshotData,
         TokenBudgetClassData,
     };
@@ -4751,8 +4916,8 @@ mod tests {
         ActionItemId, AgentProfile, CapabilityDescriptor, DailyCommitmentDraft, DailyDeferredTask,
         DailyFocusBlockProposal, DailyLoopPhase, DailyLoopPrompt, DailyLoopPromptKind,
         DailyLoopSession, DailyLoopSessionId, DailyLoopSessionOutcome, DailyLoopStartMetadata,
-        DailyLoopStartSource, DailyLoopStatus, DailyLoopSurface, DailyLoopTurnAction,
-        DailyLoopTurnState, DailyStandupBucket, DailyStandupOutcome, ExecutionHandoff,
+        DailyLoopStartSource, DailyLoopStatus, DailyLoopSurface, DailyLoopTurnState,
+        DailyStandupBucket, DailyStandupOutcome, ExecutionHandoff,
         ExecutionReviewGate, ExecutionTaskKind, HandoffEnvelope, LocalAgentManifest,
         LocalRuntimeKind, MorningFrictionCallout, MorningIntentSignal, MorningOverviewState,
         ProjectExecutionContext, ProjectId, ProjectRootRef, RepoWorktreeRef, TokenBudgetClass,
@@ -5248,5 +5413,110 @@ mod tests {
         assert_eq!(start_json["start"]["source"], "automatic");
         assert_eq!(start_json["start"]["surface"], "web");
         assert_eq!(turn_json["action"], "resume");
+    }
+
+    #[test]
+    fn agent_grounding_round_trips_typed_sections() {
+        let data: AgentInspectData = serde_json::from_str(include_str!(
+            "../../../config/examples/agent-inspect.example.json"
+        ))
+        .expect("agent inspect example should parse");
+
+        assert_eq!(data.grounding.projects.len(), 1);
+        assert_eq!(data.grounding.people.len(), 1);
+        assert_eq!(data.grounding.commitments.len(), 1);
+        assert_eq!(
+            data.grounding.review.pending_execution_handoffs[0].review_state,
+            ExecutionHandoffReviewStateData::PendingReview
+        );
+        assert_eq!(
+            data.capabilities.groups[1].kind,
+            AgentCapabilityGroupKindData::ReviewActions
+        );
+        assert!(data.explainability.raw_context_json_supporting_only);
+
+        let value = serde_json::to_value(&data).expect("agent inspect should serialize");
+        assert_eq!(
+            value["grounding"]["review"]["pending_execution_handoffs"][0]["routing"]["task_kind"],
+            "implementation"
+        );
+        assert_eq!(value["capabilities"]["groups"][2]["kind"], "mutation_actions");
+        assert_eq!(
+            value["capabilities"]["groups"][2]["entries"][0]["blocked_reason"]["code"],
+            "safe_mode_enabled"
+        );
+    }
+
+    #[test]
+    fn agent_grounding_capability_entries_preserve_explicit_blockers() {
+        let entry = AgentCapabilityEntryData {
+            key: "integration_writeback".to_string(),
+            label: "Request integration writeback".to_string(),
+            summary: "Can request bounded upstream mutations when writeback is enabled."
+                .to_string(),
+            available: false,
+            blocked_reason: Some(AgentBlockerData {
+                code: "safe_mode_enabled".to_string(),
+                message: "SAFE MODE keeps writeback disabled.".to_string(),
+                escalation_hint: Some("Enable writeback in Settings before retrying.".to_string()),
+            }),
+            requires_review_gate: Some(ExecutionReviewGateData::OperatorPreview),
+            requires_writeback_enabled: true,
+        };
+
+        let value = serde_json::to_value(entry).expect("capability entry should serialize");
+        assert_eq!(value["available"], false);
+        assert_eq!(value["blocked_reason"]["code"], "safe_mode_enabled");
+        assert_eq!(value["requires_review_gate"], "operator_preview");
+        assert_eq!(value["requires_writeback_enabled"], true);
+    }
+
+    #[test]
+    fn agent_grounding_contract_assets_parse_and_register() {
+        let pack: super::AgentGroundingPackData = serde_json::from_str(include_str!(
+            "../../../config/examples/agent-grounding-pack.example.json"
+        ))
+        .expect("grounding pack example should parse");
+        assert_eq!(pack.review.pending_execution_handoffs.len(), 1);
+
+        let inspect: AgentInspectData = serde_json::from_str(include_str!(
+            "../../../config/examples/agent-inspect.example.json"
+        ))
+        .expect("inspect example should parse");
+        assert_eq!(inspect.blockers.len(), 1);
+
+        let grounding_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../config/schemas/agent-grounding-pack.schema.json"
+        ))
+        .expect("grounding schema should parse");
+        assert_eq!(grounding_schema["title"], "AgentGroundingPack");
+
+        let inspect_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../config/schemas/agent-inspect.schema.json"
+        ))
+        .expect("inspect schema should parse");
+        assert_eq!(inspect_schema["title"], "AgentInspect");
+
+        let manifest: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../config/contracts-manifest.json"
+        ))
+        .expect("contracts manifest should parse");
+        let examples = manifest["contract_examples"]
+            .as_array()
+            .expect("contract examples should be an array");
+        assert!(examples.iter().any(|entry| {
+            entry["path"] == "config/examples/agent-grounding-pack.example.json"
+                && entry["schema"] == "config/schemas/agent-grounding-pack.schema.json"
+        }));
+        assert!(examples.iter().any(|entry| {
+            entry["path"] == "config/examples/agent-inspect.example.json"
+                && entry["schema"] == "config/schemas/agent-inspect.schema.json"
+        }));
+
+        let owner_doc = include_str!(
+            "../../../docs/cognitive-agent-architecture/agents/agent-grounding-contracts.md"
+        );
+        assert!(owner_doc.contains("AgentInspectData"));
+        assert!(owner_doc.contains("raw context JSON is supporting evidence"));
     }
 }

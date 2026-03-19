@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  decodeAgentInspectData,
   decodeActionItemData,
   decodeApiResponse,
   decodeCommitmentData,
@@ -329,6 +330,184 @@ describe('transport decoders', () => {
     expect(handoff.handoff.handoff.objective).toBe('Implement the next safe slice')
     expect(handoff.routing.reasons[0]?.code).toBe('write_scope_requires_approval')
     expect(handoff.review_state).toBe('pending_review')
+  })
+
+  it('decodes agent inspect payloads with blockers and capability groups', () => {
+    const inspect = decodeAgentInspectData({
+      grounding: {
+        generated_at: 1710000000,
+        now: {
+          computed_at: 1710000000,
+          timezone: 'America/Denver',
+          summary: {
+            mode: { key: 'focus', label: 'Focus' },
+            phase: { key: 'engaged', label: 'Engaged' },
+            meds: { key: 'ok', label: 'OK' },
+            risk: { level: 'low', score: 0.2, label: 'low' },
+          },
+          schedule: { empty_message: null, next_event: null, upcoming_events: [] },
+          tasks: { todoist: [], other_open: [], next_commitment: null },
+          attention: {
+            state: { key: 'on_task', label: 'On task' },
+            drift: { key: 'none', label: 'None' },
+            severity: { key: 'none', label: 'None' },
+            confidence: null,
+            reasons: [],
+          },
+          sources: {
+            git_activity: null,
+            health: null,
+            mood: null,
+            pain: null,
+            note_document: null,
+            assistant_message: null,
+          },
+          freshness: { overall_status: 'fresh', sources: [] },
+          action_items: [],
+          review_snapshot: { open_action_count: 1, triage_count: 0, projects_needing_review: 0 },
+          pending_writebacks: [],
+          conflicts: [],
+          people: [],
+          reasons: [],
+          debug: { raw_context: {}, signals_used: [], commitments_used: [], risk_used: [] },
+        },
+        current_context: {
+          computed_at: 1710000000,
+          mode: 'focus',
+          morning_state: 'engaged',
+          current_context_path: '/v1/context/current',
+          explain_context_path: '/v1/explain/context',
+          explain_drift_path: '/v1/explain/drift',
+        },
+        projects: [],
+        people: [],
+        commitments: [],
+        review: {
+          review_snapshot: { open_action_count: 1, triage_count: 0, projects_needing_review: 0 },
+          pending_writebacks: [],
+          conflicts: [],
+          pending_execution_handoffs: [],
+        },
+      },
+      capabilities: {
+        groups: [
+          {
+            kind: 'mutation_actions',
+            label: 'Bounded mutation affordances',
+            entries: [
+              {
+                key: 'integration_writeback',
+                label: 'Request integration writeback',
+                summary: 'Bounded upstream mutations remain subject to SAFE MODE and review gates.',
+                available: false,
+                blocked_reason: {
+                  code: 'safe_mode_enabled',
+                  message: 'SAFE MODE keeps writeback disabled.',
+                  escalation_hint: 'Enable writeback in Settings before retrying.',
+                },
+                requires_review_gate: 'operator_preview',
+                requires_writeback_enabled: true,
+              },
+            ],
+          },
+        ],
+      },
+      blockers: [
+        {
+          code: 'writeback_disabled',
+          message: 'Writeback-dependent mutation requests are unavailable while SAFE MODE is enabled.',
+          escalation_hint: 'Enable writeback or stay within read/review lanes.',
+        },
+      ],
+      explainability: {
+        persisted_record_kinds: ['now'],
+        supporting_paths: ['/v1/agent/inspect'],
+        raw_context_json_supporting_only: true,
+      },
+    })
+
+    expect(inspect.capabilities.groups[0]?.entries[0]?.blocked_reason?.code).toBe('safe_mode_enabled')
+    expect(inspect.blockers[0]?.escalation_hint).toContain('Enable writeback')
+  })
+
+  it('rejects malformed agent inspect capability payloads', () => {
+    expect(() =>
+      decodeAgentInspectData({
+        grounding: {
+          generated_at: 1710000000,
+          now: {
+            computed_at: 1710000000,
+            timezone: 'America/Denver',
+            summary: {
+              mode: { key: 'focus', label: 'Focus' },
+              phase: { key: 'engaged', label: 'Engaged' },
+              meds: { key: 'ok', label: 'OK' },
+              risk: { level: 'low', score: 0.2, label: 'low' },
+            },
+            schedule: { empty_message: null, next_event: null, upcoming_events: [] },
+            tasks: { todoist: [], other_open: [], next_commitment: null },
+            attention: {
+              state: { key: 'on_task', label: 'On task' },
+              drift: { key: 'none', label: 'None' },
+              severity: { key: 'none', label: 'None' },
+              confidence: null,
+              reasons: [],
+            },
+            sources: {
+              git_activity: null,
+              health: null,
+              mood: null,
+              pain: null,
+              note_document: null,
+              assistant_message: null,
+            },
+            freshness: { overall_status: 'fresh', sources: [] },
+            action_items: [],
+            review_snapshot: { open_action_count: 1, triage_count: 0, projects_needing_review: 0 },
+            pending_writebacks: [],
+            conflicts: [],
+            people: [],
+            reasons: [],
+            debug: { raw_context: {}, signals_used: [], commitments_used: [], risk_used: [] },
+          },
+          current_context: null,
+          projects: [],
+          people: [],
+          commitments: [],
+          review: {
+            review_snapshot: { open_action_count: 1, triage_count: 0, projects_needing_review: 0 },
+            pending_writebacks: [],
+            conflicts: [],
+            pending_execution_handoffs: [],
+          },
+        },
+        capabilities: {
+          groups: [
+            {
+              kind: 'mutation_actions',
+              label: 'Broken group',
+              entries: [
+                {
+                  key: 'integration_writeback',
+                  label: 'Broken entry',
+                  summary: 'broken',
+                  available: 'nope',
+                  blocked_reason: null,
+                  requires_review_gate: null,
+                  requires_writeback_enabled: false,
+                },
+              ],
+            },
+          ],
+        },
+        blockers: [],
+        explainability: {
+          persisted_record_kinds: [],
+          supporting_paths: [],
+          raw_context_json_supporting_only: true,
+        },
+      }),
+    ).toThrow()
   })
 
   it('decodes morning daily-loop sessions with typed state and outcome payloads', () => {

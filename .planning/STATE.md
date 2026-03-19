@@ -147,6 +147,7 @@ Recent decisions affecting current work:
 - CSV backlog triaged (2026-03-19): daily-loop fixes assigned to Phase 10, agent awareness promoted into Phase 11, shell/interface fixes assigned to Phase 12, and remaining provider/platform expansion captured in BACKLOG.md
 - Phase 10 planning created (2026-03-19): 5-plan rollout covering typed session contracts, morning backend, standup/CLI closure, web shell, and transcript-first Apple voice closure
 - Phase 11 planning created (2026-03-19): 3-plan rollout covering contract publication, backend inspect/export grounding, and thin CLI/web trust surfaces
+- Phase 12 planning created (2026-03-19): 4-plan rollout covering shell/help contracts, shell navigation/freshness polish, project/settings ergonomics, and onboarding/linking/path-discovery closure
 
 ### Pending Todos
 

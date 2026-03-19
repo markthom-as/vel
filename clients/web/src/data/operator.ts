@@ -102,6 +102,7 @@ function decodeEvaluateResultData(value: unknown): EvaluateResultData {
 }
 
 export const operatorQueryKeys = {
+  agentInspect: () => ['agent', 'inspect'] as const,
   clusterBootstrap: () => ['cluster', 'bootstrap'] as const,
   clusterWorkers: () => ['cluster', 'workers'] as const,
   projects: () => ['projects'] as const,

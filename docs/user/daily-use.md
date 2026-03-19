@@ -41,6 +41,7 @@ cargo run -p vel-cli -- recent --today
 For coding-oriented project work, keep the execution handoff explicit and repo-local:
 
 ```bash
+cargo run -p vel-cli -- agent inspect
 cargo run -p vel-cli -- exec save <project_id> --objective "ship the next safe slice" --constraint "sidecar only"
 cargo run -p vel-cli -- exec preview <project_id>
 cargo run -p vel-cli -- exec export <project_id>
@@ -51,6 +52,7 @@ cargo run -p vel-cli -- exec approve <handoff_id> --reason "scope and output con
 
 The execution export writes only a small sidecar pack under the project's primary repo root, by default at `.planning/vel/`, so supervised GSD-readable handoffs stay inspectable and bounded instead of mutating arbitrary repo files.
 The review queue keeps human-to-agent and agent-to-agent coding handoffs explicit: objective, read scope, write scope, routing reasons, and review gate are persisted before any supervised runtime launch can proceed.
+Use `vel agent inspect` before supervised runs when you need to confirm what an agent can currently see, what it can review, and why a mutation lane is blocked. The CLI should report the same blocker language the API and Settings page show, including narrow escalation paths such as enabling writeback or approving a pending handoff.
 
 If you use the Apple clients during the day:
 

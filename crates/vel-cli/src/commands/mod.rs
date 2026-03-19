@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod artifact;
 pub mod backup;
 pub mod capture;

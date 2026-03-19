@@ -2323,11 +2323,12 @@ mod tests {
         )
         .await
         .unwrap();
+        let local_node_id = effective_cluster_bootstrap(&state).await.unwrap().node_id;
 
         crate::services::linking::issue_pairing_token(
             &state,
             crate::services::linking::IssuePairingTokenInput {
-                issued_by_node_id: "vel-node".to_string(),
+                issued_by_node_id: local_node_id.clone(),
                 ttl_seconds: Some(900),
                 scopes: vel_api_types::LinkScopeData {
                     read_context: true,
@@ -2358,7 +2359,7 @@ mod tests {
             prompt.target_node_display_name.as_deref(),
             Some("Remote Mac")
         );
-        assert_eq!(prompt.issued_by_node_id, "vel-node");
+        assert_eq!(prompt.issued_by_node_id, local_node_id);
         assert!(prompt.scopes.read_context);
         assert!(!prompt.scopes.write_safe_actions);
     }

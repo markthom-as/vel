@@ -359,6 +359,175 @@ describe('SettingsPage', () => {
           meta: { request_id: 'req_handoffs' },
         } as never
       }
+      if (path === '/v1/agent/inspect') {
+        return {
+          ok: true,
+          data: {
+            grounding: {
+              generated_at: 1710000000,
+              now: {
+                computed_at: 1710000000,
+                timezone: 'America/Denver',
+                summary: {
+                  mode: { key: 'focus', label: 'Focus' },
+                  phase: { key: 'engaged', label: 'Engaged' },
+                  meds: { key: 'ok', label: 'OK' },
+                  risk: { level: 'low', score: 0.2, label: 'low' },
+                },
+                schedule: { empty_message: null, next_event: null, upcoming_events: [] },
+                tasks: { todoist: [], other_open: [], next_commitment: null },
+                attention: {
+                  state: { key: 'on_task', label: 'On task' },
+                  drift: { key: 'none', label: 'None' },
+                  severity: { key: 'none', label: 'None' },
+                  confidence: null,
+                  reasons: [],
+                },
+                sources: {
+                  git_activity: null,
+                  health: null,
+                  mood: null,
+                  pain: null,
+                  note_document: null,
+                  assistant_message: null,
+                },
+                freshness: { overall_status: 'fresh', sources: [] },
+                action_items: [],
+                review_snapshot: { open_action_count: 1, triage_count: 0, projects_needing_review: 0 },
+                pending_writebacks: [],
+                conflicts: [],
+                people: [],
+                reasons: [],
+                debug: { raw_context: {}, signals_used: [], commitments_used: [], risk_used: [] },
+              },
+              current_context: {
+                computed_at: 1710000000,
+                mode: 'focus',
+                morning_state: 'engaged',
+                current_context_path: '/v1/context/current',
+                explain_context_path: '/v1/explain/context',
+                explain_drift_path: '/v1/explain/drift',
+              },
+              projects: [{ id: 'proj_exec', slug: 'vel', name: 'Vel', family: 'work', status: 'active', primary_repo: { path: '/tmp/vel', label: 'vel', kind: 'repo' }, primary_notes_root: { path: '/tmp/vel/notes', label: 'vel-notes', kind: 'notes_root' }, secondary_repos: [], secondary_notes_roots: [], upstream_ids: {}, pending_provision: { create_repo: false, create_notes_root: false }, created_at: '2026-03-18T18:00:00Z', updated_at: '2026-03-18T18:00:00Z', archived_at: null }],
+              people: [{ id: 'per_annie', display_name: 'Annie Case', given_name: 'Annie', family_name: 'Case', relationship_context: null, birthday: null, last_contacted_at: null, aliases: [], links: [] }],
+              commitments: [{ id: 'com_1', text: 'Ship agent grounding', source_type: 'todoist', source_id: 'todo_1', status: 'open', due_at: null, project: 'proj_exec', commitment_kind: 'must', created_at: '2026-03-18T18:00:00Z', resolved_at: null, metadata: {} }],
+              review: {
+                review_snapshot: { open_action_count: 1, triage_count: 0, projects_needing_review: 0 },
+                pending_writebacks: [],
+                conflicts: [],
+                pending_execution_handoffs: [
+                  {
+                    id: 'xho_1',
+                    project_id: 'proj_exec',
+                    origin_kind: 'human_to_agent',
+                    review_state: 'pending_review',
+                    handoff: {
+                      handoff: {
+                        task_id: 'task_1',
+                        trace_id: 'trace_1',
+                        from_agent: 'operator',
+                        to_agent: 'codex-local',
+                        objective: 'Implement the runtime review queue',
+                        inputs: {},
+                        constraints: [],
+                        read_scopes: ['/tmp/vel'],
+                        write_scopes: ['/tmp/vel'],
+                        project_id: 'proj_exec',
+                        task_kind: 'implementation',
+                        agent_profile: 'quality',
+                        token_budget: 'large',
+                        review_gate: 'operator_approval',
+                        repo_root: { path: '/tmp/vel', label: 'vel', branch: null, head_rev: null },
+                        allowed_tools: ['rg'],
+                        capability_scope: {},
+                        deadline: null,
+                        expected_output_schema: { artifacts: ['patch'] },
+                      },
+                      project_id: 'proj_exec',
+                      task_kind: 'implementation',
+                      agent_profile: 'quality',
+                      token_budget: 'large',
+                      review_gate: 'operator_approval',
+                      repo: { path: '/tmp/vel', label: 'vel', branch: null, head_rev: null },
+                      notes_root: { path: '/tmp/vel/notes', label: 'vel-notes', kind: 'notes_root' },
+                      manifest_id: null,
+                    },
+                    routing: {
+                      task_kind: 'implementation',
+                      agent_profile: 'quality',
+                      token_budget: 'large',
+                      review_gate: 'operator_approval',
+                      read_scopes: ['/tmp/vel'],
+                      write_scopes: ['/tmp/vel'],
+                      allowed_tools: ['rg'],
+                      reasons: [],
+                    },
+                    manifest_id: null,
+                    requested_by: 'operator_shell',
+                    reviewed_by: null,
+                    decision_reason: null,
+                    reviewed_at: null,
+                    launched_at: null,
+                    created_at: '2026-03-18T18:00:00Z',
+                    updated_at: '2026-03-18T18:00:00Z',
+                  },
+                ],
+              },
+            },
+            capabilities: {
+              groups: [
+                {
+                  kind: 'read_context',
+                  label: 'Read current Vel state',
+                  entries: [
+                    {
+                      key: 'read_now',
+                      label: 'Read Now and current context',
+                      summary: 'The agent can inspect current Now state, typed context labels, and explain references.',
+                      available: true,
+                      blocked_reason: null,
+                      requires_review_gate: null,
+                      requires_writeback_enabled: false,
+                    },
+                  ],
+                },
+                {
+                  kind: 'mutation_actions',
+                  label: 'Bounded mutation affordances',
+                  entries: [
+                    {
+                      key: 'integration_writeback',
+                      label: 'Request integration writeback',
+                      summary: 'Bounded upstream mutations remain subject to SAFE MODE and review gates.',
+                      available: false,
+                      blocked_reason: {
+                        code: 'safe_mode_enabled',
+                        message: 'SAFE MODE keeps writeback disabled.',
+                        escalation_hint: 'Enable writeback in Settings before retrying.',
+                      },
+                      requires_review_gate: 'operator_preview',
+                      requires_writeback_enabled: true,
+                    },
+                  ],
+                },
+              ],
+            },
+            blockers: [
+              {
+                code: 'writeback_disabled',
+                message: 'Writeback-dependent mutation requests are unavailable while SAFE MODE is enabled.',
+                escalation_hint: 'Enable writeback or stay within read/review lanes.',
+              },
+            ],
+            explainability: {
+              persisted_record_kinds: ['now'],
+              supporting_paths: ['/v1/agent/inspect'],
+              raw_context_json_supporting_only: true,
+            },
+          },
+          meta: { request_id: 'req_agent_inspect' },
+        } as never
+      }
       if (path === '/v1/cluster/bootstrap') {
         return {
           ok: true,
@@ -1873,6 +2042,53 @@ describe('SettingsPage', () => {
       if (path === '/v1/runs?limit=6') {
         return { ok: true, data: [], meta: { request_id: 'req_runs' } } as never
       }
+      if (path === '/v1/agent/inspect') {
+        return {
+          ok: true,
+          data: {
+            grounding: {
+              generated_at: 1710000000,
+              now: {
+                computed_at: 1710000000,
+                timezone: 'America/Denver',
+                summary: {
+                  mode: { key: 'focus', label: 'Focus' },
+                  phase: { key: 'engaged', label: 'Engaged' },
+                  meds: { key: 'ok', label: 'OK' },
+                  risk: { level: 'low', score: 0.2, label: 'low' },
+                },
+                schedule: { empty_message: null, next_event: null, upcoming_events: [] },
+                tasks: { todoist: [], other_open: [], next_commitment: null },
+                attention: {
+                  state: { key: 'on_task', label: 'On task' },
+                  drift: { key: 'none', label: 'None' },
+                  severity: { key: 'none', label: 'None' },
+                  confidence: null,
+                  reasons: [],
+                },
+                sources: { git_activity: null, health: null, mood: null, pain: null, note_document: null, assistant_message: null },
+                freshness: { overall_status: 'fresh', sources: [] },
+                action_items: [],
+                review_snapshot: { open_action_count: 0, triage_count: 0, projects_needing_review: 0 },
+                pending_writebacks: [],
+                conflicts: [],
+                people: [],
+                reasons: [],
+                debug: { raw_context: {}, signals_used: [], commitments_used: [], risk_used: [] },
+              },
+              current_context: null,
+              projects: [],
+              people: [],
+              commitments: [],
+              review: { review_snapshot: { open_action_count: 0, triage_count: 0, projects_needing_review: 0 }, pending_writebacks: [], conflicts: [], pending_execution_handoffs: [] },
+            },
+            capabilities: { groups: [] },
+            blockers: [],
+            explainability: { persisted_record_kinds: ['now'], supporting_paths: ['/v1/agent/inspect'], raw_context_json_supporting_only: true },
+          },
+          meta: { request_id: 'req_agent_inspect_local_missing' },
+        } as never
+      }
       return { ok: true, data: [], meta: { request_id: 'req_default' } } as never
     })
     vi.mocked(client.apiPatch).mockResolvedValueOnce({
@@ -2123,6 +2339,19 @@ describe('SettingsPage', () => {
       expect.objectContaining({ reviewed_by: 'operator_shell' }),
       expect.any(Function),
     )
+  })
+
+  it('renders agent grounding scope and blocker guidance from the backend inspect payload', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = getSettingsRoot(container)
+
+    await waitFor(() => {
+      expect(within(root).getByText('Agent grounding')).toBeInTheDocument()
+    })
+    expect(within(root).getByText('Projects in scope')).toBeInTheDocument()
+    expect(within(root).getByText('Request integration writeback')).toBeInTheDocument()
+    expect(within(root).getByText(/SAFE MODE keeps writeback disabled/i)).toBeInTheDocument()
+    expect(within(root).getByText(/Enable writeback in Settings before retrying/i)).toBeInTheDocument()
   })
 
   it('expands component logs and shows restart event history', async () => {
@@ -3080,6 +3309,53 @@ describe('SettingsPage', () => {
       if (path === '/v1/execution/handoffs?state=pending_review') {
         return { ok: true, data: [], meta: { request_id: 'req_empty_handoffs_prompt' } } as never
       }
+      if (path === '/v1/agent/inspect') {
+        return {
+          ok: true,
+          data: {
+            grounding: {
+              generated_at: 1710000000,
+              now: {
+                computed_at: 1710000000,
+                timezone: 'America/Denver',
+                summary: {
+                  mode: { key: 'focus', label: 'Focus' },
+                  phase: { key: 'engaged', label: 'Engaged' },
+                  meds: { key: 'ok', label: 'OK' },
+                  risk: { level: 'low', score: 0.2, label: 'low' },
+                },
+                schedule: { empty_message: null, next_event: null, upcoming_events: [] },
+                tasks: { todoist: [], other_open: [], next_commitment: null },
+                attention: {
+                  state: { key: 'on_task', label: 'On task' },
+                  drift: { key: 'none', label: 'None' },
+                  severity: { key: 'none', label: 'None' },
+                  confidence: null,
+                  reasons: [],
+                },
+                sources: { git_activity: null, health: null, mood: null, pain: null, note_document: null, assistant_message: null },
+                freshness: { overall_status: 'fresh', sources: [] },
+                action_items: [],
+                review_snapshot: { open_action_count: 0, triage_count: 0, projects_needing_review: 0 },
+                pending_writebacks: [],
+                conflicts: [],
+                people: [],
+                reasons: [],
+                debug: { raw_context: {}, signals_used: [], commitments_used: [], risk_used: [] },
+              },
+              current_context: null,
+              projects: [],
+              people: [],
+              commitments: [],
+              review: { review_snapshot: { open_action_count: 0, triage_count: 0, projects_needing_review: 0 }, pending_writebacks: [], conflicts: [], pending_execution_handoffs: [] },
+            },
+            capabilities: { groups: [] },
+            blockers: [],
+            explainability: { persisted_record_kinds: ['now'], supporting_paths: ['/v1/agent/inspect'], raw_context_json_supporting_only: true },
+          },
+          meta: { request_id: 'req_agent_inspect_prompt' },
+        } as never
+      }
       if (path === '/v1/now') {
         return {
           ok: true,
@@ -3152,9 +3428,9 @@ describe('SettingsPage', () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = getSettingsRoot(container)
 
-    await waitFor(() => {
-      expect(within(root).getByText('Pending execution review')).toBeInTheDocument()
-    })
+  await waitFor(() => {
+    expect(within(root).getAllByText('Pending execution review').length).toBeGreaterThan(0)
+  })
 
     expect(within(root).getByText('Implement the runtime review queue')).toBeInTheDocument()
     expect(within(root).getByText('1 pending')).toBeInTheDocument()

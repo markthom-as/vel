@@ -2,12 +2,13 @@ use anyhow::{bail, Context};
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vel_api_types::{
-    ApiResponse, BackupManifestData, BackupStatusData, BranchSyncRequestData, CaptureCreateRequest,
-    CaptureCreateResponse, ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
-    CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
-    CommitmentUpdateRequest, ConnectInstanceData, DailyLoopPhaseData, DailyLoopSessionData,
-    DailyLoopStartRequestData, DailyLoopTurnActionData, DailyLoopTurnRequestData, DoctorData,
-    EndOfDayData, EvaluateResultData, ExecutionHandoffData, HealthData, IntegrationConnectionData,
+    AgentInspectData, ApiResponse, BackupManifestData, BackupStatusData, BranchSyncRequestData,
+    CaptureCreateRequest, CaptureCreateResponse, ClusterBootstrapData, CommandExecuteRequest,
+    CommandExecutionPlanData, CommandExecutionResultData, CommandPlanRequest,
+    CommitmentCreateRequest, CommitmentData, CommitmentUpdateRequest, ConnectInstanceData,
+    DailyLoopPhaseData, DailyLoopSessionData, DailyLoopStartRequestData,
+    DailyLoopTurnActionData, DailyLoopTurnRequestData, DoctorData, EndOfDayData,
+    EvaluateResultData, ExecutionHandoffData, HealthData, IntegrationConnectionData,
     IntegrationConnectionEventData, LinkScopeData, LinkedNodeData, LoopData, LoopUpdateRequest,
     MoodJournalCreateRequest, MorningData, NowData, NudgeData, NudgeSnoozeRequest,
     PainJournalCreateRequest, PairingTokenData, ProjectListResponseData, QueuedWorkRoutingData,
@@ -867,6 +868,10 @@ impl ApiClient {
 
     pub async fn get_now(&self) -> anyhow::Result<ApiResponse<NowData>> {
         self.get("/v1/now").await
+    }
+
+    pub async fn get_agent_inspect(&self) -> anyhow::Result<ApiResponse<AgentInspectData>> {
+        self.get("/v1/agent/inspect").await
     }
 
     pub async fn list_projects(&self) -> anyhow::Result<ApiResponse<ProjectListResponseData>> {

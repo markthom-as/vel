@@ -94,6 +94,10 @@ enum Command {
         #[command(subcommand)]
         command: InspectCommand,
     },
+    Agent {
+        #[command(subcommand)]
+        command: AgentCommand,
+    },
     Run {
         #[command(subcommand)]
         command: RunCommand,
@@ -440,6 +444,14 @@ enum ContextCommand {
 enum InspectCommand {
     Capture { id: String },
     Artifact { id: String },
+}
+
+#[derive(Debug, Subcommand)]
+enum AgentCommand {
+    Inspect {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -803,6 +815,9 @@ async fn main() -> anyhow::Result<()> {
         Command::Inspect { command } => match command {
             InspectCommand::Capture { id } => commands::inspect::run_capture(&client, &id).await,
             InspectCommand::Artifact { id } => commands::inspect::run_artifact(&client, &id).await,
+        },
+        Command::Agent { command } => match command {
+            AgentCommand::Inspect { json } => commands::agent::run_inspect(&client, json).await,
         },
         Command::Run { command } => match command {
             RunCommand::List {
@@ -1308,6 +1323,17 @@ mod tests {
                 assert!(!json);
             }
             _ => panic!("expected exec export command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_agent_inspect_json() {
+        let cli = Cli::try_parse_from(["vel", "agent", "inspect", "--json"]).unwrap();
+        match cli.command {
+            Command::Agent {
+                command: AgentCommand::Inspect { json },
+            } => assert!(json),
+            other => panic!("unexpected command: {:?}", other),
         }
     }
 

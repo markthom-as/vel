@@ -5,6 +5,7 @@
 
 use std::net::SocketAddr;
 
+use futures::stream::{self, StreamExt};
 use tokio::{
     net::UdpSocket,
     time::{timeout, Duration, Instant},
@@ -18,6 +19,7 @@ const DISCOVERY_PORT: u16 = 4131;
 const DISCOVERY_QUERY_TIMEOUT_MS: u64 = 250;
 const DISCOVERY_BUFFER_SIZE: usize = 16 * 1024;
 const DISCOVERY_PROTOCOL_VERSION: &str = "vel_lan_discovery_v1";
+const HTTP_PROBE_CONCURRENCY_LIMIT: usize = 16;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct DiscoveryQuery {
@@ -207,6 +209,7 @@ async fn discover_peers_via_http_probe(
 ) -> Vec<LanDiscoveredPeer> {
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_millis(150))
+        .pool_max_idle_per_host(0)
         .build()
     {
         Ok(client) => client,
@@ -220,12 +223,11 @@ async fn discover_peers_via_http_probe(
         .and_then(|url| url.port_or_known_default())
         .unwrap_or(4130);
 
-    let futures = crate::services::local_network::lan_probe_targets()
-        .into_iter()
-        .map(|ip| fetch_http_probe_peer(&client, ip, port, local_node_id))
-        .collect::<Vec<_>>();
-
-    futures::future::join_all(futures)
+    stream::iter(crate::services::local_network::lan_probe_targets().into_iter().map(|ip| {
+        fetch_http_probe_peer(&client, ip, port, local_node_id)
+    }))
+        .buffer_unordered(HTTP_PROBE_CONCURRENCY_LIMIT)
+        .collect::<Vec<_>>()
         .await
         .into_iter()
         .flatten()

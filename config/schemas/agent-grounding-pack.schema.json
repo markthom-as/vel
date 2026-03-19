@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/agent-grounding-pack.schema.json",
+  "title": "AgentGroundingPack",
+  "description": "Canonical Phase 11 grounding bundle for supervised agents over typed Vel state, review obligations, and handoff metadata.",
+  "type": "object",
+  "$defs": {
+    "AgentContextRef": {
+      "type": "object",
+      "properties": {
+        "computed_at": { "type": "integer" },
+        "mode": { "type": ["string", "null"] },
+        "morning_state": { "type": ["string", "null"] },
+        "current_context_path": { "type": "string", "minLength": 1 },
+        "explain_context_path": { "type": "string", "minLength": 1 },
+        "explain_drift_path": { "type": "string", "minLength": 1 }
+      },
+      "required": [
+        "computed_at",
+        "mode",
+        "morning_state",
+        "current_context_path",
+        "explain_context_path",
+        "explain_drift_path"
+      ],
+      "additionalProperties": false
+    },
+    "ReviewSnapshot": {
+      "type": "object",
+      "properties": {
+        "open_action_count": { "type": "integer", "minimum": 0 },
+        "triage_count": { "type": "integer", "minimum": 0 },
+        "projects_needing_review": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["open_action_count", "triage_count", "projects_needing_review"],
+      "additionalProperties": false
+    },
+    "ExecutionHandoffRecord": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "project_id": { "type": "string", "minLength": 1 },
+        "origin_kind": { "type": "string", "enum": ["human_to_agent", "agent_to_agent"] },
+        "review_state": { "type": "string", "enum": ["pending_review", "approved", "rejected"] },
+        "handoff": { "type": "object" },
+        "routing": { "type": "object" },
+        "manifest_id": { "type": ["string", "null"] },
+        "requested_by": { "type": "string", "minLength": 1 },
+        "reviewed_by": { "type": ["string", "null"] },
+        "decision_reason": { "type": ["string", "null"] },
+        "reviewed_at": { "type": ["string", "null"], "format": "date-time" },
+        "launched_at": { "type": ["string", "null"], "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "origin_kind",
+        "review_state",
+        "handoff",
+        "routing",
+        "manifest_id",
+        "requested_by",
+        "reviewed_by",
+        "decision_reason",
+        "reviewed_at",
+        "launched_at",
+        "created_at",
+        "updated_at"
+      ],
+      "additionalProperties": false
+    },
+    "AgentReviewObligations": {
+      "type": "object",
+      "properties": {
+        "review_snapshot": { "$ref": "#/$defs/ReviewSnapshot" },
+        "pending_writebacks": { "type": "array", "items": { "type": "object" } },
+        "conflicts": { "type": "array", "items": { "type": "object" } },
+        "pending_execution_handoffs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ExecutionHandoffRecord" }
+        }
+      },
+      "required": [
+        "review_snapshot",
+        "pending_writebacks",
+        "conflicts",
+        "pending_execution_handoffs"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "generated_at": { "type": "integer" },
+    "now": { "type": "object" },
+    "current_context": {
+      "anyOf": [
+        { "$ref": "#/$defs/AgentContextRef" },
+        { "type": "null" }
+      ]
+    },
+    "projects": { "type": "array", "items": { "type": "object" } },
+    "people": { "type": "array", "items": { "type": "object" } },
+    "commitments": { "type": "array", "items": { "type": "object" } },
+    "review": { "$ref": "#/$defs/AgentReviewObligations" }
+  },
+  "required": [
+    "generated_at",
+    "now",
+    "current_context",
+    "projects",
+    "people",
+    "commitments",
+    "review"
+  ],
+  "additionalProperties": false
+}

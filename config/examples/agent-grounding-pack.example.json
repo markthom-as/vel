@@ -1,0 +1,433 @@
+{
+  "generated_at": 1763661000,
+  "now": {
+    "computed_at": 1763661000,
+    "timezone": "America/Denver",
+    "summary": {
+      "mode": { "key": "focused", "label": "Focused" },
+      "phase": { "key": "morning_overview", "label": "Morning overview" },
+      "meds": { "key": "done", "label": "Done" },
+      "risk": { "level": "low", "score": 0.18, "label": "Low risk" }
+    },
+    "schedule": {
+      "empty_message": null,
+      "next_event": {
+        "title": "Design review",
+        "start_ts": 1763662800,
+        "end_ts": 1763664600,
+        "location": "Studio",
+        "prep_minutes": 10,
+        "travel_minutes": 0,
+        "leave_by_ts": 1763662200
+      },
+      "upcoming_events": []
+    },
+    "tasks": {
+      "todoist": [
+        {
+          "id": "todo_1",
+          "text": "Ship Phase 11 contract slice",
+          "source_type": "todoist",
+          "due_at": "2026-03-20T17:00:00Z",
+          "project": "proj_velruntime",
+          "commitment_kind": "must"
+        }
+      ],
+      "other_open": [],
+      "next_commitment": {
+        "id": "todo_1",
+        "text": "Ship Phase 11 contract slice",
+        "source_type": "todoist",
+        "due_at": "2026-03-20T17:00:00Z",
+        "project": "proj_velruntime",
+        "commitment_kind": "must"
+      }
+    },
+    "attention": {
+      "state": { "key": "on_task", "label": "On task" },
+      "drift": { "key": "none", "label": "No drift" },
+      "severity": { "key": "low", "label": "Low" },
+      "confidence": 0.93,
+      "reasons": ["Calendar and commitments are aligned."]
+    },
+    "sources": {
+      "git_activity": null,
+      "health": null,
+      "mood": null,
+      "pain": null,
+      "note_document": null,
+      "assistant_message": null
+    },
+    "freshness": {
+      "overall_status": "fresh",
+      "sources": [
+        {
+          "key": "todoist",
+          "label": "Todoist",
+          "status": "fresh",
+          "last_sync_at": 1763660940,
+          "age_seconds": 60,
+          "guidance": null
+        }
+      ]
+    },
+    "action_items": [
+      {
+        "id": "act_phase11",
+        "surface": "now",
+        "kind": "review",
+        "title": "Review pending execution handoff",
+        "summary": "A grounded coding handoff still needs operator approval.",
+        "project_id": "proj_velruntime",
+        "state": "active",
+        "rank": 95,
+        "surfaced_at": "2026-03-19T16:10:00Z",
+        "snoozed_until": null,
+        "evidence": [
+          {
+            "source_kind": "execution_handoff",
+            "source_id": "handoff_phase11",
+            "label": "Phase 11 grounding handoff",
+            "detail": "Pending operator preview"
+          }
+        ]
+      }
+    ],
+    "review_snapshot": {
+      "open_action_count": 3,
+      "triage_count": 1,
+      "projects_needing_review": 1
+    },
+    "pending_writebacks": [
+      {
+        "id": "wb_phase11",
+        "kind": "notes_append_note",
+        "risk": "confirm_required",
+        "status": "queued",
+        "target": {
+          "family": "notes",
+          "provider_key": "obsidian",
+          "project_id": "proj_velruntime",
+          "connection_id": "icn_notes001",
+          "external_id": "Daily/2026-03-19.md"
+        },
+        "requested_payload": {
+          "append_text": "Agent grounding contract approved."
+        },
+        "result_payload": null,
+        "provenance": [
+          {
+            "family": "notes",
+            "provider_key": "obsidian",
+            "connection_id": "icn_notes001",
+            "external_id": "Daily/2026-03-19.md"
+          }
+        ],
+        "conflict_case_id": "conf_phase11",
+        "requested_by_node_id": "node_authority",
+        "requested_at": "2026-03-19T16:00:00Z",
+        "applied_at": null,
+        "updated_at": "2026-03-19T16:05:00Z"
+      }
+    ],
+    "conflicts": [
+      {
+        "id": "conf_phase11",
+        "kind": "upstream_vs_local",
+        "status": "open",
+        "target": {
+          "family": "notes",
+          "provider_key": "obsidian",
+          "project_id": "proj_velruntime",
+          "connection_id": "icn_notes001",
+          "external_id": "Daily/2026-03-19.md"
+        },
+        "summary": "The local note edit diverged from the upstream note.",
+        "local_payload": {
+          "text": "Local draft"
+        },
+        "upstream_payload": {
+          "text": "Upstream draft"
+        },
+        "resolution_payload": null,
+        "opened_at": "2026-03-19T15:40:00Z",
+        "resolved_at": null,
+        "updated_at": "2026-03-19T15:45:00Z"
+      }
+    ],
+    "people": [
+      {
+        "id": "per_anniecase01",
+        "display_name": "Annie Case",
+        "given_name": "Annie",
+        "family_name": "Case",
+        "relationship_context": "Collaborator on design and product review",
+        "birthday": null,
+        "last_contacted_at": "2026-03-18T19:30:00Z",
+        "aliases": [
+          {
+            "platform": "email",
+            "handle": "annie@example.com",
+            "display": "annie@example.com",
+            "source_ref": {
+              "family": "messaging",
+              "provider_key": "email",
+              "connection_id": "icn_email001",
+              "external_id": "thread_991"
+            }
+          }
+        ],
+        "links": [
+          {
+            "kind": "project",
+            "id": "proj_velruntime",
+            "label": "Vel Runtime"
+          }
+        ]
+      }
+    ],
+    "reasons": [
+      "Now reflects persisted commitments, people, conflicts, and handoffs."
+    ],
+    "debug": {
+      "raw_context": {
+        "mode": "focused",
+        "morning_state": "engaged"
+      },
+      "signals_used": ["sig_calendar_1"],
+      "commitments_used": ["com_phase11"],
+      "risk_used": ["risk_phase11"]
+    }
+  },
+  "current_context": {
+    "computed_at": 1763661000,
+    "mode": "focused",
+    "morning_state": "engaged",
+    "current_context_path": "/v1/context/current",
+    "explain_context_path": "/v1/explain/context",
+    "explain_drift_path": "/v1/explain/drift"
+  },
+  "projects": [
+    {
+      "id": "proj_velruntime",
+      "slug": "vel-runtime",
+      "name": "Vel Runtime",
+      "family": "work",
+      "status": "active",
+      "primary_repo": {
+        "path": "/home/jove/code/vel",
+        "label": "vel",
+        "kind": "repo"
+      },
+      "primary_notes_root": {
+        "path": "/home/jove/notes/vel",
+        "label": "Vel Notes",
+        "kind": "notes_root"
+      },
+      "secondary_repos": [],
+      "secondary_notes_roots": [],
+      "upstream_ids": {},
+      "pending_provision": {
+        "create_repo": false,
+        "create_notes_root": false
+      },
+      "created_at": "2026-03-19T14:00:00Z",
+      "updated_at": "2026-03-19T16:00:00Z",
+      "archived_at": null
+    }
+  ],
+  "people": [
+    {
+      "id": "per_anniecase01",
+      "display_name": "Annie Case",
+      "given_name": "Annie",
+      "family_name": "Case",
+      "relationship_context": "Collaborator on design and product review",
+      "birthday": null,
+      "last_contacted_at": "2026-03-18T19:30:00Z",
+      "aliases": [
+        {
+          "platform": "email",
+          "handle": "annie@example.com",
+          "display": "annie@example.com",
+          "source_ref": {
+            "family": "messaging",
+            "provider_key": "email",
+            "connection_id": "icn_email001",
+            "external_id": "thread_991"
+          }
+        }
+      ],
+      "links": [
+        {
+          "kind": "project",
+          "id": "proj_velruntime",
+          "label": "Vel Runtime"
+        }
+      ]
+    }
+  ],
+  "commitments": [
+    {
+      "id": "com_phase11",
+      "text": "Ship Phase 11 contract slice",
+      "source_type": "todoist",
+      "source_id": "todo_1",
+      "status": "open",
+      "due_at": "2026-03-20T17:00:00Z",
+      "project": "proj_velruntime",
+      "commitment_kind": "must",
+      "created_at": "2026-03-19T15:00:00Z",
+      "resolved_at": null,
+      "metadata": {
+        "priority": 1
+      }
+    }
+  ],
+  "review": {
+    "review_snapshot": {
+      "open_action_count": 3,
+      "triage_count": 1,
+      "projects_needing_review": 1
+    },
+    "pending_writebacks": [
+      {
+        "id": "wb_phase11",
+        "kind": "notes_append_note",
+        "risk": "confirm_required",
+        "status": "queued",
+        "target": {
+          "family": "notes",
+          "provider_key": "obsidian",
+          "project_id": "proj_velruntime",
+          "connection_id": "icn_notes001",
+          "external_id": "Daily/2026-03-19.md"
+        },
+        "requested_payload": {
+          "append_text": "Agent grounding contract approved."
+        },
+        "result_payload": null,
+        "provenance": [
+          {
+            "family": "notes",
+            "provider_key": "obsidian",
+            "connection_id": "icn_notes001",
+            "external_id": "Daily/2026-03-19.md"
+          }
+        ],
+        "conflict_case_id": "conf_phase11",
+        "requested_by_node_id": "node_authority",
+        "requested_at": "2026-03-19T16:00:00Z",
+        "applied_at": null,
+        "updated_at": "2026-03-19T16:05:00Z"
+      }
+    ],
+    "conflicts": [
+      {
+        "id": "conf_phase11",
+        "kind": "upstream_vs_local",
+        "status": "open",
+        "target": {
+          "family": "notes",
+          "provider_key": "obsidian",
+          "project_id": "proj_velruntime",
+          "connection_id": "icn_notes001",
+          "external_id": "Daily/2026-03-19.md"
+        },
+        "summary": "The local note edit diverged from the upstream note.",
+        "local_payload": {
+          "text": "Local draft"
+        },
+        "upstream_payload": {
+          "text": "Upstream draft"
+        },
+        "resolution_payload": null,
+        "opened_at": "2026-03-19T15:40:00Z",
+        "resolved_at": null,
+        "updated_at": "2026-03-19T15:45:00Z"
+      }
+    ],
+    "pending_execution_handoffs": [
+      {
+        "id": "handoff_phase11",
+        "project_id": "proj_velruntime",
+        "origin_kind": "human_to_agent",
+        "review_state": "pending_review",
+        "handoff": {
+          "handoff": {
+            "task_id": "task_phase11",
+            "trace_id": "trace_phase11",
+            "from_agent": "operator",
+            "to_agent": "executor",
+            "objective": "Implement the Phase 11 grounding contract slice",
+            "inputs": {
+              "phase": "11-01"
+            },
+            "constraints": ["stay within vel-api-types, config, and docs"],
+            "read_scopes": ["docs/", "crates/vel-api-types/", "config/"],
+            "write_scopes": ["crates/vel-api-types/", "config/", "docs/"],
+            "project_id": "proj_velruntime",
+            "task_kind": "implementation",
+            "agent_profile": "balanced",
+            "token_budget": "large",
+            "review_gate": "operator_preview",
+            "repo_root": {
+              "path": "/home/jove/code/vel",
+              "label": "vel",
+              "branch": "main",
+              "head_rev": "abc1234"
+            },
+            "allowed_tools": ["rg", "cargo"],
+            "capability_scope": {
+              "mode": "scoped"
+            },
+            "deadline": "2026-03-19T19:00:00Z",
+            "expected_output_schema": {
+              "type": "object"
+            }
+          },
+          "project_id": "proj_velruntime",
+          "task_kind": "implementation",
+          "agent_profile": "balanced",
+          "token_budget": "large",
+          "review_gate": "operator_preview",
+          "repo": {
+            "path": "/home/jove/code/vel",
+            "label": "vel",
+            "branch": "main",
+            "head_rev": "abc1234"
+          },
+          "notes_root": {
+            "path": "/home/jove/notes/vel",
+            "label": "Vel Notes",
+            "kind": "notes_root"
+          },
+          "manifest_id": "manifest_local_cli"
+        },
+        "routing": {
+          "task_kind": "implementation",
+          "agent_profile": "balanced",
+          "token_budget": "large",
+          "review_gate": "operator_preview",
+          "read_scopes": ["docs/", "crates/vel-api-types/", "config/"],
+          "write_scopes": ["crates/vel-api-types/", "config/", "docs/"],
+          "allowed_tools": ["rg", "cargo"],
+          "reasons": [
+            {
+              "code": "repo_context_available",
+              "message": "Repo-local execution context is available for the grounded contract slice."
+            }
+          ]
+        },
+        "manifest_id": "manifest_local_cli",
+        "requested_by": "operator",
+        "reviewed_by": null,
+        "decision_reason": null,
+        "reviewed_at": null,
+        "launched_at": null,
+        "created_at": "2026-03-19T16:12:00Z",
+        "updated_at": "2026-03-19T16:12:00Z"
+      }
+    ]
+  }
+}

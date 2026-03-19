@@ -4,7 +4,9 @@ import {
   CORE_DOCUMENTATION_ENTRIES,
   USER_DOCUMENTATION_ENTRIES,
 } from '../data/documentationCatalog.generated';
+import { loadAgentInspect } from '../data/agent-grounding';
 import type {
+  AgentInspectData,
   ClusterBootstrapData,
   ClusterWorkersData,
   ComponentData,
@@ -630,6 +632,12 @@ function integrationFeedbackForSection(
   return Object.values(feedback).filter((entry) => entry.section === section);
 }
 
+function capabilityStatusClass(available: boolean): string {
+  return available
+    ? 'border-emerald-800/60 bg-emerald-950/20 text-emerald-200'
+    : 'border-amber-800/60 bg-amber-950/20 text-amber-100';
+}
+
 export function SettingsPage({
   onBack,
   initialTab = 'general',
@@ -756,6 +764,7 @@ export function SettingsPage({
     () => queryKeys.executionHandoffs('pending_review'),
     [],
   );
+  const agentInspectKey = useMemo(() => queryKeys.agentInspect(), []);
   const {
     data: nowData,
   } = useQuery(
@@ -854,6 +863,14 @@ export function SettingsPage({
     async () => {
       const response = await loadExecutionHandoffs('pending_review');
       return response.ok && response.data ? response.data : [];
+    },
+    { enabled: activeTab === 'general' || activeTab === 'runtime' },
+  );
+  const { data: agentInspect } = useQuery<AgentInspectData | null>(
+    agentInspectKey,
+    async () => {
+      const response = await loadAgentInspect();
+      return response.ok && response.data ? response.data : null;
     },
     { enabled: activeTab === 'general' || activeTab === 'runtime' },
   );
@@ -2323,6 +2340,105 @@ export function SettingsPage({
                 || operatorReviewStatus.pending_execution_handoffs.length > 0 ? (
                 <div className="rounded-md border border-amber-700/40 bg-amber-950/20 p-3 text-sm text-amber-100">
                   Pending execution reviews, writebacks, and conflicts are visible here before you trust supervised runtime or integration-backed actions. Review them from Now or the runtime queue first if the count is non-zero.
+                </div>
+              ) : null}
+              {agentInspect ? (
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-zinc-100">Agent grounding</h4>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        This is the backend-owned trust surface for what a supervised agent can currently see, review, and request to mutate.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-300">
+                      {agentInspect.capabilities.groups.length} capability groups
+                    </span>
+                  </div>
+                  <dl className="mt-4 grid gap-2 text-sm text-zinc-300 md:grid-cols-2 xl:grid-cols-5">
+                    <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
+                      <dt className="text-zinc-500">Projects in scope</dt>
+                      <dd className="mt-1 text-base text-zinc-100">
+                        {agentInspect.grounding.projects.length}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
+                      <dt className="text-zinc-500">People in scope</dt>
+                      <dd className="mt-1 text-base text-zinc-100">
+                        {agentInspect.grounding.people.length}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
+                      <dt className="text-zinc-500">Commitments in scope</dt>
+                      <dd className="mt-1 text-base text-zinc-100">
+                        {agentInspect.grounding.commitments.length}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
+                      <dt className="text-zinc-500">Pending execution review</dt>
+                      <dd className="mt-1 text-base text-zinc-100">
+                        {agentInspect.grounding.review.pending_execution_handoffs.length}
+                      </dd>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
+                      <dt className="text-zinc-500">Writeback mode</dt>
+                      <dd className="mt-1 text-base text-zinc-100">
+                        {settings.writeback_enabled === true ? 'Enabled' : 'Safe mode'}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-4 grid gap-3 xl:grid-cols-3">
+                    {agentInspect.capabilities.groups.map((group) => (
+                      <section
+                        key={group.kind}
+                        className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3"
+                      >
+                        <h5 className="text-sm font-medium text-zinc-100">{group.label}</h5>
+                        <div className="mt-3 space-y-2">
+                          {group.entries.map((entry) => (
+                            <article
+                              key={entry.key}
+                              className={`rounded-md border p-3 text-sm ${capabilityStatusClass(entry.available)}`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="font-medium">{entry.label}</span>
+                                <span className="text-xs uppercase tracking-[0.18em]">
+                                  {entry.available ? 'available' : 'blocked'}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-xs text-current/80">{entry.summary}</p>
+                              {entry.blocked_reason ? (
+                                <p className="mt-2 text-xs text-current/90">
+                                  {entry.blocked_reason.message}
+                                  {entry.blocked_reason.escalation_hint
+                                    ? ` ${entry.blocked_reason.escalation_hint}`
+                                    : ''}
+                                </p>
+                              ) : null}
+                              {entry.requires_review_gate ? (
+                                <p className="mt-2 text-xs text-current/70">
+                                  Review gate: {entry.requires_review_gate.replaceAll('_', ' ')}
+                                </p>
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                  {agentInspect.blockers.length > 0 ? (
+                    <div className="mt-4 rounded-md border border-amber-700/40 bg-amber-950/20 p-3">
+                      <h5 className="text-sm font-medium text-amber-100">Current blockers</h5>
+                      <ul className="mt-2 space-y-2 text-sm text-amber-100">
+                        {agentInspect.blockers.map((blocker) => (
+                          <li key={blocker.code}>
+                            {blocker.message}
+                            {blocker.escalation_hint ? ` ${blocker.escalation_hint}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
               <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">

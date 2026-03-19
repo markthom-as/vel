@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use tokio::fs;
+use vel_api_types::AgentInspectData;
 use vel_core::{ProjectRecord, ProjectRootRef};
 
 use crate::{errors::AppError, state::AppState};
@@ -142,7 +143,8 @@ pub async fn preview_gsd_artifacts(
     output_dir: Option<&str>,
 ) -> Result<ExecutionArtifactPackData, AppError> {
     let context = load_execution_context(state, project_id).await?;
-    render_gsd_artifacts(&context, output_dir)
+    let inspect = crate::services::agent_grounding::build_agent_inspect(state).await?;
+    render_gsd_artifacts(&context, &inspect, output_dir)
 }
 
 pub async fn export_gsd_artifacts(
@@ -151,7 +153,8 @@ pub async fn export_gsd_artifacts(
     output_dir: Option<&str>,
 ) -> Result<ExecutionExportResultData, AppError> {
     let context = load_execution_context(state, project_id).await?;
-    let pack = render_gsd_artifacts(&context, output_dir)?;
+    let inspect = crate::services::agent_grounding::build_agent_inspect(state).await?;
+    let pack = render_gsd_artifacts(&context, &inspect, output_dir)?;
     let repo_root = PathBuf::from(&pack.repo_root);
 
     let mut written_paths = Vec::with_capacity(pack.files.len());
@@ -176,9 +179,12 @@ pub async fn export_gsd_artifacts(
 
 pub fn render_gsd_artifacts(
     context: &ExecutionContextData,
+    inspect: &AgentInspectData,
     output_dir: Option<&str>,
 ) -> Result<ExecutionArtifactPackData, AppError> {
     let output_dir = normalize_output_dir(output_dir)?;
+    let inspect_json = serde_json::to_string_pretty(inspect)
+        .map_err(|error| AppError::internal(error.to_string()))?;
 
     Ok(ExecutionArtifactPackData {
         project_id: context.project_id.clone(),
@@ -197,6 +203,16 @@ pub fn render_gsd_artifacts(
             ExecutionArtifactFileData {
                 relative_path: join_relative(&output_dir, "gsd-handoff.md"),
                 contents: render_handoff_markdown(context),
+            },
+            ExecutionArtifactFileData {
+                relative_path: join_relative(&output_dir, "agent-grounding.md"),
+                contents: crate::services::agent_grounding::render_agent_grounding_markdown(
+                    inspect,
+                ),
+            },
+            ExecutionArtifactFileData {
+                relative_path: join_relative(&output_dir, "agent-inspect.json"),
+                contents: inspect_json,
             },
         ],
     })
@@ -416,6 +432,8 @@ fn render_handoff_markdown(context: &ExecutionContextData) -> String {
     if context.expected_outputs.is_empty() {
         lines.push("- execution-context.md".to_string());
         lines.push("- gsd-handoff.md".to_string());
+        lines.push("- agent-grounding.md".to_string());
+        lines.push("- agent-inspect.json".to_string());
     } else {
         lines.extend(
             context
@@ -498,6 +516,104 @@ mod tests {
         ))
     }
 
+    fn test_agent_inspect() -> vel_api_types::AgentInspectData {
+        vel_api_types::AgentInspectData {
+            grounding: vel_api_types::AgentGroundingPackData {
+                generated_at: 1_700_000_000,
+                now: vel_api_types::NowData {
+                    computed_at: 1_700_000_000,
+                    timezone: "America/Denver".to_string(),
+                    summary: vel_api_types::NowSummaryData {
+                        mode: vel_api_types::NowLabelData {
+                            key: "focused".to_string(),
+                            label: "Focused".to_string(),
+                        },
+                        phase: vel_api_types::NowLabelData {
+                            key: "engaged".to_string(),
+                            label: "Engaged".to_string(),
+                        },
+                        meds: vel_api_types::NowLabelData {
+                            key: "done".to_string(),
+                            label: "Done".to_string(),
+                        },
+                        risk: vel_api_types::NowRiskSummaryData {
+                            level: "low".to_string(),
+                            score: Some(0.2),
+                            label: "Low".to_string(),
+                        },
+                    },
+                    schedule: vel_api_types::NowScheduleData {
+                        empty_message: Some("No upcoming events.".to_string()),
+                        next_event: None,
+                        upcoming_events: Vec::new(),
+                    },
+                    tasks: vel_api_types::NowTasksData {
+                        todoist: Vec::new(),
+                        other_open: Vec::new(),
+                        next_commitment: None,
+                    },
+                    attention: vel_api_types::NowAttentionData {
+                        state: vel_api_types::NowLabelData {
+                            key: "on_task".to_string(),
+                            label: "On task".to_string(),
+                        },
+                        drift: vel_api_types::NowLabelData {
+                            key: "none".to_string(),
+                            label: "None".to_string(),
+                        },
+                        severity: vel_api_types::NowLabelData {
+                            key: "low".to_string(),
+                            label: "Low".to_string(),
+                        },
+                        confidence: Some(0.9),
+                        reasons: Vec::new(),
+                    },
+                    sources: vel_api_types::NowSourcesData {
+                        git_activity: None,
+                        health: None,
+                        mood: None,
+                        pain: None,
+                        note_document: None,
+                        assistant_message: None,
+                    },
+                    freshness: vel_api_types::NowFreshnessData {
+                        overall_status: "fresh".to_string(),
+                        sources: Vec::new(),
+                    },
+                    action_items: Vec::new(),
+                    review_snapshot: vel_api_types::ReviewSnapshotData::default(),
+                    pending_writebacks: Vec::new(),
+                    conflicts: Vec::new(),
+                    people: Vec::new(),
+                    reasons: vec!["test grounding".to_string()],
+                    debug: vel_api_types::NowDebugData {
+                        raw_context: serde_json::json!({}),
+                        signals_used: Vec::new(),
+                        commitments_used: Vec::new(),
+                        risk_used: Vec::new(),
+                    },
+                },
+                current_context: None,
+                projects: Vec::new(),
+                people: Vec::new(),
+                commitments: Vec::new(),
+                review: vel_api_types::AgentReviewObligationsData {
+                    review_snapshot: vel_api_types::ReviewSnapshotData::default(),
+                    pending_writebacks: Vec::new(),
+                    conflicts: Vec::new(),
+                    pending_execution_handoffs: Vec::new(),
+                },
+            },
+            capabilities: vel_api_types::AgentCapabilitySummaryData { groups: Vec::new() },
+            blockers: Vec::new(),
+            explainability: vel_api_types::AgentInspectExplainabilityData {
+                persisted_record_kinds: vec!["now".to_string()],
+                supporting_paths: vec!["/v1/agent/inspect".to_string()],
+                raw_context_json_supporting_only: true,
+            },
+        }
+    }
+
     #[tokio::test]
     async fn execution_context_service_persists_by_project_id() {
         let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
@@ -577,6 +693,52 @@ mod tests {
         assert!(rendered.contains("/tmp/exec-render-1/tools"));
         assert!(rendered.contains("/tmp/exec-render-1/notes/shared"));
         assert!(!rendered.contains("/tmp/not-owned"));
+        assert!(pack
+            .files
+            .iter()
+            .any(|file| file.relative_path.ends_with("agent-grounding.md")));
+        assert!(pack
+            .files
+            .iter()
+            .any(|file| file.relative_path.ends_with("agent-inspect.json")));
+    }
+
+    #[test]
+    fn execution_context_render_includes_grounding_artifacts() {
+        let context = ExecutionContextData {
+            project_id: "proj_exec_render".to_string(),
+            project_slug: "exec-render".to_string(),
+            project_name: "Project exec-render".to_string(),
+            objective: "Prepare a grounded handoff".to_string(),
+            repo_brief: "Repo-local only".to_string(),
+            notes_brief: "Keep notes in scope".to_string(),
+            constraints: vec!["Stay inside the repo".to_string()],
+            expected_outputs: Vec::new(),
+            repo_roots: vec![ExecutionRootData {
+                path: "/tmp/exec-render".to_string(),
+                label: "exec-render".to_string(),
+                kind: "repo".to_string(),
+            }],
+            notes_roots: vec![ExecutionRootData {
+                path: "/tmp/exec-render/notes".to_string(),
+                label: "exec-render-notes".to_string(),
+                kind: "notes_root".to_string(),
+            }],
+            created_at: OffsetDateTime::now_utc(),
+            updated_at: OffsetDateTime::now_utc(),
+        };
+
+        let pack = render_gsd_artifacts(&context, &test_agent_inspect(), None).unwrap();
+
+        assert_eq!(pack.files.len(), 4);
+        assert!(pack
+            .files
+            .iter()
+            .any(|file| file.relative_path.ends_with("agent-grounding.md")));
+        assert!(pack
+            .files
+            .iter()
+            .any(|file| file.relative_path.ends_with("agent-inspect.json")));
     }
 
     #[tokio::test]

@@ -502,6 +502,76 @@ export interface ExecutionLaunchPreviewData {
   routing: ExecutionRoutingDecisionData;
 }
 
+export type AgentCapabilityGroupKindData =
+  | 'read_context'
+  | 'review_actions'
+  | 'mutation_actions';
+
+export interface AgentBlockerData {
+  code: string;
+  message: string;
+  escalation_hint: string | null;
+}
+
+export interface AgentCapabilityEntryData {
+  key: string;
+  label: string;
+  summary: string;
+  available: boolean;
+  blocked_reason: AgentBlockerData | null;
+  requires_review_gate: ExecutionReviewGateData | null;
+  requires_writeback_enabled: boolean;
+}
+
+export interface AgentCapabilityGroupData {
+  kind: AgentCapabilityGroupKindData;
+  label: string;
+  entries: AgentCapabilityEntryData[];
+}
+
+export interface AgentCapabilitySummaryData {
+  groups: AgentCapabilityGroupData[];
+}
+
+export interface AgentContextRefData {
+  computed_at: UnixSeconds;
+  mode: string | null;
+  morning_state: string | null;
+  current_context_path: string;
+  explain_context_path: string;
+  explain_drift_path: string;
+}
+
+export interface AgentReviewObligationsData {
+  review_snapshot: ReviewSnapshotData;
+  pending_writebacks: WritebackOperationData[];
+  conflicts: ConflictCaseData[];
+  pending_execution_handoffs: ExecutionHandoffRecordData[];
+}
+
+export interface AgentGroundingPackData {
+  generated_at: UnixSeconds;
+  now: NowData;
+  current_context: AgentContextRefData | null;
+  projects: ProjectRecordData[];
+  people: PersonRecordData[];
+  commitments: CommitmentData[];
+  review: AgentReviewObligationsData;
+}
+
+export interface AgentInspectExplainabilityData {
+  persisted_record_kinds: string[];
+  supporting_paths: string[];
+  raw_context_json_supporting_only: boolean;
+}
+
+export interface AgentInspectData {
+  grounding: AgentGroundingPackData;
+  capabilities: AgentCapabilitySummaryData;
+  blockers: AgentBlockerData[];
+  explainability: AgentInspectExplainabilityData;
+}
+
 export interface ProjectCreateRequestData {
   slug: string;
   name: string;
@@ -1495,6 +1565,133 @@ export function decodeExecutionLaunchPreviewData(value: unknown): ExecutionLaunc
     ),
     handoff: decodeExecutionHandoffData(record.handoff),
     routing: decodeExecutionRoutingDecisionData(record.routing),
+  };
+}
+
+export function decodeAgentBlockerData(value: unknown): AgentBlockerData {
+  const record = expectRecord(value, 'agent blocker');
+  return {
+    code: expectString(record.code, 'agent blocker.code'),
+    message: expectString(record.message, 'agent blocker.message'),
+    escalation_hint: expectNullableString(record.escalation_hint, 'agent blocker.escalation_hint'),
+  };
+}
+
+export function decodeAgentCapabilityGroupKindData(value: unknown): AgentCapabilityGroupKindData {
+  return expectEnumString(value, 'agent capability group kind', [
+    'read_context',
+    'review_actions',
+    'mutation_actions',
+  ]);
+}
+
+export function decodeAgentCapabilityEntryData(value: unknown): AgentCapabilityEntryData {
+  const record = expectRecord(value, 'agent capability entry');
+  return {
+    key: expectString(record.key, 'agent capability entry.key'),
+    label: expectString(record.label, 'agent capability entry.label'),
+    summary: expectString(record.summary, 'agent capability entry.summary'),
+    available: expectBoolean(record.available, 'agent capability entry.available'),
+    blocked_reason: decodeNullable(record.blocked_reason, decodeAgentBlockerData),
+    requires_review_gate: decodeNullable(
+      record.requires_review_gate,
+      decodeExecutionReviewGateData,
+    ),
+    requires_writeback_enabled: expectBoolean(
+      record.requires_writeback_enabled,
+      'agent capability entry.requires_writeback_enabled',
+    ),
+  };
+}
+
+export function decodeAgentCapabilityGroupData(value: unknown): AgentCapabilityGroupData {
+  const record = expectRecord(value, 'agent capability group');
+  return {
+    kind: decodeAgentCapabilityGroupKindData(record.kind),
+    label: expectString(record.label, 'agent capability group.label'),
+    entries: decodeArray(record.entries ?? [], decodeAgentCapabilityEntryData),
+  };
+}
+
+export function decodeAgentCapabilitySummaryData(value: unknown): AgentCapabilitySummaryData {
+  const record = expectRecord(value, 'agent capability summary');
+  return {
+    groups: decodeArray(record.groups ?? [], decodeAgentCapabilityGroupData),
+  };
+}
+
+export function decodeAgentContextRefData(value: unknown): AgentContextRefData {
+  const record = expectRecord(value, 'agent context ref');
+  return {
+    computed_at: expectUnixSeconds(record.computed_at, 'agent context ref.computed_at'),
+    mode: expectNullableString(record.mode, 'agent context ref.mode'),
+    morning_state: expectNullableString(record.morning_state, 'agent context ref.morning_state'),
+    current_context_path: expectString(
+      record.current_context_path,
+      'agent context ref.current_context_path',
+    ),
+    explain_context_path: expectString(
+      record.explain_context_path,
+      'agent context ref.explain_context_path',
+    ),
+    explain_drift_path: expectString(
+      record.explain_drift_path,
+      'agent context ref.explain_drift_path',
+    ),
+  };
+}
+
+export function decodeAgentReviewObligationsData(value: unknown): AgentReviewObligationsData {
+  const record = expectRecord(value, 'agent review obligations');
+  return {
+    review_snapshot: decodeReviewSnapshotData(record.review_snapshot ?? {}),
+    pending_writebacks: decodeArray(record.pending_writebacks ?? [], decodeWritebackOperationData),
+    conflicts: decodeArray(record.conflicts ?? [], decodeConflictCaseData),
+    pending_execution_handoffs: decodeArray(
+      record.pending_execution_handoffs ?? [],
+      decodeExecutionHandoffRecordData,
+    ),
+  };
+}
+
+export function decodeAgentGroundingPackData(value: unknown): AgentGroundingPackData {
+  const record = expectRecord(value, 'agent grounding pack');
+  return {
+    generated_at: expectUnixSeconds(record.generated_at, 'agent grounding pack.generated_at'),
+    now: decodeNowData(record.now),
+    current_context: decodeNullable(record.current_context, decodeAgentContextRefData),
+    projects: decodeArray(record.projects ?? [], decodeProjectRecordData),
+    people: decodeArray(record.people ?? [], decodePersonRecordData),
+    commitments: decodeArray(record.commitments ?? [], decodeCommitmentData),
+    review: decodeAgentReviewObligationsData(record.review ?? {}),
+  };
+}
+
+export function decodeAgentInspectExplainabilityData(
+  value: unknown,
+): AgentInspectExplainabilityData {
+  const record = expectRecord(value, 'agent inspect explainability');
+  return {
+    persisted_record_kinds: decodeArray(record.persisted_record_kinds ?? [], (item) =>
+      expectString(item, 'agent inspect explainability.persisted_record_kinds'),
+    ),
+    supporting_paths: decodeArray(record.supporting_paths ?? [], (item) =>
+      expectString(item, 'agent inspect explainability.supporting_paths'),
+    ),
+    raw_context_json_supporting_only: expectBoolean(
+      record.raw_context_json_supporting_only,
+      'agent inspect explainability.raw_context_json_supporting_only',
+    ),
+  };
+}
+
+export function decodeAgentInspectData(value: unknown): AgentInspectData {
+  const record = expectRecord(value, 'agent inspect');
+  return {
+    grounding: decodeAgentGroundingPackData(record.grounding),
+    capabilities: decodeAgentCapabilitySummaryData(record.capabilities),
+    blockers: decodeArray(record.blockers ?? [], decodeAgentBlockerData),
+    explainability: decodeAgentInspectExplainabilityData(record.explainability),
   };
 }
 
