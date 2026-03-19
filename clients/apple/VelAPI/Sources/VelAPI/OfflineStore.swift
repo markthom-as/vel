@@ -39,6 +39,9 @@ public final class VelOfflineStore {
         static let nudges = "vel.cached.nudges"
         static let commitments = "vel.cached.commitments"
         static let signals = "vel.cached.signals"
+        static let projects = "vel.cached.projects"
+        static let actionItems = "vel.cached.action_items"
+        static let linkedNodes = "vel.cached.linked_nodes"
         static let queuedActions = "vel.queued.actions"
     }
 
@@ -82,6 +85,30 @@ public final class VelOfflineStore {
 
     public func saveCachedSignals(_ signals: [SignalData]) {
         encode(signals, forKey: Keys.signals)
+    }
+
+    public func cachedProjects() -> [ProjectRecordData] {
+        decode([ProjectRecordData].self, forKey: Keys.projects) ?? []
+    }
+
+    public func saveCachedProjects(_ projects: [ProjectRecordData]) {
+        encode(projects, forKey: Keys.projects)
+    }
+
+    public func cachedActionItems() -> [ActionItemData] {
+        decode([ActionItemData].self, forKey: Keys.actionItems) ?? []
+    }
+
+    public func saveCachedActionItems(_ actionItems: [ActionItemData]) {
+        encode(actionItems, forKey: Keys.actionItems)
+    }
+
+    public func cachedLinkedNodes() -> [LinkedNodeData] {
+        decode([LinkedNodeData].self, forKey: Keys.linkedNodes) ?? []
+    }
+
+    public func saveCachedLinkedNodes(_ linkedNodes: [LinkedNodeData]) {
+        encode(linkedNodes, forKey: Keys.linkedNodes)
     }
 
     public func queuedActions() -> [QueuedAction] {
@@ -128,6 +155,9 @@ public final class VelOfflineStore {
         }
         saveCachedNudges(bootstrap.nudges)
         saveCachedCommitments(bootstrap.commitments)
+        saveCachedProjects(bootstrap.projects)
+        saveCachedActionItems(bootstrap.action_items)
+        saveCachedLinkedNodes(bootstrap.linked_nodes)
     }
 
     public func queuedActionRequests() -> [SyncActionRequestData] {

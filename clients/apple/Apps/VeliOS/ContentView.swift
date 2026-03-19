@@ -131,10 +131,40 @@ private struct TodayTab: View {
     @State private var commitmentText = ""
     @State private var captureText = ""
 
+    private var cachedProjects: [ProjectRecordData] {
+        Array(store.offlineStore.cachedProjects().prefix(5))
+    }
+
+    private var actionItems: [ActionItemData] {
+        store.offlineStore.cachedActionItems()
+            .filter { $0.surface == .now }
+            .sorted { $0.rank < $1.rank }
+    }
+
     var body: some View {
         List {
             Section("Connection") {
                 ConnectionSummaryRow(store: store)
+            }
+
+            Section("Top action") {
+                if let action = actionItems.first {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(action.title)
+                        if let projectLabel = projectLabel(for: action.project_id) {
+                            Text(projectLabel)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(action.summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("No backend-ranked action is cached yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("Current context") {
@@ -167,6 +197,30 @@ private struct TodayTab: View {
                     Text("No context yet. Run evaluate/sync on daemon or refresh once connected.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("Projects") {
+                if cachedProjects.isEmpty {
+                    Text("No cached projects.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(projectGroups(from: cachedProjects)) { group in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(group.title)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            ForEach(group.projects) { project in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(project.name)
+                                    Text(project.primary_repo.path)
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -231,6 +285,11 @@ private struct TodayTab: View {
         }
         .listStyle(.insetGrouped)
         .refreshable { await store.refresh() }
+    }
+
+    private func projectLabel(for projectID: String?) -> String? {
+        guard let projectID else { return nil }
+        return store.offlineStore.cachedProjects().first(where: { $0.id == projectID })?.name
     }
 }
 
@@ -2382,6 +2441,26 @@ private func formatDate(_ date: Date) -> String {
     formatter.dateStyle = .medium
     formatter.timeStyle = .short
     return formatter.string(from: date)
+}
+
+private struct ProjectGroupSection: Identifiable {
+    let id: String
+    let title: String
+    let projects: [ProjectRecordData]
+}
+
+private func projectGroups(from projects: [ProjectRecordData]) -> [ProjectGroupSection] {
+    let groups: [(ProjectFamilyData, String)] = [
+        (.personal, "Personal"),
+        (.creative, "Creative"),
+        (.work, "Work")
+    ]
+
+    return groups.compactMap { family, title in
+        let matching = projects.filter { $0.family == family }
+        guard !matching.isEmpty else { return nil }
+        return ProjectGroupSection(id: title, title: title, projects: matching)
+    }
 }
 
 #Preview {

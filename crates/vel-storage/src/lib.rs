@@ -16,8 +16,8 @@ pub use db::{
     WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentUpdate,
 };
 pub use vel_core::{
-    ContextCapture, LinkScope, LinkStatus, LinkedNodeRecord, OrientationSnapshot, PairingTokenRecord,
-    ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef,
-    ProjectStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
+    ContextCapture, LinkScope, LinkStatus, LinkedNodeRecord, OrientationSnapshot,
+    PairingTokenRecord, ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord,
+    ProjectRootRef, ProjectStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
     WorkAssignmentStatus,
 };

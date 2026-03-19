@@ -26,7 +26,11 @@ impl From<services::now::NowOutput> for NowData {
             attention: value.attention.into(),
             sources: value.sources.into(),
             freshness: value.freshness.into(),
-            action_items: value.action_items.into_iter().map(ActionItemData::from).collect(),
+            action_items: value
+                .action_items
+                .into_iter()
+                .map(ActionItemData::from)
+                .collect(),
             review_snapshot: value.review_snapshot.into(),
             reasons: value.reasons,
             debug: value.debug.into(),

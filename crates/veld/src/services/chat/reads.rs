@@ -53,9 +53,14 @@ async fn intervention_record_to_inbox_output(
     record: vel_storage::InterventionRecord,
     action_item: Option<&ActionItem>,
 ) -> Result<InboxItem, AppError> {
-    let message = state.storage.get_message(record.message_id.as_ref()).await?;
+    let message = state
+        .storage
+        .get_message(record.message_id.as_ref())
+        .await?;
     let message = message.map(message_record_to_data).transpose()?;
-    let conversation_id = message.as_ref().map(|message| message.conversation_id.clone());
+    let conversation_id = message
+        .as_ref()
+        .map(|message| message.conversation_id.clone());
 
     let (fallback_title, fallback_summary) = message
         .as_ref()

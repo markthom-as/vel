@@ -97,7 +97,12 @@ pub(crate) fn message_title_summary(message: &MessageServiceData) -> (String, St
         .content
         .get("title")
         .and_then(serde_json::Value::as_str)
-        .or_else(|| message.content.get("text").and_then(serde_json::Value::as_str))
+        .or_else(|| {
+            message
+                .content
+                .get("text")
+                .and_then(serde_json::Value::as_str)
+        })
         .unwrap_or("Inbox intervention")
         .to_string();
     let summary = message

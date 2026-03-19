@@ -78,6 +78,8 @@ cargo run -p vel-cli -- review today
 Good uses:
 
 - see what was captured,
+- orient in Now before you react to scattered context,
+- triage Inbox from the explicit action queue instead of guessing what is urgent,
 - inspect what remained unresolved,
 - notice response debt or drift,
 - prepare a cleaner next start.
@@ -91,6 +93,8 @@ cargo run -p vel-cli -- review week
 cargo run -p vel-cli -- synthesize week
 cargo run -p vel-cli -- synthesize project vel
 ```
+
+Use the weekly pass to review Projects weekly, not just raw capture volume. The JSON review output now includes typed project candidates so you can see which workspaces still have open commitments attached.
 
 ## Inspection and trust
 

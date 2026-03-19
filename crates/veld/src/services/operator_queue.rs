@@ -325,16 +325,14 @@ fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<A
     for project in projects {
         if project.pending_provision.create_repo || project.pending_provision.create_notes_root {
             items.push(ActionItem {
-                id: ActionItemId::from(format!(
-                    "act_project_blocked_{}",
-                    project.id.as_ref()
-                )),
+                id: ActionItemId::from(format!("act_project_blocked_{}", project.id.as_ref())),
                 surface: ActionSurface::Inbox,
                 kind: ActionKind::Blocked,
                 title: format!("Project {} needs provisioning review", project.name),
                 summary: format!(
                     "Pending local-first provision flags: repo={}, notes_root={}.",
-                    project.pending_provision.create_repo, project.pending_provision.create_notes_root
+                    project.pending_provision.create_repo,
+                    project.pending_provision.create_notes_root
                 ),
                 project_id: Some(project.id.clone()),
                 state: ActionState::Active,
@@ -501,8 +499,9 @@ mod tests {
                 conversation_id: conversation.id.as_ref().to_string(),
                 role: "assistant".to_string(),
                 kind: "risk_card".to_string(),
-                content_json: r#"{"title":"Link trust degraded","reason":"Review this queue item"}"#
-                    .to_string(),
+                content_json:
+                    r#"{"title":"Link trust degraded","reason":"Review this queue item"}"#
+                        .to_string(),
                 status: None,
                 importance: None,
             })

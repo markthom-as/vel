@@ -124,7 +124,7 @@ Remaining execution order: 5 → 6 → 7 → 8 → 9
 | 2. Distributed State, Offline Clients & System-of-Systems | 1/7 | Closed / Re-scoped | 2026-03-19 |
 | 3. Deterministic Verification & Continuous Alignment | 5/5 | Complete | 2026-03-18 |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 5/5 | Closed / Re-scoped | 2026-03-19 |
-| 5. Now + Inbox core and project substrate | 6/9 | Executing | - |
+| 5. Now + Inbox core and project substrate | 9/9 | Complete | 2026-03-19 |
 | 6. High-value write-back integrations and lightweight people graph | 0/7 | Planned | - |
 | 7. Apple action loops and behavioral signal ingestion | 0/0 | Not planned | - |
 | 8. Coding-centric supervised execution with GSD and local agents | 0/0 | Not planned | - |
@@ -145,8 +145,8 @@ Plans:
 - [x] 05-05-PLAN.md — Build the backend action/intervention projection plus Inbox triage mutations and sync state
 - [x] 05-06-PLAN.md — Add typed web data contracts, project/linking loaders, and Inbox mutation helpers
 - [x] 05-07-PLAN.md — Ship the web Now/Inbox/Projects/linking views on top of the new data layer
-- [ ] 05-08-PLAN.md — Bring Apple clients to Phase 05 continuity parity without adding client-owned policy
-- [ ] 05-09-PLAN.md — Make review outputs and operator docs align with the typed project/action model
+- [x] 05-08-PLAN.md — Bring Apple clients to Phase 05 continuity parity without adding client-owned policy
+- [x] 05-09-PLAN.md — Make review outputs and operator docs align with the typed project/action model
 
 ### Phase 6: High-value write-back integrations and lightweight people graph
 

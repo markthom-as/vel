@@ -32,6 +32,8 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 ### `GET /api/inbox`
 
 - operator inbox for surfaced interventions and related review items
+- this is the backend-owned triage queue for the Inbox surface
+- surfaced actions may include operator affordances such as `open_thread`, resolve, dismiss, or snooze depending on the evidence attached to the item
 
 ### `POST /api/interventions/:id/snooze`
 ### `POST /api/interventions/:id/resolve`

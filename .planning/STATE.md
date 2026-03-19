@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 05-07-PLAN.md
-last_updated: "2026-03-19T03:00:55Z"
+stopped_at: Completed Phase 05; Phase 06 ready to execute
+last_updated: "2026-03-19T03:28:39Z"
 progress:
   total_phases: 9
-  completed_phases: 4
-  total_plans: 27
-  completed_plans: 18
+  completed_phases: 5
+  total_plans: 34
+  completed_plans: 20
 ---
 
 # Project State
@@ -19,20 +19,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 05 execution — 05-08 Apple continuity parity is next
+**Current focus:** Phase 06 execution — 06-01 typed contracts is next
 
 ## Current Position
 
-Phase: 05 (now-inbox-core-and-project-substrate) — EXECUTING
-Plan: 7 of 9
+Phase: 06 (high-value-write-back-integrations-and-lightweight-people-graph) — PLANNED, ready to execute
+Plan: 0 of 7
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 18
+- Total plans completed: 20
 - Average duration: 22m
-- Total execution time: 169m
+- Total execution time: 175m
 
 **By Phase:**
 
@@ -130,12 +130,12 @@ Recent decisions affecting current work:
 - Phase 2 residual gaps identified by audit: live `/v1/connect` routes still stubbed; `vel node link` / pairing flow absent; `NodeIdentity` / ordering primitive not found in live code
 - Phase 4 residual gaps identified by audit: sandbox is a host-executor baseline rather than direct WASM guest runtime; semantic memory is capture-backed rather than full graph expansion; external SDK/connect transport exposure is still absent
 - There is no remaining active future roadmap work before Phase 5 because those gaps were re-scoped into Phases 5, 6, and 8
-- Phase 5 is the first active planning/execution lane
+- Phase 6 is the first active planning/execution lane
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
-- Phase 5 planning should start from the new typed project substrate, unified action/intervention model, and cross-surface continuity decisions rather than re-opening whether projects or tags are primary
+- Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:00:55Z
-Stopped at: Completed 05-07-PLAN.md
+Last session: 2026-03-19T03:28:39Z
+Stopped at: Completed Phase 05; Phase 06 ready to execute
 Resume file: None

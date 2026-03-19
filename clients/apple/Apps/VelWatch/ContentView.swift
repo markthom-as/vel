@@ -6,6 +6,11 @@ struct ContentView: View {
     @State private var commitmentText = ""
 
     var body: some View {
+        let linkedNodes = store.offlineStore.cachedLinkedNodes()
+        let actionItems = store.offlineStore.cachedActionItems()
+            .filter { $0.surface == .now }
+            .sorted { $0.rank < $1.rank }
+
         List {
             Section("Status") {
                 Text(store.message)
@@ -26,6 +31,15 @@ struct ContentView: View {
                     Text("Queued: \(store.pendingActionCount)")
                         .font(.caption2)
                         .foregroundStyle(.orange)
+                }
+                Text("Linked nodes: \(linkedNodes.count)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                if let actionTitle = actionItems.first?.title, !actionTitle.isEmpty {
+                    Text("Top action title: \(actionTitle)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
                 }
                 if let lastActionStatus = store.lastActionStatus, !lastActionStatus.isEmpty {
                     Text(lastActionStatus)

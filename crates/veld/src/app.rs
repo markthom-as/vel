@@ -1605,6 +1605,7 @@ mod tests {
             .as_array()
             .map(|items| !items.is_empty())
             .unwrap_or(false));
+        assert!(json["data"]["action_items"][0]["surfaced_at"].is_string());
         assert_eq!(
             json["data"]["cluster"]["linked_nodes"][0]["node_id"],
             "node_remote"
@@ -1614,6 +1615,7 @@ mod tests {
             .as_array()
             .map(|items| !items.is_empty())
             .unwrap_or(false));
+        assert!(json["data"]["cluster"]["action_items"][0]["surfaced_at"].is_string());
     }
 
     #[tokio::test]
@@ -10585,6 +10587,7 @@ END:VCALENDAR
             .as_array()
             .map(|items| !items.is_empty())
             .unwrap_or(false));
+        assert!(json["data"]["action_items"][0]["surfaced_at"].is_string());
         assert!(json["data"]["action_items"]
             .as_array()
             .unwrap()

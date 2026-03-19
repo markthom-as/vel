@@ -2,9 +2,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use sqlx::{Row, Sqlite, SqlitePool, Transaction};
-use vel_core::{
-    ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef,
-};
+use vel_core::{ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef};
 
 use crate::{db::StorageError, mapping::timestamp_to_datetime};
 
@@ -246,12 +244,12 @@ fn map_project_row(row: &sqlx::sqlite::SqliteRow) -> Result<ProjectRecord, Stora
         id: ProjectId::from(row.try_get::<String, _>("id")?),
         slug: row.try_get("slug")?,
         name: row.try_get("name")?,
-        family: family.parse().map_err(|error: vel_core::VelCoreError| {
-            StorageError::Validation(error.to_string())
-        })?,
-        status: status.parse().map_err(|error: vel_core::VelCoreError| {
-            StorageError::Validation(error.to_string())
-        })?,
+        family: family
+            .parse()
+            .map_err(|error: vel_core::VelCoreError| StorageError::Validation(error.to_string()))?,
+        status: status
+            .parse()
+            .map_err(|error: vel_core::VelCoreError| StorageError::Validation(error.to_string()))?,
         primary_repo: path_root_ref(&primary_repo_path, "repo"),
         primary_notes_root: path_root_ref(&primary_notes_root, "notes_root"),
         secondary_repos: secondary_repo_paths
@@ -365,9 +363,14 @@ mod tests {
         let pool = test_pool().await;
 
         let created = create_project(&pool, sample_project()).await.unwrap();
-        upsert_project_alias(&pool, "runtime-core", &created.id, "legacy_commitment_project")
-            .await
-            .unwrap();
+        upsert_project_alias(
+            &pool,
+            "runtime-core",
+            &created.id,
+            "legacy_commitment_project",
+        )
+        .await
+        .unwrap();
 
         let alias_row =
             sqlx::query("SELECT project_id, source FROM project_aliases WHERE alias = ?")

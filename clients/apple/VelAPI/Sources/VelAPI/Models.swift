@@ -126,6 +126,219 @@ public struct ClusterBootstrapData: Codable, Sendable {
     public let capabilities: [String]?
     public let branch_sync: BranchSyncCapabilityData?
     public let validation_profiles: [ValidationProfileData]?
+    public let linked_nodes: [LinkedNodeData]
+    public let projects: [ProjectRecordData]
+    public let action_items: [ActionItemData]
+
+    private enum CodingKeys: String, CodingKey {
+        case node_id
+        case node_display_name
+        case active_authority_node_id
+        case active_authority_epoch
+        case sync_base_url
+        case sync_transport
+        case tailscale_base_url
+        case lan_base_url
+        case localhost_base_url
+        case capabilities
+        case branch_sync
+        case validation_profiles
+        case linked_nodes
+        case projects
+        case action_items
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        node_id = try container.decode(String.self, forKey: .node_id)
+        node_display_name = try container.decode(String.self, forKey: .node_display_name)
+        active_authority_node_id = try container.decode(String.self, forKey: .active_authority_node_id)
+        active_authority_epoch = try container.decode(Int.self, forKey: .active_authority_epoch)
+        sync_base_url = try container.decode(String.self, forKey: .sync_base_url)
+        sync_transport = try container.decode(String.self, forKey: .sync_transport)
+        tailscale_base_url = try container.decodeIfPresent(String.self, forKey: .tailscale_base_url)
+        lan_base_url = try container.decodeIfPresent(String.self, forKey: .lan_base_url)
+        localhost_base_url = try container.decodeIfPresent(String.self, forKey: .localhost_base_url)
+        capabilities = try container.decodeIfPresent([String].self, forKey: .capabilities)
+        branch_sync = try container.decodeIfPresent(BranchSyncCapabilityData.self, forKey: .branch_sync)
+        validation_profiles = try container.decodeIfPresent([ValidationProfileData].self, forKey: .validation_profiles)
+        linked_nodes = try container.decodeIfPresent([LinkedNodeData].self, forKey: .linked_nodes) ?? []
+        projects = try container.decodeIfPresent([ProjectRecordData].self, forKey: .projects) ?? []
+        action_items = try container.decodeIfPresent([ActionItemData].self, forKey: .action_items) ?? []
+    }
+}
+
+public enum ProjectFamilyData: String, Codable, Sendable {
+    case personal
+    case creative
+    case work
+}
+
+public enum ProjectStatusData: String, Codable, Sendable {
+    case active
+    case paused
+    case archived
+}
+
+public struct ProjectRootRefData: Codable, Sendable {
+    public let path: String
+    public let label: String
+    public let kind: String
+}
+
+public struct ProjectProvisionRequestData: Codable, Sendable {
+    public let create_repo: Bool
+    public let create_notes_root: Bool
+}
+
+public struct ProjectRecordData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let slug: String
+    public let name: String
+    public let family: ProjectFamilyData
+    public let status: ProjectStatusData
+    public let primary_repo: ProjectRootRefData
+    public let primary_notes_root: ProjectRootRefData
+    public let secondary_repos: [ProjectRootRefData]
+    public let secondary_notes_roots: [ProjectRootRefData]
+    public let upstream_ids: [String: String]
+    public let pending_provision: ProjectProvisionRequestData
+    public let created_at: String
+    public let updated_at: String
+    public let archived_at: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case slug
+        case name
+        case family
+        case status
+        case primary_repo
+        case primary_notes_root
+        case secondary_repos
+        case secondary_notes_roots
+        case upstream_ids
+        case pending_provision
+        case created_at
+        case updated_at
+        case archived_at
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        slug = try container.decode(String.self, forKey: .slug)
+        name = try container.decode(String.self, forKey: .name)
+        family = try container.decode(ProjectFamilyData.self, forKey: .family)
+        status = try container.decode(ProjectStatusData.self, forKey: .status)
+        primary_repo = try container.decode(ProjectRootRefData.self, forKey: .primary_repo)
+        primary_notes_root = try container.decode(ProjectRootRefData.self, forKey: .primary_notes_root)
+        secondary_repos = try container.decodeIfPresent([ProjectRootRefData].self, forKey: .secondary_repos) ?? []
+        secondary_notes_roots = try container.decodeIfPresent([ProjectRootRefData].self, forKey: .secondary_notes_roots) ?? []
+        upstream_ids = try container.decodeIfPresent([String: String].self, forKey: .upstream_ids) ?? [:]
+        pending_provision = try container.decodeIfPresent(ProjectProvisionRequestData.self, forKey: .pending_provision)
+            ?? ProjectProvisionRequestData(create_repo: false, create_notes_root: false)
+        created_at = try container.decode(String.self, forKey: .created_at)
+        updated_at = try container.decode(String.self, forKey: .updated_at)
+        archived_at = try container.decodeIfPresent(String.self, forKey: .archived_at)
+    }
+}
+
+public enum ActionSurfaceData: String, Codable, Sendable {
+    case now
+    case inbox
+}
+
+public enum ActionKindData: String, Codable, Sendable {
+    case next_step
+    case intervention
+    case review
+    case freshness
+    case blocked
+    case conflict
+    case linking
+}
+
+public enum ActionStateData: String, Codable, Sendable {
+    case active
+    case acknowledged
+    case resolved
+    case dismissed
+    case snoozed
+}
+
+public struct ActionEvidenceRefData: Codable, Sendable {
+    public let source_kind: String
+    public let source_id: String
+    public let label: String
+    public let detail: String?
+}
+
+public struct ActionItemData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let surface: ActionSurfaceData
+    public let kind: ActionKindData
+    public let title: String
+    public let summary: String
+    public let project_id: String?
+    public let state: ActionStateData
+    public let rank: Int
+    public let surfaced_at: String
+    public let snoozed_until: String?
+    public let evidence: [ActionEvidenceRefData]
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case surface
+        case kind
+        case title
+        case summary
+        case project_id
+        case state
+        case rank
+        case surfaced_at
+        case snoozed_until
+        case evidence
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        surface = try container.decode(ActionSurfaceData.self, forKey: .surface)
+        kind = try container.decode(ActionKindData.self, forKey: .kind)
+        title = try container.decode(String.self, forKey: .title)
+        summary = try container.decode(String.self, forKey: .summary)
+        project_id = try container.decodeIfPresent(String.self, forKey: .project_id)
+        state = try container.decode(ActionStateData.self, forKey: .state)
+        rank = try container.decode(Int.self, forKey: .rank)
+        surfaced_at = try container.decode(String.self, forKey: .surfaced_at)
+        snoozed_until = try container.decodeIfPresent(String.self, forKey: .snoozed_until)
+        evidence = try container.decodeIfPresent([ActionEvidenceRefData].self, forKey: .evidence) ?? []
+    }
+}
+
+public struct LinkScopeData: Codable, Sendable {
+    public let read_context: Bool
+    public let write_safe_actions: Bool
+    public let execute_repo_tasks: Bool
+}
+
+public enum LinkStatusData: String, Codable, Sendable {
+    case pending
+    case linked
+    case revoked
+    case expired
+}
+
+public struct LinkedNodeData: Codable, Sendable, Identifiable {
+    public var id: String { node_id }
+    public let node_id: String
+    public let node_display_name: String
+    public let status: LinkStatusData
+    public let scopes: LinkScopeData
+    public let linked_at: String
+    public let last_seen_at: String?
+    public let transport_hint: String?
 }
 
 public struct BranchSyncCapabilityData: Codable, Sendable {
@@ -152,6 +365,33 @@ public struct SyncBootstrapData: Codable, Sendable {
     public let current_context: CurrentContextData?
     public let nudges: [NudgeData]
     public let commitments: [CommitmentData]
+    public let linked_nodes: [LinkedNodeData]
+    public let projects: [ProjectRecordData]
+    public let action_items: [ActionItemData]
+
+    private enum CodingKeys: String, CodingKey {
+        case cluster
+        case current_context
+        case nudges
+        case commitments
+        case linked_nodes
+        case projects
+        case action_items
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        cluster = try container.decode(ClusterBootstrapData.self, forKey: .cluster)
+        current_context = try container.decodeIfPresent(CurrentContextData.self, forKey: .current_context)
+        nudges = try container.decodeIfPresent([NudgeData].self, forKey: .nudges) ?? []
+        commitments = try container.decodeIfPresent([CommitmentData].self, forKey: .commitments) ?? []
+        linked_nodes = try container.decodeIfPresent([LinkedNodeData].self, forKey: .linked_nodes)
+            ?? cluster.linked_nodes
+        projects = try container.decodeIfPresent([ProjectRecordData].self, forKey: .projects)
+            ?? cluster.projects
+        action_items = try container.decodeIfPresent([ActionItemData].self, forKey: .action_items)
+            ?? cluster.action_items
+    }
 }
 
 public typealias SyncActionsResponse = APIEnvelope<SyncActionsResultData>

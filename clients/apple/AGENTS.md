@@ -22,6 +22,7 @@ This file defines durable rules for work under `clients/apple`.
 - `VelAPI` must not import or depend on app targets.
 - UI layers must not redefine backend domain enums/types with alternate spellings.
 - SwiftUI views must not contain backend policy rules (risk, inference, nudge generation).
+- Phase 05 continuity fields (`projects`, `action_items`, `linked_nodes`) are backend-owned and must not be re-ranked or re-triaged in Swift.
 - Widgets/complications and notifications should route actions through shared queue/sync paths.
 
 ## Contract and Mapping Workflow

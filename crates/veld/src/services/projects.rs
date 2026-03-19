@@ -1,8 +1,12 @@
 use std::path::Path;
 
 use time::OffsetDateTime;
-use vel_api_types::{ProjectCreateRequestData, ProjectFamilyData, ProjectRootRefData, ProjectStatusData};
-use vel_core::{ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus};
+use vel_api_types::{
+    ProjectCreateRequestData, ProjectFamilyData, ProjectRootRefData, ProjectStatusData,
+};
+use vel_core::{
+    ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus,
+};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -85,7 +89,10 @@ pub async fn create_project(
         .map_err(map_project_storage_error)
 }
 
-fn root_from_data(data: ProjectRootRefData, default_kind: &str) -> Result<ProjectRootRef, AppError> {
+fn root_from_data(
+    data: ProjectRootRefData,
+    default_kind: &str,
+) -> Result<ProjectRootRef, AppError> {
     let path = data.path.trim();
     if path.is_empty() {
         return Err(AppError::bad_request("project root path must not be empty"));

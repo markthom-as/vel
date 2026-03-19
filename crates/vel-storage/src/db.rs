@@ -3,12 +3,11 @@ use crate::{
     repositories::{
         artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
         cluster_workers_repo, commitment_risk_repo, commitments_repo, connect_runs_repo,
-        context_timeline_repo, current_context_repo, inferred_state_repo, linking_repo,
-        projects_repo,
-        integration_connections_repo, nudges_repo, processing_jobs_repo, run_refs_repo, runs_repo,
-        runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
-        suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
-        work_assignments_repo,
+        context_timeline_repo, current_context_repo, inferred_state_repo,
+        integration_connections_repo, linking_repo, nudges_repo, processing_jobs_repo,
+        projects_repo, run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo,
+        settings_repo, signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
+        uncertainty_records_repo, work_assignments_repo,
     },
 };
 use serde::Serialize;
@@ -22,10 +21,9 @@ use vel_core::{
     ContextCapture, ConversationId, EventId, IntegrationConnection, IntegrationConnectionEvent,
     IntegrationConnectionEventType, IntegrationConnectionId, IntegrationConnectionSettingRef,
     IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, InterventionId, JobId,
-    JobStatus, LinkedNodeRecord, MessageId, OrientationSnapshot, PairingTokenRecord,
-    PrivacyClass, ProjectFamily, ProjectId, ProjectRecord, Ref, Run, RunEvent, RunEventType,
-    RunId, RunKind, RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
-    SyncClass,
+    JobStatus, LinkedNodeRecord, MessageId, OrientationSnapshot, PairingTokenRecord, PrivacyClass,
+    ProjectFamily, ProjectId, ProjectRecord, Ref, Run, RunEvent, RunEventType, RunId, RunKind,
+    RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");

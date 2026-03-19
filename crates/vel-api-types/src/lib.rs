@@ -487,7 +487,9 @@ pub struct ActionItemData {
     pub project_id: Option<ProjectId>,
     pub state: ActionStateData,
     pub rank: i64,
+    #[serde(with = "time::serde::rfc3339")]
     pub surfaced_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub snoozed_until: Option<OffsetDateTime>,
     #[serde(default)]
     pub evidence: Vec<ActionEvidenceRefData>,
@@ -2592,8 +2594,12 @@ pub struct NudgeEventData {
 
 #[cfg(test)]
 mod tests {
-    use super::{NowTaskData, ReviewSnapshotData};
+    use super::{
+        ActionEvidenceRefData, ActionItemData, ActionKindData, ActionStateData, ActionSurfaceData,
+        NowTaskData, ReviewSnapshotData,
+    };
     use time::macros::datetime;
+    use vel_core::ActionItemId;
 
     #[test]
     fn now_task_due_at_serializes_as_rfc3339_string() {
@@ -2633,5 +2639,31 @@ mod tests {
         assert_eq!(value["open_action_count"], 0);
         assert_eq!(value["triage_count"], 0);
         assert_eq!(value["projects_needing_review"], 0);
+    }
+
+    #[test]
+    fn action_item_timestamps_serialize_as_rfc3339_strings() {
+        let item = ActionItemData {
+            id: ActionItemId::from("act_1".to_string()),
+            surface: ActionSurfaceData::Now,
+            kind: ActionKindData::NextStep,
+            title: "Ship patch".to_string(),
+            summary: "Due soon".to_string(),
+            project_id: None,
+            state: ActionStateData::Active,
+            rank: 70,
+            surfaced_at: datetime!(2026-03-19 02:10:00 UTC),
+            snoozed_until: Some(datetime!(2026-03-19 02:20:00 UTC)),
+            evidence: vec![ActionEvidenceRefData {
+                source_kind: "commitment".to_string(),
+                source_id: "com_1".to_string(),
+                label: "Ship patch".to_string(),
+                detail: None,
+            }],
+        };
+
+        let value = serde_json::to_value(item).expect("action item should serialize");
+        assert_eq!(value["surfaced_at"], "2026-03-19T02:10:00Z");
+        assert_eq!(value["snoozed_until"], "2026-03-19T02:20:00Z");
     }
 }

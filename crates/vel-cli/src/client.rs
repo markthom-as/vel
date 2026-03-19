@@ -7,11 +7,11 @@ use vel_api_types::{
     CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
     CommitmentUpdateRequest, ConnectInstanceData, DoctorData, EndOfDayData, EvaluateResultData,
     HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
-    LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData,
-    NudgeData, NudgeSnoozeRequest, PairingTokenData, PainJournalCreateRequest,
-    QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData,
-    SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData, UncertaintyData,
-    ValidationRequestData,
+    LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NowData,
+    NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData,
+    ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults,
+    SyncBootstrapData, SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData,
+    UncertaintyData, ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -586,6 +586,14 @@ impl ApiClient {
         &self,
     ) -> anyhow::Result<ApiResponse<Option<vel_api_types::CurrentContextData>>> {
         self.get("/v1/context/current").await
+    }
+
+    pub async fn get_now(&self) -> anyhow::Result<ApiResponse<NowData>> {
+        self.get("/v1/now").await
+    }
+
+    pub async fn list_projects(&self) -> anyhow::Result<ApiResponse<ProjectListResponseData>> {
+        self.get("/v1/projects").await
     }
 
     pub async fn get_explain_nudge(

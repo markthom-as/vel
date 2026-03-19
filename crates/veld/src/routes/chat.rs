@@ -92,7 +92,11 @@ fn map_inbox_item_data(data: crate::services::chat::reads::InboxItem) -> InboxIt
         project_id: data.project_id,
         project_label: data.project_label,
         available_actions: data.available_actions,
-        evidence: data.evidence.into_iter().map(ActionEvidenceRefData::from).collect(),
+        evidence: data
+            .evidence
+            .into_iter()
+            .map(ActionEvidenceRefData::from)
+            .collect(),
     }
 }
 

@@ -57,11 +57,16 @@ pub async fn redeem_pairing_token(
         return Err(AppError::bad_request("node_display_name must not be empty"));
     }
 
-    let Some((token, redeemed_at)) = state.storage.get_pairing_token_by_code(token_code).await? else {
-        return Err(AppError::bad_request("pairing token is malformed or unknown"));
+    let Some((token, redeemed_at)) = state.storage.get_pairing_token_by_code(token_code).await?
+    else {
+        return Err(AppError::bad_request(
+            "pairing token is malformed or unknown",
+        ));
     };
     if redeemed_at.is_some() {
-        return Err(AppError::bad_request("pairing token has already been redeemed"));
+        return Err(AppError::bad_request(
+            "pairing token has already been redeemed",
+        ));
     }
 
     let now = OffsetDateTime::now_utc();
@@ -75,7 +80,9 @@ pub async fn redeem_pairing_token(
         .unwrap_or_else(|| token.scopes.clone());
     validate_requested_scopes(&requested_scopes)?;
     if !scopes_within(&requested_scopes, &token.scopes) {
-        return Err(AppError::bad_request("requested scopes are out of scope for token"));
+        return Err(AppError::bad_request(
+            "requested scopes are out of scope for token",
+        ));
     }
 
     let record = LinkedNodeRecord {
@@ -85,15 +92,27 @@ pub async fn redeem_pairing_token(
         scopes: requested_scopes,
         linked_at: now,
         last_seen_at: Some(now),
-        transport_hint: request.transport_hint.map(|value| value.trim().to_string()).filter(|value| !value.is_empty()),
+        transport_hint: request
+            .transport_hint
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
     };
 
-    let marked = state.storage.mark_pairing_token_redeemed(token_code, now).await?;
+    let marked = state
+        .storage
+        .mark_pairing_token_redeemed(token_code, now)
+        .await?;
     if !marked {
-        return Err(AppError::bad_request("pairing token has already been redeemed"));
+        return Err(AppError::bad_request(
+            "pairing token has already been redeemed",
+        ));
     }
 
-    state.storage.upsert_linked_node(&record).await.map_err(Into::into)
+    state
+        .storage
+        .upsert_linked_node(&record)
+        .await
+        .map_err(Into::into)
 }
 
 pub async fn list_linked_nodes(state: &AppState) -> Result<Vec<LinkedNodeRecord>, AppError> {
@@ -114,7 +133,9 @@ pub async fn revoke_linked_node(
 
 fn validate_requested_scopes(scopes: &LinkScope) -> Result<(), AppError> {
     if !scopes.read_context && !scopes.write_safe_actions && !scopes.execute_repo_tasks {
-        return Err(AppError::bad_request("at least one linking scope must be requested"));
+        return Err(AppError::bad_request(
+            "at least one linking scope must be requested",
+        ));
     }
     Ok(())
 }
@@ -249,6 +270,9 @@ mod tests {
         .await
         .expect_err("out-of-scope request must fail");
 
-        assert_eq!(error.to_string(), "requested scopes are out of scope for token");
+        assert_eq!(
+            error.to_string(),
+            "requested scopes are out of scope for token"
+        );
     }
 }

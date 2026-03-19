@@ -201,6 +201,7 @@ CLI fallback when the web shell is unavailable:
 ### `GET /v1/now`
 
 - persisted current-context and operator-facing "what matters now" projections
+- `GET /v1/now` is the typed place to orient in Now: it returns ranked `action_items` plus the `review_snapshot` counts (`open_action_count`, `triage_count`, `projects_needing_review`)
 
 ## Explainability and search
 
@@ -292,3 +293,4 @@ Exposure:
 ### `POST /v1/synthesis/project/:slug`
 
 - run-backed synthesis generation
+- `POST /v1/synthesis/project/:slug` resolves typed projects by `projects.slug` first and falls back to a legacy commitment project alias only when no typed project exists

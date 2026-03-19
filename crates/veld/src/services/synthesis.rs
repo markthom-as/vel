@@ -17,6 +17,36 @@ enum SynthesisRetryKind {
     Project { project_slug: String },
 }
 
+struct ProjectSynthesisScope {
+    project_slug: String,
+    commitment_project_key: String,
+    project_alias: Option<String>,
+    project_id: Option<String>,
+    project_family: Option<String>,
+}
+
+impl ProjectSynthesisScope {
+    fn resolve(requested_slug: &str, typed_project: Option<vel_core::ProjectRecord>) -> Self {
+        let requested_slug = requested_slug.trim();
+        match typed_project {
+            Some(project) => Self {
+                project_slug: project.slug.clone(),
+                commitment_project_key: project.slug.clone(),
+                project_alias: (project.slug != requested_slug).then(|| requested_slug.to_string()),
+                project_id: Some(project.id.as_ref().to_string()),
+                project_family: Some(project.family.to_string()),
+            },
+            None => Self {
+                project_slug: requested_slug.to_string(),
+                commitment_project_key: requested_slug.to_string(),
+                project_alias: Some(requested_slug.to_string()),
+                project_id: None,
+                project_family: None,
+            },
+        }
+    }
+}
+
 impl SynthesisRetryKind {
     fn from_input_json(input_json: &serde_json::Value) -> Result<Self, AppError> {
         match input_json
@@ -405,14 +435,28 @@ async fn execute_project_synthesis(
 
     let now = OffsetDateTime::now_utc();
     let _seven_days_ago = (now - time::Duration::days(7)).unix_timestamp();
+    let project_scope = ProjectSynthesisScope::resolve(
+        project_slug,
+        state.storage.get_project_by_slug(project_slug).await?,
+    );
 
     let open_commitments = state
         .storage
-        .list_commitments(Some(CommitmentStatus::Open), Some(project_slug), None, 200)
+        .list_commitments(
+            Some(CommitmentStatus::Open),
+            Some(project_scope.commitment_project_key.as_str()),
+            None,
+            200,
+        )
         .await?;
     let all_project_commitments = state
         .storage
-        .list_commitments(None, Some(project_slug), None, 500)
+        .list_commitments(
+            None,
+            Some(project_scope.commitment_project_key.as_str()),
+            None,
+            500,
+        )
         .await?;
     let completed_commitment_ids: Vec<String> = all_project_commitments
         .iter()
@@ -437,7 +481,10 @@ async fn execute_project_synthesis(
         .collect();
 
     let output = serde_json::json!({
-        "project_slug": project_slug,
+        "project_slug": project_scope.project_slug,
+        "project_alias": project_scope.project_alias,
+        "project_id": project_scope.project_id,
+        "project_family": project_scope.project_family,
         "computed_at": now.unix_timestamp(),
         "open_commitments": serde_json::json!({
             "commitment_ids": open_commitment_ids,
@@ -486,7 +533,7 @@ async fn execute_project_synthesis(
         .storage
         .create_artifact(ArtifactInsert {
             artifact_type: "project_synthesis".to_string(),
-            title: Some(format!("Project synthesis: {}", project_slug)),
+            title: Some(format!("Project synthesis: {}", project_scope.project_slug)),
             mime_type: Some("application/json".to_string()),
             storage_uri,
             storage_kind: ArtifactStorageKind::Managed,
@@ -494,9 +541,13 @@ async fn execute_project_synthesis(
             sync_class: SyncClass::Warm,
             content_hash: Some(content_hash),
             size_bytes: Some(content_bytes.len() as i64),
-            metadata_json: Some(
-                serde_json::json!({ "synthesis_kind": "project", "project_slug": project_slug }),
-            ),
+            metadata_json: Some(serde_json::json!({
+                "synthesis_kind": "project",
+                "project_slug": project_scope.project_slug,
+                "project_alias": project_scope.project_alias,
+                "project_id": project_scope.project_id,
+                "project_family": project_scope.project_family,
+            })),
         })
         .await?;
     event_seq
@@ -546,6 +597,67 @@ async fn execute_project_synthesis(
         .await?;
 
     Ok(artifact_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProjectSynthesisScope;
+    use time::OffsetDateTime;
+    use vel_core::{
+        ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef,
+        ProjectStatus,
+    };
+
+    fn sample_project(slug: &str, name: &str) -> ProjectRecord {
+        ProjectRecord {
+            id: ProjectId::from("proj_123".to_string()),
+            slug: slug.to_string(),
+            name: name.to_string(),
+            family: ProjectFamily::Work,
+            status: ProjectStatus::Active,
+            primary_repo: ProjectRootRef {
+                path: "/tmp/vel".to_string(),
+                label: "vel".to_string(),
+                kind: "repo".to_string(),
+            },
+            primary_notes_root: ProjectRootRef {
+                path: "/tmp/notes/vel".to_string(),
+                label: "vel".to_string(),
+                kind: "notes_root".to_string(),
+            },
+            secondary_repos: vec![],
+            secondary_notes_roots: vec![],
+            upstream_ids: Default::default(),
+            pending_provision: ProjectProvisionRequest {
+                create_repo: false,
+                create_notes_root: false,
+            },
+            created_at: OffsetDateTime::UNIX_EPOCH,
+            updated_at: OffsetDateTime::UNIX_EPOCH,
+            archived_at: None,
+        }
+    }
+
+    #[test]
+    fn project_synthesis_scope_prefers_typed_project_slug() {
+        let scope =
+            ProjectSynthesisScope::resolve("vel", Some(sample_project("vel", "Vel Runtime")));
+
+        assert_eq!(scope.project_slug, "vel");
+        assert_eq!(scope.commitment_project_key, "vel");
+        assert_eq!(scope.project_alias, None);
+        assert_eq!(scope.project_family.as_deref(), Some("work"));
+    }
+
+    #[test]
+    fn project_synthesis_scope_falls_back_to_legacy_alias() {
+        let scope = ProjectSynthesisScope::resolve("legacy-runtime", None);
+
+        assert_eq!(scope.project_slug, "legacy-runtime");
+        assert_eq!(scope.commitment_project_key, "legacy-runtime");
+        assert_eq!(scope.project_alias.as_deref(), Some("legacy-runtime"));
+        assert!(scope.project_id.is_none());
+    }
 }
 
 async fn fail_run(state: &AppState, run_id: &RunId, error: &AppError) {
