@@ -6,6 +6,7 @@ import {
 } from '../data/documentationCatalog.generated';
 import type {
   ClusterBootstrapData,
+  ClusterWorkersData,
   ComponentData,
   ComponentLogEventData,
   DiagnosticsData,
@@ -27,6 +28,7 @@ import {
   disconnectTodoist as disconnectTodoistIntegration,
   decodeGoogleCalendarAuthStartResponse,
   loadClusterBootstrap,
+  loadClusterWorkers,
   loadComponentLogs,
   loadComponents,
   loadIntegrations,
@@ -122,6 +124,13 @@ interface GuidanceActionButton {
   disabled?: boolean;
 }
 
+interface SuggestedPathHostSection {
+  nodeId: string;
+  label: string;
+  caption: string;
+  paths: string[];
+}
+
 type LegacySettingsTab = 'components' | 'runs' | 'loops';
 export type SettingsTab = 'general' | 'integrations' | 'runtime';
 
@@ -175,6 +184,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   activity: {
     configured: false,
     source_path: null,
+    available_paths: [],
+    internal_paths: [],
     suggested_paths: [],
     source_kind: 'file',
     last_sync_at: null,
@@ -186,6 +197,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   health: {
     configured: false,
     source_path: null,
+    available_paths: [],
+    internal_paths: [],
     suggested_paths: [],
     source_kind: 'file',
     last_sync_at: null,
@@ -197,6 +210,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   git: {
     configured: false,
     source_path: null,
+    available_paths: [],
+    internal_paths: [],
     suggested_paths: [],
     source_kind: 'file',
     last_sync_at: null,
@@ -208,6 +223,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   messaging: {
     configured: false,
     source_path: null,
+    available_paths: [],
+    internal_paths: [],
     suggested_paths: [],
     source_kind: 'file',
     last_sync_at: null,
@@ -219,6 +236,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   reminders: {
     configured: false,
     source_path: null,
+    available_paths: [],
+    internal_paths: [],
     suggested_paths: [],
     source_kind: 'file',
     last_sync_at: null,
@@ -230,6 +249,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   notes: {
     configured: false,
     source_path: null,
+    available_paths: [],
+    internal_paths: [],
     suggested_paths: [],
     source_kind: 'directory',
     last_sync_at: null,
@@ -241,6 +262,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   transcripts: {
     configured: false,
     source_path: null,
+    available_paths: [],
+    internal_paths: [],
     suggested_paths: [],
     source_kind: 'file',
     last_sync_at: null,
@@ -292,6 +315,148 @@ const LOCAL_INTEGRATION_SPECS: Array<{
     description: 'Assistant transcript snapshots for recall, synthesis, and thread continuity.',
   },
 ];
+
+function dedupePaths(paths: string[]): string[] {
+  return [...new Set(paths.filter((path) => path.trim().length > 0))];
+}
+
+function normalizeClientKind(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized.includes('mac')) {
+    return 'macos';
+  }
+  if (normalized.includes('ios') || normalized.includes('iphone') || normalized.includes('ipad')) {
+    return 'ios';
+  }
+  if (normalized.includes('watch')) {
+    return 'watchos';
+  }
+  if (normalized.includes('web')) {
+    return 'web';
+  }
+  if (normalized.includes('veld') || normalized.includes('daemon') || normalized.includes('server')) {
+    return 'authority';
+  }
+  return normalized;
+}
+
+function inferLinkedNodeClientKind(nodeId: string, nodeDisplayName: string): string | null {
+  const sample = `${nodeId} ${nodeDisplayName}`.toLowerCase();
+  if (
+    sample.includes('mac')
+    || sample.includes('macbook')
+    || sample.includes('imac')
+    || sample.includes('studio')
+    || sample.includes('mini')
+    || sample.includes('desktop')
+    || sample.includes('air')
+  ) {
+    return 'macos';
+  }
+  if (sample.includes('iphone') || sample.includes('ios') || sample.includes('ipad')) {
+    return 'ios';
+  }
+  if (sample.includes('watch')) {
+    return 'watchos';
+  }
+  return null;
+}
+
+function macosClientSuggestedPaths(source: LocalIntegrationSource): string[] {
+  switch (source) {
+    case 'activity':
+      return [
+        '~/Library/Application Support/Vel/activity/snapshot.json',
+        '~/Library/Application Support/Vel/integrations/activity/snapshot.json',
+      ];
+    case 'health':
+      return [
+        '~/Library/Application Support/Vel/health/snapshot.json',
+        '~/Library/Application Support/Vel/integrations/health/snapshot.json',
+      ];
+    case 'git':
+      return [
+        '~/Library/Application Support/Vel/git/snapshot.json',
+        '~/Library/Application Support/Vel/integrations/git/snapshot.json',
+      ];
+    case 'messaging':
+      return [
+        '~/Library/Application Support/Vel/messages/snapshot.json',
+        '~/Library/Application Support/Vel/messaging/snapshot.json',
+        '~/Library/Application Support/Vel/integrations/messages/snapshot.json',
+        '~/Library/Application Support/Vel/integrations/messaging/snapshot.json',
+      ];
+    case 'reminders':
+      return [
+        '~/Library/Application Support/Vel/reminders/snapshot.json',
+        '~/Library/Application Support/Vel/integrations/reminders/snapshot.json',
+      ];
+    case 'notes':
+      return [
+        '~/Library/Application Support/Vel/notes',
+        '~/Library/Application Support/Vel/integrations/notes',
+        '~/Library/Mobile Documents/iCloud~md~obsidian/Documents/<Vault>',
+      ];
+    case 'transcripts':
+      return [
+        '~/Library/Application Support/Vel/transcripts/snapshot.json',
+        '~/Library/Application Support/Vel/integrations/transcripts/snapshot.json',
+      ];
+    default:
+      return [];
+  }
+}
+
+function secondarySuggestedPathHosts(
+  source: LocalIntegrationSource,
+  clusterBootstrap: ClusterBootstrapData | undefined,
+  clusterWorkers: ClusterWorkersData | undefined,
+): SuggestedPathHostSection[] {
+  if (!clusterBootstrap) {
+    return [];
+  }
+
+  const currentNodeId = clusterBootstrap.node_id;
+  const activeKinds = new Map<string, string | null>();
+  for (const worker of clusterWorkers?.workers ?? []) {
+    const current = activeKinds.get(worker.node_id);
+    const normalized = normalizeClientKind(worker.client_kind);
+    if (!current || normalized === 'macos') {
+      activeKinds.set(worker.node_id, normalized);
+    }
+  }
+
+  const sections: SuggestedPathHostSection[] = [];
+  const seen = new Set<string>();
+  for (const linkedNode of clusterBootstrap.linked_nodes ?? []) {
+    if (linkedNode.node_id === currentNodeId || seen.has(linkedNode.node_id)) {
+      continue;
+    }
+    const kind = activeKinds.get(linkedNode.node_id)
+      ?? inferLinkedNodeClientKind(linkedNode.node_id, linkedNode.node_display_name);
+    if (kind !== 'macos') {
+      continue;
+    }
+    const paths = dedupePaths(macosClientSuggestedPaths(source));
+    if (paths.length === 0) {
+      continue;
+    }
+    seen.add(linkedNode.node_id);
+    sections.push({
+      nodeId: linkedNode.node_id,
+      label: linkedNode.node_display_name,
+      caption: activeKinds.has(linkedNode.node_id)
+        ? 'Active macOS client'
+        : 'Linked macOS client',
+      paths,
+    });
+  }
+
+  return sections;
+}
 
 function updateRunsCache(
   runsKey: QueryKey,
@@ -409,6 +574,7 @@ export function SettingsPage({
   const runLimit = 6;
   const settingsKey = useMemo(() => queryKeys.settings(), []);
   const clusterBootstrapKey = useMemo(() => queryKeys.clusterBootstrap(), []);
+  const clusterWorkersKey = useMemo(() => queryKeys.clusterWorkers(), []);
   const integrationsKey = useMemo(() => queryKeys.integrations(), []);
   const componentsKey = useMemo(() => queryKeys.components(), []);
   const runsKey = useMemo(() => queryKeys.runs(runLimit), []);
@@ -422,6 +588,13 @@ export function SettingsPage({
     async () => {
       const response = await loadSettings();
       return response.ok && response.data ? response.data : {};
+    },
+  );
+  const { data: clusterWorkers } = useQuery<ClusterWorkersData>(
+    clusterWorkersKey,
+    async () => {
+      const response = await loadClusterWorkers();
+      return response.data ?? { active_authority_node_id: '', active_authority_epoch: 0, generated_at: 0, workers: [] };
     },
   );
   const { data: clusterBootstrap, error: clusterBootstrapError } = useQuery<ClusterBootstrapData>(
@@ -1924,6 +2097,13 @@ export function SettingsPage({
             const syncActionKey = `${spec.key}-sync` as IntegrationActionKey;
             const saveActionKey = `${spec.key}-save` as IntegrationActionKey;
             const sourceDraft = localSourceDrafts[spec.key];
+            const extraHostSections = secondarySuggestedPathHosts(spec.key, clusterBootstrap, clusterWorkers);
+            const availablePaths = dedupePaths(
+              (integration.available_paths ?? []).length > 0
+                ? (integration.available_paths ?? [])
+                : integration.suggested_paths,
+            );
+            const internalPaths = dedupePaths(integration.internal_paths ?? []);
             return (
               <div
                 key={spec.key}
@@ -1967,27 +2147,94 @@ export function SettingsPage({
                     />
                   </label>
                 </div>
-                {integration.suggested_paths.length > 0 ? (
+                {availablePaths.length > 0 || internalPaths.length > 0 ? (
                   <div className="mt-3 space-y-2">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Suggested paths</p>
-                    <div className="flex flex-wrap gap-2">
-                      {integration.suggested_paths.map((path) => (
-                        <button
-                          key={path}
-                          type="button"
-                          onClick={() => {
-                            setLocalSourceDrafts((current) => ({
-                              ...current,
-                              [spec.key]: path,
-                            }));
-                          }}
-                          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-white"
-                        >
-                          {path}
-                        </button>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Available on this host
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {clusterBootstrap
+                        ? `This host: ${clusterBootstrap.node_display_name}`
+                        : 'This host'}
+                    </p>
+                    {availablePaths.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {availablePaths.map((path) => (
+                          <button
+                            key={path}
+                            type="button"
+                            onClick={() => {
+                              setLocalSourceDrafts((current) => ({
+                                ...current,
+                                [spec.key]: path,
+                              }));
+                            }}
+                            className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                          >
+                            {path}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-zinc-500">No current-host source paths were discovered yet.</p>
+                    )}
+                    {internalPaths.length > 0 ? (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-xs text-zinc-600">Vel internal/default paths</p>
+                        <div className="flex flex-wrap gap-2">
+                          {internalPaths.map((path) => (
+                            <button
+                              key={`internal:${path}`}
+                              type="button"
+                              onClick={() => {
+                                setLocalSourceDrafts((current) => ({
+                                  ...current,
+                                  [spec.key]: path,
+                                }));
+                              }}
+                              className="rounded-full border border-zinc-800 px-3 py-1 text-xs text-zinc-500 transition hover:border-zinc-700 hover:text-zinc-300"
+                            >
+                              {path}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {extraHostSections.length > 0 ? (
+                  <details className="mt-3 rounded-md border border-zinc-800 bg-zinc-950/40 p-3">
+                    <summary className="cursor-pointer text-sm text-zinc-300">
+                      Other client hosts ({extraHostSections.length})
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                      {extraHostSections.map((section) => (
+                        <div key={section.nodeId} className="space-y-2">
+                          <div>
+                            <p className="text-sm text-zinc-200">{section.label}</p>
+                            <p className="text-xs text-zinc-500">{section.caption}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {section.paths.map((path) => (
+                              <button
+                                key={`${section.nodeId}:${path}`}
+                                type="button"
+                                onClick={() => {
+                                  setLocalSourceDrafts((current) => ({
+                                    ...current,
+                                    [spec.key]: path,
+                                  }));
+                                }}
+                                className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                              >
+                                {path}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </div>
+                  </details>
                 ) : null}
                 {spec.key === 'notes' ? (
                   <p className="mt-2 text-sm text-zinc-500">
@@ -2001,7 +2248,7 @@ export function SettingsPage({
                     disabled={Boolean(pendingIntegrationActions[saveActionKey])}
                     className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
-                    {spec.key === 'notes' ? 'Choose vault…' : 'Choose path…'}
+                    {spec.key === 'notes' ? 'Choose vault on this host…' : 'Choose path on this host…'}
                   </button>
                   <button
                     type="button"

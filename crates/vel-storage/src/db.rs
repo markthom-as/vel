@@ -809,6 +809,14 @@ impl Storage {
         projects_repo::get_project_by_slug(self.pool(), slug).await
     }
 
+    pub async fn get_project_by_upstream_id(
+        &self,
+        provider_key: &str,
+        upstream_id: &str,
+    ) -> Result<Option<ProjectRecord>, StorageError> {
+        projects_repo::get_project_by_upstream_id(self.pool(), provider_key, upstream_id).await
+    }
+
     pub async fn upsert_project_alias(
         &self,
         alias: &str,

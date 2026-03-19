@@ -13,7 +13,11 @@ use vel_api_types::{
     TodoistIntegrationData,
 };
 
-use crate::{errors::AppError, services::integrations, state::AppState};
+use crate::{
+    errors::AppError,
+    services::{integrations, integrations_todoist, writeback},
+    state::AppState,
+};
 
 fn map_integration_log_event_dto(
     event: integrations::IntegrationLogEvent,
@@ -89,6 +93,8 @@ impl From<integrations::LocalIntegrationOutput> for LocalIntegrationData {
             configured: value.configured,
             guidance: value.guidance.map(Into::into),
             source_path: value.source_path,
+            available_paths: value.available_paths,
+            internal_paths: value.internal_paths,
             suggested_paths: value.suggested_paths,
             source_kind: value.source_kind,
             last_sync_at: value.last_sync_at,
@@ -352,6 +358,103 @@ pub async fn disconnect_todoist(
             .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TodoistCreateTaskRequest {
+    pub content: String,
+    pub project_id: Option<String>,
+    pub scheduled_for: Option<String>,
+    pub priority: Option<u8>,
+    pub waiting_on: Option<String>,
+    pub review_state: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TodoistUpdateTaskRequest {
+    pub commitment_id: String,
+    pub content: Option<String>,
+    pub project_id: Option<String>,
+    pub scheduled_for: Option<String>,
+    pub priority: Option<u8>,
+    pub waiting_on: Option<String>,
+    pub review_state: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TodoistCommitmentActionRequest {
+    pub commitment_id: String,
+}
+
+pub async fn todoist_create_task(
+    State(state): State<AppState>,
+    Json(payload): Json<TodoistCreateTaskRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::todoist_create_task(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        integrations_todoist::TodoistTaskMutation {
+            content: Some(payload.content),
+            project_id: payload.project_id,
+            scheduled_for: payload.scheduled_for,
+            priority: payload.priority,
+            waiting_on: payload.waiting_on,
+            review_state: payload.review_state,
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn todoist_update_task(
+    State(state): State<AppState>,
+    Json(payload): Json<TodoistUpdateTaskRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::todoist_update_task(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        payload.commitment_id.trim(),
+        integrations_todoist::TodoistTaskMutation {
+            content: payload.content,
+            project_id: payload.project_id,
+            scheduled_for: payload.scheduled_for,
+            priority: payload.priority,
+            waiting_on: payload.waiting_on,
+            review_state: payload.review_state,
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn todoist_complete_task(
+    State(state): State<AppState>,
+    Json(payload): Json<TodoistCommitmentActionRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::todoist_complete_task(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        payload.commitment_id.trim(),
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn todoist_reopen_task(
+    State(state): State<AppState>,
+    Json(payload): Json<TodoistCommitmentActionRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::todoist_reopen_task(
+        &state.storage,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        payload.commitment_id.trim(),
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
 }
 
 pub async fn patch_local_integration_source(

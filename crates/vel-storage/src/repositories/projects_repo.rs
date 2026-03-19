@@ -160,6 +160,41 @@ pub(crate) async fn get_project_by_slug(
     row.as_ref().map(map_project_row).transpose()
 }
 
+pub(crate) async fn get_project_by_upstream_id(
+    pool: &SqlitePool,
+    provider_key: &str,
+    upstream_id: &str,
+) -> Result<Option<ProjectRecord>, StorageError> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            id,
+            slug,
+            name,
+            family,
+            status,
+            primary_repo_path,
+            primary_notes_root,
+            secondary_repo_paths_json,
+            secondary_notes_roots_json,
+            upstream_ids_json,
+            pending_provision_json,
+            created_at,
+            updated_at,
+            archived_at
+        FROM projects
+        WHERE json_extract(upstream_ids_json, ?) = ?
+        LIMIT 1
+        "#,
+    )
+    .bind(format!("$.{}", provider_key.trim()))
+    .bind(upstream_id)
+    .fetch_optional(pool)
+    .await?;
+
+    row.as_ref().map(map_project_row).transpose()
+}
+
 pub(crate) async fn upsert_project_alias(
     pool: &SqlitePool,
     alias: &str,
@@ -353,6 +388,12 @@ mod tests {
             .unwrap()
             .expect("slug lookup should work");
         assert_eq!(by_slug.id, created.id);
+
+        let by_upstream = get_project_by_upstream_id(&pool, "todoist", "proj_123")
+            .await
+            .unwrap()
+            .expect("upstream lookup should work");
+        assert_eq!(by_upstream.id, created.id);
 
         let listed = list_projects(&pool).await.unwrap();
         assert_eq!(listed.len(), 1);

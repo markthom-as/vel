@@ -160,6 +160,8 @@ export interface TodoistIntegrationData {
 export interface LocalIntegrationData {
   configured: boolean;
   source_path: string | null;
+  available_paths?: string[];
+  internal_paths?: string[];
   suggested_paths: string[];
   source_kind: string;
   last_sync_at: UnixSeconds | null;
@@ -368,6 +370,54 @@ export interface LinkedNodeData {
   linked_at: Rfc3339Timestamp;
   last_seen_at: Rfc3339Timestamp | null;
   transport_hint: string | null;
+}
+
+export interface WorkerCapacityData {
+  max_concurrency: number;
+  current_load: number;
+  available_concurrency: number;
+}
+
+export interface WorkerPresenceData {
+  worker_id: string;
+  node_id: string;
+  node_display_name: string;
+  client_kind: string | null;
+  client_version: string | null;
+  protocol_version: string | null;
+  build_id: string | null;
+  worker_classes: string[];
+  capabilities: string[];
+  status: string;
+  queue_depth: number;
+  reachability: string;
+  latency_class: string;
+  compute_class: string;
+  power_class: string;
+  recent_failure_rate: number;
+  tailscale_preferred: boolean;
+  last_heartbeat_at: UnixSeconds;
+  started_at: UnixSeconds;
+  sync_base_url: string;
+  sync_transport: string;
+  tailscale_base_url: string | null;
+  preferred_tailnet_endpoint: string | null;
+  tailscale_reachable: boolean;
+  lan_base_url: string | null;
+  localhost_base_url: string | null;
+  ping_ms: number | null;
+  sync_status: string | null;
+  last_upstream_sync_at: UnixSeconds | null;
+  last_downstream_sync_at: UnixSeconds | null;
+  last_sync_error: string | null;
+  capacity: WorkerCapacityData;
+}
+
+export interface ClusterWorkersData {
+  active_authority_node_id: string;
+  active_authority_epoch: number;
+  generated_at: UnixSeconds;
+  workers: WorkerPresenceData[];
 }
 
 export interface NudgeData {
@@ -1518,6 +1568,83 @@ export function decodeClusterBootstrapData(value: unknown): ClusterBootstrapData
   };
 }
 
+export function decodeWorkerCapacityData(value: unknown): WorkerCapacityData {
+  const record = expectRecord(value, 'worker capacity');
+  return {
+    max_concurrency: expectNumber(record.max_concurrency, 'worker capacity.max_concurrency'),
+    current_load: expectNumber(record.current_load, 'worker capacity.current_load'),
+    available_concurrency: expectNumber(
+      record.available_concurrency,
+      'worker capacity.available_concurrency',
+    ),
+  };
+}
+
+export function decodeWorkerPresenceData(value: unknown): WorkerPresenceData {
+  const record = expectRecord(value, 'worker presence');
+  return {
+    worker_id: expectString(record.worker_id, 'worker presence.worker_id'),
+    node_id: expectString(record.node_id, 'worker presence.node_id'),
+    node_display_name: expectString(record.node_display_name, 'worker presence.node_display_name'),
+    client_kind: expectNullableString(record.client_kind, 'worker presence.client_kind'),
+    client_version: expectNullableString(record.client_version, 'worker presence.client_version'),
+    protocol_version: expectNullableString(record.protocol_version, 'worker presence.protocol_version'),
+    build_id: expectNullableString(record.build_id, 'worker presence.build_id'),
+    worker_classes: decodeArray(record.worker_classes ?? [], (item) =>
+      expectString(item, 'worker presence.worker_classes[]')),
+    capabilities: decodeArray(record.capabilities ?? [], (item) =>
+      expectString(item, 'worker presence.capabilities[]')),
+    status: expectString(record.status, 'worker presence.status'),
+    queue_depth: expectNumber(record.queue_depth, 'worker presence.queue_depth'),
+    reachability: expectString(record.reachability, 'worker presence.reachability'),
+    latency_class: expectString(record.latency_class, 'worker presence.latency_class'),
+    compute_class: expectString(record.compute_class, 'worker presence.compute_class'),
+    power_class: expectString(record.power_class, 'worker presence.power_class'),
+    recent_failure_rate: expectNumber(record.recent_failure_rate, 'worker presence.recent_failure_rate'),
+    tailscale_preferred: expectBoolean(record.tailscale_preferred, 'worker presence.tailscale_preferred'),
+    last_heartbeat_at: expectUnixSeconds(record.last_heartbeat_at, 'worker presence.last_heartbeat_at'),
+    started_at: expectUnixSeconds(record.started_at, 'worker presence.started_at'),
+    sync_base_url: expectString(record.sync_base_url, 'worker presence.sync_base_url'),
+    sync_transport: expectString(record.sync_transport, 'worker presence.sync_transport'),
+    tailscale_base_url: expectNullableString(record.tailscale_base_url, 'worker presence.tailscale_base_url'),
+    preferred_tailnet_endpoint: expectNullableString(
+      record.preferred_tailnet_endpoint,
+      'worker presence.preferred_tailnet_endpoint',
+    ),
+    tailscale_reachable: expectBoolean(record.tailscale_reachable, 'worker presence.tailscale_reachable'),
+    lan_base_url: expectNullableString(record.lan_base_url, 'worker presence.lan_base_url'),
+    localhost_base_url: expectNullableString(record.localhost_base_url, 'worker presence.localhost_base_url'),
+    ping_ms: expectNullableNumber(record.ping_ms, 'worker presence.ping_ms'),
+    sync_status: expectNullableString(record.sync_status, 'worker presence.sync_status'),
+    last_upstream_sync_at: expectNullableUnixSeconds(
+      record.last_upstream_sync_at,
+      'worker presence.last_upstream_sync_at',
+    ),
+    last_downstream_sync_at: expectNullableUnixSeconds(
+      record.last_downstream_sync_at,
+      'worker presence.last_downstream_sync_at',
+    ),
+    last_sync_error: expectNullableString(record.last_sync_error, 'worker presence.last_sync_error'),
+    capacity: decodeWorkerCapacityData(record.capacity),
+  };
+}
+
+export function decodeClusterWorkersData(value: unknown): ClusterWorkersData {
+  const record = expectRecord(value, 'cluster workers');
+  return {
+    active_authority_node_id: expectString(
+      record.active_authority_node_id,
+      'cluster workers.active_authority_node_id',
+    ),
+    active_authority_epoch: expectNumber(
+      record.active_authority_epoch,
+      'cluster workers.active_authority_epoch',
+    ),
+    generated_at: expectUnixSeconds(record.generated_at, 'cluster workers.generated_at'),
+    workers: decodeArray(record.workers ?? [], decodeWorkerPresenceData),
+  };
+}
+
 export function decodeSyncBootstrapData(value: unknown): SyncBootstrapData {
   const record = expectRecord(value, 'sync bootstrap');
   return {
@@ -1579,6 +1706,10 @@ export function decodeLocalIntegrationData(value: unknown): LocalIntegrationData
   return {
     configured: expectBoolean(record.configured, 'local integration.configured'),
     source_path: expectNullableString(record.source_path, 'local integration.source_path'),
+    available_paths: decodeArray(record.available_paths ?? [], (item) =>
+      expectString(item, 'local integration.available_paths[]')),
+    internal_paths: decodeArray(record.internal_paths ?? [], (item) =>
+      expectString(item, 'local integration.internal_paths[]')),
     suggested_paths: decodeArray(record.suggested_paths ?? [], (item) =>
       expectString(item, 'local integration.suggested_paths[]')),
     source_kind: expectString(record.source_kind ?? 'path', 'local integration.source_kind'),

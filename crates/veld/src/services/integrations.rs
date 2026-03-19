@@ -80,6 +80,8 @@ pub struct LocalIntegrationOutput {
     pub configured: bool,
     pub guidance: Option<IntegrationGuidanceOutput>,
     pub source_path: Option<String>,
+    pub available_paths: Vec<String>,
+    pub internal_paths: Vec<String>,
     pub suggested_paths: Vec<String>,
     pub source_kind: String,
     pub last_sync_at: Option<i64>,
@@ -1126,14 +1128,16 @@ fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegration
 fn local_status(
     integration_id: &str,
     source_path: Option<String>,
-    suggested_paths: Vec<String>,
+    path_suggestions: integrations_host::LocalSourcePathSuggestions,
     settings: &LocalIntegrationSettings,
 ) -> LocalIntegrationOutput {
     LocalIntegrationOutput {
         configured: source_path.is_some(),
         guidance: local_guidance(source_path.as_deref(), settings),
         source_path,
-        suggested_paths,
+        available_paths: path_suggestions.available_paths,
+        internal_paths: path_suggestions.internal_paths,
+        suggested_paths: path_suggestions.suggested_paths,
         source_kind: match integrations_host::local_source_path_kind(integration_id) {
             Some(integrations_host::LocalSourcePathKind::Directory) => "directory".to_string(),
             Some(integrations_host::LocalSourcePathKind::File) => "file".to_string(),

@@ -1,12 +1,12 @@
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
-    ConflictCaseRecord, OrderingStamp, WritebackOperationId, WritebackOperationRecord,
-    WritebackStatus,
+    ConflictCaseRecord, ConflictCaseStatus, OrderingStamp, WritebackOperationId,
+    WritebackOperationKind, WritebackOperationRecord, WritebackRisk, WritebackStatus,
 };
 use vel_storage::Storage;
 
-use crate::errors::AppError;
+use crate::{errors::AppError, services::integrations_todoist};
 
 pub async fn queue_writeback_operation(
     storage: &Storage,
@@ -110,6 +110,160 @@ pub async fn list_open_conflicts(
         .list_open_conflict_cases(limit)
         .await
         .map_err(Into::into)
+}
+
+pub(crate) async fn todoist_create_task(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    mutation: integrations_todoist::TodoistTaskMutation,
+) -> Result<WritebackOperationRecord, AppError> {
+    let plan =
+        integrations_todoist::plan_todoist_create_task(storage, requested_by_node_id, mutation)
+            .await?;
+    execute_todoist_writeback(storage, plan, WritebackOperationKind::TodoistCreateTask).await
+}
+
+pub(crate) async fn todoist_update_task(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    commitment_id: &str,
+    mutation: integrations_todoist::TodoistTaskMutation,
+) -> Result<WritebackOperationRecord, AppError> {
+    let plan = integrations_todoist::plan_todoist_update_task(
+        storage,
+        requested_by_node_id,
+        commitment_id,
+        mutation,
+    )
+    .await?;
+    execute_todoist_writeback(storage, plan, WritebackOperationKind::TodoistUpdateTask).await
+}
+
+pub(crate) async fn todoist_complete_task(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    commitment_id: &str,
+) -> Result<WritebackOperationRecord, AppError> {
+    let plan = integrations_todoist::plan_todoist_complete_task(
+        storage,
+        requested_by_node_id,
+        commitment_id,
+    )
+    .await?;
+    execute_todoist_writeback(storage, plan, WritebackOperationKind::TodoistCompleteTask).await
+}
+
+pub(crate) async fn todoist_reopen_task(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    commitment_id: &str,
+) -> Result<WritebackOperationRecord, AppError> {
+    let plan = integrations_todoist::plan_todoist_reopen_task(
+        storage,
+        requested_by_node_id,
+        commitment_id,
+    )
+    .await?;
+    execute_todoist_writeback(storage, plan, WritebackOperationKind::TodoistReopenTask).await
+}
+
+async fn execute_todoist_writeback(
+    storage: &Storage,
+    plan: integrations_todoist::TodoistWritePlan,
+    kind: WritebackOperationKind,
+) -> Result<WritebackOperationRecord, AppError> {
+    let now = OffsetDateTime::now_utc();
+    let ordering_stamp = OrderingStamp::new(
+        now.unix_timestamp(),
+        0,
+        vel_core::NodeIdentity::from(plan.requested_by_node_id.clone()),
+    );
+    let queued = queue_writeback_operation(
+        storage,
+        WritebackOperationRecord {
+            id: WritebackOperationId::new(),
+            kind,
+            risk: WritebackRisk::Safe,
+            status: WritebackStatus::Queued,
+            target: plan.target.clone(),
+            requested_payload: plan.requested_payload.clone(),
+            result_payload: None,
+            provenance: plan.provenance.clone(),
+            conflict_case_id: None,
+            requested_by_node_id: plan.requested_by_node_id.clone(),
+            requested_at: now,
+            applied_at: None,
+            updated_at: now,
+        },
+        ordering_stamp,
+    )
+    .await?;
+
+    match integrations_todoist::execute_todoist_write_plan(storage, &plan).await? {
+        integrations_todoist::TodoistWriteExecutionResult::Applied {
+            result_payload,
+            target_external_id,
+            provenance,
+        } => {
+            let mut stored = storage
+                .get_writeback_operation(queued.id.as_ref())
+                .await?
+                .ok_or_else(|| {
+                    AppError::not_found(format!(
+                        "writeback operation {} not found after queue",
+                        queued.id
+                    ))
+                })?;
+            stored.status = WritebackStatus::Applied;
+            stored.result_payload = Some(result_payload);
+            stored.applied_at = Some(OffsetDateTime::now_utc());
+            stored.updated_at = stored.applied_at.unwrap_or(now);
+            if let Some(external_id) = target_external_id {
+                stored.target.external_id = Some(external_id);
+            }
+            if !provenance.is_empty() {
+                stored.provenance = provenance;
+            }
+            storage.update_writeback_operation(&stored).await?;
+            Ok(stored)
+        }
+        integrations_todoist::TodoistWriteExecutionResult::Conflict {
+            kind,
+            summary,
+            upstream_payload,
+        } => {
+            let now = OffsetDateTime::now_utc();
+            let conflict = open_conflict_case(
+                storage,
+                ConflictCaseRecord {
+                    id: vel_core::ConflictCaseId::new(),
+                    kind,
+                    status: ConflictCaseStatus::Open,
+                    target: plan.target,
+                    summary,
+                    local_payload: plan.requested_payload,
+                    upstream_payload,
+                    resolution_payload: None,
+                    opened_at: now,
+                    resolved_at: None,
+                    updated_at: now,
+                },
+                Some(&queued.id),
+            )
+            .await?;
+            let mut stored = storage
+                .get_writeback_operation(queued.id.as_ref())
+                .await?
+                .ok_or_else(|| {
+                    AppError::not_found(format!(
+                        "writeback operation {} not found after conflict",
+                        queued.id
+                    ))
+                })?;
+            stored.conflict_case_id = Some(conflict.id.to_string());
+            Ok(stored)
+        }
+    }
 }
 
 #[cfg(test)]

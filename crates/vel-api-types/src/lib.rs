@@ -1834,6 +1834,10 @@ pub struct LocalIntegrationData {
     pub configured: bool,
     pub source_path: Option<String>,
     #[serde(default)]
+    pub available_paths: Vec<String>,
+    #[serde(default)]
+    pub internal_paths: Vec<String>,
+    #[serde(default)]
     pub suggested_paths: Vec<String>,
     pub source_kind: String,
     pub last_sync_at: Option<UnixSeconds>,

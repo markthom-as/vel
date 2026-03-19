@@ -285,6 +285,14 @@ Exposure:
 - `POST /v1/sync/validation`: `worker_authenticated`
 - remaining `/v1/sync/*` routes in this section: `operator_authenticated`
 
+Todoist read/write boundary:
+
+- `POST /v1/sync/todoist` remains the read/sync path.
+- The allowed Todoist write surface is bounded to `todoist_create_task`, `todoist_update_task`, `todoist_complete_task`, and `todoist_reopen_task` through `/api/integrations/todoist/create-task`, `/api/integrations/todoist/update-task`, `/api/integrations/todoist/complete-task`, and `/api/integrations/todoist/reopen-task`.
+- Those write routes are `operator_authenticated` and execute only after checking the latest upstream task state.
+- If upstream state drifted since the last synced snapshot, the runtime opens a conflict review item with `stale_write` or `upstream_vs_local` instead of silently overwriting.
+- Todoist labels remain compatibility-only metadata at the adapter boundary; Vel's durable typed contract is `project_id`, `scheduled_for`, `priority`, `waiting_on`, and `review_state`.
+
 ### `POST /v1/evaluate`
 
 - orchestrated recompute-and-persist path for context, risk, and downstream outputs

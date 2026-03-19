@@ -8,6 +8,7 @@ import {
   decodeCurrentContextData,
   decodeComponentData,
   decodeComponentLogEventData,
+  decodeClusterWorkersData,
   decodeInboxItemData,
   decodeIntegrationConnectionData,
   decodeIntegrationConnectionEventData,
@@ -125,6 +126,8 @@ describe('transport decoders', () => {
           activity: {
             configured: true,
             source_path: '/tmp/activity.json',
+            available_paths: ['/tmp/activity.json', '/home/test/.zsh_history'],
+            internal_paths: ['var/integrations/activity/snapshot.json'],
             suggested_paths: ['/tmp/activity.json'],
             source_kind: 'file',
             last_sync_at: 12,
@@ -136,6 +139,8 @@ describe('transport decoders', () => {
           health: {
             configured: true,
             source_path: '/tmp/health.json',
+            available_paths: ['/tmp/health.json'],
+            internal_paths: [],
             suggested_paths: ['/tmp/health.json'],
             source_kind: 'file',
             last_sync_at: 14,
@@ -147,6 +152,8 @@ describe('transport decoders', () => {
           git: {
             configured: false,
             source_path: null,
+            available_paths: [],
+            internal_paths: ['var/integrations/git/snapshot.json'],
             suggested_paths: ['/tmp/git.json'],
             source_kind: 'file',
             last_sync_at: null,
@@ -162,6 +169,8 @@ describe('transport decoders', () => {
           messaging: {
             configured: false,
             source_path: null,
+            available_paths: [],
+            internal_paths: [],
             suggested_paths: [],
             source_kind: 'file',
             last_sync_at: null,
@@ -173,6 +182,8 @@ describe('transport decoders', () => {
           reminders: {
             configured: false,
             source_path: null,
+            available_paths: [],
+            internal_paths: [],
             suggested_paths: [],
             source_kind: 'file',
             last_sync_at: null,
@@ -184,6 +195,8 @@ describe('transport decoders', () => {
           notes: {
             configured: false,
             source_path: null,
+            available_paths: ['/Users/test/Vault'],
+            internal_paths: ['~/Library/Application Support/Vel/notes'],
             suggested_paths: ['/Users/test/Vault'],
             source_kind: 'directory',
             last_sync_at: null,
@@ -195,6 +208,8 @@ describe('transport decoders', () => {
           transcripts: {
             configured: false,
             source_path: null,
+            available_paths: [],
+            internal_paths: [],
             suggested_paths: [],
             source_kind: 'file',
             last_sync_at: null,
@@ -212,6 +227,8 @@ describe('transport decoders', () => {
     expect(response.data?.activity.source_path).toBe('/tmp/activity.json')
     expect(response.data?.health.source_path).toBe('/tmp/health.json')
     expect(response.data?.activity.last_item_count).toBe(4)
+    expect(response.data?.activity.available_paths).toEqual(['/tmp/activity.json', '/home/test/.zsh_history'])
+    expect(response.data?.activity.internal_paths).toEqual(['var/integrations/activity/snapshot.json'])
     expect(response.data?.notes.suggested_paths).toEqual(['/Users/test/Vault'])
     expect(response.data?.notes.source_kind).toBe('directory')
     expect(response.data?.google_calendar.guidance?.action).toBe('Save credentials')
@@ -809,6 +826,100 @@ describe('transport decoders', () => {
       linked_nodes: [linkedNode],
       projects: [project],
       action_items: [],
+    })
+  })
+
+  it('decodes cluster worker presence payloads', () => {
+    expect(
+      decodeClusterWorkersData({
+        active_authority_node_id: 'vel-desktop',
+        active_authority_epoch: 1,
+        generated_at: 1_710_000_100,
+        workers: [
+          {
+            worker_id: 'worker_remote',
+            node_id: 'node_remote',
+            node_display_name: 'Remote Mac',
+            client_kind: 'vel_macos',
+            client_version: '0.1.0',
+            protocol_version: '1',
+            build_id: 'build_remote',
+            worker_classes: ['sync'],
+            capabilities: ['sync_bootstrap'],
+            status: 'ok',
+            queue_depth: 0,
+            reachability: 'reachable',
+            latency_class: 'low',
+            compute_class: 'standard',
+            power_class: 'ac_or_unknown',
+            recent_failure_rate: 0,
+            tailscale_preferred: true,
+            last_heartbeat_at: 1_710_000_090,
+            started_at: 1_710_000_000,
+            sync_base_url: 'http://remote.tailnet.ts.net:4130',
+            sync_transport: 'tailscale',
+            tailscale_base_url: 'http://remote.tailnet.ts.net:4130',
+            preferred_tailnet_endpoint: null,
+            tailscale_reachable: true,
+            lan_base_url: null,
+            localhost_base_url: null,
+            ping_ms: 14,
+            sync_status: 'ready',
+            last_upstream_sync_at: null,
+            last_downstream_sync_at: null,
+            last_sync_error: null,
+            capacity: {
+              max_concurrency: 2,
+              current_load: 0,
+              available_concurrency: 2,
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      active_authority_node_id: 'vel-desktop',
+      active_authority_epoch: 1,
+      generated_at: 1_710_000_100,
+      workers: [
+        {
+          worker_id: 'worker_remote',
+          node_id: 'node_remote',
+          node_display_name: 'Remote Mac',
+          client_kind: 'vel_macos',
+          client_version: '0.1.0',
+          protocol_version: '1',
+          build_id: 'build_remote',
+          worker_classes: ['sync'],
+          capabilities: ['sync_bootstrap'],
+          status: 'ok',
+          queue_depth: 0,
+          reachability: 'reachable',
+          latency_class: 'low',
+          compute_class: 'standard',
+          power_class: 'ac_or_unknown',
+          recent_failure_rate: 0,
+          tailscale_preferred: true,
+          last_heartbeat_at: 1_710_000_090,
+          started_at: 1_710_000_000,
+          sync_base_url: 'http://remote.tailnet.ts.net:4130',
+          sync_transport: 'tailscale',
+          tailscale_base_url: 'http://remote.tailnet.ts.net:4130',
+          preferred_tailnet_endpoint: null,
+          tailscale_reachable: true,
+          lan_base_url: null,
+          localhost_base_url: null,
+          ping_ms: 14,
+          sync_status: 'ready',
+          last_upstream_sync_at: null,
+          last_downstream_sync_at: null,
+          last_sync_error: null,
+          capacity: {
+            max_concurrency: 2,
+            current_load: 0,
+            available_concurrency: 2,
+          },
+        },
+      ],
     })
   })
 

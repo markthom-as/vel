@@ -3,6 +3,7 @@ import {
   decodeApiResponse,
   decodeArray,
   decodeClusterBootstrapData,
+  decodeClusterWorkersData,
   decodeComponentData,
   decodeComponentLogEventData,
   decodeGoogleCalendarAuthStartData,
@@ -18,6 +19,7 @@ import {
   decodeSettingsData,
   type ApiResponse,
   type ClusterBootstrapData,
+  type ClusterWorkersData,
   type ComponentData,
   type ComponentLogEventData,
   type GoogleCalendarAuthStartData,
@@ -72,6 +74,7 @@ function decodeEvaluateResultData(value: unknown): EvaluateResultData {
 
 export const operatorQueryKeys = {
   clusterBootstrap: () => ['cluster', 'bootstrap'] as const,
+  clusterWorkers: () => ['cluster', 'workers'] as const,
   projects: () => ['projects'] as const,
   linkingStatus: () => ['linking', 'status'] as const,
   settings: () => ['settings'] as const,
@@ -87,6 +90,13 @@ export function loadClusterBootstrap(): Promise<ApiResponse<ClusterBootstrapData
   return apiGet<ApiResponse<ClusterBootstrapData>>(
     '/v1/cluster/bootstrap',
     (value) => decodeApiResponse(value, decodeClusterBootstrapData),
+  );
+}
+
+export function loadClusterWorkers(): Promise<ApiResponse<ClusterWorkersData>> {
+  return apiGet<ApiResponse<ClusterWorkersData>>(
+    '/v1/cluster/workers',
+    (value) => decodeApiResponse(value, decodeClusterWorkersData),
   );
 }
 

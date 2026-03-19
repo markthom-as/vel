@@ -244,6 +244,22 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::integrations::disconnect_todoist),
         )
         .route(
+            "/api/integrations/todoist/create-task",
+            post(routes::integrations::todoist_create_task),
+        )
+        .route(
+            "/api/integrations/todoist/update-task",
+            post(routes::integrations::todoist_update_task),
+        )
+        .route(
+            "/api/integrations/todoist/complete-task",
+            post(routes::integrations::todoist_complete_task),
+        )
+        .route(
+            "/api/integrations/todoist/reopen-task",
+            post(routes::integrations::todoist_reopen_task),
+        )
+        .route(
             "/v1/synthesis/week",
             post(routes::synthesis::synthesis_week),
         )

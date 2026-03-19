@@ -126,6 +126,57 @@ describe('SettingsPage', () => {
           meta: { request_id: 'req_cluster_bootstrap' },
         } as never
       }
+      if (path === '/v1/cluster/workers') {
+        return {
+          ok: true,
+          data: {
+            active_authority_node_id: 'vel-desktop',
+            active_authority_epoch: 1,
+            generated_at: 1_710_000_100,
+            workers: [
+              {
+                worker_id: 'worker_remote',
+                node_id: 'node_remote',
+                node_display_name: 'Remote Mac',
+                client_kind: 'vel_macos',
+                client_version: '0.1.0',
+                protocol_version: '1',
+                build_id: 'build_remote',
+                worker_classes: ['sync'],
+                capabilities: ['sync_bootstrap'],
+                status: 'ok',
+                queue_depth: 0,
+                reachability: 'reachable',
+                latency_class: 'low',
+                compute_class: 'standard',
+                power_class: 'ac_or_unknown',
+                recent_failure_rate: 0,
+                tailscale_preferred: true,
+                last_heartbeat_at: 1_710_000_090,
+                started_at: 1_710_000_000,
+                sync_base_url: 'http://remote.tailnet.ts.net:4130',
+                sync_transport: 'tailscale',
+                tailscale_base_url: 'http://remote.tailnet.ts.net:4130',
+                preferred_tailnet_endpoint: null,
+                tailscale_reachable: true,
+                lan_base_url: null,
+                localhost_base_url: null,
+                ping_ms: 14,
+                sync_status: 'ready',
+                last_upstream_sync_at: null,
+                last_downstream_sync_at: null,
+                last_sync_error: null,
+                capacity: {
+                  max_concurrency: 2,
+                  current_load: 0,
+                  available_concurrency: 2,
+                },
+              },
+            ],
+          },
+          meta: { request_id: 'req_cluster_workers' },
+        } as never
+      }
       if (path === '/api/integrations') {
         return {
           ok: true,
@@ -160,6 +211,8 @@ describe('SettingsPage', () => {
             activity: {
               configured: true,
               source_path: '/tmp/activity.json',
+              available_paths: ['/tmp/activity.json', '/home/test/.zsh_history'],
+              internal_paths: ['var/integrations/activity/snapshot.json'],
               suggested_paths: ['/tmp/activity.json'],
               source_kind: 'file',
               last_sync_at: null,
@@ -215,6 +268,8 @@ describe('SettingsPage', () => {
             notes: {
               configured: true,
               source_path: '/tmp/notes',
+              available_paths: ['/Users/test/Vault'],
+              internal_paths: ['~/Library/Application Support/Vel/notes'],
               suggested_paths: ['/Users/test/Vault', '/tmp/notes'],
               source_kind: 'directory',
               last_sync_at: null,
@@ -681,6 +736,12 @@ describe('SettingsPage', () => {
     expect(within(root).getByRole('heading', { name: /transcripts/i })).toBeInTheDocument()
     expect(within(root).getByText('Source: /tmp/activity.json')).toBeInTheDocument()
     expect(within(root).getByRole('button', { name: '/Users/test/Vault' })).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: '/home/test/.zsh_history' })).toBeInTheDocument()
+    expect(within(root).getAllByText('Vel internal/default paths').length).toBeGreaterThan(0)
+    expect(
+      within(root).getAllByRole('button', { name: '~/Library/Application Support/Vel/notes' }).length,
+    ).toBeGreaterThan(0)
+    expect(within(root).queryByText('Remote Mac')).not.toBeInTheDocument()
 
     const notesSyncButton = within(root).getAllByRole('button', { name: /sync now/i }).find((button) =>
       button.closest('.rounded-lg')?.textContent?.includes('Obsidian Vault'),
@@ -810,6 +871,25 @@ describe('SettingsPage', () => {
       within(notesCard as HTMLElement).getByDisplayValue('/Users/test/Vault'),
     ).toBeInTheDocument()
     expect(within(notesCard as HTMLElement).getByText('Path selected. Save to apply it.')).toBeInTheDocument()
+  })
+
+  it('shows linked macos client paths only after expanding the client host section', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+    const notesCard = within(root).getByRole('heading', { name: /obsidian vault/i }).closest('.rounded-lg')
+    expect(notesCard).not.toBeNull()
+
+    expect(within(notesCard as HTMLElement).queryByText('Remote Mac')).not.toBeInTheDocument()
+    fireEvent.click(within(notesCard as HTMLElement).getByText(/other client hosts/i))
+
+    await waitFor(() => {
+      expect(within(notesCard as HTMLElement).getByText('Vel Air')).toBeInTheDocument()
+    })
+    expect(
+      within(notesCard as HTMLElement).getAllByRole('button', {
+        name: '~/Library/Application Support/Vel/notes',
+      }).length,
+    ).toBeGreaterThan(0)
   })
 
   it('saves a local integration source path from the settings card', async () => {

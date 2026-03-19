@@ -27,6 +27,13 @@ pub(crate) enum LocalSourcePathKind {
     Directory,
 }
 
+#[derive(Debug, Clone, Default)]
+pub(crate) struct LocalSourcePathSuggestions {
+    pub available_paths: Vec<String>,
+    pub internal_paths: Vec<String>,
+    pub suggested_paths: Vec<String>,
+}
+
 pub(crate) fn effective_local_source_path(
     integration_id: &str,
     settings_source: Option<&str>,
@@ -50,36 +57,47 @@ pub(crate) fn suggested_local_source_paths(
     integration_id: &str,
     settings_source: Option<&str>,
     config_source: Option<&str>,
-) -> Vec<String> {
+) -> LocalSourcePathSuggestions {
     let home = current_home_dir();
     let appdata = env::var_os("APPDATA").map(PathBuf::from);
     let user_profile = env::var_os("USERPROFILE").map(PathBuf::from);
-    let mut suggestions = Vec::new();
+    let mut available_paths = Vec::new();
+    let mut internal_paths = Vec::new();
 
-    if let Some(value) = settings_source
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-    {
-        suggestions.push(value);
-    }
-    if let Some(value) = config_source
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-    {
-        suggestions.push(value);
+    for value in [settings_source, config_source].into_iter().flatten() {
+        let candidate = value.trim();
+        if candidate.is_empty() {
+            continue;
+        }
+        if Path::new(candidate).exists() {
+            available_paths.push(candidate.to_string());
+        } else if vel_config::is_default_local_source_path(integration_id, candidate) {
+            internal_paths.push(candidate.to_string());
+        }
     }
 
     if let Some(home) = home.as_deref() {
-        suggestions.extend(platform_candidate_paths(
+        let platform_candidates = platform_candidate_paths(
             integration_id,
             home,
             appdata.as_deref(),
             user_profile.as_deref(),
-        ));
+        );
+        let (existing_platform_paths, missing_platform_paths) =
+            partition_existing_paths(platform_candidates);
+        available_paths.extend(existing_platform_paths);
+        internal_paths.extend(missing_platform_paths);
+
+        if integration_id == "activity" {
+            available_paths.extend(discover_activity_source_paths(
+                home,
+                appdata.as_deref(),
+                user_profile.as_deref(),
+            ));
+        }
+
         if integration_id == "notes" {
-            suggestions.extend(discover_obsidian_vault_paths(
+            available_paths.extend(discover_obsidian_vault_paths(
                 home,
                 appdata.as_deref(),
                 user_profile.as_deref(),
@@ -87,7 +105,20 @@ pub(crate) fn suggested_local_source_paths(
         }
     }
 
-    dedupe_paths(suggestions)
+    let available_paths = dedupe_paths(available_paths);
+    let internal_paths = dedupe_paths(
+        internal_paths
+            .into_iter()
+            .filter(|path| !available_paths.contains(path))
+            .collect(),
+    );
+    let mut suggested_paths = available_paths.clone();
+    suggested_paths.extend(internal_paths.clone());
+    LocalSourcePathSuggestions {
+        available_paths,
+        internal_paths,
+        suggested_paths,
+    }
 }
 
 pub(crate) async fn choose_local_source_path(
@@ -347,6 +378,58 @@ fn platform_candidate_paths(
         .into_iter()
         .map(|candidate| candidate.to_string_lossy().to_string())
         .collect()
+}
+
+fn partition_existing_paths(paths: Vec<String>) -> (Vec<String>, Vec<String>) {
+    let mut existing = Vec::new();
+    let mut missing = Vec::new();
+
+    for path in dedupe_paths(paths) {
+        if Path::new(&path).exists() {
+            existing.push(path);
+        } else {
+            missing.push(path);
+        }
+    }
+
+    (existing, missing)
+}
+
+fn discover_activity_source_paths(
+    home: &Path,
+    appdata: Option<&Path>,
+    user_profile: Option<&Path>,
+) -> Vec<String> {
+    let mut candidates = vec![
+        home.join(".histfile"),
+        home.join(".zsh_history"),
+        home.join(".local/share/zsh/history"),
+        home.join(".local/share/zsh/zsh_history"),
+        home.join("Library/Application Support/activitywatch"),
+        home.join(".local/share/activitywatch"),
+        home.join(".config/activitywatch"),
+        home.join(".var/app/net.activitywatch.ActivityWatch/data/activitywatch"),
+    ];
+
+    if let Some(appdata) = appdata {
+        candidates.push(appdata.join("activitywatch"));
+        candidates.push(appdata.join("ActivityWatch"));
+    }
+
+    if let Some(user_profile) = user_profile {
+        candidates.push(user_profile.join("AppData/Roaming/activitywatch"));
+        candidates.push(user_profile.join("AppData/Local/activitywatch"));
+        candidates.push(user_profile.join("AppData/Roaming/ActivityWatch"));
+        candidates.push(user_profile.join("AppData/Local/ActivityWatch"));
+    }
+
+    dedupe_paths(
+        candidates
+            .into_iter()
+            .filter(|candidate| candidate.exists())
+            .map(|candidate| candidate.to_string_lossy().to_string())
+            .collect(),
+    )
 }
 
 fn discover_obsidian_vault_paths(
@@ -718,6 +801,41 @@ mod tests {
         let suggestions = discover_obsidian_vault_paths(&home, None, None);
         assert!(suggestions.contains(&work_vault.to_string_lossy().to_string()));
         assert!(suggestions.contains(&personal_vault.to_string_lossy().to_string()));
+
+        let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn suggested_activity_paths_prioritize_existing_host_sources() {
+        let home = unique_temp_dir("activity-source-home");
+        let zsh_history = home.join(".zsh_history");
+        let internal_snapshot = home.join(".local/share/vel/activity/snapshot.json");
+        fs::create_dir_all(
+            internal_snapshot
+                .parent()
+                .expect("activity snapshot parent should exist"),
+        )
+        .expect("activity snapshot parent should be created");
+        fs::write(&zsh_history, ": 1710000000:1;vel\n")
+            .expect("zsh history fixture should be written");
+        fs::write(&internal_snapshot, "{}").expect("activity snapshot fixture should be written");
+
+        let _home_guard = EnvVarGuard::set("HOME", home.as_os_str().to_os_string());
+        let suggestions = suggested_local_source_paths(
+            "activity",
+            None,
+            Some("var/integrations/activity/snapshot.json"),
+        );
+
+        assert!(suggestions
+            .available_paths
+            .contains(&zsh_history.to_string_lossy().to_string()));
+        assert!(suggestions
+            .available_paths
+            .contains(&internal_snapshot.to_string_lossy().to_string()));
+        assert!(suggestions
+            .internal_paths
+            .contains(&"var/integrations/activity/snapshot.json".to_string()));
 
         let _ = fs::remove_dir_all(home);
     }

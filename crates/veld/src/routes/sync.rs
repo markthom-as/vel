@@ -639,6 +639,7 @@ pub async fn sync_actions(
     }))
 }
 
+// Mounted as POST /v1/sync/todoist; this remains the read/sync path even after write-back routes land.
 pub async fn sync_todoist(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {
