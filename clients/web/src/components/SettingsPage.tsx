@@ -191,6 +191,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   activity: {
     configured: false,
     source_path: null,
+    selected_paths: [],
     available_paths: [],
     internal_paths: [],
     suggested_paths: [],
@@ -204,6 +205,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   health: {
     configured: false,
     source_path: null,
+    selected_paths: [],
     available_paths: [],
     internal_paths: [],
     suggested_paths: [],
@@ -217,6 +219,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   git: {
     configured: false,
     source_path: null,
+    selected_paths: [],
     available_paths: [],
     internal_paths: [],
     suggested_paths: [],
@@ -230,6 +233,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   messaging: {
     configured: false,
     source_path: null,
+    selected_paths: [],
     available_paths: [],
     internal_paths: [],
     suggested_paths: [],
@@ -243,6 +247,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   reminders: {
     configured: false,
     source_path: null,
+    selected_paths: [],
     available_paths: [],
     internal_paths: [],
     suggested_paths: [],
@@ -256,6 +261,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   notes: {
     configured: false,
     source_path: null,
+    selected_paths: [],
     available_paths: [],
     internal_paths: [],
     suggested_paths: [],
@@ -269,6 +275,7 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   transcripts: {
     configured: false,
     source_path: null,
+    selected_paths: [],
     available_paths: [],
     internal_paths: [],
     suggested_paths: [],
@@ -498,7 +505,7 @@ function detectCurrentHostPlatform(): HostPlatform {
 }
 
 function isAppleOnlyIntegration(source: LocalIntegrationSource): boolean {
-  return source === 'health' || source === 'messaging' || source === 'reminders';
+  return source === 'health' || source === 'reminders';
 }
 
 function describeLocalSourcePath(
@@ -540,7 +547,7 @@ function describeLocalSourcePath(
   if (source === 'messaging') {
     return {
       title: internal ? 'Vel messages snapshot' : 'Messaging snapshot',
-      detail: internal ? 'VelMac export/default location' : 'Current-host message export',
+      detail: internal ? 'Current bridge export/default location' : 'Current-host messaging bridge export',
     };
   }
   if (source === 'health') {
@@ -557,8 +564,8 @@ function describeLocalSourcePath(
   }
   if (source === 'git') {
     return {
-      title: internal ? 'Vel git snapshot' : 'Git activity snapshot',
-      detail: internal ? 'Vel-managed/default location' : 'Current-host git export',
+      title: internal ? 'Vel git snapshot' : `Git repo: ${pathBasename(path)}`,
+      detail: internal ? 'Vel-managed/default location' : 'Local repository root',
     };
   }
   if (source === 'transcripts') {
@@ -829,8 +836,10 @@ export function SettingsPage({
       const next = { ...current };
       for (const spec of LOCAL_INTEGRATION_SPECS) {
         const configuredPath = integrations[spec.key].source_path;
-        const nextSelection =
-          configuredPath && !isVelManagedPath(configuredPath) ? [configuredPath] : [];
+        const persistedSelection = integrations[spec.key].selected_paths ?? [];
+        const nextSelection = spec.key === 'git'
+          ? dedupePaths(persistedSelection)
+          : configuredPath && !isVelManagedPath(configuredPath) ? [configuredPath] : [];
         const currentSelection = current[spec.key];
         if (
           currentSelection.length !== nextSelection.length
@@ -1299,6 +1308,7 @@ export function SettingsPage({
     try {
       const response = await updateLocalIntegrationSource(source, {
         source_path: sourcePath.length > 0 ? sourcePath : null,
+        selected_paths: source === 'git' ? selectedHostPaths[source] ?? [] : undefined,
       });
       const nextIntegrations = response.ok ? response.data ?? null : null;
       if (!nextIntegrations) {
@@ -1309,13 +1319,19 @@ export function SettingsPage({
         ...current,
         [source]: nextIntegrations[source].source_path ?? '',
       }));
+      setSelectedHostPaths((current) => ({
+        ...current,
+        [source]: dedupePaths(nextIntegrations[source].selected_paths ?? []),
+      }));
       refreshIntegrationViews();
       finishIntegrationAction(actionKey, actionId, {
         status: 'success',
         message:
-          sourcePath.length > 0
-            ? 'Source path saved.'
-            : 'Source path cleared.',
+          source === 'git'
+            ? 'Repo selection saved.'
+            : sourcePath.length > 0
+              ? 'Source path saved.'
+              : 'Source path cleared.',
       });
     } catch (error) {
       finishIntegrationAction(actionKey, actionId, {
@@ -1371,6 +1387,9 @@ export function SettingsPage({
         [source]: nextSelected,
       };
     });
+    if (source === 'git') {
+      return;
+    }
     setLocalSourceDrafts((current) => ({
       ...current,
       [source]: path,
@@ -2298,7 +2317,9 @@ export function SettingsPage({
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <label className="min-w-[18rem] flex-1 space-y-1">
-                    <span className="text-xs uppercase tracking-wide text-zinc-500">Source path</span>
+                    <span className="text-xs uppercase tracking-wide text-zinc-500">
+                      {spec.key === 'git' ? 'Snapshot path (optional)' : 'Source path'}
+                    </span>
                     <input
                       ref={(node) => {
                         localSourceInputRefs.current[spec.key] = node;
@@ -2315,12 +2336,29 @@ export function SettingsPage({
                       placeholder={
                         spec.key === 'notes'
                           ? 'Path to your Obsidian vault root or synced notes directory'
-                          : 'Path to local snapshot file or directory'
+                          : spec.key === 'git'
+                            ? 'Optional legacy git snapshot path'
+                            : 'Path to local snapshot file or directory'
                       }
                       className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
                     />
                   </label>
                 </div>
+                {spec.key === 'git' && selectedPaths.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">Selected repos</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedPaths.map((path) => (
+                        <span
+                          key={`selected:${path}`}
+                          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300"
+                        >
+                          {path}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {availablePaths.length > 0 || internalPaths.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     <p className="text-xs uppercase tracking-wide text-zinc-500">
@@ -2495,21 +2533,36 @@ export function SettingsPage({
                     disabled={Boolean(pendingIntegrationActions[saveActionKey])}
                     className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
-                    {pendingIntegrationActions[saveActionKey] ? 'Saving…' : 'Save path'}
+                    {pendingIntegrationActions[saveActionKey]
+                      ? 'Saving…'
+                      : spec.key === 'git'
+                        ? 'Save repo selection'
+                        : 'Save path'}
                   </button>
                   <button
                     type="button"
                     onClick={() => {
+                      setSelectedHostPaths((current) => ({
+                        ...current,
+                        [spec.key]: [],
+                      }));
                       setLocalSourceDrafts((current) => ({
                         ...current,
                         [spec.key]: '',
                       }));
                       void saveLocalSourcePath(spec.key, '');
                     }}
-                    disabled={Boolean(pendingIntegrationActions[saveActionKey]) || !integration.source_path}
+                    disabled={
+                      Boolean(pendingIntegrationActions[saveActionKey])
+                      || (
+                        spec.key === 'git'
+                          ? selectedPaths.length === 0 && !integration.source_path
+                          : !integration.source_path
+                      )
+                    }
                     className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
-                    Clear path
+                    {spec.key === 'git' ? 'Clear selection' : 'Clear path'}
                   </button>
                   <button
                     type="button"

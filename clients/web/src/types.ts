@@ -160,6 +160,7 @@ export interface TodoistIntegrationData {
 export interface LocalIntegrationData {
   configured: boolean;
   source_path: string | null;
+  selected_paths?: string[];
   available_paths?: string[];
   internal_paths?: string[];
   suggested_paths: string[];
@@ -1706,6 +1707,8 @@ export function decodeLocalIntegrationData(value: unknown): LocalIntegrationData
   return {
     configured: expectBoolean(record.configured, 'local integration.configured'),
     source_path: expectNullableString(record.source_path, 'local integration.source_path'),
+    selected_paths: decodeArray(record.selected_paths ?? [], (item) =>
+      expectString(item, 'local integration.selected_paths[]')),
     available_paths: decodeArray(record.available_paths ?? [], (item) =>
       expectString(item, 'local integration.available_paths[]')),
     internal_paths: decodeArray(record.internal_paths ?? [], (item) =>

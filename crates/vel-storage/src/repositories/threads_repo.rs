@@ -3,6 +3,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::db::StorageError;
+use crate::repositories::semantic_memory_repo;
 
 type ThreadRecord = (String, String, String, String, String, i64, i64);
 type ThreadListRecord = (String, String, String, String, i64, i64);
@@ -29,6 +30,7 @@ pub(crate) async fn insert_thread(
     .bind(now)
     .execute(pool)
     .await?;
+    semantic_memory_repo::upsert_thread_record(pool, id, thread_type, title, status, now).await?;
     Ok(())
 }
 
@@ -83,6 +85,19 @@ pub(crate) async fn update_thread_status(
         .bind(id)
         .execute(pool)
         .await?;
+    if let Some((thread_id, thread_type, title, status, _, _, updated_at)) =
+        get_thread_by_id(pool, id).await?
+    {
+        semantic_memory_repo::upsert_thread_record(
+            pool,
+            &thread_id,
+            &thread_type,
+            &title,
+            &status,
+            updated_at,
+        )
+        .await?;
+    }
     Ok(())
 }
 

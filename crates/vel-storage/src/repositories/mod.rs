@@ -14,6 +14,7 @@ pub(crate) mod inferred_state_repo;
 pub(crate) mod integration_connections_repo;
 pub(crate) mod linking_repo;
 pub(crate) mod nudges_repo;
+pub(crate) mod people_repo;
 pub(crate) mod processing_jobs_repo;
 pub(crate) mod projects_repo;
 pub(crate) mod run_refs_repo;

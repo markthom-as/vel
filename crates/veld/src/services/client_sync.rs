@@ -236,6 +236,7 @@ const WORK_ASSIGNMENT_STALE_SECONDS: i64 = 300;
 pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrap, AppError> {
     let linked_nodes = state.storage.list_linked_nodes().await?;
     let projects = state.storage.list_projects().await?;
+    let people = state.storage.list_people().await?;
     let action_queue =
         crate::services::operator_queue::build_action_items(&state.storage, &state.config).await?;
     let current_context =
@@ -265,7 +266,7 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrap, App
     cluster.action_items = action_queue.action_items.clone();
     cluster.pending_writebacks = action_queue.pending_writebacks.clone();
     cluster.conflicts = action_queue.conflicts.clone();
-    cluster.people = vec![];
+    cluster.people = people.clone();
 
     Ok(SyncBootstrap {
         cluster,
@@ -277,7 +278,7 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrap, App
         action_items: action_queue.action_items,
         pending_writebacks: action_queue.pending_writebacks,
         conflicts: action_queue.conflicts,
-        people: vec![],
+        people,
     })
 }
 
@@ -1764,7 +1765,8 @@ mod tests {
     use vel_config::AppConfig;
     use vel_core::{
         ConflictCaseKind, ConflictCaseStatus, IntegrationFamily, NodeIdentity, OrderingStamp,
-        WritebackOperationKind, WritebackRisk, WritebackStatus, WritebackTargetRef,
+        PersonId, PersonRecord, WritebackOperationKind, WritebackRisk, WritebackStatus,
+        WritebackTargetRef,
     };
     use vel_storage::Storage;
 
@@ -1944,6 +1946,21 @@ mod tests {
         let now = OffsetDateTime::now_utc();
 
         storage
+            .create_person(PersonRecord {
+                id: PersonId::from("per_sync_1".to_string()),
+                display_name: "Annie Case".to_string(),
+                given_name: Some("Annie".to_string()),
+                family_name: Some("Case".to_string()),
+                relationship_context: Some("accountant".to_string()),
+                birthday: None,
+                last_contacted_at: Some(now),
+                aliases: vec![],
+                links: vec![],
+            })
+            .await
+            .unwrap();
+
+        storage
             .insert_writeback_operation(
                 &WritebackOperationRecord {
                     id: "wb_sync_1".to_string().into(),
@@ -2056,6 +2073,8 @@ mod tests {
         assert_eq!(bootstrap.conflicts.len(), 2);
         assert_eq!(bootstrap.cluster.pending_writebacks.len(), 2);
         assert_eq!(bootstrap.cluster.conflicts.len(), 2);
+        assert_eq!(bootstrap.people.len(), 1);
+        assert_eq!(bootstrap.cluster.people.len(), 1);
         assert!(bootstrap
             .pending_writebacks
             .iter()
@@ -2064,6 +2083,7 @@ mod tests {
             .conflicts
             .iter()
             .any(|record| record.kind == vel_core::ConflictCaseKind::ExecutorUnavailable));
+        assert_eq!(bootstrap.people[0].display_name, "Annie Case");
     }
 
     #[test]

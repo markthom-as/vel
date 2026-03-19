@@ -300,7 +300,7 @@ where
     let semantic_hits = if let Some(query) =
         context_generation::semantic_query_for_snapshot(&snapshot)
     {
-        let hits = state.storage.semantic_query(&query).await?;
+        let hits = crate::services::retrieval::semantic_query(state, &query).await?;
         event_seq
             .append(
                 state,

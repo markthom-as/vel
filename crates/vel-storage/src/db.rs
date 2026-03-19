@@ -4,7 +4,7 @@ use crate::{
         artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
         cluster_workers_repo, commitment_risk_repo, commitments_repo, conflict_cases_repo,
         connect_runs_repo, context_timeline_repo, current_context_repo, inferred_state_repo,
-        integration_connections_repo, linking_repo, nudges_repo, processing_jobs_repo,
+        integration_connections_repo, linking_repo, nudges_repo, people_repo, processing_jobs_repo,
         projects_repo, run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo,
         settings_repo, signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
         uncertainty_records_repo, upstream_refs_repo, work_assignments_repo,
@@ -23,10 +23,10 @@ use vel_core::{
     IntegrationConnectionEvent, IntegrationConnectionEventType, IntegrationConnectionId,
     IntegrationConnectionSettingRef, IntegrationConnectionStatus, IntegrationFamily,
     IntegrationProvider, InterventionId, JobId, JobStatus, LinkedNodeRecord, MessageId,
-    OrderingStamp, OrientationSnapshot, PairingTokenRecord, PrivacyClass, ProjectFamily, ProjectId,
-    ProjectRecord, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult,
-    SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass, WritebackOperationRecord,
-    WritebackStatus,
+    OrderingStamp, OrientationSnapshot, PairingTokenRecord, PersonAlias, PersonId, PersonRecord,
+    PrivacyClass, ProjectFamily, ProjectId, ProjectRecord, Ref, Run, RunEvent, RunEventType, RunId,
+    RunKind, RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass,
+    WritebackOperationRecord, WritebackStatus,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -830,6 +830,33 @@ impl Storage {
         projects_repo::list_project_families(self.pool()).await
     }
 
+    pub async fn create_person(&self, person: PersonRecord) -> Result<PersonRecord, StorageError> {
+        people_repo::create_person(self.pool(), person).await
+    }
+
+    pub async fn list_people(&self) -> Result<Vec<PersonRecord>, StorageError> {
+        people_repo::list_people(self.pool()).await
+    }
+
+    pub async fn get_person(&self, id: &str) -> Result<Option<PersonRecord>, StorageError> {
+        people_repo::get_person(self.pool(), id).await
+    }
+
+    pub async fn upsert_person_alias(
+        &self,
+        person_id: &PersonId,
+        alias: &PersonAlias,
+    ) -> Result<(), StorageError> {
+        people_repo::upsert_person_alias(self.pool(), person_id, alias).await
+    }
+
+    pub async fn list_person_aliases(
+        &self,
+        person_id: &str,
+    ) -> Result<Vec<PersonAlias>, StorageError> {
+        people_repo::list_person_aliases(self.pool(), person_id).await
+    }
+
     pub async fn issue_pairing_token(
         &self,
         record: &PairingTokenRecord,
@@ -1499,8 +1526,27 @@ impl Storage {
         semantic_memory_repo::semantic_query(self.pool(), query).await
     }
 
+    pub async fn upsert_note_semantic_record(
+        &self,
+        note_path: &str,
+        title: &str,
+        content_text: &str,
+        capture_id: &str,
+        modified_at: i64,
+    ) -> Result<(), StorageError> {
+        semantic_memory_repo::upsert_note_record(
+            self.pool(),
+            note_path,
+            title,
+            content_text,
+            capture_id,
+            modified_at,
+        )
+        .await
+    }
+
     pub async fn rebuild_semantic_memory_index(&self) -> Result<u64, StorageError> {
-        semantic_memory_repo::rebuild_capture_index(self.pool()).await
+        semantic_memory_repo::rebuild_index(self.pool()).await
     }
 
     pub async fn semantic_record_count(&self) -> Result<i64, StorageError> {

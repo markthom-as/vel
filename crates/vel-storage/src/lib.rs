@@ -17,7 +17,8 @@ pub use db::{
 };
 pub use vel_core::{
     ConflictCaseRecord, ContextCapture, LinkScope, LinkStatus, LinkedNodeRecord, OrderingStamp,
-    OrientationSnapshot, PairingTokenRecord, ProjectFamily, ProjectId, ProjectProvisionRequest,
-    ProjectRecord, ProjectRootRef, ProjectStatus, SearchResult, SemanticHit, SemanticMemoryRecord,
-    SemanticQuery, WorkAssignmentStatus, WritebackOperationRecord, WritebackStatus,
+    OrientationSnapshot, PairingTokenRecord, PersonAlias, PersonId, PersonLinkRef, PersonRecord,
+    ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef,
+    ProjectStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
+    WorkAssignmentStatus, WritebackOperationRecord, WritebackStatus,
 };

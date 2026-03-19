@@ -133,6 +133,16 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
             })
             .await
             .map_err(crate::errors::AppError::from)?;
+        storage
+            .upsert_note_semantic_record(
+                &relative_path,
+                &title,
+                content,
+                capture_id.as_ref(),
+                modified_at,
+            )
+            .await
+            .map_err(crate::errors::AppError::from)?;
         count += 1;
     }
 

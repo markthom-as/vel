@@ -272,6 +272,23 @@ impl From<IntegrationFamily> for IntegrationFamilyData {
     }
 }
 
+impl From<IntegrationFamilyData> for IntegrationFamily {
+    fn from(value: IntegrationFamilyData) -> Self {
+        match value {
+            IntegrationFamilyData::Calendar => Self::Calendar,
+            IntegrationFamilyData::Tasks => Self::Tasks,
+            IntegrationFamilyData::Activity => Self::Activity,
+            IntegrationFamilyData::Git => Self::Git,
+            IntegrationFamilyData::Messaging => Self::Messaging,
+            IntegrationFamilyData::Notes => Self::Notes,
+            IntegrationFamilyData::Transcripts => Self::Transcripts,
+            IntegrationFamilyData::Documents => Self::Documents,
+            IntegrationFamilyData::Health => Self::Health,
+            IntegrationFamilyData::Gaming => Self::Gaming,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntegrationSourceRefData {
     pub family: IntegrationFamilyData,
@@ -282,6 +299,17 @@ pub struct IntegrationSourceRefData {
 
 impl From<vel_core::IntegrationSourceRef> for IntegrationSourceRefData {
     fn from(value: vel_core::IntegrationSourceRef) -> Self {
+        Self {
+            family: value.family.into(),
+            provider_key: value.provider_key,
+            connection_id: value.connection_id,
+            external_id: value.external_id,
+        }
+    }
+}
+
+impl From<IntegrationSourceRefData> for vel_core::IntegrationSourceRef {
+    fn from(value: IntegrationSourceRefData) -> Self {
         Self {
             family: value.family.into(),
             provider_key: value.provider_key,
@@ -886,6 +914,14 @@ impl From<vel_core::PersonRecord> for PersonRecordData {
             links: value.links.into_iter().map(Into::into).collect(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonAliasUpsertRequestData {
+    pub platform: String,
+    pub handle: String,
+    pub display: Option<String>,
+    pub source_ref: Option<IntegrationSourceRefData>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1833,6 +1869,8 @@ pub struct TodoistIntegrationData {
 pub struct LocalIntegrationData {
     pub configured: bool,
     pub source_path: Option<String>,
+    #[serde(default)]
+    pub selected_paths: Vec<String>,
     #[serde(default)]
     pub available_paths: Vec<String>,
     #[serde(default)]

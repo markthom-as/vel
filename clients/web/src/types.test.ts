@@ -126,6 +126,7 @@ describe('transport decoders', () => {
           activity: {
             configured: true,
             source_path: '/tmp/activity.json',
+            selected_paths: [],
             available_paths: ['/tmp/activity.json', '/home/test/.zsh_history'],
             internal_paths: ['var/integrations/activity/snapshot.json'],
             suggested_paths: ['/tmp/activity.json'],
@@ -139,6 +140,7 @@ describe('transport decoders', () => {
           health: {
             configured: true,
             source_path: '/tmp/health.json',
+            selected_paths: [],
             available_paths: ['/tmp/health.json'],
             internal_paths: [],
             suggested_paths: ['/tmp/health.json'],
@@ -152,7 +154,8 @@ describe('transport decoders', () => {
           git: {
             configured: false,
             source_path: null,
-            available_paths: [],
+            selected_paths: ['/Users/test/code/vel', '/Users/test/code/other'],
+            available_paths: ['/Users/test/code/vel', '/Users/test/code/other'],
             internal_paths: ['var/integrations/git/snapshot.json'],
             suggested_paths: ['/tmp/git.json'],
             source_kind: 'file',
@@ -169,6 +172,7 @@ describe('transport decoders', () => {
           messaging: {
             configured: false,
             source_path: null,
+            selected_paths: [],
             available_paths: [],
             internal_paths: [],
             suggested_paths: [],
@@ -182,6 +186,7 @@ describe('transport decoders', () => {
           reminders: {
             configured: false,
             source_path: null,
+            selected_paths: [],
             available_paths: [],
             internal_paths: [],
             suggested_paths: [],
@@ -195,6 +200,7 @@ describe('transport decoders', () => {
           notes: {
             configured: false,
             source_path: null,
+            selected_paths: [],
             available_paths: ['/Users/test/Vault'],
             internal_paths: ['~/Library/Application Support/Vel/notes'],
             suggested_paths: ['/Users/test/Vault'],
@@ -208,6 +214,7 @@ describe('transport decoders', () => {
           transcripts: {
             configured: false,
             source_path: null,
+            selected_paths: [],
             available_paths: [],
             internal_paths: [],
             suggested_paths: [],
@@ -229,6 +236,7 @@ describe('transport decoders', () => {
     expect(response.data?.activity.last_item_count).toBe(4)
     expect(response.data?.activity.available_paths).toEqual(['/tmp/activity.json', '/home/test/.zsh_history'])
     expect(response.data?.activity.internal_paths).toEqual(['var/integrations/activity/snapshot.json'])
+    expect(response.data?.git.selected_paths).toEqual(['/Users/test/code/vel', '/Users/test/code/other'])
     expect(response.data?.notes.suggested_paths).toEqual(['/Users/test/Vault'])
     expect(response.data?.notes.source_kind).toBe('directory')
     expect(response.data?.google_calendar.guidance?.action).toBe('Save credentials')

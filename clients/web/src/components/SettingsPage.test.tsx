@@ -221,6 +221,7 @@ describe('SettingsPage', () => {
             activity: {
               configured: true,
               source_path: '/tmp/activity.json',
+              selected_paths: [],
               available_paths: ['/tmp/activity.json', '/home/test/.zsh_history'],
               internal_paths: ['var/integrations/activity/snapshot.json'],
               suggested_paths: ['/tmp/activity.json'],
@@ -234,6 +235,7 @@ describe('SettingsPage', () => {
             health: {
               configured: true,
               source_path: '/tmp/health.json',
+              selected_paths: [],
               suggested_paths: ['/tmp/health.json'],
               source_kind: 'file',
               last_sync_at: null,
@@ -245,7 +247,10 @@ describe('SettingsPage', () => {
             git: {
               configured: true,
               source_path: '/tmp/git.json',
-              suggested_paths: ['/tmp/git.json'],
+              selected_paths: ['/Users/test/code/vel'],
+              available_paths: ['/Users/test/code/vel', '/Users/test/code/other'],
+              internal_paths: ['var/integrations/git/snapshot.json'],
+              suggested_paths: ['/Users/test/code/vel', '/Users/test/code/other'],
               source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
@@ -256,6 +261,7 @@ describe('SettingsPage', () => {
             messaging: {
               configured: true,
               source_path: '/tmp/messaging.json',
+              selected_paths: [],
               suggested_paths: ['/tmp/messaging.json'],
               source_kind: 'file',
               last_sync_at: null,
@@ -267,6 +273,7 @@ describe('SettingsPage', () => {
             reminders: {
               configured: true,
               source_path: '/tmp/reminders.json',
+              selected_paths: [],
               suggested_paths: ['/tmp/reminders.json'],
               source_kind: 'file',
               last_sync_at: null,
@@ -278,6 +285,7 @@ describe('SettingsPage', () => {
             notes: {
               configured: true,
               source_path: '/tmp/notes',
+              selected_paths: [],
               available_paths: ['/Users/test/Vault'],
               internal_paths: ['~/Library/Application Support/Vel/notes'],
               suggested_paths: ['/Users/test/Vault', '/tmp/notes'],
@@ -295,6 +303,7 @@ describe('SettingsPage', () => {
             transcripts: {
               configured: true,
               source_path: '/tmp/transcripts.json',
+              selected_paths: [],
               suggested_paths: ['/tmp/transcripts.json'],
               source_kind: 'file',
               last_sync_at: null,
@@ -756,6 +765,8 @@ describe('SettingsPage', () => {
     expect(within(root).getByRole('heading', { name: /obsidian vault/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /transcripts/i })).toBeInTheDocument()
     expect(within(root).getByText('Source: /tmp/activity.json')).toBeInTheDocument()
+    expect(within(root).getByText('Selected repos')).toBeInTheDocument()
+    expect(within(root).getAllByText('/Users/test/code/vel').length).toBeGreaterThan(0)
     expect(within(root).getByText('Obsidian vault')).toBeInTheDocument()
     expect(within(root).getByText('Zsh shell history')).toBeInTheDocument()
     expect(within(root).getByText('/Users/test/Vault')).toBeInTheDocument()
@@ -928,6 +939,156 @@ describe('SettingsPage', () => {
     expect(within(activityCard as HTMLElement).getByText('2 selected')).toBeInTheDocument()
   })
 
+  it('saves selected local git repos through the integration settings route', async () => {
+    vi.mocked(client.apiPatch).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        google_calendar: {
+          configured: true,
+          connected: true,
+          has_client_id: true,
+          has_client_secret: true,
+          calendars: [],
+          all_calendars_selected: true,
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        todoist: {
+          configured: true,
+          connected: true,
+          has_api_token: true,
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        activity: {
+          configured: true,
+          source_path: '/tmp/activity.json',
+          selected_paths: [],
+          available_paths: ['/tmp/activity.json', '/home/test/.zsh_history'],
+          internal_paths: ['var/integrations/activity/snapshot.json'],
+          suggested_paths: ['/tmp/activity.json'],
+          source_kind: 'file',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        health: {
+          configured: true,
+          source_path: '/tmp/health.json',
+          selected_paths: [],
+          available_paths: ['/tmp/health.json'],
+          internal_paths: [],
+          suggested_paths: ['/tmp/health.json'],
+          source_kind: 'file',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        git: {
+          configured: true,
+          source_path: '/tmp/git.json',
+          selected_paths: ['/Users/test/code/vel', '/Users/test/code/other'],
+          available_paths: ['/Users/test/code/vel', '/Users/test/code/other'],
+          internal_paths: ['var/integrations/git/snapshot.json'],
+          suggested_paths: ['/Users/test/code/vel', '/Users/test/code/other'],
+          source_kind: 'file',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        messaging: {
+          configured: true,
+          source_path: '/tmp/messaging.json',
+          selected_paths: [],
+          available_paths: ['/tmp/messaging.json'],
+          internal_paths: [],
+          suggested_paths: ['/tmp/messaging.json'],
+          source_kind: 'file',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        reminders: {
+          configured: true,
+          source_path: '/tmp/reminders.json',
+          selected_paths: [],
+          available_paths: ['/tmp/reminders.json'],
+          internal_paths: [],
+          suggested_paths: ['/tmp/reminders.json'],
+          source_kind: 'file',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        notes: {
+          configured: true,
+          source_path: '/tmp/notes',
+          selected_paths: [],
+          available_paths: ['/Users/test/Vault'],
+          internal_paths: ['~/Library/Application Support/Vel/notes'],
+          suggested_paths: ['/Users/test/Vault', '/tmp/notes'],
+          source_kind: 'directory',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        transcripts: {
+          configured: true,
+          source_path: '/tmp/transcripts.json',
+          selected_paths: [],
+          available_paths: ['/tmp/transcripts.json'],
+          internal_paths: [],
+          suggested_paths: ['/tmp/transcripts.json'],
+          source_kind: 'file',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+      },
+      meta: { request_id: 'req_git_selection_save' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+    const gitCard = within(root).getByRole('heading', { name: /git activity/i }).closest('.rounded-lg')
+    expect(gitCard).not.toBeNull()
+
+    fireEvent.click(within(gitCard as HTMLElement).getByRole('button', { name: /git repo: other/i }))
+    fireEvent.click(within(gitCard as HTMLElement).getByRole('button', { name: /save repo selection/i }))
+
+    await waitFor(() => {
+      expect(client.apiPatch).toHaveBeenCalledWith(
+        '/api/integrations/git/source',
+        {
+          source_path: '/tmp/git.json',
+          selected_paths: ['/Users/test/code/vel', '/Users/test/code/other'],
+        },
+        expect.any(Function),
+      )
+    })
+    expect(within(gitCard as HTMLElement).getByText('Repo selection saved.')).toBeInTheDocument()
+  })
+
   it('hides apple-only integrations on non-apple hosts by default', async () => {
     Object.defineProperty(window.navigator, 'platform', {
       configurable: true,
@@ -942,9 +1103,9 @@ describe('SettingsPage', () => {
     const root = await openIntegrationsTab(container)
 
     expect(within(root).queryByRole('heading', { name: /health/i })).not.toBeInTheDocument()
-    expect(within(root).queryByRole('heading', { name: /^messaging$/i })).not.toBeInTheDocument()
     expect(within(root).queryByRole('heading', { name: /apple reminders/i })).not.toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /computer activity/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /^messaging$/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /obsidian vault/i })).toBeInTheDocument()
   })
 

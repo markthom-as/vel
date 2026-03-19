@@ -4,7 +4,7 @@ use std::path::Path;
 use sqlx::{Row, Sqlite, SqlitePool, Transaction};
 use vel_core::{ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef};
 
-use crate::{db::StorageError, mapping::timestamp_to_datetime};
+use crate::{db::StorageError, mapping::timestamp_to_datetime, repositories::semantic_memory_repo};
 
 pub(crate) async fn create_project(
     pool: &SqlitePool,
@@ -63,6 +63,7 @@ pub(crate) async fn create_project(
 
     upsert_project_alias_in_tx(&mut tx, &project.slug, &project.id, "slug").await?;
     upsert_project_alias_in_tx(&mut tx, &project.name, &project.id, "name").await?;
+    semantic_memory_repo::upsert_project_record_in_tx(&mut tx, &project).await?;
 
     tx.commit().await?;
     Ok(project)

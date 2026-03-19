@@ -15,8 +15,12 @@ impl SemanticRecordId {
 pub enum SemanticSourceKind {
     Capture,
     Artifact,
+    Project,
+    Note,
+    TranscriptNote,
     Thread,
     Message,
+    Person,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -26,9 +30,19 @@ pub struct SemanticProvenance {
     #[serde(default)]
     pub artifact_id: Option<String>,
     #[serde(default)]
+    pub project_id: Option<String>,
+    #[serde(default)]
+    pub note_path: Option<String>,
+    #[serde(default)]
+    pub transcript_id: Option<String>,
+    #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
     pub message_id: Option<String>,
+    #[serde(default)]
+    pub person_id: Option<String>,
+    #[serde(default)]
+    pub external_id: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]

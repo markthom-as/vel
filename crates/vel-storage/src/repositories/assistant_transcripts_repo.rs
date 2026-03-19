@@ -3,6 +3,7 @@ use sqlx::{Row, Sqlite, SqlitePool, Transaction};
 use time::OffsetDateTime;
 
 use crate::db::{AssistantTranscriptInsert, AssistantTranscriptRecord, StorageError};
+use crate::repositories::semantic_memory_repo;
 
 pub(crate) async fn insert_assistant_transcript(
     pool: &SqlitePool,
@@ -37,6 +38,9 @@ pub(crate) async fn insert_assistant_transcript_in_tx(
     .bind(now)
     .execute(&mut **tx)
     .await?;
+    if result.rows_affected() > 0 {
+        semantic_memory_repo::upsert_transcript_note_record_in_tx(tx, input).await?;
+    }
     Ok(result.rows_affected() > 0)
 }
 

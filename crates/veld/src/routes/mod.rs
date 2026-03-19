@@ -17,6 +17,7 @@ pub mod linking;
 pub mod loops;
 pub mod now;
 pub mod nudges;
+pub mod people;
 pub mod projects;
 pub mod response;
 pub mod risk;

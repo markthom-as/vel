@@ -93,6 +93,7 @@ impl From<integrations::LocalIntegrationOutput> for LocalIntegrationData {
             configured: value.configured,
             guidance: value.guidance.map(Into::into),
             source_path: value.source_path,
+            selected_paths: value.selected_paths,
             available_paths: value.available_paths,
             internal_paths: value.internal_paths,
             suggested_paths: value.suggested_paths,
@@ -333,6 +334,7 @@ pub struct TodoistUpdateRequest {
 #[derive(Debug, Deserialize)]
 pub struct LocalIntegrationSourceUpdateRequest {
     pub source_path: Option<String>,
+    pub selected_paths: Option<Vec<String>>,
 }
 
 pub async fn patch_todoist(
@@ -628,6 +630,7 @@ pub async fn patch_local_integration_source(
         &state.storage,
         integration_id.trim(),
         payload.source_path,
+        payload.selected_paths,
     )
     .await?;
     let data: IntegrationsData =

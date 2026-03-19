@@ -1,6 +1,7 @@
 use std::{
     env,
     ffi::OsString,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -46,7 +47,7 @@ pub(crate) fn effective_local_source_path(
 pub(crate) fn local_source_path_kind(integration_id: &str) -> Option<LocalSourcePathKind> {
     match integration_id {
         "notes" => Some(LocalSourcePathKind::Directory),
-        "activity" | "health" | "git" | "messaging" | "reminders" | "transcripts" => {
+        "activity" | "health" | "messaging" | "reminders" | "transcripts" => {
             Some(LocalSourcePathKind::File)
         }
         _ => None,
@@ -88,6 +89,9 @@ pub(crate) fn suggested_local_source_paths(
         available_paths.extend(existing_platform_paths);
         internal_paths.extend(missing_platform_paths);
 
+        if integration_id == "git" {
+            available_paths.extend(discover_git_repo_paths(home));
+        }
         if integration_id == "activity" {
             available_paths.extend(discover_activity_source_paths(
                 home,
@@ -430,6 +434,48 @@ fn discover_activity_source_paths(
             .map(|candidate| candidate.to_string_lossy().to_string())
             .collect(),
     )
+}
+
+fn discover_git_repo_paths(home: &Path) -> Vec<String> {
+    let candidate_roots = [
+        home.join("code"),
+        home.join("src"),
+        home.join("work"),
+        home.join("dev"),
+        home.join("projects"),
+        home.join("repos"),
+    ];
+    let mut discovered = Vec::new();
+    for root in candidate_roots {
+        if !root.is_dir() {
+            continue;
+        }
+        scan_git_repos_under(&root, 0, 3, &mut discovered);
+    }
+    dedupe_paths(discovered)
+}
+
+fn scan_git_repos_under(root: &Path, depth: usize, max_depth: usize, discovered: &mut Vec<String>) {
+    if depth > max_depth {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+
+    for entry in entries.flatten().take(128) {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        if path.join(".git").is_dir() || path.join(".git").is_file() {
+            discovered.push(path.to_string_lossy().to_string());
+            continue;
+        }
+
+        scan_git_repos_under(&path, depth + 1, max_depth, discovered);
+    }
 }
 
 fn discover_obsidian_vault_paths(
@@ -836,6 +882,18 @@ mod tests {
         assert!(suggestions
             .internal_paths
             .contains(&"var/integrations/activity/snapshot.json".to_string()));
+
+        let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn discovers_git_repos_under_common_local_roots() {
+        let home = unique_temp_dir("git-discovery-home");
+        let repo_root = home.join("code/vel");
+        fs::create_dir_all(repo_root.join(".git")).expect("git dir should be created");
+
+        let suggestions = discover_git_repo_paths(&home);
+        assert!(suggestions.contains(&repo_root.to_string_lossy().to_string()));
 
         let _ = fs::remove_dir_all(home);
     }

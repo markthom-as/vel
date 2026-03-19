@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use time::OffsetDateTime;
 use vel_core::{
     Clock, ContextCapture, HybridRetrievalPolicy, OrientationSnapshot, RetrievalStrategy,
-    SemanticQuery, SemanticQueryFilters, SemanticSourceKind, SystemClock,
+    SemanticQuery, SemanticQueryFilters, SystemClock,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -109,7 +109,7 @@ pub fn semantic_query_for_snapshot(snapshot: &OrientationSnapshot) -> Option<Sem
         strategy: RetrievalStrategy::Hybrid,
         include_provenance: true,
         filters: SemanticQueryFilters {
-            source_kinds: vec![SemanticSourceKind::Capture],
+            source_kinds: crate::services::retrieval::context_source_kinds(),
             ..Default::default()
         },
         policy: Some(HybridRetrievalPolicy {
@@ -310,7 +310,7 @@ mod tests {
         assert!(query.query_text.contains("accountant") || query.query_text.contains("tax"));
         assert_eq!(
             query.filters.source_kinds,
-            vec![SemanticSourceKind::Capture]
+            crate::services::retrieval::context_source_kinds()
         );
     }
 

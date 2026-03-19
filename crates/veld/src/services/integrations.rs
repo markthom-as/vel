@@ -80,6 +80,7 @@ pub struct LocalIntegrationOutput {
     pub configured: bool,
     pub guidance: Option<IntegrationGuidanceOutput>,
     pub source_path: Option<String>,
+    pub selected_paths: Vec<String>,
     pub available_paths: Vec<String>,
     pub internal_paths: Vec<String>,
     pub suggested_paths: Vec<String>,
@@ -248,6 +249,8 @@ pub struct GoogleCalendarSecrets {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LocalIntegrationSettings {
     pub source_path: Option<String>,
+    #[serde(default)]
+    pub selected_paths: Vec<String>,
     pub last_sync_at: Option<i64>,
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
@@ -947,6 +950,7 @@ pub async fn update_local_source_path(
     storage: &Storage,
     source: &str,
     source_path: Option<String>,
+    selected_paths: Option<Vec<String>>,
 ) -> Result<IntegrationsOutput, AppError> {
     let key = local_settings_key(source);
     if key.is_empty() {
@@ -955,6 +959,13 @@ pub async fn update_local_source_path(
 
     let mut settings = load_local_settings(storage, key).await?;
     settings.source_path = normalize_optional(source_path.unwrap_or_default());
+    if let Some(selected_paths) = selected_paths {
+        settings.selected_paths = selected_paths
+            .into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect();
+    }
     save_settings(storage, key, &settings).await?;
     get_integrations(storage).await
 }
@@ -1133,8 +1144,9 @@ fn local_status(
 ) -> LocalIntegrationOutput {
     LocalIntegrationOutput {
         configured: source_path.is_some(),
-        guidance: local_guidance(source_path.as_deref(), settings),
+        guidance: local_guidance(integration_id, source_path.as_deref(), settings),
         source_path,
+        selected_paths: settings.selected_paths.clone(),
         available_paths: path_suggestions.available_paths,
         internal_paths: path_suggestions.internal_paths,
         suggested_paths: path_suggestions.suggested_paths,
@@ -1212,9 +1224,13 @@ fn google_guidance(settings: &GoogleCalendarSettings) -> Option<IntegrationGuida
 }
 
 fn local_guidance(
+    integration_id: &str,
     source_path: Option<&str>,
     settings: &LocalIntegrationSettings,
 ) -> Option<IntegrationGuidanceOutput> {
+    if integration_id == "git" && !settings.selected_paths.is_empty() {
+        return None;
+    }
     if source_path.is_none() {
         return Some(guidance(
             "Local source missing",

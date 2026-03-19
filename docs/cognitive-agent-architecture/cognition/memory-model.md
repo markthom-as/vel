@@ -56,3 +56,15 @@ TTL: durable, versioned
 - reflective memories must be falsifiable
 - preferences can override learned heuristics
 - memory writes should be sparse and justified
+
+## Durable Recall Entities
+
+Phase 6 widens semantic recall only across durable typed entities the runtime already owns.
+
+- projects: local-first project records with stable local IDs and optional upstream IDs
+- notes: note documents rooted in configured notes paths or project notes roots, with note-path provenance
+- transcripts: assistant transcript rows carried under notes as `transcript_note` records
+- threads: durable thread records and their typed local IDs
+- people: practical person records with explicit aliases and source-linked identity references
+
+The graph is intentionally narrow. Retrieval should surface provenance-bearing hits for these entities, not speculative merge products or opaque inferred identities.
