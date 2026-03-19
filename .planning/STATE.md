@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 15
-current_phase_name: incremental-core-migration-and-canonical-rust-service-seams
-current_plan: 3
-status: executing
-stopped_at: Completed 15-03; next logical step is 15-04
-last_updated: "2026-03-19T21:33:00Z"
+current_phase: 16
+current_phase_name: logic-first-product-closure-on-canonical-core-surfaces
+current_plan: 0
+status: planning
+stopped_at: Planned Phase 16; next logical step is execute 16-01
+last_updated: "2026-03-19T21:49:01Z"
 last_activity: 2026-03-19
 progress:
   total_phases: 17
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 69
-  completed_plans: 60
-  percent: 66
+  completed_plans: 62
+  percent: 68
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 15 execution — incremental-core-migration-and-canonical-rust-service-seams
+**Current focus:** Phase 16 execution-ready planning — logic-first-product-closure-on-canonical-core-surfaces
 
-Status: Phase 15 in progress; 15-01 through 15-03 complete
-Current Phase: 15
-Current Phase Name: incremental-core-migration-and-canonical-rust-service-seams
-Current Plan: 3
+Status: Phase 16 planned; execution can begin at 16-01
+Current Phase: 16
+Current Phase Name: logic-first-product-closure-on-canonical-core-surfaces
+Current Plan: 0
 Total Plans in Phase: 5
-Progress: 60%
+Progress: 0%
 Last Activity: 2026-03-19
-Last Activity Description: Completed 15-03 by introducing the first backend-owned reflow seam through typed current-context drift and Now read-model support
+Last Activity Description: Planned Phase 16 into five backend-logic slices covering transition contracts, check_in, reflow, readiness follow-through, and project-scoped action behavior
 
 ## Current Position
 
-Phase: 15 (incremental-core-migration-and-canonical-rust-service-seams) — EXECUTING
-Plan: 3 of 5
+Phase: 16 (logic-first-product-closure-on-canonical-core-surfaces) — PLANNED
+Plan: 0 of 5
 
 ## Performance Metrics
 
@@ -170,6 +170,10 @@ Recent decisions affecting current work:
 - Phase 15 execution started (2026-03-19): 15-01 completed by tightening the core queue/DTO contract with explicit permission and scope semantics and by documenting `operator_queue` as the migration seam
 - Phase 15 execution advanced (2026-03-19): 15-02 completed by introducing the first backend-owned `check_in` seam, sourced from active daily-loop prompt state and exposed through the `Now` read model
 - Phase 15 execution advanced (2026-03-19): 15-03 completed by introducing the first backend-owned `reflow` seam, sourced from typed current-context drift, stale schedule age, and missed-event timing
+- Phase 15 execution advanced (2026-03-19): 15-04 completed by composing the first backend-owned trust/readiness summary from backup trust, freshness, conflicts/writebacks, and supervised review pressure
+- Phase 15 completed (2026-03-19): 15-05 preserved project-scoped operator-action ownership through core, service, DTO, and shell seams and advanced the next lane to Phase 16 planning
+- Phase 16 discussion completed (2026-03-19): wrote `16-CONTEXT.md` to lock logic-first closure priorities, product rules, and code-context references ahead of planning
+- Phase 16 planning created (2026-03-19): 5-plan rollout covering transition contracts, backend-owned `check_in`, backend-owned `reflow`, trust/readiness follow-through, and project-scoped action behavior
 
 ### Pending Todos
 
@@ -194,7 +198,7 @@ Recent decisions affecting current work:
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 - Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
-- Phase 15 is in progress; the next active lane is 15-04 (summary-first trust/readiness projections) after the completed 15-03 `reflow` slice
+- Phase 16 is planned; the next active lane is 16-01 execution
 
 ## Session Continuity
 

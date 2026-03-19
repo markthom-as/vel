@@ -118,7 +118,7 @@ Residual work moved forward:
 ## Progress
 
 **Execution Order:**
-Remaining execution order: 13 → 14 → 15 → 16
+Remaining execution order: 16
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -303,7 +303,7 @@ Plans:
 **Goal:** Incrementally migrate the codebase toward the Phase 13 architecture by sharpening application-service seams, transport boundaries, and cross-surface read-model ownership, so new logic lands in canonical Rust-owned surfaces instead of being rederived in shells.
 **Requirements**: MIGRATE-01, MIGRATE-02, SERVICE-01, DTO-01, READMODEL-01
 **Depends on:** Phase 14
-**Plans:** 3/5 plans executed
+**Plans:** 5/5 plans complete
 
 **Migration note:** This phase should favor a sequence of proof-bearing seam migrations over a broad crate shuffle. Structural moves are justified only when they materially reduce shell-owned logic, boundary confusion, or transport coupling.
 **Included from thread decisions:** do the minimum structural work needed for the next real logic slices, avoid refactor theater, and move seams only when the result clearly improves product-core ownership or portability.
@@ -313,22 +313,26 @@ Plans:
 - [x] 15-01-PLAN.md — Tighten the canonical operator-action/read-model contract and migration map before behavior widens
 - [x] 15-02-PLAN.md — Introduce the first backend-owned `check_in` seam through core, service, and `Now` read-model boundaries
 - [x] 15-03-PLAN.md — Introduce the first backend-owned `reflow` seam near daily-loop ownership and drift inputs
-- [ ] 15-04-PLAN.md — Compose summary-first trust/readiness projections from existing backup, freshness, and review evidence
-- [ ] 15-05-PLAN.md — Preserve project-scoped operator-action ownership across core, storage/service, DTO, and read-model seams
+- [x] 15-04-PLAN.md — Compose summary-first trust/readiness projections from existing backup, freshness, and review evidence
+- [x] 15-05-PLAN.md — Preserve project-scoped operator-action ownership across core, storage/service, DTO, and read-model seams
 
 ### Phase 16: Logic-first product closure on canonical core surfaces
 
 **Goal:** Implement the next wave of operator product behavior as Rust-owned commands, queries, policies, and read models on top of the migrated seams, so later Apple/web/desktop UI phases become embodiment work rather than product-logic design work.
 **Requirements**: LOGIC-01, FLOW-01, MODE-02, READMODEL-02, SHELL-ARCH-01
 **Depends on:** Phase 15
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 **Delivery note:** This phase is where the product logic discovered in Phase 14 should become canonical backend/application behavior, with UI phases following behind instead of leading product definition.
 **Included from thread decisions:** business logic should be defined and implemented before broad shell expansion, with later UI phases focused on embodiment, interaction quality, and surface-specific affordances rather than inventing product semantics.
 **Phase 14 carry-forward:** Phase 16 should implement the action-model and operator journey logic directly, including check-ins, heavier reflow semantics, summary-first trust/readiness, and backend-owned routing across `Now`, `Inbox`, `Threads`, and project-scoped actions.
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 16 to break down)
+- [ ] 16-01-PLAN.md — Ratify the canonical operator-action transition contract and logic entry points before behavior widens
+- [ ] 16-02-PLAN.md — Implement backend-owned `check_in` accept/bypass/completion behavior over daily-loop/session seams
+- [ ] 16-03-PLAN.md — Implement backend-owned `reflow` confirm/apply/edit behavior and follow-up state generation
+- [ ] 16-04-PLAN.md — Tighten trust/readiness follow-through so degraded posture yields canonical backend-owned recovery/review actions
+- [ ] 16-05-PLAN.md — Close project-scoped action behavior and typed thread escalation/routing without reopening shell debates
 
 ### Phase 17: Shell embodiment, operator-mode application, and surface simplification
 
