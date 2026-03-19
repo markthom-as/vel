@@ -10,7 +10,7 @@ use tokio::{
     time::{timeout, Duration, Instant},
 };
 use uuid::Uuid;
-use vel_api_types::ClusterBootstrapData;
+use vel_api_types::{ApiResponse, ClusterBootstrapData, SyncBootstrapData};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -114,7 +114,7 @@ pub(crate) async fn run_responder(state: AppState) {
 }
 
 pub(crate) async fn discover_peers(
-    _state: &AppState,
+    state: &AppState,
     local_node_id: &str,
 ) -> Result<Vec<LanDiscoveredPeer>, AppError> {
     let socket = UdpSocket::bind(("0.0.0.0", 0))
@@ -149,7 +149,10 @@ pub(crate) async fn discover_peers(
         )));
     }
 
-    collect_discovery_responses(&socket, &request_id, local_node_id).await
+    let mut peers = collect_discovery_responses(&socket, &request_id, local_node_id).await?;
+    let fallback_peers = discover_peers_via_http_probe(state, local_node_id).await;
+    merge_discovered_peers(&mut peers, fallback_peers);
+    Ok(peers)
 }
 
 async fn collect_discovery_responses(
@@ -186,6 +189,79 @@ async fn collect_discovery_responses(
     }
 
     Ok(peers)
+}
+
+async fn discover_peers_via_http_probe(
+    state: &AppState,
+    local_node_id: &str,
+) -> Vec<LanDiscoveredPeer> {
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_millis(150))
+        .build()
+    {
+        Ok(client) => client,
+        Err(error) => {
+            tracing::debug!(error = %error, "failed to build LAN probe client");
+            return Vec::new();
+        }
+    };
+    let port = reqwest::Url::parse(&state.config.base_url)
+        .ok()
+        .and_then(|url| url.port_or_known_default())
+        .unwrap_or(4130);
+
+    let futures = crate::services::local_network::lan_probe_targets()
+        .into_iter()
+        .map(|ip| fetch_http_probe_peer(&client, ip, port, local_node_id))
+        .collect::<Vec<_>>();
+
+    futures::future::join_all(futures)
+        .await
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+async fn fetch_http_probe_peer(
+    client: &reqwest::Client,
+    ip: std::net::Ipv4Addr,
+    port: u16,
+    local_node_id: &str,
+) -> Option<LanDiscoveredPeer> {
+    let source_addr = SocketAddr::from((ip, port));
+    let url = format!("http://{ip}:{port}/v1/discovery/bootstrap");
+    let response = client.get(url).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let body = response
+        .json::<ApiResponse<SyncBootstrapData>>()
+        .await
+        .ok()?;
+    let cluster = body.data?.cluster;
+    if cluster.node_id == local_node_id {
+        return None;
+    }
+    Some(LanDiscoveredPeer {
+        source_addr,
+        cluster,
+    })
+}
+
+fn merge_discovered_peers(
+    current: &mut Vec<LanDiscoveredPeer>,
+    additional: Vec<LanDiscoveredPeer>,
+) {
+    let mut seen = current
+        .iter()
+        .map(|peer| peer.cluster.node_id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+
+    for peer in additional {
+        if seen.insert(peer.cluster.node_id.clone()) {
+            current.push(peer);
+        }
+    }
 }
 
 #[cfg(test)]

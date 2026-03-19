@@ -38,6 +38,23 @@ pub(crate) fn lan_broadcast_targets() -> Vec<Ipv4Addr> {
     targets
 }
 
+pub(crate) fn lan_probe_targets() -> Vec<Ipv4Addr> {
+    let interfaces = match get_if_addrs() {
+        Ok(interfaces) => interfaces,
+        Err(error) => {
+            tracing::debug!(error = %error, "failed to enumerate local interfaces for LAN probe targets");
+            return Vec::new();
+        }
+    };
+
+    lan_probe_targets_from_addrs(
+        &interfaces
+            .into_iter()
+            .map(|interface| interface.addr)
+            .collect::<Vec<_>>(),
+    )
+}
+
 fn build_base_url(config: &AppConfig, host: Ipv4Addr) -> String {
     let scheme = reqwest::Url::parse(&config.base_url)
         .ok()
@@ -63,6 +80,33 @@ fn select_private_ipv4(addrs: &[IfAddr]) -> Option<Ipv4Addr> {
 
 fn compute_broadcast(ip: Ipv4Addr, netmask: Ipv4Addr) -> Ipv4Addr {
     Ipv4Addr::from(u32::from(ip) | !u32::from(netmask))
+}
+
+fn lan_probe_targets_from_addrs(addrs: &[IfAddr]) -> Vec<Ipv4Addr> {
+    let mut targets = Vec::new();
+    let mut seen = std::collections::BTreeSet::new();
+
+    for addr in addrs {
+        let IfAddr::V4(addr) = addr else {
+            continue;
+        };
+        if addr.ip.is_loopback() || !is_private_or_link_local(addr.ip) {
+            continue;
+        }
+
+        let octets = addr.ip.octets();
+        for host in 1u8..=254u8 {
+            if host == octets[3] {
+                continue;
+            }
+            let candidate = Ipv4Addr::new(octets[0], octets[1], octets[2], host);
+            if seen.insert(candidate) {
+                targets.push(candidate);
+            }
+        }
+    }
+
+    targets
 }
 
 fn is_private_or_link_local(ip: Ipv4Addr) -> bool {
@@ -117,5 +161,22 @@ mod tests {
             build_base_url(&config, Ipv4Addr::new(192, 168, 1, 22)),
             "https://192.168.1.22:8443"
         );
+    }
+
+    #[test]
+    fn lan_probe_targets_cover_local_slash_24_without_self() {
+        let addrs = vec![IfAddr::V4(Ifv4Addr {
+            ip: Ipv4Addr::new(192, 168, 1, 22),
+            netmask: Ipv4Addr::new(255, 255, 255, 0),
+            broadcast: Some(Ipv4Addr::new(192, 168, 1, 255)),
+            prefixlen: 24,
+        })];
+
+        let targets = lan_probe_targets_from_addrs(&addrs);
+
+        assert_eq!(targets.len(), 253);
+        assert!(targets.contains(&Ipv4Addr::new(192, 168, 1, 1)));
+        assert!(targets.contains(&Ipv4Addr::new(192, 168, 1, 254)));
+        assert!(!targets.contains(&Ipv4Addr::new(192, 168, 1, 22)));
     }
 }
