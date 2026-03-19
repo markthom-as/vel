@@ -11,7 +11,28 @@ use vel_storage::{SignalInsert, Storage};
 pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate::errors::AppError> {
     if let Some(path) = &config.activity_snapshot_path {
         match tokio::fs::try_exists(path).await {
-            Ok(true) => return ingest_snapshot_path(storage, path).await,
+            Ok(true) => {
+                let metadata = tokio::fs::metadata(path).await.map_err(|error| {
+                    crate::errors::AppError::internal(format!(
+                        "stat activity snapshot {}: {}",
+                        path, error
+                    ))
+                })?;
+                if metadata.is_file() {
+                    return ingest_snapshot_path(storage, path).await;
+                }
+                if metadata.is_dir() {
+                    tracing::debug!(
+                        path,
+                        "activity source path is a directory; treating it as a local source root"
+                    );
+                } else {
+                    tracing::debug!(
+                        path,
+                        "activity source path is not a regular file; falling back to local sources"
+                    );
+                }
+            }
             Ok(false) if vel_config::is_default_local_source_path("activity", path) => {}
             Ok(false) => {
                 return Err(crate::errors::AppError::internal(format!(
@@ -605,5 +626,30 @@ mod tests {
         assert_eq!(idle_signals.len(), 1);
         assert_eq!(activity_signals[0].source, "activitywatch");
         assert_eq!(idle_signals[0].payload_json["details"]["status"], "afk");
+    }
+
+    #[tokio::test]
+    async fn ingest_treats_directory_activity_source_as_local_source_root() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+
+        let dir = std::env::temp_dir().join(format!(
+            "vel_activitywatch_dir_{}",
+            uuid::Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let config = AppConfig {
+            activity_snapshot_path: Some(dir.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+
+        let result = ingest(&storage, &config).await;
+        assert!(
+            result.is_ok(),
+            "directory-backed activity source should fall back to local sources instead of erroring: {result:?}"
+        );
+
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
