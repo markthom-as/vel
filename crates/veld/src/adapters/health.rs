@@ -38,7 +38,9 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
     let mut count = 0u32;
     for sample in snapshot.samples {
         let metric_type = sample.metric_type.trim();
-        if metric_type.is_empty() {
+        if metric_type.is_empty()
+            || !crate::services::apple_behavior::is_supported_metric(metric_type)
+        {
             continue;
         }
 

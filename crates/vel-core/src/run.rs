@@ -1,5 +1,9 @@
 //! Run model: first-class execution records for context generation, synthesis, etc.
 
+use crate::{
+    AgentProfile, ExecutionReviewGate, ExecutionTaskKind, ProjectId, RepoWorktreeRef,
+    TokenBudgetClass,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::HashSet;
@@ -95,6 +99,18 @@ pub struct HandoffEnvelope {
     pub read_scopes: Vec<String>,
     #[serde(default)]
     pub write_scopes: Vec<String>,
+    #[serde(default)]
+    pub project_id: Option<ProjectId>,
+    #[serde(default)]
+    pub task_kind: Option<ExecutionTaskKind>,
+    #[serde(default)]
+    pub agent_profile: Option<AgentProfile>,
+    #[serde(default)]
+    pub token_budget: Option<TokenBudgetClass>,
+    #[serde(default)]
+    pub review_gate: Option<ExecutionReviewGate>,
+    #[serde(default)]
+    pub repo_root: Option<RepoWorktreeRef>,
     #[serde(default)]
     pub allowed_tools: Vec<String>,
     #[serde(default)]
@@ -763,6 +779,10 @@ pub struct RunEvent {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        AgentProfile, ExecutionReviewGate, ExecutionTaskKind, ProjectId, RepoWorktreeRef,
+        TokenBudgetClass,
+    };
     use super::{HandoffEnvelope, TraceId, TraceLink};
     use serde_json::json;
     use time::OffsetDateTime;
@@ -792,6 +812,17 @@ mod tests {
             constraints: vec!["stay deterministic".to_string()],
             read_scopes: vec!["docs/".to_string()],
             write_scopes: vec![".planning/".to_string()],
+            project_id: Some(ProjectId::from("proj_velruntime".to_string())),
+            task_kind: Some(ExecutionTaskKind::Implementation),
+            agent_profile: Some(AgentProfile::Balanced),
+            token_budget: Some(TokenBudgetClass::Large),
+            review_gate: Some(ExecutionReviewGate::OperatorPreview),
+            repo_root: Some(RepoWorktreeRef {
+                path: "/home/jove/code/vel".to_string(),
+                label: "vel".to_string(),
+                branch: Some("main".to_string()),
+                head_rev: Some("abc1234".to_string()),
+            }),
             allowed_tools: vec!["search".to_string()],
             capability_scope: json!({ "mode": "read_only" }),
             deadline: Some(deadline),
@@ -804,5 +835,9 @@ mod tests {
             serde_json::from_value(value).expect("handoff envelope should deserialize");
         assert_eq!(decoded.trace_id.as_ref(), "trace_1");
         assert_eq!(decoded.to_agent, "risk_evaluator");
+        assert_eq!(
+            decoded.project_id,
+            Some(ProjectId::from("proj_velruntime".to_string()))
+        );
     }
 }

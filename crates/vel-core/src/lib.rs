@@ -5,6 +5,7 @@ pub mod commitment;
 pub mod conflicts;
 pub mod connect;
 pub mod context;
+pub mod execution;
 pub mod integration;
 pub mod intervention;
 pub mod linking;
@@ -47,6 +48,11 @@ pub use connect::{
 };
 pub use context::{
     ContextCapture, ContextMigrator, CurrentContextV1, OrientationSnapshot, SearchResult,
+};
+pub use execution::{
+    AgentProfile, ExecutionHandoff, ExecutionPolicyInput, ExecutionReviewGate, ExecutionTaskKind,
+    LocalAgentManifest, LocalRuntimeKind, ProjectExecutionContext, RepoWorktreeRef,
+    TokenBudgetClass,
 };
 pub use integration::{
     IntegrationConnection, IntegrationConnectionEvent, IntegrationConnectionEventType,

@@ -10,7 +10,7 @@ use vel_storage::{CaptureInsert, SignalInsert};
 
 use crate::{
     errors::AppError,
-    services::{client_sync, now},
+    services::{apple_behavior, client_sync, now},
     state::AppState,
 };
 
@@ -54,7 +54,10 @@ pub async fn apple_voice_turn(
         AppleVoiceIntent::CompleteCommitment => {
             apply_commitment_done(state, request.operation, capture_id).await
         }
-        AppleVoiceIntent::Capture | AppleVoiceIntent::BehaviorSummary => {
+        AppleVoiceIntent::BehaviorSummary => {
+            behavior_summary_response(state, request.operation, capture_id).await
+        }
+        AppleVoiceIntent::Capture => {
             Ok(capture_only_response(request.operation, capture_id))
         }
     }
@@ -285,6 +288,38 @@ async fn active_nudges_response(
         queued_mutation: None,
         schedule: None,
         behavior_summary: None,
+    })
+}
+
+async fn behavior_summary_response(
+    state: &AppState,
+    operation: AppleRequestedOperation,
+    capture_id: vel_core::CaptureId,
+) -> Result<AppleVoiceTurnResponse, AppError> {
+    let summary = apple_behavior::get_summary(&state.storage, &state.config)
+        .await?
+        .ok_or_else(|| AppError::not_found("apple behavior summary is not available"))?;
+    let evidence = summary
+        .metrics
+        .iter()
+        .map(|metric| AppleResponseEvidence {
+            kind: "health_metric".to_string(),
+            label: metric.display_label.clone(),
+            detail: metric.reasons.join(" "),
+            source_id: None,
+        })
+        .collect::<Vec<_>>();
+
+    Ok(AppleVoiceTurnResponse {
+        operation,
+        mode: AppleResponseMode::SpokenSummary,
+        summary: summary.headline.clone(),
+        capture_id: Some(capture_id),
+        reasons: summary.reasons.clone(),
+        evidence,
+        queued_mutation: None,
+        schedule: None,
+        behavior_summary: Some(summary),
     })
 }
 

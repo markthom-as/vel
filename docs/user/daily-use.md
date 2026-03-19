@@ -36,6 +36,16 @@ cargo run -p vel-cli -- search dentist
 cargo run -p vel-cli -- recent --today
 ```
 
+For coding-oriented project work, keep the execution handoff explicit and repo-local:
+
+```bash
+cargo run -p vel-cli -- exec save <project_id> --objective "ship the next safe slice" --constraint "sidecar only"
+cargo run -p vel-cli -- exec preview <project_id>
+cargo run -p vel-cli -- exec export <project_id>
+```
+
+The execution export writes only a small sidecar pack under the project's primary repo root, by default at `.planning/vel/`, so supervised GSD-readable handoffs stay inspectable and bounded instead of mutating arbitrary repo files.
+
 ## Commitments and review
 
 Use commitments as the actionable layer:

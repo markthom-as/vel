@@ -5,16 +5,19 @@
 
 pub mod adaptive_policies;
 pub mod agent_protocol;
+pub mod apple_behavior;
 pub mod apple_voice;
 pub mod broker;
 pub mod chat;
 pub mod client_sync;
 pub mod command_lang;
 pub mod components;
+pub mod connect_runtime;
 pub mod context_generation;
 pub mod context_runs;
 pub mod doctor;
 pub mod evaluate;
+pub mod execution_context;
 pub mod explain;
 pub mod inference;
 pub(crate) mod integration_runtime;

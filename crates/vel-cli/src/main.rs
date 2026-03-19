@@ -179,6 +179,10 @@ enum Command {
         command: UncertaintyCommand,
     },
     Evaluate {},
+    Exec {
+        #[command(subcommand)]
+        command: ExecCommand,
+    },
     Context {
         #[command(subcommand)]
         command: ContextCommand,
@@ -248,6 +252,44 @@ enum JournalCommand {
         note: Option<String>,
         #[arg(long)]
         source: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ExecCommand {
+    Show {
+        project_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Save {
+        project_id: String,
+        #[arg(long)]
+        objective: String,
+        #[arg(long)]
+        repo_brief: Option<String>,
+        #[arg(long)]
+        notes_brief: Option<String>,
+        #[arg(long = "constraint")]
+        constraints: Vec<String>,
+        #[arg(long = "expected-output")]
+        expected_outputs: Vec<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Preview {
+        project_id: String,
+        #[arg(long)]
+        output_dir: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Export {
+        project_id: String,
+        #[arg(long)]
+        output_dir: Option<String>,
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -957,6 +999,60 @@ async fn main() -> anyhow::Result<()> {
             }
         },
         Command::Evaluate {} => commands::evaluate::run(&client).await,
+        Command::Exec { command } => match command {
+            ExecCommand::Show { project_id, json } => {
+                commands::exec::run_show_context(&client, &project_id, json).await
+            }
+            ExecCommand::Save {
+                project_id,
+                objective,
+                repo_brief,
+                notes_brief,
+                constraints,
+                expected_outputs,
+                json,
+            } => {
+                commands::exec::run_save_context(
+                    &client,
+                    &project_id,
+                    crate::client::ExecutionContextSaveRequestData {
+                        objective,
+                        repo_brief: repo_brief.unwrap_or_default(),
+                        notes_brief: notes_brief.unwrap_or_default(),
+                        constraints,
+                        expected_outputs,
+                    },
+                    json,
+                )
+                .await
+            }
+            ExecCommand::Preview {
+                project_id,
+                output_dir,
+                json,
+            } => {
+                commands::exec::run_preview_context(
+                    &client,
+                    &project_id,
+                    output_dir.as_deref(),
+                    json,
+                )
+                .await
+            }
+            ExecCommand::Export {
+                project_id,
+                output_dir,
+                json,
+            } => {
+                commands::exec::run_export_context(
+                    &client,
+                    &project_id,
+                    output_dir.as_deref(),
+                    json,
+                )
+                .await
+            }
+        },
         Command::Context { command } => match command {
             ContextCommand::Show { json } => commands::context::run_current(&client, json).await,
             ContextCommand::Timeline { limit, json } => {
@@ -1033,6 +1129,35 @@ mod tests {
                 assert_eq!(limit, Some(5));
             }
             _ => panic!("expected search command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_exec_export() {
+        let cli = Cli::try_parse_from([
+            "vel",
+            "exec",
+            "export",
+            "proj_123",
+            "--output-dir",
+            ".planning/vel",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Command::Exec {
+                command:
+                    ExecCommand::Export {
+                        project_id,
+                        output_dir,
+                        json,
+                    },
+            } => {
+                assert_eq!(project_id, "proj_123");
+                assert_eq!(output_dir.as_deref(), Some(".planning/vel"));
+                assert!(!json);
+            }
+            _ => panic!("expected exec export command"),
         }
     }
 

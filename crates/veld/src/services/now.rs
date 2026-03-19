@@ -168,6 +168,7 @@ struct IntegrationSnapshotOutput {
 pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput, AppError> {
     let now_ts = OffsetDateTime::now_utc().unix_timestamp();
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
+    let apple_behavior_summary = crate::services::apple_behavior::get_summary(storage, config).await?;
     let Some((computed_at, context)) = storage.get_current_context().await? else {
         return Ok(empty_now(now_ts, &timezone.name));
     };
@@ -321,12 +322,21 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
                 "Git activity",
                 context.git_activity_summary.clone(),
             ),
-            health: context_source_activity_typed(
-                &context,
-                "health_summary",
-                "Health",
-                context.health_summary.clone(),
-            ),
+            health: apple_behavior_summary
+                .as_ref()
+                .map(|summary| NowSourceActivityOutput {
+                    label: "Apple behavior".to_string(),
+                    timestamp: summary.generated_at,
+                    summary: crate::services::apple_behavior::summary_to_source_activity(summary),
+                })
+                .or_else(|| {
+                    context_source_activity_typed(
+                        &context,
+                        "health_summary",
+                        "Health",
+                        context.health_summary.clone(),
+                    )
+                }),
             mood: context_source_activity_typed(
                 &context,
                 "mood_summary",

@@ -1,9 +1,11 @@
 use axum::{
     body::Body,
+    extract::ConnectInfo,
     http::{header, Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use std::net::SocketAddr;
 
 pub(crate) const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
 pub(crate) const WORKER_AUTH_HEADER: &str = "x-vel-worker-token";
@@ -132,6 +134,8 @@ pub(crate) async fn enforce_exposure_gate(
     else {
         return if gate.policy.strict_auth {
             unauthorized_response(gate.class)
+        } else if is_non_loopback_request(&request) {
+            unauthorized_response(gate.class)
         } else {
             next.run(request).await
         };
@@ -143,4 +147,12 @@ pub(crate) async fn enforce_exposure_gate(
         Some(token) if token == expected_token => next.run(request).await,
         _ => unauthorized_response(gate.class),
     }
+}
+
+fn is_non_loopback_request(request: &Request<Body>) -> bool {
+    request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|info| !info.0.ip().is_loopback())
+        .unwrap_or(false)
 }

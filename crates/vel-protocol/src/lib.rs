@@ -25,6 +25,13 @@ pub struct CapabilityRequest {
     pub reason: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProtocolManifestReference {
+    pub manifest_id: String,
+    pub runtime_kind: String,
+    pub working_directory: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProtocolPayload {
@@ -184,5 +191,20 @@ mod tests {
 
         let error = envelope.validate().expect_err("mismatch should fail");
         assert_eq!(error, ProtocolValidationError::HandshakeVersionMismatch);
+    }
+
+    #[test]
+    fn manifest_reference_round_trips() {
+        let reference = ProtocolManifestReference {
+            manifest_id: "manifest_local_cli".to_string(),
+            runtime_kind: "local_cli".to_string(),
+            working_directory: "/home/jove/code/vel".to_string(),
+        };
+
+        let value = serde_json::to_value(&reference).expect("manifest ref should serialize");
+        assert_eq!(value["manifest_id"], "manifest_local_cli");
+        let decoded: ProtocolManifestReference =
+            serde_json::from_value(value).expect("manifest ref should deserialize");
+        assert_eq!(decoded.runtime_kind, "local_cli");
     }
 }

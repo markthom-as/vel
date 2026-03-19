@@ -10,6 +10,7 @@ pub(crate) mod conflict_cases_repo;
 pub(crate) mod connect_runs_repo;
 pub(crate) mod context_timeline_repo;
 pub(crate) mod current_context_repo;
+pub(crate) mod execution_contexts_repo;
 pub(crate) mod inferred_state_repo;
 pub(crate) mod integration_connections_repo;
 pub(crate) mod linking_repo;

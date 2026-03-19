@@ -1,6 +1,6 @@
 use anyhow::{bail, Context};
 use reqwest::Client;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use vel_api_types::{
     ApiResponse, BranchSyncRequestData, CaptureCreateRequest, CaptureCreateResponse,
     ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
@@ -32,6 +32,75 @@ struct RedeemPairingTokenRequestData {
     transport_hint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     requested_scopes: Option<LinkScopeData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionContextData {
+    pub project_id: String,
+    pub project_slug: String,
+    pub project_name: String,
+    pub objective: String,
+    pub repo_brief: String,
+    pub notes_brief: String,
+    #[serde(default)]
+    pub constraints: Vec<String>,
+    #[serde(default)]
+    pub expected_outputs: Vec<String>,
+    #[serde(default)]
+    pub repo_roots: Vec<ExecutionRootData>,
+    #[serde(default)]
+    pub notes_roots: Vec<ExecutionRootData>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionRootData {
+    pub path: String,
+    pub label: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionContextSaveRequestData {
+    pub objective: String,
+    #[serde(default)]
+    pub repo_brief: String,
+    #[serde(default)]
+    pub notes_brief: String,
+    #[serde(default)]
+    pub constraints: Vec<String>,
+    #[serde(default)]
+    pub expected_outputs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ExecutionArtifactRequestData {
+    #[serde(default)]
+    pub output_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionArtifactFileData {
+    pub relative_path: String,
+    pub contents: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionArtifactPackData {
+    pub project_id: String,
+    pub project_slug: String,
+    pub repo_root: String,
+    pub output_dir: String,
+    #[serde(default)]
+    pub files: Vec<ExecutionArtifactFileData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionExportResultData {
+    pub pack: ExecutionArtifactPackData,
+    #[serde(default)]
+    pub written_paths: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -594,6 +663,50 @@ impl ApiClient {
 
     pub async fn list_projects(&self) -> anyhow::Result<ApiResponse<ProjectListResponseData>> {
         self.get("/v1/projects").await
+    }
+
+    pub async fn get_execution_context(
+        &self,
+        project_id: &str,
+    ) -> anyhow::Result<ApiResponse<ExecutionContextData>> {
+        self.get(&format!("/v1/execution/projects/{}/context", project_id))
+            .await
+    }
+
+    pub async fn save_execution_context(
+        &self,
+        project_id: &str,
+        body: &ExecutionContextSaveRequestData,
+    ) -> anyhow::Result<ApiResponse<ExecutionContextData>> {
+        self.post_json(
+            &format!("/v1/execution/projects/{}/context", project_id),
+            body,
+        )
+        .await
+    }
+
+    pub async fn preview_execution_artifacts(
+        &self,
+        project_id: &str,
+        body: &ExecutionArtifactRequestData,
+    ) -> anyhow::Result<ApiResponse<ExecutionArtifactPackData>> {
+        self.post_json(
+            &format!("/v1/execution/projects/{}/preview", project_id),
+            body,
+        )
+        .await
+    }
+
+    pub async fn export_execution_artifacts(
+        &self,
+        project_id: &str,
+        body: &ExecutionArtifactRequestData,
+    ) -> anyhow::Result<ApiResponse<ExecutionExportResultData>> {
+        self.post_json(
+            &format!("/v1/execution/projects/{}/export", project_id),
+            body,
+        )
+        .await
     }
 
     pub async fn get_explain_nudge(

@@ -34,7 +34,7 @@ Current mounted inventory by class:
   - fail-closed auth expectation for `/v1/sync/work-queue*`: `GET /v1/sync/work-queue` and `POST /v1/sync/work-queue/claim-next` return `401` when worker token policy is configured and credentials are missing/invalid
 - `future_external` (fail-closed reservation)
   - `/v1/connect`
-  - `/v1/connect/*`
+  - `/v1/connect/worker`
   - `/v1/cluster/clients`
   - `/v1/cluster/clients/*`
 
@@ -103,10 +103,27 @@ Exposure:
 
 Reserved for future external/connect architecture:
 
-- `/v1/connect` and `/v1/connect/*`
+- `/v1/connect` and `/v1/connect/worker`
 - `/v1/cluster/clients` and `/v1/cluster/clients/*`
 
 These are mounted as `future_external` and currently return `403` (deny-by-default) instead of falling through as generic undefined routes.
+
+## Connect runtime lifecycle
+
+### `GET /v1/connect/instances`
+### `POST /v1/connect/instances`
+### `GET /v1/connect/instances/:id`
+### `POST /v1/connect/instances/:id/heartbeat`
+### `POST /v1/connect/instances/:id/terminate`
+
+- operator-authenticated connect-runtime lifecycle for supervised local coding runtimes
+- `POST /v1/connect/instances` currently accepts only `runtime_kind: "local_command"`
+- launches create a persisted backing run plus a persisted connect-run lease record keyed by the same `run_id`
+- `POST /v1/connect/instances/:id/heartbeat` extends the lease for a running instance
+- `POST /v1/connect/instances/:id/terminate` marks the connect instance terminated and cancels the backing run
+- unsupported runtime kinds fail closed with `400`
+- writable roots that escape the declared working directory fail closed with `403`
+- unsupported `/v1/connect` and `/v1/connect/worker` paths remain reserved under `future_external`
 
 ## Capture and journal
 

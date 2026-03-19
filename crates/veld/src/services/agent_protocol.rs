@@ -13,7 +13,11 @@ use crate::{
     state::AppState,
 };
 
-const CONNECT_LEASE_SECONDS: i64 = 300;
+pub(crate) const CONNECT_LEASE_SECONDS: i64 = 300;
+
+pub(crate) fn default_connect_lease_seconds() -> i64 {
+    CONNECT_LEASE_SECONDS
+}
 
 pub async fn handle_envelope(
     state: &AppState,

@@ -3,12 +3,12 @@ use crate::{
     repositories::{
         artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
         cluster_workers_repo, commitment_risk_repo, commitments_repo, conflict_cases_repo,
-        connect_runs_repo, context_timeline_repo, current_context_repo, inferred_state_repo,
-        integration_connections_repo, linking_repo, nudges_repo, people_repo, processing_jobs_repo,
-        projects_repo, run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo,
-        settings_repo, signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
-        uncertainty_records_repo, upstream_refs_repo, work_assignments_repo,
-        writeback_operations_repo,
+        connect_runs_repo, context_timeline_repo, current_context_repo, execution_contexts_repo,
+        inferred_state_repo, integration_connections_repo, linking_repo, nudges_repo, people_repo,
+        processing_jobs_repo, projects_repo, run_refs_repo, runs_repo, runtime_loops_repo,
+        semantic_memory_repo, settings_repo, signals_repo, suggestion_feedback_repo,
+        suggestions_repo, threads_repo, uncertainty_records_repo, upstream_refs_repo,
+        work_assignments_repo, writeback_operations_repo,
     },
 };
 use serde::Serialize;
@@ -828,6 +828,28 @@ impl Storage {
 
     pub async fn list_project_families(&self) -> Result<Vec<ProjectFamily>, StorageError> {
         projects_repo::list_project_families(self.pool()).await
+    }
+
+    pub async fn upsert_project_execution_context(
+        &self,
+        project_id: &ProjectId,
+        context_json: &JsonValue,
+        now: OffsetDateTime,
+    ) -> Result<(), StorageError> {
+        execution_contexts_repo::upsert_execution_context(
+            self.pool(),
+            project_id,
+            context_json,
+            now,
+        )
+        .await
+    }
+
+    pub async fn get_project_execution_context(
+        &self,
+        project_id: &str,
+    ) -> Result<Option<(JsonValue, OffsetDateTime, OffsetDateTime)>, StorageError> {
+        execution_contexts_repo::get_execution_context(self.pool(), project_id).await
     }
 
     pub async fn create_person(&self, person: PersonRecord) -> Result<PersonRecord, StorageError> {

@@ -9,6 +9,7 @@ pub mod docs;
 pub mod doctor;
 pub mod end_of_day;
 pub mod evaluate;
+pub mod exec;
 pub mod explain;
 pub mod export_;
 pub mod health;

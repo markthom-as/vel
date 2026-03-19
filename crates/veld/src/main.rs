@@ -11,6 +11,7 @@ mod state;
 mod worker;
 
 use anyhow::Context;
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpListener;
 use tracing::info;
 use vel_config::AppConfig;
@@ -92,17 +93,20 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(worker::run_background_workers(state.clone()));
     tokio::spawn(services::lan_discovery::run_responder(state.clone()));
 
-    let bind_addr = config.bind_addr.clone();
-    let listener = TcpListener::bind(&config.bind_addr)
+    let bind_addr = effective_bind_addr(&config).await;
+    let listener = TcpListener::bind(&bind_addr)
         .await
-        .with_context(|| format!("binding {}", config.bind_addr))?;
+        .with_context(|| format!("binding {}", bind_addr))?;
     let app = app::build_app_with_state(state);
 
     info!(bind_addr = %bind_addr, "veld starting");
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("serving http")?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .context("serving http")?;
 
     Ok(())
 }
@@ -119,4 +123,50 @@ fn init_tracing() {
 
 async fn shutdown_signal() {
     let _ = tokio::signal::ctrl_c().await;
+}
+
+async fn effective_bind_addr(config: &AppConfig) -> String {
+    if !is_loopback_bind_addr(&config.bind_addr) {
+        return config.bind_addr.clone();
+    }
+
+    let has_remote_discovery_transport = config.lan_base_url.is_some()
+        || crate::services::local_network::discover_lan_base_url(config).is_some()
+        || config.tailscale_base_url.is_some()
+        || crate::services::tailscale::discover_base_url(config)
+            .await
+            .is_some();
+
+    if !has_remote_discovery_transport {
+        return config.bind_addr.clone();
+    }
+
+    expanded_bind_addr(&config.bind_addr).unwrap_or_else(|| config.bind_addr.clone())
+}
+
+fn is_loopback_bind_addr(bind_addr: &str) -> bool {
+    bind_addr
+        .parse::<SocketAddr>()
+        .map(|addr| addr.ip().is_loopback())
+        .unwrap_or(
+            matches!(bind_addr, s if s.starts_with("127.0.0.1:") || s.starts_with("localhost:")),
+        )
+}
+
+fn expanded_bind_addr(bind_addr: &str) -> Option<String> {
+    let addr = bind_addr.parse::<SocketAddr>().ok()?;
+    Some(SocketAddr::from((Ipv4Addr::UNSPECIFIED, addr.port())).to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expanded_bind_addr_rewrites_loopback_port_to_all_interfaces() {
+        assert_eq!(
+            expanded_bind_addr("127.0.0.1:4130").as_deref(),
+            Some("0.0.0.0:4130")
+        );
+    }
 }

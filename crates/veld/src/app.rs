@@ -30,6 +30,7 @@ fn public_routes() -> Router<AppState> {
 
 fn operator_authenticated_routes() -> Router<AppState> {
     Router::new()
+        .merge(routes::connect::connect_routes())
         .route("/v1/command/plan", post(routes::command_lang::plan_command))
         .route(
             "/v1/command/execute",
@@ -41,6 +42,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route(
             "/v1/apple/voice/turn",
             post(routes::apple::apple_voice_turn),
+        )
+        .route(
+            "/v1/apple/behavior-summary",
+            get(routes::apple::apple_behavior_summary),
         )
         .route(
             "/v1/captures",
@@ -77,6 +82,19 @@ fn operator_authenticated_routes() -> Router<AppState> {
             get(routes::projects::list_projects).post(routes::projects::create_project),
         )
         .route("/v1/projects/:id", get(routes::projects::get_project))
+        .route(
+            "/v1/execution/projects/:id/context",
+            get(routes::execution::get_execution_context)
+                .post(routes::execution::save_execution_context),
+        )
+        .route(
+            "/v1/execution/projects/:id/preview",
+            post(routes::execution::preview_execution_artifacts),
+        )
+        .route(
+            "/v1/execution/projects/:id/export",
+            post(routes::execution::export_execution_artifacts),
+        )
         .route("/v1/people", get(routes::people::list_people))
         .route("/v1/people/:id", get(routes::people::get_person))
         .route(
@@ -364,11 +382,8 @@ fn worker_authenticated_routes() -> Router<AppState> {
 
 fn future_external_routes() -> Router<AppState> {
     Router::new()
-        // SP2 Lane B: full connect lifecycle implemented in ticket 006 (Phase 2 SP2).
-        // These routes intentionally return 404 until SP2 implementation is complete.
-        // CLI connect commands that called /v1/connect/* now return informative "not yet active" messages.
         .route("/v1/connect", any(deny_undefined_route))
-        .route("/v1/connect/*path", any(deny_undefined_route))
+        .route("/v1/connect/worker", any(deny_undefined_route))
         .route("/v1/cluster/clients", any(deny_undefined_route))
         .route("/v1/cluster/clients/*path", any(deny_undefined_route))
 }
@@ -452,8 +467,10 @@ mod tests {
     use crate::policy_config::PolicyConfig;
     use axum::{
         body::Body,
+        extract::ConnectInfo,
         http::{header, Method, Request, StatusCode},
     };
+    use std::net::SocketAddr;
     use time::OffsetDateTime;
     use tower::util::ServiceExt;
     use vel_api_types::{
@@ -979,6 +996,31 @@ mod tests {
             )
             .await
             .unwrap();
+        assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn remote_operator_route_is_denied_when_auth_is_unset_even_without_strict_auth() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: None,
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        let mut request = Request::builder()
+            .uri("/v1/doctor")
+            .body(Body::empty())
+            .unwrap();
+        request.extensions_mut().insert(ConnectInfo(
+            "192.168.1.50:42424".parse::<SocketAddr>().unwrap(),
+        ));
+
+        let denied = app.oneshot(request).await.unwrap();
         assert_eq!(denied.status(), StatusCode::UNAUTHORIZED);
     }
 
