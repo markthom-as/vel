@@ -96,6 +96,10 @@ pub async fn run_export_context(
         .as_ref()
         .ok_or_else(|| anyhow!("execution artifact export missing data"))?;
     println!("{}", format_export_result(exported));
+    println!(
+        "\nnext: review persisted handoffs with `vel exec review --project-id {}`",
+        project_id
+    );
     Ok(())
 }
 

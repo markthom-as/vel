@@ -467,6 +467,7 @@ describe('transport decoders', () => {
         tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
         tailscale_base_url_auto_discovered: true,
         lan_base_url: 'http://192.168.1.50:4130',
+        lan_base_url_auto_discovered: true,
         adaptive_policy_overrides: {
           commute_buffer_minutes: 30,
           default_prep_minutes: 45,
@@ -489,6 +490,7 @@ describe('transport decoders', () => {
       tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
       tailscale_base_url_auto_discovered: true,
       lan_base_url: 'http://192.168.1.50:4130',
+      lan_base_url_auto_discovered: true,
       adaptive_policy_overrides: {
         commute_buffer_minutes: 30,
         default_prep_minutes: 45,

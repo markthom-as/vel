@@ -6,12 +6,19 @@ pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Val
     let runtime_config =
         crate::services::operator_settings::runtime_sync_config(&state.storage, &state.config)
             .await?;
+    let discovered_tailscale_base_url =
+        crate::services::tailscale::discover_base_url(&runtime_config).await;
+    let discovered_lan_base_url =
+        crate::services::local_network::discover_lan_base_url(&runtime_config);
     let tailscale_base_url_auto_discovered =
-        crate::services::operator_settings::tailscale_base_url_auto_discovered(
-            &map,
-            &state.config,
-            &runtime_config,
+        crate::services::operator_settings::sync_url_auto_discovered(
+            runtime_config.tailscale_base_url.as_deref(),
+            discovered_tailscale_base_url.as_deref(),
         );
+    let lan_base_url_auto_discovered = crate::services::operator_settings::sync_url_auto_discovered(
+        runtime_config.lan_base_url.as_deref(),
+        discovered_lan_base_url.as_deref(),
+    );
     map.insert(
         "node_display_name".to_string(),
         serde_json::to_value(runtime_config.node_display_name)
@@ -38,6 +45,10 @@ pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Val
         "lan_base_url".to_string(),
         serde_json::to_value(runtime_config.lan_base_url)
             .map_err(|error| AppError::internal(error.to_string()))?,
+    );
+    map.insert(
+        "lan_base_url_auto_discovered".to_string(),
+        serde_json::json!(lan_base_url_auto_discovered),
     );
     map.insert(
         "adaptive_policy_overrides".to_string(),

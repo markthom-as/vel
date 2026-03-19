@@ -30,12 +30,14 @@ pub(crate) async fn runtime_sync_config(
     if let Some(value) = string_setting(&settings, LAN_BASE_URL_SETTINGS_KEY)? {
         runtime.lan_base_url = value;
     }
-    if runtime.tailscale_base_url.is_none() {
-        runtime.tailscale_base_url = crate::services::tailscale::discover_base_url(&runtime).await;
-    }
-    if runtime.lan_base_url.is_none() {
-        runtime.lan_base_url = crate::services::local_network::discover_lan_base_url(&runtime);
-    }
+    let discovered_tailscale_base_url =
+        crate::services::tailscale::discover_base_url(&runtime).await;
+    let discovered_lan_base_url = crate::services::local_network::discover_lan_base_url(&runtime);
+    apply_discovered_sync_urls(
+        &mut runtime,
+        discovered_tailscale_base_url,
+        discovered_lan_base_url,
+    );
 
     Ok(runtime)
 }
@@ -51,18 +53,32 @@ pub(crate) async fn runtime_writeback_enabled(
     )
 }
 
-pub(crate) fn tailscale_base_url_auto_discovered(
-    settings: &std::collections::HashMap<String, serde_json::Value>,
-    config: &AppConfig,
-    runtime: &AppConfig,
+pub(crate) fn sync_url_auto_discovered(
+    runtime_value: Option<&str>,
+    discovered_value: Option<&str>,
 ) -> bool {
-    !settings.contains_key(TAILSCALE_BASE_URL_SETTINGS_KEY)
-        && config.tailscale_base_url.is_none()
-        && runtime
-            .tailscale_base_url
-            .as_ref()
-            .map(|value| !value.trim().is_empty())
-            .unwrap_or(false)
+    match (
+        runtime_value.map(str::trim),
+        discovered_value.map(str::trim),
+    ) {
+        (Some(runtime), Some(discovered)) => {
+            !runtime.is_empty() && !discovered.is_empty() && runtime == discovered
+        }
+        _ => false,
+    }
+}
+
+fn apply_discovered_sync_urls(
+    runtime: &mut AppConfig,
+    discovered_tailscale_base_url: Option<String>,
+    discovered_lan_base_url: Option<String>,
+) {
+    if let Some(url) = discovered_tailscale_base_url {
+        runtime.tailscale_base_url = Some(url);
+    }
+    if let Some(url) = discovered_lan_base_url {
+        runtime.lan_base_url = Some(url);
+    }
 }
 
 fn bool_setting(
@@ -96,47 +112,52 @@ fn string_setting(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
 
     #[test]
     fn tailscale_auto_discovery_flag_is_true_for_discovered_runtime_value() {
-        let settings = HashMap::new();
-        let config = AppConfig::default();
-        let mut runtime = AppConfig::default();
-        runtime.tailscale_base_url = Some("http://vel-desktop.tailnet.ts.net:4130".to_string());
-
-        assert!(tailscale_base_url_auto_discovered(
-            &settings, &config, &runtime
+        assert!(sync_url_auto_discovered(
+            Some("http://vel-desktop.tailnet.ts.net:4130"),
+            Some("http://vel-desktop.tailnet.ts.net:4130"),
         ));
     }
 
     #[test]
     fn tailscale_auto_discovery_flag_is_false_when_operator_setting_exists() {
-        let settings = HashMap::from([(
-            TAILSCALE_BASE_URL_SETTINGS_KEY.to_string(),
-            serde_json::json!("http://vel-override.tailnet.ts.net:4130"),
-        )]);
-        let config = AppConfig::default();
-        let mut runtime = AppConfig::default();
-        runtime.tailscale_base_url = Some("http://vel-override.tailnet.ts.net:4130".to_string());
-
-        assert!(!tailscale_base_url_auto_discovered(
-            &settings, &config, &runtime
+        assert!(!sync_url_auto_discovered(
+            Some("http://vel-override.tailnet.ts.net:4130"),
+            Some("http://vel-auto.tailnet.ts.net:4130"),
         ));
     }
 
     #[test]
     fn tailscale_auto_discovery_flag_is_false_when_config_already_sets_value() {
-        let settings = HashMap::new();
-        let mut config = AppConfig::default();
-        config.tailscale_base_url = Some("http://vel-configured.tailnet.ts.net:4130".to_string());
-        let runtime = config.clone();
-
-        assert!(!tailscale_base_url_auto_discovered(
-            &settings, &config, &runtime
+        assert!(!sync_url_auto_discovered(
+            Some("http://vel-configured.tailnet.ts.net:4130"),
+            None,
         ));
+    }
+
+    #[test]
+    fn apply_discovered_sync_urls_prefers_discovery_over_saved_values() {
+        let mut runtime = AppConfig::default();
+        runtime.tailscale_base_url = Some("http://manual.tailnet.ts.net:4130".to_string());
+        runtime.lan_base_url = Some("http://192.168.1.99:4130".to_string());
+
+        apply_discovered_sync_urls(
+            &mut runtime,
+            Some("http://auto.tailnet.ts.net:4130".to_string()),
+            Some("http://192.168.1.22:4130".to_string()),
+        );
+
+        assert_eq!(
+            runtime.tailscale_base_url.as_deref(),
+            Some("http://auto.tailnet.ts.net:4130")
+        );
+        assert_eq!(
+            runtime.lan_base_url.as_deref(),
+            Some("http://192.168.1.22:4130")
+        );
     }
 
     #[tokio::test]

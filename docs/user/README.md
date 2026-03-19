@@ -29,12 +29,13 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 2. [Deployment And Setup](deployment.md) for the main Nix and Docker runtime paths.
 3. [Setup](setup.md) for config, storage, integrations, and macOS source setup.
 4. [Daily Use](daily-use.md) for the repeated workflow once Vel is running.
-5. [Surfaces](surfaces.md) for what the main UI and CLI surfaces mean.
-6. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
-7. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
-8. [Eval Runner](evals.md) for fixture-driven deterministic replay and optional judge scoring.
-9. [Privacy](privacy.md) for the current local-first trust model and data locations.
-10. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
+5. [Coding Workflows](coding-workflows.md) for the repo-local Phase 08 execution path from context export to handoff review to supervised runtime launch.
+6. [Surfaces](surfaces.md) for what the main UI and CLI surfaces mean.
+7. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
+8. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
+9. [Eval Runner](evals.md) for fixture-driven deterministic replay and optional judge scoring.
+10. [Privacy](privacy.md) for the current local-first trust model and data locations.
+11. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
 
 ## Support And Update Model
 

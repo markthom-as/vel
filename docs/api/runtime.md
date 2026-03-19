@@ -117,7 +117,6 @@ These are mounted as `future_external` and currently return `403` (deny-by-defau
 ### `POST /v1/connect/instances/:id/terminate`
 
 - operator-authenticated connect-runtime lifecycle for supervised local coding runtimes
-- `POST /v1/connect/instances` currently accepts only `runtime_kind: "local_command"`
 - `POST /v1/connect/instances` accepts `runtime_kind: "local_command"` and `runtime_kind: "wasm_guest"`
 - launches create a persisted backing run plus a persisted connect-run lease record keyed by the same `run_id`
 - `runtime_kind: "wasm_guest"` executes through the same brokered sandbox policy boundary and then terminates immediately with an inspectable terminal reason
@@ -127,6 +126,31 @@ These are mounted as `future_external` and currently return `403` (deny-by-defau
 - writable roots that escape the declared working directory fail closed with `403`
 - guest modules that request undeclared writable roots or any network expansion fail closed with `403`
 - unsupported `/v1/connect` and `/v1/connect/worker` paths remain reserved under `future_external`
+
+CLI inspection surface:
+
+- `vel connect instances`
+- `vel connect inspect <run_id>`
+
+Repo-local supervised workflow:
+
+- persist/export context with `vel exec save|preview|export`
+- review persisted handoffs with `vel exec review`, `vel exec launch-preview`, `vel exec approve`, and `vel exec reject`
+- launch the approved runtime through authenticated `POST /v1/connect/instances`
+
+## Execution handoff review
+
+### `GET /v1/execution/handoffs`
+### `POST /v1/execution/handoffs`
+### `GET /v1/execution/handoffs/:id/launch-preview`
+### `POST /v1/execution/handoffs/:id/approve`
+### `POST /v1/execution/handoffs/:id/reject`
+
+- typed human-to-agent and agent-to-agent handoff persistence for coding work
+- routing decisions keep task kind, agent profile, token budget, review gate, scopes, and explicit reasons first-class
+- launch preview reports whether review state still blocks execution
+- approvals and rejections update explicit review state; launch readiness does not rely on implicit side effects
+- pending handoffs are surfaced on operator `Now` and the General settings review queue
 
 ## Capture and journal
 

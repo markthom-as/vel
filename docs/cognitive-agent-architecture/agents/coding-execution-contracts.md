@@ -87,3 +87,5 @@ Publish the stable Phase 08 contract boundary before connect transport, routing,
 - Storage and service layers should persist and serve execution context using these typed fields rather than a second project-metadata blob.
 - Connect transport should carry manifest references and enforce runtime kind plus writable-root checks against the published contract.
 - CLI and operator surfaces may preview or export repo-local sidecars from this context, but policy ownership stays in Rust backend layers.
+- `vel-agent-sdk` should mirror the live connect-launch wire contract, not a historical stub. The reference helpers are `AgentSdkClient::manifest_reference(...)` and `AgentSdkClient::connect_launch_request(...)`.
+- Operator docs should describe one repo-local path: execution context -> exported sidecar pack -> persisted handoff review -> authenticated connect launch -> run/connect inspection.

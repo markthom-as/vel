@@ -110,6 +110,7 @@ export interface SettingsData {
   tailscale_base_url?: string | null;
   tailscale_base_url_auto_discovered?: boolean;
   lan_base_url?: string | null;
+  lan_base_url_auto_discovered?: boolean;
   adaptive_policy_overrides?: {
     default_prep_minutes?: number | null;
     commute_buffer_minutes?: number | null;
@@ -1878,6 +1879,13 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.lan_base_url === undefined
         ? undefined
         : expectNullableString(record.lan_base_url, 'settings.lan_base_url'),
+    lan_base_url_auto_discovered:
+      record.lan_base_url_auto_discovered === undefined
+        ? undefined
+        : expectBoolean(
+            record.lan_base_url_auto_discovered,
+            'settings.lan_base_url_auto_discovered',
+          ),
     adaptive_policy_overrides:
       adaptiveOverrides === undefined
         ? undefined

@@ -90,6 +90,7 @@ describe('SettingsPage', () => {
             tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
             tailscale_base_url_auto_discovered: true,
             lan_base_url: 'http://192.168.1.50:4130',
+            lan_base_url_auto_discovered: true,
             adaptive_policy_overrides: {
               commute_buffer_minutes: 30,
               default_prep_minutes: 45,
@@ -932,8 +933,6 @@ describe('SettingsPage', () => {
           node_display_name: 'Vel NAS',
           writeback_enabled: false,
           tailscale_preferred: true,
-          tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
-          lan_base_url: 'http://192.168.1.50:4130',
         },
         expect.any(Function),
       )
@@ -945,6 +944,8 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       const root = getSettingsRoot(container)
       expect(within(root).getByText(/auto-discovered from the local tailscale daemon/i)).toBeInTheDocument()
+      expect(within(root).getByText(/auto-discovered from the local network interfaces/i)).toBeInTheDocument()
+      expect(within(root).getByDisplayValue('http://192.168.1.50:4130')).toBeDisabled()
     })
   })
 
@@ -2018,9 +2019,11 @@ describe('SettingsPage', () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openRuntimeTab(container)
 
-    expect(within(root).getByText('Execution handoff review')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(within(root).getByText('Execution handoff review')).toBeInTheDocument()
+    })
     expect(within(root).getByText('Pending execution review')).toBeInTheDocument()
-    expect(within(root).getByText('Implement the next safe slice')).toBeInTheDocument()
+    expect(within(root).getByText('Implement the runtime review queue')).toBeInTheDocument()
     expect(within(root).getByText('write_scope_requires_approval')).toBeInTheDocument()
 
     fireEvent.click(within(root).getByRole('button', { name: 'Approve' }))
@@ -2029,7 +2032,7 @@ describe('SettingsPage', () => {
       expect(within(root).getByText('Execution handoff approved.')).toBeInTheDocument()
     })
     expect(client.apiPost).toHaveBeenCalledWith(
-      '/v1/execution/handoffs/handoff_1/approve',
+      '/v1/execution/handoffs/xho_1/approve',
       expect.objectContaining({ reviewed_by: 'operator_shell' }),
       expect.any(Function),
     )
@@ -2855,6 +2858,7 @@ describe('SettingsPage', () => {
             tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
             tailscale_base_url_auto_discovered: true,
             lan_base_url: 'http://192.168.1.50:4130',
+            lan_base_url_auto_discovered: true,
           },
           meta: { request_id: 'req_settings_prompt' },
         } as never
@@ -2878,6 +2882,9 @@ describe('SettingsPage', () => {
       }
       if (path === '/v1/runs?limit=6' || path === '/api/components' || path === '/v1/loops') {
         return { ok: true, data: [], meta: { request_id: 'req_empty_prompt' } } as never
+      }
+      if (path === '/v1/execution/handoffs?state=pending_review') {
+        return { ok: true, data: [], meta: { request_id: 'req_empty_handoffs_prompt' } } as never
       }
       if (path === '/v1/now') {
         return {
@@ -2941,8 +2948,8 @@ describe('SettingsPage', () => {
   })
 
   it('shows pending execution reviews in the runtime tab', async () => {
-    const { container } = render(<SettingsPage onBack={() => {}} initialTab="runtime" />)
-    const root = await openRuntimeTab(container)
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = getSettingsRoot(container)
 
     await waitFor(() => {
       expect(within(root).getByText('Pending execution review')).toBeInTheDocument()

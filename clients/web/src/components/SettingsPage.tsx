@@ -833,7 +833,7 @@ export function SettingsPage({
       const response = await loadExecutionHandoffs('pending_review');
       return response.ok && response.data ? response.data : [];
     },
-    { enabled: activeTab === 'runtime' },
+    { enabled: activeTab === 'general' || activeTab === 'runtime' },
   );
 
   useEffect(() => {
@@ -1076,15 +1076,18 @@ export function SettingsPage({
     setSaving(true);
     setSyncNetworkFeedback(null);
     try {
-      const response = await updateSettings({
+      const payload: Record<string, boolean | string | null> = {
         node_display_name: nodeDisplayNameDraft.trim() || null,
         writeback_enabled: writebackEnabledDraft,
         tailscale_preferred: tailscalePreferredDraft,
-        tailscale_base_url: settings.tailscale_base_url_auto_discovered
-          ? settings.tailscale_base_url ?? null
-          : tailscaleBaseUrlDraft.trim() || null,
-        lan_base_url: lanBaseUrlDraft.trim() || null,
-      });
+      };
+      if (!tailscaleBaseUrlLocked) {
+        payload.tailscale_base_url = tailscaleBaseUrlDraft.trim() || null;
+      }
+      if (!lanBaseUrlLocked) {
+        payload.lan_base_url = lanBaseUrlDraft.trim() || null;
+      }
+      const response = await updateSettings(payload);
       if (!response.ok) {
         throw new Error(response.error?.message ?? 'Failed to save sync settings');
       }
@@ -1110,6 +1113,7 @@ export function SettingsPage({
   };
 
   const tailscaleBaseUrlLocked = settings.tailscale_base_url_auto_discovered === true;
+  const lanBaseUrlLocked = settings.lan_base_url_auto_discovered === true;
   const discoveredNodes = useMemo<WorkerPresenceData[]>(() => {
     if (!clusterBootstrap) {
       return [];
@@ -2013,9 +2017,14 @@ export function SettingsPage({
                     value={lanBaseUrlDraft}
                     onChange={(event) => setLanBaseUrlDraft(event.target.value)}
                     placeholder="http://192.168.1.50:4130"
-                    disabled={saving}
+                    disabled={saving || lanBaseUrlLocked}
                     className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
                   />
+                  {lanBaseUrlLocked ? (
+                    <p className="text-sm text-zinc-500">
+                      Auto-discovered from the local network interfaces and managed by Vel.
+                    </p>
+                  ) : null}
                 </label>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -2032,7 +2041,7 @@ export function SettingsPage({
                         tailscaleBaseUrlLocked
                           || tailscaleBaseUrlDraft.trim() === (settings.tailscale_base_url ?? '')
                       )
-                      && lanBaseUrlDraft.trim() === (settings.lan_base_url ?? '')
+                      && (lanBaseUrlLocked || lanBaseUrlDraft.trim() === (settings.lan_base_url ?? ''))
                     )
                   }
                   className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
@@ -2100,6 +2109,9 @@ export function SettingsPage({
                     <h4 className="text-sm font-medium text-zinc-100">Execution handoff review</h4>
                     <p className="mt-1 text-sm text-zinc-500">
                       Coding-task routing stays explicit here: review objective, scopes, and typed routing reasons before any supervised launch work proceeds.
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-600">
+                      Follow the repo-local workflow in <code>docs/user/coding-workflows.md</code> for the full context {'->'} export {'->'} review {'->'} connect path.
                     </p>
                   </div>
                   <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-300">
@@ -3242,6 +3254,148 @@ export function SettingsPage({
             </div>
           </section>
         ) : null}
+
+        <section>
+          <div className="mb-3">
+            <h3 className="text-lg font-medium text-zinc-200">Execution handoff review</h3>
+            <p className="text-sm text-zinc-500">
+              Review explicit objective, scopes, and typed routing reasons before supervised coding work proceeds.
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4 space-y-4">
+            <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2 xl:grid-cols-5">
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <dt className="text-zinc-500">Pending execution review</dt>
+                <dd className="mt-1 text-base text-zinc-100">
+                  {operatorReviewStatus.pending_execution_handoffs.length}
+                </dd>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <dt className="text-zinc-500">Writeback mode</dt>
+                <dd className="mt-1 text-base text-zinc-100">
+                  {operatorReviewStatus.writeback_enabled ? 'Enabled' : 'Safe mode'}
+                </dd>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <dt className="text-zinc-500">Pending writebacks</dt>
+                <dd className="mt-1 text-base text-zinc-100">
+                  {operatorReviewStatus.pending_writebacks.length}
+                </dd>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <dt className="text-zinc-500">Open conflicts</dt>
+                <dd className="mt-1 text-base text-zinc-100">
+                  {operatorReviewStatus.open_conflicts.length}
+                </dd>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <dt className="text-zinc-500">People needing review</dt>
+                <dd className="mt-1 text-base text-zinc-100">
+                  {operatorReviewStatus.people_needing_review.length}
+                </dd>
+              </div>
+            </dl>
+            {operatorReviewStatus.pending_execution_handoffs.length === 0 ? (
+              <p className="text-sm text-zinc-500">
+                No execution handoffs are waiting for review.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {operatorReviewStatus.pending_execution_handoffs.map((handoff) => {
+                  const pendingAction = pendingExecutionReviewActions[handoff.id];
+                  const feedback = executionReviewFeedback[handoff.id];
+                  return (
+                    <article
+                      key={`runtime-${handoff.id}`}
+                      className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4"
+                    >
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap gap-2 text-xs text-zinc-400">
+                            <span className="rounded-full border border-amber-700/50 bg-amber-950/30 px-2.5 py-1 text-amber-100">
+                              {handoff.review_state.replace('_', ' ')}
+                            </span>
+                            <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1">
+                              {handoff.routing.task_kind}
+                            </span>
+                            <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1">
+                              {handoff.routing.agent_profile}
+                            </span>
+                            <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1">
+                              {handoff.routing.token_budget}
+                            </span>
+                          </div>
+                          <h4 className="mt-3 text-base font-medium text-zinc-100">
+                            {handoff.handoff.handoff.objective}
+                          </h4>
+                          <p className="mt-1 text-sm text-zinc-400">
+                            {handoff.handoff.handoff.from_agent} to {handoff.handoff.handoff.to_agent}
+                            {' '}· review gate {handoff.routing.review_gate}
+                          </p>
+                          <div className="mt-3 grid gap-3 text-sm text-zinc-300 lg:grid-cols-2">
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                Read scopes
+                              </p>
+                              <p className="mt-1 break-all text-zinc-400">
+                                {handoff.routing.read_scopes.join(', ') || 'None'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                Write scopes
+                              </p>
+                              <p className="mt-1 break-all text-zinc-400">
+                                {handoff.routing.write_scopes.join(', ') || 'None'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {handoff.routing.reasons.map((reason) => (
+                              <span
+                                key={`runtime-${handoff.id}-${reason.code}`}
+                                className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-300"
+                                title={reason.message}
+                              >
+                                {reason.code}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-col gap-2 lg:w-40">
+                          <button
+                            type="button"
+                            onClick={() => void runExecutionHandoffReview(handoff.id, 'approve')}
+                            disabled={pendingAction != null}
+                            className="rounded-md border border-emerald-700/60 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 transition hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {pendingAction === 'approve' ? 'Approving…' : 'Approve'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void runExecutionHandoffReview(handoff.id, 'reject')}
+                            disabled={pendingAction != null}
+                            className="rounded-md border border-rose-700/60 bg-rose-950/20 px-3 py-2 text-sm text-rose-100 transition hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {pendingAction === 'reject' ? 'Rejecting…' : 'Reject'}
+                          </button>
+                          <p className="text-xs text-zinc-500">
+                            Requested by {handoff.requested_by}
+                          </p>
+                        </div>
+                      </div>
+                      {feedback ? (
+                        <p className={`mt-3 text-sm ${feedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+                          {feedback.message}
+                        </p>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
 
         <section>
           <div className="mb-3">

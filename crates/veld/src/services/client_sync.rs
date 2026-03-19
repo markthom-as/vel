@@ -643,10 +643,7 @@ pub async fn effective_cluster_bootstrap(state: &AppState) -> Result<ClusterBoot
 
 fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBootstrap {
     let node_id = inferred_node_id(config);
-    let node_display_name = config
-        .node_display_name
-        .clone()
-        .unwrap_or_else(|| node_id.clone());
+    let node_display_name = default_node_display_name(config, &node_id);
     let localhost_base_url = localhost_base_url(&config.bind_addr);
     let (sync_base_url, sync_transport) = preferred_sync_target(
         config.tailscale_preferred,
@@ -680,12 +677,16 @@ fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBoots
 }
 
 fn inferred_node_id(config: &vel_config::AppConfig) -> String {
-    config
-        .node_id
-        .as_deref()
-        .map(str::trim)
+    inferred_node_id_with_hostname(config, local_hostname().as_deref())
+}
+
+fn inferred_node_id_with_hostname(
+    config: &vel_config::AppConfig,
+    hostname: Option<&str>,
+) -> String {
+    hostname
+        .map(normalize_node_id_fragment)
         .filter(|value| !value.is_empty())
-        .map(ToString::to_string)
         .or_else(|| {
             [
                 config.tailscale_base_url.as_deref(),
@@ -697,13 +698,45 @@ fn inferred_node_id(config: &vel_config::AppConfig) -> String {
             .find_map(node_id_from_base_url)
         })
         .or_else(|| {
-            std::env::var("HOSTNAME")
-                .ok()
+            config
+                .node_id
                 .as_deref()
-                .map(normalize_node_id_fragment)
+                .map(str::trim)
                 .filter(|value| !value.is_empty())
+                .map(ToString::to_string)
         })
         .unwrap_or_else(|| "vel-node".to_string())
+}
+
+fn default_node_display_name(config: &vel_config::AppConfig, node_id: &str) -> String {
+    default_node_display_name_with_hostname(config, node_id, local_hostname().as_deref())
+}
+
+fn default_node_display_name_with_hostname(
+    config: &vel_config::AppConfig,
+    node_id: &str,
+    hostname: Option<&str>,
+) -> String {
+    config
+        .node_display_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| {
+            hostname
+                .map(normalize_node_id_fragment)
+                .filter(|value| !value.is_empty())
+                .map(|value| format!("vel-{value}"))
+        })
+        .unwrap_or_else(|| format!("vel-{node_id}"))
+}
+
+fn local_hostname() -> Option<String> {
+    std::env::var("HOSTNAME")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 fn node_id_from_base_url(base_url: &str) -> Option<String> {
@@ -2707,8 +2740,29 @@ mod tests {
             Some("http://joves-macbook-pro.ghost-neon.ts.net:4130".to_string());
 
         assert_eq!(
-            inferred_node_id(&config),
+            inferred_node_id_with_hostname(&config, None),
             "joves-macbook-pro-ghost-neon-ts-net"
+        );
+    }
+
+    #[test]
+    fn inferred_node_id_prefers_hostname_over_manual_node_id() {
+        let mut config = vel_config::AppConfig::default();
+        config.node_id = Some("vel-node".to_string());
+
+        assert_eq!(
+            inferred_node_id_with_hostname(&config, Some("corvid")),
+            "corvid"
+        );
+    }
+
+    #[test]
+    fn default_node_display_name_uses_vel_hostname_when_unset() {
+        let config = vel_config::AppConfig::default();
+
+        assert_eq!(
+            default_node_display_name_with_hostname(&config, "corvid", Some("corvid")),
+            "vel-corvid"
         );
     }
 }

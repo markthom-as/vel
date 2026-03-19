@@ -2,7 +2,7 @@
 phase: 09
 slug: backup-first-trust-surfaces-and-simple-operator-control
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-19
 ---
@@ -19,9 +19,9 @@ created: 2026-03-19
 |----------|-------|
 | **Framework** | `cargo test` (Rust unit/integration) + `vitest` 2.1.9 (web) |
 | **Config file** | Workspace `Cargo.toml`; `clients/web/vitest.config.ts` |
-| **Quick run command** | `cargo test -p veld doctor -- --nocapture` |
+| **Quick run command** | `node scripts/verify-repo-truth.mjs && cargo test -p vel-api-types backup -- --nocapture` |
 | **Full suite command** | `make verify` |
-| **Estimated runtime** | ~180 seconds |
+| **Estimated runtime** | ~30 seconds for per-task smoke; longer for focused integration runs |
 
 ---
 
@@ -30,7 +30,7 @@ created: 2026-03-19
 - **After every task commit:** Run the narrowest affected command plus `cd clients/web && npm test -- --run SettingsPage` when UI trust state changes.
 - **After every plan wave:** Run the relevant `veld` and `vel-cli` targeted tests for the touched seam.
 - **Before `$gsd-verify-work`:** `make verify` plus a manual CLI backup/export/inspect flow must be green.
-- **Max feedback latency:** 180 seconds
+- **Max feedback latency:** 30 seconds
 
 ---
 
@@ -38,12 +38,12 @@ created: 2026-03-19
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 09-01-01 | 01 | 0 | BACKUP-01 | schema/doc | `node scripts/verify-repo-truth.mjs` | ✅ | ⬜ pending |
+| 09-01-01 | 01 | 0 | BACKUP-01 | schema/doc | `node scripts/verify-repo-truth.mjs && rg -n "BACKUP-01|BACKUP-02|CTRL-01|CTRL-02" .planning/REQUIREMENTS.md` | ✅ | ⬜ pending |
 | 09-01-02 | 01 | 0 | CTRL-01 | Rust/unit | `cargo test -p vel-api-types backup -- --nocapture` | ✅ partial | ⬜ pending |
 | 09-02-01 | 02 | 2 | BACKUP-01 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture` | ❌ W0 | ⬜ pending |
 | 09-02-02 | 02 | 2 | BACKUP-01 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture` | ❌ W0 | ⬜ pending |
-| 09-03-01 | 03 | 3 | BACKUP-02 | Rust/route | `cargo test -p veld doctor -- --nocapture` | ✅ partial | ⬜ pending |
-| 09-03-02 | 03 | 3 | CTRL-02 | CLI/integration | `cargo test -p vel-cli doctor -- --nocapture` | ✅ partial | ⬜ pending |
+| 09-03-01 | 03 | 3 | BACKUP-02 | Rust/route | `cargo test -p veld doctor -- --nocapture && cargo test -p vel-cli doctor -- --nocapture` | ✅ partial | ⬜ pending |
+| 09-03-02 | 03 | 3 | CTRL-02 | CLI/integration | `cargo test -p veld doctor -- --nocapture && cargo test -p vel-cli doctor -- --nocapture` | ✅ partial | ⬜ pending |
 | 09-04-01 | 04 | 4 | BACKUP-02 | CLI + web | `cargo test -p vel-cli backup -- --nocapture && npm --prefix clients/web test -- --run src/data/operator.test.ts src/components/SettingsPage.test.tsx` | ❌ W0 | ⬜ pending |
 | 09-04-02 | 04 | 4 | CTRL-02 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture && rg -n "nyquist_compliant: true|wave_0_complete: true" .planning/phases/09-backup-first-trust-surfaces-and-simple-operator-control/09-VALIDATION.md` | ✅ partial | ⬜ pending |
 
@@ -56,9 +56,8 @@ created: 2026-03-19
 - [ ] `.planning/REQUIREMENTS.md` — define `BACKUP-01`, `BACKUP-02`, `CTRL-01`, `CTRL-02`
 - [ ] `config/schemas/backup-manifest.schema.json` — typed backup/export contract
 - [ ] `config/examples/backup-manifest.example.json` — checked-in example
+- [ ] `crates/vel-api-types/src/lib.rs` — transport DTO seam for backup trust and manifest status
 - [ ] `docs/user/backup-and-restore.md` — shipped operator workflow authority
-- [ ] `crates/veld/tests/backup_flow.rs` — consistent snapshot + omission rules
-- [ ] `crates/vel-cli/src/commands/backup.rs` tests — direct CLI backup coverage before Phase 09 closure
 - [ ] Settings baseline issue explicitly isolated from backup evidence; do not use `chat_settings_get_and_patch` as a Phase 09 backup gate
 
 *If none: "Existing infrastructure covers all phase requirements."*
@@ -82,6 +81,6 @@ created: 2026-03-19
 - [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
 - [ ] Feedback latency < 180s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending

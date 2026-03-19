@@ -15,6 +15,9 @@ pub async fn run_list_instances(client: &ApiClient, json: bool) -> anyhow::Resul
         .ok_or_else(|| anyhow!("connect instances response missing data"))?;
     if instances.is_empty() {
         println!("No connect instances.");
+        println!(
+            "Launches follow the repo-local workflow: `vel exec export`, `vel exec review`, then authenticated `POST /v1/connect/instances`."
+        );
         return Ok(());
     }
 
@@ -32,6 +35,9 @@ pub async fn run_list_instances(client: &ApiClient, json: bool) -> anyhow::Resul
             format_launchable_runtimes(&instance.manifest)
         );
     }
+    println!(
+        "\nUse `vel exec review` to inspect pending handoffs before trusting runtime launches."
+    );
     Ok(())
 }
 

@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use vel_protocol::{
-    CapabilityRequest, ProtocolEnvelope, ProtocolPayload, ProtocolSender, ProtocolTraceContext,
-    CURRENT_PROTOCOL_VERSION,
+    CapabilityRequest, ProtocolEnvelope, ProtocolManifestReference, ProtocolPayload,
+    ProtocolSender, ProtocolTraceContext, CURRENT_PROTOCOL_VERSION,
 };
 
 #[derive(Debug, Clone)]
@@ -8,6 +9,31 @@ pub struct AgentSdkClient {
     sender: ProtocolSender,
     sdk_name: String,
     sdk_version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentSdkCapabilityGrant {
+    pub scope: String,
+    #[serde(default)]
+    pub resource: Option<String>,
+    pub action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentSdkConnectLaunchRequest {
+    pub runtime_kind: String,
+    pub actor_id: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    pub command: Vec<String>,
+    #[serde(default)]
+    pub working_dir: Option<String>,
+    #[serde(default)]
+    pub writable_roots: Vec<String>,
+    #[serde(default)]
+    pub capability_allowlist: Vec<AgentSdkCapabilityGrant>,
+    #[serde(default)]
+    pub lease_seconds: Option<i64>,
 }
 
 impl AgentSdkClient {
@@ -102,6 +128,41 @@ impl AgentSdkClient {
         )
     }
 
+    pub fn manifest_reference(
+        &self,
+        manifest_id: impl Into<String>,
+        runtime_kind: impl Into<String>,
+        working_directory: impl Into<String>,
+    ) -> ProtocolManifestReference {
+        ProtocolManifestReference {
+            manifest_id: manifest_id.into(),
+            runtime_kind: runtime_kind.into(),
+            working_directory: working_directory.into(),
+        }
+    }
+
+    pub fn connect_launch_request(
+        &self,
+        runtime_kind: impl Into<String>,
+        display_name: Option<String>,
+        command: Vec<String>,
+        working_dir: Option<String>,
+        writable_roots: Vec<String>,
+        capability_allowlist: Vec<AgentSdkCapabilityGrant>,
+        lease_seconds: Option<i64>,
+    ) -> AgentSdkConnectLaunchRequest {
+        AgentSdkConnectLaunchRequest {
+            runtime_kind: runtime_kind.into(),
+            actor_id: self.sender.actor_id.clone(),
+            display_name,
+            command,
+            working_dir,
+            writable_roots,
+            capability_allowlist,
+            lease_seconds,
+        }
+    }
+
     fn envelope(
         &self,
         message_id: impl Into<String>,
@@ -185,5 +246,52 @@ mod tests {
             }
             other => panic!("expected action batch payload, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn connect_launch_request_matches_live_transport_shape() {
+        let sdk = AgentSdkClient::new(
+            "node_local",
+            "sdk_worker",
+            "external_limb",
+            "vel-agent-sdk-rust",
+            "0.1.0",
+        );
+        let launch = sdk.connect_launch_request(
+            "wasm_guest",
+            Some("SDK Guest".to_string()),
+            vec!["/tmp/vel/guest.json".to_string()],
+            Some("/tmp/vel".to_string()),
+            vec!["/tmp/vel".to_string()],
+            vec![AgentSdkCapabilityGrant {
+                scope: "read:context".to_string(),
+                resource: None,
+                action: "read".to_string(),
+            }],
+            Some(300),
+        );
+
+        let value = serde_json::to_value(&launch).expect("launch should serialize");
+        assert_eq!(value["runtime_kind"], "wasm_guest");
+        assert_eq!(value["actor_id"], "sdk_worker");
+        assert_eq!(value["working_dir"], "/tmp/vel");
+        assert_eq!(value["writable_roots"][0], "/tmp/vel");
+        assert_eq!(value["capability_allowlist"][0]["scope"], "read:context");
+    }
+
+    #[test]
+    fn manifest_reference_uses_protocol_contract() {
+        let sdk = AgentSdkClient::new(
+            "node_local",
+            "sdk_worker",
+            "external_limb",
+            "vel-agent-sdk-rust",
+            "0.1.0",
+        );
+        let manifest = sdk.manifest_reference("local_coder", "local_cli", "/tmp/vel");
+
+        assert_eq!(manifest.manifest_id, "local_coder");
+        assert_eq!(manifest.runtime_kind, "local_cli");
+        assert_eq!(manifest.working_directory, "/tmp/vel");
     }
 }
