@@ -2,6 +2,9 @@ import SwiftUI
 import VelApplePlatform
 import VelApplication
 import VelAPI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @main
 struct VelApp: App {
@@ -9,6 +12,14 @@ struct VelApp: App {
     private let appEnvironment = VelAppEnvironment.bootstrap(
         capabilities: FeatureCapabilityMapper.currentIOSDevice()
     )
+
+    init() {
+#if canImport(UIKit)
+        if #available(iOS 15.0, *) {
+            UITableView.appearance().sectionHeaderTopPadding = 0
+        }
+#endif
+    }
 
     var body: some Scene {
         WindowGroup {

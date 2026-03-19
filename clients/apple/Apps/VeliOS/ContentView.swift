@@ -14,8 +14,7 @@ private enum VeliOSTab: Hashable {
     case today
     case nudges
     case activity
-    case capture
-    case voice
+    case projects
     case settings
 }
 
@@ -34,11 +33,11 @@ private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
         case .now:
             return "Now"
         case .planning:
-            return "Plan"
+            return "Inbox"
         case .projects:
             return "Projects"
         case .chat:
-            return "Chat"
+            return "Threads"
         case .capture:
             return "Capture"
         case .settings:
@@ -76,6 +75,13 @@ private struct CaptureDraftSeed: Equatable {
     }
 }
 
+private enum QuickEntrySurface: String, Identifiable {
+    case capture
+    case voice
+
+    var id: String { rawValue }
+}
+
 struct ContentView: View {
     let appEnvironment: VelAppEnvironment
     @EnvironmentObject var store: VelClientStore
@@ -83,6 +89,7 @@ struct ContentView: View {
     @State private var selectedPadSection: VeliPadSection = .now
     @StateObject private var voiceModel = VoiceCaptureModel()
     @State private var captureSeed: CaptureDraftSeed?
+    @State private var quickEntrySurface: QuickEntrySurface?
 
     private var capabilities: FeatureCapabilities {
         appEnvironment.featureCapabilities
@@ -98,67 +105,50 @@ struct ContentView: View {
     }
 
     private var iPhoneShell: some View {
-        NavigationStack {
+        attachQuickEntrySheet {
             TabView(selection: $selectedTab) {
-                TodayTab(store: store)
-                    .tag(VeliOSTab.today)
-                    .tabItem {
-                        Label("Today", systemImage: "sun.max")
-                    }
-
-                NudgesTab(store: store)
-                    .tag(VeliOSTab.nudges)
-                    .tabItem {
-                        Label("Nudges", systemImage: "bell.badge")
-                    }
-
-                ActivityTab(store: store)
-                    .tag(VeliOSTab.activity)
-                    .tabItem {
-                        Label("Activity", systemImage: "chart.line.uptrend.xyaxis")
-                    }
-
-                CaptureTab(
-                    store: store,
-                    voiceModel: voiceModel,
-                    incomingSeed: $captureSeed
-                )
-                    .tag(VeliOSTab.capture)
-                    .tabItem {
-                        Label("Capture", systemImage: "camera")
-                    }
-
-                VoiceTab(store: store, voiceModel: voiceModel) { transcript in
-                    let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    captureSeed = CaptureDraftSeed(transcript: trimmed)
-                    selectedTab = .capture
+                iPhoneTab {
+                    TodayTab(
+                        store: store,
+                        onOpenCapture: { quickEntrySurface = .capture },
+                        onOpenVoice: { quickEntrySurface = .voice }
+                    )
                 }
-                    .tag(VeliOSTab.voice)
-                    .tabItem {
-                        Label("Voice", systemImage: "waveform")
-                    }
+                .tag(VeliOSTab.today)
+                .tabItem {
+                    Label("Now", systemImage: "sun.max")
+                }
 
-                SettingsTab(store: store)
-                    .tag(VeliOSTab.settings)
-                    .tabItem {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-            }
-            .velLiquidGlassContainer()
-            .navigationTitle(title(for: selectedTab))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    if store.isSyncing {
-                        ProgressView()
-                    } else {
-                        Button {
-                            Task { await store.refresh() }
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
+                iPhoneTab {
+                    NudgesTab(store: store)
+                }
+                .tag(VeliOSTab.nudges)
+                .tabItem {
+                    Label("Inbox", systemImage: "tray.full")
+                }
+
+                iPhoneTab {
+                    ActivityTab(store: store)
+                }
+                .tag(VeliOSTab.activity)
+                .tabItem {
+                    Label("Threads", systemImage: "bubble.left.and.bubble.right")
+                }
+
+                iPhoneTab {
+                    ProjectsTab(store: store)
+                }
+                .tag(VeliOSTab.projects)
+                .tabItem {
+                    Label("Projects", systemImage: "square.grid.2x2")
+                }
+
+                iPhoneTab {
+                    SettingsTab(store: store)
+                }
+                .tag(VeliOSTab.settings)
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape")
                 }
             }
             .task {
@@ -173,56 +163,100 @@ struct ContentView: View {
         }
     }
 
-    private var iPadShell: some View {
-        NavigationSplitView {
-            List {
-                ForEach(VeliPadSection.allCases) { section in
-                    Button {
-                        selectedPadSection = section
-                    } label: {
-                        HStack {
-                            Label(section.title, systemImage: section.systemImage)
-                            Spacer()
-                            if selectedPadSection == section {
-                                Image(systemName: "checkmark")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
+    @ViewBuilder
+    private func iPhoneTab<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+    }
+
+    @ToolbarContentBuilder
+    private var refreshToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            if store.isSyncing {
+                ProgressView()
+            } else {
+                Button {
+                    Task { await store.refresh() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
                 }
             }
-            .navigationTitle("Vel \(capabilities.roleLabel)")
-            .velCompactListStyle()
-        } detail: {
-            NavigationStack {
-                iPadDetail(for: selectedPadSection)
-                    .navigationTitle(selectedPadSection.title)
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            if store.isSyncing {
-                                ProgressView()
-                            } else {
-                                Button {
-                                    Task { await store.refresh() }
-                                } label: {
-                                    Image(systemName: "arrow.clockwise")
+        }
+    }
+
+    private var iPadShell: some View {
+        attachQuickEntrySheet {
+            NavigationSplitView {
+                List {
+                    ForEach(VeliPadSection.allCases) { section in
+                        Button {
+                            selectedPadSection = section
+                        } label: {
+                            HStack {
+                                Label(section.title, systemImage: section.systemImage)
+                                Spacer()
+                                if selectedPadSection == section {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
                                 }
                             }
                         }
+                        .buttonStyle(.plain)
                     }
+                }
+                .navigationTitle("Vel \(capabilities.roleLabel)")
+                .velCompactListStyle()
+            } detail: {
+                NavigationStack {
+                    iPadDetail(for: selectedPadSection)
+                        .navigationTitle(selectedPadSection.title)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar { refreshToolbar }
+                }
+            }
+            .navigationSplitViewStyle(.balanced)
+            .task {
+                await store.refresh()
+                await voiceModel.ensurePermissionsKnown()
+            }
+            .onChange(of: selectedPadSection) { section in
+                if section == .planning {
+                    Task { await store.refreshSignals() }
+                }
             }
         }
-        .navigationSplitViewStyle(.balanced)
-        .task {
-            await store.refresh()
-            await voiceModel.ensurePermissionsKnown()
+    }
+
+    @ViewBuilder
+    private func attachQuickEntrySheet<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content().sheet(item: $quickEntrySurface) { surface in
+            quickEntrySheet(for: surface)
         }
-        .onChange(of: selectedPadSection) { section in
-            if section == .planning {
-                Task { await store.refreshSignals() }
+    }
+
+    @ViewBuilder
+    private func quickEntrySheet(for surface: QuickEntrySurface) -> some View {
+        NavigationStack {
+            switch surface {
+            case .capture:
+                CaptureTab(
+                    store: store,
+                    voiceModel: voiceModel,
+                    incomingSeed: $captureSeed
+                )
+                .navigationTitle("Capture")
+                .navigationBarTitleDisplayMode(.inline)
+            case .voice:
+                VoiceTab(store: store, voiceModel: voiceModel) { transcript in
+                    let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { return }
+                    captureSeed = CaptureDraftSeed(transcript: trimmed)
+                    quickEntrySurface = .capture
+                }
+                .navigationTitle("Voice")
+                .navigationBarTitleDisplayMode(.inline)
             }
         }
     }
@@ -231,13 +265,17 @@ struct ContentView: View {
     private func iPadDetail(for section: VeliPadSection) -> some View {
         switch section {
         case .now:
-            TodayTab(store: store)
+            TodayTab(
+                store: store,
+                onOpenCapture: { quickEntrySurface = .capture },
+                onOpenVoice: { quickEntrySurface = .voice }
+            )
         case .planning:
-            ActivityTab(store: store)
+            NudgesTab(store: store)
         case .projects:
-            IpadProjectsTab(store: store)
+            ProjectsTab(store: store)
         case .chat:
-            ChatScaffoldTab(capabilities: capabilities)
+            ActivityTab(store: store)
         case .capture:
             CaptureTab(
                 store: store,
@@ -249,25 +287,9 @@ struct ContentView: View {
         }
     }
 
-    private func title(for tab: VeliOSTab) -> String {
-        switch tab {
-        case .today:
-            return "Vel Today"
-        case .nudges:
-            return "Nudges"
-        case .activity:
-            return "Activity"
-        case .capture:
-            return "Capture"
-        case .voice:
-            return "Voice Capture"
-        case .settings:
-            return "Settings"
-        }
-    }
 }
 
-private struct IpadProjectsTab: View {
+private struct ProjectsTab: View {
     @ObservedObject var store: VelClientStore
 
     var body: some View {
@@ -341,6 +363,8 @@ private struct CapabilityFlagRow: View {
 
 private struct TodayTab: View {
     @ObservedObject var store: VelClientStore
+    let onOpenCapture: () -> Void
+    let onOpenVoice: () -> Void
     @State private var commitmentText = ""
     @State private var captureText = ""
 
@@ -355,149 +379,249 @@ private struct TodayTab: View {
     }
 
     var body: some View {
-        List {
-            Section("Connection") {
-                ConnectionSummaryRow(store: store)
-            }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                todayHeader
 
-            Section("Top action") {
-                if let action = actionItems.first {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(action.title)
-                        if let projectLabel = projectLabel(for: action.project_id) {
-                            Text(projectLabel)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(action.summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text("No backend-ranked action is cached yet.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("Current context") {
-                if let ctx = store.context?.context {
-                    ContextValueRow(label: "Mode", value: ctx.mode)
-                    ContextValueRow(label: "Morning state", value: ctx.morning_state)
-                    ContextValueRow(label: "Meds", value: ctx.meds_status)
-                    ContextValueRow(label: "Attention", value: ctx.attention_state)
-                    ContextValueRow(label: "Drift", value: ctx.drift_type)
-
-                    if let prep = ctx.prep_window_active {
-                        BoolStatusRow(label: "Prep window", value: prep)
-                    }
-                    if let commute = ctx.commute_window_active {
-                        BoolStatusRow(label: "Commute window", value: commute)
-                    }
-                    if let leaveBy = ctx.leave_by_ts {
-                        ContextValueRow(label: "Leave by", value: formatUnix(leaveBy))
-                    }
-                    if let nextEvent = ctx.next_event_start_ts {
-                        ContextValueRow(label: "Next event", value: formatUnix(nextEvent))
-                    }
-                    if let waitingCount = ctx.message_waiting_on_me_count {
-                        ContextValueRow(label: "Waiting on me", value: "\(waitingCount)")
-                    }
-                    if let urgentThreads = ctx.message_urgent_thread_count {
-                        ContextValueRow(label: "Urgent threads", value: "\(urgentThreads)")
-                    }
-                } else {
-                    Text("No context yet. Run evaluate/sync on daemon or refresh once connected.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("Projects") {
-                if cachedProjects.isEmpty {
-                    Text("No cached projects.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(projectGroups(from: cachedProjects)) { group in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(group.title)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            ForEach(group.projects) { project in
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(project.name)
-                                    Text(project.primary_repo.path)
-                                        .font(.caption2)
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .padding(.vertical, 2)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Section("Open commitments") {
-                let openCommitments = store.commitments
-                    .filter { $0.status == "open" }
-                    .prefix(8)
-                if openCommitments.isEmpty {
-                    Text("No open commitments.")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(Array(openCommitments), id: \.id) { commitment in
-                    HStack {
+                todaySection("Next action") {
+                    if let action = actionItems.first {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(commitment.text)
-                            if let dueAt = commitment.due_at {
-                                Text("Due \(formatUnix(dueAt))")
+                            Text(action.title)
+                            if let projectLabel = projectLabel(for: action.project_id) {
+                                Text(projectLabel)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            Text(action.summary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        Spacer()
-                        Button("Done") {
+                    } else {
+                        Text("No backend-ranked action is cached yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                todaySection("Current context") {
+                    if let ctx = store.context?.context {
+                        ContextValueRow(label: "Mode", value: ctx.mode)
+                        ContextValueRow(label: "Morning state", value: ctx.morning_state)
+                        ContextValueRow(label: "Meds", value: ctx.meds_status)
+                        ContextValueRow(label: "Attention", value: ctx.attention_state)
+                        ContextValueRow(label: "Drift", value: ctx.drift_type)
+
+                        if let prep = ctx.prep_window_active {
+                            BoolStatusRow(label: "Prep window", value: prep)
+                        }
+                        if let commute = ctx.commute_window_active {
+                            BoolStatusRow(label: "Commute window", value: commute)
+                        }
+                        if let leaveBy = ctx.leave_by_ts {
+                            ContextValueRow(label: "Leave by", value: formatUnix(leaveBy))
+                        }
+                        if let nextEvent = ctx.next_event_start_ts {
+                            ContextValueRow(label: "Next event", value: formatUnix(nextEvent))
+                        }
+                        if let waitingCount = ctx.message_waiting_on_me_count {
+                            ContextValueRow(label: "Waiting on me", value: "\(waitingCount)")
+                        }
+                        if let urgentThreads = ctx.message_urgent_thread_count {
+                            ContextValueRow(label: "Urgent threads", value: "\(urgentThreads)")
+                        }
+                    } else {
+                        Text("No context yet. Run evaluate/sync on daemon or refresh once connected.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                todaySection("Projects") {
+                    if cachedProjects.isEmpty {
+                        Text("No cached projects.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(projectGroups(from: cachedProjects)) { group in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(group.title)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                ForEach(group.projects) { project in
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(project.name)
+                                        Text(project.primary_repo.path)
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                todaySection("Open commitments") {
+                    let openCommitments = store.commitments
+                        .filter { $0.status == "open" }
+                        .prefix(8)
+                    if openCommitments.isEmpty {
+                        Text("No open commitments.")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(Array(openCommitments), id: \.id) { commitment in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(commitment.text)
+                                if let dueAt = commitment.due_at {
+                                    Text("Due \(formatUnix(dueAt))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                            Button("Done") {
+                                Task {
+                                    await store.markCommitmentDone(id: commitment.id)
+                                }
+                            }
+                            .velActionButtonStyle()
+                        }
+                    }
+                }
+
+                todaySection("Quick entry") {
+                    Text("Use one compact lane for quick commitment capture or note capture.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack {
+                        Button("Open capture") {
+                            onOpenCapture()
+                        }
+                        .velActionButtonStyle()
+
+                        Button("Open voice") {
+                            onOpenVoice()
+                        }
+                        .velActionButtonStyle()
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("New commitment", text: $commitmentText)
+                            .textInputAutocapitalization(.sentences)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Create commitment") {
+                            let text = commitmentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !text.isEmpty else { return }
                             Task {
-                                await store.markCommitmentDone(id: commitment.id)
+                                await store.createCommitment(text: text)
+                                commitmentText = ""
+                            }
+                        }
+                        .velProminentActionButtonStyle()
+                    }
+
+                    Divider()
+                        .padding(.vertical, 2)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("Quick capture", text: $captureText)
+                            .textInputAutocapitalization(.sentences)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Save capture") {
+                            let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !text.isEmpty else { return }
+                            Task {
+                                await store.createCapture(text: text)
+                                captureText = ""
                             }
                         }
                         .velActionButtonStyle()
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 120)
+        }
+        .modifier(TopAlignedScrollContent())
+        .refreshable { await store.refresh() }
+    }
 
-            Section("Quick add") {
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("New commitment", text: $commitmentText)
-                        .textInputAutocapitalization(.sentences)
-                    Button("Create commitment") {
-                        let text = commitmentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !text.isEmpty else { return }
-                        Task {
-                            await store.createCommitment(text: text)
-                            commitmentText = ""
-                        }
-                    }
-                    .velProminentActionButtonStyle()
+    @ViewBuilder
+    private var todayHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Vel Now")
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                    Text(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    TextField("Quick capture", text: $captureText)
-                        .textInputAutocapitalization(.sentences)
-                    Button("Save capture") {
-                        let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !text.isEmpty else { return }
-                        Task {
-                            await store.createCapture(text: text)
-                            captureText = ""
+                Spacer()
+
+                HStack(spacing: 10) {
+                    Menu {
+                        Button {
+                            onOpenCapture()
+                        } label: {
+                            Label("Open capture", systemImage: "camera")
+                        }
+
+                        Button {
+                            onOpenVoice()
+                        } label: {
+                            Label("Open voice", systemImage: "waveform")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .velActionButtonStyle()
+
+                    Button {
+                        Task { await store.refresh() }
+                    } label: {
+                        if store.isSyncing {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "arrow.clockwise")
                         }
                     }
                     .velActionButtonStyle()
                 }
             }
+
+            ConnectionSummaryRow(store: store)
         }
-        .velCompactListStyle()
-        .refreshable { await store.refresh() }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.08),
+                            Color.white.opacity(0.03)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func todaySection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        SurfaceSectionCard(title, content: content)
     }
 
     private func projectLabel(for projectID: String?) -> String? {
@@ -506,46 +630,107 @@ private struct TodayTab: View {
     }
 }
 
+private struct TopAlignedScrollContent: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content.contentMargins(.top, 0, for: .scrollContent)
+        } else {
+            content
+        }
+    }
+}
+
+private struct SurfaceSectionCard<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            content
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+}
+
 private struct NudgesTab: View {
     @ObservedObject var store: VelClientStore
 
     var body: some View {
-        List {
-            Section("Active nudges") {
-                let active = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
-                if active.isEmpty {
-                    Text("No active nudges.")
+        let active = store.nudges.filter { $0.state == "active" || $0.state == "snoozed" }
+        let inboxActionCount = store.offlineStore.cachedActionItems()
+            .filter { $0.surface == .inbox }
+            .count
+
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                SurfaceSectionCard("Inbox") {
+                    Text("This lane is the Apple triage surface. Full inbox consolidation is still in progress.")
+                        .foregroundStyle(.secondary)
+                    Text("\(inboxActionCount) backend action items are currently tagged for inbox review.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                ForEach(active) { nudge in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(nudge.message)
-                            .font(.body)
-                        Text("\(nudge.nudge_type) · \(nudge.level) · \(nudge.state)")
-                            .font(.caption)
+
+                SurfaceSectionCard("Active nudges") {
+                    if active.isEmpty {
+                        Text("No active nudges.")
                             .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(Array(active.enumerated()), id: \.element.nudge_id) { index, nudge in
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(nudge.message)
+                                    .font(.body)
+                                Text("\(nudge.nudge_type) · \(nudge.level) · \(nudge.state)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
 
-                        HStack {
-                            Button("Done") {
-                                Task {
-                                    await store.markNudgeDone(id: nudge.nudge_id)
+                                HStack {
+                                    Button("Done") {
+                                        Task {
+                                            await store.markNudgeDone(id: nudge.nudge_id)
+                                        }
+                                    }
+                                    .velProminentActionButtonStyle()
+
+                                    Button("Snooze 10m") {
+                                        Task {
+                                            await store.snoozeNudge(id: nudge.nudge_id, minutes: 10)
+                                        }
+                                    }
+                                    .velActionButtonStyle()
                                 }
                             }
-                            .velProminentActionButtonStyle()
-
-                            Button("Snooze 10m") {
-                                Task {
-                                    await store.snoozeNudge(id: nudge.nudge_id, minutes: 10)
-                                }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            if index < active.count - 1 {
+                                Divider()
+                                    .padding(.vertical, 2)
                             }
-                            .velActionButtonStyle()
                         }
                     }
-                    .padding(.vertical, 4)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 120)
         }
-        .velCompactListStyle()
+        .modifier(TopAlignedScrollContent())
         .refreshable { await store.refresh() }
     }
 }
@@ -554,38 +739,61 @@ private struct ActivityTab: View {
     @ObservedObject var store: VelClientStore
 
     var body: some View {
-        List {
-            Section("Recent signals") {
-                if store.signals.isEmpty {
-                    Text("No signals available yet.")
+        let recentSignals = Array(store.signals.prefix(80))
+
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                SurfaceSectionCard("Threads") {
+                    Text("Apple thread continuity is still a bounded shell surface. Recent message-oriented activity is shown here for now.")
                         .foregroundStyle(.secondary)
-                }
-                ForEach(store.signals.prefix(80), id: \.signal_id) { signal in
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(signal.signal_type)
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            Spacer()
-                            Text(formatUnix(signal.timestamp))
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        Text("source: \(signal.source)")
+                    if let urgentThreads = store.context?.context?.message_urgent_thread_count {
+                        Text("\(urgentThreads) urgent threads are currently flagged in context.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        if signal.payload != .null {
-                            Text(signal.payload.compactText)
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(3)
+                    }
+                }
+
+                SurfaceSectionCard("Recent signals") {
+                    if recentSignals.isEmpty {
+                        Text("No signals available yet.")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(Array(recentSignals.enumerated()), id: \.element.signal_id) { index, signal in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(signal.signal_type)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    Spacer()
+                                    Text(formatUnix(signal.timestamp))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text("source: \(signal.source)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                if signal.payload != .null {
+                                    Text(signal.payload.compactText)
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                        .lineLimit(3)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            if index < recentSignals.count - 1 {
+                                Divider()
+                                    .padding(.vertical, 2)
+                            }
                         }
                     }
-                    .padding(.vertical, 4)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 120)
         }
-        .velCompactListStyle()
+        .modifier(TopAlignedScrollContent())
         .refreshable { await store.refreshSignals() }
     }
 }
@@ -1429,7 +1637,6 @@ private struct VoiceTab: View {
             dailyLoopStatusMessage = "Could not continue the daily loop. \(error.localizedDescription)"
         }
     }
-    }
 }
 
 private struct SettingsTab: View {
@@ -1472,7 +1679,7 @@ private struct SettingsTab: View {
     }
 
     private var runtimeSection: some View {
-        Section("Runtime") {
+        Section("Status") {
             ConnectionSummaryRow(store: store)
             if let lastSyncAt = store.lastSyncAt {
                 Text("Last sync: \(formatDate(lastSyncAt))")
@@ -1488,7 +1695,7 @@ private struct SettingsTab: View {
     }
 
     private var endpointOverrideSection: some View {
-        Section("Endpoint override") {
+        Section("Connection") {
             TextField("http://host:4130", text: $baseURLOverride)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -1513,7 +1720,7 @@ private struct SettingsTab: View {
     }
 
     private var linkingSection: some View {
-        Section("Linking") {
+        Section("Setup and linking") {
             scopeToggle(label: "Read context", value: $pairingReadContext)
             scopeToggle(label: "Write safe actions", value: $pairingWriteSafeActions)
             scopeToggle(label: "Execute repo tasks", value: $pairingExecuteRepoTasks)
@@ -3378,17 +3585,25 @@ private func projectGroups(from projects: [ProjectRecordData]) -> [ProjectGroupS
 private extension View {
     @ViewBuilder
     func velCompactListStyle() -> some View {
-        if #available(iOS 17.0, *) {
+        if #available(iOS 26.0, *) {
             self
                 .listStyle(.plain)
                 .listSectionSpacing(.compact)
-                .environment(\.defaultMinListRowHeight, 34)
-                .environment(\.defaultMinListHeaderHeight, 22)
+                .contentMargins(.top, 0, for: .scrollContent)
+                .environment(\.defaultMinListRowHeight, 44)
+                .environment(\.defaultMinListHeaderHeight, 28)
+        } else if #available(iOS 17.0, *) {
+            self
+                .listStyle(.plain)
+                .listSectionSpacing(.compact)
+                .contentMargins(.top, 0, for: .scrollContent)
+                .environment(\.defaultMinListRowHeight, 44)
+                .environment(\.defaultMinListHeaderHeight, 28)
         } else {
             self
                 .listStyle(.plain)
-                .environment(\.defaultMinListRowHeight, 34)
-                .environment(\.defaultMinListHeaderHeight, 22)
+                .environment(\.defaultMinListRowHeight, 44)
+                .environment(\.defaultMinListHeaderHeight, 28)
         }
     }
 
@@ -3397,7 +3612,9 @@ private extension View {
         if #available(iOS 26.0, *) {
             GlassEffectContainer {
                 self
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else {
             self
         }

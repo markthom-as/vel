@@ -21,6 +21,7 @@
 		7A6FA07DB6C06B8B565CE3CA /* VelWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C013C0C0BEA444F7A8324FFE /* VelWidgetBundle.swift */; };
 		85FBA1CF1073359D9BAA15E5 /* VelApplePlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 18FDB7835B8174136A15625B /* VelApplePlatform */; };
 		879B596172E4D735284E8BF3 /* VelApplePlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 60D0707FE6BCEA83D9F9B73C /* VelApplePlatform */; };
+		8C9F6A7B1D2E3F4051627384 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8C9F6A7B1D2E3F4051627383 /* LaunchScreen.storyboard */; };
 		9FE58C85D09EBAD00342E502 /* VelIntentsExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 697C1B267FC258D6CD2A2F0A /* VelIntentsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1B2C3D40000000400000001 /* VelAPI in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000A00000001 /* VelAPI */; };
 		A1B2C3D40000000400000002 /* VelAPI in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000A00000002 /* VelAPI */; };
@@ -82,6 +83,7 @@
 		5DD39BFC29EDCE76294704F0 /* VelMacApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VelMacApp.swift; sourceTree = "<group>"; };
 		697C1B267FC258D6CD2A2F0A /* VelIntentsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VelIntentsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A06E62F2BD34FB245C45B40 /* VelMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VelMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8C9F6A7B1D2E3F4051627383 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		99467C4C1BB572376E41478A /* VelWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VelWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D40000000100000001 /* VeliOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VeliOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D40000000100000002 /* VelWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VelWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -224,6 +226,7 @@
 			children = (
 				A1B2C3D40000000200000001 /* VelApp.swift */,
 				A1B2C3D40000000200000002 /* ContentView.swift */,
+				8C9F6A7B1D2E3F4051627383 /* LaunchScreen.storyboard */,
 			);
 			path = VeliOS;
 			sourceTree = "<group>";
@@ -455,6 +458,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C9F6A7B1D2E3F4051627384 /* LaunchScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -731,6 +735,7 @@
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Vel transcribes short voice captures into local notes or commitments.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
@@ -757,6 +762,7 @@
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Vel transcribes short voice captures into local notes or commitments.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;

@@ -15,7 +15,7 @@ Product-mode authority for summary-first disclosure:
 
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VelAppleModules** — shared Apple scaffold package for domain/application/infrastructure/platform/capability seams.
-- **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
+- **VeliOS** — iPhone: Now/Inbox/Threads/Projects/Settings shell with quick-entry capture + voice sheets, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
 - **VelWatch** — Apple Watch: backend-owned quick-loop summary from `/v1/now` plus Apple behavior summary, nudge quick actions (done/snooze), quick capture/check-in/task entry, cached fallback.
 - **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages/reminders snapshot export into Vel’s Application Support tree.
 
@@ -180,21 +180,21 @@ Watch quick-action notes:
 
 Voice capture notes:
 
-- iOS Voice tab uses push-to-talk only (no always-listening mode)
+- iOS voice quick entry uses push-to-talk only (no always-listening mode)
 - requires microphone + speech recognition permission
 - submissions preserve transcript provenance as a `voice_note` capture
 - transcript is editable before submit and intent suggestions update live
 - supported backend voice query intents: morning briefing, current schedule, next commitment, active nudges, explain-why, and behavior summary
-- the Voice tab sends supported replies through `POST /v1/apple/voice/turn`; MorningBriefing now starts or resumes the shared backend daily loop, and Swift renders typed session state instead of synthesizing morning/standup policy locally
+- the iOS voice surface sends supported replies through `POST /v1/apple/voice/turn`; MorningBriefing now starts or resumes the shared backend daily loop, and Swift renders typed session state instead of synthesizing morning/standup policy locally
 - commitment creation still uses the existing direct capture/queue shell because it is not part of the current Apple voice backend contract
 - supported voice action intents include targeted commitment done and nudge snooze/done when the backend route is reachable; offline fallback is limited to provenance capture plus queued safe actions
-- when the daemon is offline, the Voice tab may show cached active morning/standup session state, but resume/submit requires reconnect so the backend remains the source of truth
+- when the daemon is offline, the iOS voice surface may show cached active morning/standup session state, but resume/submit requires reconnect so the backend remains the source of truth
 - voice responses can be spoken back with built-in TTS playback
-- voice transcript handoff can open the Capture tab directly for multimodal draft composition
+- voice transcript handoff can open the capture flow directly for multimodal draft composition
 
 Multimodal capture notes:
 
-- iOS Capture tab supports multimodal drafts with photo + note + optional voice transcript context
+- iOS capture flow supports multimodal drafts with photo + note + optional voice transcript context
 - optional inline photo payload encoding (compressed JPEG + base64) can be embedded for richer multimodal processing
 - optional current-context snapshot fields can be attached to each multimodal draft
 - saved as capture type `multimodal_note` from source `apple_ios_multimodal`
