@@ -1,13 +1,20 @@
 import SwiftUI
+import VelApplePlatform
+import VelApplication
 import VelAPI
 
 @main
 struct VelWatchApp: App {
     @StateObject private var store = VelWatchStore()
+    private let appEnvironment = VelAppEnvironment.bootstrap(
+        capabilities: FeatureCapabilityMapper.capabilities(for: .watch)
+    )
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(appEnvironment: appEnvironment)
                 .environmentObject(store)
+                .preferredColorScheme(.dark)
         }
     }
 }

@@ -1,12 +1,20 @@
 import SwiftUI
+import VelApplePlatform
+import VelApplication
+import VelAPI
 
 @main
 struct VelMacApp: App {
     @StateObject private var client = VelClientStore()
+    private let appEnvironment = VelAppEnvironment.bootstrap(
+        capabilities: FeatureCapabilityMapper.capabilities(for: .mac)
+    )
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(appEnvironment: appEnvironment)
                 .environmentObject(client)
+                .preferredColorScheme(.dark)
         }
         .windowStyle(.automatic)
         .defaultSize(width: 400, height: 500)

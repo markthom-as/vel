@@ -2,7 +2,10 @@ import AVFoundation
 import PhotosUI
 import Speech
 import SwiftUI
+import VelApplePlatform
+import VelApplication
 import VelAPI
+import VelFeatureFlags
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -14,6 +17,51 @@ private enum VeliOSTab: Hashable {
     case capture
     case voice
     case settings
+}
+
+private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
+    case now
+    case planning
+    case projects
+    case chat
+    case capture
+    case settings
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .now:
+            return "Now"
+        case .planning:
+            return "Plan"
+        case .projects:
+            return "Projects"
+        case .chat:
+            return "Chat"
+        case .capture:
+            return "Capture"
+        case .settings:
+            return "Settings"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .now:
+            return "sun.max"
+        case .planning:
+            return "calendar"
+        case .projects:
+            return "square.grid.2x2"
+        case .chat:
+            return "bubble.left.and.bubble.right"
+        case .capture:
+            return "camera"
+        case .settings:
+            return "gearshape"
+        }
+    }
 }
 
 private struct CaptureDraftSeed: Equatable {
@@ -29,12 +77,27 @@ private struct CaptureDraftSeed: Equatable {
 }
 
 struct ContentView: View {
+    let appEnvironment: VelAppEnvironment
     @EnvironmentObject var store: VelClientStore
     @State private var selectedTab: VeliOSTab = .today
+    @State private var selectedPadSection: VeliPadSection = .now
     @StateObject private var voiceModel = VoiceCaptureModel()
     @State private var captureSeed: CaptureDraftSeed?
 
+    private var capabilities: FeatureCapabilities {
+        appEnvironment.featureCapabilities
+    }
+
+    @ViewBuilder
     var body: some View {
+        if capabilities.supportsSplitViewWorkspace {
+            iPadShell
+        } else {
+            iPhoneShell
+        }
+    }
+
+    private var iPhoneShell: some View {
         NavigationStack {
             TabView(selection: $selectedTab) {
                 TodayTab(store: store)
@@ -82,7 +145,9 @@ struct ContentView: View {
                         Label("Settings", systemImage: "gearshape")
                     }
             }
+            .velLiquidGlassContainer()
             .navigationTitle(title(for: selectedTab))
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if store.isSyncing {
@@ -108,6 +173,82 @@ struct ContentView: View {
         }
     }
 
+    private var iPadShell: some View {
+        NavigationSplitView {
+            List {
+                ForEach(VeliPadSection.allCases) { section in
+                    Button {
+                        selectedPadSection = section
+                    } label: {
+                        HStack {
+                            Label(section.title, systemImage: section.systemImage)
+                            Spacer()
+                            if selectedPadSection == section {
+                                Image(systemName: "checkmark")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("Vel \(capabilities.roleLabel)")
+            .velCompactListStyle()
+        } detail: {
+            NavigationStack {
+                iPadDetail(for: selectedPadSection)
+                    .navigationTitle(selectedPadSection.title)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            if store.isSyncing {
+                                ProgressView()
+                            } else {
+                                Button {
+                                    Task { await store.refresh() }
+                                } label: {
+                                    Image(systemName: "arrow.clockwise")
+                                }
+                            }
+                        }
+                    }
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+        .task {
+            await store.refresh()
+            await voiceModel.ensurePermissionsKnown()
+        }
+        .onChange(of: selectedPadSection) { section in
+            if section == .planning {
+                Task { await store.refreshSignals() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func iPadDetail(for section: VeliPadSection) -> some View {
+        switch section {
+        case .now:
+            TodayTab(store: store)
+        case .planning:
+            ActivityTab(store: store)
+        case .projects:
+            IpadProjectsTab(store: store)
+        case .chat:
+            ChatScaffoldTab(capabilities: capabilities)
+        case .capture:
+            CaptureTab(
+                store: store,
+                voiceModel: voiceModel,
+                incomingSeed: $captureSeed
+            )
+        case .settings:
+            SettingsTab(store: store)
+        }
+    }
+
     private func title(for tab: VeliOSTab) -> String {
         switch tab {
         case .today:
@@ -123,6 +264,78 @@ struct ContentView: View {
         case .settings:
             return "Settings"
         }
+    }
+}
+
+private struct IpadProjectsTab: View {
+    @ObservedObject var store: VelClientStore
+
+    var body: some View {
+        List {
+            Section("Projects") {
+                let projects = store.offlineStore.cachedProjects()
+                if projects.isEmpty {
+                    Text("No cached projects yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(projects.prefix(25)), id: \.id) { project in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(project.name)
+                                .font(.body)
+                            Text(project.primary_repo.path)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+
+            Section("Capabilities") {
+                Text("Project inspector scaffold is enabled for iPad.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .velCompactListStyle()
+        .refreshable { await store.refresh() }
+    }
+}
+
+private struct ChatScaffoldTab: View {
+    let capabilities: FeatureCapabilities
+
+    var body: some View {
+        List {
+            Section("Chat Scaffold") {
+                Text("Chat shell placeholder for \(capabilities.roleLabel).")
+                Text("TODO: wire shared chat use cases from VelApplication once service modules are extracted.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Capability Gate") {
+                CapabilityFlagRow(label: "supportsChat", isEnabled: capabilities.supportsChat)
+                CapabilityFlagRow(label: "supportsVoicePushToTalk", isEnabled: capabilities.supportsVoicePushToTalk)
+                CapabilityFlagRow(label: "supportsQuickCapture", isEnabled: capabilities.supportsQuickCapture)
+            }
+        }
+        .velCompactListStyle()
+    }
+}
+
+private struct CapabilityFlagRow: View {
+    let label: String
+    let isEnabled: Bool
+
+    var body: some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Image(systemName: isEnabled ? "checkmark.circle.fill" : "xmark.circle")
+                .foregroundStyle(isEnabled ? .green : .secondary)
+        }
+        .font(.caption)
     }
 }
 
@@ -248,7 +461,7 @@ private struct TodayTab: View {
                                 await store.markCommitmentDone(id: commitment.id)
                             }
                         }
-                        .buttonStyle(.bordered)
+                        .velActionButtonStyle()
                     }
                 }
             }
@@ -265,7 +478,7 @@ private struct TodayTab: View {
                             commitmentText = ""
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .velProminentActionButtonStyle()
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -279,11 +492,11 @@ private struct TodayTab: View {
                             captureText = ""
                         }
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .refreshable { await store.refresh() }
     }
 
@@ -318,21 +531,21 @@ private struct NudgesTab: View {
                                     await store.markNudgeDone(id: nudge.nudge_id)
                                 }
                             }
-                            .buttonStyle(.borderedProminent)
+                            .velProminentActionButtonStyle()
 
                             Button("Snooze 10m") {
                                 Task {
                                     await store.snoozeNudge(id: nudge.nudge_id, minutes: 10)
                                 }
                             }
-                            .buttonStyle(.bordered)
+                            .velActionButtonStyle()
                         }
                     }
                     .padding(.vertical, 4)
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .refreshable { await store.refresh() }
     }
 }
@@ -372,7 +585,7 @@ private struct ActivityTab: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .refreshable { await store.refreshSignals() }
     }
 }
@@ -462,7 +675,7 @@ private struct CaptureTab: View {
                         systemImage: "photo.on.rectangle.angled"
                     )
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
 
                 if let photoLoadError, !photoLoadError.isEmpty {
                     Text(photoLoadError)
@@ -555,13 +768,13 @@ private struct CaptureTab: View {
                 Button("Save multimodal capture") {
                     saveCapture()
                 }
-                .buttonStyle(.borderedProminent)
+                .velProminentActionButtonStyle()
                 .disabled(!hasDraftContent)
 
                 Button("Clear draft", role: .destructive) {
                     clearDraft()
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
                 .disabled(!hasDraftContent && selectedPhotoData == nil)
 
                 if let statusMessage, !statusMessage.isEmpty {
@@ -571,7 +784,7 @@ private struct CaptureTab: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .onChange(of: selectedPhotoItem) { item in
             Task { await loadPhoto(from: item) }
         }
@@ -912,7 +1125,7 @@ private struct VoiceTab: View {
                 Button("Request permissions") {
                     Task { await voiceModel.requestPermissions() }
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
             }
 
             Section("Record") {
@@ -946,7 +1159,7 @@ private struct VoiceTab: View {
                             Button("Clear transcript") {
                                 voiceModel.clearTranscript()
                             }
-                            .buttonStyle(.bordered)
+                            .velActionButtonStyle()
 
                             Spacer()
 
@@ -989,20 +1202,20 @@ private struct VoiceTab: View {
                 Button(voiceModel.suggestedIntent.submitButtonLabel) {
                     Task { await voiceModel.submitSuggested(using: store) }
                 }
-                .buttonStyle(.borderedProminent)
+                .velProminentActionButtonStyle()
                 .disabled(!voiceModel.hasTranscript)
 
                 HStack {
                     Button("Save as capture") {
                         Task { await voiceModel.submitAsCapture(using: store) }
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                     .disabled(!voiceModel.hasTranscript)
 
                     Button("Create commitment") {
                         Task { await voiceModel.submitAsCommitment(using: store) }
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                     .disabled(!voiceModel.hasTranscript)
                 }
 
@@ -1013,7 +1226,7 @@ private struct VoiceTab: View {
                 Button("Open multimodal composer") {
                     onOpenCaptureComposer(voiceModel.transcript)
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
                 .disabled(!voiceModel.hasTranscript)
             }
 
@@ -1022,7 +1235,7 @@ private struct VoiceTab: View {
                     Button(example.label) {
                         voiceModel.applyCommandExample(example.command)
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
 
                     Text(example.command)
                         .font(.caption2)
@@ -1121,7 +1334,7 @@ private struct VoiceTab: View {
                     Button("Speak response") {
                         voiceModel.speakLatestResponse()
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                 } else {
                     Text("Run a voice query like “what matters right now?” or “give me a behavior summary” for a backend-owned reply.")
                         .font(.caption)
@@ -1156,13 +1369,13 @@ private struct VoiceTab: View {
                         Button("Use In Capture Tab") {
                             onOpenCaptureComposer(entry.transcript)
                         }
-                        .buttonStyle(.bordered)
+                        .velActionButtonStyle()
                     }
                     .padding(.vertical, 4)
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .onChange(of: activeDailyLoop?.id) { _ in
             dailyLoopResponseText = ""
         }
@@ -1216,6 +1429,7 @@ private struct VoiceTab: View {
             dailyLoopStatusMessage = "Could not continue the daily loop. \(error.localizedDescription)"
         }
     }
+    }
 }
 
 private struct SettingsTab: View {
@@ -1237,246 +1451,14 @@ private struct SettingsTab: View {
 
     var body: some View {
         List {
-            Section("Runtime") {
-                ConnectionSummaryRow(store: store)
-                if let lastSyncAt = store.lastSyncAt {
-                    Text("Last sync: \(formatDate(lastSyncAt))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if store.pendingActionCount > 0 {
-                    Text("Pending queued actions: \(store.pendingActionCount)")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-            }
-
-            Section("Endpoint override") {
-                TextField("http://host:4130", text: $baseURLOverride)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                Button("Save and reconnect") {
-                    store.setBaseURLOverride(baseURLOverride)
-                    Task { await store.refresh() }
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button("Clear override") {
-                    baseURLOverride = ""
-                    store.setBaseURLOverride(nil)
-                    Task { await store.refresh() }
-                }
-                .buttonStyle(.bordered)
-
-                Text("Resolution order: vel_tailscale_url, vel_base_url, vel_lan_base_url, localhost.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Section("Linking") {
-                scopeToggle(label: "Read context", value: $pairingReadContext)
-                scopeToggle(label: "Write safe actions", value: $pairingWriteSafeActions)
-                scopeToggle(label: "Execute repo tasks", value: $pairingExecuteRepoTasks)
-
-                if store.discoveredWorkers.isEmpty {
-                    Text("No unlinked discovered nodes are active right now.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Picker("Discovered node", selection: Binding(
-                        get: {
-                            selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id ?? ""
-                        },
-                        set: { selectedDiscoveredNodeID = $0 }
-                    )) {
-                        ForEach(store.discoveredWorkers) { worker in
-                            Text(worker.node_display_name).tag(worker.node_id)
-                        }
-                    }
-
-                    ForEach(store.discoveredWorkers) { worker in
-                        if worker.node_id == (selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id) {
-                            RemoteNodeSummaryCard(
-                                title: worker.node_display_name,
-                                subtitle: worker.sync_status ?? worker.status,
-                                routes: collectRemoteRoutes(
-                                    syncBaseURL: worker.sync_base_url,
-                                    tailscaleBaseURL: worker.tailscale_base_url,
-                                    lanBaseURL: worker.lan_base_url,
-                                    publicBaseURL: nil
-                                ),
-                                prompt: worker.incoming_linking_prompt
-                            )
-                        }
-                    }
-                }
-
-                Button(isIssuingPairingToken ? "Pairing…" : "Pair nodes") {
-                    Task { await issuePairingToken() }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isIssuingPairingToken)
-
-                if let prompt = store.localIncomingLinkingPrompt {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Incoming prompt from \(prompt.issued_by_node_display_name ?? prompt.issued_by_node_id)")
-                            .font(.subheadline.weight(.semibold))
-                        Text(scopeSummary(prompt.scopes))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        TextField(
-                            "ABC-123",
-                            text: Binding(
-                                get: { pairingCodeInput },
-                                set: { pairingCodeInput = formatPairingTokenInput($0) }
-                            )
-                        )
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .keyboardType(.asciiCapable)
-
-                        Button(isRedeemingPairingToken ? "Entering…" : "Enter token") {
-                            Task { await redeemPairingToken(using: prompt) }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isRedeemingPairingToken)
-                    }
-                }
-
-                if let pairingToken {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Current token")
-                            .font(.subheadline.weight(.semibold))
-                        Text(pairingToken.token_code)
-                            .font(.system(.body, design: .monospaced))
-                        Text("Expires \(pairingToken.expires_at)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(scopeSummary(pairingToken.scopes))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if let pairingFeedback, !pairingFeedback.isEmpty {
-                    Text(pairingFeedback)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("Linked devices") {
-                if store.linkedNodes.isEmpty {
-                    Text("No linked devices yet.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(store.linkedNodes) { node in
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(node.node_display_name)
-                                .font(.headline)
-                            Text(scopeSummary(linkedPermissionDrafts[node.node_id] ?? node.scopes))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            ForEach(collectRemoteRoutes(
-                                syncBaseURL: node.sync_base_url,
-                                tailscaleBaseURL: node.tailscale_base_url,
-                                lanBaseURL: node.lan_base_url,
-                                publicBaseURL: node.public_base_url
-                            ), id: \.baseURL) { route in
-                                Text("\(route.label): \(route.baseURL)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            scopeToggle(
-                                label: "Read context",
-                                value: Binding(
-                                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).read_context },
-                                    set: { setLinkedScope(nodeID: node.node_id, keyPath: \.read_context, value: $0, fallback: node.scopes) }
-                                )
-                            )
-                            scopeToggle(
-                                label: "Write safe actions",
-                                value: Binding(
-                                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).write_safe_actions },
-                                    set: { setLinkedScope(nodeID: node.node_id, keyPath: \.write_safe_actions, value: $0, fallback: node.scopes) }
-                                )
-                            )
-                            scopeToggle(
-                                label: "Execute repo tasks",
-                                value: Binding(
-                                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).execute_repo_tasks },
-                                    set: { setLinkedScope(nodeID: node.node_id, keyPath: \.execute_repo_tasks, value: $0, fallback: node.scopes) }
-                                )
-                            )
-
-                            Button("Request updated access") {
-                                Task { await renegotiateLinkedNode(node) }
-                            }
-                            .buttonStyle(.bordered)
-
-                            if confirmUnpairNodeID == node.node_id {
-                                HStack {
-                                    Button(unpairingNodeID == node.node_id ? "Unpairing…" : "Confirm unpair") {
-                                        Task { await unpair(node) }
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .disabled(unpairingNodeID == node.node_id)
-
-                                    Button("Cancel") {
-                                        confirmUnpairNodeID = nil
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                            } else {
-                                Button("Unpair") {
-                                    confirmUnpairNodeID = node.node_id
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                        .padding(.vertical, 6)
-                    }
-                }
-            }
-
-            Section("Operator auth") {
-                SecureField("x-vel-operator-token", text: $operatorToken)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                Button("Save auth and reconnect") {
-                    let trimmed = operatorToken.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.isEmpty {
-                        UserDefaults.standard.removeObject(forKey: "vel_operator_token")
-                    } else {
-                        UserDefaults.standard.set(trimmed, forKey: "vel_operator_token")
-                    }
-                    store.client.configuration = .shared()
-                    Task { await store.refresh() }
-                }
-                .buttonStyle(.bordered)
-
-                Text("Operator-authenticated /v1 routes send x-vel-operator-token when configured.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Section("Docs") {
-                ForEach(VelDocumentationCatalog.core) { doc in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(doc.title)
-                        Text(doc.path)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+            runtimeSection
+            endpointOverrideSection
+            linkingSection
+            linkedDevicesSection
+            operatorAuthSection
+            docsSection
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .onAppear {
             if selectedDiscoveredNodeID == nil {
                 selectedDiscoveredNodeID = store.discoveredWorkers.first?.node_id
@@ -1485,6 +1467,268 @@ private struct SettingsTab: View {
         .onChange(of: store.discoveredWorkers.map(\.node_id)) { nodeIDs in
             if !nodeIDs.contains(selectedDiscoveredNodeID ?? "") {
                 selectedDiscoveredNodeID = nodeIDs.first
+            }
+        }
+    }
+
+    private var runtimeSection: some View {
+        Section("Runtime") {
+            ConnectionSummaryRow(store: store)
+            if let lastSyncAt = store.lastSyncAt {
+                Text("Last sync: \(formatDate(lastSyncAt))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if store.pendingActionCount > 0 {
+                Text("Pending queued actions: \(store.pendingActionCount)")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var endpointOverrideSection: some View {
+        Section("Endpoint override") {
+            TextField("http://host:4130", text: $baseURLOverride)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Button("Save and reconnect") {
+                store.setBaseURLOverride(baseURLOverride)
+                Task { await store.refresh() }
+            }
+            .velProminentActionButtonStyle()
+
+            Button("Clear override") {
+                baseURLOverride = ""
+                store.setBaseURLOverride(nil)
+                Task { await store.refresh() }
+            }
+            .velActionButtonStyle()
+
+            Text("Resolution order: vel_tailscale_url, vel_base_url, vel_lan_base_url, localhost.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var linkingSection: some View {
+        Section("Linking") {
+            scopeToggle(label: "Read context", value: $pairingReadContext)
+            scopeToggle(label: "Write safe actions", value: $pairingWriteSafeActions)
+            scopeToggle(label: "Execute repo tasks", value: $pairingExecuteRepoTasks)
+
+            discoveredNodeSection
+
+            Button(isIssuingPairingToken ? "Pairing..." : "Pair nodes") {
+                Task { await issuePairingToken() }
+            }
+            .velProminentActionButtonStyle()
+            .disabled(isIssuingPairingToken)
+
+            if let prompt = store.localIncomingLinkingPrompt {
+                incomingPromptSection(prompt)
+            }
+            if let pairingToken {
+                currentTokenSection(pairingToken)
+            }
+            if let pairingFeedback, !pairingFeedback.isEmpty {
+                Text(pairingFeedback)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var discoveredNodeSection: some View {
+        if store.discoveredWorkers.isEmpty {
+            Text("No unlinked discovered nodes are active right now.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            Picker("Discovered node", selection: Binding(
+                get: { selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id ?? "" },
+                set: { selectedDiscoveredNodeID = $0 }
+            )) {
+                ForEach(store.discoveredWorkers) { worker in
+                    Text(worker.node_display_name).tag(worker.node_id)
+                }
+            }
+            if let selectedNodeID = selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id,
+               let worker = store.discoveredWorkers.first(where: { $0.node_id == selectedNodeID }) {
+                RemoteNodeSummaryCard(
+                    title: worker.node_display_name,
+                    subtitle: worker.sync_status ?? worker.status,
+                    routes: collectRemoteRoutes(
+                        syncBaseURL: worker.sync_base_url,
+                        tailscaleBaseURL: worker.tailscale_base_url,
+                        lanBaseURL: worker.lan_base_url,
+                        publicBaseURL: nil
+                    ),
+                    prompt: worker.incoming_linking_prompt
+                )
+            }
+        }
+    }
+
+    private func incomingPromptSection(_ prompt: LinkingPromptData) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Incoming prompt from \(prompt.issued_by_node_display_name ?? prompt.issued_by_node_id)")
+                .font(.subheadline.weight(.semibold))
+            Text(scopeSummary(prompt.scopes))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField(
+                "ABC-123",
+                text: Binding(
+                    get: { pairingCodeInput },
+                    set: { pairingCodeInput = formatPairingTokenInput($0) }
+                )
+            )
+            .textInputAutocapitalization(.characters)
+            .autocorrectionDisabled()
+            .keyboardType(.asciiCapable)
+
+            Button(isRedeemingPairingToken ? "Entering..." : "Enter token") {
+                Task { await redeemPairingToken(using: prompt) }
+            }
+            .velActionButtonStyle()
+            .disabled(isRedeemingPairingToken)
+        }
+    }
+
+    private func currentTokenSection(_ pairingToken: PairingTokenData) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Current token")
+                .font(.subheadline.weight(.semibold))
+            Text(pairingToken.token_code)
+                .font(.system(.body, design: .monospaced))
+            Text("Expires \(pairingToken.expires_at)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(scopeSummary(pairingToken.scopes))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var linkedDevicesSection: some View {
+        Section("Linked devices") {
+            if store.linkedNodes.isEmpty {
+                Text("No linked devices yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(store.linkedNodes) { node in
+                    linkedDeviceRow(node)
+                        .padding(.vertical, 6)
+                }
+            }
+        }
+    }
+
+    private func linkedDeviceRow(_ node: LinkedNodeData) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(node.node_display_name)
+                .font(.headline)
+            Text(scopeSummary(linkedPermissionDrafts[node.node_id] ?? node.scopes))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            ForEach(collectRemoteRoutes(
+                syncBaseURL: node.sync_base_url,
+                tailscaleBaseURL: node.tailscale_base_url,
+                lanBaseURL: node.lan_base_url,
+                publicBaseURL: node.public_base_url
+            ), id: \.baseURL) { route in
+                Text("\(route.label): \(route.baseURL)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            scopeToggle(
+                label: "Read context",
+                value: Binding(
+                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).read_context },
+                    set: { setLinkedScope(nodeID: node.node_id, field: .readContext, value: $0, fallback: node.scopes) }
+                )
+            )
+            scopeToggle(
+                label: "Write safe actions",
+                value: Binding(
+                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).write_safe_actions },
+                    set: { setLinkedScope(nodeID: node.node_id, field: .writeSafeActions, value: $0, fallback: node.scopes) }
+                )
+            )
+            scopeToggle(
+                label: "Execute repo tasks",
+                value: Binding(
+                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).execute_repo_tasks },
+                    set: { setLinkedScope(nodeID: node.node_id, field: .executeRepoTasks, value: $0, fallback: node.scopes) }
+                )
+            )
+
+            Button("Request updated access") {
+                Task { await renegotiateLinkedNode(node) }
+            }
+            .velActionButtonStyle()
+
+            if confirmUnpairNodeID == node.node_id {
+                HStack {
+                    Button(unpairingNodeID == node.node_id ? "Unpairing..." : "Confirm unpair") {
+                        Task { await unpair(node) }
+                    }
+                    .velProminentActionButtonStyle()
+                    .disabled(unpairingNodeID == node.node_id)
+
+                    Button("Cancel") {
+                        confirmUnpairNodeID = nil
+                    }
+                    .velActionButtonStyle()
+                }
+            } else {
+                Button("Unpair") {
+                    confirmUnpairNodeID = node.node_id
+                }
+                .velActionButtonStyle()
+            }
+        }
+    }
+
+    private var operatorAuthSection: some View {
+        Section("Operator auth") {
+            SecureField("x-vel-operator-token", text: $operatorToken)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Button("Save auth and reconnect") {
+                let trimmed = operatorToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                    UserDefaults.standard.removeObject(forKey: "vel_operator_token")
+                } else {
+                    UserDefaults.standard.set(trimmed, forKey: "vel_operator_token")
+                }
+                store.client.configuration = .shared()
+                Task { await store.refresh() }
+            }
+            .velActionButtonStyle()
+
+            Text("Operator-authenticated /v1 routes send x-vel-operator-token when configured.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var docsSection: some View {
+        Section("Docs") {
+            ForEach(VelDocumentationCatalog.core) { doc in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(doc.title)
+                    Text(doc.path)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -1566,14 +1810,39 @@ private struct SettingsTab: View {
         }
     }
 
+    private enum LinkedScopeField {
+        case readContext
+        case writeSafeActions
+        case executeRepoTasks
+    }
+
     private func setLinkedScope(
         nodeID: String,
-        keyPath: WritableKeyPath<LinkScopeData, Bool>,
+        field: LinkedScopeField,
         value: Bool,
         fallback: LinkScopeData
     ) {
         var draft = linkedPermissionDrafts[nodeID] ?? fallback
-        draft[keyPath: keyPath] = value
+        switch field {
+        case .readContext:
+            draft = LinkScopeData(
+                read_context: value,
+                write_safe_actions: draft.write_safe_actions,
+                execute_repo_tasks: draft.execute_repo_tasks
+            )
+        case .writeSafeActions:
+            draft = LinkScopeData(
+                read_context: draft.read_context,
+                write_safe_actions: value,
+                execute_repo_tasks: draft.execute_repo_tasks
+            )
+        case .executeRepoTasks:
+            draft = LinkScopeData(
+                read_context: draft.read_context,
+                write_safe_actions: draft.write_safe_actions,
+                execute_repo_tasks: value
+            )
+        }
         linkedPermissionDrafts[nodeID] = draft
     }
 
@@ -3106,7 +3375,58 @@ private func projectGroups(from projects: [ProjectRecordData]) -> [ProjectGroupS
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func velCompactListStyle() -> some View {
+        if #available(iOS 17.0, *) {
+            self
+                .listStyle(.plain)
+                .listSectionSpacing(.compact)
+                .environment(\.defaultMinListRowHeight, 34)
+                .environment(\.defaultMinListHeaderHeight, 22)
+        } else {
+            self
+                .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, 34)
+                .environment(\.defaultMinListHeaderHeight, 22)
+        }
+    }
+
+    @ViewBuilder
+    func velLiquidGlassContainer() -> some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer {
+                self
+            }
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func velActionButtonStyle() -> some View {
+        if #available(iOS 26.0, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.bordered)
+        }
+    }
+
+    @ViewBuilder
+    func velProminentActionButtonStyle() -> some View {
+        if #available(iOS 26.0, *) {
+            self.buttonStyle(.glassProminent)
+        } else {
+            self.buttonStyle(.borderedProminent)
+        }
+    }
+}
+
 #Preview {
-    ContentView()
+    ContentView(
+        appEnvironment: VelAppEnvironment.bootstrap(
+            capabilities: FeatureCapabilityMapper.currentIOSDevice()
+        )
+    )
         .environmentObject(VelClientStore())
 }

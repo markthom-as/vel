@@ -1,6 +1,9 @@
 import SwiftUI
+import VelApplication
+import VelAPI
 
 struct ContentView: View {
+    let appEnvironment: VelAppEnvironment
     @EnvironmentObject var store: VelClientStore
     @State private var nudges: [VelAPI.NudgeData] = []
     @State private var commitments: [VelAPI.CommitmentData] = []
@@ -15,6 +18,9 @@ struct ContentView: View {
             List {
                 Section("Status") {
                     Label(store.isReachable ? "Connected" : "Offline cache", systemImage: store.isReachable ? "checkmark.circle" : "wifi.slash")
+                    Text("Role: \(appEnvironment.featureCapabilities.roleLabel)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     if let authority = store.authorityLabel {
                         Text("Authority: \(authority)")
                     }
@@ -138,7 +144,7 @@ struct ContentView: View {
                     DocumentationListView()
                 }
             }
-            .listStyle(.sidebar)
+            .velMacCompactSidebarStyle()
             .navigationTitle("Vel")
             .refreshable { await load() }
         } detail: {
@@ -197,6 +203,20 @@ struct ContentView: View {
             labels.append("execute_repo_tasks")
         }
         return labels.isEmpty ? "none" : labels.joined(separator: ", ")
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func velMacCompactSidebarStyle() -> some View {
+        if #available(macOS 13.0, *) {
+            self
+                .listStyle(.sidebar)
+                .environment(\.defaultMinListRowHeight, 28)
+                .environment(\.defaultMinListHeaderHeight, 20)
+        } else {
+            self.listStyle(.sidebar)
+        }
     }
 }
 

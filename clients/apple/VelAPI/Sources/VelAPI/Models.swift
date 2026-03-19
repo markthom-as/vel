@@ -152,6 +152,22 @@ public struct AppleTurnProvenanceData: Codable, Sendable {
     public let recorded_at: String?
     public let offline_captured_at: String?
     public let queued_at: String?
+
+    public init(
+        source_device: String?,
+        locale: String?,
+        transcript_origin: String?,
+        recorded_at: String?,
+        offline_captured_at: String?,
+        queued_at: String?
+    ) {
+        self.source_device = source_device
+        self.locale = locale
+        self.transcript_origin = transcript_origin
+        self.recorded_at = recorded_at
+        self.offline_captured_at = offline_captured_at
+        self.queued_at = queued_at
+    }
 }
 
 public struct AppleVoiceTurnRequestData: Codable, Sendable {
@@ -160,6 +176,20 @@ public struct AppleVoiceTurnRequestData: Codable, Sendable {
     public let operation: AppleRequestedOperationData
     public let intents: [AppleVoiceIntentData]
     public let provenance: AppleTurnProvenanceData?
+
+    public init(
+        transcript: String,
+        surface: AppleClientSurfaceData,
+        operation: AppleRequestedOperationData,
+        intents: [AppleVoiceIntentData],
+        provenance: AppleTurnProvenanceData?
+    ) {
+        self.transcript = transcript
+        self.surface = surface
+        self.operation = operation
+        self.intents = intents
+        self.provenance = provenance
+    }
 }
 
 public enum AppleResponseModeData: String, Codable, Sendable {

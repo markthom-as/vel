@@ -1,6 +1,8 @@
 import SwiftUI
+import VelApplication
 
 struct ContentView: View {
+    let appEnvironment: VelAppEnvironment
     @EnvironmentObject var store: VelWatchStore
     @State private var captureText = ""
     @State private var commitmentText = ""
@@ -29,6 +31,9 @@ struct ContentView: View {
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 }
+                Text("Role: \(appEnvironment.featureCapabilities.roleLabel)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Text("Linked nodes: \(linkedNodes.count)")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -167,7 +172,48 @@ struct ContentView: View {
                     .font(.caption2)
             }
         }
+        .velWatchCompactListStyle()
+        .velWatchLiquidGlassContainer()
+        .velWatchActionButtonStyle()
         .task { await store.refresh() }
         .onAppear { Task { await store.refresh() } }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func velWatchCompactListStyle() -> some View {
+        if #available(watchOS 10.0, *) {
+            self
+                .listStyle(.plain)
+                .listSectionSpacing(.compact)
+                .environment(\.defaultMinListRowHeight, 30)
+                .environment(\.defaultMinListHeaderHeight, 18)
+        } else {
+            self
+                .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, 30)
+                .environment(\.defaultMinListHeaderHeight, 18)
+        }
+    }
+
+    @ViewBuilder
+    func velWatchLiquidGlassContainer() -> some View {
+        if #available(watchOS 26.0, *) {
+            GlassEffectContainer {
+                self
+            }
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func velWatchActionButtonStyle() -> some View {
+        if #available(watchOS 26.0, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.bordered)
+        }
     }
 }

@@ -306,14 +306,16 @@ public actor VelMacLocalSourceExporter {
         #if canImport(HealthKit)
         guard HKHealthStore.isHealthDataAvailable() else { return nil }
         let store = HKHealthStore()
-        let quantityMetrics: [HKQuantityTypeIdentifier] = [
+        var quantityMetrics: [HKQuantityTypeIdentifier] = [
             .stepCount,
             .activeEnergyBurned,
             .heartRate,
-            .appleStandHour,
             .bloodPressureSystolic,
             .bloodPressureDiastolic
         ]
+        if let standHoursType = standHoursQuantityTypeIdentifier {
+            quantityMetrics.append(standHoursType)
+        }
         let quantityTypes = Set(quantityMetrics.compactMap(HKObjectType.quantityType(forIdentifier:)))
         var readTypes = Set<HKObjectType>()
         readTypes.formUnion(quantityTypes)
@@ -336,12 +338,7 @@ public actor VelMacLocalSourceExporter {
             unit: HKUnit.kilocalorie(),
             startDate: startOfDay
         )
-        let standHours = try await cumulativeSum(
-            store: store,
-            type: .appleStandHour,
-            unit: HKUnit.count(),
-            startDate: startOfDay
-        )
+        let standHours = try await standHoursCount(store: store, startDate: startOfDay)
         let heartRate = try await discreteAverage(
             store: store,
             type: .heartRate,
@@ -597,6 +594,22 @@ public actor VelMacLocalSourceExporter {
     }
 
     #if canImport(HealthKit)
+    private var standHoursQuantityTypeIdentifier: HKQuantityTypeIdentifier? {
+        HKQuantityTypeIdentifier(rawValue: "HKQuantityTypeIdentifierAppleStandHour")
+    }
+
+    private func standHoursCount(store: HKHealthStore, startDate: Date) async throws -> Double? {
+        guard let standHoursType = standHoursQuantityTypeIdentifier else {
+            return nil
+        }
+        return try await cumulativeSum(
+            store: store,
+            type: standHoursType,
+            unit: HKUnit.count(),
+            startDate: startDate
+        )
+    }
+
     private func requestAuthorization(store: HKHealthStore, types: Set<HKObjectType>) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             store.requestAuthorization(toShare: [], read: types) { success, error in
@@ -790,7 +803,10 @@ public actor VelMacLocalSourceExporter {
         store: EKEventStore,
         predicate: NSPredicate?
     ) async throws -> [EKReminder] {
-        try await withCheckedThrowingContinuation { continuation in
+        guard let predicate else {
+            return []
+        }
+        return try await withCheckedThrowingContinuation { continuation in
             store.fetchReminders(matching: predicate) { reminders in
                 continuation.resume(returning: reminders ?? [])
             }
