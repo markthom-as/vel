@@ -5,9 +5,9 @@ mod repositories;
 
 pub use db::{
     ArtifactInsert, ArtifactRecord, AssistantTranscriptInsert, AssistantTranscriptRecord,
-    BrokerEventRecord, CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert,
-    ConnectRunRecord, ConversationInsert, ConversationRecord, EventLogInsert, EventLogRecord,
-    InferredStateInsert, IntegrationConnectionFilters, IntegrationConnectionInsert,
+    BackupRunRecord, BrokerEventRecord, CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert,
+    CommitmentInsert, ConnectRunRecord, ConversationInsert, ConversationRecord, EventLogInsert,
+    EventLogRecord, InferredStateInsert, IntegrationConnectionFilters, IntegrationConnectionInsert,
     InterventionInsert, InterventionRecord, MessageInsert, MessageRecord, NudgeInsert, NudgeRecord,
     PendingJob, RetryReadyRun, RuntimeLoopRecord, SearchFilters, SignalInsert, SignalRecord,
     Storage, StorageError, SuggestionEvidenceInsert, SuggestionEvidenceRecord,

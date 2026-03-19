@@ -2,7 +2,11 @@ use std::sync::{
     atomic::{AtomicU32, Ordering},
     Arc,
 };
-use tokio::sync::broadcast;
+use std::{
+    collections::{HashMap, VecDeque},
+    time::Duration,
+};
+use tokio::sync::{broadcast, Mutex};
 use vel_config::AppConfig;
 use vel_llm::Router;
 use vel_storage::Storage;
@@ -26,6 +30,31 @@ pub struct WorkerRuntimeState {
 
 pub struct WorkerLoadGuard<'a> {
     state: &'a WorkerRuntimeState,
+}
+
+#[derive(Debug, Default)]
+pub struct PublicLinkingRateLimiter {
+    windows: Mutex<HashMap<String, VecDeque<std::time::Instant>>>,
+}
+
+impl PublicLinkingRateLimiter {
+    pub async fn allow(&self, key: String, max_requests: usize, window: Duration) -> bool {
+        let now = std::time::Instant::now();
+        let cutoff = now.checked_sub(window).unwrap_or(now);
+        let mut windows = self.windows.lock().await;
+        let bucket = windows.entry(key).or_default();
+
+        while bucket.front().is_some_and(|entry| *entry < cutoff) {
+            bucket.pop_front();
+        }
+
+        if bucket.len() >= max_requests {
+            return false;
+        }
+
+        bucket.push_back(now);
+        true
+    }
 }
 
 impl Default for WorkerRuntimeState {
@@ -75,6 +104,7 @@ pub struct AppState {
     pub worker_runtime: Arc<WorkerRuntimeState>,
     /// Sender for WebSocket broadcast. Clone and send to notify all connected /ws clients.
     pub broadcast_tx: broadcast::Sender<WsEnvelope>,
+    pub public_linking_rate_limiter: Arc<PublicLinkingRateLimiter>,
     /// LLM router for chat assistant. None if no configs/models or no chat profile.
     pub llm_router: Option<Arc<Router>>,
     /// Profile ID for chat task (from routing.toml). Present when llm_router is Some.
@@ -118,6 +148,7 @@ impl AppState {
             policy_config,
             worker_runtime: Arc::new(WorkerRuntimeState::new()),
             broadcast_tx,
+            public_linking_rate_limiter: Arc::new(PublicLinkingRateLimiter::default()),
             llm_router,
             chat_profile_id,
             chat_fallback_profile_id,

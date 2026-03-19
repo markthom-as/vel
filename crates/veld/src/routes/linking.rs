@@ -3,7 +3,9 @@ use axum::{
     Json,
 };
 use serde::Deserialize;
-use vel_api_types::{ApiResponse, LinkScopeData, LinkedNodeData, PairingTokenData, WsEventType};
+use vel_api_types::{
+    ApiResponse, LinkScopeData, LinkedNodeData, LinkingPromptData, PairingTokenData, WsEventType,
+};
 
 use crate::{broadcast::WsEnvelope, errors::AppError, routes::response, services, state::AppState};
 
@@ -15,6 +17,7 @@ pub struct IssuePairingTokenRequest {
     pub scopes: LinkScopeData,
     pub target_node_id: Option<String>,
     pub target_node_display_name: Option<String>,
+    pub target_base_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -25,12 +28,27 @@ pub struct RedeemPairingTokenRequest {
     pub transport_hint: Option<String>,
     // Supported scope fields: read_context, write_safe_actions, execute_repo_tasks.
     pub requested_scopes: Option<LinkScopeData>,
+    pub sync_base_url: Option<String>,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    pub public_base_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PublicRevokeLinkRequest {
+    pub node_id: String,
 }
 
 pub async fn issue_pairing_token(
     State(state): State<AppState>,
     Json(payload): Json<IssuePairingTokenRequest>,
 ) -> Result<Json<ApiResponse<PairingTokenData>>, AppError> {
+    let targeted_issue = payload
+        .target_node_id
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty());
     let token = services::linking::issue_pairing_token(
         &state,
         services::linking::IssuePairingTokenInput {
@@ -39,12 +57,15 @@ pub async fn issue_pairing_token(
             scopes: payload.scopes,
             target_node_id: payload.target_node_id,
             target_node_display_name: payload.target_node_display_name,
+            target_base_url: payload.target_base_url,
         },
     )
     .await?;
     let mut data = PairingTokenData::from(token.clone());
-    data.suggested_targets =
-        services::linking::suggested_targets(&state, &token.token_code).await?;
+    if !targeted_issue {
+        data.suggested_targets =
+            services::linking::suggested_targets(&state, &token.token_code).await?;
+    }
     let _ = state.broadcast_tx.send(WsEnvelope::new(
         WsEventType::LinkingUpdated,
         serde_json::json!({}),
@@ -64,6 +85,11 @@ pub async fn redeem_pairing_token(
             node_display_name: payload.node_display_name,
             transport_hint: payload.transport_hint,
             requested_scopes: payload.requested_scopes,
+            sync_base_url: payload.sync_base_url,
+            tailscale_base_url: payload.tailscale_base_url,
+            lan_base_url: payload.lan_base_url,
+            localhost_base_url: payload.localhost_base_url,
+            public_base_url: payload.public_base_url,
         },
     )
     .await?;
@@ -72,6 +98,37 @@ pub async fn redeem_pairing_token(
         serde_json::json!({}),
     ));
     Ok(response::success(LinkedNodeData::from(linked_node)))
+}
+
+pub async fn public_redeem_pairing_token(
+    State(state): State<AppState>,
+    Json(payload): Json<RedeemPairingTokenRequest>,
+) -> Result<Json<ApiResponse<LinkedNodeData>>, AppError> {
+    redeem_pairing_token(State(state), Json(payload)).await
+}
+
+pub async fn receive_linking_prompt(
+    State(state): State<AppState>,
+    Json(payload): Json<LinkingPromptData>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    services::linking::receive_linking_prompt(&state, payload).await?;
+    let _ = state.broadcast_tx.send(WsEnvelope::new(
+        WsEventType::LinkingUpdated,
+        serde_json::json!({}),
+    ));
+    Ok(response::success(serde_json::json!({ "accepted": true })))
+}
+
+pub async fn receive_remote_revoke(
+    State(state): State<AppState>,
+    Json(payload): Json<PublicRevokeLinkRequest>,
+) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
+    services::linking::receive_remote_revoke(&state, &payload.node_id).await?;
+    let _ = state.broadcast_tx.send(WsEnvelope::new(
+        WsEventType::LinkingUpdated,
+        serde_json::json!({}),
+    ));
+    Ok(response::success(serde_json::json!({ "accepted": true })))
 }
 
 pub async fn linking_status(

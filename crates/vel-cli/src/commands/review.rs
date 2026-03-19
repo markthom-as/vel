@@ -3,8 +3,9 @@
 use std::collections::HashMap;
 
 use crate::client::ApiClient;
+use crate::commands::doctor::backup_summary_lines;
 use vel_api_types::{
-    ActionItemData, CommitmentData, NowData, PersonRecordData, ProjectFamilyData,
+    ActionItemData, BackupTrustData, CommitmentData, NowData, PersonRecordData, ProjectFamilyData,
     ProjectRecordData, ReviewSnapshotData,
 };
 
@@ -25,6 +26,7 @@ pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         .data
         .expect("list_captures_recent missing data");
     let now = client.get_now().await?.data.expect("get_now missing data");
+    let doctor = client.doctor().await?.data.expect("doctor missing data");
     let latest_ctx = client
         .get_artifact_latest("context_brief")
         .await
@@ -43,6 +45,7 @@ pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
             "open_conflicts": now.conflicts.len(),
             "people_needing_review": people_needing_review(&now).len(),
             "top_action_titles": top_action_titles(&now.action_items),
+            "backup": doctor.backup,
         });
         println!("{}", serde_json::to_string_pretty(&out)?);
         return Ok(());
@@ -75,6 +78,7 @@ pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         "People needing review: {}",
         people_needing_review(&now).len()
     );
+    print_backup_summary(&doctor.backup);
     Ok(())
 }
 
@@ -100,6 +104,7 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         .ok()
         .and_then(|r| r.data);
     let now = client.get_now().await?.data.expect("get_now missing data");
+    let doctor = client.doctor().await?.data.expect("doctor missing data");
 
     if json {
         let project_review_candidates =
@@ -112,6 +117,7 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
             "open_conflicts": now.conflicts.len(),
             "people_needing_review": people_needing_review(&now).len(),
             "project_review_candidates": project_review_candidates,
+            "backup": doctor.backup,
         });
         println!("{}", serde_json::to_string_pretty(&out)?);
         return Ok(());
@@ -144,6 +150,7 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         "People needing review: {}",
         people_needing_review(&now).len()
     );
+    print_backup_summary(&doctor.backup);
     Ok(())
 }
 
@@ -157,6 +164,13 @@ fn top_action_titles(action_items: &[ActionItemData]) -> Vec<String> {
         .take(TOP_ACTION_TITLES_LIMIT)
         .map(|item| item.title.clone())
         .collect()
+}
+
+fn print_backup_summary(backup: &BackupTrustData) {
+    println!();
+    for line in backup_summary_lines(backup) {
+        println!("{line}");
+    }
 }
 
 fn people_needing_review(now: &NowData) -> Vec<PersonRecordData> {

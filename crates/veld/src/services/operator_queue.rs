@@ -802,6 +802,11 @@ mod tests {
                 linked_at: now,
                 last_seen_at: Some(now),
                 transport_hint: Some("tailscale".to_string()),
+                sync_base_url: Some("http://node-beta.tailnet.ts.net:4130".to_string()),
+                tailscale_base_url: Some("http://node-beta.tailnet.ts.net:4130".to_string()),
+                lan_base_url: None,
+                localhost_base_url: None,
+                public_base_url: None,
             })
             .await
             .unwrap();

@@ -554,6 +554,12 @@ export interface LinkingPromptData {
   issued_at: Rfc3339Timestamp;
   expires_at: Rfc3339Timestamp;
   scopes: LinkScopeData;
+  issuer_sync_base_url: string;
+  issuer_sync_transport: string;
+  issuer_tailscale_base_url: string | null;
+  issuer_lan_base_url: string | null;
+  issuer_localhost_base_url: string | null;
+  issuer_public_base_url: string | null;
 }
 
 export interface LinkedNodeData {
@@ -564,6 +570,11 @@ export interface LinkedNodeData {
   linked_at: Rfc3339Timestamp;
   last_seen_at: Rfc3339Timestamp | null;
   transport_hint: string | null;
+  sync_base_url: string | null;
+  tailscale_base_url: string | null;
+  lan_base_url: string | null;
+  localhost_base_url: string | null;
+  public_base_url: string | null;
 }
 
 export interface WorkerCapacityData {
@@ -1517,6 +1528,39 @@ export function decodeLinkingPromptData(value: unknown): LinkingPromptData {
     issued_at: expectRfc3339Timestamp(record.issued_at, 'linking prompt.issued_at'),
     expires_at: expectRfc3339Timestamp(record.expires_at, 'linking prompt.expires_at'),
     scopes: decodeLinkScopeData(record.scopes),
+    issuer_sync_base_url:
+      record.issuer_sync_base_url === undefined
+        ? ''
+        : expectString(record.issuer_sync_base_url, 'linking prompt.issuer_sync_base_url'),
+    issuer_sync_transport:
+      record.issuer_sync_transport === undefined
+        ? ''
+        : expectString(record.issuer_sync_transport, 'linking prompt.issuer_sync_transport'),
+    issuer_tailscale_base_url:
+      record.issuer_tailscale_base_url === undefined
+        ? null
+        : expectNullableString(
+            record.issuer_tailscale_base_url,
+            'linking prompt.issuer_tailscale_base_url',
+          ),
+    issuer_lan_base_url:
+      record.issuer_lan_base_url === undefined
+        ? null
+        : expectNullableString(record.issuer_lan_base_url, 'linking prompt.issuer_lan_base_url'),
+    issuer_localhost_base_url:
+      record.issuer_localhost_base_url === undefined
+        ? null
+        : expectNullableString(
+            record.issuer_localhost_base_url,
+            'linking prompt.issuer_localhost_base_url',
+          ),
+    issuer_public_base_url:
+      record.issuer_public_base_url === undefined
+        ? null
+        : expectNullableString(
+            record.issuer_public_base_url,
+            'linking prompt.issuer_public_base_url',
+          ),
   };
 }
 
@@ -1530,6 +1574,26 @@ export function decodeLinkedNodeData(value: unknown): LinkedNodeData {
     linked_at: expectRfc3339Timestamp(record.linked_at, 'linked node.linked_at'),
     last_seen_at: expectNullableRfc3339Timestamp(record.last_seen_at, 'linked node.last_seen_at'),
     transport_hint: expectNullableString(record.transport_hint, 'linked node.transport_hint'),
+    sync_base_url:
+      record.sync_base_url === undefined
+        ? null
+        : expectNullableString(record.sync_base_url, 'linked node.sync_base_url'),
+    tailscale_base_url:
+      record.tailscale_base_url === undefined
+        ? null
+        : expectNullableString(record.tailscale_base_url, 'linked node.tailscale_base_url'),
+    lan_base_url:
+      record.lan_base_url === undefined
+        ? null
+        : expectNullableString(record.lan_base_url, 'linked node.lan_base_url'),
+    localhost_base_url:
+      record.localhost_base_url === undefined
+        ? null
+        : expectNullableString(record.localhost_base_url, 'linked node.localhost_base_url'),
+    public_base_url:
+      record.public_base_url === undefined
+        ? null
+        : expectNullableString(record.public_base_url, 'linked node.public_base_url'),
   };
 }
 

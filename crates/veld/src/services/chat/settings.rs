@@ -1,3 +1,5 @@
+use vel_api_types::BackupSettingsData;
+
 use crate::{errors::AppError, services::adaptive_policies, state::AppState};
 
 pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Value, AppError> {
@@ -54,6 +56,15 @@ pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Val
         "adaptive_policy_overrides".to_string(),
         serde_json::to_value(adaptive_overrides)
             .map_err(|error| AppError::internal(error.to_string()))?,
+    );
+    let backup = crate::services::doctor::backup_trust(state).await?;
+    map.insert(
+        "backup".to_string(),
+        serde_json::to_value(BackupSettingsData {
+            default_output_root: crate::services::backup::DEFAULT_BACKUP_ROOT.to_string(),
+            trust: backup,
+        })
+        .map_err(|error| AppError::internal(error.to_string()))?,
     );
     Ok(serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({})))
 }

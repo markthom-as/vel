@@ -209,6 +209,125 @@ pub struct HealthData {
     pub version: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BackupCoverageData {
+    #[serde(default)]
+    pub included: Vec<String>,
+    #[serde(default)]
+    pub omitted: Vec<String>,
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BackupSecretOmissionFlagsData {
+    pub settings_secrets_omitted: bool,
+    pub integration_tokens_omitted: bool,
+    pub local_key_material_omitted: bool,
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BackupVerificationData {
+    pub verified: bool,
+    pub checksum_algorithm: String,
+    pub checksum: String,
+    #[serde(default)]
+    pub checked_paths: Vec<String>,
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupManifestData {
+    pub backup_id: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created_at: OffsetDateTime,
+    pub output_root: String,
+    pub database_snapshot_path: String,
+    pub artifact_coverage: BackupCoverageData,
+    pub config_coverage: BackupCoverageData,
+    #[serde(default)]
+    pub explicit_omissions: Vec<String>,
+    pub secret_omission_flags: BackupSecretOmissionFlagsData,
+    pub verification_summary: BackupVerificationData,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupStatusStateData {
+    Ready,
+    Stale,
+    Missing,
+    Degraded,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupStatusData {
+    pub state: BackupStatusStateData,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_backup_id: Option<String>,
+    #[serde(default)]
+    #[serde(with = "time::serde::rfc3339::option")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_backup_at: Option<OffsetDateTime>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_root: Option<String>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_coverage: Option<BackupCoverageData>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config_coverage: Option<BackupCoverageData>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_summary: Option<BackupVerificationData>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupTrustLevelData {
+    Ok,
+    Warn,
+    Fail,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupFreshnessStateData {
+    Current,
+    Stale,
+    Missing,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupFreshnessData {
+    pub state: BackupFreshnessStateData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub age_seconds: Option<i64>,
+    pub stale_after_seconds: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupTrustData {
+    pub level: BackupTrustLevelData,
+    pub status: BackupStatusData,
+    pub freshness: BackupFreshnessData,
+    #[serde(default)]
+    pub guidance: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupSettingsData {
+    pub default_output_root: String,
+    pub trust: BackupTrustData,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterBootstrapData {
     pub node_id: String,
@@ -1755,6 +1874,18 @@ pub struct LinkingPromptData {
     #[serde(with = "time::serde::rfc3339")]
     pub expires_at: OffsetDateTime,
     pub scopes: LinkScopeData,
+    #[serde(default)]
+    pub issuer_sync_base_url: String,
+    #[serde(default)]
+    pub issuer_sync_transport: String,
+    #[serde(default)]
+    pub issuer_tailscale_base_url: Option<String>,
+    #[serde(default)]
+    pub issuer_lan_base_url: Option<String>,
+    #[serde(default)]
+    pub issuer_localhost_base_url: Option<String>,
+    #[serde(default)]
+    pub issuer_public_base_url: Option<String>,
 }
 
 impl From<vel_core::PairingTokenRecord> for PairingTokenData {
@@ -1782,6 +1913,11 @@ pub struct LinkedNodeData {
     #[serde(with = "time::serde::rfc3339::option")]
     pub last_seen_at: Option<OffsetDateTime>,
     pub transport_hint: Option<String>,
+    pub sync_base_url: Option<String>,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    pub public_base_url: Option<String>,
 }
 
 impl From<vel_core::LinkedNodeRecord> for LinkedNodeData {
@@ -1794,6 +1930,11 @@ impl From<vel_core::LinkedNodeRecord> for LinkedNodeData {
             linked_at: value.linked_at,
             last_seen_at: value.last_seen_at,
             transport_hint: value.transport_hint,
+            sync_base_url: value.sync_base_url,
+            tailscale_base_url: value.tailscale_base_url,
+            lan_base_url: value.lan_base_url,
+            localhost_base_url: value.localhost_base_url,
+            public_base_url: value.public_base_url,
         }
     }
 }
@@ -2366,6 +2507,7 @@ pub struct DiagnosticCheck {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DoctorData {
     pub checks: Vec<DiagnosticCheck>,
+    pub backup: BackupTrustData,
     pub schema_version: u32,
     pub version: String,
 }
@@ -3228,6 +3370,12 @@ mod linking_datetime_contract_tests {
                 write_safe_actions: false,
                 execute_repo_tasks: false,
             },
+            issuer_sync_base_url: "http://vel-node.tailnet.ts.net:4130".to_string(),
+            issuer_sync_transport: "tailscale".to_string(),
+            issuer_tailscale_base_url: Some("http://vel-node.tailnet.ts.net:4130".to_string()),
+            issuer_lan_base_url: Some("http://192.168.1.10:4130".to_string()),
+            issuer_localhost_base_url: Some("http://127.0.0.1:4130".to_string()),
+            issuer_public_base_url: None,
         })
         .unwrap();
         assert!(prompt["issued_at"].is_string());
@@ -3245,6 +3393,11 @@ mod linking_datetime_contract_tests {
             linked_at: issued_at,
             last_seen_at: Some(expires_at),
             transport_hint: Some("tailscale".to_string()),
+            sync_base_url: Some("http://node-remote.tailnet.ts.net:4130".to_string()),
+            tailscale_base_url: Some("http://node-remote.tailnet.ts.net:4130".to_string()),
+            lan_base_url: Some("http://192.168.1.20:4130".to_string()),
+            localhost_base_url: None,
+            public_base_url: None,
         })
         .unwrap();
         assert!(linked["linked_at"].is_string());

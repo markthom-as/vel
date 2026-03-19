@@ -210,7 +210,7 @@ Plans:
 Plans:
 - [x] 09-01-PLAN.md — Ratify Phase 09 requirements and publish backup manifest/trust contracts before runtime work widens
 - [x] 09-02-PLAN.md — Implement the snapshot-backed backup service, persisted history, and real CLI/API trust path
-- [ ] 09-03-PLAN.md — Surface backup freshness and safety state through doctor, settings, CLI, and web runtime views
+- [x] 09-03-PLAN.md — Surface backup freshness and safety state through doctor, settings, CLI, and web runtime views
 - [ ] 09-04-PLAN.md — Close with manual restore guidance, non-destructive verification, and narrow validation evidence
 
 ### Phase 10: Daily-loop morning overview and standup commitment engine

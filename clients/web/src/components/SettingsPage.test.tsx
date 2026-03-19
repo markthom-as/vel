@@ -350,6 +350,11 @@ describe('SettingsPage', () => {
                 linked_at: '2026-03-16T18:00:00Z',
                 last_seen_at: '2026-03-16T18:15:00Z',
                 transport_hint: 'tailscale',
+                sync_base_url: 'http://vel-air.tailnet.ts.net:4130',
+                tailscale_base_url: 'http://vel-air.tailnet.ts.net:4130',
+                lan_base_url: 'http://192.168.1.70:4130',
+                localhost_base_url: null,
+                public_base_url: null,
               },
             ],
             projects: [],
@@ -852,9 +857,10 @@ describe('SettingsPage', () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     await waitFor(() => {
       const root = getSettingsRoot(container)
-      expect(within(root).getByText(/disable proactive/i)).toBeInTheDocument()
+      expect(within(root).getByDisplayValue('America/Denver')).toBeInTheDocument()
     })
     const root = getSettingsRoot(container)
+    expect(within(root).getByText(/disable proactive/i)).toBeInTheDocument()
     expect(within(root).getByText(/show risks/i)).toBeInTheDocument()
     expect(within(root).getByText(/show reminders/i)).toBeInTheDocument()
     expect(within(root).getByDisplayValue('America/Denver')).toBeInTheDocument()
@@ -2657,7 +2663,7 @@ describe('SettingsPage', () => {
       ok: true,
       data: {
         token_id: 'token_1',
-        token_code: 'VEL-PAIR-123',
+        token_code: 'ABC-123',
         issued_at: '2026-03-16T18:20:00Z',
         expires_at: '2026-03-16T18:35:00Z',
         issued_by_node_id: 'vel-desktop',
@@ -2666,16 +2672,7 @@ describe('SettingsPage', () => {
           write_safe_actions: true,
           execute_repo_tasks: false,
         },
-        suggested_targets: [
-          {
-            label: 'Tailscale',
-            base_url: 'http://vel-desktop.tailnet.ts.net:4130',
-            transport_hint: 'tailscale',
-            recommended: true,
-            redeem_command_hint:
-              'vel --base-url http://vel-desktop.tailnet.ts.net:4130 node link redeem VEL-PAIR-123 --node-id <node_id> --node-display-name <name> --transport-hint tailscale',
-          },
-        ],
+        suggested_targets: [],
       },
       meta: { request_id: 'req_pairing' },
     } as never)
@@ -2706,17 +2703,120 @@ describe('SettingsPage', () => {
           },
           target_node_id: 'node_remote',
           target_node_display_name: 'Remote Mac',
+          target_base_url: 'http://remote.tailnet.ts.net:4130',
         },
         expect.any(Function),
       )
     })
 
     expect(within(root).getByText('Granted scopes')).toBeInTheDocument()
-    expect(within(root).getByText('VEL-PAIR-123')).toBeInTheDocument()
-    expect(within(root).getByText('Suggested link targets')).toBeInTheDocument()
-    expect(within(root).getByText('Tailscale')).toBeInTheDocument()
+    expect(within(root).getByText('ABC-123')).toBeInTheDocument()
+    expect(within(root).queryByText('Suggested link targets')).not.toBeInTheDocument()
     expect(within(root).getByText(/Remote Mac has been prompted to enter it on that client/i)).toBeInTheDocument()
-    expect(within(root).getByText(/--transport-hint tailscale/)).toBeInTheDocument()
+    expect(within(root).getAllByText('Routes').length).toBeGreaterThan(0)
+    expect(within(root).getByText('http://vel-air.tailnet.ts.net:4130')).toBeInTheDocument()
+    expect(within(root).getByText('http://192.168.1.70:4130')).toBeInTheDocument()
+    expect(within(root).queryByText('http://127.0.0.1:4130')).not.toBeInTheDocument()
+  })
+
+  it('renegotiates permissions for an already linked node', async () => {
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        token_id: 'token_renegotiate',
+        token_code: 'WXY-789',
+        issued_at: '2026-03-16T18:20:00Z',
+        expires_at: '2026-03-16T18:35:00Z',
+        issued_by_node_id: 'vel-desktop',
+        scopes: {
+          read_context: true,
+          write_safe_actions: false,
+          execute_repo_tasks: true,
+        },
+        suggested_targets: [],
+      },
+      meta: { request_id: 'req_pairing_renegotiate' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = getSettingsRoot(container)
+
+    await waitFor(() => {
+      expect(within(root).getByText('Vel Air')).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(root).getAllByLabelText(/Write safe actions/i)[1] as HTMLElement)
+    fireEvent.click(within(root).getAllByLabelText(/Execute repo tasks/i)[1] as HTMLElement)
+    fireEvent.click(within(root).getByRole('button', { name: /Request updated access/i }))
+
+    await waitFor(() => {
+      expect(vi.mocked(client.apiPost)).toHaveBeenCalledWith(
+        '/v1/linking/tokens',
+        {
+          issued_by_node_id: 'vel-desktop',
+          scopes: {
+            read_context: true,
+            write_safe_actions: false,
+            execute_repo_tasks: true,
+          },
+          target_node_id: 'vel-air',
+          target_node_display_name: 'Vel Air',
+          target_base_url: 'http://vel-air.tailnet.ts.net:4130',
+        },
+        expect.any(Function),
+      )
+    })
+
+    expect(within(root).getByText(/Permission update token issued for Vel Air/i)).toBeInTheDocument()
+    expect(within(root).getByText('WXY-789')).toBeInTheDocument()
+  })
+
+  it('unpairs a linked node with confirmation', async () => {
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        node_id: 'vel-air',
+        node_display_name: 'Vel Air',
+        status: 'revoked',
+        scopes: {
+          read_context: true,
+          write_safe_actions: true,
+          execute_repo_tasks: false,
+        },
+        linked_at: '2026-03-16T18:00:00Z',
+        last_seen_at: '2026-03-16T18:20:00Z',
+        transport_hint: 'tailscale',
+        sync_base_url: 'http://vel-air.tailnet.ts.net:4130',
+        tailscale_base_url: 'http://vel-air.tailnet.ts.net:4130',
+        lan_base_url: 'http://192.168.1.70:4130',
+        localhost_base_url: null,
+        public_base_url: null,
+      },
+      meta: { request_id: 'req_revoke_link' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = getSettingsRoot(container)
+
+    await waitFor(() => {
+      expect(within(root).getByText('Vel Air')).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(root).getByRole('button', { name: /^Unpair$/i }))
+    expect(within(root).getByRole('button', { name: /Confirm unpair/i })).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: /^Cancel$/i })).toBeInTheDocument()
+
+    fireEvent.click(within(root).getByRole('button', { name: /Confirm unpair/i }))
+
+    await waitFor(() => {
+      expect(vi.mocked(client.apiPost)).toHaveBeenCalledWith(
+        '/v1/linking/revoke/vel-air',
+        {},
+        expect.any(Function),
+      )
+    })
+
+    expect(within(root).getByText(/Vel Air has been unpaired/i)).toBeInTheDocument()
   })
 
   it('shows local enter-token ui when this client receives a linking prompt', async () => {
@@ -2773,6 +2873,12 @@ describe('SettingsPage', () => {
                     write_safe_actions: false,
                     execute_repo_tasks: false,
                   },
+                  issuer_sync_base_url: 'http://remote.tailnet.ts.net:4130',
+                  issuer_sync_transport: 'tailscale',
+                  issuer_tailscale_base_url: 'http://remote.tailnet.ts.net:4130',
+                  issuer_lan_base_url: 'http://192.168.1.60:4130',
+                  issuer_localhost_base_url: null,
+                  issuer_public_base_url: null,
                 },
                 capacity: {
                   max_concurrency: 2,
@@ -2923,14 +3029,21 @@ describe('SettingsPage', () => {
       expect(within(root).getByText(/Enter pairing token/i)).toBeInTheDocument()
     })
 
-    fireEvent.change(within(root).getByPlaceholderText('VEL-PAIR-123'), { target: { value: 'VEL-PAIR-123' } })
+    const tokenInput = within(root).getByPlaceholderText('ABC-123') as HTMLInputElement
+    fireEvent.change(tokenInput, { target: { value: 'abc123' } })
+    expect(tokenInput.value).toBe('ABC-123')
     fireEvent.click(within(root).getByRole('button', { name: /^Enter token$/i }))
 
     await waitFor(() => {
       expect(vi.mocked(client.apiPost)).toHaveBeenCalledWith(
         '/v1/linking/redeem',
         {
-          token_code: 'VEL-PAIR-123',
+          token_code: 'ABC-123',
+          sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+          tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+          lan_base_url: 'http://192.168.1.50:4130',
+          localhost_base_url: 'http://127.0.0.1:4130',
+          public_base_url: null,
           node_id: 'vel-desktop',
           node_display_name: 'Vel Desktop',
           transport_hint: 'tailscale',

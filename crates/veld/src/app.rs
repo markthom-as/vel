@@ -15,12 +15,31 @@ use crate::middleware::{
 };
 use crate::{policy_config::PolicyConfig, routes, state::AppState};
 
-fn public_routes() -> Router<AppState> {
+fn public_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/v1/health", get(routes::health::health))
         .route(
             "/v1/discovery/bootstrap",
             get(routes::cluster::discovery_bootstrap),
+        )
+        .merge(
+            Router::new()
+                .route(
+                    "/v1/linking/prompts",
+                    post(routes::linking::receive_linking_prompt),
+                )
+                .route(
+                    "/v1/linking/public-revoke",
+                    post(routes::linking::receive_remote_revoke),
+                )
+                .route(
+                    "/v1/linking/public-redeem",
+                    post(routes::linking::public_redeem_pairing_token),
+                )
+                .layer(axum_middleware::from_fn_with_state(
+                    state,
+                    crate::middleware::enforce_public_linking_abuse_guard,
+                )),
         )
         .route(
             "/api/integrations/google-calendar/oauth/callback",
@@ -39,6 +58,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/cluster/bootstrap", get(routes::cluster::bootstrap))
         .route("/v1/cluster/workers", get(routes::cluster::workers))
         .route("/v1/doctor", get(routes::doctor::doctor))
+        .route("/v1/backup/status", get(routes::backup::backup_status))
+        .route("/v1/backup/create", post(routes::backup::create_backup))
+        .route("/v1/backup/inspect", post(routes::backup::inspect_backup))
+        .route("/v1/backup/verify", post(routes::backup::verify_backup))
         .route(
             "/v1/apple/voice/turn",
             post(routes::apple::apple_voice_turn),
@@ -452,7 +475,7 @@ fn build_app_with_policy(state: AppState, exposure_policy: HttpExposurePolicy) -
         ExposureGate::new(RouteExposureClass::FutureExternal, exposure_policy);
 
     Router::new()
-        .merge(public_routes())
+        .merge(public_routes(state.clone()))
         .merge(
             operator_authenticated_routes().layer(axum_middleware::from_fn_with_state(
                 operator_auth_gate,
@@ -970,6 +993,54 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn public_linking_redeem_route_is_rate_limited_per_remote_ip() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(storage, HttpExposurePolicy::default());
+
+        for _ in 0..8 {
+            let mut request = Request::builder()
+                .method(Method::POST)
+                .uri("/v1/linking/public-redeem")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from("{}"))
+                .unwrap();
+            request.extensions_mut().insert(ConnectInfo(
+                "192.168.1.50:42424".parse::<SocketAddr>().unwrap(),
+            ));
+
+            let response = app.clone().oneshot(request).await.unwrap();
+            assert_ne!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+        }
+
+        let mut blocked_request = Request::builder()
+            .method(Method::POST)
+            .uri("/v1/linking/public-redeem")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from("{}"))
+            .unwrap();
+        blocked_request.extensions_mut().insert(ConnectInfo(
+            "192.168.1.50:42424".parse::<SocketAddr>().unwrap(),
+        ));
+
+        let blocked = app.clone().oneshot(blocked_request).await.unwrap();
+        assert_eq!(blocked.status(), StatusCode::TOO_MANY_REQUESTS);
+
+        let mut other_ip_request = Request::builder()
+            .method(Method::POST)
+            .uri("/v1/linking/public-redeem")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from("{}"))
+            .unwrap();
+        other_ip_request.extensions_mut().insert(ConnectInfo(
+            "192.168.1.51:42424".parse::<SocketAddr>().unwrap(),
+        ));
+
+        let other_ip = app.oneshot(other_ip_request).await.unwrap();
+        assert_ne!(other_ip.status(), StatusCode::TOO_MANY_REQUESTS);
     }
 
     #[tokio::test]
@@ -1728,6 +1799,11 @@ mod tests {
                 linked_at: now,
                 last_seen_at: Some(now),
                 transport_hint: Some("tailscale".to_string()),
+                sync_base_url: Some("http://node-remote.tailnet.ts.net:4130".to_string()),
+                tailscale_base_url: Some("http://node-remote.tailnet.ts.net:4130".to_string()),
+                lan_base_url: None,
+                localhost_base_url: None,
+                public_base_url: None,
             })
             .await
             .unwrap();
@@ -1851,6 +1927,11 @@ mod tests {
                 linked_at: time::OffsetDateTime::now_utc(),
                 last_seen_at: None,
                 transport_hint: Some("tailscale".to_string()),
+                sync_base_url: Some("http://node-remote.tailnet.ts.net:4130".to_string()),
+                tailscale_base_url: Some("http://node-remote.tailnet.ts.net:4130".to_string()),
+                lan_base_url: None,
+                localhost_base_url: None,
+                public_base_url: None,
             })
             .await
             .unwrap();
@@ -9585,9 +9666,15 @@ END:VCALENDAR
             .unwrap();
         let get_json: serde_json::Value = serde_json::from_slice(&get_body).unwrap();
         assert_eq!(get_json["data"]["tailscale_preferred"], true);
+        assert!(get_json["data"]["tailscale_base_url_auto_discovered"].is_boolean());
         assert_eq!(
-            get_json["data"]["tailscale_base_url_auto_discovered"],
-            false
+            get_json["data"]["backup"]["default_output_root"],
+            "var/backups"
+        );
+        assert_eq!(get_json["data"]["backup"]["trust"]["level"], "fail");
+        assert_eq!(
+            get_json["data"]["backup"]["trust"]["status"]["state"],
+            "missing"
         );
 
         let patch_resp = app
@@ -9611,7 +9698,9 @@ END:VCALENDAR
         assert!(json["data"]["disable_proactive"].as_bool().unwrap());
         assert_eq!(json["data"]["timezone"], "America/Denver");
         assert_eq!(json["data"]["tailscale_preferred"], true);
-        assert_eq!(json["data"]["tailscale_base_url_auto_discovered"], false);
+        assert!(json["data"]["tailscale_base_url_auto_discovered"].is_boolean());
+        assert_eq!(json["data"]["backup"]["default_output_root"], "var/backups");
+        assert_eq!(json["data"]["backup"]["trust"]["level"], "fail");
     }
 
     #[tokio::test]
@@ -9638,12 +9727,14 @@ END:VCALENDAR
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["data"]["node_display_name"], "Vel Desktop");
-        assert_eq!(
-            json["data"]["tailscale_base_url"],
-            "http://vel-desktop.tailnet.ts.net:4130"
-        );
+        assert!(json["data"]["tailscale_base_url"].as_str().is_some());
         assert_eq!(json["data"]["tailscale_preferred"], true);
-        assert_eq!(json["data"]["tailscale_base_url_auto_discovered"], false);
+        assert!(json["data"]["tailscale_base_url_auto_discovered"].is_boolean());
+        assert_eq!(json["data"]["backup"]["default_output_root"], "var/backups");
+        assert_eq!(
+            json["data"]["backup"]["trust"]["status"]["state"],
+            "missing"
+        );
     }
 
     #[tokio::test]
@@ -11648,6 +11739,55 @@ END:VCALENDAR
             .await
             .unwrap();
         assert_eq!(revoke.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn linking_routes_targeted_issue_omits_self_suggested_targets() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        let issue = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/linking/tokens")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "issued_by_node_id": "node_alpha",
+                            "ttl_seconds": 900,
+                            "scopes": {
+                                "read_context": true,
+                                "write_safe_actions": true,
+                                "execute_repo_tasks": false
+                            },
+                            "target_node_id": "node_beta",
+                            "target_node_display_name": "Beta"
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(issue.status(), StatusCode::OK);
+        let issue_body = axum::body::to_bytes(issue.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let issue_json: serde_json::Value = serde_json::from_slice(&issue_body).unwrap();
+        assert_eq!(
+            issue_json["data"]["suggested_targets"],
+            serde_json::json!([])
+        );
     }
 
     #[tokio::test]

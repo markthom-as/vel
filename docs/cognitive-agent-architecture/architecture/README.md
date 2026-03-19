@@ -24,6 +24,7 @@ Those belong in:
 ## Current Files
 
 - [canonical-schemas-and-contracts.md](canonical-schemas-and-contracts.md)
+- [backup-and-operator-trust-contracts.md](backup-and-operator-trust-contracts.md)
 - [storage-layer.md](storage-layer.md)
 - [cross-cutting-trait-audit.md](cross-cutting-trait-audit.md)
 - [event-bus.md](event-bus.md)

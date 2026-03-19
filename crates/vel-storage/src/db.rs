@@ -1,14 +1,15 @@
 use crate::{
     infra,
     repositories::{
-        artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
-        cluster_workers_repo, commitment_risk_repo, commitments_repo, conflict_cases_repo,
-        connect_runs_repo, context_timeline_repo, current_context_repo, execution_contexts_repo,
-        execution_handoffs_repo, inferred_state_repo, integration_connections_repo, linking_repo,
-        nudges_repo, people_repo, processing_jobs_repo, projects_repo, run_refs_repo, runs_repo,
-        runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
-        suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
-        upstream_refs_repo, work_assignments_repo, writeback_operations_repo,
+        artifacts_repo, assistant_transcripts_repo, backup_runs_repo, broker_events_repo,
+        captures_repo, chat_repo, cluster_workers_repo, commitment_risk_repo, commitments_repo,
+        conflict_cases_repo, connect_runs_repo, context_timeline_repo, current_context_repo,
+        execution_contexts_repo, execution_handoffs_repo, inferred_state_repo,
+        integration_connections_repo, linking_repo, nudges_repo, people_repo, processing_jobs_repo,
+        projects_repo, run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo,
+        settings_repo, signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
+        uncertainty_records_repo, upstream_refs_repo, work_assignments_repo,
+        writeback_operations_repo,
     },
 };
 use serde::Serialize;
@@ -143,6 +144,18 @@ pub struct ArtifactRecord {
     pub metadata_json: JsonValue,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+#[derive(Debug, Clone)]
+pub struct BackupRunRecord {
+    pub backup_id: String,
+    pub output_root: String,
+    pub state: String,
+    pub manifest_json: JsonValue,
+    pub started_at: OffsetDateTime,
+    pub completed_at: Option<OffsetDateTime>,
+    pub verified_at: Option<OffsetDateTime>,
+    pub last_error: Option<String>,
 }
 
 pub struct SignalInsert {
@@ -935,6 +948,52 @@ impl Storage {
         StorageError,
     > {
         execution_handoffs_repo::get_execution_handoff(self.pool(), handoff_id).await
+    }
+
+    pub async fn persist_backup_run(
+        &self,
+        backup_id: &str,
+        output_root: &str,
+        state: &str,
+        manifest_json: &JsonValue,
+        started_at: OffsetDateTime,
+        completed_at: Option<OffsetDateTime>,
+        verified_at: Option<OffsetDateTime>,
+        last_error: Option<&str>,
+    ) -> Result<(), StorageError> {
+        backup_runs_repo::persist_backup_run(
+            self.pool(),
+            backup_id,
+            output_root,
+            state,
+            manifest_json,
+            started_at,
+            completed_at,
+            verified_at,
+            last_error,
+        )
+        .await
+    }
+
+    pub async fn get_backup_run(
+        &self,
+        backup_id: &str,
+    ) -> Result<Option<BackupRunRecord>, StorageError> {
+        backup_runs_repo::get_backup_run(self.pool(), backup_id).await
+    }
+
+    pub async fn list_backup_runs(&self, limit: u32) -> Result<Vec<BackupRunRecord>, StorageError> {
+        backup_runs_repo::list_backup_runs(self.pool(), limit).await
+    }
+
+    pub async fn get_last_successful_backup_run(
+        &self,
+    ) -> Result<Option<BackupRunRecord>, StorageError> {
+        backup_runs_repo::get_last_successful_backup_run(self.pool()).await
+    }
+
+    pub async fn create_sqlite_snapshot(&self, destination: &str) -> Result<(), StorageError> {
+        backup_runs_repo::create_sqlite_snapshot(self.pool(), destination).await
     }
 
     pub async fn update_execution_handoff_review(

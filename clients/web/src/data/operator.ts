@@ -206,6 +206,7 @@ export function issuePairingToken(payload: {
   scopes: LinkScopeData;
   target_node_id?: string;
   target_node_display_name?: string | null;
+  target_base_url?: string | null;
 }): Promise<ApiResponse<PairingTokenData>> {
   return apiPost<ApiResponse<PairingTokenData>>(
     '/v1/linking/tokens',
@@ -220,6 +221,11 @@ export function redeemPairingToken(payload: {
   node_display_name: string;
   transport_hint?: string | null;
   requested_scopes?: LinkScopeData | null;
+  sync_base_url?: string | null;
+  tailscale_base_url?: string | null;
+  lan_base_url?: string | null;
+  localhost_base_url?: string | null;
+  public_base_url?: string | null;
 }): Promise<ApiResponse<LinkedNodeData>> {
   return apiPost<ApiResponse<LinkedNodeData>>(
     '/v1/linking/redeem',
@@ -232,6 +238,14 @@ export function loadLinkingStatus(): Promise<ApiResponse<LinkedNodeData[]>> {
   return apiGet<ApiResponse<LinkedNodeData[]>>(
     '/v1/linking/status',
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeLinkedNodeData)),
+  );
+}
+
+export function revokeLinkedNode(nodeId: string): Promise<ApiResponse<LinkedNodeData>> {
+  return apiPost<ApiResponse<LinkedNodeData>>(
+    `/v1/linking/revoke/${encodeURIComponent(nodeId)}`,
+    {},
+    (value) => decodeApiResponse(value, decodeLinkedNodeData),
   );
 }
 

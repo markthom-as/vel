@@ -1,13 +1,21 @@
 //! Doctor service: runs diagnostic checks and returns structured result.
 
 use std::path::Path;
+use time::OffsetDateTime;
+use vel_api_types::{
+    BackupFreshnessData, BackupFreshnessStateData, BackupStatusData, BackupStatusStateData,
+    BackupTrustData, BackupTrustLevelData,
+};
 use vel_config::load_repo_contracts_manifest;
 
 use crate::state::AppState;
 
+const BACKUP_STALE_AFTER_SECONDS: i64 = 48 * 60 * 60;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DoctorCheckStatus {
     Ok,
+    Warn,
     Fail,
 }
 
@@ -21,6 +29,7 @@ pub struct DoctorCheck {
 #[derive(Debug, Clone)]
 pub struct DoctorReport {
     pub checks: Vec<DoctorCheck>,
+    pub backup: BackupTrustData,
     pub schema_version: u32,
     pub version: String,
 }
@@ -58,12 +67,24 @@ pub async fn run_diagnostics(state: &AppState) -> DoctorReport {
     let artifact_check = check_artifact_dir(&state.config.artifact_root);
     checks.push(artifact_check);
     checks.push(check_contracts_manifest());
+    let backup = backup_trust(state)
+        .await
+        .unwrap_or_else(backup_trust_from_error);
+    checks.push(backup_check(&backup));
 
     DoctorReport {
         checks,
+        backup,
         schema_version,
         version: env!("CARGO_PKG_VERSION").to_string(),
     }
+}
+
+pub(crate) async fn backup_trust(
+    state: &AppState,
+) -> Result<BackupTrustData, crate::errors::AppError> {
+    let status = crate::services::backup::backup_status(state).await?;
+    Ok(classify_backup_status(status, OffsetDateTime::now_utc()))
 }
 
 fn check_artifact_dir(root: &str) -> DoctorCheck {
@@ -133,5 +154,281 @@ fn check_contracts_manifest() -> DoctorCheck {
             status: DoctorCheckStatus::Fail,
             message: format!("cannot load published contracts manifest: {error}"),
         },
+    }
+}
+
+fn classify_backup_status(mut status: BackupStatusData, now: OffsetDateTime) -> BackupTrustData {
+    let age_seconds = status
+        .last_backup_at
+        .map(|value| (now - value).whole_seconds().max(0));
+    let freshness_state = match age_seconds {
+        None => BackupFreshnessStateData::Missing,
+        Some(age) if age > BACKUP_STALE_AFTER_SECONDS => BackupFreshnessStateData::Stale,
+        Some(_) => BackupFreshnessStateData::Current,
+    };
+
+    if matches!(freshness_state, BackupFreshnessStateData::Stale)
+        && matches!(status.state, BackupStatusStateData::Ready)
+    {
+        status.state = BackupStatusStateData::Stale;
+        if !status
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("stale"))
+        {
+            status
+                .warnings
+                .push("last successful backup is stale".to_string());
+        }
+    }
+
+    let level = match status.state {
+        BackupStatusStateData::Missing | BackupStatusStateData::Degraded => {
+            BackupTrustLevelData::Fail
+        }
+        BackupStatusStateData::Stale => BackupTrustLevelData::Warn,
+        BackupStatusStateData::Ready => {
+            if matches!(freshness_state, BackupFreshnessStateData::Current)
+                && status
+                    .verification_summary
+                    .as_ref()
+                    .map(|summary| summary.verified)
+                    .unwrap_or(false)
+            {
+                BackupTrustLevelData::Ok
+            } else {
+                BackupTrustLevelData::Warn
+            }
+        }
+    };
+
+    BackupTrustData {
+        level,
+        status,
+        freshness: BackupFreshnessData {
+            state: freshness_state,
+            age_seconds,
+            stale_after_seconds: BACKUP_STALE_AFTER_SECONDS,
+        },
+        guidance: backup_guidance(level),
+    }
+}
+
+fn backup_guidance(level: BackupTrustLevelData) -> Vec<String> {
+    match level {
+        BackupTrustLevelData::Ok => vec![
+            "Backup trust is healthy. Keep running verify after important local changes.".to_string(),
+        ],
+        BackupTrustLevelData::Warn => vec![
+            "Backup trust is degraded. Create or verify a fresh backup before risky maintenance."
+                .to_string(),
+            "The explicit `vel backup` create/inspect/verify workflow lands in the next Phase 09 slice."
+                .to_string(),
+        ],
+        BackupTrustLevelData::Fail => vec![
+            "No trustworthy backup is currently available. Create a fresh backup before destructive actions."
+                .to_string(),
+            "Use the authenticated `/v1/backup/*` routes until the CLI backup workflow lands in the next slice."
+                .to_string(),
+        ],
+    }
+}
+
+fn backup_check(backup: &BackupTrustData) -> DoctorCheck {
+    let status = match backup.level {
+        BackupTrustLevelData::Ok => DoctorCheckStatus::Ok,
+        BackupTrustLevelData::Warn => DoctorCheckStatus::Warn,
+        BackupTrustLevelData::Fail => DoctorCheckStatus::Fail,
+    };
+    let message = if let Some(last_backup_at) = backup.status.last_backup_at {
+        format!(
+            "{}; last backup at {}; warnings={}",
+            backup_status_label(backup.level),
+            last_backup_at,
+            backup.status.warnings.len()
+        )
+    } else {
+        format!(
+            "{}; no successful backup recorded",
+            backup_status_label(backup.level)
+        )
+    };
+
+    DoctorCheck {
+        name: "backup".to_string(),
+        status,
+        message,
+    }
+}
+
+fn backup_status_label(level: BackupTrustLevelData) -> &'static str {
+    match level {
+        BackupTrustLevelData::Ok => "backup ready",
+        BackupTrustLevelData::Warn => "backup stale",
+        BackupTrustLevelData::Fail => "backup missing",
+    }
+}
+
+fn backup_trust_from_error(error: crate::errors::AppError) -> BackupTrustData {
+    BackupTrustData {
+        level: BackupTrustLevelData::Fail,
+        status: BackupStatusData {
+            state: BackupStatusStateData::Degraded,
+            last_backup_id: None,
+            last_backup_at: None,
+            output_root: None,
+            artifact_coverage: None,
+            config_coverage: None,
+            verification_summary: None,
+            warnings: vec![format!("backup status unavailable: {error}")],
+        },
+        freshness: BackupFreshnessData {
+            state: BackupFreshnessStateData::Missing,
+            age_seconds: None,
+            stale_after_seconds: BACKUP_STALE_AFTER_SECONDS,
+        },
+        guidance: backup_guidance(BackupTrustLevelData::Fail),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::{fs, path::PathBuf};
+
+    use serde_json::json;
+    use time::{Duration, OffsetDateTime};
+    use tokio::sync::broadcast;
+    use vel_config::AppConfig;
+    use vel_storage::Storage;
+
+    use crate::{policy_config::PolicyConfig, state::AppState};
+
+    fn unique_dir(label: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "vel_doctor_backup_{}_{}",
+            label,
+            uuid::Uuid::new_v4().simple()
+        ));
+        fs::create_dir_all(&path).expect("temp dir should be created");
+        path
+    }
+
+    async fn test_state() -> AppState {
+        let db_path = unique_dir("db").join("vel.sqlite");
+        let artifact_root = unique_dir("artifacts");
+        let storage = Storage::connect(db_path.to_string_lossy().as_ref())
+            .await
+            .expect("storage");
+        storage.migrate().await.expect("migrations");
+        let (broadcast_tx, _) = broadcast::channel(8);
+
+        AppState::new(
+            storage,
+            AppConfig {
+                db_path: db_path.to_string_lossy().to_string(),
+                artifact_root: artifact_root.to_string_lossy().to_string(),
+                ..Default::default()
+            },
+            PolicyConfig::default(),
+            broadcast_tx,
+            None,
+            None,
+        )
+    }
+
+    fn manifest_json(output_root: &str, verified: bool) -> serde_json::Value {
+        json!({
+            "backup_id": "bkp_test",
+            "created_at": "2026-03-19T09:00:00Z",
+            "output_root": output_root,
+            "database_snapshot_path": format!("{output_root}/data/vel.sqlite"),
+            "artifact_coverage": {
+                "included": ["artifacts/captures"],
+                "omitted": ["artifacts/cache"],
+                "notes": []
+            },
+            "config_coverage": {
+                "included": ["config/public-settings.json"],
+                "omitted": ["integration_google_calendar_secrets"],
+                "notes": []
+            },
+            "explicit_omissions": ["integration_google_calendar_secrets"],
+            "secret_omission_flags": {
+                "settings_secrets_omitted": true,
+                "integration_tokens_omitted": true,
+                "local_key_material_omitted": true,
+                "notes": []
+            },
+            "verification_summary": {
+                "verified": verified,
+                "checksum_algorithm": "sha256",
+                "checksum": "abc123",
+                "checked_paths": [format!("{output_root}/manifest.json")],
+                "notes": []
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn doctor_reports_warn_for_stale_verified_backup() {
+        let state = test_state().await;
+        let started_at = OffsetDateTime::now_utc() - Duration::hours(72);
+        let output_root = unique_dir("stale-backup");
+
+        state
+            .storage
+            .persist_backup_run(
+                "bkp_test",
+                output_root.to_string_lossy().as_ref(),
+                "verified",
+                &manifest_json(output_root.to_string_lossy().as_ref(), true),
+                started_at,
+                Some(started_at),
+                Some(started_at),
+                None,
+            )
+            .await
+            .expect("backup run");
+
+        let report = run_diagnostics(&state).await;
+        let backup_check = report
+            .checks
+            .iter()
+            .find(|check| check.name == "backup")
+            .expect("backup check should be present");
+
+        assert_eq!(backup_check.status, DoctorCheckStatus::Warn);
+        assert_eq!(
+            report.backup.level,
+            vel_api_types::BackupTrustLevelData::Warn
+        );
+        assert_eq!(
+            report.backup.status.state,
+            vel_api_types::BackupStatusStateData::Stale
+        );
+    }
+
+    #[tokio::test]
+    async fn doctor_reports_fail_when_backup_history_is_missing() {
+        let state = test_state().await;
+
+        let report = run_diagnostics(&state).await;
+        let backup_check = report
+            .checks
+            .iter()
+            .find(|check| check.name == "backup")
+            .expect("backup check should be present");
+
+        assert_eq!(backup_check.status, DoctorCheckStatus::Fail);
+        assert_eq!(
+            report.backup.level,
+            vel_api_types::BackupTrustLevelData::Fail
+        );
+        assert_eq!(
+            report.backup.status.state,
+            vel_api_types::BackupStatusStateData::Missing
+        );
     }
 }

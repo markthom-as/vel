@@ -1,5 +1,6 @@
 pub mod apple;
 pub mod artifacts;
+pub mod backup;
 pub mod captures;
 pub mod chat;
 pub mod cluster;

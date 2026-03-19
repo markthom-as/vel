@@ -20,11 +20,13 @@ pub async fn doctor(
                 name: check.name,
                 status: match check.status {
                     doctor::DoctorCheckStatus::Ok => DiagnosticStatus::Ok,
+                    doctor::DoctorCheckStatus::Warn => DiagnosticStatus::Warn,
                     doctor::DoctorCheckStatus::Fail => DiagnosticStatus::Fail,
                 },
                 message: check.message,
             })
             .collect(),
+        backup: report.backup,
         schema_version: report.schema_version,
         version: report.version,
     };

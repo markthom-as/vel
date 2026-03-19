@@ -31,20 +31,21 @@ Use it to answer four questions quickly:
   - `schemas/model-routing.schema.json`
   - `schemas/connector-manifest.schema.json`
   - `schemas/self-model-envelope.schema.json`
-  - `schemas/semantic-query.schema.json`
-  - `schemas/semantic-memory-record.schema.json`
-  - `schemas/apple-voice-turn.schema.json`
-  - `schemas/apple-behavior-summary.schema.json`
-  - `schemas/project-workspace.schema.json`
-  - `schemas/project-execution-context.schema.json`
-  - `schemas/execution-handoff.schema.json`
-  - `schemas/local-agent-manifest.schema.json`
-  - `schemas/operator-action-item.schema.json`
-  - `schemas/writeback-operation.schema.json`
-  - `schemas/person-record.schema.json`
-  - `schemas/sandbox-policy.schema.json`
-  - `schemas/sandbox-host-call.schema.json`
-  - `schemas/swarm-protocol-envelope.schema.json`
+- `schemas/semantic-query.schema.json`
+- `schemas/semantic-memory-record.schema.json`
+- `schemas/apple-voice-turn.schema.json`
+- `schemas/apple-behavior-summary.schema.json`
+- `schemas/project-workspace.schema.json`
+- `schemas/project-execution-context.schema.json`
+- `schemas/execution-handoff.schema.json`
+- `schemas/local-agent-manifest.schema.json`
+- `schemas/operator-action-item.schema.json`
+- `schemas/writeback-operation.schema.json`
+- `schemas/person-record.schema.json`
+- `schemas/sandbox-policy.schema.json`
+- `schemas/sandbox-host-call.schema.json`
+- `schemas/swarm-protocol-envelope.schema.json`
+- `schemas/backup-manifest.schema.json`
 - Examples and manifests:
   - `examples/app-config.example.toml`
   - `examples/agent-specs.example.yaml`
@@ -66,6 +67,7 @@ Use it to answer four questions quickly:
   - `examples/person-record.example.json`
   - `examples/sandbox-host-call.example.json`
   - `examples/swarm-protocol-envelope.example.json`
+  - `examples/backup-manifest.example.json`
   - `contracts-manifest.json`
 
 ## Ownership Rules
@@ -79,6 +81,7 @@ Use it to answer four questions quickly:
 - `docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md` owns the Phase 05 typed project, operator-action, and linking vocabulary.
 - `docs/cognitive-agent-architecture/apple/apple-action-loop-contracts.md` owns the Phase 07 Apple voice, schedule, and bounded behavior-summary vocabulary.
 - `docs/cognitive-agent-architecture/agents/coding-execution-contracts.md` owns the Phase 08 repo-aware execution-context, local-manifest, and supervised handoff vocabulary.
+- `docs/cognitive-agent-architecture/architecture/backup-and-operator-trust-contracts.md` owns the Phase 09 backup manifest, inspection, and manual-first restore vocabulary.
 
 ## Scientific Substrate vs Symbolic Layer
 

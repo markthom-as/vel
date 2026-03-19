@@ -13,6 +13,7 @@ import type {
   ExecutionHandoffRecordData,
   IntegrationLogEventData,
   IntegrationsData,
+  LinkScopeData,
   LocalIntegrationData,
   LoopData,
   PairingTokenData,
@@ -29,6 +30,7 @@ import {
   loadExecutionHandoffs,
   redeemPairingToken,
   rejectExecutionHandoff,
+  revokeLinkedNode,
 } from '../data/operator';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import {
@@ -656,6 +658,13 @@ export function SettingsPage({
     status: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [linkedPermissionDrafts, setLinkedPermissionDrafts] = useState<Record<string, LinkScopeData>>({});
+  const [confirmUnpairNodeId, setConfirmUnpairNodeId] = useState<string | null>(null);
+  const [unpairingNodeId, setUnpairingNodeId] = useState<string | null>(null);
+  const [linkedNodeActionFeedback, setLinkedNodeActionFeedback] = useState<{
+    status: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [issuingPairingToken, setIssuingPairingToken] = useState(false);
   const [selectedDiscoveredNodeId, setSelectedDiscoveredNodeId] = useState('');
   const [redeemTokenCode, setRedeemTokenCode] = useState('');
@@ -1145,6 +1154,21 @@ export function SettingsPage({
   const localIncomingLinkingPrompt = localWorker?.incoming_linking_prompt ?? null;
 
   useEffect(() => {
+    const linkedNodes = clusterBootstrap?.linked_nodes ?? [];
+    if (linkedNodes.length === 0) {
+      setLinkedPermissionDrafts({});
+      return;
+    }
+    setLinkedPermissionDrafts((current) => {
+      const next: Record<string, LinkScopeData> = {};
+      for (const node of linkedNodes) {
+        next[node.node_id] = current[node.node_id] ?? node.scopes;
+      }
+      return next;
+    });
+  }, [clusterBootstrap?.linked_nodes]);
+
+  useEffect(() => {
     if (discoveredNodes.length === 0) {
       if (selectedDiscoveredNodeId !== '') {
         setSelectedDiscoveredNodeId('');
@@ -1173,6 +1197,7 @@ export function SettingsPage({
         scopes: pairingScopes,
         target_node_id: selectedDiscoveredNode?.node_id,
         target_node_display_name: selectedDiscoveredNode?.node_display_name ?? null,
+        target_base_url: selectedDiscoveredNode?.sync_base_url ?? null,
       });
       if (!response.ok || !response.data) {
         throw new Error(response.error?.message ?? 'Failed to issue pairing token');
@@ -1193,6 +1218,152 @@ export function SettingsPage({
       });
     } finally {
       setIssuingPairingToken(false);
+    }
+  };
+
+  const linkedNodeScopesDraft = (nodeId: string, fallback: LinkScopeData): LinkScopeData =>
+    linkedPermissionDrafts[nodeId] ?? fallback;
+
+  const setLinkedNodeScope = (
+    nodeId: string,
+    key: keyof LinkScopeData,
+    value: boolean,
+    fallback: LinkScopeData,
+  ) => {
+    setLinkedPermissionDrafts((current) => ({
+      ...current,
+      [nodeId]: {
+        ...(current[nodeId] ?? fallback),
+        [key]: value,
+      },
+    }));
+  };
+
+  const resolveLinkedNodeTargetBaseUrl = (node: {
+    node_id: string;
+    sync_base_url: string | null;
+    tailscale_base_url: string | null;
+    lan_base_url: string | null;
+    public_base_url: string | null;
+    localhost_base_url: string | null;
+  }): string | null => {
+    const worker = (clusterWorkers?.workers ?? []).find((candidate) => candidate.node_id === node.node_id) ?? null;
+    return (
+      node.sync_base_url
+      ?? node.tailscale_base_url
+      ?? node.lan_base_url
+      ?? node.public_base_url
+      ?? worker?.sync_base_url
+      ?? worker?.tailscale_base_url
+      ?? worker?.lan_base_url
+      ?? null
+    );
+  };
+
+  const discoveredNodeRoutes = (worker: WorkerPresenceData) =>
+    collectClientRoutes([
+      ['primary', worker.sync_base_url],
+      ['tailscale', worker.tailscale_base_url],
+      ['lan', worker.lan_base_url],
+      ['localhost', worker.localhost_base_url],
+    ]);
+
+  const linkedNodeRoutes = (node: {
+    sync_base_url: string | null;
+    tailscale_base_url: string | null;
+    lan_base_url: string | null;
+    localhost_base_url: string | null;
+    public_base_url: string | null;
+  }) =>
+    collectClientRoutes([
+      ['primary', node.sync_base_url],
+      ['tailscale', node.tailscale_base_url],
+      ['lan', node.lan_base_url],
+      ['public', node.public_base_url],
+      ['localhost', node.localhost_base_url],
+    ]);
+
+  const handleRenegotiateLinkedNodePermissions = async (node: {
+    node_id: string;
+    node_display_name: string;
+    scopes: LinkScopeData;
+    sync_base_url: string | null;
+    tailscale_base_url: string | null;
+    lan_base_url: string | null;
+    public_base_url: string | null;
+    localhost_base_url: string | null;
+  }) => {
+    if (!clusterBootstrap) {
+      setPairingFeedback({
+        status: 'error',
+        message: 'Cluster bootstrap must load before Vel can renegotiate linked permissions.',
+      });
+      return;
+    }
+    const targetBaseUrl = resolveLinkedNodeTargetBaseUrl(node);
+    if (!targetBaseUrl) {
+      setPairingFeedback({
+        status: 'error',
+        message: `No reachable sync address is known for ${node.node_display_name}.`,
+      });
+      return;
+    }
+
+    setIssuingPairingToken(true);
+    setPairingFeedback(null);
+    try {
+      const response = await issuePairingToken({
+        issued_by_node_id: clusterBootstrap.node_id,
+        scopes: linkedNodeScopesDraft(node.node_id, node.scopes),
+        target_node_id: node.node_id,
+        target_node_display_name: node.node_display_name,
+        target_base_url: targetBaseUrl,
+      });
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to issue permission renegotiation token');
+      }
+      setPairingToken(response.data);
+      setPairingFeedback({
+        status: 'success',
+        message: `Permission update token issued for ${node.node_display_name}. That client has been prompted to approve the new access.`,
+      });
+      invalidateQuery(clusterWorkersKey, { refetch: true });
+      invalidateQuery(clusterBootstrapKey, { refetch: true });
+    } catch (error) {
+      setPairingFeedback({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIssuingPairingToken(false);
+    }
+  };
+
+  const handleUnpairLinkedNode = async (node: {
+    node_id: string;
+    node_display_name: string;
+  }) => {
+    setUnpairingNodeId(node.node_id);
+    setLinkedNodeActionFeedback(null);
+    try {
+      const response = await revokeLinkedNode(node.node_id);
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to unpair linked node');
+      }
+      setConfirmUnpairNodeId(null);
+      setLinkedNodeActionFeedback({
+        status: 'success',
+        message: `${node.node_display_name} has been unpaired.`,
+      });
+      invalidateQuery(clusterWorkersKey, { refetch: true });
+      invalidateQuery(clusterBootstrapKey, { refetch: true });
+    } catch (error) {
+      setLinkedNodeActionFeedback({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setUnpairingNodeId(null);
     }
   };
 
@@ -1223,6 +1394,11 @@ export function SettingsPage({
         node_display_name: clusterBootstrap.node_display_name,
         transport_hint: localWorker?.sync_transport ?? clusterBootstrap.sync_transport,
         requested_scopes: localIncomingLinkingPrompt?.scopes ?? undefined,
+        sync_base_url: clusterBootstrap.sync_base_url,
+        tailscale_base_url: clusterBootstrap.tailscale_base_url,
+        lan_base_url: clusterBootstrap.lan_base_url,
+        localhost_base_url: clusterBootstrap.localhost_base_url,
+        public_base_url: null,
       });
       if (!response.ok || !response.data) {
         throw new Error(response.error?.message ?? 'Failed to redeem pairing token');
@@ -2300,6 +2476,7 @@ export function SettingsPage({
                   <div className="grid gap-3 md:grid-cols-2">
                     {discoveredNodes.map((worker) => {
                       const selected = worker.node_id === selectedDiscoveredNodeId;
+                      const routes = discoveredNodeRoutes(worker);
                       return (
                         <button
                           key={worker.node_id}
@@ -2328,6 +2505,21 @@ export function SettingsPage({
                               Last heartbeat: {formatUnixTimestamp(worker.last_heartbeat_at)}
                             </p>
                           </div>
+                          {routes.length ? (
+                            <div className="mt-3 space-y-2">
+                              <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Routes</p>
+                              <div className="space-y-1 text-xs text-zinc-400">
+                                {routes.map((route) => (
+                                  <div key={`${worker.node_id}-${route.label}-${route.baseUrl}`}>
+                                    <span className="mr-2 rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-zinc-300">
+                                      {route.label}
+                                    </span>
+                                    <span className="break-all">{route.baseUrl}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
                           {worker.incoming_linking_prompt ? (
                             <p className="mt-3 text-xs text-amber-300">
                               Awaiting token entry on this node.
@@ -2375,8 +2567,11 @@ export function SettingsPage({
                     <input
                       type="text"
                       value={redeemTokenCode}
-                      onChange={(event) => setRedeemTokenCode(event.target.value)}
-                      placeholder="VEL-PAIR-123"
+                      onChange={(event) => setRedeemTokenCode(formatPairingTokenInput(event.target.value))}
+                      placeholder="ABC-123"
+                      maxLength={7}
+                      autoCapitalize="characters"
+                      spellCheck={false}
                       className="min-h-[44px] flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                     />
                     <button
@@ -2468,43 +2663,167 @@ export function SettingsPage({
                 <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">linkedNodes</p>
                 {clusterBootstrap?.linked_nodes?.length ? (
                   <div className="grid gap-3 md:grid-cols-2">
-                    {clusterBootstrap.linked_nodes.map((node) => (
-                      <article
-                        key={node.node_id}
-                        className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h4 className="text-sm font-medium text-zinc-100">{node.node_display_name}</h4>
-                            <p className="mt-1 text-xs text-zinc-500">{node.node_id}</p>
-                          </div>
-                          <span className={linkStatusClassName(node.status)}>
-                            {node.status}
-                          </span>
-                        </div>
-                        <div className="mt-3 space-y-2 text-sm text-zinc-400">
-                          <p>Transport: {node.transport_hint ?? 'No transport hint'}</p>
-                          <p>
-                            Last seen:{' '}
-                            {node.last_seen_at ? formatRuntimeTimestamp(node.last_seen_at) : 'Not observed yet'}
-                          </p>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {scopeSummaryEntries(node.scopes).map((scope) => (
-                            <span
-                              key={`${node.node_id}-${scope.label}`}
-                              className={`rounded-full px-2.5 py-1 text-xs ${
-                                scope.enabled
-                                  ? 'bg-emerald-900/50 text-emerald-200'
-                                  : 'bg-zinc-800 text-zinc-500'
-                              }`}
-                            >
-                              {scope.label}
+                    {clusterBootstrap.linked_nodes.map((node) => {
+                      const draftScopes = linkedNodeScopesDraft(node.node_id, node.scopes);
+                      const targetBaseUrl = resolveLinkedNodeTargetBaseUrl(node);
+                      const routes = linkedNodeRoutes(node);
+                      const confirmUnpair = confirmUnpairNodeId === node.node_id;
+                      const isUnpairing = unpairingNodeId === node.node_id;
+                      return (
+                        <article
+                          key={node.node_id}
+                          className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="text-sm font-medium text-zinc-100">{node.node_display_name}</h4>
+                              <p className="mt-1 text-xs text-zinc-500">{node.node_id}</p>
+                            </div>
+                            <span className={linkStatusClassName(node.status)}>
+                              {node.status}
                             </span>
-                          ))}
-                        </div>
-                      </article>
-                    ))}
+                          </div>
+                          <div className="mt-3 space-y-2 text-sm text-zinc-400">
+                            <p>Transport: {node.transport_hint ?? 'No transport hint'}</p>
+                            <p>
+                              Last seen:{' '}
+                              {node.last_seen_at ? formatRuntimeTimestamp(node.last_seen_at) : 'Not observed yet'}
+                            </p>
+                          </div>
+                          {routes.length ? (
+                            <div className="mt-3 space-y-2">
+                              <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Routes</p>
+                              <div className="space-y-1 text-xs text-zinc-400">
+                                {routes.map((route) => (
+                                  <div key={`${node.node_id}-${route.label}-${route.baseUrl}`}>
+                                    <span className="mr-2 rounded-full bg-zinc-900 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-zinc-300">
+                                      {route.label}
+                                    </span>
+                                    <span className="break-all">{route.baseUrl}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="mt-3 text-sm text-zinc-500">
+                              No saved peer routes yet.
+                            </p>
+                          )}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {scopeSummaryEntries(node.scopes).map((scope) => (
+                              <span
+                                key={`${node.node_id}-${scope.label}`}
+                                className={`rounded-full px-2.5 py-1 text-xs ${
+                                  scope.enabled
+                                    ? 'bg-emerald-900/50 text-emerald-200'
+                                    : 'bg-zinc-800 text-zinc-500'
+                                }`}
+                              >
+                                {scope.label}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="mt-4 space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                            <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">
+                              Renegotiate access
+                            </p>
+                            <p className="text-sm text-zinc-500">
+                              Approval path: {targetBaseUrl ?? 'No saved peer address'}
+                            </p>
+                            <div className="grid gap-2">
+                              <label className="flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                                <input
+                                  type="checkbox"
+                                  checked={draftScopes.read_context}
+                                  onChange={(event) =>
+                                    setLinkedNodeScope(
+                                      node.node_id,
+                                      'read_context',
+                                      event.target.checked,
+                                      node.scopes,
+                                    )}
+                                  disabled={issuingPairingToken}
+                                  className="mt-1 rounded border-zinc-600 bg-zinc-900 text-sky-500 focus:ring-sky-500"
+                                />
+                                <span className="text-sm text-zinc-300">Read context</span>
+                              </label>
+                              <label className="flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                                <input
+                                  type="checkbox"
+                                  checked={draftScopes.write_safe_actions}
+                                  onChange={(event) =>
+                                    setLinkedNodeScope(
+                                      node.node_id,
+                                      'write_safe_actions',
+                                      event.target.checked,
+                                      node.scopes,
+                                    )}
+                                  disabled={issuingPairingToken}
+                                  className="mt-1 rounded border-zinc-600 bg-zinc-900 text-sky-500 focus:ring-sky-500"
+                                />
+                                <span className="text-sm text-zinc-300">Write safe actions</span>
+                              </label>
+                              <label className="flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                                <input
+                                  type="checkbox"
+                                  checked={draftScopes.execute_repo_tasks}
+                                  onChange={(event) =>
+                                    setLinkedNodeScope(
+                                      node.node_id,
+                                      'execute_repo_tasks',
+                                      event.target.checked,
+                                      node.scopes,
+                                    )}
+                                  disabled={issuingPairingToken}
+                                  className="mt-1 rounded border-zinc-600 bg-zinc-900 text-sky-500 focus:ring-sky-500"
+                                />
+                                <span className="text-sm text-zinc-300">Execute repo tasks</span>
+                              </label>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleRenegotiateLinkedNodePermissions(node)}
+                              disabled={issuingPairingToken || node.status !== 'linked' || !targetBaseUrl}
+                              className="min-h-[44px] rounded-md bg-sky-500 px-3 py-2 text-sm font-medium text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
+                            >
+                              {issuingPairingToken ? 'Issuing…' : 'Request updated access'}
+                            </button>
+                            {confirmUnpair ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleUnpairLinkedNode(node)}
+                                  disabled={isUnpairing}
+                                  className="min-h-[44px] rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-zinc-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
+                                >
+                                  {isUnpairing ? 'Unpairing…' : 'Confirm unpair'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmUnpairNodeId(null)}
+                                  disabled={isUnpairing}
+                                  className="min-h-[44px] rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setConfirmUnpairNodeId(node.node_id);
+                                  setLinkedNodeActionFeedback(null);
+                                }}
+                                disabled={isUnpairing}
+                                className="min-h-[44px] rounded-md border border-rose-700/60 bg-rose-950/20 px-3 py-2 text-sm font-medium text-rose-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
+                              >
+                                Unpair
+                              </button>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-500">
@@ -2512,6 +2831,11 @@ export function SettingsPage({
                     companion node.
                   </p>
                 )}
+                {linkedNodeActionFeedback ? (
+                  <p className={`text-sm ${linkedNodeActionFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {linkedNodeActionFeedback.message}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -4179,6 +4503,33 @@ function scopeSummaryEntries(scopes: {
     { label: 'write_safe_actions', enabled: scopes.write_safe_actions },
     { label: 'execute_repo_tasks', enabled: scopes.execute_repo_tasks },
   ];
+}
+
+function collectClientRoutes(
+  entries: Array<[label: string, baseUrl: string | null | undefined]>,
+): Array<{ label: string; baseUrl: string }> {
+  const seen = new Set<string>();
+  const routes: Array<{ label: string; baseUrl: string }> = [];
+  for (const [label, baseUrl] of entries) {
+    const trimmed = baseUrl?.trim();
+    if (!trimmed || label === 'localhost' || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    routes.push({ label, baseUrl: trimmed });
+  }
+  return routes;
+}
+
+function formatPairingTokenInput(value: string): string {
+  const normalized = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 6);
+  if (normalized.length <= 3) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 3)}-${normalized.slice(3)}`;
 }
 
 function linkStatusClassName(status: string): string {

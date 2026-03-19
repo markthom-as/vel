@@ -39,6 +39,14 @@ impl AppError {
         }
     }
 
+    pub fn too_many_requests(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::TOO_MANY_REQUESTS,
+            code: "rate_limited",
+            message: message.into(),
+        }
+    }
+
     pub fn not_found(message: impl Into<String>) -> Self {
         Self {
             status: StatusCode::NOT_FOUND,

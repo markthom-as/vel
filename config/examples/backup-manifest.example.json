@@ -1,0 +1,64 @@
+{
+  "backup_id": "bkp_20260319_084500z_local",
+  "created_at": "2026-03-19T08:45:00Z",
+  "output_root": "var/backups/bkp_20260319_084500z_local",
+  "database_snapshot_path": "var/backups/bkp_20260319_084500z_local/data/vel.sqlite",
+  "artifact_coverage": {
+    "included": [
+      "artifacts/captures/",
+      "artifacts/runs/",
+      "artifacts/exports/"
+    ],
+    "omitted": [
+      "artifacts/cache/",
+      "artifacts/tmp/"
+    ],
+    "notes": [
+      "Artifact coverage is limited to durable operator-visible outputs.",
+      "Transient cache and temp directories are intentionally excluded."
+    ]
+  },
+  "config_coverage": {
+    "included": [
+      "vel.toml",
+      "config/agent-specs.yaml",
+      "config/policies.yaml"
+    ],
+    "omitted": [
+      "config/secret-settings.yaml",
+      "config/integration-secrets.yaml"
+    ],
+    "notes": [
+      "Public runtime config is included so the operator can inspect the effective backup posture.",
+      "Secret-bearing config is intentionally omitted and must be rehydrated separately."
+    ]
+  },
+  "explicit_omissions": [
+    "secret settings records",
+    "integration API tokens",
+    "local private key material",
+    "volatile cache and temp files"
+  ],
+  "secret_omission_flags": {
+    "settings_secrets_omitted": true,
+    "integration_tokens_omitted": true,
+    "local_key_material_omitted": true,
+    "notes": [
+      "The backup pack is intentionally safe to inspect without revealing prompt-visible secrets."
+    ]
+  },
+  "verification_summary": {
+    "verified": true,
+    "checksum_algorithm": "sha256",
+    "checksum": "6f3a5c2d1e8b4a7f93d1e60f7b8f4c21d0a7e8c2d4f6a9b3c1e0d2f4a6b8c9d0",
+    "checked_paths": [
+      "var/backups/bkp_20260319_084500z_local/manifest.json",
+      "var/backups/bkp_20260319_084500z_local/data/vel.sqlite",
+      "var/backups/bkp_20260319_084500z_local/artifacts/"
+    ],
+    "notes": [
+      "Checksum covers the manifest and the SQLite snapshot bytes.",
+      "The pack was inspected before trust was assigned to it."
+    ]
+  }
+}

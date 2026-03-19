@@ -2336,6 +2336,7 @@ mod tests {
                 },
                 target_node_id: Some("node_remote".to_string()),
                 target_node_display_name: Some("Remote Mac".to_string()),
+                target_base_url: None,
             },
         )
         .await

@@ -6,6 +6,9 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use std::net::SocketAddr;
+use std::time::Duration;
+
+use crate::{errors::AppError, state::AppState};
 
 pub(crate) const OPERATOR_AUTH_HEADER: &str = "x-vel-operator-token";
 pub(crate) const WORKER_AUTH_HEADER: &str = "x-vel-worker-token";
@@ -146,6 +149,44 @@ pub(crate) async fn enforce_exposure_gate(
     match provided {
         Some(token) if token == expected_token => next.run(request).await,
         _ => unauthorized_response(gate.class),
+    }
+}
+
+pub(crate) async fn enforce_public_linking_abuse_guard(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    let Some((bucket, max_requests, window)) = public_linking_limit(request.uri().path()) else {
+        return next.run(request).await;
+    };
+    let remote_ip = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|info| info.0.ip().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    let key = format!("{bucket}:{remote_ip}");
+
+    if !state
+        .public_linking_rate_limiter
+        .allow(key, max_requests, window)
+        .await
+    {
+        return AppError::too_many_requests(
+            "public linking rate limit exceeded; wait before retrying",
+        )
+        .into_response();
+    }
+
+    next.run(request).await
+}
+
+fn public_linking_limit(path: &str) -> Option<(&'static str, usize, Duration)> {
+    match path {
+        "/v1/linking/prompts" => Some(("public-linking-prompt", 20, Duration::from_secs(60))),
+        "/v1/linking/public-redeem" => Some(("public-linking-redeem", 8, Duration::from_secs(60))),
+        "/v1/linking/public-revoke" => Some(("public-linking-revoke", 20, Duration::from_secs(60))),
+        _ => None,
     }
 }
 

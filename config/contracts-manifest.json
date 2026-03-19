@@ -180,6 +180,12 @@
       "schema": "config/schemas/swarm-protocol-envelope.schema.json"
     },
     {
+      "id": "backup_manifest_example",
+      "path": "config/examples/backup-manifest.example.json",
+      "kind": "backup_manifest",
+      "schema": "config/schemas/backup-manifest.schema.json"
+    },
+    {
       "id": "apple_voice_turn_example",
       "path": "config/examples/apple-voice-turn.example.json",
       "kind": "apple_voice_turn",
@@ -246,6 +252,7 @@
     "docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md",
     "docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md",
     "docs/cognitive-agent-architecture/integrations/writeback-and-conflict-contracts.md",
+    "docs/cognitive-agent-architecture/architecture/backup-and-operator-trust-contracts.md",
     "docs/tickets/phase-1/021-canonical-schema-and-config-contracts.md",
     "docs/tickets/phase-1/022-data-sources-and-connector-architecture.md",
     "docs/tickets/phase-1/023-self-awareness-and-supervised-self-modification.md",

@@ -73,6 +73,11 @@ pub struct LinkedNodeRecord {
     #[serde(with = "time::serde::rfc3339::option")]
     pub last_seen_at: Option<OffsetDateTime>,
     pub transport_hint: Option<String>,
+    pub sync_base_url: Option<String>,
+    pub tailscale_base_url: Option<String>,
+    pub lan_base_url: Option<String>,
+    pub localhost_base_url: Option<String>,
+    pub public_base_url: Option<String>,
 }
 
 #[cfg(test)]
@@ -93,11 +98,17 @@ mod tests {
             linked_at: time::macros::datetime!(2026-03-18 10:00:00 UTC),
             last_seen_at: None,
             transport_hint: Some("tailscale".to_string()),
+            sync_base_url: Some("http://alpha.tailnet.ts.net:4130".to_string()),
+            tailscale_base_url: Some("http://alpha.tailnet.ts.net:4130".to_string()),
+            lan_base_url: Some("http://192.168.1.10:4130".to_string()),
+            localhost_base_url: Some("http://127.0.0.1:4130".to_string()),
+            public_base_url: None,
         };
 
         let value = serde_json::to_value(record).expect("linked node should serialize");
         assert_eq!(value["status"], "linked");
         assert_eq!(value["scopes"]["read_context"], true);
         assert_eq!(value["transport_hint"], "tailscale");
+        assert_eq!(value["sync_base_url"], "http://alpha.tailnet.ts.net:4130");
     }
 }

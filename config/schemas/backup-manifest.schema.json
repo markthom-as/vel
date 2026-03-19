@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/backup-manifest.schema.json",
+  "title": "BackupManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "backup_id",
+    "created_at",
+    "output_root",
+    "database_snapshot_path",
+    "artifact_coverage",
+    "config_coverage",
+    "explicit_omissions",
+    "secret_omission_flags",
+    "verification_summary"
+  ],
+  "properties": {
+    "backup_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for the backup pack."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC3339 timestamp for when the backup pack was created."
+    },
+    "output_root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Directory containing the backup pack."
+    },
+    "database_snapshot_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the SQLite snapshot inside the backup pack."
+    },
+    "artifact_coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "config_coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "explicit_omissions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Human-readable list of items intentionally omitted from the pack."
+    },
+    "secret_omission_flags": {
+      "$ref": "#/$defs/secretOmissionFlags"
+    },
+    "verification_summary": {
+      "$ref": "#/$defs/verificationSummary"
+    }
+  },
+  "$defs": {
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "included",
+        "omitted"
+      ],
+      "properties": {
+        "included": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "omitted": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "secretOmissionFlags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "settings_secrets_omitted",
+        "integration_tokens_omitted",
+        "local_key_material_omitted"
+      ],
+      "properties": {
+        "settings_secrets_omitted": {
+          "type": "boolean"
+        },
+        "integration_tokens_omitted": {
+          "type": "boolean"
+        },
+        "local_key_material_omitted": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "verificationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verified",
+        "checksum_algorithm",
+        "checksum"
+      ],
+      "properties": {
+        "verified": {
+          "type": "boolean"
+        },
+        "checksum_algorithm": {
+          "type": "string",
+          "enum": [
+            "sha256"
+          ]
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "checked_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    }
+  }
+}

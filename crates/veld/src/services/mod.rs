@@ -7,6 +7,7 @@ pub mod adaptive_policies;
 pub mod agent_protocol;
 pub mod apple_behavior;
 pub mod apple_voice;
+pub mod backup;
 pub mod broker;
 pub mod chat;
 pub mod client_sync;

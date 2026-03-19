@@ -88,9 +88,14 @@ pub(crate) async fn upsert_linked_node(
             linked_at,
             last_seen_at,
             transport_hint,
+            sync_base_url,
+            tailscale_base_url,
+            lan_base_url,
+            localhost_base_url,
+            public_base_url,
             revoked_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(node_id) DO UPDATE SET
             node_display_name = excluded.node_display_name,
             status = excluded.status,
@@ -98,6 +103,11 @@ pub(crate) async fn upsert_linked_node(
             linked_at = excluded.linked_at,
             last_seen_at = excluded.last_seen_at,
             transport_hint = excluded.transport_hint,
+            sync_base_url = excluded.sync_base_url,
+            tailscale_base_url = excluded.tailscale_base_url,
+            lan_base_url = excluded.lan_base_url,
+            localhost_base_url = excluded.localhost_base_url,
+            public_base_url = excluded.public_base_url,
             revoked_at = excluded.revoked_at
         "#,
     )
@@ -108,6 +118,11 @@ pub(crate) async fn upsert_linked_node(
     .bind(record.linked_at.unix_timestamp())
     .bind(record.last_seen_at.map(|value| value.unix_timestamp()))
     .bind(&record.transport_hint)
+    .bind(&record.sync_base_url)
+    .bind(&record.tailscale_base_url)
+    .bind(&record.lan_base_url)
+    .bind(&record.localhost_base_url)
+    .bind(&record.public_base_url)
     .bind(revoked_at.map(|value| value.unix_timestamp()))
     .execute(pool)
     .await?;
@@ -120,7 +135,8 @@ pub(crate) async fn list_linked_nodes(
 ) -> Result<Vec<LinkedNodeRecord>, StorageError> {
     let rows = sqlx::query(
         r#"
-        SELECT node_id, node_display_name, status, scopes_json, linked_at, last_seen_at, transport_hint
+        SELECT node_id, node_display_name, status, scopes_json, linked_at, last_seen_at, transport_hint,
+               sync_base_url, tailscale_base_url, lan_base_url, localhost_base_url, public_base_url
         FROM linked_nodes
         ORDER BY linked_at DESC, node_id ASC
         "#,
@@ -138,7 +154,8 @@ pub(crate) async fn revoke_linked_node(
 ) -> Result<Option<LinkedNodeRecord>, StorageError> {
     let existing = sqlx::query(
         r#"
-        SELECT node_id, node_display_name, status, scopes_json, linked_at, last_seen_at, transport_hint
+        SELECT node_id, node_display_name, status, scopes_json, linked_at, last_seen_at, transport_hint,
+               sync_base_url, tailscale_base_url, lan_base_url, localhost_base_url, public_base_url
         FROM linked_nodes
         WHERE node_id = ?
         "#,
@@ -213,6 +230,11 @@ fn map_linked_node_row(row: &sqlx::sqlite::SqliteRow) -> Result<LinkedNodeRecord
             .map(timestamp_to_datetime)
             .transpose()?,
         transport_hint: row.try_get("transport_hint")?,
+        sync_base_url: row.try_get("sync_base_url")?,
+        tailscale_base_url: row.try_get("tailscale_base_url")?,
+        lan_base_url: row.try_get("lan_base_url")?,
+        localhost_base_url: row.try_get("localhost_base_url")?,
+        public_base_url: row.try_get("public_base_url")?,
     })
 }
 
@@ -277,12 +299,25 @@ mod tests {
             linked_at,
             last_seen_at: None,
             transport_hint: Some("tailscale".to_string()),
+            sync_base_url: Some("http://node-beta.tailnet.ts.net:4130".to_string()),
+            tailscale_base_url: Some("http://node-beta.tailnet.ts.net:4130".to_string()),
+            lan_base_url: Some("http://192.168.1.55:4130".to_string()),
+            localhost_base_url: None,
+            public_base_url: None,
         };
 
         upsert_linked_node(&pool, &record).await.unwrap();
         let listed = list_linked_nodes(&pool).await.unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].node_id, "node_beta");
+        assert_eq!(
+            listed[0].sync_base_url.as_deref(),
+            Some("http://node-beta.tailnet.ts.net:4130")
+        );
+        assert_eq!(
+            listed[0].lan_base_url.as_deref(),
+            Some("http://192.168.1.55:4130")
+        );
 
         let revoked = revoke_linked_node(&pool, "node_beta", linked_at)
             .await
