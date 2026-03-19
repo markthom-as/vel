@@ -4,12 +4,12 @@ milestone: v1.0
 milestone_name: milestone
 status: in-progress
 stopped_at: Completed 04-05-PLAN.md
-last_updated: "2026-03-19T01:52:07Z"
+last_updated: "2026-03-19T02:02:43Z"
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 27
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -19,18 +19,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 05 execution — 05-03 linking backend is next
+**Current focus:** Phase 05 execution — 05-04 CLI linking fallback and docs are next
 
 ## Current Position
 
 Phase: 05 (now-inbox-core-and-project-substrate) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 13
+- Total plans completed: 14
 - Average duration: 22m
 - Total execution time: 153m
 

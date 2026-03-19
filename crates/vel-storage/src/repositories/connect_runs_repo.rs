@@ -1,5 +1,4 @@
 use sqlx::{Row, SqlitePool};
-use time::OffsetDateTime;
 
 use crate::db::StorageError;
 
@@ -208,6 +207,7 @@ fn map_connect_run_row(row: &sqlx::sqlite::SqliteRow) -> Result<ConnectRunRecord
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use time::OffsetDateTime;
 
     static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations");
     static TEST_DB_COUNTER: AtomicU64 = AtomicU64::new(0);

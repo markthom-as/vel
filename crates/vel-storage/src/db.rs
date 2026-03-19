@@ -3,7 +3,8 @@ use crate::{
     repositories::{
         artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
         cluster_workers_repo, commitment_risk_repo, commitments_repo, connect_runs_repo,
-        context_timeline_repo, current_context_repo, inferred_state_repo, projects_repo,
+        context_timeline_repo, current_context_repo, inferred_state_repo, linking_repo,
+        projects_repo,
         integration_connections_repo, nudges_repo, processing_jobs_repo, run_refs_repo, runs_repo,
         runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
         suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
@@ -21,9 +22,10 @@ use vel_core::{
     ContextCapture, ConversationId, EventId, IntegrationConnection, IntegrationConnectionEvent,
     IntegrationConnectionEventType, IntegrationConnectionId, IntegrationConnectionSettingRef,
     IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, InterventionId, JobId,
-    JobStatus, MessageId, OrientationSnapshot, PrivacyClass, ProjectFamily, ProjectId,
-    ProjectRecord, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult,
-    SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass,
+    JobStatus, LinkedNodeRecord, MessageId, OrientationSnapshot, PairingTokenRecord,
+    PrivacyClass, ProjectFamily, ProjectId, ProjectRecord, Ref, Run, RunEvent, RunEventType,
+    RunId, RunKind, RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
+    SyncClass,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -802,6 +804,47 @@ impl Storage {
 
     pub async fn list_project_families(&self) -> Result<Vec<ProjectFamily>, StorageError> {
         projects_repo::list_project_families(self.pool()).await
+    }
+
+    pub async fn issue_pairing_token(
+        &self,
+        record: &PairingTokenRecord,
+    ) -> Result<PairingTokenRecord, StorageError> {
+        linking_repo::issue_pairing_token(self.pool(), record).await
+    }
+
+    pub async fn get_pairing_token_by_code(
+        &self,
+        token_code: &str,
+    ) -> Result<Option<(PairingTokenRecord, Option<OffsetDateTime>)>, StorageError> {
+        linking_repo::get_pairing_token_by_code(self.pool(), token_code).await
+    }
+
+    pub async fn mark_pairing_token_redeemed(
+        &self,
+        token_code: &str,
+        redeemed_at: OffsetDateTime,
+    ) -> Result<bool, StorageError> {
+        linking_repo::mark_pairing_token_redeemed(self.pool(), token_code, redeemed_at).await
+    }
+
+    pub async fn upsert_linked_node(
+        &self,
+        record: &LinkedNodeRecord,
+    ) -> Result<LinkedNodeRecord, StorageError> {
+        linking_repo::upsert_linked_node(self.pool(), record).await
+    }
+
+    pub async fn list_linked_nodes(&self) -> Result<Vec<LinkedNodeRecord>, StorageError> {
+        linking_repo::list_linked_nodes(self.pool()).await
+    }
+
+    pub async fn revoke_linked_node(
+        &self,
+        node_id: &str,
+        revoked_at: OffsetDateTime,
+    ) -> Result<Option<LinkedNodeRecord>, StorageError> {
+        linking_repo::revoke_linked_node(self.pool(), node_id, revoked_at).await
     }
 
     // --- Signals (Phase B) ---

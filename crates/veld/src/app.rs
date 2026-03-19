@@ -107,6 +107,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/context/end-of-day", get(routes::context::end_of_day))
         .route("/v1/context/current", get(routes::context::current))
         .route("/v1/context/timeline", get(routes::context::timeline))
+        .route("/v1/linking/tokens", post(routes::linking::issue_pairing_token))
+        .route("/v1/linking/redeem", post(routes::linking::redeem_pairing_token))
+        .route("/v1/linking/status", get(routes::linking::linking_status))
+        .route("/v1/linking/revoke/:node_id", post(routes::linking::revoke_link))
         .route("/v1/now", get(routes::now::get_now))
         .route("/v1/explain/nudge/:id", get(routes::explain::explain_nudge))
         .route("/v1/explain/context", get(routes::explain::explain_context))
@@ -11058,6 +11062,185 @@ END:VCALENDAR
             json["data"],
             serde_json::json!(["personal", "creative", "work"])
         );
+    }
+
+    #[tokio::test]
+    async fn linking_routes_issue_redeem_and_revoke_tokens() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        let issue = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/linking/tokens")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "issued_by_node_id": "node_alpha",
+                            "ttl_seconds": 900,
+                            "scopes": {
+                                "read_context": true,
+                                "write_safe_actions": true,
+                                "execute_repo_tasks": false
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(issue.status(), StatusCode::OK);
+        let issue_body = axum::body::to_bytes(issue.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let issue_json: serde_json::Value = serde_json::from_slice(&issue_body).unwrap();
+        let token_code = issue_json["data"]["token_code"]
+            .as_str()
+            .expect("token code should exist")
+            .to_string();
+
+        let redeem = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/linking/redeem")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "token_code": token_code,
+                            "node_id": "node_beta",
+                            "node_display_name": "Beta",
+                            "transport_hint": "tailscale",
+                            "requested_scopes": {
+                                "read_context": true,
+                                "write_safe_actions": false,
+                                "execute_repo_tasks": false
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(redeem.status(), StatusCode::OK);
+
+        let status = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/linking/status")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(status.status(), StatusCode::OK);
+        let status_body = axum::body::to_bytes(status.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let status_json: serde_json::Value = serde_json::from_slice(&status_body).unwrap();
+        assert_eq!(status_json["data"][0]["node_id"], "node_beta");
+
+        let revoke = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/linking/revoke/node_beta")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(revoke.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn linking_routes_fail_closed_for_out_of_scope_requests() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = test_app_with_policy(
+            storage,
+            HttpExposurePolicy {
+                operator_api_token: Some("operator-secret".to_string()),
+                worker_api_token: None,
+                strict_auth: false,
+            },
+        );
+
+        let issue = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/linking/tokens")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "issued_by_node_id": "node_alpha",
+                            "scopes": {
+                                "read_context": true,
+                                "write_safe_actions": false,
+                                "execute_repo_tasks": false
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let issue_body = axum::body::to_bytes(issue.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let issue_json: serde_json::Value = serde_json::from_slice(&issue_body).unwrap();
+        let token_code = issue_json["data"]["token_code"]
+            .as_str()
+            .expect("token code should exist")
+            .to_string();
+
+        let redeem = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/v1/linking/redeem")
+                    .header(OPERATOR_AUTH_HEADER, "operator-secret")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "token_code": token_code,
+                            "node_id": "node_beta",
+                            "node_display_name": "Beta",
+                            "requested_scopes": {
+                                "read_context": true,
+                                "write_safe_actions": true,
+                                "execute_repo_tasks": true
+                            }
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(redeem.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]

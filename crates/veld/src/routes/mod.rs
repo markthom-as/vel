@@ -13,6 +13,7 @@ pub mod explain;
 pub mod health;
 pub mod integrations;
 pub mod journal;
+pub mod linking;
 pub mod loops;
 pub mod now;
 pub mod nudges;

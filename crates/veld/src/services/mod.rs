@@ -22,6 +22,7 @@ pub(crate) mod integrations_google;
 pub(crate) mod integrations_host;
 pub(crate) mod integrations_todoist;
 pub mod journal;
+pub mod linking;
 pub mod now;
 pub mod nudge_engine;
 pub(crate) mod operator_settings;
