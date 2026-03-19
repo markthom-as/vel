@@ -291,6 +291,37 @@ enum ExecCommand {
         #[arg(long)]
         json: bool,
     },
+    Review {
+        #[arg(long)]
+        project_id: Option<String>,
+        #[arg(long)]
+        state: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    LaunchPreview {
+        handoff_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Approve {
+        handoff_id: String,
+        #[arg(long)]
+        reviewed_by: Option<String>,
+        #[arg(long)]
+        reason: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    Reject {
+        handoff_id: String,
+        #[arg(long)]
+        reviewed_by: Option<String>,
+        #[arg(long)]
+        reason: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -1048,6 +1079,52 @@ async fn main() -> anyhow::Result<()> {
                     &client,
                     &project_id,
                     output_dir.as_deref(),
+                    json,
+                )
+                .await
+            }
+            ExecCommand::Review {
+                project_id,
+                state,
+                json,
+            } => {
+                commands::exec::run_review_handoffs(
+                    &client,
+                    project_id.as_deref(),
+                    state.as_deref(),
+                    json,
+                )
+                .await
+            }
+            ExecCommand::LaunchPreview { handoff_id, json } => {
+                commands::exec::run_preview_handoff_launch(&client, &handoff_id, json).await
+            }
+            ExecCommand::Approve {
+                handoff_id,
+                reviewed_by,
+                reason,
+                json,
+            } => {
+                commands::exec::run_approve_handoff(
+                    &client,
+                    &handoff_id,
+                    reviewed_by.as_deref().unwrap_or("operator_shell"),
+                    reason,
+                    json,
+                )
+                .await
+            }
+            ExecCommand::Reject {
+                handoff_id,
+                reviewed_by,
+                reason,
+                json,
+            } => {
+                commands::exec::run_reject_handoff(
+                    &client,
+                    &handoff_id,
+                    reviewed_by.as_deref().unwrap_or("operator_shell"),
+                    reason,
                     json,
                 )
                 .await

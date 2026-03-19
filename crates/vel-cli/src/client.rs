@@ -6,12 +6,12 @@ use vel_api_types::{
     ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
     CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
     CommitmentUpdateRequest, ConnectInstanceData, DoctorData, EndOfDayData, EvaluateResultData,
-    HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
-    LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NowData,
-    NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData,
-    ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults,
-    SyncBootstrapData, SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData,
-    UncertaintyData, ValidationRequestData,
+    ExecutionHandoffData, HealthData, IntegrationConnectionData, IntegrationConnectionEventData,
+    LinkScopeData, LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest,
+    MorningData, NowData, NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest,
+    PairingTokenData, ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest,
+    SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData, SyncResultData,
+    SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -101,6 +101,102 @@ pub struct ExecutionExportResultData {
     pub pack: ExecutionArtifactPackData,
     #[serde(default)]
     pub written_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionRoutingReasonData {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionRoutingDecisionData {
+    pub task_kind: String,
+    pub agent_profile: String,
+    pub token_budget: String,
+    pub review_gate: String,
+    #[serde(default)]
+    pub read_scopes: Vec<String>,
+    #[serde(default)]
+    pub write_scopes: Vec<String>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub reasons: Vec<ExecutionRoutingReasonData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionHandoffRecordData {
+    pub id: String,
+    pub project_id: String,
+    pub origin_kind: String,
+    pub review_state: String,
+    pub handoff: ExecutionHandoffData,
+    pub routing: ExecutionRoutingDecisionData,
+    #[serde(default)]
+    pub manifest_id: Option<String>,
+    pub requested_by: String,
+    #[serde(default)]
+    pub reviewed_by: Option<String>,
+    #[serde(default)]
+    pub decision_reason: Option<String>,
+    #[serde(default)]
+    pub reviewed_at: Option<String>,
+    #[serde(default)]
+    pub launched_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionLaunchPreviewData {
+    pub handoff_id: String,
+    pub review_state: String,
+    pub launch_ready: bool,
+    #[serde(default)]
+    pub blockers: Vec<String>,
+    pub handoff: ExecutionHandoffData,
+    pub routing: ExecutionRoutingDecisionData,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CreateExecutionHandoffRequestData {
+    pub project_id: String,
+    pub from_agent: String,
+    pub to_agent: String,
+    pub origin_kind: String,
+    pub objective: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_profile: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_budget: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_gate: Option<String>,
+    #[serde(default)]
+    pub read_scopes: Vec<String>,
+    #[serde(default)]
+    pub write_scopes: Vec<String>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub constraints: Vec<String>,
+    #[serde(default)]
+    pub inputs: serde_json::Value,
+    #[serde(default)]
+    pub expected_output_schema: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requested_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReviewExecutionHandoffRequestData {
+    pub reviewed_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_reason: Option<String>,
 }
 
 #[derive(Clone)]
@@ -707,6 +803,64 @@ impl ApiClient {
             body,
         )
         .await
+    }
+
+    pub async fn create_execution_handoff(
+        &self,
+        body: &CreateExecutionHandoffRequestData,
+    ) -> anyhow::Result<ApiResponse<ExecutionHandoffRecordData>> {
+        self.post_json("/v1/execution/handoffs", body).await
+    }
+
+    pub async fn list_execution_handoffs(
+        &self,
+        project_id: Option<&str>,
+        state: Option<&str>,
+    ) -> anyhow::Result<ApiResponse<Vec<ExecutionHandoffRecordData>>> {
+        let mut path = "/v1/execution/handoffs".to_string();
+        let mut params = Vec::new();
+        if let Some(project_id) = project_id.filter(|value| !value.trim().is_empty()) {
+            params.push(format!("project_id={project_id}"));
+        }
+        if let Some(state) = state.filter(|value| !value.trim().is_empty()) {
+            params.push(format!("state={state}"));
+        }
+        if !params.is_empty() {
+            path.push('?');
+            path.push_str(&params.join("&"));
+        }
+        self.get(&path).await
+    }
+
+    pub async fn preview_execution_handoff_launch(
+        &self,
+        handoff_id: &str,
+    ) -> anyhow::Result<ApiResponse<ExecutionLaunchPreviewData>> {
+        self.get(&format!(
+            "/v1/execution/handoffs/{handoff_id}/launch-preview"
+        ))
+        .await
+    }
+
+    pub async fn approve_execution_handoff(
+        &self,
+        handoff_id: &str,
+        body: &ReviewExecutionHandoffRequestData,
+    ) -> anyhow::Result<ApiResponse<ExecutionHandoffRecordData>> {
+        self.post_json(
+            &format!("/v1/execution/handoffs/{handoff_id}/approve"),
+            body,
+        )
+        .await
+    }
+
+    pub async fn reject_execution_handoff(
+        &self,
+        handoff_id: &str,
+        body: &ReviewExecutionHandoffRequestData,
+    ) -> anyhow::Result<ApiResponse<ExecutionHandoffRecordData>> {
+        self.post_json(&format!("/v1/execution/handoffs/{handoff_id}/reject"), body)
+            .await
     }
 
     pub async fn get_explain_nudge(

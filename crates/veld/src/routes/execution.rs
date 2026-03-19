@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,13 @@ use vel_api_types::ApiResponse;
 
 use crate::{
     errors::AppError,
-    services::execution_context::{self, ExecutionContextData},
+    services::{
+        execution_context::{self, ExecutionContextData},
+        execution_routing::{
+            self, CreateExecutionHandoffInput, HandoffOriginKind, HandoffReviewState,
+            ReviewExecutionHandoffInput,
+        },
+    },
     state::AppState,
 };
 
@@ -29,6 +35,54 @@ pub struct SaveExecutionContextRequest {
 pub struct ExecutionArtifactRequest {
     #[serde(default)]
     pub output_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ListExecutionHandoffsQuery {
+    #[serde(default)]
+    pub project_id: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateExecutionHandoffRequest {
+    pub project_id: String,
+    pub from_agent: String,
+    pub to_agent: String,
+    pub origin_kind: String,
+    pub objective: String,
+    #[serde(default)]
+    pub task_kind: Option<vel_core::ExecutionTaskKind>,
+    #[serde(default)]
+    pub agent_profile: Option<vel_core::AgentProfile>,
+    #[serde(default)]
+    pub token_budget: Option<vel_core::TokenBudgetClass>,
+    #[serde(default)]
+    pub review_gate: Option<vel_core::ExecutionReviewGate>,
+    #[serde(default)]
+    pub read_scopes: Vec<String>,
+    #[serde(default)]
+    pub write_scopes: Vec<String>,
+    #[serde(default)]
+    pub allowed_tools: Vec<String>,
+    #[serde(default)]
+    pub constraints: Vec<String>,
+    #[serde(default)]
+    pub inputs: serde_json::Value,
+    #[serde(default)]
+    pub expected_output_schema: serde_json::Value,
+    #[serde(default)]
+    pub manifest_id: Option<String>,
+    #[serde(default)]
+    pub requested_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewExecutionHandoffRequest {
+    pub reviewed_by: String,
+    #[serde(default)]
+    pub decision_reason: Option<String>,
 }
 
 pub async fn get_execution_context(
@@ -100,6 +154,116 @@ pub async fn export_execution_artifacts(
 
     Ok(Json(ApiResponse::success(
         exported,
+        format!("req_{}", Uuid::new_v4().simple()),
+    )))
+}
+
+pub async fn create_execution_handoff(
+    State(state): State<AppState>,
+    Json(payload): Json<CreateExecutionHandoffRequest>,
+) -> Result<Json<ApiResponse<execution_routing::ExecutionHandoffRecordData>>, AppError> {
+    let origin_kind: HandoffOriginKind = payload.origin_kind.parse()?;
+    let handoff = execution_routing::create_execution_handoff(
+        &state,
+        CreateExecutionHandoffInput {
+            project_id: payload.project_id,
+            from_agent: payload.from_agent,
+            to_agent: payload.to_agent,
+            origin_kind,
+            objective: payload.objective,
+            task_kind: payload.task_kind,
+            agent_profile: payload.agent_profile,
+            token_budget: payload.token_budget,
+            review_gate: payload.review_gate,
+            read_scopes: payload.read_scopes,
+            write_scopes: payload.write_scopes,
+            allowed_tools: payload.allowed_tools,
+            constraints: payload.constraints,
+            inputs: payload.inputs,
+            expected_output_schema: payload.expected_output_schema,
+            manifest_id: payload.manifest_id,
+            requested_by: payload.requested_by,
+        },
+    )
+    .await?;
+
+    Ok(Json(ApiResponse::success(
+        handoff,
+        format!("req_{}", Uuid::new_v4().simple()),
+    )))
+}
+
+pub async fn list_execution_handoffs(
+    State(state): State<AppState>,
+    Query(query): Query<ListExecutionHandoffsQuery>,
+) -> Result<Json<ApiResponse<Vec<execution_routing::ExecutionHandoffRecordData>>>, AppError> {
+    let review_state = query
+        .state
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::parse::<HandoffReviewState>)
+        .transpose()?;
+    let handoffs = execution_routing::list_execution_handoffs(
+        &state,
+        query.project_id.as_deref(),
+        review_state,
+    )
+    .await?;
+
+    Ok(Json(ApiResponse::success(
+        handoffs,
+        format!("req_{}", Uuid::new_v4().simple()),
+    )))
+}
+
+pub async fn preview_execution_handoff_launch(
+    State(state): State<AppState>,
+    Path(handoff_id): Path<String>,
+) -> Result<Json<ApiResponse<execution_routing::ExecutionLaunchPreviewData>>, AppError> {
+    let preview = execution_routing::preview_launch(&state, handoff_id.trim()).await?;
+    Ok(Json(ApiResponse::success(
+        preview,
+        format!("req_{}", Uuid::new_v4().simple()),
+    )))
+}
+
+pub async fn approve_execution_handoff(
+    State(state): State<AppState>,
+    Path(handoff_id): Path<String>,
+    Json(payload): Json<ReviewExecutionHandoffRequest>,
+) -> Result<Json<ApiResponse<execution_routing::ExecutionHandoffRecordData>>, AppError> {
+    let handoff = execution_routing::approve_execution_handoff(
+        &state,
+        handoff_id.trim(),
+        ReviewExecutionHandoffInput {
+            reviewed_by: payload.reviewed_by,
+            decision_reason: payload.decision_reason,
+        },
+    )
+    .await?;
+    Ok(Json(ApiResponse::success(
+        handoff,
+        format!("req_{}", Uuid::new_v4().simple()),
+    )))
+}
+
+pub async fn reject_execution_handoff(
+    State(state): State<AppState>,
+    Path(handoff_id): Path<String>,
+    Json(payload): Json<ReviewExecutionHandoffRequest>,
+) -> Result<Json<ApiResponse<execution_routing::ExecutionHandoffRecordData>>, AppError> {
+    let handoff = execution_routing::reject_execution_handoff(
+        &state,
+        handoff_id.trim(),
+        ReviewExecutionHandoffInput {
+            reviewed_by: payload.reviewed_by,
+            decision_reason: payload.decision_reason,
+        },
+    )
+    .await?;
+    Ok(Json(ApiResponse::success(
+        handoff,
         format!("req_{}", Uuid::new_v4().simple()),
     )))
 }

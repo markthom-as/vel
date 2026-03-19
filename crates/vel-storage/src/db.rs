@@ -4,11 +4,11 @@ use crate::{
         artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
         cluster_workers_repo, commitment_risk_repo, commitments_repo, conflict_cases_repo,
         connect_runs_repo, context_timeline_repo, current_context_repo, execution_contexts_repo,
-        inferred_state_repo, integration_connections_repo, linking_repo, nudges_repo, people_repo,
-        processing_jobs_repo, projects_repo, run_refs_repo, runs_repo, runtime_loops_repo,
-        semantic_memory_repo, settings_repo, signals_repo, suggestion_feedback_repo,
-        suggestions_repo, threads_repo, uncertainty_records_repo, upstream_refs_repo,
-        work_assignments_repo, writeback_operations_repo,
+        execution_handoffs_repo, inferred_state_repo, integration_connections_repo, linking_repo,
+        nudges_repo, people_repo, processing_jobs_repo, projects_repo, run_refs_repo, runs_repo,
+        runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
+        suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
+        upstream_refs_repo, work_assignments_repo, writeback_operations_repo,
     },
 };
 use serde::Serialize;
@@ -850,6 +850,132 @@ impl Storage {
         project_id: &str,
     ) -> Result<Option<(JsonValue, OffsetDateTime, OffsetDateTime)>, StorageError> {
         execution_contexts_repo::get_execution_context(self.pool(), project_id).await
+    }
+
+    pub async fn create_execution_handoff(
+        &self,
+        project_id: &ProjectId,
+        handoff_json: &JsonValue,
+        task_kind: &str,
+        agent_profile: &str,
+        token_budget: &str,
+        review_gate: &str,
+        origin_kind: &str,
+        review_state: &str,
+        routing_json: &JsonValue,
+        manifest_id: Option<&str>,
+        requested_by: &str,
+        now: OffsetDateTime,
+    ) -> Result<String, StorageError> {
+        execution_handoffs_repo::create_execution_handoff(
+            self.pool(),
+            project_id,
+            handoff_json,
+            task_kind,
+            agent_profile,
+            token_budget,
+            review_gate,
+            origin_kind,
+            review_state,
+            routing_json,
+            manifest_id,
+            requested_by,
+            now,
+        )
+        .await
+    }
+
+    pub async fn list_execution_handoffs(
+        &self,
+        project_id: Option<&str>,
+        review_state: Option<&str>,
+    ) -> Result<
+        Vec<(
+            String,
+            String,
+            JsonValue,
+            JsonValue,
+            String,
+            String,
+            Option<String>,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<OffsetDateTime>,
+            Option<OffsetDateTime>,
+            OffsetDateTime,
+            OffsetDateTime,
+        )>,
+        StorageError,
+    > {
+        execution_handoffs_repo::list_execution_handoffs(self.pool(), project_id, review_state)
+            .await
+    }
+
+    pub async fn get_execution_handoff(
+        &self,
+        handoff_id: &str,
+    ) -> Result<
+        Option<(
+            String,
+            String,
+            JsonValue,
+            JsonValue,
+            String,
+            String,
+            Option<String>,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<OffsetDateTime>,
+            Option<OffsetDateTime>,
+            OffsetDateTime,
+            OffsetDateTime,
+        )>,
+        StorageError,
+    > {
+        execution_handoffs_repo::get_execution_handoff(self.pool(), handoff_id).await
+    }
+
+    pub async fn update_execution_handoff_review(
+        &self,
+        handoff_id: &str,
+        review_state: &str,
+        reviewed_by: Option<&str>,
+        decision_reason: Option<&str>,
+        reviewed_at: Option<OffsetDateTime>,
+        launched_at: Option<OffsetDateTime>,
+        now: OffsetDateTime,
+    ) -> Result<
+        Option<(
+            String,
+            String,
+            JsonValue,
+            JsonValue,
+            String,
+            String,
+            Option<String>,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<OffsetDateTime>,
+            Option<OffsetDateTime>,
+            OffsetDateTime,
+            OffsetDateTime,
+        )>,
+        StorageError,
+    > {
+        execution_handoffs_repo::update_execution_handoff_review(
+            self.pool(),
+            handoff_id,
+            review_state,
+            reviewed_by,
+            decision_reason,
+            reviewed_at,
+            launched_at,
+            now,
+        )
+        .await
     }
 
     pub async fn create_person(&self, person: PersonRecord) -> Result<PersonRecord, StorageError> {

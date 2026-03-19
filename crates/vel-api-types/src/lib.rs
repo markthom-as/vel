@@ -1725,7 +1725,9 @@ impl From<vel_core::LinkScope> for LinkScopeData {
 pub struct PairingTokenData {
     pub token_id: String,
     pub token_code: String,
+    #[serde(with = "time::serde::rfc3339")]
     pub issued_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
     pub expires_at: OffsetDateTime,
     pub issued_by_node_id: String,
     pub scopes: LinkScopeData,
@@ -1748,7 +1750,9 @@ pub struct LinkingPromptData {
     pub target_node_display_name: Option<String>,
     pub issued_by_node_id: String,
     pub issued_by_node_display_name: Option<String>,
+    #[serde(with = "time::serde::rfc3339")]
     pub issued_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
     pub expires_at: OffsetDateTime,
     pub scopes: LinkScopeData,
 }
@@ -1773,7 +1777,9 @@ pub struct LinkedNodeData {
     pub node_display_name: String,
     pub status: LinkStatusData,
     pub scopes: LinkScopeData,
+    #[serde(with = "time::serde::rfc3339")]
     pub linked_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub last_seen_at: Option<OffsetDateTime>,
     pub transport_hint: Option<String>,
 }
@@ -3181,6 +3187,68 @@ mod run_datetime_contract_tests {
         assert!(value["created_at"].is_string());
         assert!(value["started_at"].is_string());
         assert!(value["finished_at"].is_string());
+    }
+}
+
+#[cfg(test)]
+mod linking_datetime_contract_tests {
+    use super::*;
+
+    #[test]
+    fn pairing_and_linking_datetimes_serialize_as_rfc3339_strings() {
+        let issued_at = OffsetDateTime::from_unix_timestamp(1_710_590_400).unwrap();
+        let expires_at = OffsetDateTime::from_unix_timestamp(1_710_590_700).unwrap();
+
+        let token = serde_json::to_value(PairingTokenData {
+            token_id: "ptok_1".to_string(),
+            token_code: "ABC123".to_string(),
+            issued_at,
+            expires_at,
+            issued_by_node_id: "vel-node".to_string(),
+            scopes: LinkScopeData {
+                read_context: true,
+                write_safe_actions: false,
+                execute_repo_tasks: false,
+            },
+            suggested_targets: Vec::new(),
+        })
+        .unwrap();
+        assert!(token["issued_at"].is_string());
+        assert!(token["expires_at"].is_string());
+
+        let prompt = serde_json::to_value(LinkingPromptData {
+            target_node_id: "node_remote".to_string(),
+            target_node_display_name: Some("Remote".to_string()),
+            issued_by_node_id: "vel-node".to_string(),
+            issued_by_node_display_name: Some("Local".to_string()),
+            issued_at,
+            expires_at,
+            scopes: LinkScopeData {
+                read_context: true,
+                write_safe_actions: false,
+                execute_repo_tasks: false,
+            },
+        })
+        .unwrap();
+        assert!(prompt["issued_at"].is_string());
+        assert!(prompt["expires_at"].is_string());
+
+        let linked = serde_json::to_value(LinkedNodeData {
+            node_id: "node_remote".to_string(),
+            node_display_name: "Remote".to_string(),
+            status: LinkStatusData::Linked,
+            scopes: LinkScopeData {
+                read_context: true,
+                write_safe_actions: false,
+                execute_repo_tasks: false,
+            },
+            linked_at: issued_at,
+            last_seen_at: Some(expires_at),
+            transport_hint: Some("tailscale".to_string()),
+        })
+        .unwrap();
+        assert!(linked["linked_at"].is_string());
+        assert!(linked["last_seen_at"].is_string());
     }
 }
 

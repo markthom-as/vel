@@ -18,6 +18,7 @@ pub mod context_runs;
 pub mod doctor;
 pub mod evaluate;
 pub mod execution_context;
+pub mod execution_routing;
 pub mod explain;
 pub mod inference;
 pub(crate) mod integration_runtime;

@@ -14,11 +14,50 @@ use crate::{errors::AppError, services::integrations};
 const FRESHNESS_ALERT_RANK: i64 = 90;
 const LINKING_ALERT_RANK: i64 = 85;
 const INTERVENTION_RANK: i64 = 80;
+const EXECUTION_HANDOFF_RANK: i64 = 78;
 const PROJECT_BLOCKED_RANK: i64 = 75;
 const WRITEBACK_PENDING_RANK: i64 = 72;
 const NEXT_COMMITMENT_RANK: i64 = 70;
 const PROJECT_REVIEW_RANK: i64 = 60;
 const SNOOZED_INTERVENTION_RANK: i64 = 40;
+
+fn task_kind_label(value: vel_core::ExecutionTaskKind) -> &'static str {
+    match value {
+        vel_core::ExecutionTaskKind::Planning => "planning",
+        vel_core::ExecutionTaskKind::Implementation => "implementation",
+        vel_core::ExecutionTaskKind::Debugging => "debugging",
+        vel_core::ExecutionTaskKind::Review => "review",
+        vel_core::ExecutionTaskKind::Research => "research",
+        vel_core::ExecutionTaskKind::Documentation => "documentation",
+    }
+}
+
+fn agent_profile_label(value: vel_core::AgentProfile) -> &'static str {
+    match value {
+        vel_core::AgentProfile::Budget => "budget",
+        vel_core::AgentProfile::Balanced => "balanced",
+        vel_core::AgentProfile::Quality => "quality",
+        vel_core::AgentProfile::Inherit => "inherit",
+    }
+}
+
+fn token_budget_label(value: vel_core::TokenBudgetClass) -> &'static str {
+    match value {
+        vel_core::TokenBudgetClass::Small => "small",
+        vel_core::TokenBudgetClass::Medium => "medium",
+        vel_core::TokenBudgetClass::Large => "large",
+        vel_core::TokenBudgetClass::Xlarge => "xlarge",
+    }
+}
+
+fn review_gate_label(value: vel_core::ExecutionReviewGate) -> &'static str {
+    match value {
+        vel_core::ExecutionReviewGate::None => "none",
+        vel_core::ExecutionReviewGate::OperatorApproval => "operator_approval",
+        vel_core::ExecutionReviewGate::OperatorPreview => "operator_preview",
+        vel_core::ExecutionReviewGate::PostRunReview => "post_run_review",
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ActionQueueSnapshot {
@@ -40,6 +79,12 @@ pub async fn build_action_items(
         .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
         .await?;
     let interventions = storage.list_interventions_active(64).await?;
+    let pending_handoffs = storage
+        .list_execution_handoffs(None, Some("pending_review"))
+        .await?
+        .into_iter()
+        .map(crate::services::execution_routing::hydrate_record)
+        .collect::<Result<Vec<_>, _>>()?;
     let pending_writebacks =
         crate::services::writeback::list_pending_writebacks(storage, 32).await?;
     let conflicts = crate::services::writeback::list_open_conflicts(storage, 32).await?;
@@ -53,6 +98,7 @@ pub async fn build_action_items(
         &integrations,
     ));
     items.extend(build_linking_items(linked_nodes));
+    items.extend(build_execution_handoff_items(&pending_handoffs));
     items.extend(build_writeback_items(&pending_writebacks));
     items.extend(build_conflict_items(&conflicts));
     items.extend(build_intervention_items(interventions));
@@ -90,6 +136,74 @@ pub async fn build_action_items(
         pending_writebacks,
         conflicts,
     })
+}
+
+fn build_execution_handoff_items(
+    records: &[crate::services::execution_routing::ExecutionHandoffRecordData],
+) -> Vec<ActionItem> {
+    records
+        .iter()
+        .map(|record| ActionItem {
+            id: ActionItemId::from(format!("act_handoff_{}", record.id)),
+            surface: ActionSurface::Now,
+            kind: ActionKind::Review,
+            title: format!(
+                "Review execution handoff: {}",
+                record.handoff.handoff.objective
+            ),
+            summary: format!(
+                "{} -> {} | review gate {} | {}",
+                record.handoff.handoff.from_agent,
+                record.handoff.handoff.to_agent,
+                review_gate_label(record.routing.review_gate),
+                record
+                    .routing
+                    .reasons
+                    .first()
+                    .map(|reason| reason.message.as_str())
+                    .unwrap_or("routing reasons available")
+            ),
+            project_id: Some(record.project_id.clone()),
+            state: ActionState::Active,
+            rank: EXECUTION_HANDOFF_RANK,
+            surfaced_at: record.updated_at,
+            snoozed_until: None,
+            evidence: execution_handoff_evidence(record),
+        })
+        .collect()
+}
+
+fn execution_handoff_evidence(
+    record: &crate::services::execution_routing::ExecutionHandoffRecordData,
+) -> Vec<ActionEvidenceRef> {
+    let mut evidence = vec![ActionEvidenceRef {
+        source_kind: "execution_handoff".to_string(),
+        source_id: record.id.clone(),
+        label: format!(
+            "{} · {} · {}",
+            task_kind_label(record.routing.task_kind),
+            agent_profile_label(record.routing.agent_profile),
+            token_budget_label(record.routing.token_budget)
+        ),
+        detail: Some(format!(
+            "{} | write scopes: {}",
+            record
+                .routing
+                .reasons
+                .iter()
+                .map(|reason| reason.code.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+            record.routing.write_scopes.join(", ")
+        )),
+    }];
+    evidence.push(ActionEvidenceRef {
+        source_kind: "trace".to_string(),
+        source_id: record.handoff.handoff.trace_id.to_string(),
+        label: "Trace".to_string(),
+        detail: Some(record.handoff.handoff.trace_id.to_string()),
+    });
+    evidence
 }
 
 fn build_writeback_items(records: &[WritebackOperationRecord]) -> Vec<ActionItem> {

@@ -199,7 +199,10 @@ Plans:
 **Goal:** Add lightweight backup/export and simple control surfaces that reduce fear of loss, while keeping restore/recovery and advanced policy surfaces intentionally smaller than the core daily loop.
 **Requirements**: BACKUP-01, BACKUP-02, CTRL-01, CTRL-02
 **Depends on:** Phase 8
-**Plans:** 0 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] TBD (phase should prioritize backup/export trust, inspectable control surfaces, and operator-visible safety state before deeper recovery automation)
+- [ ] 09-01-PLAN.md — Ratify Phase 09 requirements and publish backup manifest/trust contracts before runtime work widens
+- [ ] 09-02-PLAN.md — Implement the snapshot-backed backup service, persisted history, and real CLI/API trust path
+- [ ] 09-03-PLAN.md — Surface backup freshness and safety state through doctor, settings, CLI, and web runtime views
+- [ ] 09-04-PLAN.md — Close with manual restore guidance, non-destructive verification, and narrow validation evidence

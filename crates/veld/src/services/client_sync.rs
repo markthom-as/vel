@@ -642,10 +642,7 @@ pub async fn effective_cluster_bootstrap(state: &AppState) -> Result<ClusterBoot
 }
 
 fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBootstrap {
-    let node_id = config
-        .node_id
-        .clone()
-        .unwrap_or_else(|| "vel-node".to_string());
+    let node_id = inferred_node_id(config);
     let node_display_name = config
         .node_display_name
         .clone()
@@ -680,6 +677,63 @@ fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBoots
         conflicts: vec![],
         people: vec![],
     }
+}
+
+fn inferred_node_id(config: &vel_config::AppConfig) -> String {
+    config
+        .node_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+        .or_else(|| {
+            [
+                config.tailscale_base_url.as_deref(),
+                config.lan_base_url.as_deref(),
+                Some(config.base_url.as_str()),
+            ]
+            .into_iter()
+            .flatten()
+            .find_map(node_id_from_base_url)
+        })
+        .or_else(|| {
+            std::env::var("HOSTNAME")
+                .ok()
+                .as_deref()
+                .map(normalize_node_id_fragment)
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or_else(|| "vel-node".to_string())
+}
+
+fn node_id_from_base_url(base_url: &str) -> Option<String> {
+    let parsed = reqwest::Url::parse(base_url).ok()?;
+    let host = parsed.host_str()?.trim();
+    let normalized = normalize_node_id_fragment(host);
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized)
+    }
+}
+
+fn normalize_node_id_fragment(value: &str) -> String {
+    let mut normalized = String::with_capacity(value.len());
+    let mut last_was_dash = false;
+    for ch in value.trim().chars() {
+        let next = if ch.is_ascii_alphanumeric() {
+            last_was_dash = false;
+            ch.to_ascii_lowercase()
+        } else {
+            if last_was_dash {
+                continue;
+            }
+            last_was_dash = true;
+            '-'
+        };
+        normalized.push(next);
+    }
+    normalized.trim_matches('-').to_string()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2644,5 +2698,17 @@ mod tests {
 
         assert_eq!(url, "http://127.0.0.1:4130");
         assert_eq!(transport, "localhost");
+    }
+
+    #[test]
+    fn inferred_node_id_prefers_advertised_transport_host_when_unset() {
+        let mut config = vel_config::AppConfig::default();
+        config.tailscale_base_url =
+            Some("http://joves-macbook-pro.ghost-neon.ts.net:4130".to_string());
+
+        assert_eq!(
+            inferred_node_id(&config),
+            "joves-macbook-pro-ghost-neon-ts-net"
+        );
     }
 }

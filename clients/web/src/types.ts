@@ -346,6 +346,106 @@ export interface ProjectRecordData {
   archived_at: Rfc3339Timestamp | null;
 }
 
+export type ExecutionTaskKindData =
+  | 'planning'
+  | 'implementation'
+  | 'debugging'
+  | 'review'
+  | 'research'
+  | 'documentation';
+export type AgentProfileData = 'budget' | 'balanced' | 'quality' | 'inherit';
+export type TokenBudgetClassData = 'small' | 'medium' | 'large' | 'xlarge';
+export type ExecutionReviewGateData =
+  | 'none'
+  | 'operator_approval'
+  | 'operator_preview'
+  | 'post_run_review';
+export type ExecutionHandoffOriginKindData = 'human_to_agent' | 'agent_to_agent';
+export type ExecutionHandoffReviewStateData = 'pending_review' | 'approved' | 'rejected';
+
+export interface RepoWorktreeRefData {
+  path: string;
+  label: string;
+  branch: string | null;
+  head_rev: string | null;
+}
+
+export interface HandoffEnvelopeData {
+  task_id: string;
+  trace_id: string;
+  from_agent: string;
+  to_agent: string;
+  objective: string;
+  inputs: JsonValue;
+  constraints: string[];
+  read_scopes: string[];
+  write_scopes: string[];
+  project_id: string | null;
+  task_kind: ExecutionTaskKindData | null;
+  agent_profile: AgentProfileData | null;
+  token_budget: TokenBudgetClassData | null;
+  review_gate: ExecutionReviewGateData | null;
+  repo_root: RepoWorktreeRefData | null;
+  allowed_tools: string[];
+  capability_scope: JsonValue;
+  deadline: Rfc3339Timestamp | null;
+  expected_output_schema: JsonValue;
+}
+
+export interface ExecutionHandoffData {
+  handoff: HandoffEnvelopeData;
+  project_id: string;
+  task_kind: ExecutionTaskKindData;
+  agent_profile: AgentProfileData;
+  token_budget: TokenBudgetClassData;
+  review_gate: ExecutionReviewGateData;
+  repo: RepoWorktreeRefData;
+  notes_root: ProjectRootRefData;
+  manifest_id: string | null;
+}
+
+export interface ExecutionRoutingReasonData {
+  code: string;
+  message: string;
+}
+
+export interface ExecutionRoutingDecisionData {
+  task_kind: ExecutionTaskKindData;
+  agent_profile: AgentProfileData;
+  token_budget: TokenBudgetClassData;
+  review_gate: ExecutionReviewGateData;
+  read_scopes: string[];
+  write_scopes: string[];
+  allowed_tools: string[];
+  reasons: ExecutionRoutingReasonData[];
+}
+
+export interface ExecutionHandoffRecordData {
+  id: string;
+  project_id: string;
+  origin_kind: ExecutionHandoffOriginKindData;
+  review_state: ExecutionHandoffReviewStateData;
+  handoff: ExecutionHandoffData;
+  routing: ExecutionRoutingDecisionData;
+  manifest_id: string | null;
+  requested_by: string;
+  reviewed_by: string | null;
+  decision_reason: string | null;
+  reviewed_at: Rfc3339Timestamp | null;
+  launched_at: Rfc3339Timestamp | null;
+  created_at: Rfc3339Timestamp;
+  updated_at: Rfc3339Timestamp;
+}
+
+export interface ExecutionLaunchPreviewData {
+  handoff_id: string;
+  review_state: ExecutionHandoffReviewStateData;
+  launch_ready: boolean;
+  blockers: string[];
+  handoff: ExecutionHandoffData;
+  routing: ExecutionRoutingDecisionData;
+}
+
 export interface ProjectCreateRequestData {
   slug: string;
   name: string;
@@ -411,6 +511,103 @@ export interface ActionItemData {
   surfaced_at: Rfc3339Timestamp;
   snoozed_until: Rfc3339Timestamp | null;
   evidence: ActionEvidenceRefData[];
+}
+
+export type ExecutionTaskKindData =
+  | 'planning'
+  | 'implementation'
+  | 'debugging'
+  | 'review'
+  | 'research'
+  | 'documentation';
+export type AgentProfileData = 'budget' | 'balanced' | 'quality' | 'inherit';
+export type TokenBudgetClassData = 'small' | 'medium' | 'large' | 'xlarge';
+export type ExecutionReviewGateData =
+  | 'none'
+  | 'operator_approval'
+  | 'operator_preview'
+  | 'post_run_review';
+export type ExecutionHandoffOriginKindData = 'human_to_agent' | 'agent_to_agent';
+export type ExecutionHandoffReviewStateData = 'pending_review' | 'approved' | 'rejected';
+
+export interface RepoWorktreeRefData {
+  path: string;
+  label: string;
+  branch: string | null;
+  head_rev: string | null;
+}
+
+export interface ProjectRootRefData {
+  path: string;
+  label: string;
+  kind: string;
+}
+
+export interface ExecutionHandoffEnvelopeData {
+  task_id: string;
+  trace_id: string;
+  from_agent: string;
+  to_agent: string;
+  objective: string;
+  inputs: JsonValue;
+  constraints: string[];
+  read_scopes: string[];
+  write_scopes: string[];
+  project_id: string | null;
+  task_kind: ExecutionTaskKindData | null;
+  agent_profile: AgentProfileData | null;
+  token_budget: TokenBudgetClassData | null;
+  review_gate: ExecutionReviewGateData | null;
+  repo_root: RepoWorktreeRefData | null;
+  allowed_tools: string[];
+  capability_scope: JsonValue;
+  deadline: Rfc3339Timestamp | null;
+  expected_output_schema: JsonValue;
+}
+
+export interface ExecutionHandoffData {
+  handoff: ExecutionHandoffEnvelopeData;
+  project_id: string;
+  task_kind: ExecutionTaskKindData;
+  agent_profile: AgentProfileData;
+  token_budget: TokenBudgetClassData;
+  review_gate: ExecutionReviewGateData;
+  repo: RepoWorktreeRefData;
+  notes_root: ProjectRootRefData;
+  manifest_id: string | null;
+}
+
+export interface RoutingReasonData {
+  code: string;
+  message: string;
+}
+
+export interface ExecutionRoutingDecisionData {
+  task_kind: ExecutionTaskKindData;
+  agent_profile: AgentProfileData;
+  token_budget: TokenBudgetClassData;
+  review_gate: ExecutionReviewGateData;
+  read_scopes: string[];
+  write_scopes: string[];
+  allowed_tools: string[];
+  reasons: RoutingReasonData[];
+}
+
+export interface ExecutionHandoffRecordData {
+  id: string;
+  project_id: string;
+  origin_kind: ExecutionHandoffOriginKindData;
+  review_state: ExecutionHandoffReviewStateData;
+  handoff: ExecutionHandoffData;
+  routing: ExecutionRoutingDecisionData;
+  manifest_id: string | null;
+  requested_by: string;
+  reviewed_by: string | null;
+  decision_reason: string | null;
+  reviewed_at: Rfc3339Timestamp | null;
+  launched_at: Rfc3339Timestamp | null;
+  created_at: Rfc3339Timestamp;
+  updated_at: Rfc3339Timestamp;
 }
 
 export interface ReviewSnapshotData {
@@ -1170,6 +1367,211 @@ export function decodeActionItemData(value: unknown): ActionItemData {
       'action item.snoozed_until',
     ),
     evidence: decodeArray(record.evidence ?? [], decodeActionEvidenceRefData),
+  };
+}
+
+export function decodeExecutionTaskKindData(value: unknown): ExecutionTaskKindData {
+  return expectEnumString(value, 'execution task kind', [
+    'planning',
+    'implementation',
+    'debugging',
+    'review',
+    'research',
+    'documentation',
+  ]);
+}
+
+export function decodeAgentProfileData(value: unknown): AgentProfileData {
+  return expectEnumString(value, 'agent profile', [
+    'budget',
+    'balanced',
+    'quality',
+    'inherit',
+  ]);
+}
+
+export function decodeTokenBudgetClassData(value: unknown): TokenBudgetClassData {
+  return expectEnumString(value, 'token budget class', [
+    'small',
+    'medium',
+    'large',
+    'xlarge',
+  ]);
+}
+
+export function decodeExecutionReviewGateData(value: unknown): ExecutionReviewGateData {
+  return expectEnumString(value, 'execution review gate', [
+    'none',
+    'operator_approval',
+    'operator_preview',
+    'post_run_review',
+  ]);
+}
+
+export function decodeExecutionHandoffOriginKindData(
+  value: unknown,
+): ExecutionHandoffOriginKindData {
+  return expectEnumString(value, 'execution handoff origin kind', [
+    'human_to_agent',
+    'agent_to_agent',
+  ]);
+}
+
+export function decodeExecutionHandoffReviewStateData(
+  value: unknown,
+): ExecutionHandoffReviewStateData {
+  return expectEnumString(value, 'execution handoff review state', [
+    'pending_review',
+    'approved',
+    'rejected',
+  ]);
+}
+
+export function decodeRepoWorktreeRefData(value: unknown): RepoWorktreeRefData {
+  const record = expectRecord(value, 'repo worktree ref');
+  return {
+    path: expectString(record.path, 'repo worktree ref.path'),
+    label: expectString(record.label, 'repo worktree ref.label'),
+    branch: expectNullableString(record.branch, 'repo worktree ref.branch'),
+    head_rev: expectNullableString(record.head_rev, 'repo worktree ref.head_rev'),
+  };
+}
+
+export function decodeProjectRootRefData(value: unknown): ProjectRootRefData {
+  const record = expectRecord(value, 'project root ref');
+  return {
+    path: expectString(record.path, 'project root ref.path'),
+    label: expectString(record.label, 'project root ref.label'),
+    kind: expectString(record.kind, 'project root ref.kind'),
+  };
+}
+
+export function decodeExecutionHandoffEnvelopeData(value: unknown): ExecutionHandoffEnvelopeData {
+  const record = expectRecord(value, 'execution handoff envelope');
+  return {
+    task_id: expectString(record.task_id, 'execution handoff envelope.task_id'),
+    trace_id: expectString(record.trace_id, 'execution handoff envelope.trace_id'),
+    from_agent: expectString(record.from_agent, 'execution handoff envelope.from_agent'),
+    to_agent: expectString(record.to_agent, 'execution handoff envelope.to_agent'),
+    objective: expectString(record.objective, 'execution handoff envelope.objective'),
+    inputs: decodeJsonValue(record.inputs),
+    constraints: decodeArray(
+      record.constraints ?? [],
+      (item) => expectString(item, 'execution handoff envelope.constraints'),
+    ),
+    read_scopes: decodeArray(
+      record.read_scopes ?? [],
+      (item) => expectString(item, 'execution handoff envelope.read_scopes'),
+    ),
+    write_scopes: decodeArray(
+      record.write_scopes ?? [],
+      (item) => expectString(item, 'execution handoff envelope.write_scopes'),
+    ),
+    project_id: expectNullableString(record.project_id, 'execution handoff envelope.project_id'),
+    task_kind: decodeNullable(record.task_kind, decodeExecutionTaskKindData),
+    agent_profile: decodeNullable(record.agent_profile, decodeAgentProfileData),
+    token_budget: decodeNullable(record.token_budget, decodeTokenBudgetClassData),
+    review_gate: decodeNullable(record.review_gate, decodeExecutionReviewGateData),
+    repo_root: decodeNullable(record.repo_root, decodeRepoWorktreeRefData),
+    allowed_tools: decodeArray(
+      record.allowed_tools ?? [],
+      (item) => expectString(item, 'execution handoff envelope.allowed_tools'),
+    ),
+    capability_scope: decodeJsonValue(record.capability_scope),
+    deadline: expectNullableRfc3339Timestamp(
+      record.deadline,
+      'execution handoff envelope.deadline',
+    ),
+    expected_output_schema: decodeJsonValue(record.expected_output_schema),
+  };
+}
+
+export function decodeExecutionHandoffData(value: unknown): ExecutionHandoffData {
+  const record = expectRecord(value, 'execution handoff');
+  return {
+    handoff: decodeExecutionHandoffEnvelopeData(record.handoff),
+    project_id: expectString(record.project_id, 'execution handoff.project_id'),
+    task_kind: decodeExecutionTaskKindData(record.task_kind),
+    agent_profile: decodeAgentProfileData(record.agent_profile),
+    token_budget: decodeTokenBudgetClassData(record.token_budget),
+    review_gate: decodeExecutionReviewGateData(record.review_gate),
+    repo: decodeRepoWorktreeRefData(record.repo),
+    notes_root: decodeProjectRootRefData(record.notes_root),
+    manifest_id: expectNullableString(record.manifest_id, 'execution handoff.manifest_id'),
+  };
+}
+
+export function decodeRoutingReasonData(value: unknown): RoutingReasonData {
+  const record = expectRecord(value, 'routing reason');
+  return {
+    code: expectString(record.code, 'routing reason.code'),
+    message: expectString(record.message, 'routing reason.message'),
+  };
+}
+
+export function decodeExecutionRoutingDecisionData(
+  value: unknown,
+): ExecutionRoutingDecisionData {
+  const record = expectRecord(value, 'execution routing decision');
+  return {
+    task_kind: decodeExecutionTaskKindData(record.task_kind),
+    agent_profile: decodeAgentProfileData(record.agent_profile),
+    token_budget: decodeTokenBudgetClassData(record.token_budget),
+    review_gate: decodeExecutionReviewGateData(record.review_gate),
+    read_scopes: decodeArray(
+      record.read_scopes ?? [],
+      (item) => expectString(item, 'execution routing decision.read_scopes'),
+    ),
+    write_scopes: decodeArray(
+      record.write_scopes ?? [],
+      (item) => expectString(item, 'execution routing decision.write_scopes'),
+    ),
+    allowed_tools: decodeArray(
+      record.allowed_tools ?? [],
+      (item) => expectString(item, 'execution routing decision.allowed_tools'),
+    ),
+    reasons: decodeArray(record.reasons ?? [], decodeRoutingReasonData),
+  };
+}
+
+export function decodeExecutionHandoffRecordData(value: unknown): ExecutionHandoffRecordData {
+  const record = expectRecord(value, 'execution handoff record');
+  return {
+    id: expectString(record.id, 'execution handoff record.id'),
+    project_id: expectString(record.project_id, 'execution handoff record.project_id'),
+    origin_kind: decodeExecutionHandoffOriginKindData(record.origin_kind),
+    review_state: decodeExecutionHandoffReviewStateData(record.review_state),
+    handoff: decodeExecutionHandoffData(record.handoff),
+    routing: decodeExecutionRoutingDecisionData(record.routing),
+    manifest_id: expectNullableString(
+      record.manifest_id,
+      'execution handoff record.manifest_id',
+    ),
+    requested_by: expectString(record.requested_by, 'execution handoff record.requested_by'),
+    reviewed_by: expectNullableString(
+      record.reviewed_by,
+      'execution handoff record.reviewed_by',
+    ),
+    decision_reason: expectNullableString(
+      record.decision_reason,
+      'execution handoff record.decision_reason',
+    ),
+    reviewed_at: expectNullableRfc3339Timestamp(
+      record.reviewed_at,
+      'execution handoff record.reviewed_at',
+    ),
+    launched_at: expectNullableRfc3339Timestamp(
+      record.launched_at,
+      'execution handoff record.launched_at',
+    ),
+    created_at: expectRfc3339Timestamp(
+      record.created_at,
+      'execution handoff record.created_at',
+    ),
+    updated_at: expectRfc3339Timestamp(
+      record.updated_at,
+      'execution handoff record.updated_at',
+    ),
   };
 }
 

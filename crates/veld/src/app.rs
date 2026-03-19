@@ -95,6 +95,23 @@ fn operator_authenticated_routes() -> Router<AppState> {
             "/v1/execution/projects/:id/export",
             post(routes::execution::export_execution_artifacts),
         )
+        .route(
+            "/v1/execution/handoffs",
+            get(routes::execution::list_execution_handoffs)
+                .post(routes::execution::create_execution_handoff),
+        )
+        .route(
+            "/v1/execution/handoffs/:id/launch-preview",
+            get(routes::execution::preview_execution_handoff_launch),
+        )
+        .route(
+            "/v1/execution/handoffs/:id/approve",
+            post(routes::execution::approve_execution_handoff),
+        )
+        .route(
+            "/v1/execution/handoffs/:id/reject",
+            post(routes::execution::reject_execution_handoff),
+        )
         .route("/v1/people", get(routes::people::list_people))
         .route("/v1/people/:id", get(routes::people::get_person))
         .route(
