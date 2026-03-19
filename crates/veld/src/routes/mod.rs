@@ -9,6 +9,7 @@ pub mod commitments;
 pub mod components;
 pub mod connect;
 pub mod context;
+pub mod daily_loop;
 pub mod diagnostics;
 pub mod doctor;
 pub mod evaluate;

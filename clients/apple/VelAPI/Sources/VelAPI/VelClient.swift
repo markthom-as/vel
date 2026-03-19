@@ -156,6 +156,33 @@ public final class VelClient {
         try await get("/v1/apple/behavior-summary")
     }
 
+    public func startDailyLoopSession(_ request: DailyLoopStartRequestData) async throws -> DailyLoopSessionData {
+        try await post("/v1/daily-loop/sessions", body: request)
+    }
+
+    public func activeDailyLoopSession(
+        sessionDate: String,
+        phase: DailyLoopPhaseData
+    ) async throws -> DailyLoopSessionData? {
+        let encodedDate = sessionDate.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? sessionDate
+        return try await get("/v1/daily-loop/sessions/active?session_date=\(encodedDate)&phase=\(phase.rawValue)")
+    }
+
+    public func submitDailyLoopTurn(
+        sessionID: String,
+        action: DailyLoopTurnActionData,
+        responseText: String? = nil
+    ) async throws -> DailyLoopSessionData {
+        try await post(
+            "/v1/daily-loop/sessions/\(sessionID)/turn",
+            body: DailyLoopTurnRequestData(
+                session_id: sessionID,
+                action: action,
+                response_text: responseText
+            )
+        )
+    }
+
     // MARK: - Private
 
     private func get<T: Decodable>(_ path: String) async throws -> T {

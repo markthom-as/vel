@@ -177,6 +177,18 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/context/today", get(routes::context::today))
         .route("/v1/context/morning", get(routes::context::morning))
         .route("/v1/context/end-of-day", get(routes::context::end_of_day))
+        .route(
+            "/v1/daily-loop/sessions",
+            post(routes::daily_loop::start_session),
+        )
+        .route(
+            "/v1/daily-loop/sessions/active",
+            get(routes::daily_loop::active_session),
+        )
+        .route(
+            "/v1/daily-loop/sessions/:id/turn",
+            post(routes::daily_loop::submit_turn),
+        )
         .route("/v1/context/current", get(routes::context::current))
         .route("/v1/context/timeline", get(routes::context::timeline))
         .route(

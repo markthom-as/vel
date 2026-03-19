@@ -21,7 +21,9 @@ pub async fn apple_behavior_summary(
 /// POST /v1/apple/voice/turn
 ///
 /// Apple voice turns are backend-owned. Swift clients submit transcript + intent hints and render
-/// the typed response; schedule/query answers remain grounded in backend `/v1/now` truth.
+/// the typed response; MorningBriefing intents start or resume the shared `/v1/daily-loop/*`
+/// authority after transcript capture, while other schedule/query answers remain grounded in
+/// backend `/v1/now` truth.
 pub async fn apple_voice_turn(
     State(state): State<AppState>,
     Json(payload): Json<AppleVoiceTurnRequestData>,

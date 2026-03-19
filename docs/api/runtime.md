@@ -257,6 +257,17 @@ CLI fallback when the web shell is unavailable:
 ### `GET /v1/context/end-of-day`
 
 - run-backed context generation endpoints
+- `GET /v1/context/morning` remains available as the legacy context brief; it is not the bounded Phase 10 morning/standup session authority
+
+### `POST /v1/daily-loop/sessions`
+### `GET /v1/daily-loop/sessions/active`
+### `POST /v1/daily-loop/sessions/:id/turn`
+
+- backend-owned morning overview and standup session-turn authority
+- shared by CLI (`vel morning`, `vel standup`), web Now, and Apple clients
+- `POST /v1/daily-loop/sessions` starts a typed session for `phase=morning_overview` or `phase=standup`
+- `GET /v1/daily-loop/sessions/active` resumes the active session for a `session_date` and `phase`
+- `POST /v1/daily-loop/sessions/:id/turn` advances the current prompt with bounded submit/skip actions and returns the updated typed session
 
 ### `GET /v1/context/current`
 ### `GET /v1/context/timeline`
@@ -272,7 +283,7 @@ CLI fallback when the web shell is unavailable:
 ### `GET /v1/apple/behavior-summary`
 
 - operator-authenticated Apple shell routes for iPhone/watch quick loops
-- `POST /v1/apple/voice/turn` persists transcript provenance first, then returns a typed backend-owned reply for supported Apple intents
+- `POST /v1/apple/voice/turn` persists transcript provenance first, then returns a typed backend-owned reply for supported Apple intents; `MorningBriefing` delegates into the shared `/v1/daily-loop/*` authority after transcript capture instead of using a separate Apple-only morning policy path
 - `GET /v1/apple/behavior-summary` returns the bounded daily behavior rollup used by Apple quick-loop surfaces
 - Apple clients should send the same operator auth headers as the rest of `/v1/*` (`x-vel-operator-token` or `Authorization: Bearer <token>`) when token policy is configured
 - safe offline Apple mutations should continue to reuse `POST /v1/sync/actions`; clients should not invent a parallel Apple-only write lane

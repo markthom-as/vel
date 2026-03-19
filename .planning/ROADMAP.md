@@ -20,7 +20,7 @@ Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical base
 - [x] **Phase 7: Apple action loops and behavioral signal ingestion** - Prioritize fast iOS/watch actions and directly useful behavior signals (COMPLETE)
 - [x] **Phase 8: Coding-centric supervised execution with GSD and local agents** - Launch and supervise coding-first runtimes with direct GSD integration and local-agent support (COMPLETE)
 - [x] **Phase 9: Backup-first trust surfaces and simple operator control** - Add backup-first trust workflows and keep control/config surfaces simple (COMPLETE)
-- [ ] **Phase 10: Daily-loop morning overview and standup commitment engine** - Turn `Now`, calendar, Todoist, commitments, and voice into a bounded daily prioritization loop
+- [x] **Phase 10: Daily-loop morning overview and standup commitment engine** - Turn `Now`, calendar, Todoist, commitments, and voice into a bounded daily prioritization loop (completed 2026-03-19)
 - [ ] **Phase 11: Agent grounding and operator-relevant data/tool awareness** - Make supervised agents aware of real Vel state, projects, people, commitments, and bounded tool surfaces
 - [ ] **Phase 12: Operator shell, onboarding, and connector ergonomics** - Make the daily loop and integration surfaces easier to adopt, navigate, and trust
 
@@ -132,7 +132,7 @@ Remaining execution order: 10 → 11 → 12
 | 7. Apple action loops and behavioral signal ingestion | 4/4 | Complete | 2026-03-19 |
 | 8. Coding-centric supervised execution with GSD and local agents | 6/6 | Complete | 2026-03-19 |
 | 9. Backup-first trust surfaces and simple operator control | 4/4 | Complete | 2026-03-19 |
-| 10. Daily-loop morning overview and standup commitment engine | 0/5 | Planned | - |
+| 10. Daily-loop morning overview and standup commitment engine | 5/5 | Complete   | 2026-03-19 |
 | 11. Agent grounding and operator-relevant data/tool awareness | 0/3 | Planned | - |
 | 12. Operator shell, onboarding, and connector ergonomics | 0/0 | Not planned | - |
 
@@ -218,7 +218,7 @@ Plans:
 **Goal:** Turn the existing `Now`, commitments, calendar/Todoist input, and Apple/backend voice seams into a strict daily loop: a short morning overview that produces signals but no commitments, followed by a bounded standup that compresses work into 1-3 daily commitments, explicit deferrals, and focus-time protection.
 **Requirements**: MORNING-01, MORNING-02, MORNING-03, STANDUP-01, STANDUP-02, STANDUP-03, SESSION-01, VOICE-01
 **Depends on:** Phase 7 foundations; sequenced after Phase 9 in roadmap order
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
 **Priority note:** This is the highest-value product phase after the current backup/trust lane because the repo already has partial `Now`, commitment, calendar, Todoist, and Apple voice primitives, but not yet one coherent <3 minute daily decision loop.
 **Included from CSV triage:** morning overview, standup/commitment compression, focus-time shaping, bounded voice-or-text flow, and action-stack quality work such as deduplicating repeated suggestions so the daily loop stays trustworthy.

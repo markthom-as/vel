@@ -933,6 +933,109 @@ export interface NowData {
   debug: NowDebugData;
 }
 
+export type DailyLoopPhaseData = 'morning_overview' | 'standup';
+export type DailyLoopStatusData =
+  | 'active'
+  | 'waiting_for_input'
+  | 'completed'
+  | 'cancelled';
+export type DailyLoopStartSourceData = 'manual' | 'automatic';
+export type DailyLoopSurfaceData = 'cli' | 'web' | 'apple_voice' | 'apple_text';
+export type DailyLoopTurnActionData = 'submit' | 'skip' | 'resume';
+export type DailyLoopTurnStateData = 'in_progress' | 'waiting_for_input' | 'completed';
+export type DailyLoopPromptKindData =
+  | 'intent_question'
+  | 'commitment_reduction'
+  | 'constraint_check';
+export type DailyStandupBucketData = 'must' | 'should' | 'stretch';
+
+export interface DailyLoopStartMetadataData {
+  source: DailyLoopStartSourceData;
+  surface: DailyLoopSurfaceData;
+}
+
+export interface DailyLoopStartRequestData {
+  phase: DailyLoopPhaseData;
+  session_date: string;
+  start: DailyLoopStartMetadataData;
+}
+
+export interface DailyLoopTurnRequestData {
+  session_id: string;
+  action: DailyLoopTurnActionData;
+  response_text: string | null;
+}
+
+export interface DailyLoopPromptData {
+  prompt_id: string;
+  kind: DailyLoopPromptKindData;
+  text: string;
+  ordinal: number;
+  allow_skip: boolean;
+}
+
+export interface MorningFrictionCalloutData {
+  label: string;
+  detail: string;
+}
+
+export type MorningIntentSignalData =
+  | { kind: 'must_do_hint'; text: string }
+  | { kind: 'focus_intent'; text: string }
+  | { kind: 'meeting_doubt'; text: string };
+
+export interface MorningOverviewStateData {
+  snapshot: string;
+  friction_callouts: MorningFrictionCalloutData[];
+  signals: MorningIntentSignalData[];
+}
+
+export interface DailyCommitmentDraftData {
+  title: string;
+  bucket: DailyStandupBucketData;
+  source_ref: string | null;
+}
+
+export interface DailyDeferredTaskData {
+  title: string;
+  source_ref: string | null;
+  reason: string;
+}
+
+export interface DailyFocusBlockProposalData {
+  label: string;
+  start_at: Rfc3339Timestamp;
+  end_at: Rfc3339Timestamp;
+  reason: string;
+}
+
+export interface DailyStandupOutcomeData {
+  commitments: DailyCommitmentDraftData[];
+  deferred_tasks: DailyDeferredTaskData[];
+  confirmed_calendar: string[];
+  focus_blocks: DailyFocusBlockProposalData[];
+}
+
+export type DailyLoopSessionOutcomeData =
+  | { phase: 'morning_overview'; signals: MorningIntentSignalData[] }
+  | ({ phase: 'standup' } & DailyStandupOutcomeData);
+
+export type DailyLoopSessionStateData =
+  | ({ phase: 'morning_overview' } & MorningOverviewStateData)
+  | ({ phase: 'standup' } & DailyStandupOutcomeData);
+
+export interface DailyLoopSessionData {
+  id: string;
+  session_date: string;
+  phase: DailyLoopPhaseData;
+  status: DailyLoopStatusData;
+  start: DailyLoopStartMetadataData;
+  turn_state: DailyLoopTurnStateData;
+  current_prompt: DailyLoopPromptData | null;
+  state: DailyLoopSessionStateData;
+  outcome: DailyLoopSessionOutcomeData | null;
+}
+
 export interface CommitmentData {
   id: string;
   text: string;
@@ -1853,6 +1956,193 @@ export function decodeNowData(value: unknown): NowData {
       commitments_used: decodeArray(debug.commitments_used ?? [], (item) => expectString(item, 'now data.debug.commitments_used')),
       risk_used: decodeArray(debug.risk_used ?? [], (item) => expectString(item, 'now data.debug.risk_used')),
     },
+  };
+}
+
+export function decodeDailyLoopPhaseData(value: unknown): DailyLoopPhaseData {
+  return expectEnumString(value, 'daily loop phase', ['morning_overview', 'standup']);
+}
+
+export function decodeDailyLoopStatusData(value: unknown): DailyLoopStatusData {
+  return expectEnumString(value, 'daily loop status', [
+    'active',
+    'waiting_for_input',
+    'completed',
+    'cancelled',
+  ]);
+}
+
+export function decodeDailyLoopStartSourceData(value: unknown): DailyLoopStartSourceData {
+  return expectEnumString(value, 'daily loop start source', ['manual', 'automatic']);
+}
+
+export function decodeDailyLoopSurfaceData(value: unknown): DailyLoopSurfaceData {
+  return expectEnumString(value, 'daily loop surface', ['cli', 'web', 'apple_voice', 'apple_text']);
+}
+
+export function decodeDailyLoopTurnActionData(value: unknown): DailyLoopTurnActionData {
+  return expectEnumString(value, 'daily loop turn action', ['submit', 'skip', 'resume']);
+}
+
+export function decodeDailyLoopTurnStateData(value: unknown): DailyLoopTurnStateData {
+  return expectEnumString(value, 'daily loop turn state', [
+    'in_progress',
+    'waiting_for_input',
+    'completed',
+  ]);
+}
+
+export function decodeDailyLoopPromptKindData(value: unknown): DailyLoopPromptKindData {
+  return expectEnumString(value, 'daily loop prompt kind', [
+    'intent_question',
+    'commitment_reduction',
+    'constraint_check',
+  ]);
+}
+
+export function decodeDailyStandupBucketData(value: unknown): DailyStandupBucketData {
+  return expectEnumString(value, 'daily standup bucket', ['must', 'should', 'stretch']);
+}
+
+export function decodeDailyLoopStartMetadataData(value: unknown): DailyLoopStartMetadataData {
+  const record = expectRecord(value, 'daily loop start metadata');
+  return {
+    source: decodeDailyLoopStartSourceData(record.source),
+    surface: decodeDailyLoopSurfaceData(record.surface),
+  };
+}
+
+export function decodeDailyLoopPromptData(value: unknown): DailyLoopPromptData {
+  const record = expectRecord(value, 'daily loop prompt');
+  return {
+    prompt_id: expectString(record.prompt_id, 'daily loop prompt.prompt_id'),
+    kind: decodeDailyLoopPromptKindData(record.kind),
+    text: expectString(record.text, 'daily loop prompt.text'),
+    ordinal: expectNumber(record.ordinal, 'daily loop prompt.ordinal'),
+    allow_skip: expectBoolean(record.allow_skip, 'daily loop prompt.allow_skip'),
+  };
+}
+
+export function decodeMorningFrictionCalloutData(value: unknown): MorningFrictionCalloutData {
+  const record = expectRecord(value, 'morning friction callout');
+  return {
+    label: expectString(record.label, 'morning friction callout.label'),
+    detail: expectString(record.detail, 'morning friction callout.detail'),
+  };
+}
+
+export function decodeMorningIntentSignalData(value: unknown): MorningIntentSignalData {
+  const record = expectRecord(value, 'morning intent signal');
+  const kind = expectEnumString(record.kind, 'morning intent signal.kind', [
+    'must_do_hint',
+    'focus_intent',
+    'meeting_doubt',
+  ]);
+  const text = expectString(record.text, `morning intent signal.${kind}.text`);
+  switch (kind) {
+    case 'must_do_hint':
+      return { kind, text };
+    case 'focus_intent':
+      return { kind, text };
+    case 'meeting_doubt':
+      return { kind, text };
+  }
+}
+
+export function decodeMorningOverviewStateData(value: unknown): MorningOverviewStateData {
+  const record = expectRecord(value, 'morning overview state');
+  return {
+    snapshot: expectString(record.snapshot, 'morning overview state.snapshot'),
+    friction_callouts: decodeArray(
+      record.friction_callouts ?? [],
+      decodeMorningFrictionCalloutData,
+    ),
+    signals: decodeArray(record.signals ?? [], decodeMorningIntentSignalData),
+  };
+}
+
+export function decodeDailyCommitmentDraftData(value: unknown): DailyCommitmentDraftData {
+  const record = expectRecord(value, 'daily commitment draft');
+  return {
+    title: expectString(record.title, 'daily commitment draft.title'),
+    bucket: decodeDailyStandupBucketData(record.bucket),
+    source_ref: expectNullableString(record.source_ref, 'daily commitment draft.source_ref'),
+  };
+}
+
+export function decodeDailyDeferredTaskData(value: unknown): DailyDeferredTaskData {
+  const record = expectRecord(value, 'daily deferred task');
+  return {
+    title: expectString(record.title, 'daily deferred task.title'),
+    source_ref: expectNullableString(record.source_ref, 'daily deferred task.source_ref'),
+    reason: expectString(record.reason, 'daily deferred task.reason'),
+  };
+}
+
+export function decodeDailyFocusBlockProposalData(value: unknown): DailyFocusBlockProposalData {
+  const record = expectRecord(value, 'daily focus block proposal');
+  return {
+    label: expectString(record.label, 'daily focus block proposal.label'),
+    start_at: expectRfc3339Timestamp(record.start_at, 'daily focus block proposal.start_at'),
+    end_at: expectRfc3339Timestamp(record.end_at, 'daily focus block proposal.end_at'),
+    reason: expectString(record.reason, 'daily focus block proposal.reason'),
+  };
+}
+
+export function decodeDailyStandupOutcomeData(value: unknown): DailyStandupOutcomeData {
+  const record = expectRecord(value, 'daily standup outcome');
+  return {
+    commitments: decodeArray(record.commitments ?? [], decodeDailyCommitmentDraftData),
+    deferred_tasks: decodeArray(record.deferred_tasks ?? [], decodeDailyDeferredTaskData),
+    confirmed_calendar: decodeArray(record.confirmed_calendar ?? [], (item) =>
+      expectString(item, 'daily standup outcome.confirmed_calendar'),
+    ),
+    focus_blocks: decodeArray(record.focus_blocks ?? [], decodeDailyFocusBlockProposalData),
+  };
+}
+
+export function decodeDailyLoopSessionOutcomeData(value: unknown): DailyLoopSessionOutcomeData {
+  const record = expectRecord(value, 'daily loop session outcome');
+  const phase = decodeDailyLoopPhaseData(record.phase);
+  if (phase === 'morning_overview') {
+    return {
+      phase,
+      signals: decodeArray(record.signals ?? [], decodeMorningIntentSignalData),
+    };
+  }
+  return {
+    phase,
+    ...decodeDailyStandupOutcomeData(record),
+  };
+}
+
+export function decodeDailyLoopSessionStateData(value: unknown): DailyLoopSessionStateData {
+  const record = expectRecord(value, 'daily loop session state');
+  const phase = decodeDailyLoopPhaseData(record.phase);
+  if (phase === 'morning_overview') {
+    return {
+      phase,
+      ...decodeMorningOverviewStateData(record),
+    };
+  }
+  return {
+    phase,
+    ...decodeDailyStandupOutcomeData(record),
+  };
+}
+
+export function decodeDailyLoopSessionData(value: unknown): DailyLoopSessionData {
+  const record = expectRecord(value, 'daily loop session');
+  return {
+    id: expectString(record.id, 'daily loop session.id'),
+    session_date: expectString(record.session_date, 'daily loop session.session_date'),
+    phase: decodeDailyLoopPhaseData(record.phase),
+    status: decodeDailyLoopStatusData(record.status),
+    start: decodeDailyLoopStartMetadataData(record.start),
+    turn_state: decodeDailyLoopTurnStateData(record.turn_state),
+    current_prompt: decodeNullable(record.current_prompt, decodeDailyLoopPromptData),
+    state: decodeDailyLoopSessionStateData(record.state),
+    outcome: decodeNullable(record.outcome, decodeDailyLoopSessionOutcomeData),
   };
 }
 

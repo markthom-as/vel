@@ -44,6 +44,8 @@ public final class VelOfflineStore {
         static let actionItems = "vel.cached.action_items"
         static let linkedNodes = "vel.cached.linked_nodes"
         static let appleBehaviorSummary = "vel.cached.apple_behavior_summary"
+        static let dailyLoopMorning = "vel.cached.daily_loop.morning"
+        static let dailyLoopStandup = "vel.cached.daily_loop.standup"
         static let queuedActions = "vel.queued.actions"
     }
 
@@ -127,6 +129,18 @@ public final class VelOfflineStore {
 
     public func saveCachedAppleBehaviorSummary(_ summary: AppleBehaviorSummaryData) {
         encode(summary, forKey: Keys.appleBehaviorSummary)
+    }
+
+    public func cachedDailyLoopSession(phase: DailyLoopPhaseData) -> DailyLoopSessionData? {
+        decode(DailyLoopSessionData.self, forKey: cacheKey(for: phase))
+    }
+
+    public func saveCachedDailyLoopSession(_ session: DailyLoopSessionData) {
+        encode(session, forKey: cacheKey(for: session.phase))
+    }
+
+    public func clearCachedDailyLoopSession(phase: DailyLoopPhaseData) {
+        userDefaults.removeObject(forKey: cacheKey(for: phase))
     }
 
     public func queuedActions() -> [QueuedAction] {
@@ -315,5 +329,14 @@ public final class VelOfflineStore {
     private func decode<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
         guard let data = userDefaults.data(forKey: key) else { return nil }
         return try? decoder.decode(type, from: data)
+    }
+
+    private func cacheKey(for phase: DailyLoopPhaseData) -> String {
+        switch phase {
+        case .morningOverview:
+            return Keys.dailyLoopMorning
+        case .standup:
+            return Keys.dailyLoopStandup
+        }
     }
 }

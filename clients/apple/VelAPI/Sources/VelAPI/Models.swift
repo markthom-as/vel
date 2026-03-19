@@ -115,6 +115,8 @@ public struct HealthData: Codable, Sendable {
 public typealias AppleVoiceTurnResponse = APIEnvelope<AppleVoiceTurnResponseData>
 public typealias AppleBehaviorSummaryResponse = APIEnvelope<AppleBehaviorSummaryData>
 public typealias NowResponse = APIEnvelope<NowData>
+public typealias DailyLoopSessionResponse = APIEnvelope<DailyLoopSessionData>
+public typealias DailyLoopActiveSessionResponse = APIEnvelope<DailyLoopSessionData?>
 
 public enum AppleClientSurfaceData: String, Codable, Sendable {
     case iosVoice = "ios_voice"
@@ -231,6 +233,172 @@ public struct AppleVoiceTurnResponseData: Codable, Sendable {
     public let queued_mutation: AppleVoiceTurnQueuedMutationSummaryData?
     public let schedule: AppleScheduleSnapshotData?
     public let behavior_summary: AppleBehaviorSummaryData?
+}
+
+// MARK: - Daily loop
+
+public enum DailyLoopPhaseData: String, Codable, Sendable {
+    case morningOverview = "morning_overview"
+    case standup
+}
+
+public enum DailyLoopStatusData: String, Codable, Sendable {
+    case active
+    case waitingForInput = "waiting_for_input"
+    case completed
+    case cancelled
+}
+
+public enum DailyLoopStartSourceData: String, Codable, Sendable {
+    case manual
+    case automatic
+}
+
+public enum DailyLoopSurfaceData: String, Codable, Sendable {
+    case cli
+    case web
+    case appleVoice = "apple_voice"
+    case appleText = "apple_text"
+}
+
+public enum DailyLoopTurnActionData: String, Codable, Sendable {
+    case submit
+    case skip
+    case resume
+}
+
+public enum DailyLoopTurnStateData: String, Codable, Sendable {
+    case inProgress = "in_progress"
+    case waitingForInput = "waiting_for_input"
+    case completed
+}
+
+public enum DailyLoopPromptKindData: String, Codable, Sendable {
+    case intentQuestion = "intent_question"
+    case commitmentReduction = "commitment_reduction"
+    case constraintCheck = "constraint_check"
+}
+
+public enum DailyStandupBucketData: String, Codable, Sendable {
+    case must
+    case should
+    case stretch
+}
+
+public struct DailyLoopStartMetadataData: Codable, Sendable {
+    public let source: DailyLoopStartSourceData
+    public let surface: DailyLoopSurfaceData
+
+    public init(source: DailyLoopStartSourceData, surface: DailyLoopSurfaceData) {
+        self.source = source
+        self.surface = surface
+    }
+}
+
+public struct DailyLoopStartRequestData: Codable, Sendable {
+    public let phase: DailyLoopPhaseData
+    public let session_date: String
+    public let start: DailyLoopStartMetadataData
+
+    public init(phase: DailyLoopPhaseData, session_date: String, start: DailyLoopStartMetadataData) {
+        self.phase = phase
+        self.session_date = session_date
+        self.start = start
+    }
+}
+
+public struct DailyLoopTurnRequestData: Codable, Sendable {
+    public let session_id: String
+    public let action: DailyLoopTurnActionData
+    public let response_text: String?
+
+    public init(session_id: String, action: DailyLoopTurnActionData, response_text: String?) {
+        self.session_id = session_id
+        self.action = action
+        self.response_text = response_text
+    }
+}
+
+public struct DailyLoopPromptData: Codable, Sendable {
+    public let prompt_id: String
+    public let kind: DailyLoopPromptKindData
+    public let text: String
+    public let ordinal: Int
+    public let allow_skip: Bool
+}
+
+public struct MorningFrictionCalloutData: Codable, Sendable {
+    public let label: String
+    public let detail: String
+}
+
+public struct MorningIntentSignalData: Codable, Sendable {
+    public let kind: String
+    public let text: String
+}
+
+public struct MorningOverviewStateData: Codable, Sendable {
+    public let snapshot: String
+    public let friction_callouts: [MorningFrictionCalloutData]
+    public let signals: [MorningIntentSignalData]
+}
+
+public struct DailyCommitmentDraftData: Codable, Sendable {
+    public let title: String
+    public let bucket: DailyStandupBucketData
+    public let source_ref: String?
+}
+
+public struct DailyDeferredTaskData: Codable, Sendable {
+    public let title: String
+    public let source_ref: String?
+    public let reason: String
+}
+
+public struct DailyFocusBlockProposalData: Codable, Sendable {
+    public let label: String
+    public let start_at: String
+    public let end_at: String
+    public let reason: String
+}
+
+public struct DailyStandupOutcomeData: Codable, Sendable {
+    public let commitments: [DailyCommitmentDraftData]
+    public let deferred_tasks: [DailyDeferredTaskData]
+    public let confirmed_calendar: [String]
+    public let focus_blocks: [DailyFocusBlockProposalData]
+}
+
+public struct DailyLoopSessionStateData: Codable, Sendable {
+    public let phase: DailyLoopPhaseData
+    public let snapshot: String?
+    public let friction_callouts: [MorningFrictionCalloutData]
+    public let signals: [MorningIntentSignalData]
+    public let commitments: [DailyCommitmentDraftData]
+    public let deferred_tasks: [DailyDeferredTaskData]
+    public let confirmed_calendar: [String]
+    public let focus_blocks: [DailyFocusBlockProposalData]
+}
+
+public struct DailyLoopSessionOutcomeData: Codable, Sendable {
+    public let phase: DailyLoopPhaseData
+    public let signals: [MorningIntentSignalData]
+    public let commitments: [DailyCommitmentDraftData]
+    public let deferred_tasks: [DailyDeferredTaskData]
+    public let confirmed_calendar: [String]
+    public let focus_blocks: [DailyFocusBlockProposalData]
+}
+
+public struct DailyLoopSessionData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let session_date: String
+    public let phase: DailyLoopPhaseData
+    public let status: DailyLoopStatusData
+    public let start: DailyLoopStartMetadataData
+    public let turn_state: DailyLoopTurnStateData
+    public let current_prompt: DailyLoopPromptData?
+    public let state: DailyLoopSessionStateData
+    public let outcome: DailyLoopSessionOutcomeData?
 }
 
 // MARK: - Now

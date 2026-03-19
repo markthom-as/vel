@@ -1030,6 +1030,15 @@ impl Storage {
             .await
     }
 
+    pub async fn get_latest_daily_session_for_date(
+        &self,
+        session_date: &str,
+        phase: DailyLoopPhase,
+    ) -> Result<Option<DailySessionRecord>, StorageError> {
+        daily_sessions_repo::get_latest_daily_session_for_date(self.pool(), session_date, phase)
+            .await
+    }
+
     pub async fn update_daily_session_state(
         &self,
         session_id: &str,

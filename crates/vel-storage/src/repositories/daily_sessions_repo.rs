@@ -36,10 +36,10 @@ pub(crate) async fn create_daily_session(
     )
     .bind(session.id.to_string())
     .bind(&session.session_date)
-    .bind(serde_json::to_string(&session.phase)?)
-    .bind(serde_json::to_string(&session.status)?)
+    .bind(enum_token(&session.phase)?)
+    .bind(enum_token(&session.status)?)
     .bind(serde_json::to_string(&session.start)?)
-    .bind(serde_json::to_string(&session.turn_state)?)
+    .bind(enum_token(&session.turn_state)?)
     .bind(
         session
             .current_prompt
@@ -130,7 +130,43 @@ pub(crate) async fn get_active_daily_session_for_date(
         "#,
     )
     .bind(session_date)
-    .bind(serde_json::to_string(&phase)?)
+    .bind(enum_token(&phase)?)
+    .fetch_optional(pool)
+    .await?;
+
+    row.as_ref().map(map_daily_session_row).transpose()
+}
+
+pub(crate) async fn get_latest_daily_session_for_date(
+    pool: &SqlitePool,
+    session_date: &str,
+    phase: DailyLoopPhase,
+) -> Result<Option<DailySessionRecord>, StorageError> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            session_id,
+            session_date,
+            phase,
+            status,
+            start_json,
+            turn_state,
+            current_prompt_json,
+            state_json,
+            outcome_json,
+            created_at,
+            updated_at,
+            completed_at,
+            cancelled_at
+        FROM daily_sessions
+        WHERE session_date = ?
+          AND phase = ?
+        ORDER BY updated_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(session_date)
+    .bind(enum_token(&phase)?)
     .fetch_optional(pool)
     .await?;
 
@@ -167,15 +203,15 @@ pub(crate) async fn update_daily_session_state(
         WHERE session_id = ?
         "#,
     )
-    .bind(serde_json::to_string(&status)?)
-    .bind(serde_json::to_string(&turn_state)?)
+    .bind(enum_token(&status)?)
+    .bind(enum_token(&turn_state)?)
     .bind(current_prompt.map(serde_json::to_string).transpose()?)
     .bind(serde_json::to_string(state)?)
     .bind(outcome.map(serde_json::to_string).transpose()?)
     .bind(now.unix_timestamp())
-    .bind(serde_json::to_string(&status)?)
+    .bind(enum_token(&status)?)
     .bind(now.unix_timestamp())
-    .bind(serde_json::to_string(&status)?)
+    .bind(enum_token(&status)?)
     .bind(now.unix_timestamp())
     .bind(session_id)
     .execute(pool)
@@ -232,6 +268,21 @@ fn cancelled_at(status: DailyLoopStatus, now: OffsetDateTime) -> Option<i64> {
     (status == DailyLoopStatus::Cancelled).then_some(now.unix_timestamp())
 }
 
+fn enum_token<T: serde::Serialize>(value: &T) -> Result<String, StorageError> {
+    serde_json::to_value(value)?
+        .as_str()
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            StorageError::DataCorrupted(
+                "daily session enum did not serialize as a string".to_string(),
+            )
+        })
+}
+
+fn enum_from_token<T: serde::de::DeserializeOwned>(value: &str) -> Result<T, StorageError> {
+    serde_json::from_value(serde_json::Value::String(value.to_string())).map_err(Into::into)
+}
+
 fn map_daily_session_row(
     row: &sqlx::sqlite::SqliteRow,
 ) -> Result<DailySessionRecord, StorageError> {
@@ -239,14 +290,12 @@ fn map_daily_session_row(
         session: DailyLoopSession {
             id: DailyLoopSessionId::from(row.try_get::<String, _>("session_id")?),
             session_date: row.try_get("session_date")?,
-            phase: serde_json::from_str::<DailyLoopPhase>(&row.try_get::<String, _>("phase")?)?,
-            status: serde_json::from_str::<DailyLoopStatus>(&row.try_get::<String, _>("status")?)?,
+            phase: enum_from_token(&row.try_get::<String, _>("phase")?)?,
+            status: enum_from_token(&row.try_get::<String, _>("status")?)?,
             start: serde_json::from_str::<DailyLoopStartMetadata>(
                 &row.try_get::<String, _>("start_json")?,
             )?,
-            turn_state: serde_json::from_str::<DailyLoopTurnState>(
-                &row.try_get::<String, _>("turn_state")?,
-            )?,
+            turn_state: enum_from_token(&row.try_get::<String, _>("turn_state")?)?,
             current_prompt: row
                 .try_get::<Option<String>, _>("current_prompt_json")?
                 .map(|value| serde_json::from_str::<DailyLoopPrompt>(&value))

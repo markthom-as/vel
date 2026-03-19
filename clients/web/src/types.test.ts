@@ -6,10 +6,11 @@ import {
   decodeCreateMessageResponse,
   decodeContextExplainData,
   decodeCurrentContextData,
-  decodeExecutionHandoffRecordData,
   decodeComponentData,
   decodeComponentLogEventData,
   decodeClusterWorkersData,
+  decodeDailyLoopSessionData,
+  decodeExecutionHandoffRecordData,
   decodeInboxItemData,
   decodeIntegrationConnectionData,
   decodeIntegrationConnectionEventData,
@@ -328,6 +329,120 @@ describe('transport decoders', () => {
     expect(handoff.handoff.handoff.objective).toBe('Implement the next safe slice')
     expect(handoff.routing.reasons[0]?.code).toBe('write_scope_requires_approval')
     expect(handoff.review_state).toBe('pending_review')
+  })
+
+  it('decodes morning daily-loop sessions with typed state and outcome payloads', () => {
+    const session = decodeDailyLoopSessionData({
+      id: 'dls_morning_1',
+      session_date: '2026-03-19',
+      phase: 'morning_overview',
+      status: 'completed',
+      start: {
+        source: 'manual',
+        surface: 'web',
+      },
+      turn_state: 'completed',
+      current_prompt: null,
+      state: {
+        phase: 'morning_overview',
+        snapshot: 'Two meetings before noon. Todoist backlog is heavier than normal.',
+        friction_callouts: [
+          {
+            label: 'Packed morning',
+            detail: 'Back-to-back calendar blocks until 11:30.',
+          },
+        ],
+        signals: [
+          {
+            kind: 'must_do_hint',
+            text: 'Ship Phase 10.',
+          },
+        ],
+      },
+      outcome: {
+        phase: 'morning_overview',
+        signals: [
+          {
+            kind: 'focus_intent',
+            text: 'Protect a two-hour focus block after lunch.',
+          },
+        ],
+      },
+    })
+
+    expect(session.phase).toBe('morning_overview')
+    expect(session.start.surface).toBe('web')
+    expect(session.state.phase).toBe('morning_overview')
+    expect(session.state.snapshot).toContain('Todoist backlog')
+    expect(session.outcome?.phase).toBe('morning_overview')
+    expect(session.outcome?.signals[0]?.kind).toBe('focus_intent')
+  })
+
+  it('decodes standup daily-loop sessions with commitment and focus-block outcomes', () => {
+    const session = decodeDailyLoopSessionData({
+      id: 'dls_standup_1',
+      session_date: '2026-03-19',
+      phase: 'standup',
+      status: 'completed',
+      start: {
+        source: 'manual',
+        surface: 'web',
+      },
+      turn_state: 'completed',
+      current_prompt: null,
+      state: {
+        phase: 'standup',
+        commitments: [
+          {
+            title: 'Ship Phase 10',
+            bucket: 'must',
+            source_ref: 'todo_1',
+          },
+          {
+            title: 'Review runtime PR',
+            bucket: 'should',
+            source_ref: null,
+          },
+        ],
+        deferred_tasks: [
+          {
+            title: 'Inbox cleanup',
+            source_ref: null,
+            reason: 'Not part of the top three commitments.',
+          },
+        ],
+        confirmed_calendar: ['Design review at 10:00'],
+        focus_blocks: [
+          {
+            label: 'Deep work',
+            start_at: '2026-03-19T13:00:00Z',
+            end_at: '2026-03-19T15:00:00Z',
+            reason: 'Protect implementation time.',
+          },
+        ],
+      },
+      outcome: {
+        phase: 'standup',
+        commitments: [
+          {
+            title: 'Ship Phase 10',
+            bucket: 'must',
+            source_ref: 'todo_1',
+          },
+        ],
+        deferred_tasks: [],
+        confirmed_calendar: ['Design review at 10:00'],
+        focus_blocks: [],
+      },
+    })
+
+    expect(session.phase).toBe('standup')
+    expect(session.state.phase).toBe('standup')
+    expect(session.state.commitments).toHaveLength(2)
+    expect(session.state.commitments[0]?.bucket).toBe('must')
+    expect(session.state.focus_blocks[0]?.label).toBe('Deep work')
+    expect(session.outcome?.phase).toBe('standup')
+    expect(session.outcome?.commitments[0]?.title).toBe('Ship Phase 10')
   })
 
   it('decodes canonical integration connection data', () => {

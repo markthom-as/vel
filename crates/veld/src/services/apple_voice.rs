@@ -2,7 +2,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 use vel_core::{
     AppleClientSurface, AppleRequestedOperation, AppleResponseEvidence, AppleResponseMode,
-    AppleScheduleEvent, AppleScheduleSnapshot, AppleVoiceIntent,
+    AppleScheduleEvent, AppleScheduleSnapshot, AppleVoiceIntent, DailyLoopPhase,
+    DailyLoopSession, DailyLoopSessionOutcome, DailyLoopSessionState, DailyLoopStartMetadata,
+    DailyLoopStartRequest, DailyLoopStartSource, DailyLoopSurface,
     AppleVoiceTurnQueuedMutationSummary, AppleVoiceTurnRequest, AppleVoiceTurnResponse,
     PrivacyClass,
 };
@@ -10,7 +12,7 @@ use vel_storage::{CaptureInsert, SignalInsert};
 
 use crate::{
     errors::AppError,
-    services::{apple_behavior, client_sync, now},
+    services::{apple_behavior, client_sync, daily_loop, now},
     state::AppState,
 };
 
@@ -37,7 +39,10 @@ pub async fn apple_voice_turn(
             let now = now::get_now(&state.storage, &state.config).await?;
             Ok(schedule_response(request.operation, capture_id, now))
         }
-        AppleVoiceIntent::ExplainWhy | AppleVoiceIntent::MorningBriefing => {
+        AppleVoiceIntent::MorningBriefing => {
+            daily_loop_voice_response(state, request.operation, capture_id, transcript).await
+        }
+        AppleVoiceIntent::ExplainWhy => {
             let now = now::get_now(&state.storage, &state.config).await?;
             Ok(explain_response(request.operation, capture_id, now))
         }
@@ -59,6 +64,47 @@ pub async fn apple_voice_turn(
         }
         AppleVoiceIntent::Capture => Ok(capture_only_response(request.operation, capture_id)),
     }
+}
+
+async fn daily_loop_voice_response(
+    state: &AppState,
+    operation: AppleRequestedOperation,
+    capture_id: vel_core::CaptureId,
+    transcript: &str,
+) -> Result<AppleVoiceTurnResponse, AppError> {
+    let phase = requested_daily_loop_phase(transcript);
+    let session_date = daily_loop_session_date();
+    let session = if transcript.to_ascii_lowercase().contains("resume") {
+        if let Some(active) = daily_loop::get_active_session(&state.storage, &session_date, phase).await? {
+            active
+        } else {
+            start_daily_loop_for_apple(state, &session_date, phase).await?
+        }
+    } else {
+        start_daily_loop_for_apple(state, &session_date, phase).await?
+    };
+
+    Ok(apple_daily_loop_response(operation, capture_id, session))
+}
+
+async fn start_daily_loop_for_apple(
+    state: &AppState,
+    session_date: &str,
+    phase: DailyLoopPhase,
+) -> Result<DailyLoopSession, AppError> {
+    daily_loop::start_session(
+        &state.storage,
+        &state.config,
+        DailyLoopStartRequest {
+            phase,
+            session_date: session_date.to_string(),
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::AppleVoice,
+            },
+        },
+    )
+    .await
 }
 
 async fn persist_transcript_capture(
@@ -244,6 +290,40 @@ fn next_commitment_response(
         evidence,
         queued_mutation: None,
         schedule: Some(schedule_snapshot(&now)),
+        behavior_summary: None,
+    }
+}
+
+fn apple_daily_loop_response(
+    operation: AppleRequestedOperation,
+    capture_id: vel_core::CaptureId,
+    session: DailyLoopSession,
+) -> AppleVoiceTurnResponse {
+    let (summary, mut reasons, mut evidence) = describe_daily_loop_session(&session);
+    reasons.push("Apple voice delegated this request to the shared daily-loop session engine.".to_string());
+
+    AppleVoiceTurnResponse {
+        operation,
+        mode: AppleResponseMode::SpokenSummary,
+        summary,
+        capture_id: Some(capture_id),
+        reasons: non_empty_reasons(
+            reasons,
+            "Daily-loop answers come from the backend session authority.".to_string(),
+        ),
+        evidence: {
+            if evidence.is_empty() {
+                evidence.push(AppleResponseEvidence {
+                    kind: "daily_loop_session".to_string(),
+                    label: format!("{:?}", session.phase).to_lowercase(),
+                    detail: "Apple voice is rendering the shared daily-loop session state.".to_string(),
+                    source_id: Some(session.id.to_string()),
+                });
+            }
+            evidence
+        },
+        queued_mutation: None,
+        schedule: None,
         behavior_summary: None,
     }
 }
@@ -613,5 +693,175 @@ fn intent_token(intent: &AppleVoiceIntent) -> &'static str {
         AppleVoiceIntent::BehaviorSummary => "behavior_summary",
         AppleVoiceIntent::CompleteCommitment => "complete_commitment",
         AppleVoiceIntent::SnoozeNudge => "snooze_nudge",
+    }
+}
+
+fn requested_daily_loop_phase(transcript: &str) -> DailyLoopPhase {
+    let normalized = transcript.to_ascii_lowercase();
+    if normalized.contains("standup") {
+        DailyLoopPhase::Standup
+    } else {
+        DailyLoopPhase::MorningOverview
+    }
+}
+
+fn daily_loop_session_date() -> String {
+    let now = OffsetDateTime::now_utc().date();
+    format!(
+        "{:04}-{:02}-{:02}",
+        now.year(),
+        u8::from(now.month()),
+        now.day()
+    )
+}
+
+fn describe_daily_loop_session(
+    session: &DailyLoopSession,
+) -> (String, Vec<String>, Vec<AppleResponseEvidence>) {
+    match (&session.phase, &session.state, &session.outcome, session.current_prompt.as_ref()) {
+        (
+            DailyLoopPhase::MorningOverview,
+            DailyLoopSessionState::MorningOverview(state),
+            _,
+            Some(prompt),
+        ) => {
+            let mut evidence = state
+                .friction_callouts
+                .iter()
+                .take(2)
+                .map(|callout| AppleResponseEvidence {
+                    kind: "morning_friction".to_string(),
+                    label: callout.label.clone(),
+                    detail: callout.detail.clone(),
+                    source_id: Some(session.id.to_string()),
+                })
+                .collect::<Vec<_>>();
+            evidence.push(AppleResponseEvidence {
+                kind: "daily_loop_prompt".to_string(),
+                label: format!("Question {}", prompt.ordinal),
+                detail: prompt.text.clone(),
+                source_id: Some(prompt.prompt_id.clone()),
+            });
+            (
+                format!("Morning overview ready. {} {}", state.snapshot, prompt.text),
+                vec![
+                    "Morning overview stays passive and captures intent signals only.".to_string(),
+                    format!("Session {} is waiting for the next response.", session.id),
+                ],
+                evidence,
+            )
+        }
+        (
+            DailyLoopPhase::MorningOverview,
+            DailyLoopSessionState::MorningOverview(_),
+            Some(DailyLoopSessionOutcome::MorningOverview { signals }),
+            _,
+        ) => (
+            if signals.is_empty() {
+                "Morning overview completed without new intent signals.".to_string()
+            } else {
+                format!(
+                    "Morning overview completed. {}",
+                    signals
+                        .iter()
+                        .take(2)
+                        .map(morning_signal_text)
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                )
+            },
+            vec!["Morning overview is complete and did not create commitments.".to_string()],
+            signals
+                .iter()
+                .take(2)
+                .map(|signal| AppleResponseEvidence {
+                    kind: "morning_signal".to_string(),
+                    label: "Morning signal".to_string(),
+                    detail: morning_signal_text(signal).to_string(),
+                    source_id: Some(session.id.to_string()),
+                })
+                .collect(),
+        ),
+        (DailyLoopPhase::Standup, DailyLoopSessionState::Standup(state), _, Some(prompt)) => (
+            format!(
+                "Standup is active. {} {}",
+                standup_summary_prefix(state),
+                prompt.text
+            ),
+            vec![
+                "Standup uses the same backend session-turn flow as CLI and web.".to_string(),
+                "Apple is not selecting commitments locally.".to_string(),
+            ],
+            state
+                .commitments
+                .iter()
+                .take(3)
+                .map(|commitment| AppleResponseEvidence {
+                    kind: "daily_commitment".to_string(),
+                    label: commitment.title.clone(),
+                    detail: format!("Current {:?} commitment candidate.", commitment.bucket).to_lowercase(),
+                    source_id: commitment.source_ref.clone(),
+                })
+                .collect(),
+        ),
+        (
+            DailyLoopPhase::Standup,
+            DailyLoopSessionState::Standup(_),
+            Some(DailyLoopSessionOutcome::Standup(outcome)),
+            _,
+        ) => (
+            if outcome.commitments.is_empty() {
+                "Standup completed without saving any commitments.".to_string()
+            } else {
+                format!(
+                    "Standup saved {} commitment(s): {}.",
+                    outcome.commitments.len(),
+                    outcome
+                        .commitments
+                        .iter()
+                        .map(|commitment| commitment.title.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            },
+            vec![
+                "Standup writes persisted daily commitments through the shared backend engine.".to_string(),
+            ],
+            outcome
+                .commitments
+                .iter()
+                .take(3)
+                .map(|commitment| AppleResponseEvidence {
+                    kind: "daily_commitment".to_string(),
+                    label: commitment.title.clone(),
+                    detail: format!("{:?}", commitment.bucket).to_lowercase(),
+                    source_id: commitment.source_ref.clone(),
+                })
+                .collect(),
+        ),
+        _ => (
+            "Daily loop session is available.".to_string(),
+            vec!["Apple voice resumed an existing backend session.".to_string()],
+            Vec::new(),
+        ),
+    }
+}
+
+fn standup_summary_prefix(state: &vel_core::DailyStandupOutcome) -> String {
+    if state.commitments.is_empty() {
+        "No commitments are locked yet.".to_string()
+    } else {
+        format!(
+            "{} commitment candidate(s) are already in scope.",
+            state.commitments.len()
+        )
+    }
+}
+
+fn morning_signal_text(signal: &vel_core::MorningIntentSignal) -> &str {
+    match signal {
+        vel_core::MorningIntentSignal::MustDoHint { text }
+        | vel_core::MorningIntentSignal::FocusIntent { text }
+        | vel_core::MorningIntentSignal::MeetingDoubt { text } => text,
     }
 }

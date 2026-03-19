@@ -59,6 +59,10 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    Standup {
+        #[arg(long)]
+        json: bool,
+    },
     EndOfDay {
         #[arg(long)]
         json: bool,
@@ -199,6 +203,10 @@ enum Command {
     Context {
         #[command(subcommand)]
         command: ContextCommand,
+    },
+    DailyLoop {
+        #[command(subcommand)]
+        command: DailyLoopCommand,
     },
     Explain {
         #[command(subcommand)]
@@ -715,6 +723,21 @@ enum ExplainCommand {
     },
 }
 
+#[derive(Debug, Subcommand)]
+enum DailyLoopCommand {
+    Reply {
+        session_id: String,
+        text: String,
+        #[arg(long)]
+        json: bool,
+    },
+    Skip {
+        session_id: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -758,6 +781,14 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Today { json } => commands::today::run(&client, json).await,
         Command::Morning { json } => commands::morning::run(&client, json).await,
+        Command::Standup { json } => {
+            commands::daily_loop::run_start(
+                &client,
+                vel_api_types::DailyLoopPhaseData::Standup,
+                json,
+            )
+            .await
+        }
         Command::EndOfDay { json } => commands::end_of_day::run(&client, json).await,
         Command::Search {
             query,
@@ -1166,6 +1197,16 @@ async fn main() -> anyhow::Result<()> {
             ContextCommand::Show { json } => commands::context::run_current(&client, json).await,
             ContextCommand::Timeline { limit, json } => {
                 commands::context::run_timeline(&client, limit, json).await
+            }
+        },
+        Command::DailyLoop { command } => match command {
+            DailyLoopCommand::Reply {
+                session_id,
+                text,
+                json,
+            } => commands::daily_loop::run_reply(&client, &session_id, text, json).await,
+            DailyLoopCommand::Skip { session_id, json } => {
+                commands::daily_loop::run_skip(&client, &session_id, json).await
             }
         },
         Command::Explain { command } => match command {

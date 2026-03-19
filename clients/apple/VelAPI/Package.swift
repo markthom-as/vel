@@ -16,5 +16,10 @@ let package = Package(
             name: "VelAPI",
             path: "Sources/VelAPI"
         ),
+        .testTarget(
+            name: "VelAPITests",
+            dependencies: ["VelAPI"],
+            path: "Tests/VelAPITests"
+        ),
     ]
 )

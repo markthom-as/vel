@@ -5,6 +5,7 @@ pub mod commitments;
 pub mod config;
 pub mod connect;
 pub mod context;
+pub mod daily_loop;
 pub mod docs;
 pub mod doctor;
 pub mod end_of_day;

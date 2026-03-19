@@ -6,7 +6,7 @@ use time::{Duration, OffsetDateTime};
 use tower::util::ServiceExt;
 use vel_api_types::{ApiResponse, AppleVoiceIntentData, AppleVoiceTurnRequestData};
 use vel_config::AppConfig;
-use vel_core::{AppleClientSurface, AppleRequestedOperation, CurrentContextV1};
+use vel_core::{AppleClientSurface, AppleRequestedOperation, CurrentContextV1, DailyLoopPhase, DailyLoopStatus, DailyLoopSurface};
 use vel_storage::{CommitmentInsert, NudgeInsert, SignalInsert, Storage};
 use veld::{app::build_app, policy_config::PolicyConfig};
 
@@ -283,4 +283,113 @@ async fn apple_voice_low_risk_action_reuses_safe_backend_mutation_path() {
         nudges.iter().any(|nudge| nudge.nudge_id == nudge_id),
         "low-risk voice action should reuse the existing backend nudge path"
     );
+}
+
+#[tokio::test]
+async fn apple_voice_morning_briefing_starts_shared_daily_loop_session() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage.clone(),
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let response = app
+        .oneshot(build_request(AppleVoiceTurnRequestData {
+            transcript: "Good morning, start my day.".to_string(),
+            surface: AppleClientSurface::IosVoice.into(),
+            operation: AppleRequestedOperation::QueryOnly.into(),
+            intents: vec![AppleVoiceIntentData::MorningBriefing],
+            provenance: None,
+        }))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: ApiResponse<vel_api_types::AppleVoiceTurnResponseData> =
+        serde_json::from_slice(&body).unwrap();
+    let data = payload.data.expect("voice response data");
+
+    assert!(
+        data.summary.contains("Morning overview ready"),
+        "morning voice intent should route into the daily-loop engine"
+    );
+    assert!(
+        data.reasons.iter().any(|reason| reason.contains("daily-loop")),
+        "voice response should explain that the backend daily-loop engine answered it"
+    );
+
+    let session_date = time::OffsetDateTime::now_utc().date();
+    let session_date = format!(
+        "{:04}-{:02}-{:02}",
+        session_date.year(),
+        u8::from(session_date.month()),
+        session_date.day()
+    );
+    let record = storage
+        .get_active_daily_session_for_date(&session_date, DailyLoopPhase::MorningOverview)
+        .await
+        .unwrap()
+        .expect("active morning session");
+
+    assert_eq!(record.session.phase, DailyLoopPhase::MorningOverview);
+    assert_eq!(record.session.status, DailyLoopStatus::WaitingForInput);
+    assert_eq!(record.session.start.surface, DailyLoopSurface::AppleVoice);
+}
+
+#[tokio::test]
+async fn apple_voice_standup_resume_uses_shared_standup_session_flow() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage.clone(),
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let response = app
+        .oneshot(build_request(AppleVoiceTurnRequestData {
+            transcript: "Resume standup.".to_string(),
+            surface: AppleClientSurface::IosVoice.into(),
+            operation: AppleRequestedOperation::QueryOnly.into(),
+            intents: vec![AppleVoiceIntentData::MorningBriefing],
+            provenance: None,
+        }))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: ApiResponse<vel_api_types::AppleVoiceTurnResponseData> =
+        serde_json::from_slice(&body).unwrap();
+    let data = payload.data.expect("voice response data");
+
+    assert!(
+        data.summary.to_lowercase().contains("standup"),
+        "standup transcript should start or resume the standup phase"
+    );
+
+    let session_date = time::OffsetDateTime::now_utc().date();
+    let session_date = format!(
+        "{:04}-{:02}-{:02}",
+        session_date.year(),
+        u8::from(session_date.month()),
+        session_date.day()
+    );
+    let record = storage
+        .get_active_daily_session_for_date(&session_date, DailyLoopPhase::Standup)
+        .await
+        .unwrap()
+        .expect("active standup session");
+
+    assert_eq!(record.session.phase, DailyLoopPhase::Standup);
+    assert_eq!(record.session.start.surface, DailyLoopSurface::AppleVoice);
 }

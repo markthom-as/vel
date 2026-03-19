@@ -896,6 +896,12 @@ private struct VoiceTab: View {
     @ObservedObject var store: VelClientStore
     @ObservedObject var voiceModel: VoiceCaptureModel
     let onOpenCaptureComposer: (String) -> Void
+    @State private var dailyLoopResponseText = ""
+    @State private var dailyLoopStatusMessage: String?
+
+    private var activeDailyLoop: DailyLoopSessionData? {
+        store.standupDailyLoop ?? store.morningDailyLoop
+    }
 
     var body: some View {
         List {
@@ -1024,6 +1030,85 @@ private struct VoiceTab: View {
                 }
             }
 
+            Section("Daily loop") {
+                if let session = activeDailyLoop {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(session.phase == .morningOverview ? "Morning overview" : "Standup")
+                            .font(.headline)
+                        Text(session.status.rawValue.replacingOccurrences(of: "_", with: " "))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        if session.state.phase == .morningOverview {
+                            if let snapshot = session.state.snapshot, !snapshot.isEmpty {
+                                Text(snapshot)
+                                    .font(.subheadline)
+                            }
+                            ForEach(session.state.friction_callouts, id: \.label) { callout in
+                                Text("\(callout.label): \(callout.detail)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            if session.state.commitments.isEmpty {
+                                Text("No commitments are locked yet.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(session.state.commitments, id: \.title) { commitment in
+                                    Text("\(commitment.bucket.rawValue.uppercased()) · \(commitment.title)")
+                                        .font(.caption)
+                                }
+                            }
+                        }
+
+                        if let prompt = session.current_prompt {
+                            Text(prompt.text)
+                                .font(.subheadline)
+                            TextField("Short response", text: $dailyLoopResponseText, axis: .vertical)
+                                .textInputAutocapitalization(.sentences)
+
+                            HStack {
+                                Button("Submit response") {
+                                    Task { await submitDailyLoopTurn(action: .submit) }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(dailyLoopResponseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                                Button("Skip") {
+                                    Task { await submitDailyLoopTurn(action: .skip) }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Use the backend daily loop for the bounded morning and standup flow.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        HStack {
+                            Button("Start morning") {
+                                Task { await startDailyLoop(.morningOverview) }
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            Button("Start standup") {
+                                Task { await startDailyLoop(.standup) }
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+
+                if let message = dailyLoopStatusMessage, !message.isEmpty {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("Response") {
                 if let response = voiceModel.latestResponse {
                     Text(response.summary)
@@ -1078,6 +1163,58 @@ private struct VoiceTab: View {
             }
         }
         .listStyle(.insetGrouped)
+        .onChange(of: activeDailyLoop?.id) { _ in
+            dailyLoopResponseText = ""
+        }
+    }
+
+    private func startDailyLoop(_ phase: DailyLoopPhaseData) async {
+        guard store.isReachable else {
+            dailyLoopStatusMessage = "Reconnect to Vel to start the backend daily loop. Offline mode only shows cached session state."
+            return
+        }
+
+        do {
+            _ = try await store.client.startDailyLoopSession(
+                DailyLoopStartRequestData(
+                    phase: phase,
+                    session_date: sessionDateForApple(),
+                    start: DailyLoopStartMetadataData(source: .manual, surface: .appleVoice)
+                )
+            )
+            await store.refresh()
+            dailyLoopStatusMessage = phase == .morningOverview
+                ? "Morning overview started."
+                : "Standup started."
+            dailyLoopResponseText = ""
+        } catch {
+            dailyLoopStatusMessage = "Could not start the daily loop. \(error.localizedDescription)"
+        }
+    }
+
+    private func submitDailyLoopTurn(action: DailyLoopTurnActionData) async {
+        guard let session = activeDailyLoop else { return }
+        guard store.isReachable else {
+            dailyLoopStatusMessage = "Reconnect to Vel to continue the backend daily loop. Offline mode does not invent new prompts or commitments."
+            return
+        }
+
+        do {
+            _ = try await store.client.submitDailyLoopTurn(
+                sessionID: session.id,
+                action: action,
+                responseText: action == .submit
+                    ? dailyLoopResponseText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    : nil
+            )
+            await store.refresh()
+            dailyLoopStatusMessage = action == .submit
+                ? "Daily loop response saved."
+                : "Daily loop advanced."
+            dailyLoopResponseText = ""
+        } catch {
+            dailyLoopStatusMessage = "Could not continue the daily loop. \(error.localizedDescription)"
+        }
     }
 }
 
@@ -2732,6 +2869,22 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         if let now = try? await store.client.now() {
             store.offlineStore.saveCachedNow(now)
         }
+        if let morning = try? await store.client.activeDailyLoopSession(
+            sessionDate: sessionDateForApple(),
+            phase: .morningOverview
+        ) {
+            store.offlineStore.saveCachedDailyLoopSession(morning)
+        } else {
+            store.offlineStore.clearCachedDailyLoopSession(phase: .morningOverview)
+        }
+        if let standup = try? await store.client.activeDailyLoopSession(
+            sessionDate: sessionDateForApple(),
+            phase: .standup
+        ) {
+            store.offlineStore.saveCachedDailyLoopSession(standup)
+        } else {
+            store.offlineStore.clearCachedDailyLoopSession(phase: .standup)
+        }
         if let behavior = try? await store.client.appleBehaviorSummary() {
             store.offlineStore.saveCachedAppleBehaviorSummary(behavior)
         }
@@ -2922,6 +3075,14 @@ private func formatDate(_ date: Date) -> String {
     let formatter = DateFormatter()
     formatter.dateStyle = .medium
     formatter.timeStyle = .short
+    return formatter.string(from: date)
+}
+
+private func sessionDateForApple(_ date: Date = .now) -> String {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd"
     return formatter.string(from: date)
 }
 

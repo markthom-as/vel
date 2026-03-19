@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { contextQueryKeys, loadNow } from '../data/context';
+import {
+  contextQueryKeys,
+  loadActiveDailyLoopSession,
+  loadNow,
+  startDailyLoopSession,
+  submitDailyLoopTurn,
+} from '../data/context';
 import { operatorQueryKeys, runEvaluate, syncSource } from '../data/operator';
-import { invalidateQuery, useQuery } from '../data/query';
-import type { ActionItemData, NowData, NowTaskData } from '../types';
+import { invalidateQuery, setQueryData, useQuery } from '../data/query';
+import type { ActionItemData, DailyLoopPhaseData, DailyLoopSessionData, NowData, NowTaskData } from '../types';
 import { SurfaceState } from './SurfaceState';
 
 type SettingsIntegrationTarget =
@@ -21,6 +27,7 @@ interface NowViewProps {
 export function NowView({ onOpenSettings }: NowViewProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const currentContextKey = useMemo(() => contextQueryKeys.currentContext(), []);
+  const commitmentsKey = useMemo(() => contextQueryKeys.commitments(25), []);
   const integrationsKey = useMemo(() => operatorQueryKeys.integrations(), []);
   const { data, loading, error, refetch } = useQuery<NowData | null>(
     nowKey,
@@ -29,8 +36,50 @@ export function NowView({ onOpenSettings }: NowViewProps) {
       return response.ok ? response.data ?? null : null;
     },
   );
+  const sessionDate = useMemo(
+    () => (data ? formatSessionDate(data.computed_at, data.timezone) : null),
+    [data],
+  );
+  const morningDailyLoopKey = useMemo(
+    () => contextQueryKeys.dailyLoopActive(sessionDate ?? 'pending', 'morning_overview'),
+    [sessionDate],
+  );
+  const standupDailyLoopKey = useMemo(
+    () => contextQueryKeys.dailyLoopActive(sessionDate ?? 'pending', 'standup'),
+    [sessionDate],
+  );
+  const { data: morningDailyLoop } = useQuery<DailyLoopSessionData | null>(
+    morningDailyLoopKey,
+    async () => {
+      if (!sessionDate) {
+        return null;
+      }
+      const response = await loadActiveDailyLoopSession(sessionDate, 'morning_overview');
+      return response.ok ? response.data ?? null : null;
+    },
+    { enabled: Boolean(sessionDate) },
+  );
+  const { data: standupDailyLoop } = useQuery<DailyLoopSessionData | null>(
+    standupDailyLoopKey,
+    async () => {
+      if (!sessionDate) {
+        return null;
+      }
+      const response = await loadActiveDailyLoopSession(sessionDate, 'standup');
+      return response.ok ? response.data ?? null : null;
+    },
+    { enabled: Boolean(sessionDate) },
+  );
   const [pendingActions, setPendingActions] = useState<Record<string, true>>({});
   const [actionMessages, setActionMessages] = useState<Record<string, { status: 'success' | 'error'; message: string }>>({});
+  const [dailyLoopPending, setDailyLoopPending] = useState(false);
+  const [dailyLoopResponse, setDailyLoopResponse] = useState('');
+  const [dailyLoopMessage, setDailyLoopMessage] = useState<{
+    status: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  const [recentCompletedDailyLoop, setRecentCompletedDailyLoop] = useState<DailyLoopSessionData | null>(null);
+  const activeDailyLoop = standupDailyLoop ?? morningDailyLoop ?? null;
 
   const runFreshnessAction = async (source: NowData['freshness']['sources'][number]) => {
     const action = actionForFreshnessSource(source);
@@ -99,6 +148,79 @@ export function NowView({ onOpenSettings }: NowViewProps) {
     }
   };
 
+  const startLoop = async (phase: DailyLoopPhaseData) => {
+    if (!sessionDate) {
+      return;
+    }
+    setDailyLoopPending(true);
+    setDailyLoopMessage(null);
+    try {
+      const response = await startDailyLoopSession({
+        phase,
+        session_date: sessionDate,
+        start: {
+          source: 'manual',
+          surface: 'web',
+        },
+      });
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to start daily loop');
+      }
+      setRecentCompletedDailyLoop(null);
+      setDailyLoopResponse('');
+      setQueryData(
+        phase === 'morning_overview' ? morningDailyLoopKey : standupDailyLoopKey,
+        response.data,
+      );
+    } catch (actionError) {
+      setDailyLoopMessage({
+        status: 'error',
+        message: actionError instanceof Error ? actionError.message : String(actionError),
+      });
+    } finally {
+      setDailyLoopPending(false);
+    }
+  };
+
+  const advanceLoop = async (action: 'submit' | 'skip') => {
+    if (!activeDailyLoop) {
+      return;
+    }
+    setDailyLoopPending(true);
+    setDailyLoopMessage(null);
+    try {
+      const response = await submitDailyLoopTurn(
+        activeDailyLoop.id,
+        action,
+        action === 'submit' ? dailyLoopResponse : null,
+      );
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to advance daily loop');
+      }
+      const nextSession = response.data;
+      const activeKey = nextSession.phase === 'standup' ? standupDailyLoopKey : morningDailyLoopKey;
+      if (nextSession.status === 'completed' || nextSession.status === 'cancelled') {
+        setRecentCompletedDailyLoop(nextSession);
+        setQueryData(activeKey, null);
+        invalidateQuery(activeKey, { refetch: true });
+        invalidateQuery(nowKey, { refetch: true });
+        invalidateQuery(commitmentsKey, { refetch: true });
+        await refetch();
+      } else {
+        setRecentCompletedDailyLoop(null);
+        setQueryData(activeKey, nextSession);
+      }
+      setDailyLoopResponse('');
+    } catch (actionError) {
+      setDailyLoopMessage({
+        status: 'error',
+        message: actionError instanceof Error ? actionError.message : String(actionError),
+      });
+    } finally {
+      setDailyLoopPending(false);
+    }
+  };
+
   useEffect(() => {
     const handleFocus = () => {
       void refetch();
@@ -120,6 +242,16 @@ export function NowView({ onOpenSettings }: NowViewProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [refetch]);
+
+  useEffect(() => {
+    setDailyLoopMessage(null);
+    setDailyLoopResponse('');
+    setRecentCompletedDailyLoop(null);
+  }, [sessionDate]);
+
+  useEffect(() => {
+    setDailyLoopResponse('');
+  }, [activeDailyLoop?.id, activeDailyLoop?.current_prompt?.prompt_id]);
 
   if (loading) {
     return <SurfaceState message="Loading your current state…" layout="centered" />;
@@ -176,6 +308,19 @@ export function NowView({ onOpenSettings }: NowViewProps) {
           pendingActions={pendingActions}
           actionMessages={actionMessages}
           onRunAction={runFreshnessAction}
+        />
+
+        <DailyLoopPanel
+          sessionDate={sessionDate}
+          activeSession={activeDailyLoop}
+          completedSession={activeDailyLoop ? null : recentCompletedDailyLoop}
+          responseText={dailyLoopResponse}
+          pending={dailyLoopPending}
+          message={dailyLoopMessage}
+          onChangeResponse={setDailyLoopResponse}
+          onStart={startLoop}
+          onSubmit={() => void advanceLoop('submit')}
+          onSkip={() => void advanceLoop('skip')}
         />
 
         <Panel
@@ -478,6 +623,216 @@ export function NowView({ onOpenSettings }: NowViewProps) {
   );
 }
 
+function DailyLoopPanel({
+  sessionDate,
+  activeSession,
+  completedSession,
+  responseText,
+  pending,
+  message,
+  onChangeResponse,
+  onStart,
+  onSubmit,
+  onSkip,
+}: {
+  sessionDate: string | null;
+  activeSession: DailyLoopSessionData | null;
+  completedSession: DailyLoopSessionData | null;
+  responseText: string;
+  pending: boolean;
+  message: { status: 'success' | 'error'; message: string } | null;
+  onChangeResponse: (value: string) => void;
+  onStart: (phase: DailyLoopPhaseData) => void;
+  onSubmit: () => void;
+  onSkip: () => void;
+}) {
+  const session = activeSession ?? completedSession;
+  const renderableSession = isRenderableDailyLoopSession(session) ? session : null;
+  const state = renderableSession?.state ?? null;
+  const outcome = renderableSession && completedSession ? completedSession.outcome : null;
+
+  return (
+    <Panel
+      title="Daily loop"
+      subtitle="Start or resume the backend-owned morning overview and standup flow for today."
+    >
+      {sessionDate ? (
+        <p className="mb-4 text-xs uppercase tracking-[0.18em] text-zinc-500">
+          Session date {sessionDate}
+        </p>
+      ) : null}
+
+      {renderableSession ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-emerald-700/40 bg-emerald-950/30 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-emerald-200">
+              {formatDailyLoopPhase(renderableSession.phase)}
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-400">
+              {formatDailyLoopStatus(renderableSession.status)}
+            </span>
+            {renderableSession.current_prompt ? (
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-500">
+                Question {renderableSession.current_prompt.ordinal}
+              </span>
+            ) : null}
+          </div>
+
+          {state?.phase === 'morning_overview' ? (
+            <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+              <p className="text-sm leading-6 text-zinc-200">{state.snapshot}</p>
+              {state.friction_callouts.length > 0 ? (
+                <div className="space-y-2">
+                  {state.friction_callouts.map((callout) => (
+                    <div key={`${callout.label}-${callout.detail}`} className="rounded-lg border border-amber-700/30 bg-amber-950/20 px-3 py-2">
+                      <p className="text-sm font-medium text-amber-100">{callout.label}</p>
+                      <p className="mt-1 text-xs text-amber-200/80">{callout.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {state.signals.length > 0 ? (
+                <ul className="space-y-2 text-sm text-zinc-300">
+                  {state.signals.map((signal, index) => (
+                    <li key={`${signal.kind}-${index}`} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                      {signal.text}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {state?.phase === 'standup' ? (
+            <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+              <DailyLoopStandupSummary title="Commitments" emptyMessage="No commitments defined yet." items={state.commitments.map((item) => `${formatStandupBucket(item.bucket)} · ${item.title}`)} />
+              <DailyLoopStandupSummary title="Deferred" emptyMessage="No deferrals recorded." items={state.deferred_tasks.map((item) => `${item.title} (${item.reason})`)} />
+              <DailyLoopStandupSummary title="Calendar" emptyMessage="No calendar constraints confirmed yet." items={state.confirmed_calendar} />
+              <DailyLoopStandupSummary title="Focus blocks" emptyMessage="No focus blocks proposed yet." items={state.focus_blocks.map((block) => `${block.label} · ${formatRfc3339(block.start_at, 'UTC')} to ${formatRfc3339(block.end_at, 'UTC')}`)} />
+            </div>
+          ) : null}
+
+          {activeSession?.current_prompt ? (
+            <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <p className="text-sm font-medium text-zinc-100">{activeSession.current_prompt.text}</p>
+              <textarea
+                value={responseText}
+                onChange={(event) => onChangeResponse(event.target.value)}
+                placeholder={activeSession.phase === 'morning_overview' ? 'Type a brief response, or skip.' : 'Type one concise answer, or skip.'}
+                rows={3}
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition focus:border-emerald-500"
+              />
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={onSubmit}
+                  disabled={pending || responseText.trim().length === 0}
+                  className="rounded-md border border-emerald-700/70 px-3 py-1.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
+                >
+                  {pending ? 'Saving…' : 'Submit response'}
+                </button>
+                <button
+                  type="button"
+                  onClick={onSkip}
+                  disabled={pending}
+                  className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {outcome ? (
+            <div className="rounded-xl border border-emerald-700/30 bg-emerald-950/20 p-4">
+              <p className="text-sm font-medium text-emerald-100">
+                {outcome.phase === 'standup' ? 'Standup saved.' : 'Morning overview captured.'}
+              </p>
+              {outcome.phase === 'morning_overview' ? (
+                <ul className="mt-3 space-y-2 text-sm text-emerald-50">
+                  {outcome.signals.length === 0 ? (
+                    <li>No intent signals were captured.</li>
+                  ) : (
+                    outcome.signals.map((signal, index) => (
+                      <li key={`${signal.kind}-${index}`}>{signal.text}</li>
+                    ))
+                  )}
+                </ul>
+              ) : (
+                <div className="mt-3 space-y-3 text-sm text-emerald-50">
+                  <DailyLoopStandupSummary title="Committed" emptyMessage="No commitments were saved." items={outcome.commitments.map((item) => `${formatStandupBucket(item.bucket)} · ${item.title}`)} tone="success" />
+                  <DailyLoopStandupSummary title="Deferred" emptyMessage="No deferrals recorded." items={outcome.deferred_tasks.map((item) => `${item.title} (${item.reason})`)} tone="success" />
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-300">
+            Start morning for a brief overview, or jump directly into standup if you already know the day.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => onStart('morning_overview')}
+              disabled={pending || !sessionDate}
+              className="rounded-md border border-emerald-700/70 px-3 py-1.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
+            >
+              Start morning
+            </button>
+            <button
+              type="button"
+              onClick={() => onStart('standup')}
+              disabled={pending || !sessionDate}
+              className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
+            >
+              Start standup
+            </button>
+          </div>
+        </div>
+      )}
+
+      {message ? (
+        <p className={`mt-4 text-sm ${message.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+          {message.message}
+        </p>
+      ) : null}
+    </Panel>
+  );
+}
+
+function DailyLoopStandupSummary({
+  title,
+  emptyMessage,
+  items,
+  tone = 'default',
+}: {
+  title: string;
+  emptyMessage: string;
+  items: string[];
+  tone?: 'default' | 'success';
+}) {
+  return (
+    <div>
+      <p className={`text-xs uppercase tracking-[0.18em] ${tone === 'success' ? 'text-emerald-200/80' : 'text-zinc-500'}`}>
+        {title}
+      </p>
+      {items.length === 0 ? (
+        <p className={`mt-2 text-sm ${tone === 'success' ? 'text-emerald-50/80' : 'text-zinc-400'}`}>{emptyMessage}</p>
+      ) : (
+        <ul className={`mt-2 space-y-2 text-sm ${tone === 'success' ? 'text-emerald-50' : 'text-zinc-300'}`}>
+          {items.map((item) => (
+            <li key={`${title}-${item}`} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function FreshnessBanner({
   freshness,
   pendingActions,
@@ -744,6 +1099,27 @@ function formatRfc3339(value: string, timezone: string): string {
   return new Date(value).toLocaleString(undefined, { timeZone: timezone });
 }
 
+function formatSessionDate(timestamp: number, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(timestamp * 1000));
+}
+
+function formatDailyLoopPhase(phase: DailyLoopPhaseData | string | undefined): string {
+  return phase === 'morning_overview' ? 'Morning overview' : 'Standup';
+}
+
+function formatDailyLoopStatus(status: DailyLoopSessionData['status'] | string | undefined): string {
+  return (status ?? 'unknown').replaceAll('_', ' ');
+}
+
+function formatStandupBucket(bucket: string): string {
+  return bucket.toUpperCase();
+}
+
 function formatActionKind(kind: string): string {
   return kind.replaceAll('_', ' ');
 }
@@ -941,4 +1317,15 @@ function labelFreshness(status: string): string {
     default:
       return status;
   }
+}
+
+function isRenderableDailyLoopSession(value: DailyLoopSessionData | null): value is DailyLoopSessionData {
+  return Boolean(
+    value
+      && typeof value.phase === 'string'
+      && typeof value.status === 'string'
+      && value.state
+      && typeof value.state === 'object'
+      && 'phase' in value.state,
+  );
 }

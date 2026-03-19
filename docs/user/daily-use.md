@@ -8,9 +8,11 @@ Start by orienting:
 
 ```bash
 cargo run -p vel-cli -- morning
-cargo run -p vel-cli -- context
+cargo run -p vel-cli -- standup
 cargo run -p vel-cli -- nudges
 ```
+
+Use `vel morning` for the bounded morning overview loop and `vel standup` for the one-to-three commitment pass. `vel context` and `GET /v1/context/morning` still help as legacy context briefs, but they are no longer the primary authority for the repeated morning/standup workflow.
 
 What you are looking for:
 
@@ -52,9 +54,9 @@ The review queue keeps human-to-agent and agent-to-agent coding handoffs explici
 
 If you use the Apple clients during the day:
 
-- iPhone Voice replies should come from the backend Apple route, not from client-side query synthesis.
+- iPhone Voice morning briefing should start or resume the backend daily-loop session, not a client-side morning heuristic.
 - Apple Watch quick loops should reflect backend `/v1/now` schedule state plus the bounded Apple behavior summary.
-- When offline, treat Apple surfaces as cached-render + queued-safe-action shells. Wait for reconnect before trusting new schedule or explainability answers.
+- When offline, treat Apple surfaces as cached-render + queued-safe-action shells. Wait for reconnect before trusting new schedule or explainability answers, and do not treat cached morning/standup state as permission to invent a new local standup.
 
 ## Commitments and review
 

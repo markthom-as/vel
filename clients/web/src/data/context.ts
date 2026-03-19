@@ -5,6 +5,7 @@ import {
   decodeCommitmentData,
   decodeContextExplainData,
   decodeCurrentContextData,
+  decodeDailyLoopSessionData,
   decodeDriftExplainData,
   decodeNowData,
   decodeNullable,
@@ -15,6 +16,10 @@ import {
   type CommitmentData,
   type ContextExplainData,
   type CurrentContextData,
+  type DailyLoopPhaseData,
+  type DailyLoopSessionData,
+  type DailyLoopStartRequestData,
+  type DailyLoopTurnActionData,
   type DriftExplainData,
   type NowData,
   type SyncBootstrapData,
@@ -32,6 +37,8 @@ export const contextQueryKeys = {
   contextExplain: () => ['context', 'explain'] as const,
   driftExplain: () => ['context', 'drift-explain'] as const,
   commitments: (limit: number) => ['commitments', limit] as const,
+  dailyLoopActive: (sessionDate: string, phase: DailyLoopPhaseData) =>
+    ['daily-loop', 'active', sessionDate, phase] as const,
 };
 
 export function loadSuggestions(state = 'pending'): Promise<ApiResponse<SuggestionData[]>> {
@@ -115,5 +122,45 @@ export function loadCommitments(limit: number): Promise<ApiResponse<CommitmentDa
   return apiGet<ApiResponse<CommitmentData[]>>(
     `/v1/commitments?limit=${limit}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeCommitmentData)),
+  );
+}
+
+export function loadActiveDailyLoopSession(
+  sessionDate: string,
+  phase: DailyLoopPhaseData,
+): Promise<ApiResponse<DailyLoopSessionData | null>> {
+  const params = new URLSearchParams({
+    session_date: sessionDate,
+    phase,
+  });
+  return apiGet<ApiResponse<DailyLoopSessionData | null>>(
+    `/v1/daily-loop/sessions/active?${params.toString()}`,
+    (value) => decodeApiResponse(value, (data) => decodeNullable(data, decodeDailyLoopSessionData)),
+  );
+}
+
+export function startDailyLoopSession(
+  request: DailyLoopStartRequestData,
+): Promise<ApiResponse<DailyLoopSessionData>> {
+  return apiPost<ApiResponse<DailyLoopSessionData>>(
+    '/v1/daily-loop/sessions',
+    request,
+    (value) => decodeApiResponse(value, decodeDailyLoopSessionData),
+  );
+}
+
+export function submitDailyLoopTurn(
+  sessionId: string,
+  action: DailyLoopTurnActionData,
+  responseText?: string | null,
+): Promise<ApiResponse<DailyLoopSessionData>> {
+  return apiPost<ApiResponse<DailyLoopSessionData>>(
+    `/v1/daily-loop/sessions/${encodeURIComponent(sessionId.trim())}/turn`,
+    {
+      session_id: sessionId,
+      action,
+      response_text: responseText ?? null,
+    },
+    (value) => decodeApiResponse(value, decodeDailyLoopSessionData),
   );
 }

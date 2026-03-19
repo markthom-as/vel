@@ -5,13 +5,14 @@ use vel_api_types::{
     ApiResponse, BackupManifestData, BackupStatusData, BranchSyncRequestData, CaptureCreateRequest,
     CaptureCreateResponse, ClusterBootstrapData, CommandExecuteRequest, CommandExecutionPlanData,
     CommandExecutionResultData, CommandPlanRequest, CommitmentCreateRequest, CommitmentData,
-    CommitmentUpdateRequest, ConnectInstanceData, DoctorData, EndOfDayData, EvaluateResultData,
-    ExecutionHandoffData, HealthData, IntegrationConnectionData, IntegrationConnectionEventData,
-    LinkScopeData, LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest,
-    MorningData, NowData, NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest,
-    PairingTokenData, ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest,
-    SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData, SyncResultData,
-    SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
+    CommitmentUpdateRequest, ConnectInstanceData, DailyLoopPhaseData, DailyLoopSessionData,
+    DailyLoopStartRequestData, DailyLoopTurnActionData, DailyLoopTurnRequestData, DoctorData,
+    EndOfDayData, EvaluateResultData, ExecutionHandoffData, HealthData, IntegrationConnectionData,
+    IntegrationConnectionEventData, LinkScopeData, LinkedNodeData, LoopData, LoopUpdateRequest,
+    MoodJournalCreateRequest, MorningData, NowData, NudgeData, NudgeSnoozeRequest,
+    PainJournalCreateRequest, PairingTokenData, ProjectListResponseData, QueuedWorkRoutingData,
+    RunUpdateRequest, SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData,
+    SyncResultData, SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -535,6 +536,45 @@ impl ApiClient {
 
     pub async fn morning(&self) -> anyhow::Result<ApiResponse<MorningData>> {
         self.get("/v1/context/morning").await
+    }
+
+    pub async fn start_daily_loop_session(
+        &self,
+        request: &DailyLoopStartRequestData,
+    ) -> anyhow::Result<ApiResponse<DailyLoopSessionData>> {
+        self.post_json("/v1/daily-loop/sessions", request).await
+    }
+
+    pub async fn active_daily_loop_session(
+        &self,
+        session_date: &str,
+        phase: DailyLoopPhaseData,
+    ) -> anyhow::Result<ApiResponse<Option<DailyLoopSessionData>>> {
+        let phase = match phase {
+            DailyLoopPhaseData::MorningOverview => "morning_overview",
+            DailyLoopPhaseData::Standup => "standup",
+        };
+        self.get(&format!(
+            "/v1/daily-loop/sessions/active?session_date={session_date}&phase={phase}"
+        ))
+        .await
+    }
+
+    pub async fn submit_daily_loop_turn(
+        &self,
+        session_id: &str,
+        action: DailyLoopTurnActionData,
+        response_text: Option<String>,
+    ) -> anyhow::Result<ApiResponse<DailyLoopSessionData>> {
+        self.post_json(
+            &format!("/v1/daily-loop/sessions/{session_id}/turn"),
+            &DailyLoopTurnRequestData {
+                session_id: session_id.to_string(),
+                action,
+                response_text,
+            },
+        )
+        .await
     }
 
     pub async fn end_of_day(&self) -> anyhow::Result<ApiResponse<EndOfDayData>> {

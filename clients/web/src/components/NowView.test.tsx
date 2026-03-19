@@ -16,6 +16,8 @@ describe('NowView', () => {
     vi.useRealTimers()
     vi.mocked(api.apiGet).mockReset()
     vi.mocked(api.apiPost).mockReset()
+    let morningSession: Record<string, unknown> | null = null
+    let standupSession: Record<string, unknown> | null = null
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
       if (path === '/v1/now') {
         return {
@@ -271,9 +273,18 @@ describe('NowView', () => {
           meta: { request_id: 'req_now' },
         } as never
       }
+      if (path.startsWith('/v1/daily-loop/sessions/active?')) {
+        const url = new URL(`http://localhost${path}`)
+        const phase = url.searchParams.get('phase')
+        return {
+          ok: true,
+          data: phase === 'standup' ? standupSession : morningSession,
+          meta: { request_id: `req_daily_loop_active_${phase}` },
+        } as never
+      }
       throw new Error(`unexpected apiGet path: ${path}`)
     })
-    vi.mocked(api.apiPost).mockImplementation(async (path: string) => {
+    vi.mocked(api.apiPost).mockImplementation(async (path: string, body?: unknown) => {
       if (path === '/v1/evaluate') {
         return {
           ok: true,
@@ -324,6 +335,183 @@ describe('NowView', () => {
           meta: { request_id: 'req_sync_messaging' },
         } as never
       }
+      if (path === '/v1/daily-loop/sessions') {
+        const request = body as { phase: string; session_date: string }
+        if (request.phase === 'morning_overview') {
+          morningSession = {
+            id: 'dls_morning_1',
+            session_date: request.session_date,
+            phase: 'morning_overview',
+            status: 'waiting_for_input',
+            start: {
+              source: 'manual',
+              surface: 'web',
+            },
+            turn_state: 'waiting_for_input',
+            current_prompt: {
+              prompt_id: 'morning_prompt_1',
+              kind: 'intent_question',
+              text: 'What most needs to happen before noon?',
+              ordinal: 1,
+              allow_skip: true,
+            },
+            state: {
+              phase: 'morning_overview',
+              snapshot: 'Two meetings before noon. Reply to Dimitri is still open.',
+              friction_callouts: [
+                {
+                  label: 'Packed morning',
+                  detail: 'You have little slack before the design review.',
+                },
+              ],
+              signals: [],
+            },
+            outcome: null,
+          }
+          return {
+            ok: true,
+            data: morningSession,
+            meta: { request_id: 'req_daily_loop_start_morning' },
+          } as never
+        }
+
+        standupSession = {
+          id: 'dls_standup_1',
+          session_date: request.session_date,
+          phase: 'standup',
+          status: 'waiting_for_input',
+          start: {
+            source: 'manual',
+            surface: 'web',
+          },
+          turn_state: 'waiting_for_input',
+          current_prompt: {
+            prompt_id: 'standup_prompt_1',
+            kind: 'commitment_reduction',
+            text: 'Name the one to three commitments that matter most today.',
+            ordinal: 1,
+            allow_skip: true,
+          },
+          state: {
+            phase: 'standup',
+            commitments: [],
+            deferred_tasks: [],
+            confirmed_calendar: ['Design review at 10:00'],
+            focus_blocks: [],
+          },
+          outcome: null,
+        }
+        return {
+          ok: true,
+          data: standupSession,
+          meta: { request_id: 'req_daily_loop_start_standup' },
+        } as never
+      }
+      if (path === '/v1/daily-loop/sessions/dls_morning_1/turn') {
+        const request = body as { action: string; response_text?: string | null }
+        const currentSignals =
+          ((morningSession?.state as { signals?: Array<{ kind: string; text: string }> } | undefined)
+            ?.signals ?? [])
+        if (request.action === 'submit') {
+          currentSignals.push({
+            kind: 'must_do_hint',
+            text: request.response_text ?? '',
+          })
+        }
+        if ((morningSession?.current_prompt as { ordinal?: number } | undefined)?.ordinal === 1) {
+          morningSession = {
+            ...morningSession,
+            state: {
+              ...(morningSession?.state as Record<string, unknown>),
+              signals: currentSignals,
+            },
+            current_prompt: {
+              prompt_id: 'morning_prompt_2',
+              kind: 'intent_question',
+              text: 'What could derail today if ignored?',
+              ordinal: 2,
+              allow_skip: true,
+            },
+          }
+        } else {
+          const completedMorning = {
+            ...morningSession,
+            status: 'completed',
+            turn_state: 'completed',
+            current_prompt: null,
+            state: {
+              ...(morningSession?.state as Record<string, unknown>),
+              signals: currentSignals,
+            },
+            outcome: {
+              phase: 'morning_overview',
+              signals: currentSignals,
+            },
+          }
+          morningSession = null
+          return {
+            ok: true,
+            data: completedMorning,
+            meta: { request_id: 'req_daily_loop_turn_morning_complete' },
+          } as never
+        }
+        return {
+          ok: true,
+          data: morningSession,
+          meta: { request_id: 'req_daily_loop_turn_morning' },
+        } as never
+      }
+      if (path === '/v1/daily-loop/sessions/dls_standup_1/turn') {
+        const request = body as { response_text?: string | null }
+        const commitments = (request.response_text ?? '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+          .slice(0, 3)
+          .map((title, index) => ({
+            title,
+            bucket: index === 0 ? 'must' : 'should',
+            source_ref: null,
+          }))
+        const completedStandup = {
+          ...standupSession,
+          status: 'completed',
+          turn_state: 'completed',
+          current_prompt: null,
+          state: {
+            phase: 'standup',
+            commitments,
+            deferred_tasks: [
+              {
+                title: 'Inbox cleanup',
+                source_ref: null,
+                reason: 'Not part of the top commitments.',
+              },
+            ],
+            confirmed_calendar: ['Design review at 10:00'],
+            focus_blocks: [],
+          },
+          outcome: {
+            phase: 'standup',
+            commitments,
+            deferred_tasks: [
+              {
+                title: 'Inbox cleanup',
+                source_ref: null,
+                reason: 'Not part of the top commitments.',
+              },
+            ],
+            confirmed_calendar: ['Design review at 10:00'],
+            focus_blocks: [],
+          },
+        }
+        standupSession = null
+        return {
+          ok: true,
+          data: completedStandup,
+          meta: { request_id: 'req_daily_loop_turn_standup_complete' },
+        } as never
+      }
       throw new Error(`unexpected apiPost path: ${path}`)
     })
   })
@@ -370,6 +558,72 @@ describe('NowView', () => {
     expect(screen.getByText('People status')).toBeInTheDocument()
     expect(screen.getAllByText('Annie Case').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Fresh').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /start morning/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /start standup/i })).toBeInTheDocument()
+  })
+
+  it('starts morning and resumes the next backend-owned prompt in place', async () => {
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /start morning/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /start morning/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('What most needs to happen before noon?')).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByPlaceholderText(/type a brief response/i), {
+      target: { value: 'Ship Phase 10 before lunch.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit response/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('What could derail today if ignored?')).toBeInTheDocument()
+    })
+
+    expect(api.apiPost).toHaveBeenCalledWith(
+      '/v1/daily-loop/sessions',
+      expect.objectContaining({ phase: 'morning_overview' }),
+      expect.any(Function),
+    )
+    expect(api.apiPost).toHaveBeenCalledWith(
+      '/v1/daily-loop/sessions/dls_morning_1/turn',
+      expect.objectContaining({
+        action: 'submit',
+        response_text: 'Ship Phase 10 before lunch.',
+      }),
+      expect.any(Function),
+    )
+  })
+
+  it('completes standup and shows the saved outcome while refreshing now', async () => {
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /start standup/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /start standup/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Name the one to three commitments that matter most today.')).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByPlaceholderText(/type one concise answer/i), {
+      target: { value: 'Ship Phase 10, Review runtime PR' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /submit response/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Standup saved.')).toBeInTheDocument()
+    })
+
+    expect(screen.getAllByText('MUST · Ship Phase 10').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('SHOULD · Review runtime PR').length).toBeGreaterThan(0)
+    expect(vi.mocked(api.apiGet).mock.calls.filter(([path]) => path === '/v1/now').length).toBeGreaterThan(1)
   })
 
   it('surfaces degraded freshness warnings while keeping stale data visible', async () => {
@@ -629,119 +883,98 @@ describe('NowView', () => {
   })
 
   it('retries calendar sync directly from degraded freshness warnings', async () => {
-    vi.mocked(api.apiGet)
-      .mockResolvedValueOnce({
-        ok: true,
-        data: {
-          computed_at: 1710000000,
-          timezone: 'America/Denver',
-          summary: {
-            mode: { key: 'day_mode', label: 'Day' },
-            phase: { key: 'engaged', label: 'Engaged' },
-            meds: { key: 'pending', label: 'Pending' },
-            risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
-          },
-          schedule: {
-            empty_message: null,
-            next_event: null,
-            upcoming_events: [],
-          },
-          tasks: {
-            todoist: [],
-            other_open: [],
-            next_commitment: null,
-          },
-          attention: {
-            state: { key: 'on_task', label: 'On task' },
-            drift: { key: 'none', label: 'None' },
-            severity: { key: 'none', label: 'None' },
-            confidence: 0.8,
-            reasons: [],
-          },
-          sources: {
-            git_activity: null,
-            note_document: null,
-            assistant_message: null,
-          },
-          freshness: {
-            overall_status: 'stale',
-            sources: [
-              {
-                key: 'calendar',
-                label: 'Calendar',
-                status: 'stale',
-                last_sync_at: 1709990000,
-                age_seconds: 10000,
-                guidance: 'Calendar sync failed earlier. Inspect history and retry sync.',
-              },
-            ],
-          },
-          reasons: [],
-          debug: {
-            raw_context: {},
-            signals_used: [],
-            commitments_used: [],
-            risk_used: [],
-          },
+    const staleNow = {
+      ok: true,
+      data: {
+        computed_at: 1710000000,
+        timezone: 'America/Denver',
+        summary: {
+          mode: { key: 'day_mode', label: 'Day' },
+          phase: { key: 'engaged', label: 'Engaged' },
+          meds: { key: 'pending', label: 'Pending' },
+          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
         },
-        meta: { request_id: 'req_now_calendar_stale' },
-      } as never)
-      .mockResolvedValueOnce({
-        ok: true,
-        data: {
-          computed_at: 1710000300,
-          timezone: 'America/Denver',
-          summary: {
-            mode: { key: 'day_mode', label: 'Day' },
-            phase: { key: 'engaged', label: 'Engaged' },
-            meds: { key: 'pending', label: 'Pending' },
-            risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
-          },
-          schedule: {
-            empty_message: null,
-            next_event: null,
-            upcoming_events: [],
-          },
-          tasks: {
-            todoist: [],
-            other_open: [],
-            next_commitment: null,
-          },
-          attention: {
-            state: { key: 'on_task', label: 'On task' },
-            drift: { key: 'none', label: 'None' },
-            severity: { key: 'none', label: 'None' },
-            confidence: 0.8,
-            reasons: [],
-          },
-          sources: {
-            git_activity: null,
-            note_document: null,
-            assistant_message: null,
-          },
-          freshness: {
-            overall_status: 'fresh',
-            sources: [
-              {
-                key: 'calendar',
-                label: 'Calendar',
-                status: 'fresh',
-                last_sync_at: 1710000300,
-                age_seconds: 0,
-                guidance: null,
-              },
-            ],
-          },
-          reasons: [],
-          debug: {
-            raw_context: {},
-            signals_used: [],
-            commitments_used: [],
-            risk_used: [],
-          },
+        schedule: {
+          empty_message: null,
+          next_event: null,
+          upcoming_events: [],
         },
-        meta: { request_id: 'req_now_calendar_fresh' },
-      } as never)
+        tasks: {
+          todoist: [],
+          other_open: [],
+          next_commitment: null,
+        },
+        attention: {
+          state: { key: 'on_task', label: 'On task' },
+          drift: { key: 'none', label: 'None' },
+          severity: { key: 'none', label: 'None' },
+          confidence: 0.8,
+          reasons: [],
+        },
+        sources: {
+          git_activity: null,
+          note_document: null,
+          assistant_message: null,
+        },
+        freshness: {
+          overall_status: 'stale',
+          sources: [
+            {
+              key: 'calendar',
+              label: 'Calendar',
+              status: 'stale',
+              last_sync_at: 1709990000,
+              age_seconds: 10000,
+              guidance: 'Calendar sync failed earlier. Inspect history and retry sync.',
+            },
+          ],
+        },
+        reasons: [],
+        debug: {
+          raw_context: {},
+          signals_used: [],
+          commitments_used: [],
+          risk_used: [],
+        },
+      },
+      meta: { request_id: 'req_now_calendar_stale' },
+    }
+    const freshNow = {
+      ok: true,
+      data: {
+        ...staleNow.data,
+        computed_at: 1710000300,
+        freshness: {
+          overall_status: 'fresh',
+          sources: [
+            {
+              key: 'calendar',
+              label: 'Calendar',
+              status: 'fresh',
+              last_sync_at: 1710000300,
+              age_seconds: 0,
+              guidance: null,
+            },
+          ],
+        },
+      },
+      meta: { request_id: 'req_now_calendar_fresh' },
+    }
+    let nowCalls = 0
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        nowCalls += 1
+        return (nowCalls === 1 ? staleNow : freshNow) as never
+      }
+      if (path.startsWith('/v1/daily-loop/sessions/active?')) {
+        return {
+          ok: true,
+          data: null,
+          meta: { request_id: 'req_daily_loop_active' },
+        } as never
+      }
+      throw new Error(`unexpected apiGet path: ${path}`)
+    })
 
     render(<NowView />)
 
@@ -819,9 +1052,21 @@ describe('NowView', () => {
       },
       meta: { request_id: 'req_now_2' },
     }
-    vi.mocked(api.apiGet)
-      .mockResolvedValueOnce(initial as never)
-      .mockResolvedValueOnce(refreshed as never)
+    let nowCalls = 0
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        nowCalls += 1
+        return (nowCalls === 1 ? initial : refreshed) as never
+      }
+      if (path.startsWith('/v1/daily-loop/sessions/active?')) {
+        return {
+          ok: true,
+          data: null,
+          meta: { request_id: 'req_daily_loop_active' },
+        } as never
+      }
+      throw new Error(`unexpected apiGet path: ${path}`)
+    })
 
     render(<NowView />)
 

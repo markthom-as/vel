@@ -34,6 +34,8 @@ final class VelClientStore: ObservableObject {
     @Published var nudges: [NudgeData] = []
     @Published var commitments: [CommitmentData] = []
     @Published var signals: [SignalData] = []
+    @Published var morningDailyLoop: DailyLoopSessionData?
+    @Published var standupDailyLoop: DailyLoopSessionData?
 
     init() {
         let initial = VelEndpointResolver.candidateBaseURLs().first
@@ -58,8 +60,26 @@ final class VelClientStore: ObservableObject {
                 let bootstrap = try await client.syncBootstrap()
                 let workers = try? await client.clusterWorkers()
                 let linkedNodes = (try? await client.linkingStatus()) ?? bootstrap.linked_nodes
+                let morningDailyLoop = try? await client.activeDailyLoopSession(
+                    sessionDate: currentDailyLoopSessionDate(),
+                    phase: .morningOverview
+                )
+                let standupDailyLoop = try? await client.activeDailyLoopSession(
+                    sessionDate: currentDailyLoopSessionDate(),
+                    phase: .standup
+                )
                 offlineStore.hydrate(from: bootstrap)
                 offlineStore.saveCachedLinkedNodes(linkedNodes)
+                if let morningDailyLoop {
+                    offlineStore.saveCachedDailyLoopSession(morningDailyLoop)
+                } else {
+                    offlineStore.clearCachedDailyLoopSession(phase: .morningOverview)
+                }
+                if let standupDailyLoop {
+                    offlineStore.saveCachedDailyLoopSession(standupDailyLoop)
+                } else {
+                    offlineStore.clearCachedDailyLoopSession(phase: .standup)
+                }
 
                 let recentSignals = try await client.signals(limit: 80)
                 offlineStore.saveCachedSignals(recentSignals)
@@ -78,6 +98,8 @@ final class VelClientStore: ObservableObject {
                 commitments = offlineStore.cachedCommitmentsApplyingPendingActions()
                 self.linkedNodes = linkedNodes
                 signals = recentSignals
+                self.morningDailyLoop = morningDailyLoop
+                self.standupDailyLoop = standupDailyLoop
                 pendingActionCount = offlineStore.pendingActionCount()
                 return
             } catch {
@@ -294,7 +316,17 @@ final class VelClientStore: ObservableObject {
         commitments = offlineStore.cachedCommitmentsApplyingPendingActions()
         linkedNodes = offlineStore.cachedLinkedNodes()
         signals = offlineStore.cachedSignals()
+        morningDailyLoop = offlineStore.cachedDailyLoopSession(phase: .morningOverview)
+        standupDailyLoop = offlineStore.cachedDailyLoopSession(phase: .standup)
         pendingActionCount = offlineStore.pendingActionCount()
+    }
+
+    private func currentDailyLoopSessionDate() -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
     }
 
     private func queuedCaptureText(text: String, type: String, source: String) -> String {

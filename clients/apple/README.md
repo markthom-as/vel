@@ -27,6 +27,16 @@ On a physical device, set the daemon base URL (e.g. `http://<your-mac-ip>:4130`)
 
 If your runtime enables strict HTTP auth, also set `vel_operator_token` in the Apple client's `UserDefaults`. `VelAPI` sends that value as `x-vel-operator-token` on operator-authenticated `/v1/*` requests, including `/v1/now`, `/v1/apple/voice/turn`, and `/v1/apple/behavior-summary`.
 
+## Daily loop authority
+
+Phase 10 morning and standup authority now lives in the shared backend daily-loop surface:
+
+- CLI authority: `vel morning` and `vel standup`
+- Runtime API authority: `POST /v1/daily-loop/sessions`, `GET /v1/daily-loop/sessions/active`, `POST /v1/daily-loop/sessions/:id/turn`
+- Apple voice entry: `POST /v1/apple/voice/turn` with `MorningBriefing` intent delegates into that same backend session flow after transcript capture
+
+`GET /v1/context/morning` still exists, but it is now the legacy context brief rather than the bounded morning/standup loop authority.
+
 ## Quick local setup (simulator)
 
 From repo root:
@@ -121,6 +131,7 @@ Current guardrails:
 - queued actions are replayed in insertion order
 - on first replay failure, remaining actions stay queued for next retry
 - cache is best-effort and can be overwritten by canonical server state after reconnect
+- cached daily-loop sessions are render-only fallback state; Apple clients do not synthesize new morning prompts, standup commitments, or local reduction logic while offline
 
 Watch quick-action notes:
 
@@ -136,9 +147,10 @@ Voice capture notes:
 - submissions preserve transcript provenance as a `voice_note` capture
 - transcript is editable before submit and intent suggestions update live
 - supported backend voice query intents: morning briefing, current schedule, next commitment, active nudges, explain-why, and behavior summary
-- the Voice tab sends supported replies through `POST /v1/apple/voice/turn`; Swift renders the typed response and does not synthesize query answers locally
+- the Voice tab sends supported replies through `POST /v1/apple/voice/turn`; MorningBriefing now starts or resumes the shared backend daily loop, and Swift renders typed session state instead of synthesizing morning/standup policy locally
 - commitment creation still uses the existing direct capture/queue shell because it is not part of the current Apple voice backend contract
 - supported voice action intents include targeted commitment done and nudge snooze/done when the backend route is reachable; offline fallback is limited to provenance capture plus queued safe actions
+- when the daemon is offline, the Voice tab may show cached active morning/standup session state, but resume/submit requires reconnect so the backend remains the source of truth
 - voice responses can be spoken back with built-in TTS playback
 - voice transcript handoff can open the Capture tab directly for multimodal draft composition
 

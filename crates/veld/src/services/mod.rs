@@ -16,6 +16,8 @@ pub mod components;
 pub mod connect_runtime;
 pub mod context_generation;
 pub mod context_runs;
+pub mod daily_loop;
+pub mod daily_loop_inputs;
 pub mod doctor;
 pub mod evaluate;
 pub mod execution_context;
