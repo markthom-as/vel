@@ -3,6 +3,7 @@
 Bootstrap for Vel clients on Apple platforms. All apps talk to the **same Vel daemon (veld)** over HTTP; no business logic in the client.
 
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
+- **VelAppleModules** — shared Apple scaffold package for domain/application/infrastructure/platform/capability seams.
 - **VeliOS** — iPhone: Today/Nudges/Activity/Capture/Voice/Settings shell, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
 - **VelWatch** — Apple Watch: backend-owned quick-loop summary from `/v1/now` plus Apple behavior summary, nudge quick actions (done/snooze), quick capture/check-in/task entry, cached fallback.
 - **VelMac** — macOS: context, nudges, commitments, quick capture, offline cache + queued actions (sidebar layout), plus local activity/health/messages/reminders snapshot export into Vel’s Application Support tree.
@@ -36,6 +37,9 @@ make apple-setup-simulator
 make apple-build
 make apple-build-watch-sim
 make apple-run
+make apple-run-watch-sim
+# or launch both:
+make apple-run-all-sim
 ```
 
 If you want Xcode UI:
@@ -44,7 +48,7 @@ If you want Xcode UI:
 make apple-open
 ```
 
-The build script selects the first available iPhone simulator automatically. To pin one device:
+The build script selects the newest available iPhone simulator runtime automatically. To pin one device:
 
 ```bash
 APPLE_SIM_DEVICE_ID=<sim-udid> make apple-build
@@ -64,6 +68,15 @@ export APPLE_DEVELOPMENT_TEAM=<your-team-id>
 
 ```bash
 make apple-list-devices
+```
+
+Quick install flow (iPhone/iPad first, optional watch):
+
+```bash
+export APPLE_DEVELOPMENT_TEAM=<your-team-id>
+export APPLE_DEVICE_ID=<iphone-or-ipad-udid>
+export APPLE_WATCH_DEVICE_ID=<watch-udid>   # optional
+make apple-install-devices
 ```
 
 3. Build/install on iPhone or iPad (same `VeliOS` target supports both):
@@ -91,10 +104,16 @@ make apple-install-watch-device
 Optional watch bundle identifier override:
 
 ```bash
-export APPLE_WATCH_BUNDLE_ID=vel.VelWatch.personal
+export APPLE_WATCH_BUNDLE_ID=vel.VeliOS.personal.watchkitapp
 ```
 
-If device install fails on first attempt, open `clients/apple/Vel.xcodeproj` in Xcode once, select each target (`VeliOS`, `VelWatch`), and confirm Signing uses your team.
+Optional watch companion bundle identifier override (must match iOS app bundle ID):
+
+```bash
+export APPLE_WATCH_COMPANION_BUNDLE_ID=vel.VeliOS.personal
+```
+
+If device install fails on first attempt, open `clients/apple/Vel.xcodeproj` in Xcode once, select each target (`VeliOS`, `VelWatch`, `VelWidgetExtension`, `VelIntentsExtension`), and confirm Signing uses your team.
 
 ## Endpoint resolution
 
@@ -201,12 +220,13 @@ If the project file is not present, create it from the package and app sources (
 - **macOS**: Select the **VelMac** scheme, Run.
 - **watchOS**: Select the **VelWatch** scheme, choose a watch simulator (or pair with iPhone simulator), Run.
 
-CLI build path (iOS simulator):
+CLI simulator path:
 
 ```bash
 make apple-build
 make apple-run
 make apple-build-watch-sim
+make apple-run-watch-sim
 ```
 
 CLI build/install path (physical devices):
@@ -227,12 +247,14 @@ If you need to create the Xcode project from scratch:
 1. **New project**
    - File → New → Project.
    - Choose **App** (iOS), product name **VeliOS**, interface **SwiftUI**, language **Swift**, save in `clients/apple/Apps/VeliOS`.
-   - Repeat for **macOS App** → **VelMac** in `clients/apple/Apps/VelMac`, and **watchOS App** → **VelWatch** in `clients/apple/Apps/VelWatch` (or create one workspace with three app targets).
+   - Repeat for **macOS App** → **VelMac** in `clients/apple/Apps/VelMac`, and **watchOS App** → **VelWatch** in `clients/apple/Apps/VelWatch`.
+   - Add app extension targets for `VelWidgetExtension` and `VelIntentsExtension`.
 
-2. **Add VelAPI package**
+2. **Add local packages**
    - File → Add Package Dependencies → **Add Local…**.
    - Select the `clients/apple/VelAPI` folder (the one containing `Package.swift`).
-   - Add the **VelAPI** library to each app target.
+   - Select the `clients/apple/Packages/VelAppleModules` folder.
+   - Add **VelAPI**, **VelFeatureFlags**, and **VelApplePlatform** to the app targets.
 
 3. **Replace default app code**
    - For each app, replace the default `*App.swift` and `ContentView.swift` with the files in `clients/apple/Apps/<AppName>/`.
@@ -259,9 +281,13 @@ clients/apple/
     ├── VelWatch/          # watchOS app sources
     │   ├── VelWatchApp.swift
     │   └── ContentView.swift
-    └── VelMac/            # macOS app sources
-        ├── VelMacApp.swift
-        └── ContentView.swift
+    ├── VelMac/            # macOS app sources
+    │   ├── VelMacApp.swift
+    │   └── ContentView.swift
+    ├── VelWidgetExtension/
+    │   └── VelWidgetBundle.swift
+    └── VelIntentsExtension/
+        └── VelIntentsExtension.swift
 ```
 
 ## API surface used

@@ -23,8 +23,30 @@ fi
 DEVICE_ID="${APPLE_WATCH_SIM_DEVICE_ID:-}"
 
 if [[ -z "$DEVICE_ID" ]]; then
-  DEVICE_ID="$(xcrun simctl list devices available \
-    | rg -m1 '^[[:space:]]+Apple Watch.*\(([0-9A-F-]{36})\)' -or '$1')"
+  DEVICE_ID="$(xcrun simctl list devices available | awk '
+    /^-- watchOS / {
+      version=$3
+      gsub(/[^0-9.]/, "", version)
+      split(version, parts, ".")
+      major=(parts[1] == "" ? 0 : parts[1] + 0)
+      minor=(parts[2] == "" ? 0 : parts[2] + 0)
+      patch=(parts[3] == "" ? 0 : parts[3] + 0)
+      currentKey=sprintf("%04d%04d%04d", major, minor, patch)
+      next
+    }
+    /^[[:space:]]+Apple Watch/ {
+      if (match($0, /\(([0-9A-F-]{36})\)/)) {
+        id=substr($0, RSTART + 1, RLENGTH - 2)
+        if (currentKey > bestKey) {
+          bestKey=currentKey
+          bestId=id
+        }
+      }
+    }
+    END {
+      print bestId
+    }
+  ')"
 fi
 
 if [[ -z "$DEVICE_ID" ]]; then

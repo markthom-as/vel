@@ -6,7 +6,83 @@
 	objectVersion = 56;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		00B5AC987F8525DF9C2AA62B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D12A2C3F21A62D45BBD2887 /* ContentView.swift */; };
+		244D54B575F7D235B550B5CD /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5C02F5CF71715FF7A67D762 /* Foundation.framework */; };
+		31243AEB80130EC9C5EE0915 /* VelWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 99467C4C1BB572376E41478A /* VelWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		33C52BB7C3DF563C28480FB1 /* VelMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD39BFC29EDCE76294704F0 /* VelMacApp.swift */; };
+		3A445CA0D43ED308B3DFB073 /* VelApplication in Frameworks */ = {isa = PBXBuildFile; productRef = 42D170C4DCE09F2BEBC3FD70 /* VelApplication */; };
+		3F42EA6E2C37BB5F2002EED2 /* VelAPI in Frameworks */ = {isa = PBXBuildFile; productRef = 52B7EDDB75F3D82CD5C63E94 /* VelAPI */; };
+		43D0DF67418E0D32D01148FE /* VelApplePlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 954914EDE83BB2D29EB70BC8 /* VelApplePlatform */; };
+		5214176C694A9B53EC5938A6 /* VelApplication in Frameworks */ = {isa = PBXBuildFile; productRef = D3597DFF0575EEDA9B5662FA /* VelApplication */; };
+		5E56D72674CA21311D2C9AD1 /* VelIntentsExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2366CE73F9869E4F5200512E /* VelIntentsExtension.swift */; };
+		668B5B010B074192049EEE13 /* VelApplication in Frameworks */ = {isa = PBXBuildFile; productRef = CD1291169AA14C4AB3501265 /* VelApplication */; };
+		6B799895834E5FC45FF67AA4 /* VelFeatureFlags in Frameworks */ = {isa = PBXBuildFile; productRef = 23CFAEDA22312639C2DA485F /* VelFeatureFlags */; };
+		7A6FA07DB6C06B8B565CE3CA /* VelWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C013C0C0BEA444F7A8324FFE /* VelWidgetBundle.swift */; };
+		85FBA1CF1073359D9BAA15E5 /* VelApplePlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 18FDB7835B8174136A15625B /* VelApplePlatform */; };
+		879B596172E4D735284E8BF3 /* VelApplePlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 60D0707FE6BCEA83D9F9B73C /* VelApplePlatform */; };
+		9FE58C85D09EBAD00342E502 /* VelIntentsExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 697C1B267FC258D6CD2A2F0A /* VelIntentsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A1B2C3D40000000400000001 /* VelAPI in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000A00000001 /* VelAPI */; };
+		A1B2C3D40000000400000002 /* VelAPI in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D40000000A00000002 /* VelAPI */; };
+		A1B2C3D40000000400000003 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000100000004 /* XCTest.framework */; };
+		A1B2C3D40000000E00000001 /* VelApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000200000001 /* VelApp.swift */; settings = {ATTRIBUTES = (); }; };
+		A1B2C3D40000000E00000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000200000002 /* ContentView.swift */; settings = {ATTRIBUTES = (); }; };
+		A1B2C3D40000000E00000003 /* VelWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000200000003 /* VelWatchApp.swift */; settings = {ATTRIBUTES = (); }; };
+		A1B2C3D40000000E00000004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000200000004 /* ContentView.swift */; settings = {ATTRIBUTES = (); }; };
+		A1B2C3D40000000E00000005 /* VeliOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000200000005 /* VeliOSTests.swift */; };
+		C0118499B1138E44BCCDA079 /* VelFeatureFlags in Frameworks */ = {isa = PBXBuildFile; productRef = 1540F86A57FF0448634D712B /* VelFeatureFlags */; };
+		C0EE2D5293EF06E622507816 /* VelFeatureFlags in Frameworks */ = {isa = PBXBuildFile; productRef = E2040467AF961B056AD728D9 /* VelFeatureFlags */; };
+		EC716E98B695B9AFF6F07161 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5C02F5CF71715FF7A67D762 /* Foundation.framework */; };
+		F6536BAA4855E8D904FF5608 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 207FBB41D1DA3510C1826CCF /* Cocoa.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A1B2C3D40000001000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1B2C3D40000000B00000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1B2C3D40000000600000001;
+			remoteInfo = VeliOS;
+		};
+		C2B99A1F4CAD9B7D2873F5B6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1B2C3D40000000B00000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 21E95C709B40A90C2CB3E8DA;
+			remoteInfo = VelWidgetExtension;
+		};
+		E635F6A1CB045DBFF63B98AF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1B2C3D40000000B00000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1B8DA330AF9B5E90E7223D02;
+			remoteInfo = VelIntentsExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		ED2C3B24F037133873ADEC7A /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				31243AEB80130EC9C5EE0915 /* VelWidgetExtension.appex in Embed App Extensions */,
+				9FE58C85D09EBAD00342E502 /* VelIntentsExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		0D12A2C3F21A62D45BBD2887 /* ContentView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		207FBB41D1DA3510C1826CCF /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		2366CE73F9869E4F5200512E /* VelIntentsExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VelIntentsExtension.swift; sourceTree = "<group>"; };
+		5DD39BFC29EDCE76294704F0 /* VelMacApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VelMacApp.swift; sourceTree = "<group>"; };
+		697C1B267FC258D6CD2A2F0A /* VelIntentsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VelIntentsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A06E62F2BD34FB245C45B40 /* VelMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VelMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		99467C4C1BB572376E41478A /* VelWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = VelWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D40000000100000001 /* VeliOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VeliOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D40000000100000002 /* VelWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VelWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D40000000100000003 /* VeliOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VeliOSTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -16,14 +92,27 @@
 		A1B2C3D40000000200000003 /* VelWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelWatchApp.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000200000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000200000005 /* VeliOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VeliOSTests.swift; sourceTree = "<group>"; };
+		C013C0C0BEA444F7A8324FFE /* VelWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VelWidgetBundle.swift; sourceTree = "<group>"; };
+		C5C02F5CF71715FF7A67D762 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		6A15C349EEAE7E4D7078FC6B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				244D54B575F7D235B550B5CD /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1B2C3D40000000300000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D40000000400000001 /* VelAPI in Frameworks */,
+				668B5B010B074192049EEE13 /* VelApplication in Frameworks */,
+				879B596172E4D735284E8BF3 /* VelApplePlatform in Frameworks */,
+				C0EE2D5293EF06E622507816 /* VelFeatureFlags in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -32,6 +121,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D40000000400000002 /* VelAPI in Frameworks */,
+				5214176C694A9B53EC5938A6 /* VelApplication in Frameworks */,
+				43D0DF67418E0D32D01148FE /* VelApplePlatform in Frameworks */,
+				C0118499B1138E44BCCDA079 /* VelFeatureFlags in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -43,14 +135,61 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CE8AE4A3BA105A32841F0134 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F6536BAA4855E8D904FF5608 /* Cocoa.framework in Frameworks */,
+				3F42EA6E2C37BB5F2002EED2 /* VelAPI in Frameworks */,
+				3A445CA0D43ED308B3DFB073 /* VelApplication in Frameworks */,
+				85FBA1CF1073359D9BAA15E5 /* VelApplePlatform in Frameworks */,
+				6B799895834E5FC45FF67AA4 /* VelFeatureFlags in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DCBDF2CC681C33089121185A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EC716E98B695B9AFF6F07161 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4AA925D0C6A52EB966A59D06 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				207FBB41D1DA3510C1826CCF /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+		5822A76A94C3B0A9F819D0BC /* VelMac */ = {
+			isa = PBXGroup;
+			children = (
+				5DD39BFC29EDCE76294704F0 /* VelMacApp.swift */,
+				0D12A2C3F21A62D45BBD2887 /* ContentView.swift */,
+			);
+			name = VelMac;
+			path = VelMac;
+			sourceTree = "<group>";
+		};
+		959D6BB19165B8E671A01226 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				C5C02F5CF71715FF7A67D762 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		A1B2C3D40000000500000001 = {
 			isa = PBXGroup;
 			children = (
 				A1B2C3D40000000500000002 /* Apps */,
 				A1B2C3D40000000500000003 /* Products */,
+				DFBE52423526212B08878998 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -60,6 +199,9 @@
 				A1B2C3D40000000500000004 /* VeliOS */,
 				A1B2C3D40000000500000005 /* VelWatch */,
 				A1B2C3D40000000500000006 /* VeliOSTests */,
+				5822A76A94C3B0A9F819D0BC /* VelMac */,
+				F764C1E9D3F75AD799F0B619 /* VelWidgetExtension */,
+				DBB9C3ACD3A2179122BEFBDB /* VelIntentsExtension */,
 			);
 			path = Apps;
 			sourceTree = "<group>";
@@ -70,6 +212,9 @@
 				A1B2C3D40000000100000001 /* VeliOS.app */,
 				A1B2C3D40000000100000002 /* VelWatch.app */,
 				A1B2C3D40000000100000003 /* VeliOSTests.xctest */,
+				7A06E62F2BD34FB245C45B40 /* VelMac.app */,
+				99467C4C1BB572376E41478A /* VelWidgetExtension.appex */,
+				697C1B267FC258D6CD2A2F0A /* VelIntentsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -100,9 +245,70 @@
 			path = VeliOSTests;
 			sourceTree = "<group>";
 		};
+		DBB9C3ACD3A2179122BEFBDB /* VelIntentsExtension */ = {
+			isa = PBXGroup;
+			children = (
+				2366CE73F9869E4F5200512E /* VelIntentsExtension.swift */,
+			);
+			name = VelIntentsExtension;
+			path = VelIntentsExtension;
+			sourceTree = "<group>";
+		};
+		DFBE52423526212B08878998 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4AA925D0C6A52EB966A59D06 /* OS X */,
+				959D6BB19165B8E671A01226 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F764C1E9D3F75AD799F0B619 /* VelWidgetExtension */ = {
+			isa = PBXGroup;
+			children = (
+				C013C0C0BEA444F7A8324FFE /* VelWidgetBundle.swift */,
+			);
+			name = VelWidgetExtension;
+			path = VelWidgetExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		1B8DA330AF9B5E90E7223D02 /* VelIntentsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A9F919C3E43643AA13C4FDB8 /* Build configuration list for PBXNativeTarget "VelIntentsExtension" */;
+			buildPhases = (
+				E843D398610949FF70B9FDD4 /* Sources */,
+				DCBDF2CC681C33089121185A /* Frameworks */,
+				0B09E2D9E005C28163CCBF29 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VelIntentsExtension;
+			productName = VelIntentsExtension;
+			productReference = 697C1B267FC258D6CD2A2F0A /* VelIntentsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		21E95C709B40A90C2CB3E8DA /* VelWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6E5532348D470D8EABA23A0 /* Build configuration list for PBXNativeTarget "VelWidgetExtension" */;
+			buildPhases = (
+				1A59D81EDA629EBD25B8403E /* Sources */,
+				6A15C349EEAE7E4D7078FC6B /* Frameworks */,
+				A3F1F0250A0511FEDD82A21D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VelWidgetExtension;
+			productName = VelWidgetExtension;
+			productReference = 99467C4C1BB572376E41478A /* VelWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		A1B2C3D40000000600000001 /* VeliOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A1B2C3D40000000700000001 /* Build configuration list for PBXNativeTarget "VeliOS" */;
@@ -110,14 +316,20 @@
 				A1B2C3D40000000800000001 /* Sources */,
 				A1B2C3D40000000300000001 /* Frameworks */,
 				A1B2C3D40000000900000001 /* Resources */,
+				ED2C3B24F037133873ADEC7A /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				9F3B13B8B350646BB6E9CDDB /* PBXTargetDependency */,
+				A860BE0C4C0648E78B0E8D8B /* PBXTargetDependency */,
 			);
 			name = VeliOS;
 			packageProductDependencies = (
 				A1B2C3D40000000A00000001 /* VelAPI */,
+				CD1291169AA14C4AB3501265 /* VelApplication */,
+				60D0707FE6BCEA83D9F9B73C /* VelApplePlatform */,
+				E2040467AF961B056AD728D9 /* VelFeatureFlags */,
 			);
 			productName = VeliOS;
 			productReference = A1B2C3D40000000100000001 /* VeliOS.app */;
@@ -138,6 +350,9 @@
 			name = VelWatch;
 			packageProductDependencies = (
 				A1B2C3D40000000A00000002 /* VelAPI */,
+				D3597DFF0575EEDA9B5662FA /* VelApplication */,
+				954914EDE83BB2D29EB70BC8 /* VelApplePlatform */,
+				1540F86A57FF0448634D712B /* VelFeatureFlags */,
 			);
 			productName = VelWatch;
 			productReference = A1B2C3D40000000100000002 /* VelWatch.app */;
@@ -161,6 +376,29 @@
 			productReference = A1B2C3D40000000100000003 /* VeliOSTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		FBA6504BFC95D631F57C35EA /* VelMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 41E032CA9EBCC1FB7DF533F8 /* Build configuration list for PBXNativeTarget "VelMac" */;
+			buildPhases = (
+				783B5020A0C2A0E25C5C930C /* Sources */,
+				CE8AE4A3BA105A32841F0134 /* Frameworks */,
+				7FA517CEDA7EE682694A7634 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VelMac;
+			packageProductDependencies = (
+				52B7EDDB75F3D82CD5C63E94 /* VelAPI */,
+				42D170C4DCE09F2BEBC3FD70 /* VelApplication */,
+				18FDB7835B8174136A15625B /* VelApplePlatform */,
+				23CFAEDA22312639C2DA485F /* VelFeatureFlags */,
+			);
+			productName = VelMac;
+			productReference = 7A06E62F2BD34FB245C45B40 /* VelMac.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -182,6 +420,7 @@
 			mainGroup = A1B2C3D40000000500000001;
 			packageReferences = (
 				A1B2C3D40000000D00000001 /* XCLocalSwiftPackageReference "VelAPI" */,
+				1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */,
 			);
 			productRefGroup = A1B2C3D40000000500000003 /* Products */;
 			projectDirPath = "";
@@ -190,11 +429,28 @@
 				A1B2C3D40000000600000001 /* VeliOS */,
 				A1B2C3D40000000600000002 /* VelWatch */,
 				A1B2C3D40000000600000003 /* VeliOSTests */,
+				FBA6504BFC95D631F57C35EA /* VelMac */,
+				21E95C709B40A90C2CB3E8DA /* VelWidgetExtension */,
+				1B8DA330AF9B5E90E7223D02 /* VelIntentsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		0B09E2D9E005C28163CCBF29 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7FA517CEDA7EE682694A7634 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1B2C3D40000000900000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -216,9 +472,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A3F1F0250A0511FEDD82A21D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1A59D81EDA629EBD25B8403E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A6FA07DB6C06B8B565CE3CA /* VelWidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		783B5020A0C2A0E25C5C930C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				33C52BB7C3DF563C28480FB1 /* VelMacApp.swift in Sources */,
+				00B5AC987F8525DF9C2AA62B /* ContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A1B2C3D40000000800000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -245,9 +525,147 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E843D398610949FF70B9FDD4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E56D72674CA21311D2C9AD1 /* VelIntentsExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		9F3B13B8B350646BB6E9CDDB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = VelWidgetExtension;
+			target = 21E95C709B40A90C2CB3E8DA /* VelWidgetExtension */;
+			targetProxy = C2B99A1F4CAD9B7D2873F5B6 /* PBXContainerItemProxy */;
+		};
+		A1B2C3D40000001100000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1B2C3D40000000600000001 /* VeliOS */;
+			targetProxy = A1B2C3D40000001000000001 /* PBXContainerItemProxy */;
+		};
+		A860BE0C4C0648E78B0E8D8B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = VelIntentsExtension;
+			target = 1B8DA330AF9B5E90E7223D02 /* VelIntentsExtension */;
+			targetProxy = E635F6A1CB045DBFF63B98AF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		011277A86FB0F094F54E75C3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/VelIntentsExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Vel Intents";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VeliOS.intents;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		0F03D932060BBDC5E0BD17DC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/VelWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Vel Widgets";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VeliOS.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1404DC4E608DB16C270ED98A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/VelWidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Vel Widgets";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VeliOS.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		39735C037CB098ECBD268808 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/VelIntentsExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Vel Intents";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VeliOS.intents;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		A1B2C3D40000000F00000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -307,11 +725,12 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Vel;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vel uses microphone input for push-to-talk voice capture.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Vel lets you attach photos to multimodal captures.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Vel transcribes short voice captures into local notes or commitments.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
@@ -332,11 +751,12 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Vel;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vel uses microphone input for push-to-talk voice capture.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Vel lets you attach photos to multimodal captures.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Vel transcribes short voice captures into local notes or commitments.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
@@ -355,9 +775,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Vel;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = vel.VeliOS;
 				LD_RUNPATH = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = vel.VelWatch;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VeliOS.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -374,9 +796,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Vel;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = vel.VeliOS;
 				LD_RUNPATH = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = vel.VelWatch;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VeliOS.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -436,9 +860,68 @@
 			};
 			name = Release;
 		};
+		CEEA267057C4B43A8B3B43DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Vel;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VelMac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		D70C2849EA4AC92E8DF59804 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Vel;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vel.VelMac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		41E032CA9EBCC1FB7DF533F8 /* Build configuration list for PBXNativeTarget "VelMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CEEA267057C4B43A8B3B43DC /* Release */,
+				D70C2849EA4AC92E8DF59804 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A1B2C3D40000000700000001 /* Build configuration list for PBXNativeTarget "VeliOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -475,9 +958,31 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		A9F919C3E43643AA13C4FDB8 /* Build configuration list for PBXNativeTarget "VelIntentsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				011277A86FB0F094F54E75C3 /* Release */,
+				39735C037CB098ECBD268808 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D6E5532348D470D8EABA23A0 /* Build configuration list for PBXNativeTarget "VelWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1404DC4E608DB16C270ED98A /* Release */,
+				0F03D932060BBDC5E0BD17DC /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/VelAppleModules;
+		};
 		A1B2C3D40000000D00000001 /* XCLocalSwiftPackageReference "VelAPI" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = VelAPI;
@@ -485,6 +990,41 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		1540F86A57FF0448634D712B /* VelFeatureFlags */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelFeatureFlags;
+		};
+		18FDB7835B8174136A15625B /* VelApplePlatform */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelApplePlatform;
+		};
+		23CFAEDA22312639C2DA485F /* VelFeatureFlags */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelFeatureFlags;
+		};
+		42D170C4DCE09F2BEBC3FD70 /* VelApplication */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelApplication;
+		};
+		52B7EDDB75F3D82CD5C63E94 /* VelAPI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D40000000D00000001 /* XCLocalSwiftPackageReference "VelAPI" */;
+			productName = VelAPI;
+		};
+		60D0707FE6BCEA83D9F9B73C /* VelApplePlatform */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelApplePlatform;
+		};
+		954914EDE83BB2D29EB70BC8 /* VelApplePlatform */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelApplePlatform;
+		};
 		A1B2C3D40000000A00000001 /* VelAPI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A1B2C3D40000000D00000001 /* XCLocalSwiftPackageReference "VelAPI" */;
@@ -495,64 +1035,22 @@
 			package = A1B2C3D40000000D00000001 /* XCLocalSwiftPackageReference "VelAPI" */;
 			productName = VelAPI;
 		};
+		CD1291169AA14C4AB3501265 /* VelApplication */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelApplication;
+		};
+		D3597DFF0575EEDA9B5662FA /* VelApplication */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelApplication;
+		};
+		E2040467AF961B056AD728D9 /* VelFeatureFlags */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1DAC1D585417E81CA75F93A3 /* XCLocalSwiftPackageReference "VelAppleModules" */;
+			productName = VelFeatureFlags;
+		};
 /* End XCSwiftPackageProductDependency section */
-
-/* Begin PBXBuildFile section */
-		A1B2C3D40000000400000001 /* VelAPI in Frameworks */ = {
-			isa = PBXBuildFile;
-			productRef = A1B2C3D40000000A00000001 /* VelAPI */;
-		};
-		A1B2C3D40000000400000002 /* VelAPI in Frameworks */ = {
-			isa = PBXBuildFile;
-			productRef = A1B2C3D40000000A00000002 /* VelAPI */;
-		};
-		A1B2C3D40000000E00000001 /* VelApp.swift in Sources */ = {
-			isa = PBXBuildFile;
-			fileRef = A1B2C3D40000000200000001 /* VelApp.swift */;
-			settings = {ATTRIBUTES = (); };
-		};
-		A1B2C3D40000000E00000002 /* ContentView.swift in Sources */ = {
-			isa = PBXBuildFile;
-			fileRef = A1B2C3D40000000200000002 /* ContentView.swift */;
-			settings = {ATTRIBUTES = (); };
-		};
-		A1B2C3D40000000E00000003 /* VelWatchApp.swift in Sources */ = {
-			isa = PBXBuildFile;
-			fileRef = A1B2C3D40000000200000003 /* VelWatchApp.swift */;
-			settings = {ATTRIBUTES = (); };
-		};
-		A1B2C3D40000000E00000004 /* ContentView.swift in Sources */ = {
-			isa = PBXBuildFile;
-			fileRef = A1B2C3D40000000200000004 /* ContentView.swift */;
-			settings = {ATTRIBUTES = (); };
-		};
-		A1B2C3D40000000400000003 /* XCTest.framework in Frameworks */ = {
-			isa = PBXBuildFile;
-			fileRef = A1B2C3D40000000100000004 /* XCTest.framework */;
-		};
-		A1B2C3D40000000E00000005 /* VeliOSTests.swift in Sources */ = {
-			isa = PBXBuildFile;
-			fileRef = A1B2C3D40000000200000005 /* VeliOSTests.swift */;
-		};
-/* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		A1B2C3D40000001000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A1B2C3D40000000B00000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A1B2C3D40000000600000001;
-			remoteInfo = VeliOS;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXTargetDependency section */
-		A1B2C3D40000001100000001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A1B2C3D40000000600000001 /* VeliOS */;
-			targetProxy = A1B2C3D40000001000000001 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 	};
 	rootObject = A1B2C3D40000000B00000001 /* Project object */;
 }

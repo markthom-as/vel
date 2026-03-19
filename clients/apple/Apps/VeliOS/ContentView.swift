@@ -2,7 +2,10 @@ import AVFoundation
 import PhotosUI
 import Speech
 import SwiftUI
+import VelApplePlatform
+import VelApplication
 import VelAPI
+import VelFeatureFlags
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -14,6 +17,51 @@ private enum VeliOSTab: Hashable {
     case capture
     case voice
     case settings
+}
+
+private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
+    case now
+    case planning
+    case projects
+    case chat
+    case capture
+    case settings
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .now:
+            return "Now"
+        case .planning:
+            return "Plan"
+        case .projects:
+            return "Projects"
+        case .chat:
+            return "Chat"
+        case .capture:
+            return "Capture"
+        case .settings:
+            return "Settings"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .now:
+            return "sun.max"
+        case .planning:
+            return "calendar"
+        case .projects:
+            return "square.grid.2x2"
+        case .chat:
+            return "bubble.left.and.bubble.right"
+        case .capture:
+            return "camera"
+        case .settings:
+            return "gearshape"
+        }
+    }
 }
 
 private struct CaptureDraftSeed: Equatable {
@@ -29,12 +77,27 @@ private struct CaptureDraftSeed: Equatable {
 }
 
 struct ContentView: View {
+    let appEnvironment: VelAppEnvironment
     @EnvironmentObject var store: VelClientStore
     @State private var selectedTab: VeliOSTab = .today
+    @State private var selectedPadSection: VeliPadSection = .now
     @StateObject private var voiceModel = VoiceCaptureModel()
     @State private var captureSeed: CaptureDraftSeed?
 
+    private var capabilities: FeatureCapabilities {
+        appEnvironment.featureCapabilities
+    }
+
+    @ViewBuilder
     var body: some View {
+        if capabilities.supportsSplitViewWorkspace {
+            iPadShell
+        } else {
+            iPhoneShell
+        }
+    }
+
+    private var iPhoneShell: some View {
         NavigationStack {
             TabView(selection: $selectedTab) {
                 TodayTab(store: store)
@@ -82,7 +145,9 @@ struct ContentView: View {
                         Label("Settings", systemImage: "gearshape")
                     }
             }
+            .velLiquidGlassContainer()
             .navigationTitle(title(for: selectedTab))
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if store.isSyncing {
@@ -108,6 +173,82 @@ struct ContentView: View {
         }
     }
 
+    private var iPadShell: some View {
+        NavigationSplitView {
+            List {
+                ForEach(VeliPadSection.allCases) { section in
+                    Button {
+                        selectedPadSection = section
+                    } label: {
+                        HStack {
+                            Label(section.title, systemImage: section.systemImage)
+                            Spacer()
+                            if selectedPadSection == section {
+                                Image(systemName: "checkmark")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("Vel \(capabilities.roleLabel)")
+            .velCompactListStyle()
+        } detail: {
+            NavigationStack {
+                iPadDetail(for: selectedPadSection)
+                    .navigationTitle(selectedPadSection.title)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            if store.isSyncing {
+                                ProgressView()
+                            } else {
+                                Button {
+                                    Task { await store.refresh() }
+                                } label: {
+                                    Image(systemName: "arrow.clockwise")
+                                }
+                            }
+                        }
+                    }
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+        .task {
+            await store.refresh()
+            await voiceModel.ensurePermissionsKnown()
+        }
+        .onChange(of: selectedPadSection) { section in
+            if section == .planning {
+                Task { await store.refreshSignals() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func iPadDetail(for section: VeliPadSection) -> some View {
+        switch section {
+        case .now:
+            TodayTab(store: store)
+        case .planning:
+            ActivityTab(store: store)
+        case .projects:
+            IpadProjectsTab(store: store)
+        case .chat:
+            ChatScaffoldTab(capabilities: capabilities)
+        case .capture:
+            CaptureTab(
+                store: store,
+                voiceModel: voiceModel,
+                incomingSeed: $captureSeed
+            )
+        case .settings:
+            SettingsTab(store: store)
+        }
+    }
+
     private func title(for tab: VeliOSTab) -> String {
         switch tab {
         case .today:
@@ -123,6 +264,78 @@ struct ContentView: View {
         case .settings:
             return "Settings"
         }
+    }
+}
+
+private struct IpadProjectsTab: View {
+    @ObservedObject var store: VelClientStore
+
+    var body: some View {
+        List {
+            Section("Projects") {
+                let projects = store.offlineStore.cachedProjects()
+                if projects.isEmpty {
+                    Text("No cached projects yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(projects.prefix(25)), id: \.id) { project in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(project.name)
+                                .font(.body)
+                            Text(project.primary_repo.path)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+
+            Section("Capabilities") {
+                Text("Project inspector scaffold is enabled for iPad.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .velCompactListStyle()
+        .refreshable { await store.refresh() }
+    }
+}
+
+private struct ChatScaffoldTab: View {
+    let capabilities: FeatureCapabilities
+
+    var body: some View {
+        List {
+            Section("Chat Scaffold") {
+                Text("Chat shell placeholder for \(capabilities.roleLabel).")
+                Text("TODO: wire shared chat use cases from VelApplication once service modules are extracted.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Capability Gate") {
+                CapabilityFlagRow(label: "supportsChat", isEnabled: capabilities.supportsChat)
+                CapabilityFlagRow(label: "supportsVoicePushToTalk", isEnabled: capabilities.supportsVoicePushToTalk)
+                CapabilityFlagRow(label: "supportsQuickCapture", isEnabled: capabilities.supportsQuickCapture)
+            }
+        }
+        .velCompactListStyle()
+    }
+}
+
+private struct CapabilityFlagRow: View {
+    let label: String
+    let isEnabled: Bool
+
+    var body: some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Image(systemName: isEnabled ? "checkmark.circle.fill" : "xmark.circle")
+                .foregroundStyle(isEnabled ? .green : .secondary)
+        }
+        .font(.caption)
     }
 }
 
@@ -248,7 +461,7 @@ private struct TodayTab: View {
                                 await store.markCommitmentDone(id: commitment.id)
                             }
                         }
-                        .buttonStyle(.bordered)
+                        .velActionButtonStyle()
                     }
                 }
             }
@@ -265,7 +478,7 @@ private struct TodayTab: View {
                             commitmentText = ""
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .velProminentActionButtonStyle()
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -279,11 +492,11 @@ private struct TodayTab: View {
                             captureText = ""
                         }
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .refreshable { await store.refresh() }
     }
 
@@ -318,21 +531,21 @@ private struct NudgesTab: View {
                                     await store.markNudgeDone(id: nudge.nudge_id)
                                 }
                             }
-                            .buttonStyle(.borderedProminent)
+                            .velProminentActionButtonStyle()
 
                             Button("Snooze 10m") {
                                 Task {
                                     await store.snoozeNudge(id: nudge.nudge_id, minutes: 10)
                                 }
                             }
-                            .buttonStyle(.bordered)
+                            .velActionButtonStyle()
                         }
                     }
                     .padding(.vertical, 4)
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .refreshable { await store.refresh() }
     }
 }
@@ -372,7 +585,7 @@ private struct ActivityTab: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .refreshable { await store.refreshSignals() }
     }
 }
@@ -462,7 +675,7 @@ private struct CaptureTab: View {
                         systemImage: "photo.on.rectangle.angled"
                     )
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
 
                 if let photoLoadError, !photoLoadError.isEmpty {
                     Text(photoLoadError)
@@ -555,13 +768,13 @@ private struct CaptureTab: View {
                 Button("Save multimodal capture") {
                     saveCapture()
                 }
-                .buttonStyle(.borderedProminent)
+                .velProminentActionButtonStyle()
                 .disabled(!hasDraftContent)
 
                 Button("Clear draft", role: .destructive) {
                     clearDraft()
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
                 .disabled(!hasDraftContent && selectedPhotoData == nil)
 
                 if let statusMessage, !statusMessage.isEmpty {
@@ -571,7 +784,7 @@ private struct CaptureTab: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .onChange(of: selectedPhotoItem) { item in
             Task { await loadPhoto(from: item) }
         }
@@ -906,7 +1119,7 @@ private struct VoiceTab: View {
                 Button("Request permissions") {
                     Task { await voiceModel.requestPermissions() }
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
             }
 
             Section("Record") {
@@ -940,7 +1153,7 @@ private struct VoiceTab: View {
                             Button("Clear transcript") {
                                 voiceModel.clearTranscript()
                             }
-                            .buttonStyle(.bordered)
+                            .velActionButtonStyle()
 
                             Spacer()
 
@@ -983,20 +1196,20 @@ private struct VoiceTab: View {
                 Button(voiceModel.suggestedIntent.submitButtonLabel) {
                     Task { await voiceModel.submitSuggested(using: store) }
                 }
-                .buttonStyle(.borderedProminent)
+                .velProminentActionButtonStyle()
                 .disabled(!voiceModel.hasTranscript)
 
                 HStack {
                     Button("Save as capture") {
                         Task { await voiceModel.submitAsCapture(using: store) }
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                     .disabled(!voiceModel.hasTranscript)
 
                     Button("Create commitment") {
                         Task { await voiceModel.submitAsCommitment(using: store) }
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                     .disabled(!voiceModel.hasTranscript)
                 }
 
@@ -1007,7 +1220,7 @@ private struct VoiceTab: View {
                 Button("Open multimodal composer") {
                     onOpenCaptureComposer(voiceModel.transcript)
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
                 .disabled(!voiceModel.hasTranscript)
             }
 
@@ -1016,7 +1229,7 @@ private struct VoiceTab: View {
                     Button(example.label) {
                         voiceModel.applyCommandExample(example.command)
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
 
                     Text(example.command)
                         .font(.caption2)
@@ -1036,7 +1249,7 @@ private struct VoiceTab: View {
                     Button("Speak response") {
                         voiceModel.speakLatestResponse()
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                 } else {
                     Text("Run a voice query like “what matters right now?” or “give me a behavior summary” for a backend-owned reply.")
                         .font(.caption)
@@ -1071,13 +1284,13 @@ private struct VoiceTab: View {
                         Button("Use In Capture Tab") {
                             onOpenCaptureComposer(entry.transcript)
                         }
-                        .buttonStyle(.bordered)
+                        .velActionButtonStyle()
                     }
                     .padding(.vertical, 4)
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
     }
 }
 
@@ -1107,7 +1320,7 @@ private struct SettingsTab: View {
             operatorAuthSection
             docsSection
         }
-        .listStyle(.insetGrouped)
+        .velCompactListStyle()
         .onAppear {
             if selectedDiscoveredNodeID == nil {
                 selectedDiscoveredNodeID = store.discoveredWorkers.first?.node_id
@@ -1146,14 +1359,14 @@ private struct SettingsTab: View {
                 store.setBaseURLOverride(baseURLOverride)
                 Task { await store.refresh() }
             }
-            .buttonStyle(.borderedProminent)
+            .velProminentActionButtonStyle()
 
             Button("Clear override") {
                 baseURLOverride = ""
                 store.setBaseURLOverride(nil)
                 Task { await store.refresh() }
             }
-            .buttonStyle(.bordered)
+            .velActionButtonStyle()
 
             Text("Resolution order: vel_tailscale_url, vel_base_url, vel_lan_base_url, localhost.")
                 .font(.caption2)
@@ -1172,7 +1385,7 @@ private struct SettingsTab: View {
             Button(isIssuingPairingToken ? "Pairing..." : "Pair nodes") {
                 Task { await issuePairingToken() }
             }
-            .buttonStyle(.borderedProminent)
+            .velProminentActionButtonStyle()
             .disabled(isIssuingPairingToken)
 
             if let prompt = store.localIncomingLinkingPrompt {
@@ -1242,7 +1455,7 @@ private struct SettingsTab: View {
             Button(isRedeemingPairingToken ? "Entering..." : "Enter token") {
                 Task { await redeemPairingToken(using: prompt) }
             }
-            .buttonStyle(.bordered)
+            .velActionButtonStyle()
             .disabled(isRedeemingPairingToken)
         }
     }
@@ -1321,26 +1534,26 @@ private struct SettingsTab: View {
             Button("Request updated access") {
                 Task { await renegotiateLinkedNode(node) }
             }
-            .buttonStyle(.bordered)
+            .velActionButtonStyle()
 
             if confirmUnpairNodeID == node.node_id {
                 HStack {
                     Button(unpairingNodeID == node.node_id ? "Unpairing..." : "Confirm unpair") {
                         Task { await unpair(node) }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .velProminentActionButtonStyle()
                     .disabled(unpairingNodeID == node.node_id)
 
                     Button("Cancel") {
                         confirmUnpairNodeID = nil
                     }
-                    .buttonStyle(.bordered)
+                    .velActionButtonStyle()
                 }
             } else {
                 Button("Unpair") {
                     confirmUnpairNodeID = node.node_id
                 }
-                .buttonStyle(.bordered)
+                .velActionButtonStyle()
             }
         }
     }
@@ -1361,7 +1574,7 @@ private struct SettingsTab: View {
                 store.client.configuration = .shared()
                 Task { await store.refresh() }
             }
-            .buttonStyle(.bordered)
+            .velActionButtonStyle()
 
             Text("Operator-authenticated /v1 routes send x-vel-operator-token when configured.")
                 .font(.caption2)
@@ -3000,7 +3213,58 @@ private func projectGroups(from projects: [ProjectRecordData]) -> [ProjectGroupS
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func velCompactListStyle() -> some View {
+        if #available(iOS 17.0, *) {
+            self
+                .listStyle(.plain)
+                .listSectionSpacing(.compact)
+                .environment(\.defaultMinListRowHeight, 34)
+                .environment(\.defaultMinListHeaderHeight, 22)
+        } else {
+            self
+                .listStyle(.plain)
+                .environment(\.defaultMinListRowHeight, 34)
+                .environment(\.defaultMinListHeaderHeight, 22)
+        }
+    }
+
+    @ViewBuilder
+    func velLiquidGlassContainer() -> some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer {
+                self
+            }
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func velActionButtonStyle() -> some View {
+        if #available(iOS 26.0, *) {
+            self.buttonStyle(.glass)
+        } else {
+            self.buttonStyle(.bordered)
+        }
+    }
+
+    @ViewBuilder
+    func velProminentActionButtonStyle() -> some View {
+        if #available(iOS 26.0, *) {
+            self.buttonStyle(.glassProminent)
+        } else {
+            self.buttonStyle(.borderedProminent)
+        }
+    }
+}
+
 #Preview {
-    ContentView()
+    ContentView(
+        appEnvironment: VelAppEnvironment.bootstrap(
+            capabilities: FeatureCapabilityMapper.currentIOSDevice()
+        )
+    )
         .environmentObject(VelClientStore())
 }

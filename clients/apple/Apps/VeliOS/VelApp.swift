@@ -1,14 +1,20 @@
 import SwiftUI
+import VelApplePlatform
+import VelApplication
 import VelAPI
 
 @main
 struct VelApp: App {
     @StateObject private var client = VelClientStore()
+    private let appEnvironment = VelAppEnvironment.bootstrap(
+        capabilities: FeatureCapabilityMapper.currentIOSDevice()
+    )
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(appEnvironment: appEnvironment)
                 .environmentObject(client)
+                .preferredColorScheme(.dark)
         }
     }
 }
