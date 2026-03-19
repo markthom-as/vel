@@ -1100,244 +1100,12 @@ private struct SettingsTab: View {
 
     var body: some View {
         List {
-            Section("Runtime") {
-                ConnectionSummaryRow(store: store)
-                if let lastSyncAt = store.lastSyncAt {
-                    Text("Last sync: \(formatDate(lastSyncAt))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if store.pendingActionCount > 0 {
-                    Text("Pending queued actions: \(store.pendingActionCount)")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-            }
-
-            Section("Endpoint override") {
-                TextField("http://host:4130", text: $baseURLOverride)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                Button("Save and reconnect") {
-                    store.setBaseURLOverride(baseURLOverride)
-                    Task { await store.refresh() }
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button("Clear override") {
-                    baseURLOverride = ""
-                    store.setBaseURLOverride(nil)
-                    Task { await store.refresh() }
-                }
-                .buttonStyle(.bordered)
-
-                Text("Resolution order: vel_tailscale_url, vel_base_url, vel_lan_base_url, localhost.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Section("Linking") {
-                scopeToggle(label: "Read context", value: $pairingReadContext)
-                scopeToggle(label: "Write safe actions", value: $pairingWriteSafeActions)
-                scopeToggle(label: "Execute repo tasks", value: $pairingExecuteRepoTasks)
-
-                if store.discoveredWorkers.isEmpty {
-                    Text("No unlinked discovered nodes are active right now.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Picker("Discovered node", selection: Binding(
-                        get: {
-                            selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id ?? ""
-                        },
-                        set: { selectedDiscoveredNodeID = $0 }
-                    )) {
-                        ForEach(store.discoveredWorkers) { worker in
-                            Text(worker.node_display_name).tag(worker.node_id)
-                        }
-                    }
-
-                    ForEach(store.discoveredWorkers) { worker in
-                        if worker.node_id == (selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id) {
-                            RemoteNodeSummaryCard(
-                                title: worker.node_display_name,
-                                subtitle: worker.sync_status ?? worker.status,
-                                routes: collectRemoteRoutes(
-                                    syncBaseURL: worker.sync_base_url,
-                                    tailscaleBaseURL: worker.tailscale_base_url,
-                                    lanBaseURL: worker.lan_base_url,
-                                    publicBaseURL: nil
-                                ),
-                                prompt: worker.incoming_linking_prompt
-                            )
-                        }
-                    }
-                }
-
-                Button(isIssuingPairingToken ? "Pairing…" : "Pair nodes") {
-                    Task { await issuePairingToken() }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isIssuingPairingToken)
-
-                if let prompt = store.localIncomingLinkingPrompt {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Incoming prompt from \(prompt.issued_by_node_display_name ?? prompt.issued_by_node_id)")
-                            .font(.subheadline.weight(.semibold))
-                        Text(scopeSummary(prompt.scopes))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        TextField(
-                            "ABC-123",
-                            text: Binding(
-                                get: { pairingCodeInput },
-                                set: { pairingCodeInput = formatPairingTokenInput($0) }
-                            )
-                        )
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .keyboardType(.asciiCapable)
-
-                        Button(isRedeemingPairingToken ? "Entering…" : "Enter token") {
-                            Task { await redeemPairingToken(using: prompt) }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isRedeemingPairingToken)
-                    }
-                }
-
-                if let pairingToken {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Current token")
-                            .font(.subheadline.weight(.semibold))
-                        Text(pairingToken.token_code)
-                            .font(.system(.body, design: .monospaced))
-                        Text("Expires \(pairingToken.expires_at)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(scopeSummary(pairingToken.scopes))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if let pairingFeedback, !pairingFeedback.isEmpty {
-                    Text(pairingFeedback)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("Linked devices") {
-                if store.linkedNodes.isEmpty {
-                    Text("No linked devices yet.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(store.linkedNodes) { node in
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(node.node_display_name)
-                                .font(.headline)
-                            Text(scopeSummary(linkedPermissionDrafts[node.node_id] ?? node.scopes))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            ForEach(collectRemoteRoutes(
-                                syncBaseURL: node.sync_base_url,
-                                tailscaleBaseURL: node.tailscale_base_url,
-                                lanBaseURL: node.lan_base_url,
-                                publicBaseURL: node.public_base_url
-                            ), id: \.baseURL) { route in
-                                Text("\(route.label): \(route.baseURL)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            scopeToggle(
-                                label: "Read context",
-                                value: Binding(
-                                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).read_context },
-                                    set: { setLinkedScope(nodeID: node.node_id, keyPath: \.read_context, value: $0, fallback: node.scopes) }
-                                )
-                            )
-                            scopeToggle(
-                                label: "Write safe actions",
-                                value: Binding(
-                                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).write_safe_actions },
-                                    set: { setLinkedScope(nodeID: node.node_id, keyPath: \.write_safe_actions, value: $0, fallback: node.scopes) }
-                                )
-                            )
-                            scopeToggle(
-                                label: "Execute repo tasks",
-                                value: Binding(
-                                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).execute_repo_tasks },
-                                    set: { setLinkedScope(nodeID: node.node_id, keyPath: \.execute_repo_tasks, value: $0, fallback: node.scopes) }
-                                )
-                            )
-
-                            Button("Request updated access") {
-                                Task { await renegotiateLinkedNode(node) }
-                            }
-                            .buttonStyle(.bordered)
-
-                            if confirmUnpairNodeID == node.node_id {
-                                HStack {
-                                    Button(unpairingNodeID == node.node_id ? "Unpairing…" : "Confirm unpair") {
-                                        Task { await unpair(node) }
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .disabled(unpairingNodeID == node.node_id)
-
-                                    Button("Cancel") {
-                                        confirmUnpairNodeID = nil
-                                    }
-                                    .buttonStyle(.bordered)
-                                }
-                            } else {
-                                Button("Unpair") {
-                                    confirmUnpairNodeID = node.node_id
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                        .padding(.vertical, 6)
-                    }
-                }
-            }
-
-            Section("Operator auth") {
-                SecureField("x-vel-operator-token", text: $operatorToken)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                Button("Save auth and reconnect") {
-                    let trimmed = operatorToken.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.isEmpty {
-                        UserDefaults.standard.removeObject(forKey: "vel_operator_token")
-                    } else {
-                        UserDefaults.standard.set(trimmed, forKey: "vel_operator_token")
-                    }
-                    store.client.configuration = .shared()
-                    Task { await store.refresh() }
-                }
-                .buttonStyle(.bordered)
-
-                Text("Operator-authenticated /v1 routes send x-vel-operator-token when configured.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Section("Docs") {
-                ForEach(VelDocumentationCatalog.core) { doc in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(doc.title)
-                        Text(doc.path)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+            runtimeSection
+            endpointOverrideSection
+            linkingSection
+            linkedDevicesSection
+            operatorAuthSection
+            docsSection
         }
         .listStyle(.insetGrouped)
         .onAppear {
@@ -1348,6 +1116,268 @@ private struct SettingsTab: View {
         .onChange(of: store.discoveredWorkers.map(\.node_id)) { nodeIDs in
             if !nodeIDs.contains(selectedDiscoveredNodeID ?? "") {
                 selectedDiscoveredNodeID = nodeIDs.first
+            }
+        }
+    }
+
+    private var runtimeSection: some View {
+        Section("Runtime") {
+            ConnectionSummaryRow(store: store)
+            if let lastSyncAt = store.lastSyncAt {
+                Text("Last sync: \(formatDate(lastSyncAt))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if store.pendingActionCount > 0 {
+                Text("Pending queued actions: \(store.pendingActionCount)")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var endpointOverrideSection: some View {
+        Section("Endpoint override") {
+            TextField("http://host:4130", text: $baseURLOverride)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Button("Save and reconnect") {
+                store.setBaseURLOverride(baseURLOverride)
+                Task { await store.refresh() }
+            }
+            .buttonStyle(.borderedProminent)
+
+            Button("Clear override") {
+                baseURLOverride = ""
+                store.setBaseURLOverride(nil)
+                Task { await store.refresh() }
+            }
+            .buttonStyle(.bordered)
+
+            Text("Resolution order: vel_tailscale_url, vel_base_url, vel_lan_base_url, localhost.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var linkingSection: some View {
+        Section("Linking") {
+            scopeToggle(label: "Read context", value: $pairingReadContext)
+            scopeToggle(label: "Write safe actions", value: $pairingWriteSafeActions)
+            scopeToggle(label: "Execute repo tasks", value: $pairingExecuteRepoTasks)
+
+            discoveredNodeSection
+
+            Button(isIssuingPairingToken ? "Pairing..." : "Pair nodes") {
+                Task { await issuePairingToken() }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isIssuingPairingToken)
+
+            if let prompt = store.localIncomingLinkingPrompt {
+                incomingPromptSection(prompt)
+            }
+            if let pairingToken {
+                currentTokenSection(pairingToken)
+            }
+            if let pairingFeedback, !pairingFeedback.isEmpty {
+                Text(pairingFeedback)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var discoveredNodeSection: some View {
+        if store.discoveredWorkers.isEmpty {
+            Text("No unlinked discovered nodes are active right now.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } else {
+            Picker("Discovered node", selection: Binding(
+                get: { selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id ?? "" },
+                set: { selectedDiscoveredNodeID = $0 }
+            )) {
+                ForEach(store.discoveredWorkers) { worker in
+                    Text(worker.node_display_name).tag(worker.node_id)
+                }
+            }
+            if let selectedNodeID = selectedDiscoveredNodeID ?? store.discoveredWorkers.first?.node_id,
+               let worker = store.discoveredWorkers.first(where: { $0.node_id == selectedNodeID }) {
+                RemoteNodeSummaryCard(
+                    title: worker.node_display_name,
+                    subtitle: worker.sync_status ?? worker.status,
+                    routes: collectRemoteRoutes(
+                        syncBaseURL: worker.sync_base_url,
+                        tailscaleBaseURL: worker.tailscale_base_url,
+                        lanBaseURL: worker.lan_base_url,
+                        publicBaseURL: nil
+                    ),
+                    prompt: worker.incoming_linking_prompt
+                )
+            }
+        }
+    }
+
+    private func incomingPromptSection(_ prompt: LinkingPromptData) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Incoming prompt from \(prompt.issued_by_node_display_name ?? prompt.issued_by_node_id)")
+                .font(.subheadline.weight(.semibold))
+            Text(scopeSummary(prompt.scopes))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField(
+                "ABC-123",
+                text: Binding(
+                    get: { pairingCodeInput },
+                    set: { pairingCodeInput = formatPairingTokenInput($0) }
+                )
+            )
+            .textInputAutocapitalization(.characters)
+            .autocorrectionDisabled()
+            .keyboardType(.asciiCapable)
+
+            Button(isRedeemingPairingToken ? "Entering..." : "Enter token") {
+                Task { await redeemPairingToken(using: prompt) }
+            }
+            .buttonStyle(.bordered)
+            .disabled(isRedeemingPairingToken)
+        }
+    }
+
+    private func currentTokenSection(_ pairingToken: PairingTokenData) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Current token")
+                .font(.subheadline.weight(.semibold))
+            Text(pairingToken.token_code)
+                .font(.system(.body, design: .monospaced))
+            Text("Expires \(pairingToken.expires_at)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(scopeSummary(pairingToken.scopes))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var linkedDevicesSection: some View {
+        Section("Linked devices") {
+            if store.linkedNodes.isEmpty {
+                Text("No linked devices yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(store.linkedNodes) { node in
+                    linkedDeviceRow(node)
+                        .padding(.vertical, 6)
+                }
+            }
+        }
+    }
+
+    private func linkedDeviceRow(_ node: LinkedNodeData) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(node.node_display_name)
+                .font(.headline)
+            Text(scopeSummary(linkedPermissionDrafts[node.node_id] ?? node.scopes))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            ForEach(collectRemoteRoutes(
+                syncBaseURL: node.sync_base_url,
+                tailscaleBaseURL: node.tailscale_base_url,
+                lanBaseURL: node.lan_base_url,
+                publicBaseURL: node.public_base_url
+            ), id: \.baseURL) { route in
+                Text("\(route.label): \(route.baseURL)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            scopeToggle(
+                label: "Read context",
+                value: Binding(
+                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).read_context },
+                    set: { setLinkedScope(nodeID: node.node_id, field: .readContext, value: $0, fallback: node.scopes) }
+                )
+            )
+            scopeToggle(
+                label: "Write safe actions",
+                value: Binding(
+                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).write_safe_actions },
+                    set: { setLinkedScope(nodeID: node.node_id, field: .writeSafeActions, value: $0, fallback: node.scopes) }
+                )
+            )
+            scopeToggle(
+                label: "Execute repo tasks",
+                value: Binding(
+                    get: { (linkedPermissionDrafts[node.node_id] ?? node.scopes).execute_repo_tasks },
+                    set: { setLinkedScope(nodeID: node.node_id, field: .executeRepoTasks, value: $0, fallback: node.scopes) }
+                )
+            )
+
+            Button("Request updated access") {
+                Task { await renegotiateLinkedNode(node) }
+            }
+            .buttonStyle(.bordered)
+
+            if confirmUnpairNodeID == node.node_id {
+                HStack {
+                    Button(unpairingNodeID == node.node_id ? "Unpairing..." : "Confirm unpair") {
+                        Task { await unpair(node) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(unpairingNodeID == node.node_id)
+
+                    Button("Cancel") {
+                        confirmUnpairNodeID = nil
+                    }
+                    .buttonStyle(.bordered)
+                }
+            } else {
+                Button("Unpair") {
+                    confirmUnpairNodeID = node.node_id
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    private var operatorAuthSection: some View {
+        Section("Operator auth") {
+            SecureField("x-vel-operator-token", text: $operatorToken)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+
+            Button("Save auth and reconnect") {
+                let trimmed = operatorToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                    UserDefaults.standard.removeObject(forKey: "vel_operator_token")
+                } else {
+                    UserDefaults.standard.set(trimmed, forKey: "vel_operator_token")
+                }
+                store.client.configuration = .shared()
+                Task { await store.refresh() }
+            }
+            .buttonStyle(.bordered)
+
+            Text("Operator-authenticated /v1 routes send x-vel-operator-token when configured.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var docsSection: some View {
+        Section("Docs") {
+            ForEach(VelDocumentationCatalog.core) { doc in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(doc.title)
+                    Text(doc.path)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -1429,14 +1459,39 @@ private struct SettingsTab: View {
         }
     }
 
+    private enum LinkedScopeField {
+        case readContext
+        case writeSafeActions
+        case executeRepoTasks
+    }
+
     private func setLinkedScope(
         nodeID: String,
-        keyPath: WritableKeyPath<LinkScopeData, Bool>,
+        field: LinkedScopeField,
         value: Bool,
         fallback: LinkScopeData
     ) {
         var draft = linkedPermissionDrafts[nodeID] ?? fallback
-        draft[keyPath: keyPath] = value
+        switch field {
+        case .readContext:
+            draft = LinkScopeData(
+                read_context: value,
+                write_safe_actions: draft.write_safe_actions,
+                execute_repo_tasks: draft.execute_repo_tasks
+            )
+        case .writeSafeActions:
+            draft = LinkScopeData(
+                read_context: draft.read_context,
+                write_safe_actions: value,
+                execute_repo_tasks: draft.execute_repo_tasks
+            )
+        case .executeRepoTasks:
+            draft = LinkScopeData(
+                read_context: draft.read_context,
+                write_safe_actions: draft.write_safe_actions,
+                execute_repo_tasks: value
+            )
+        }
         linkedPermissionDrafts[nodeID] = draft
     }
 

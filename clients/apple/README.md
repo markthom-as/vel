@@ -34,6 +34,7 @@ From repo root:
 ```bash
 make apple-setup-simulator
 make apple-build
+make apple-build-watch-sim
 make apple-run
 ```
 
@@ -205,6 +206,7 @@ CLI build path (iOS simulator):
 ```bash
 make apple-build
 make apple-run
+make apple-build-watch-sim
 ```
 
 CLI build/install path (physical devices):

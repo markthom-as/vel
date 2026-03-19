@@ -36,8 +36,9 @@ This file defines durable rules for work under `clients/apple`.
 ## Build and Run
 
 - `make check-apple-swift`: build the shared `VelAPI` package with Swift.
-- `make apple-setup-simulator`: run first-launch setup and ensure iOS simulator runtime exists.
+- `make apple-setup-simulator`: run first-launch setup and ensure iOS + watchOS simulator runtimes exist.
 - `make apple-build`: build `VeliOS` for the first available iPhone simulator.
+- `make apple-build-watch-sim`: build `VelWatch` for the first available Apple Watch simulator.
 - `make apple-run`: build, install, and launch `VeliOS` in Simulator.
 - `make apple-list-devices`: list connected physical Apple devices known to `devicectl`.
 - `make apple-build-ios-device`: signed build for physical iPhone/iPad (`APPLE_DEVELOPMENT_TEAM` and optional `APPLE_IOS_BUNDLE_ID`).
