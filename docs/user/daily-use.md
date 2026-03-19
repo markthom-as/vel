@@ -80,6 +80,7 @@ Good uses:
 - see what was captured,
 - orient in Now before you react to scattered context,
 - triage Inbox from the explicit action queue instead of guessing what is urgent,
+- check pending writebacks, open conflicts, and people-linked review items from Now or Settings before trusting integration-backed edits,
 - inspect what remained unresolved,
 - notice response debt or drift,
 - prepare a cleaner next start.
@@ -95,6 +96,7 @@ cargo run -p vel-cli -- synthesize project vel
 ```
 
 Use the weekly pass to review Projects weekly, not just raw capture volume. The JSON review output now includes typed project candidates so you can see which workspaces still have open commitments attached.
+The review JSON also reports `pending_writebacks`, `open_conflicts`, and `people_needing_review` so the operator can see whether writeback or contact follow-up is waiting on manual supervision.
 
 ## Inspection and trust
 
@@ -107,3 +109,4 @@ cargo run -p vel-cli -- inspect artifact <id>
 ```
 
 Vel is meant to be inspectable. If a conclusion matters, verify the source freshness and the related run or artifact instead of treating the surface output as magic.
+That same rule applies to write lanes: SAFE MODE leaves writeback disabled by default, so the operator should explicitly enable it in Settings before expecting Todoist, GitHub, email, notes, or reminders mutations to apply.

@@ -115,6 +115,7 @@ pub async fn workers(
             last_upstream_sync_at: worker.last_upstream_sync_at,
             last_downstream_sync_at: worker.last_downstream_sync_at,
             last_sync_error: worker.last_sync_error,
+            incoming_linking_prompt: worker.incoming_linking_prompt,
             capacity: vel_api_types::WorkerCapacityData {
                 max_concurrency: worker.capacity.max_concurrency,
                 current_load: worker.capacity.current_load,

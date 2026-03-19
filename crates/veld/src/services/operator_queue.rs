@@ -98,7 +98,7 @@ fn build_writeback_items(records: &[WritebackOperationRecord]) -> Vec<ActionItem
         .filter(|record| !matches!(record.status, WritebackStatus::Conflicted))
         .map(|record| ActionItem {
             id: ActionItemId::from(format!("act_writeback_{}", record.id.as_ref())),
-            surface: ActionSurface::Inbox,
+            surface: ActionSurface::Now,
             kind: ActionKind::NextStep,
             title: format!("Queued write: {}", record.kind),
             summary: format!(
@@ -110,12 +110,7 @@ fn build_writeback_items(records: &[WritebackOperationRecord]) -> Vec<ActionItem
             rank: WRITEBACK_PENDING_RANK,
             surfaced_at: record.updated_at,
             snoozed_until: None,
-            evidence: vec![ActionEvidenceRef {
-                source_kind: "writeback_operation".to_string(),
-                source_id: record.id.to_string(),
-                label: record.kind.to_string(),
-                detail: Some(format!("risk={}, status={}", record.risk, record.status)),
-            }],
+            evidence: writeback_evidence(record),
         })
         .collect()
 }
@@ -125,7 +120,7 @@ fn build_conflict_items(records: &[ConflictCaseRecord]) -> Vec<ActionItem> {
         .iter()
         .map(|record| ActionItem {
             id: ActionItemId::from(format!("act_conflict_{}", record.id.as_ref())),
-            surface: ActionSurface::Inbox,
+            surface: ActionSurface::Now,
             kind: ActionKind::Conflict,
             title: format!("Conflict needs review: {}", record.summary),
             summary: format!(
@@ -137,14 +132,99 @@ fn build_conflict_items(records: &[ConflictCaseRecord]) -> Vec<ActionItem> {
             rank: LINKING_ALERT_RANK + 1,
             surfaced_at: record.updated_at,
             snoozed_until: None,
-            evidence: vec![ActionEvidenceRef {
-                source_kind: "conflict_case".to_string(),
-                source_id: record.id.to_string(),
-                label: record.kind.to_string(),
-                detail: Some(record.summary.clone()),
-            }],
+            evidence: conflict_evidence(record),
         })
         .collect()
+}
+
+fn writeback_evidence(record: &WritebackOperationRecord) -> Vec<ActionEvidenceRef> {
+    let mut evidence = vec![ActionEvidenceRef {
+        source_kind: "writeback_operation".to_string(),
+        source_id: record.id.to_string(),
+        label: record.kind.to_string(),
+        detail: Some(format!("risk={}, status={}", record.risk, record.status)),
+    }];
+    push_target_evidence(
+        &mut evidence,
+        record.target.connection_id.as_ref().map(|id| id.as_ref()),
+        record.target.project_id.as_ref().map(|id| id.as_ref()),
+        record.target.provider_key.as_str(),
+    );
+    push_people_evidence(&mut evidence, &record.requested_payload);
+    if let Some(payload) = &record.result_payload {
+        push_people_evidence(&mut evidence, payload);
+    }
+    evidence
+}
+
+fn conflict_evidence(record: &ConflictCaseRecord) -> Vec<ActionEvidenceRef> {
+    let mut evidence = vec![ActionEvidenceRef {
+        source_kind: "conflict_case".to_string(),
+        source_id: record.id.to_string(),
+        label: record.kind.to_string(),
+        detail: Some(record.summary.clone()),
+    }];
+    push_target_evidence(
+        &mut evidence,
+        record.target.connection_id.as_ref().map(|id| id.as_ref()),
+        record.target.project_id.as_ref().map(|id| id.as_ref()),
+        record.target.provider_key.as_str(),
+    );
+    push_people_evidence(&mut evidence, &record.local_payload);
+    if let Some(payload) = &record.upstream_payload {
+        push_people_evidence(&mut evidence, payload);
+    }
+    evidence
+}
+
+fn push_target_evidence(
+    evidence: &mut Vec<ActionEvidenceRef>,
+    connection_id: Option<&str>,
+    project_id: Option<&str>,
+    provider_key: &str,
+) {
+    if let Some(connection_id) = connection_id {
+        evidence.push(ActionEvidenceRef {
+            source_kind: "integration_connection".to_string(),
+            source_id: connection_id.to_string(),
+            label: format!("{provider_key} connection"),
+            detail: None,
+        });
+    }
+    if let Some(project_id) = project_id {
+        evidence.push(ActionEvidenceRef {
+            source_kind: "project".to_string(),
+            source_id: project_id.to_string(),
+            label: format!("project {project_id}"),
+            detail: None,
+        });
+    }
+}
+
+fn push_people_evidence(evidence: &mut Vec<ActionEvidenceRef>, payload: &serde_json::Value) {
+    let Some(people) = payload.get("people").and_then(serde_json::Value::as_array) else {
+        return;
+    };
+
+    for person in people {
+        let Some(person_id) = person.get("person_id").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        let label = person
+            .get("display_name")
+            .and_then(serde_json::Value::as_str)
+            .or_else(|| person.get("handle").and_then(serde_json::Value::as_str))
+            .unwrap_or(person_id);
+        evidence.push(ActionEvidenceRef {
+            source_kind: "person".to_string(),
+            source_id: person_id.to_string(),
+            label: label.to_string(),
+            detail: person
+                .get("platform")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string),
+        });
+    }
 }
 
 fn build_freshness_items(
@@ -725,5 +805,41 @@ mod tests {
             .action_items
             .iter()
             .all(|item| !item.evidence.is_empty()));
+        let writeback_item = snapshot
+            .action_items
+            .iter()
+            .find(|item| item.id.as_ref() == "act_writeback_wb_action_items")
+            .expect("writeback item should exist");
+        assert_eq!(writeback_item.surface, ActionSurface::Now);
+        assert!(writeback_item
+            .evidence
+            .iter()
+            .any(|evidence| evidence.source_kind == "writeback_operation"));
+        assert!(writeback_item
+            .evidence
+            .iter()
+            .any(|evidence| evidence.source_kind == "integration_connection"));
+        assert!(writeback_item
+            .evidence
+            .iter()
+            .any(|evidence| evidence.source_kind == "project"));
+        let conflict_item = snapshot
+            .action_items
+            .iter()
+            .find(|item| item.id.as_ref() == "act_conflict_conf_action_items")
+            .expect("conflict item should exist");
+        assert_eq!(conflict_item.surface, ActionSurface::Now);
+        assert!(conflict_item
+            .evidence
+            .iter()
+            .any(|evidence| evidence.source_kind == "conflict_case"));
+        assert!(conflict_item
+            .evidence
+            .iter()
+            .any(|evidence| evidence.source_kind == "integration_connection"));
+        assert!(conflict_item
+            .evidence
+            .iter()
+            .any(|evidence| evidence.source_kind == "project"));
     }
 }

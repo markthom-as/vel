@@ -146,6 +146,9 @@ export function NowView({ onOpenSettings }: NowViewProps) {
     triage_count: 0,
     projects_needing_review: 0,
   };
+  const pendingWritebacks = data.pending_writebacks ?? [];
+  const conflicts = data.conflicts ?? [];
+  const peopleReview = peopleNeedingReview(data);
 
   return (
     <div className="flex-1 overflow-y-auto bg-zinc-950">
@@ -361,6 +364,18 @@ export function NowView({ onOpenSettings }: NowViewProps) {
                   label="Next commitment"
                   value={data.tasks.next_commitment?.text ?? 'None'}
                 />
+                <Row
+                  label="Pending writebacks"
+                  value={String(pendingWritebacks.length)}
+                />
+                <Row
+                  label="Open conflicts"
+                  value={String(conflicts.length)}
+                />
+                <Row
+                  label="People needing review"
+                  value={String(peopleReview.length)}
+                />
               </dl>
             </Panel>
 
@@ -417,6 +432,25 @@ export function NowView({ onOpenSettings }: NowViewProps) {
                     <div key={task.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
                       <p className="text-sm text-zinc-100">{task.text}</p>
                       <p className="mt-1 text-xs text-zinc-500">{task.source_type}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            <Panel title="People status" subtitle="People-linked writes and reviews currently in scope">
+              {peopleReview.length === 0 ? (
+                <SurfaceState message="No person-linked review items are currently open." />
+              ) : (
+                <div className="space-y-2">
+                  {peopleReview.map((person) => (
+                    <div key={person.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                      <p className="text-sm text-zinc-100">{person.display_name}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {person.aliases.length > 0
+                          ? person.aliases.map((alias) => `${alias.platform}:${alias.handle}`).join(' • ')
+                          : 'No alias provenance attached yet'}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -600,7 +634,11 @@ function ActionItemRow({ item, timezone }: { item: ActionItemData; timezone: str
           item.evidence.map((evidence) => (
             <span
               key={`${item.id}-${evidence.source_id}-${evidence.label}`}
-              className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-400"
+              className={`rounded-full border px-2.5 py-1 text-xs ${
+                evidence.source_kind === 'person'
+                  ? 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200'
+                  : 'border-zinc-800 bg-zinc-900/70 text-zinc-400'
+              }`}
             >
               {evidence.label}
             </span>
@@ -699,9 +737,21 @@ function hasSourceActivity(data: NowData): boolean {
   return Boolean(
     data.sources.git_activity
       || data.sources.health
+      || data.sources.mood
+      || data.sources.pain
       || data.sources.note_document
       || data.sources.assistant_message,
   );
+}
+
+function peopleNeedingReview(data: NowData) {
+  const personIds = new Set(
+    (data.action_items ?? [])
+      .flatMap((item) => item.evidence)
+      .filter((evidence) => evidence.source_kind === 'person')
+      .map((evidence) => evidence.source_id),
+  );
+  return (data.people ?? []).filter((person) => personIds.has(person.id));
 }
 
 function sourceSummaryLines(summary: unknown, keys: string[]): string[] {

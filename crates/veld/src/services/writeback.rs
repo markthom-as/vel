@@ -17,6 +17,8 @@ use crate::{
 
 const NOTES_PROVIDER_KEY: &str = "notes";
 const REMINDERS_PROVIDER_KEY: &str = "reminders";
+const SAFE_MODE_MESSAGE: &str =
+    "writeback is disabled by default (safe mode). Enable writeback in Settings before applying external mutations";
 
 #[derive(Debug, Clone)]
 pub(crate) struct NotesWriteRequest {
@@ -143,12 +145,21 @@ pub async fn list_open_conflicts(
         .map_err(Into::into)
 }
 
+async fn ensure_writeback_enabled(storage: &Storage, config: &AppConfig) -> Result<(), AppError> {
+    if crate::services::operator_settings::runtime_writeback_enabled(storage, config).await? {
+        Ok(())
+    } else {
+        Err(AppError::forbidden(SAFE_MODE_MESSAGE))
+    }
+}
+
 pub(crate) async fn notes_create_note(
     storage: &Storage,
     config: &AppConfig,
     requested_by_node_id: &str,
     request: NotesWriteRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     execute_notes_writeback(
         storage,
         config,
@@ -166,6 +177,7 @@ pub(crate) async fn notes_append_note(
     requested_by_node_id: &str,
     request: NotesWriteRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     execute_notes_writeback(
         storage,
         config,
@@ -183,6 +195,7 @@ pub(crate) async fn reminders_create(
     requested_by_node_id: &str,
     request: ReminderWriteRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     execute_reminder_writeback(
         storage,
         config,
@@ -200,6 +213,7 @@ pub(crate) async fn reminders_update(
     requested_by_node_id: &str,
     request: ReminderWriteRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     if request.title.is_none()
         && request.list_id.is_none()
         && request.list_title.is_none()
@@ -230,6 +244,7 @@ pub(crate) async fn reminders_complete(
     requested_by_node_id: &str,
     request: ReminderWriteRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     execute_reminder_writeback(
         storage,
         config,
@@ -243,49 +258,61 @@ pub(crate) async fn reminders_complete(
 
 pub(crate) async fn github_create_issue(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     request: integrations_github::GithubCreateIssueRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     integrations_github::github_create_issue(storage, requested_by_node_id, request).await
 }
 
 pub(crate) async fn github_add_comment(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     request: integrations_github::GithubCommentRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     integrations_github::github_add_comment(storage, requested_by_node_id, request).await
 }
 
 pub(crate) async fn github_close_issue(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     request: integrations_github::GithubIssueActionRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     integrations_github::github_close_issue(storage, requested_by_node_id, request).await
 }
 
 pub(crate) async fn github_reopen_issue(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     request: integrations_github::GithubIssueActionRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     integrations_github::github_reopen_issue(storage, requested_by_node_id, request).await
 }
 
 pub(crate) async fn email_create_draft_reply(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     request: integrations_email::EmailCreateDraftReplyRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     integrations_email::email_create_draft_reply(storage, requested_by_node_id, request).await
 }
 
 pub(crate) async fn email_send_draft(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     request: integrations_email::EmailSendDraftRequest,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     integrations_email::email_send_draft(storage, requested_by_node_id, request).await
 }
 
@@ -628,9 +655,11 @@ async fn ensure_foundation_connection(
 
 pub(crate) async fn todoist_create_task(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     mutation: integrations_todoist::TodoistTaskMutation,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     let plan =
         integrations_todoist::plan_todoist_create_task(storage, requested_by_node_id, mutation)
             .await?;
@@ -639,10 +668,12 @@ pub(crate) async fn todoist_create_task(
 
 pub(crate) async fn todoist_update_task(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     commitment_id: &str,
     mutation: integrations_todoist::TodoistTaskMutation,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     let plan = integrations_todoist::plan_todoist_update_task(
         storage,
         requested_by_node_id,
@@ -655,9 +686,11 @@ pub(crate) async fn todoist_update_task(
 
 pub(crate) async fn todoist_complete_task(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     commitment_id: &str,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     let plan = integrations_todoist::plan_todoist_complete_task(
         storage,
         requested_by_node_id,
@@ -669,9 +702,11 @@ pub(crate) async fn todoist_complete_task(
 
 pub(crate) async fn todoist_reopen_task(
     storage: &Storage,
+    config: &AppConfig,
     requested_by_node_id: &str,
     commitment_id: &str,
 ) -> Result<WritebackOperationRecord, AppError> {
+    ensure_writeback_enabled(storage, config).await?;
     let plan = integrations_todoist::plan_todoist_reopen_task(
         storage,
         requested_by_node_id,
@@ -856,5 +891,33 @@ mod tests {
             .expect("writeback should exist");
         assert_eq!(stored.status, WritebackStatus::Conflicted);
         assert_eq!(stored.conflict_case_id.as_deref(), Some("conf_service_1"));
+    }
+
+    #[tokio::test]
+    async fn notes_writeback_is_forbidden_when_safe_mode_is_default() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let error = notes_create_note(
+            &storage,
+            &AppConfig::default(),
+            "vel-local",
+            NotesWriteRequest {
+                path: "daily/today.md".to_string(),
+                content: "hello".to_string(),
+                project_id: None,
+                notes_root_path: None,
+            },
+        )
+        .await
+        .expect_err("safe mode should block notes writeback");
+
+        assert!(error
+            .to_string()
+            .contains("writeback is disabled by default (safe mode)"));
+        assert!(storage
+            .list_writeback_operations(None, 16)
+            .await
+            .unwrap()
+            .is_empty());
     }
 }

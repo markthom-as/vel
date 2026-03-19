@@ -110,6 +110,8 @@ describe('NowView', () => {
                   device: 'Apple Watch',
                 },
               },
+              mood: null,
+              pain: null,
               note_document: {
                 label: 'Recent note',
                 timestamp: 1710000060,
@@ -160,6 +162,12 @@ describe('NowView', () => {
                     label: 'Design review at 10:00',
                     detail: null,
                   },
+                  {
+                    source_kind: 'person',
+                    source_id: 'per_annie',
+                    label: 'Annie Case',
+                    detail: null,
+                  },
                 ],
               },
               {
@@ -188,6 +196,70 @@ describe('NowView', () => {
               triage_count: 1,
               projects_needing_review: 1,
             },
+            pending_writebacks: [
+              {
+                id: 'wb_1',
+                kind: 'email_create_draft_reply',
+                risk: 'safe',
+                status: 'queued',
+                target: {
+                  family: 'messaging',
+                  provider_key: 'email',
+                  project_id: null,
+                  connection_id: 'icn_email',
+                  external_id: 'thread_1',
+                },
+                requested_payload: {},
+                result_payload: null,
+                provenance: [],
+                conflict_case_id: null,
+                requested_by_node_id: 'vel-local',
+                requested_at: '2026-03-16T18:30:00Z',
+                applied_at: null,
+                updated_at: '2026-03-16T18:30:00Z',
+              },
+            ],
+            conflicts: [
+              {
+                id: 'conf_1',
+                kind: 'upstream_vs_local',
+                status: 'open',
+                target: {
+                  family: 'messaging',
+                  provider_key: 'email',
+                  project_id: null,
+                  connection_id: 'icn_email',
+                  external_id: 'thread_1',
+                },
+                summary: 'Conflict',
+                local_payload: {},
+                upstream_payload: null,
+                resolution_payload: null,
+                opened_at: '2026-03-16T18:30:00Z',
+                resolved_at: null,
+                updated_at: '2026-03-16T18:30:00Z',
+              },
+            ],
+            people: [
+              {
+                id: 'per_annie',
+                display_name: 'Annie Case',
+                given_name: 'Annie',
+                family_name: 'Case',
+                relationship_context: null,
+                birthday: null,
+                last_contacted_at: null,
+                aliases: [
+                  {
+                    platform: 'email',
+                    handle: 'annie@example.com',
+                    display: 'Annie Case',
+                    source_ref: null,
+                  },
+                ],
+                links: [],
+              },
+            ],
             reasons: ['Prep window active', 'recent git activity indicates active work'],
             debug: {
               raw_context: {},
@@ -292,6 +364,8 @@ describe('NowView', () => {
     expect(screen.getByText('source app: Apple Health')).toBeInTheDocument()
     expect(screen.getByText('path: daily/today.md')).toBeInTheDocument()
     expect(screen.getByText('conversation id: conv_external')).toBeInTheDocument()
+    expect(screen.getByText('People status')).toBeInTheDocument()
+    expect(screen.getAllByText('Annie Case').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Fresh').length).toBeGreaterThan(0)
   })
 

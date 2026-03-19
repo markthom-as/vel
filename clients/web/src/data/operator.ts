@@ -22,6 +22,7 @@ import {
   type ClusterWorkersData,
   type ComponentData,
   type ComponentLogEventData,
+  type ConflictCaseData,
   type GoogleCalendarAuthStartData,
   type IntegrationLogEventData,
   type IntegrationsData,
@@ -29,12 +30,15 @@ import {
   type LinkScopeData,
   type LinkedNodeData,
   type LoopData,
+  type NowData,
   type PairingTokenData,
+  type PersonRecordData,
   type ProjectCreateRequestData,
   type ProjectCreateResponseData,
   type ProjectListResponseData,
   type RunSummaryData,
   type SettingsData,
+  type WritebackOperationData,
 } from '../types';
 
 export interface SyncResultData {
@@ -45,6 +49,13 @@ export interface SyncResultData {
 export interface EvaluateResultData {
   inferred_states: number;
   nudges_created_or_updated: number;
+}
+
+export interface OperatorReviewStatusData {
+  writeback_enabled: boolean;
+  pending_writebacks: WritebackOperationData[];
+  open_conflicts: ConflictCaseData[];
+  people_needing_review: PersonRecordData[];
 }
 
 function decodeSyncResultData(value: unknown): SyncResultData {
@@ -86,6 +97,35 @@ export const operatorQueryKeys = {
   runs: (limit: number) => ['runs', limit] as const,
 };
 
+export function buildOperatorReviewStatus(
+  now: NowData | null | undefined,
+  settings: SettingsData | null | undefined,
+): OperatorReviewStatusData {
+  const peopleById = new Map<string, PersonRecordData>(
+    (now?.people ?? []).map((person) => [person.id, person]),
+  );
+  const peopleNeedingReview = new Map<string, PersonRecordData>();
+
+  for (const item of now?.action_items ?? []) {
+    for (const evidence of item.evidence) {
+      if (evidence.source_kind !== 'person') {
+        continue;
+      }
+      const person = peopleById.get(evidence.source_id);
+      if (person) {
+        peopleNeedingReview.set(person.id, person);
+      }
+    }
+  }
+
+  return {
+    writeback_enabled: settings?.writeback_enabled === true,
+    pending_writebacks: now?.pending_writebacks ?? [],
+    open_conflicts: now?.conflicts ?? [],
+    people_needing_review: [...peopleNeedingReview.values()],
+  };
+}
+
 export function loadClusterBootstrap(): Promise<ApiResponse<ClusterBootstrapData>> {
   return apiGet<ApiResponse<ClusterBootstrapData>>(
     '/v1/cluster/bootstrap',
@@ -121,6 +161,8 @@ export function issuePairingToken(payload: {
   issued_by_node_id: string;
   ttl_seconds?: number;
   scopes: LinkScopeData;
+  target_node_id?: string;
+  target_node_display_name?: string | null;
 }): Promise<ApiResponse<PairingTokenData>> {
   return apiPost<ApiResponse<PairingTokenData>>(
     '/v1/linking/tokens',

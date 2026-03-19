@@ -105,8 +105,10 @@ export interface SettingsData {
   toggle_reminders?: boolean;
   timezone?: string | null;
   node_display_name?: string | null;
+  writeback_enabled?: boolean;
   tailscale_preferred?: boolean;
   tailscale_base_url?: string | null;
+  tailscale_base_url_auto_discovered?: boolean;
   lan_base_url?: string | null;
   adaptive_policy_overrides?: {
     default_prep_minutes?: number | null;
@@ -215,6 +217,76 @@ export interface IntegrationConnectionEventData {
   payload: JsonValue;
   timestamp: UnixSeconds;
   created_at: UnixSeconds;
+}
+
+export interface IntegrationSourceRefData {
+  family: string;
+  provider_key: string;
+  connection_id: string;
+  external_id: string;
+}
+
+export interface WritebackTargetRefData {
+  family: string;
+  provider_key: string;
+  project_id: string | null;
+  connection_id: string | null;
+  external_id: string | null;
+}
+
+export interface WritebackOperationData {
+  id: string;
+  kind: string;
+  risk: string;
+  status: string;
+  target: WritebackTargetRefData;
+  requested_payload: JsonValue;
+  result_payload: JsonValue | null;
+  provenance: IntegrationSourceRefData[];
+  conflict_case_id: string | null;
+  requested_by_node_id: string;
+  requested_at: Rfc3339Timestamp;
+  applied_at: Rfc3339Timestamp | null;
+  updated_at: Rfc3339Timestamp;
+}
+
+export interface ConflictCaseData {
+  id: string;
+  kind: string;
+  status: string;
+  target: WritebackTargetRefData;
+  summary: string;
+  local_payload: JsonValue;
+  upstream_payload: JsonValue | null;
+  resolution_payload: JsonValue | null;
+  opened_at: Rfc3339Timestamp;
+  resolved_at: Rfc3339Timestamp | null;
+  updated_at: Rfc3339Timestamp;
+}
+
+export interface PersonAliasData {
+  platform: string;
+  handle: string;
+  display: string;
+  source_ref: IntegrationSourceRefData | null;
+}
+
+export interface PersonLinkRefData {
+  kind: string;
+  id: string;
+  label: string;
+}
+
+export interface PersonRecordData {
+  id: string;
+  display_name: string;
+  given_name: string | null;
+  family_name: string | null;
+  relationship_context: string | null;
+  birthday: string | null;
+  last_contacted_at: Rfc3339Timestamp | null;
+  aliases: PersonAliasData[];
+  links: PersonLinkRefData[];
 }
 
 export interface ComponentData {
@@ -373,6 +445,16 @@ export interface LinkTargetSuggestionData {
   redeem_command_hint: string;
 }
 
+export interface LinkingPromptData {
+  target_node_id: string;
+  target_node_display_name: string | null;
+  issued_by_node_id: string;
+  issued_by_node_display_name: string | null;
+  issued_at: Rfc3339Timestamp;
+  expires_at: Rfc3339Timestamp;
+  scopes: LinkScopeData;
+}
+
 export interface LinkedNodeData {
   node_id: string;
   node_display_name: string;
@@ -421,6 +503,7 @@ export interface WorkerPresenceData {
   last_upstream_sync_at: UnixSeconds | null;
   last_downstream_sync_at: UnixSeconds | null;
   last_sync_error: string | null;
+  incoming_linking_prompt: LinkingPromptData | null;
   capacity: WorkerCapacityData;
 }
 
@@ -638,6 +721,8 @@ export interface NowSourceActivityData {
 export interface NowSourcesData {
   git_activity: NowSourceActivityData | null;
   health: NowSourceActivityData | null;
+  mood: NowSourceActivityData | null;
+  pain: NowSourceActivityData | null;
   note_document: NowSourceActivityData | null;
   assistant_message: NowSourceActivityData | null;
 }
@@ -674,6 +759,9 @@ export interface NowData {
   freshness: NowFreshnessData;
   action_items: ActionItemData[];
   review_snapshot: ReviewSnapshotData;
+  pending_writebacks: WritebackOperationData[];
+  conflicts: ConflictCaseData[];
+  people: PersonRecordData[];
   reasons: string[];
   debug: NowDebugData;
 }
@@ -816,13 +904,20 @@ export interface WsComponentsUpdatedEvent {
   payload: ComponentData;
 }
 
+export interface WsLinkingUpdatedEvent {
+  type: 'linking:updated';
+  timestamp: Rfc3339Timestamp;
+  payload: JsonValue;
+}
+
 export type WsEvent =
   | WsMessageNewEvent
   | WsInterventionsNewEvent
   | WsInterventionsUpdatedEvent
   | WsContextUpdatedEvent
   | WsRunsUpdatedEvent
-  | WsComponentsUpdatedEvent;
+  | WsComponentsUpdatedEvent
+  | WsLinkingUpdatedEvent;
 
 export type WsEnvelope = WsEvent;
 export type InterventionEventData = InboxItemData;
@@ -1139,6 +1234,25 @@ export function decodeLinkTargetSuggestionData(value: unknown): LinkTargetSugges
   };
 }
 
+export function decodeLinkingPromptData(value: unknown): LinkingPromptData {
+  const record = expectRecord(value, 'linking prompt');
+  return {
+    target_node_id: expectString(record.target_node_id, 'linking prompt.target_node_id'),
+    target_node_display_name: expectNullableString(
+      record.target_node_display_name,
+      'linking prompt.target_node_display_name',
+    ),
+    issued_by_node_id: expectString(record.issued_by_node_id, 'linking prompt.issued_by_node_id'),
+    issued_by_node_display_name: expectNullableString(
+      record.issued_by_node_display_name,
+      'linking prompt.issued_by_node_display_name',
+    ),
+    issued_at: expectRfc3339Timestamp(record.issued_at, 'linking prompt.issued_at'),
+    expires_at: expectRfc3339Timestamp(record.expires_at, 'linking prompt.expires_at'),
+    scopes: decodeLinkScopeData(record.scopes),
+  };
+}
+
 export function decodeLinkedNodeData(value: unknown): LinkedNodeData {
   const record = expectRecord(value, 'linked node');
   return {
@@ -1308,11 +1422,13 @@ export function decodeNowData(value: unknown): NowData {
       reasons: decodeArray(attention.reasons ?? [], (item) => expectString(item, 'now data.attention.reasons')),
     },
     sources: {
-      git_activity: decodeNullable(sources.git_activity, decodeNowSourceActivityData),
-      health: decodeNullable(sources.health, decodeNowSourceActivityData),
-      note_document: decodeNullable(sources.note_document, decodeNowSourceActivityData),
+      git_activity: decodeNullable(sources.git_activity ?? null, decodeNowSourceActivityData),
+      health: decodeNullable(sources.health ?? null, decodeNowSourceActivityData),
+      mood: decodeNullable(sources.mood ?? null, decodeNowSourceActivityData),
+      pain: decodeNullable(sources.pain ?? null, decodeNowSourceActivityData),
+      note_document: decodeNullable(sources.note_document ?? null, decodeNowSourceActivityData),
       assistant_message: decodeNullable(
-        sources.assistant_message,
+        sources.assistant_message ?? null,
         decodeNowSourceActivityData,
       ),
     },
@@ -1338,6 +1454,12 @@ export function decodeNowData(value: unknown): NowData {
         projects_needing_review: 0,
       },
     ),
+    pending_writebacks: decodeArray(
+      record.pending_writebacks ?? [],
+      decodeWritebackOperationData,
+    ),
+    conflicts: decodeArray(record.conflicts ?? [], decodeConflictCaseData),
+    people: decodeArray(record.people ?? [], decodePersonRecordData),
     reasons: decodeArray(record.reasons ?? [], (item) => expectString(item, 'now data.reasons')),
     debug: {
       raw_context: decodeJsonValue(debug.raw_context),
@@ -1467,6 +1589,10 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.node_display_name === undefined
         ? undefined
         : expectNullableString(record.node_display_name, 'settings.node_display_name'),
+    writeback_enabled:
+      record.writeback_enabled === undefined
+        ? undefined
+        : expectBoolean(record.writeback_enabled, 'settings.writeback_enabled'),
     tailscale_preferred:
       record.tailscale_preferred === undefined
         ? undefined
@@ -1475,6 +1601,13 @@ export function decodeSettingsData(value: unknown): SettingsData {
       record.tailscale_base_url === undefined
         ? undefined
         : expectNullableString(record.tailscale_base_url, 'settings.tailscale_base_url'),
+    tailscale_base_url_auto_discovered:
+      record.tailscale_base_url_auto_discovered === undefined
+        ? undefined
+        : expectBoolean(
+            record.tailscale_base_url_auto_discovered,
+            'settings.tailscale_base_url_auto_discovered',
+          ),
     lan_base_url:
       record.lan_base_url === undefined
         ? undefined
@@ -1559,6 +1692,115 @@ export function decodeIntegrationGuidanceData(value: unknown): IntegrationGuidan
     title: expectString(record.title, 'integration guidance.title'),
     detail: expectString(record.detail, 'integration guidance.detail'),
     action: expectString(record.action, 'integration guidance.action'),
+  };
+}
+
+export function decodeIntegrationSourceRefData(value: unknown): IntegrationSourceRefData {
+  const record = expectRecord(value, 'integration source ref');
+  return {
+    family: expectString(record.family, 'integration source ref.family'),
+    provider_key: expectString(record.provider_key, 'integration source ref.provider_key'),
+    connection_id: expectString(record.connection_id, 'integration source ref.connection_id'),
+    external_id: expectString(record.external_id, 'integration source ref.external_id'),
+  };
+}
+
+export function decodeWritebackTargetRefData(value: unknown): WritebackTargetRefData {
+  const record = expectRecord(value, 'writeback target');
+  return {
+    family: expectString(record.family, 'writeback target.family'),
+    provider_key: expectString(record.provider_key, 'writeback target.provider_key'),
+    project_id: expectNullableString(record.project_id, 'writeback target.project_id'),
+    connection_id: expectNullableString(record.connection_id, 'writeback target.connection_id'),
+    external_id: expectNullableString(record.external_id, 'writeback target.external_id'),
+  };
+}
+
+export function decodeWritebackOperationData(value: unknown): WritebackOperationData {
+  const record = expectRecord(value, 'writeback operation');
+  return {
+    id: expectString(record.id, 'writeback operation.id'),
+    kind: expectString(record.kind, 'writeback operation.kind'),
+    risk: expectString(record.risk, 'writeback operation.risk'),
+    status: expectString(record.status, 'writeback operation.status'),
+    target: decodeWritebackTargetRefData(record.target),
+    requested_payload: decodeJsonValue(record.requested_payload),
+    result_payload:
+      record.result_payload === null || record.result_payload === undefined
+        ? null
+        : decodeJsonValue(record.result_payload),
+    provenance: decodeArray(record.provenance ?? [], decodeIntegrationSourceRefData),
+    conflict_case_id: expectNullableString(record.conflict_case_id, 'writeback operation.conflict_case_id'),
+    requested_by_node_id: expectString(
+      record.requested_by_node_id,
+      'writeback operation.requested_by_node_id',
+    ),
+    requested_at: expectRfc3339Timestamp(record.requested_at, 'writeback operation.requested_at'),
+    applied_at: expectNullableRfc3339Timestamp(record.applied_at, 'writeback operation.applied_at'),
+    updated_at: expectRfc3339Timestamp(record.updated_at, 'writeback operation.updated_at'),
+  };
+}
+
+export function decodeConflictCaseData(value: unknown): ConflictCaseData {
+  const record = expectRecord(value, 'conflict case');
+  return {
+    id: expectString(record.id, 'conflict case.id'),
+    kind: expectString(record.kind, 'conflict case.kind'),
+    status: expectString(record.status, 'conflict case.status'),
+    target: decodeWritebackTargetRefData(record.target),
+    summary: expectString(record.summary, 'conflict case.summary'),
+    local_payload: decodeJsonValue(record.local_payload),
+    upstream_payload:
+      record.upstream_payload === null || record.upstream_payload === undefined
+        ? null
+        : decodeJsonValue(record.upstream_payload),
+    resolution_payload:
+      record.resolution_payload === null || record.resolution_payload === undefined
+        ? null
+        : decodeJsonValue(record.resolution_payload),
+    opened_at: expectRfc3339Timestamp(record.opened_at, 'conflict case.opened_at'),
+    resolved_at: expectNullableRfc3339Timestamp(record.resolved_at, 'conflict case.resolved_at'),
+    updated_at: expectRfc3339Timestamp(record.updated_at, 'conflict case.updated_at'),
+  };
+}
+
+export function decodePersonAliasData(value: unknown): PersonAliasData {
+  const record = expectRecord(value, 'person alias');
+  return {
+    platform: expectString(record.platform, 'person alias.platform'),
+    handle: expectString(record.handle, 'person alias.handle'),
+    display: expectString(record.display, 'person alias.display'),
+    source_ref: decodeNullable(record.source_ref, decodeIntegrationSourceRefData),
+  };
+}
+
+export function decodePersonLinkRefData(value: unknown): PersonLinkRefData {
+  const record = expectRecord(value, 'person link');
+  return {
+    kind: expectString(record.kind, 'person link.kind'),
+    id: expectString(record.id, 'person link.id'),
+    label: expectString(record.label, 'person link.label'),
+  };
+}
+
+export function decodePersonRecordData(value: unknown): PersonRecordData {
+  const record = expectRecord(value, 'person record');
+  return {
+    id: expectString(record.id, 'person record.id'),
+    display_name: expectString(record.display_name, 'person record.display_name'),
+    given_name: expectNullableString(record.given_name, 'person record.given_name'),
+    family_name: expectNullableString(record.family_name, 'person record.family_name'),
+    relationship_context: expectNullableString(
+      record.relationship_context,
+      'person record.relationship_context',
+    ),
+    birthday: expectNullableString(record.birthday, 'person record.birthday'),
+    last_contacted_at: expectNullableRfc3339Timestamp(
+      record.last_contacted_at,
+      'person record.last_contacted_at',
+    ),
+    aliases: decodeArray(record.aliases ?? [], decodePersonAliasData),
+    links: decodeArray(record.links ?? [], decodePersonLinkRefData),
   };
 }
 
@@ -1658,6 +1900,10 @@ export function decodeWorkerPresenceData(value: unknown): WorkerPresenceData {
       'worker presence.last_downstream_sync_at',
     ),
     last_sync_error: expectNullableString(record.last_sync_error, 'worker presence.last_sync_error'),
+    incoming_linking_prompt: decodeNullable(
+      record.incoming_linking_prompt ?? null,
+      decodeLinkingPromptData,
+    ),
     capacity: decodeWorkerCapacityData(record.capacity),
   };
 }
@@ -2175,6 +2421,12 @@ export function decodeWsEvent(value: unknown): WsEvent {
         type,
         timestamp,
         payload: decodeComponentData(record.payload),
+      };
+    case 'linking:updated':
+      return {
+        type,
+        timestamp,
+        payload: decodeJsonValue(record.payload),
       };
     default:
       throw new Error(`Unsupported websocket event type: ${type}`);

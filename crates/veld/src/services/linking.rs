@@ -1,11 +1,14 @@
+use std::collections::HashMap;
+
 use time::{Duration, OffsetDateTime};
-use vel_api_types::{LinkScopeData, LinkTargetSuggestionData};
+use vel_api_types::{LinkScopeData, LinkTargetSuggestionData, LinkingPromptData};
 use vel_core::{LinkScope, LinkStatus, LinkedNodeRecord, PairingTokenRecord};
 
 use crate::{errors::AppError, state::AppState};
 
 const DEFAULT_TOKEN_TTL_SECONDS: i64 = 900;
 const MAX_TOKEN_TTL_SECONDS: i64 = 3600;
+const LINKING_PROMPTS_SETTINGS_KEY: &str = "linking_prompts";
 
 pub async fn issue_pairing_token(
     state: &AppState,
@@ -37,7 +40,35 @@ pub async fn issue_pairing_token(
         scopes,
     };
 
-    Ok(state.storage.issue_pairing_token(&record).await?)
+    let issued = state.storage.issue_pairing_token(&record).await?;
+    if let Some(target_node_id) = request
+        .target_node_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        save_linking_prompt(
+            state,
+            target_node_id,
+            LinkingPromptData {
+                target_node_id: target_node_id.to_string(),
+                target_node_display_name: request
+                    .target_node_display_name
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(ToString::to_string),
+                issued_by_node_id: issued_by_node_id.to_string(),
+                issued_by_node_display_name: issuer_display_name(state, issued_by_node_id).await?,
+                issued_at: issued.issued_at,
+                expires_at: issued.expires_at,
+                scopes: issued.scopes.into(),
+            },
+        )
+        .await?;
+    }
+
+    Ok(issued)
 }
 
 pub async fn redeem_pairing_token(
@@ -108,6 +139,7 @@ pub async fn redeem_pairing_token(
         ));
     }
 
+    clear_linking_prompt(state, &record.node_id).await?;
     state
         .storage
         .upsert_linked_node(&record)
@@ -129,6 +161,20 @@ pub async fn revoke_linked_node(
         .revoke_linked_node(node_id.trim(), revoked_at)
         .await?
         .ok_or_else(|| AppError::not_found("linked node not found"))
+}
+
+pub async fn linking_prompts(
+    state: &AppState,
+) -> Result<HashMap<String, LinkingPromptData>, AppError> {
+    let settings = state.storage.get_all_settings().await?;
+    let Some(value) = settings.get(LINKING_PROMPTS_SETTINGS_KEY) else {
+        return Ok(HashMap::new());
+    };
+    let mut prompts: HashMap<String, LinkingPromptData> = serde_json::from_value(value.clone())
+        .map_err(|error| AppError::internal(format!("invalid linking prompts: {error}")))?;
+    let now = OffsetDateTime::now_utc();
+    prompts.retain(|_, prompt| prompt.expires_at > now);
+    Ok(prompts)
 }
 
 pub async fn suggested_targets(
@@ -231,6 +277,8 @@ pub struct IssuePairingTokenInput {
     pub issued_by_node_id: String,
     pub ttl_seconds: Option<i64>,
     pub scopes: LinkScopeData,
+    pub target_node_id: Option<String>,
+    pub target_node_display_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -248,6 +296,53 @@ fn scope_from_data(value: LinkScopeData) -> LinkScope {
         write_safe_actions: value.write_safe_actions,
         execute_repo_tasks: value.execute_repo_tasks,
     }
+}
+
+async fn issuer_display_name(
+    state: &AppState,
+    issued_by_node_id: &str,
+) -> Result<Option<String>, AppError> {
+    let bootstrap = crate::services::client_sync::effective_cluster_bootstrap(state).await?;
+    if bootstrap.node_id == issued_by_node_id {
+        return Ok(Some(bootstrap.node_display_name));
+    }
+    Ok(None)
+}
+
+async fn save_linking_prompt(
+    state: &AppState,
+    target_node_id: &str,
+    prompt: LinkingPromptData,
+) -> Result<(), AppError> {
+    let mut prompts = linking_prompts(state).await?;
+    prompts.insert(target_node_id.to_string(), prompt);
+    state
+        .storage
+        .set_setting(
+            LINKING_PROMPTS_SETTINGS_KEY,
+            &serde_json::to_value(prompts).map_err(|error| {
+                AppError::internal(format!("serialize linking prompts: {error}"))
+            })?,
+        )
+        .await?;
+    Ok(())
+}
+
+async fn clear_linking_prompt(state: &AppState, target_node_id: &str) -> Result<(), AppError> {
+    let mut prompts = linking_prompts(state).await?;
+    if prompts.remove(target_node_id).is_none() {
+        return Ok(());
+    }
+    state
+        .storage
+        .set_setting(
+            LINKING_PROMPTS_SETTINGS_KEY,
+            &serde_json::to_value(prompts).map_err(|error| {
+                AppError::internal(format!("serialize linking prompts: {error}"))
+            })?,
+        )
+        .await?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -284,6 +379,8 @@ mod tests {
                     write_safe_actions: true,
                     execute_repo_tasks: false,
                 },
+                target_node_id: None,
+                target_node_display_name: None,
             },
         )
         .await
@@ -328,6 +425,8 @@ mod tests {
                     write_safe_actions: false,
                     execute_repo_tasks: false,
                 },
+                target_node_id: None,
+                target_node_display_name: None,
             },
         )
         .await

@@ -4,7 +4,8 @@ use std::collections::HashMap;
 
 use crate::client::ApiClient;
 use vel_api_types::{
-    ActionItemData, CommitmentData, ProjectFamilyData, ProjectRecordData, ReviewSnapshotData,
+    ActionItemData, CommitmentData, NowData, PersonRecordData, ProjectFamilyData,
+    ProjectRecordData, ReviewSnapshotData,
 };
 
 const TRUNCATE: usize = 50;
@@ -38,6 +39,9 @@ pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
             "latest_context_artifact": latest_ctx,
             "open_action_count": review_counts.0,
             "triage_count": review_counts.1,
+            "pending_writebacks": now.pending_writebacks.len(),
+            "open_conflicts": now.conflicts.len(),
+            "people_needing_review": people_needing_review(&now).len(),
             "top_action_titles": top_action_titles(&now.action_items),
         });
         println!("{}", serde_json::to_string_pretty(&out)?);
@@ -65,6 +69,12 @@ pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     } else {
         println!("Latest context artifact: (none)");
     }
+    println!("Pending writebacks: {}", now.pending_writebacks.len());
+    println!("Open conflicts: {}", now.conflicts.len());
+    println!(
+        "People needing review: {}",
+        people_needing_review(&now).len()
+    );
     Ok(())
 }
 
@@ -89,6 +99,7 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
         .await
         .ok()
         .and_then(|r| r.data);
+    let now = client.get_now().await?.data.expect("get_now missing data");
 
     if json {
         let project_review_candidates =
@@ -97,6 +108,9 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
             "captures_recent": captures.len(),
             "captures": captures,
             "latest_context_artifact": latest_ctx,
+            "pending_writebacks": now.pending_writebacks.len(),
+            "open_conflicts": now.conflicts.len(),
+            "people_needing_review": people_needing_review(&now).len(),
             "project_review_candidates": project_review_candidates,
         });
         println!("{}", serde_json::to_string_pretty(&out)?);
@@ -124,6 +138,12 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     } else {
         println!("Latest context artifact: (none)");
     }
+    println!("Pending writebacks: {}", now.pending_writebacks.len());
+    println!("Open conflicts: {}", now.conflicts.len());
+    println!(
+        "People needing review: {}",
+        people_needing_review(&now).len()
+    );
     Ok(())
 }
 
@@ -136,6 +156,22 @@ fn top_action_titles(action_items: &[ActionItemData]) -> Vec<String> {
         .iter()
         .take(TOP_ACTION_TITLES_LIMIT)
         .map(|item| item.title.clone())
+        .collect()
+}
+
+fn people_needing_review(now: &NowData) -> Vec<PersonRecordData> {
+    let person_ids: std::collections::HashSet<&str> = now
+        .action_items
+        .iter()
+        .flat_map(|item| item.evidence.iter())
+        .filter(|evidence| evidence.source_kind == "person")
+        .map(|evidence| evidence.source_id.as_str())
+        .collect();
+
+    now.people
+        .iter()
+        .filter(|person| person_ids.contains(person.id.as_ref()))
+        .cloned()
         .collect()
 }
 
@@ -202,15 +238,20 @@ fn build_project_review_candidates(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_project_review_candidates, summarize_review_snapshot, top_action_titles};
+    use super::{
+        build_project_review_candidates, people_needing_review, summarize_review_snapshot,
+        top_action_titles,
+    };
     use serde_json::json;
     use time::OffsetDateTime;
     use vel_api_types::{
-        ActionItemData, ActionKindData, ActionStateData, ActionSurfaceData, CommitmentData,
-        ProjectFamilyData, ProjectProvisionRequestData, ProjectRecordData, ProjectRootRefData,
-        ProjectStatusData, ReviewSnapshotData,
+        ActionEvidenceRefData, ActionItemData, ActionKindData, ActionStateData, ActionSurfaceData,
+        CommitmentData, NowAttentionData, NowData, NowDebugData, NowFreshnessData, NowLabelData,
+        NowRiskSummaryData, NowScheduleData, NowSourcesData, NowSummaryData, NowTasksData,
+        PersonRecordData, ProjectFamilyData, ProjectProvisionRequestData, ProjectRecordData,
+        ProjectRootRefData, ProjectStatusData, ReviewSnapshotData,
     };
-    use vel_core::{ActionItemId, CommitmentId, ProjectId};
+    use vel_core::{ActionItemId, CommitmentId, PersonId, ProjectId};
 
     fn sample_project(project_id: &str, slug: &str, name: &str) -> ProjectRecordData {
         ProjectRecordData {
@@ -316,5 +357,131 @@ mod tests {
         assert_eq!(candidates[0].open_commitment_count, 2);
         assert_eq!(candidates[1].slug, "vel");
         assert_eq!(candidates[1].open_commitment_count, 2);
+    }
+
+    #[test]
+    fn review_people_needing_review_filters_people_from_action_evidence() {
+        let now = NowData {
+            computed_at: 0,
+            timezone: "America/Denver".to_string(),
+            summary: NowSummaryData {
+                mode: NowLabelData {
+                    key: "focus".to_string(),
+                    label: "Focus".to_string(),
+                },
+                phase: NowLabelData {
+                    key: "engaged".to_string(),
+                    label: "Engaged".to_string(),
+                },
+                meds: NowLabelData {
+                    key: "ok".to_string(),
+                    label: "OK".to_string(),
+                },
+                risk: NowRiskSummaryData {
+                    level: "low".to_string(),
+                    score: Some(0.2),
+                    label: "low".to_string(),
+                },
+            },
+            schedule: NowScheduleData {
+                empty_message: None,
+                next_event: None,
+                upcoming_events: vec![],
+            },
+            tasks: NowTasksData {
+                todoist: vec![],
+                other_open: vec![],
+                next_commitment: None,
+            },
+            attention: NowAttentionData {
+                state: NowLabelData {
+                    key: "on_task".to_string(),
+                    label: "On task".to_string(),
+                },
+                drift: NowLabelData {
+                    key: "none".to_string(),
+                    label: "None".to_string(),
+                },
+                severity: NowLabelData {
+                    key: "none".to_string(),
+                    label: "None".to_string(),
+                },
+                confidence: Some(0.8),
+                reasons: vec![],
+            },
+            sources: NowSourcesData {
+                git_activity: None,
+                health: None,
+                mood: None,
+                pain: None,
+                note_document: None,
+                assistant_message: None,
+            },
+            freshness: NowFreshnessData {
+                overall_status: "fresh".to_string(),
+                sources: vec![],
+            },
+            action_items: vec![ActionItemData {
+                id: ActionItemId::from("act_person".to_string()),
+                surface: ActionSurfaceData::Now,
+                kind: ActionKindData::NextStep,
+                title: "Reply to Annie".to_string(),
+                summary: "Draft reply pending".to_string(),
+                project_id: None,
+                state: ActionStateData::Active,
+                rank: 72,
+                surfaced_at: OffsetDateTime::UNIX_EPOCH,
+                snoozed_until: None,
+                evidence: vec![ActionEvidenceRefData {
+                    source_kind: "person".to_string(),
+                    source_id: "per_annie".to_string(),
+                    label: "Annie Case".to_string(),
+                    detail: None,
+                }],
+            }],
+            review_snapshot: ReviewSnapshotData {
+                open_action_count: 1,
+                triage_count: 0,
+                projects_needing_review: 0,
+            },
+            pending_writebacks: vec![],
+            conflicts: vec![],
+            people: vec![
+                PersonRecordData {
+                    id: PersonId::from("per_annie".to_string()),
+                    display_name: "Annie Case".to_string(),
+                    given_name: Some("Annie".to_string()),
+                    family_name: Some("Case".to_string()),
+                    relationship_context: None,
+                    birthday: None,
+                    last_contacted_at: None,
+                    aliases: vec![],
+                    links: vec![],
+                },
+                PersonRecordData {
+                    id: PersonId::from("per_other".to_string()),
+                    display_name: "Other Person".to_string(),
+                    given_name: None,
+                    family_name: None,
+                    relationship_context: None,
+                    birthday: None,
+                    last_contacted_at: None,
+                    aliases: vec![],
+                    links: vec![],
+                },
+            ],
+            reasons: vec![],
+            debug: NowDebugData {
+                raw_context: json!({}),
+                signals_used: vec![],
+                commitments_used: vec![],
+                risk_used: vec![],
+            },
+        };
+
+        let people = people_needing_review(&now);
+
+        assert_eq!(people.len(), 1);
+        assert_eq!(people[0].display_name, "Annie Case");
     }
 }

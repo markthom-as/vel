@@ -6,10 +6,20 @@ pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Val
     let runtime_config =
         crate::services::operator_settings::runtime_sync_config(&state.storage, &state.config)
             .await?;
+    let tailscale_base_url_auto_discovered =
+        crate::services::operator_settings::tailscale_base_url_auto_discovered(
+            &map,
+            &state.config,
+            &runtime_config,
+        );
     map.insert(
         "node_display_name".to_string(),
         serde_json::to_value(runtime_config.node_display_name)
             .map_err(|error| AppError::internal(error.to_string()))?,
+    );
+    map.insert(
+        "writeback_enabled".to_string(),
+        serde_json::json!(runtime_config.writeback_enabled),
     );
     map.insert(
         "tailscale_preferred".to_string(),
@@ -19,6 +29,10 @@ pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Val
         "tailscale_base_url".to_string(),
         serde_json::to_value(runtime_config.tailscale_base_url)
             .map_err(|error| AppError::internal(error.to_string()))?,
+    );
+    map.insert(
+        "tailscale_base_url_auto_discovered".to_string(),
+        serde_json::json!(tailscale_base_url_auto_discovered),
     );
     map.insert(
         "lan_base_url".to_string(),

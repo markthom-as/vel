@@ -32,6 +32,8 @@ function invalidatePhase05Queries() {
   invalidateQuery(operatorQueryKeys.projects(), { refetch: true });
   invalidateQuery(operatorQueryKeys.linkingStatus(), { refetch: true });
   invalidateQuery(operatorQueryKeys.clusterBootstrap(), { refetch: true });
+  invalidateQuery(operatorQueryKeys.clusterWorkers(), { refetch: true });
+  invalidateQuery(operatorQueryKeys.settings(), { refetch: true });
 }
 
 let refCount = 0;
@@ -179,6 +181,9 @@ function applyWsEvent(event: WsEvent) {
       break;
     case 'components:updated':
       updateComponentsCache(event.payload);
+      break;
+    case 'linking:updated':
+      invalidatePhase05Queries();
       break;
   }
 }

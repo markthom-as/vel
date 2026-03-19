@@ -85,8 +85,10 @@ describe('SettingsPage', () => {
             toggle_reminders: true,
             timezone: 'America/Denver',
             node_display_name: 'Vel Desktop',
+            writeback_enabled: false,
             tailscale_preferred: true,
             tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            tailscale_base_url_auto_discovered: true,
             lan_base_url: 'http://192.168.1.50:4130',
             adaptive_policy_overrides: {
               commute_buffer_minutes: 30,
@@ -100,6 +102,142 @@ describe('SettingsPage', () => {
             },
           },
           meta: { request_id: 'req_1' },
+        } as never
+      }
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: {
+            computed_at: 1710000000,
+            timezone: 'America/Denver',
+            summary: {
+              mode: { key: 'focus', label: 'Focus' },
+              phase: { key: 'engaged', label: 'Engaged' },
+              meds: { key: 'ok', label: 'OK' },
+              risk: { level: 'low', score: 0.2, label: 'low' },
+            },
+            schedule: {
+              empty_message: null,
+              next_event: null,
+              upcoming_events: [],
+            },
+            tasks: {
+              todoist: [],
+              other_open: [],
+              next_commitment: null,
+            },
+            attention: {
+              state: { key: 'on_task', label: 'On task' },
+              drift: { key: 'none', label: 'None' },
+              severity: { key: 'none', label: 'None' },
+              confidence: null,
+              reasons: [],
+            },
+            sources: {
+              git_activity: null,
+              health: null,
+              mood: null,
+              pain: null,
+              note_document: null,
+              assistant_message: null,
+            },
+            freshness: {
+              overall_status: 'fresh',
+              sources: [],
+            },
+            action_items: [
+              {
+                id: 'act_person',
+                surface: 'now',
+                kind: 'next_step',
+                title: 'Reply to Annie',
+                summary: 'Draft review pending',
+                project_id: null,
+                state: 'active',
+                rank: 72,
+                surfaced_at: '2026-03-18T18:00:00Z',
+                snoozed_until: null,
+                evidence: [
+                  {
+                    source_kind: 'person',
+                    source_id: 'per_annie',
+                    label: 'Annie Case',
+                    detail: null,
+                  },
+                ],
+              },
+            ],
+            review_snapshot: {
+              open_action_count: 1,
+              triage_count: 0,
+              projects_needing_review: 0,
+            },
+            pending_writebacks: [
+              {
+                id: 'wb_1',
+                kind: 'email_create_draft_reply',
+                risk: 'safe',
+                status: 'queued',
+                target: {
+                  family: 'messaging',
+                  provider_key: 'email',
+                  project_id: null,
+                  connection_id: 'icn_email',
+                  external_id: 'thread_1',
+                },
+                requested_payload: {},
+                result_payload: null,
+                provenance: [],
+                conflict_case_id: null,
+                requested_by_node_id: 'vel-local',
+                requested_at: '2026-03-18T18:00:00Z',
+                applied_at: null,
+                updated_at: '2026-03-18T18:00:00Z',
+              },
+            ],
+            conflicts: [
+              {
+                id: 'conf_1',
+                kind: 'upstream_vs_local',
+                status: 'open',
+                target: {
+                  family: 'messaging',
+                  provider_key: 'email',
+                  project_id: null,
+                  connection_id: 'icn_email',
+                  external_id: 'thread_1',
+                },
+                summary: 'Conflict',
+                local_payload: {},
+                upstream_payload: null,
+                resolution_payload: null,
+                opened_at: '2026-03-18T18:00:00Z',
+                resolved_at: null,
+                updated_at: '2026-03-18T18:00:00Z',
+              },
+            ],
+            people: [
+              {
+                id: 'per_annie',
+                display_name: 'Annie Case',
+                given_name: 'Annie',
+                family_name: 'Case',
+                relationship_context: null,
+                birthday: null,
+                last_contacted_at: null,
+                aliases: [],
+                links: [],
+              },
+            ],
+            reasons: [],
+            debug: {
+              raw_context: {},
+              signals_used: [],
+              commitments_used: [],
+              risk_used: [],
+            },
+          },
+          meta: { request_id: 'req_now' },
         } as never
       }
       if (path === '/v1/cluster/bootstrap') {
@@ -146,6 +284,45 @@ describe('SettingsPage', () => {
             generated_at: 1_710_000_100,
             workers: [
               {
+                worker_id: 'vel-desktop',
+                node_id: 'vel-desktop',
+                node_display_name: 'Vel Desktop',
+                client_kind: 'veld',
+                client_version: '0.1.0',
+                protocol_version: '1',
+                build_id: 'build_local',
+                worker_classes: ['sync'],
+                capabilities: ['sync_bootstrap'],
+                status: 'ok',
+                queue_depth: 0,
+                reachability: 'reachable',
+                latency_class: 'low',
+                compute_class: 'standard',
+                power_class: 'ac_or_unknown',
+                recent_failure_rate: 0,
+                tailscale_preferred: true,
+                last_heartbeat_at: 1_710_000_095,
+                started_at: 1_710_000_000,
+                sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+                sync_transport: 'tailscale',
+                tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+                preferred_tailnet_endpoint: null,
+                tailscale_reachable: true,
+                lan_base_url: 'http://192.168.1.50:4130',
+                localhost_base_url: 'http://127.0.0.1:4130',
+                ping_ms: 5,
+                sync_status: 'ready',
+                last_upstream_sync_at: null,
+                last_downstream_sync_at: null,
+                last_sync_error: null,
+                incoming_linking_prompt: null,
+                capacity: {
+                  max_concurrency: 2,
+                  current_load: 0,
+                  available_concurrency: 2,
+                },
+              },
+              {
                 worker_id: 'worker_remote',
                 node_id: 'node_remote',
                 node_display_name: 'Remote Mac',
@@ -177,6 +354,7 @@ describe('SettingsPage', () => {
                 last_upstream_sync_at: null,
                 last_downstream_sync_at: null,
                 last_sync_error: null,
+                incoming_linking_prompt: null,
                 capacity: {
                   max_concurrency: 2,
                   current_load: 0,
@@ -575,10 +753,9 @@ describe('SettingsPage', () => {
 
     const root = getSettingsRoot(container)
     fireEvent.change(within(root).getByDisplayValue('Vel Desktop'), { target: { value: 'Vel NAS' } })
-    fireEvent.change(
+    expect(
       within(root).getByDisplayValue('http://vel-desktop.tailnet.ts.net:4130'),
-      { target: { value: 'http://vel-nas.tailnet.ts.net:4130' } },
-    )
+    ).toBeDisabled()
     fireEvent.click(within(root).getByRole('button', { name: /save sync settings/i }))
 
     await waitFor(() => {
@@ -586,12 +763,21 @@ describe('SettingsPage', () => {
         '/api/settings',
         {
           node_display_name: 'Vel NAS',
+          writeback_enabled: false,
           tailscale_preferred: true,
-          tailscale_base_url: 'http://vel-nas.tailnet.ts.net:4130',
+          tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
           lan_base_url: 'http://192.168.1.50:4130',
         },
         expect.any(Function),
       )
+    })
+  })
+
+  it('explains when the tailscale url is auto-discovered and locked', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    await waitFor(() => {
+      const root = getSettingsRoot(container)
+      expect(within(root).getByText(/auto-discovered from the local tailscale daemon/i)).toBeInTheDocument()
     })
   })
 
@@ -1251,8 +1437,70 @@ describe('SettingsPage', () => {
             toggle_risks: true,
             toggle_reminders: true,
             timezone: 'America/Denver',
+            writeback_enabled: false,
           },
           meta: { request_id: 'req_1' },
+        } as never
+      }
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: {
+            computed_at: 1710000000,
+            timezone: 'America/Denver',
+            summary: {
+              mode: { key: 'focus', label: 'Focus' },
+              phase: { key: 'engaged', label: 'Engaged' },
+              meds: { key: 'ok', label: 'OK' },
+              risk: { level: 'low', score: 0.2, label: 'low' },
+            },
+            schedule: {
+              empty_message: null,
+              next_event: null,
+              upcoming_events: [],
+            },
+            tasks: {
+              todoist: [],
+              other_open: [],
+              next_commitment: null,
+            },
+            attention: {
+              state: { key: 'on_task', label: 'On task' },
+              drift: { key: 'none', label: 'None' },
+              severity: { key: 'none', label: 'None' },
+              confidence: null,
+              reasons: [],
+            },
+            sources: {
+              git_activity: null,
+              health: null,
+              mood: null,
+              pain: null,
+              note_document: null,
+              assistant_message: null,
+            },
+            freshness: {
+              overall_status: 'fresh',
+              sources: [],
+            },
+            action_items: [],
+            review_snapshot: {
+              open_action_count: 0,
+              triage_count: 0,
+              projects_needing_review: 0,
+            },
+            pending_writebacks: [],
+            conflicts: [],
+            people: [],
+            reasons: [],
+            debug: {
+              raw_context: {},
+              signals_used: [],
+              commitments_used: [],
+              risk_used: [],
+            },
+          },
+          meta: { request_id: 'req_now' },
         } as never
       }
       if (path === '/api/integrations') {
@@ -2162,8 +2410,10 @@ describe('SettingsPage', () => {
     })
 
     expect(within(root).getByText('Vel Air')).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: /Remote Mac/i })).toBeInTheDocument()
     expect(within(root).getByText(/CLI fallback/i)).toBeInTheDocument()
 
+    fireEvent.click(within(root).getByRole('button', { name: /Remote Mac/i }))
     fireEvent.click(within(root).getByRole('button', { name: /Issue pairing token/i }))
 
     await waitFor(() => {
@@ -2176,6 +2426,8 @@ describe('SettingsPage', () => {
             write_safe_actions: false,
             execute_repo_tasks: false,
           },
+          target_node_id: 'node_remote',
+          target_node_display_name: 'Remote Mac',
         },
         expect.any(Function),
       )
@@ -2185,7 +2437,232 @@ describe('SettingsPage', () => {
     expect(within(root).getByText('VEL-PAIR-123')).toBeInTheDocument()
     expect(within(root).getByText('Suggested link targets')).toBeInTheDocument()
     expect(within(root).getByText('Tailscale')).toBeInTheDocument()
+    expect(within(root).getByText(/Remote Mac has been prompted to enter it on that client/i)).toBeInTheDocument()
     expect(within(root).getByText(/--transport-hint tailscale/)).toBeInTheDocument()
+  })
+
+  it('shows local enter-token ui when this client receives a linking prompt', async () => {
+    vi.mocked(client.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/cluster/workers') {
+        return {
+          ok: true,
+          data: {
+            active_authority_node_id: 'vel-desktop',
+            active_authority_epoch: 1,
+            generated_at: 1_710_000_100,
+            workers: [
+              {
+                worker_id: 'vel-desktop',
+                node_id: 'vel-desktop',
+                node_display_name: 'Vel Desktop',
+                client_kind: 'veld',
+                client_version: '0.1.0',
+                protocol_version: '1',
+                build_id: 'build_local',
+                worker_classes: ['sync'],
+                capabilities: ['sync_bootstrap'],
+                status: 'ok',
+                queue_depth: 0,
+                reachability: 'reachable',
+                latency_class: 'low',
+                compute_class: 'standard',
+                power_class: 'ac_or_unknown',
+                recent_failure_rate: 0,
+                tailscale_preferred: true,
+                last_heartbeat_at: 1_710_000_095,
+                started_at: 1_710_000_000,
+                sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+                sync_transport: 'tailscale',
+                tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+                preferred_tailnet_endpoint: null,
+                tailscale_reachable: true,
+                lan_base_url: 'http://192.168.1.50:4130',
+                localhost_base_url: 'http://127.0.0.1:4130',
+                ping_ms: 5,
+                sync_status: 'ready',
+                last_upstream_sync_at: null,
+                last_downstream_sync_at: null,
+                last_sync_error: null,
+                incoming_linking_prompt: {
+                  target_node_id: 'vel-desktop',
+                  target_node_display_name: 'Vel Desktop',
+                  issued_by_node_id: 'node_remote',
+                  issued_by_node_display_name: 'Remote Mac',
+                  issued_at: '2026-03-16T18:20:00Z',
+                  expires_at: '2026-03-16T18:35:00Z',
+                  scopes: {
+                    read_context: true,
+                    write_safe_actions: false,
+                    execute_repo_tasks: false,
+                  },
+                },
+                capacity: {
+                  max_concurrency: 2,
+                  current_load: 0,
+                  available_concurrency: 2,
+                },
+              },
+              {
+                worker_id: 'worker_remote',
+                node_id: 'node_remote',
+                node_display_name: 'Remote Mac',
+                client_kind: 'vel_macos',
+                client_version: '0.1.0',
+                protocol_version: '1',
+                build_id: 'build_remote',
+                worker_classes: ['sync'],
+                capabilities: ['sync_bootstrap'],
+                status: 'ok',
+                queue_depth: 0,
+                reachability: 'reachable',
+                latency_class: 'low',
+                compute_class: 'standard',
+                power_class: 'ac_or_unknown',
+                recent_failure_rate: 0,
+                tailscale_preferred: true,
+                last_heartbeat_at: 1_710_000_090,
+                started_at: 1_710_000_000,
+                sync_base_url: 'http://remote.tailnet.ts.net:4130',
+                sync_transport: 'tailscale',
+                tailscale_base_url: 'http://remote.tailnet.ts.net:4130',
+                preferred_tailnet_endpoint: null,
+                tailscale_reachable: true,
+                lan_base_url: null,
+                localhost_base_url: null,
+                ping_ms: 14,
+                sync_status: 'ready',
+                last_upstream_sync_at: null,
+                last_downstream_sync_at: null,
+                last_sync_error: null,
+                incoming_linking_prompt: null,
+                capacity: {
+                  max_concurrency: 2,
+                  current_load: 0,
+                  available_concurrency: 2,
+                },
+              },
+            ],
+          },
+          meta: { request_id: 'req_cluster_workers_prompt' },
+        } as never
+      }
+      if (path === '/v1/cluster/bootstrap') {
+        return {
+          ok: true,
+          data: {
+            node_id: 'vel-desktop',
+            node_display_name: 'Vel Desktop',
+            active_authority_node_id: 'vel-desktop',
+            active_authority_epoch: 1,
+            sync_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            sync_transport: 'tailscale',
+            tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            lan_base_url: 'http://192.168.1.50:4130',
+            localhost_base_url: 'http://127.0.0.1:4130',
+            capabilities: ['read_context'],
+            linked_nodes: [],
+            projects: [],
+            action_items: [],
+          },
+          meta: { request_id: 'req_cluster_bootstrap_prompt' },
+        } as never
+      }
+      if (path === '/api/settings') {
+        return {
+          ok: true,
+          data: {
+            disable_proactive: false,
+            toggle_risks: true,
+            toggle_reminders: true,
+            timezone: 'America/Denver',
+            node_display_name: 'Vel Desktop',
+            tailscale_preferred: true,
+            tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+            tailscale_base_url_auto_discovered: true,
+            lan_base_url: 'http://192.168.1.50:4130',
+          },
+          meta: { request_id: 'req_settings_prompt' },
+        } as never
+      }
+      if (path === '/api/integrations') {
+        return {
+          ok: true,
+          data: {
+            google_calendar: { configured: false, connected: false, has_client_id: false, has_client_secret: false, calendars: [], all_calendars_selected: true, last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+            todoist: { configured: false, connected: false, has_api_token: false, last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+            activity: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'file', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+            health: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'file', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+            git: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'file', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+            messaging: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'file', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+            reminders: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'file', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+            notes: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'directory', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+            transcripts: { configured: false, source_path: null, selected_paths: [], available_paths: [], internal_paths: [], suggested_paths: [], source_kind: 'file', last_sync_at: null, last_sync_status: null, last_error: null, last_item_count: null, guidance: null },
+          },
+          meta: { request_id: 'req_integrations_prompt' },
+        } as never
+      }
+      if (path === '/v1/runs?limit=6' || path === '/api/components' || path === '/v1/loops') {
+        return { ok: true, data: [], meta: { request_id: 'req_empty_prompt' } } as never
+      }
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: {
+            now: 1_710_000_100,
+            timezone: 'America/Denver',
+          },
+          meta: { request_id: 'req_now_prompt' },
+        } as never
+      }
+      throw new Error(`unexpected apiGet path: ${path}`)
+    })
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        node_id: 'vel-desktop',
+        node_display_name: 'Vel Desktop',
+        status: 'linked',
+        scopes: {
+          read_context: true,
+          write_safe_actions: false,
+          execute_repo_tasks: false,
+        },
+        linked_at: '2026-03-16T18:25:00Z',
+        last_seen_at: '2026-03-16T18:25:00Z',
+        transport_hint: 'tailscale',
+      },
+      meta: { request_id: 'req_redeem' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = getSettingsRoot(container)
+
+    await waitFor(() => {
+      expect(within(root).getByText(/Enter pairing token/i)).toBeInTheDocument()
+    })
+
+    fireEvent.change(within(root).getByPlaceholderText('VEL-PAIR-123'), { target: { value: 'VEL-PAIR-123' } })
+    fireEvent.click(within(root).getByRole('button', { name: /^Enter token$/i }))
+
+    await waitFor(() => {
+      expect(vi.mocked(client.apiPost)).toHaveBeenCalledWith(
+        '/v1/linking/redeem',
+        {
+          token_code: 'VEL-PAIR-123',
+          node_id: 'vel-desktop',
+          node_display_name: 'Vel Desktop',
+          transport_hint: 'tailscale',
+          requested_scopes: {
+            read_context: true,
+            write_safe_actions: false,
+            execute_repo_tasks: false,
+          },
+        },
+        expect.any(Function),
+      )
+    })
+
+    expect(within(root).getByText(/Linked as Vel Desktop/i)).toBeInTheDocument()
   })
 
 })

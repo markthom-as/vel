@@ -3,6 +3,7 @@ base_url = "http://127.0.0.1:4130"
 db_path = "var/data/vel.sqlite"
 artifact_root = "var/artifacts"
 log_level = "info"
+writeback_enabled = false
 agent_spec_path = "config/agent-specs.yaml"
 llm_model_path = "configs/models/weights/qwen3-coder-30b-a3b-instruct-q4_k_m.gguf"
 llm_fast_model_path = "configs/models/weights/qwen2.5-1.5b-instruct-q4_k_m.gguf"

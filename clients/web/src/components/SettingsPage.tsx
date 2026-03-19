@@ -15,12 +15,13 @@ import type {
   LocalIntegrationData,
   LoopData,
   PairingTokenData,
-  SettingsData,
   RunSummaryData,
+  SettingsData,
+  WorkerPresenceData,
 } from '../types';
 import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type { QueryKey } from '../data/query';
-import { issuePairingToken } from '../data/operator';
+import { buildOperatorReviewStatus, issuePairingToken, redeemPairingToken } from '../data/operator';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import {
   chooseLocalIntegrationSourcePath,
@@ -34,6 +35,7 @@ import {
   loadIntegrations,
   loadIntegrationLogs,
   loadLoops,
+  loadNow,
   loadRecentRuns,
   loadSettings,
   queryKeys,
@@ -628,6 +630,7 @@ export function SettingsPage({
   const [todoistToken, setTodoistToken] = useState('');
   const [timezoneDraft, setTimezoneDraft] = useState('');
   const [nodeDisplayNameDraft, setNodeDisplayNameDraft] = useState('');
+  const [writebackEnabledDraft, setWritebackEnabledDraft] = useState(false);
   const [tailscalePreferredDraft, setTailscalePreferredDraft] = useState(true);
   const [tailscaleBaseUrlDraft, setTailscaleBaseUrlDraft] = useState('');
   const [lanBaseUrlDraft, setLanBaseUrlDraft] = useState('');
@@ -646,6 +649,13 @@ export function SettingsPage({
     message: string;
   } | null>(null);
   const [issuingPairingToken, setIssuingPairingToken] = useState(false);
+  const [selectedDiscoveredNodeId, setSelectedDiscoveredNodeId] = useState('');
+  const [redeemTokenCode, setRedeemTokenCode] = useState('');
+  const [redeemPairingFeedback, setRedeemPairingFeedback] = useState<{
+    status: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  const [redeemingPairingToken, setRedeemingPairingToken] = useState(false);
   const [localSourceDrafts, setLocalSourceDrafts] = useState<Record<LocalIntegrationSource, string>>({
     activity: '',
     health: '',
@@ -712,7 +722,18 @@ export function SettingsPage({
   const componentsKey = useMemo(() => queryKeys.components(), []);
   const runsKey = useMemo(() => queryKeys.runs(runLimit), []);
   const loopsKey = useMemo(() => queryKeys.loops(), []);
+  const nowKey = useMemo(() => queryKeys.now(), []);
   const currentContextKey = useMemo(() => queryKeys.currentContext(), []);
+  const {
+    data: nowData,
+  } = useQuery(
+    nowKey,
+    async () => {
+      const response = await loadNow();
+      return response.ok && response.data ? response.data : null;
+    },
+    { enabled: activeTab === 'general' },
+  );
   const {
     data: settings = {},
     loading,
@@ -807,6 +828,10 @@ export function SettingsPage({
   }, [settings.node_display_name]);
 
   useEffect(() => {
+    setWritebackEnabledDraft(settings.writeback_enabled === true);
+  }, [settings.writeback_enabled]);
+
+  useEffect(() => {
     setTailscalePreferredDraft(settings.tailscale_preferred !== false);
   }, [settings.tailscale_preferred]);
 
@@ -834,6 +859,11 @@ export function SettingsPage({
       return changed ? next : current;
     });
   }, [integrations]);
+
+  const operatorReviewStatus = useMemo(
+    () => buildOperatorReviewStatus(nowData, settings),
+    [nowData, settings],
+  );
 
   useEffect(() => {
     setSelectedHostPaths((current) => {
@@ -966,8 +996,11 @@ export function SettingsPage({
     try {
       const response = await updateSettings({
         node_display_name: nodeDisplayNameDraft.trim() || null,
+        writeback_enabled: writebackEnabledDraft,
         tailscale_preferred: tailscalePreferredDraft,
-        tailscale_base_url: tailscaleBaseUrlDraft.trim() || null,
+        tailscale_base_url: settings.tailscale_base_url_auto_discovered
+          ? settings.tailscale_base_url ?? null
+          : tailscaleBaseUrlDraft.trim() || null,
         lan_base_url: lanBaseUrlDraft.trim() || null,
       });
       if (!response.ok) {
@@ -977,9 +1010,12 @@ export function SettingsPage({
         setQueryData<SettingsData>(settingsKey, () => response.data as SettingsData);
       }
       invalidateQuery(clusterBootstrapKey, { refetch: true });
+      invalidateQuery(nowKey, { refetch: true });
       setSyncNetworkFeedback({
         status: 'success',
-        message: 'Cross-client sync settings saved.',
+        message: writebackEnabledDraft
+          ? 'Cross-client sync settings saved. Writeback is enabled.'
+          : 'Cross-client sync settings saved. Writeback remains in safe mode.',
       });
     } catch (error) {
       setSyncNetworkFeedback({
@@ -990,6 +1026,49 @@ export function SettingsPage({
       setSaving(false);
     }
   };
+
+  const tailscaleBaseUrlLocked = settings.tailscale_base_url_auto_discovered === true;
+  const discoveredNodes = useMemo<WorkerPresenceData[]>(() => {
+    if (!clusterBootstrap) {
+      return [];
+    }
+    const linkedNodeIds = new Set((clusterBootstrap.linked_nodes ?? []).map((node) => node.node_id));
+    const seen = new Set<string>();
+    return (clusterWorkers?.workers ?? []).filter((worker) => {
+      if (worker.node_id === clusterBootstrap.node_id) {
+        return false;
+      }
+      if (linkedNodeIds.has(worker.node_id) || seen.has(worker.node_id)) {
+        return false;
+      }
+      seen.add(worker.node_id);
+      return true;
+    });
+  }, [clusterBootstrap, clusterWorkers]);
+  const selectedDiscoveredNode = useMemo(
+    () => discoveredNodes.find((worker) => worker.node_id === selectedDiscoveredNodeId) ?? null,
+    [discoveredNodes, selectedDiscoveredNodeId],
+  );
+  const localWorker = useMemo(
+    () =>
+      clusterBootstrap
+        ? (clusterWorkers?.workers ?? []).find((worker) => worker.node_id === clusterBootstrap.node_id) ?? null
+        : null,
+    [clusterBootstrap, clusterWorkers],
+  );
+  const localIncomingLinkingPrompt = localWorker?.incoming_linking_prompt ?? null;
+
+  useEffect(() => {
+    if (discoveredNodes.length === 0) {
+      if (selectedDiscoveredNodeId !== '') {
+        setSelectedDiscoveredNodeId('');
+      }
+      return;
+    }
+    if (!discoveredNodes.some((worker) => worker.node_id === selectedDiscoveredNodeId)) {
+      setSelectedDiscoveredNodeId(discoveredNodes[0]?.node_id ?? '');
+    }
+  }, [discoveredNodes, selectedDiscoveredNodeId]);
 
   const handleIssuePairingToken = async () => {
     if (!clusterBootstrap) {
@@ -1006,6 +1085,8 @@ export function SettingsPage({
       const response = await issuePairingToken({
         issued_by_node_id: clusterBootstrap.node_id,
         scopes: pairingScopes,
+        target_node_id: selectedDiscoveredNode?.node_id,
+        target_node_display_name: selectedDiscoveredNode?.node_display_name ?? null,
       });
       if (!response.ok || !response.data) {
         throw new Error(response.error?.message ?? 'Failed to issue pairing token');
@@ -1013,8 +1094,12 @@ export function SettingsPage({
       setPairingToken(response.data);
       setPairingFeedback({
         status: 'success',
-        message: 'Pairing token issued. Redeem it on the companion node, then refresh this page to confirm linked status.',
+        message: selectedDiscoveredNode
+          ? `Pairing token issued. ${selectedDiscoveredNode.node_display_name} has been prompted to enter it on that client.`
+          : 'Pairing token issued. Redeem it on the companion node, then refresh this page to confirm linked status.',
       });
+      invalidateQuery(clusterWorkersKey, { refetch: true });
+      invalidateQuery(clusterBootstrapKey, { refetch: true });
     } catch (error) {
       setPairingFeedback({
         status: 'error',
@@ -1022,6 +1107,54 @@ export function SettingsPage({
       });
     } finally {
       setIssuingPairingToken(false);
+    }
+  };
+
+  const handleRedeemPairingToken = async () => {
+    if (!clusterBootstrap) {
+      setRedeemPairingFeedback({
+        status: 'error',
+        message: 'Cluster bootstrap must load before Vel can redeem a pairing token.',
+      });
+      return;
+    }
+
+    const tokenCode = redeemTokenCode.trim();
+    if (!tokenCode) {
+      setRedeemPairingFeedback({
+        status: 'error',
+        message: 'Enter the pairing token shown on the issuing node.',
+      });
+      return;
+    }
+
+    setRedeemingPairingToken(true);
+    setRedeemPairingFeedback(null);
+    try {
+      const response = await redeemPairingToken({
+        token_code: tokenCode,
+        node_id: clusterBootstrap.node_id,
+        node_display_name: clusterBootstrap.node_display_name,
+        transport_hint: localWorker?.sync_transport ?? clusterBootstrap.sync_transport,
+        requested_scopes: localIncomingLinkingPrompt?.scopes ?? undefined,
+      });
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to redeem pairing token');
+      }
+      setRedeemTokenCode('');
+      setRedeemPairingFeedback({
+        status: 'success',
+        message: `Linked as ${response.data.node_display_name}. This client can now participate in cross-device sync.`,
+      });
+      invalidateQuery(clusterWorkersKey, { refetch: true });
+      invalidateQuery(clusterBootstrapKey, { refetch: true });
+    } catch (error) {
+      setRedeemPairingFeedback({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setRedeemingPairingToken(false);
     }
   };
 
@@ -1735,6 +1868,21 @@ export function SettingsPage({
               </div>
               <label className="flex items-center justify-between gap-4 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                 <div className="space-y-1">
+                  <span className="text-sm font-medium text-zinc-200">Enable writeback</span>
+                  <p className="text-sm text-zinc-500">
+                    SAFE MODE is the default. Leave this off until you want Vel to apply Todoist, GitHub, email, notes, or reminders mutations instead of stopping at read-only review.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={writebackEnabledDraft}
+                  onChange={(event) => setWritebackEnabledDraft(event.target.checked)}
+                  disabled={saving}
+                  className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-4 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <div className="space-y-1">
                   <span className="text-sm font-medium text-zinc-200">Prefer Tailscale when available</span>
                   <p className="text-sm text-zinc-500">
                     Vel will auto-detect the local Tailscale daemon and use it by default, but you can force LAN or localhost routing without deleting the discovered Tailscale URL.
@@ -1767,9 +1915,14 @@ export function SettingsPage({
                     value={tailscaleBaseUrlDraft}
                     onChange={(event) => setTailscaleBaseUrlDraft(event.target.value)}
                     placeholder="http://vel-desktop.tailnet.ts.net:4130"
-                    disabled={saving}
+                    disabled={saving || tailscaleBaseUrlLocked}
                     className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
                   />
+                  {tailscaleBaseUrlLocked ? (
+                    <p className="text-sm text-zinc-500">
+                      Auto-discovered from the local Tailscale daemon and managed by Vel.
+                    </p>
+                  ) : null}
                 </label>
                 <label className="space-y-1 md:col-span-2">
                   <span className="text-xs uppercase tracking-wide text-zinc-500">LAN fallback URL</span>
@@ -1791,8 +1944,12 @@ export function SettingsPage({
                     saving
                     || (
                       nodeDisplayNameDraft.trim() === (settings.node_display_name ?? '')
+                      && writebackEnabledDraft === (settings.writeback_enabled === true)
                       && tailscalePreferredDraft === (settings.tailscale_preferred !== false)
-                      && tailscaleBaseUrlDraft.trim() === (settings.tailscale_base_url ?? '')
+                      && (
+                        tailscaleBaseUrlLocked
+                          || tailscaleBaseUrlDraft.trim() === (settings.tailscale_base_url ?? '')
+                      )
                       && lanBaseUrlDraft.trim() === (settings.lan_base_url ?? '')
                     )
                   }
@@ -1815,6 +1972,37 @@ export function SettingsPage({
                     <dd className="mt-1 break-all text-base text-zinc-100">{clusterBootstrap.sync_base_url}</dd>
                   </div>
                 </dl>
+              ) : null}
+              <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                  <dt className="text-zinc-500">Writeback mode</dt>
+                  <dd className="mt-1 text-base text-zinc-100">
+                    {operatorReviewStatus.writeback_enabled ? 'Enabled' : 'Safe mode'}
+                  </dd>
+                </div>
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                  <dt className="text-zinc-500">Pending writebacks</dt>
+                  <dd className="mt-1 text-base text-zinc-100">
+                    {operatorReviewStatus.pending_writebacks.length}
+                  </dd>
+                </div>
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                  <dt className="text-zinc-500">Open conflicts</dt>
+                  <dd className="mt-1 text-base text-zinc-100">
+                    {operatorReviewStatus.open_conflicts.length}
+                  </dd>
+                </div>
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                  <dt className="text-zinc-500">People needing review</dt>
+                  <dd className="mt-1 text-base text-zinc-100">
+                    {operatorReviewStatus.people_needing_review.length}
+                  </dd>
+                </div>
+              </dl>
+              {operatorReviewStatus.pending_writebacks.length > 0 || operatorReviewStatus.open_conflicts.length > 0 ? (
+                <div className="rounded-md border border-amber-700/40 bg-amber-950/20 p-3 text-sm text-amber-100">
+                  Pending writebacks and conflicts are visible here before you trust integration-backed edits. Review them from Now first if the queue is non-empty.
+                </div>
               ) : null}
               {clusterBootstrapError ? (
                 <p className="text-sm text-amber-300">
@@ -1882,6 +2070,67 @@ export function SettingsPage({
                   <span className="text-sm text-zinc-300">Execute repo tasks</span>
                 </label>
               </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">discoveredNodes</p>
+                  <p className="text-xs text-zinc-500">
+                    Selecting a node will signal that client to show token entry UI.
+                  </p>
+                </div>
+                {discoveredNodes.length ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {discoveredNodes.map((worker) => {
+                      const selected = worker.node_id === selectedDiscoveredNodeId;
+                      return (
+                        <button
+                          key={worker.node_id}
+                          type="button"
+                          onClick={() => setSelectedDiscoveredNodeId(worker.node_id)}
+                          aria-pressed={selected}
+                          className={`rounded-lg border p-4 text-left transition ${
+                            selected
+                              ? 'border-emerald-500 bg-emerald-500/10'
+                              : 'border-zinc-800 bg-zinc-950/60 hover:border-zinc-700'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="text-sm font-medium text-zinc-100">{worker.node_display_name}</h4>
+                              <p className="mt-1 text-xs text-zinc-500">{worker.node_id}</p>
+                            </div>
+                            <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs text-zinc-300">
+                              {selected ? 'selected' : worker.sync_transport}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-1 text-sm text-zinc-400">
+                            <p>Transport: {worker.sync_transport}</p>
+                            <p>Reachability: {worker.reachability}</p>
+                            <p>
+                              Last heartbeat: {formatUnixTimestamp(worker.last_heartbeat_at)}
+                            </p>
+                          </div>
+                          {worker.incoming_linking_prompt ? (
+                            <p className="mt-3 text-xs text-amber-300">
+                              Awaiting token entry on this node.
+                            </p>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-500">
+                    No unlinked discovered nodes are active right now. You can still issue a token
+                    and redeem it manually on another client.
+                  </p>
+                )}
+                {selectedDiscoveredNode ? (
+                  <p className="text-sm text-zinc-400">
+                    Selected target: {selectedDiscoveredNode.node_display_name}. Issuing a token
+                    will prompt that client to open its enter-token flow.
+                  </p>
+                ) : null}
+              </div>
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -1895,6 +2144,47 @@ export function SettingsPage({
                   CLI fallback: `vel node link issue --scope-read-context --scope-write-safe-actions`
                 </p>
               </div>
+              {localIncomingLinkingPrompt ? (
+                <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-4">
+                  <p className="text-sm font-medium text-sky-100">Enter pairing token</p>
+                  <p className="mt-2 text-sm text-zinc-300">
+                    {localIncomingLinkingPrompt.issued_by_node_display_name ?? localIncomingLinkingPrompt.issued_by_node_id}
+                    {' '}wants to link this client. Enter the token from that node before{' '}
+                    {formatRuntimeTimestamp(localIncomingLinkingPrompt.expires_at)}.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-3 md:flex-row">
+                    <input
+                      type="text"
+                      value={redeemTokenCode}
+                      onChange={(event) => setRedeemTokenCode(event.target.value)}
+                      placeholder="VEL-PAIR-123"
+                      className="min-h-[44px] flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleRedeemPairingToken()}
+                      disabled={redeemingPairingToken}
+                      className="min-h-[44px] rounded-md bg-sky-500 px-3 py-2 text-sm font-medium text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
+                    >
+                      {redeemingPairingToken ? 'Redeeming…' : 'Enter token'}
+                    </button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {scopeSummaryEntries(localIncomingLinkingPrompt.scopes).map((scope) => (
+                      <span
+                        key={`incoming-${scope.label}`}
+                        className={`rounded-full px-2.5 py-1 text-xs ${
+                          scope.enabled
+                            ? 'bg-sky-900/60 text-sky-100'
+                            : 'bg-zinc-800 text-zinc-500'
+                        }`}
+                      >
+                        {scope.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {pairingToken ? (
                 <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
                   <p className="text-sm font-medium text-emerald-200">Granted scopes</p>
@@ -1948,6 +2238,11 @@ export function SettingsPage({
               {pairingFeedback ? (
                 <p className={`text-sm ${pairingFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
                   {pairingFeedback.message}
+                </p>
+              ) : null}
+              {redeemPairingFeedback ? (
+                <p className={`text-sm ${redeemPairingFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {redeemPairingFeedback.message}
                 </p>
               ) : null}
               <div className="space-y-3">

@@ -280,6 +280,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
     };
     let freshness = build_freshness(now_ts, computed_at, &integrations, &calendar_selection);
     let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
+    let people = storage.list_people().await?;
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
     let attention_reasons = context.attention_reasons.clone();
     let reasons = build_reasons_typed(&context, &attention_reasons);
@@ -356,7 +357,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         review_snapshot: action_queue.review_snapshot,
         pending_writebacks: action_queue.pending_writebacks,
         conflicts: action_queue.conflicts,
-        people: vec![],
+        people,
         reasons,
         debug: NowDebugOutput {
             raw_context: context.clone().into_json(),

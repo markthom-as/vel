@@ -5,6 +5,7 @@ artifact_root = "var/artifacts"
 log_level = "info"
 node_id = "vel-local"
 node_display_name = "Vel Local"
+writeback_enabled = false
 tailscale_preferred = true
 agent_spec_path = "config/examples/agent-specs.example.yaml"
 llm_model_path = "configs/models/weights/primary.gguf"

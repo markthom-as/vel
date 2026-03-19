@@ -117,6 +117,7 @@ pub struct WorkerPresence {
     pub last_upstream_sync_at: Option<i64>,
     pub last_downstream_sync_at: Option<i64>,
     pub last_sync_error: Option<String>,
+    pub incoming_linking_prompt: Option<vel_api_types::LinkingPromptData>,
     pub capacity: WorkerCapacity,
 }
 
@@ -338,12 +339,20 @@ pub async fn cluster_workers_data(state: &AppState) -> Result<ClusterWorkers, Ap
         .storage
         .expire_cluster_workers(now - WORKER_HEARTBEAT_TTL_SECONDS)
         .await?;
-    let workers = state
+    let workers: Vec<WorkerPresence> = state
         .storage
         .list_cluster_workers()
         .await?
         .into_iter()
         .map(worker_presence_from_record)
+        .collect();
+    let prompts = crate::services::linking::linking_prompts(state).await?;
+    let workers: Vec<WorkerPresence> = workers
+        .into_iter()
+        .map(|mut worker| {
+            worker.incoming_linking_prompt = prompts.get(&worker.node_id).cloned();
+            worker
+        })
         .collect();
 
     Ok(ClusterWorkers {
@@ -572,6 +581,7 @@ fn worker_presence_from_record(record: ClusterWorkerRecord) -> WorkerPresence {
         last_upstream_sync_at: record.last_upstream_sync_at,
         last_downstream_sync_at: record.last_downstream_sync_at,
         last_sync_error: record.last_sync_error,
+        incoming_linking_prompt: None,
         capacity: WorkerCapacity {
             max_concurrency,
             current_load,
@@ -1914,6 +1924,84 @@ mod tests {
 
         assert_eq!(local_worker.queue_depth, 1);
         assert_eq!(local_worker.capacity.current_load, 0);
+    }
+
+    #[tokio::test]
+    async fn cluster_workers_data_surfaces_incoming_linking_prompts_for_targeted_nodes() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_state(storage.clone());
+
+        ingest_worker_heartbeat(
+            &state,
+            "worker_remote".to_string(),
+            "node_remote".to_string(),
+            Some("Remote Mac".to_string()),
+            Some("vel_macos".to_string()),
+            Some("0.1.0".to_string()),
+            Some("1".to_string()),
+            Some("build_remote".to_string()),
+            vec!["sync".to_string()],
+            vec!["sync_bootstrap".to_string()],
+            Some("ready".to_string()),
+            Some(2),
+            Some(0),
+            Some(0),
+            Some("reachable".to_string()),
+            Some("low".to_string()),
+            Some("standard".to_string()),
+            Some("ac_or_unknown".to_string()),
+            Some(0.0),
+            true,
+            Some("http://remote.tailnet.ts.net:4130".to_string()),
+            Some("tailscale".to_string()),
+            Some("http://remote.tailnet.ts.net:4130".to_string()),
+            None,
+            true,
+            None,
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+        crate::services::linking::issue_pairing_token(
+            &state,
+            crate::services::linking::IssuePairingTokenInput {
+                issued_by_node_id: "vel-node".to_string(),
+                ttl_seconds: Some(900),
+                scopes: vel_api_types::LinkScopeData {
+                    read_context: true,
+                    write_safe_actions: false,
+                    execute_repo_tasks: false,
+                },
+                target_node_id: Some("node_remote".to_string()),
+                target_node_display_name: Some("Remote Mac".to_string()),
+            },
+        )
+        .await
+        .unwrap();
+
+        let workers = cluster_workers_data(&state).await.unwrap();
+        let remote_worker = workers
+            .workers
+            .iter()
+            .find(|worker| worker.node_id == "node_remote")
+            .expect("remote worker should be present");
+
+        let prompt = remote_worker
+            .incoming_linking_prompt
+            .as_ref()
+            .expect("targeted worker should have linking prompt");
+        assert_eq!(prompt.target_node_id, "node_remote");
+        assert_eq!(
+            prompt.target_node_display_name.as_deref(),
+            Some("Remote Mac")
+        );
+        assert_eq!(prompt.issued_by_node_id, "vel-node");
+        assert!(prompt.scopes.read_context);
+        assert!(!prompt.scopes.write_safe_actions);
     }
 
     #[tokio::test]

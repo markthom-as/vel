@@ -9433,6 +9433,10 @@ END:VCALENDAR
             .unwrap();
         let get_json: serde_json::Value = serde_json::from_slice(&get_body).unwrap();
         assert_eq!(get_json["data"]["tailscale_preferred"], true);
+        assert_eq!(
+            get_json["data"]["tailscale_base_url_auto_discovered"],
+            false
+        );
 
         let patch_resp = app
             .oneshot(
@@ -9455,6 +9459,7 @@ END:VCALENDAR
         assert!(json["data"]["disable_proactive"].as_bool().unwrap());
         assert_eq!(json["data"]["timezone"], "America/Denver");
         assert_eq!(json["data"]["tailscale_preferred"], true);
+        assert_eq!(json["data"]["tailscale_base_url_auto_discovered"], false);
     }
 
     #[tokio::test]
@@ -9486,6 +9491,7 @@ END:VCALENDAR
             "http://vel-desktop.tailnet.ts.net:4130"
         );
         assert_eq!(json["data"]["tailscale_preferred"], true);
+        assert_eq!(json["data"]["tailscale_base_url_auto_discovered"], false);
     }
 
     #[tokio::test]

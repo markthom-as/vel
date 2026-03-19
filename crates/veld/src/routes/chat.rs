@@ -340,6 +340,7 @@ pub struct SettingsUpdateRequest {
     pub toggle_reminders: Option<bool>,
     pub timezone: Option<String>,
     pub node_display_name: Option<String>,
+    pub writeback_enabled: Option<bool>,
     pub tailscale_preferred: Option<bool>,
     pub tailscale_base_url: Option<String>,
     pub lan_base_url: Option<String>,
@@ -387,6 +388,12 @@ pub async fn patch_settings(
     }
     if let Some(value) = payload.node_display_name {
         write_optional_string_setting(&state, "node_display_name", &value).await?;
+    }
+    if let Some(value) = payload.writeback_enabled {
+        state
+            .storage
+            .set_setting("writeback_enabled", &serde_json::json!(value))
+            .await?;
     }
     if let Some(value) = payload.tailscale_preferred {
         state

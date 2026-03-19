@@ -985,6 +985,17 @@ pub struct LinkTargetSuggestionData {
     pub redeem_command_hint: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkingPromptData {
+    pub target_node_id: String,
+    pub target_node_display_name: Option<String>,
+    pub issued_by_node_id: String,
+    pub issued_by_node_display_name: Option<String>,
+    pub issued_at: OffsetDateTime,
+    pub expires_at: OffsetDateTime,
+    pub scopes: LinkScopeData,
+}
+
 impl From<vel_core::PairingTokenRecord> for PairingTokenData {
     fn from(value: vel_core::PairingTokenRecord) -> Self {
         Self {
@@ -1549,6 +1560,8 @@ pub struct WorkerPresenceData {
     pub last_upstream_sync_at: Option<UnixSeconds>,
     pub last_downstream_sync_at: Option<UnixSeconds>,
     pub last_sync_error: Option<String>,
+    #[serde(default)]
+    pub incoming_linking_prompt: Option<LinkingPromptData>,
     pub capacity: WorkerCapacityData,
 }
 
@@ -2176,6 +2189,8 @@ pub enum WsEventType {
     RunsUpdated,
     #[serde(rename = "components:updated")]
     ComponentsUpdated,
+    #[serde(rename = "linking:updated")]
+    LinkingUpdated,
 }
 
 impl std::fmt::Display for WsEventType {
@@ -2187,6 +2202,7 @@ impl std::fmt::Display for WsEventType {
             Self::ContextUpdated => "context:updated",
             Self::RunsUpdated => "runs:updated",
             Self::ComponentsUpdated => "components:updated",
+            Self::LinkingUpdated => "linking:updated",
         };
         f.write_str(s)
     }
@@ -2203,6 +2219,7 @@ impl std::str::FromStr for WsEventType {
             "context:updated" => Ok(Self::ContextUpdated),
             "runs:updated" => Ok(Self::RunsUpdated),
             "components:updated" => Ok(Self::ComponentsUpdated),
+            "linking:updated" => Ok(Self::LinkingUpdated),
             other => Err(format!("unknown websocket event type: {}", other)),
         }
     }

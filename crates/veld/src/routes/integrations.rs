@@ -490,6 +490,7 @@ pub async fn todoist_create_task(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::todoist_create_task(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         integrations_todoist::TodoistTaskMutation {
             content: Some(payload.content),
@@ -511,6 +512,7 @@ pub async fn todoist_update_task(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::todoist_update_task(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         payload.commitment_id.trim(),
         integrations_todoist::TodoistTaskMutation {
@@ -533,6 +535,7 @@ pub async fn todoist_complete_task(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::todoist_complete_task(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         payload.commitment_id.trim(),
     )
@@ -547,6 +550,7 @@ pub async fn todoist_reopen_task(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::todoist_reopen_task(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         payload.commitment_id.trim(),
     )
@@ -676,6 +680,7 @@ pub async fn github_create_issue(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::github_create_issue(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         integrations_github::GithubCreateIssueRequest {
             repository: payload.repository,
@@ -696,6 +701,7 @@ pub async fn github_add_comment(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::github_add_comment(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         integrations_github::GithubCommentRequest {
             repository: payload.repository,
@@ -716,6 +722,7 @@ pub async fn github_close_issue(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::github_close_issue(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         integrations_github::GithubIssueActionRequest {
             repository: payload.repository,
@@ -735,6 +742,7 @@ pub async fn github_reopen_issue(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::github_reopen_issue(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         integrations_github::GithubIssueActionRequest {
             repository: payload.repository,
@@ -754,6 +762,7 @@ pub async fn email_create_draft_reply(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::email_create_draft_reply(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         integrations_email::EmailCreateDraftReplyRequest {
             thread_id: payload.thread_id,
@@ -776,6 +785,7 @@ pub async fn email_send_draft(
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
     let operation = writeback::email_send_draft(
         &state.storage,
+        &state.config,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         integrations_email::EmailSendDraftRequest {
             draft_id: payload.draft_id,

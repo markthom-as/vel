@@ -19,8 +19,10 @@ Start with:
 
 Current bounded write lanes:
 
+- Writeback starts disabled by default in SAFE MODE. Enable it from Settings only when you want Vel to move from read-only review into applying bounded external mutations.
 - GitHub is limited to `github_create_issue`, `github_add_comment`, `github_close_issue`, and `github_reopen_issue`. Those writes carry typed `project_id` and person-alias linkage when Vel can resolve them.
 - Email is draft-first. `email_create_draft_reply` is the safe default and `email_send_draft` is confirm-required before the runtime marks it applied.
+- Now and Settings surface pending writebacks, open conflicts, and people-linked review status so you can inspect the queue before enabling or trusting a write lane.
 
 Important truth:
 

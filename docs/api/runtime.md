@@ -289,7 +289,7 @@ Todoist read/write boundary:
 
 - `POST /v1/sync/todoist` remains the read/sync path.
 - The allowed Todoist write surface is bounded to `todoist_create_task`, `todoist_update_task`, `todoist_complete_task`, and `todoist_reopen_task` through `/api/integrations/todoist/create-task`, `/api/integrations/todoist/update-task`, `/api/integrations/todoist/complete-task`, and `/api/integrations/todoist/reopen-task`.
-- Those write routes are `operator_authenticated` and execute only after checking the latest upstream task state.
+- Those write routes are `operator_authenticated`, execute only after checking the latest upstream task state, and are denied while runtime `writeback_enabled` is false.
 - If upstream state drifted since the last synced snapshot, the runtime opens a conflict review item with `stale_write` or `upstream_vs_local` instead of silently overwriting.
 - Todoist labels remain compatibility-only metadata at the adapter boundary; Vel's durable typed contract is `project_id`, `scheduled_for`, `priority`, `waiting_on`, and `review_state`.
 
@@ -297,10 +297,11 @@ Notes and reminders write boundary:
 
 - `POST /v1/sync/notes`, `POST /v1/sync/reminders`, and `POST /v1/sync/transcripts` remain the read/sync paths.
 - The allowed notes write surface is bounded to `notes_create_note` and `notes_append_note` through `/api/integrations/notes/create-note` and `/api/integrations/notes/append-note`.
+- Notes and reminders writes are denied while runtime `writeback_enabled` is false so SAFE MODE remains the default operator posture.
 - Notes writes are scoped to the configured `notes_path` or a typed project's project notes roots. Out-of-scope writes are persisted as `blocked` instead of escaping the configured filesystem boundary.
 - Transcript ingestion is read-only and is tagged as a notes source subtype so transcript context folds under the same local-first notes lane without becoming a separate write surface.
 - Reminder writes are intent-based through `/api/integrations/reminders/create`, `/api/integrations/reminders/update`, and `/api/integrations/reminders/complete`.
-- Reminder intents persist explicit lifecycle state through durable writeback and conflict records: `queued`, `applied`, `executor_unavailable`, and `conflicted`.
+- Reminder intents persist explicit lifecycle state through durable writeback and conflict records: `queued`, `applied`, `executor_unavailable`, and `conflicted`. Safe-mode denials stay outside that queue and return a direct forbidden response until the operator opts in.
 - If no approved local reminder executor is available, the runtime opens an `executor_unavailable` conflict instead of pretending the write succeeded.
 
 GitHub and email write boundary:
@@ -309,7 +310,8 @@ GitHub and email write boundary:
 - GitHub writeback records persist typed `project_id` linkage, provider-scoped provenance, and `PersonAlias`-compatible assignee or participant handles where Vel can resolve them from the people registry.
 - The allowed email write surface is bounded to `email_create_draft_reply` and `email_send_draft` through `/api/integrations/email/create-draft-reply` and `/api/integrations/email/send-draft`.
 - Email remains draft-first: `email_create_draft_reply` is the safe default, while `email_send_draft` is confirm-required and is denied with durable writeback history until the operator explicitly confirms send.
-- Both GitHub and email routes are `operator_authenticated` and use the same writeback/conflict vocabulary as the other Phase 06 write lanes.
+- Both GitHub and email routes are `operator_authenticated`, denied while runtime `writeback_enabled` is false, and use the same writeback/conflict vocabulary as the other Phase 06 write lanes.
+- Operator-facing status surfaces expose `pending_writebacks`, `open_conflicts`, and people-linked review items so the queue stays inspectable before and after writeback is enabled.
 
 ### `POST /v1/evaluate`
 

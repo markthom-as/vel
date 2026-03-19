@@ -375,8 +375,10 @@ describe('transport decoders', () => {
         toggle_reminders: true,
         timezone: 'America/Denver',
         node_display_name: 'Vel Desktop',
+        writeback_enabled: false,
         tailscale_preferred: true,
         tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+        tailscale_base_url_auto_discovered: true,
         lan_base_url: 'http://192.168.1.50:4130',
         adaptive_policy_overrides: {
           commute_buffer_minutes: 30,
@@ -395,8 +397,10 @@ describe('transport decoders', () => {
       toggle_reminders: true,
       timezone: 'America/Denver',
       node_display_name: 'Vel Desktop',
+      writeback_enabled: false,
       tailscale_preferred: true,
       tailscale_base_url: 'http://vel-desktop.tailnet.ts.net:4130',
+      tailscale_base_url_auto_discovered: true,
       lan_base_url: 'http://192.168.1.50:4130',
       adaptive_policy_overrides: {
         commute_buffer_minutes: 30,
@@ -498,6 +502,8 @@ describe('transport decoders', () => {
             timestamp: 1710000030,
             summary: { metric_type: 'sleep_hours', value: 7.5 },
           },
+          mood: null,
+          pain: null,
           note_document: {
             label: 'Recent note',
             timestamp: 1710000060,
@@ -549,6 +555,63 @@ describe('transport decoders', () => {
           triage_count: 2,
           projects_needing_review: 1,
         },
+        pending_writebacks: [
+          {
+            id: 'wb_1',
+            kind: 'email_create_draft_reply',
+            risk: 'safe',
+            status: 'queued',
+            target: {
+              family: 'messaging',
+              provider_key: 'email',
+              project_id: 'proj_1',
+              connection_id: 'icn_email',
+              external_id: 'thread_1',
+            },
+            requested_payload: { body: 'draft' },
+            result_payload: null,
+            provenance: [],
+            conflict_case_id: null,
+            requested_by_node_id: 'vel-local',
+            requested_at: '2026-03-19T02:00:00Z',
+            applied_at: null,
+            updated_at: '2026-03-19T02:05:00Z',
+          },
+        ],
+        conflicts: [
+          {
+            id: 'conf_1',
+            kind: 'upstream_vs_local',
+            status: 'open',
+            target: {
+              family: 'messaging',
+              provider_key: 'email',
+              project_id: 'proj_1',
+              connection_id: 'icn_email',
+              external_id: 'thread_1',
+            },
+            summary: 'Conflict needs review',
+            local_payload: { body: 'draft' },
+            upstream_payload: { body: 'upstream' },
+            resolution_payload: null,
+            opened_at: '2026-03-19T02:05:00Z',
+            resolved_at: null,
+            updated_at: '2026-03-19T02:06:00Z',
+          },
+        ],
+        people: [
+          {
+            id: 'per_1',
+            display_name: 'Annie Case',
+            given_name: 'Annie',
+            family_name: 'Case',
+            relationship_context: 'teammate',
+            birthday: null,
+            last_contacted_at: null,
+            aliases: [],
+            links: [],
+          },
+        ],
         reasons: ['Prep window active'],
         debug: {
           raw_context: { mode: 'day_mode' },
@@ -594,6 +657,8 @@ describe('transport decoders', () => {
           timestamp: 1710000030,
           summary: { metric_type: 'sleep_hours', value: 7.5 },
         },
+        mood: null,
+        pain: null,
         note_document: {
           label: 'Recent note',
           timestamp: 1710000060,
@@ -645,6 +710,63 @@ describe('transport decoders', () => {
         triage_count: 2,
         projects_needing_review: 1,
       },
+      pending_writebacks: [
+        {
+          id: 'wb_1',
+          kind: 'email_create_draft_reply',
+          risk: 'safe',
+          status: 'queued',
+          target: {
+            family: 'messaging',
+            provider_key: 'email',
+            project_id: 'proj_1',
+            connection_id: 'icn_email',
+            external_id: 'thread_1',
+          },
+          requested_payload: { body: 'draft' },
+          result_payload: null,
+          provenance: [],
+          conflict_case_id: null,
+          requested_by_node_id: 'vel-local',
+          requested_at: '2026-03-19T02:00:00Z',
+          applied_at: null,
+          updated_at: '2026-03-19T02:05:00Z',
+        },
+      ],
+      conflicts: [
+        {
+          id: 'conf_1',
+          kind: 'upstream_vs_local',
+          status: 'open',
+          target: {
+            family: 'messaging',
+            provider_key: 'email',
+            project_id: 'proj_1',
+            connection_id: 'icn_email',
+            external_id: 'thread_1',
+          },
+          summary: 'Conflict needs review',
+          local_payload: { body: 'draft' },
+          upstream_payload: { body: 'upstream' },
+          resolution_payload: null,
+          opened_at: '2026-03-19T02:05:00Z',
+          resolved_at: null,
+          updated_at: '2026-03-19T02:06:00Z',
+        },
+      ],
+      people: [
+        {
+          id: 'per_1',
+          display_name: 'Annie Case',
+          given_name: 'Annie',
+          family_name: 'Case',
+          relationship_context: 'teammate',
+          birthday: null,
+          last_contacted_at: null,
+          aliases: [],
+          links: [],
+        },
+      ],
       reasons: ['Prep window active'],
       debug: {
         raw_context: { mode: 'day_mode' },
@@ -889,53 +1011,7 @@ describe('transport decoders', () => {
   })
 
   it('decodes cluster worker presence payloads', () => {
-    expect(
-      decodeClusterWorkersData({
-        active_authority_node_id: 'vel-desktop',
-        active_authority_epoch: 1,
-        generated_at: 1_710_000_100,
-        workers: [
-          {
-            worker_id: 'worker_remote',
-            node_id: 'node_remote',
-            node_display_name: 'Remote Mac',
-            client_kind: 'vel_macos',
-            client_version: '0.1.0',
-            protocol_version: '1',
-            build_id: 'build_remote',
-            worker_classes: ['sync'],
-            capabilities: ['sync_bootstrap'],
-            status: 'ok',
-            queue_depth: 0,
-            reachability: 'reachable',
-            latency_class: 'low',
-            compute_class: 'standard',
-            power_class: 'ac_or_unknown',
-            recent_failure_rate: 0,
-            tailscale_preferred: true,
-            last_heartbeat_at: 1_710_000_090,
-            started_at: 1_710_000_000,
-            sync_base_url: 'http://remote.tailnet.ts.net:4130',
-            sync_transport: 'tailscale',
-            tailscale_base_url: 'http://remote.tailnet.ts.net:4130',
-            preferred_tailnet_endpoint: null,
-            tailscale_reachable: true,
-            lan_base_url: null,
-            localhost_base_url: null,
-            ping_ms: 14,
-            sync_status: 'ready',
-            last_upstream_sync_at: null,
-            last_downstream_sync_at: null,
-            last_sync_error: null,
-            capacity: {
-              max_concurrency: 2,
-              current_load: 0,
-              available_concurrency: 2,
-            },
-          },
-        ],
-      }),
-    ).toEqual({
+    const decoded = decodeClusterWorkersData({
       active_authority_node_id: 'vel-desktop',
       active_authority_epoch: 1,
       generated_at: 1_710_000_100,
@@ -972,6 +1048,19 @@ describe('transport decoders', () => {
           last_upstream_sync_at: null,
           last_downstream_sync_at: null,
           last_sync_error: null,
+          incoming_linking_prompt: {
+            target_node_id: 'node_remote',
+            target_node_display_name: 'Remote Mac',
+            issued_by_node_id: 'vel-desktop',
+            issued_by_node_display_name: 'Vel Desktop',
+            issued_at: '2026-03-16T18:20:00Z',
+            expires_at: '2026-03-16T18:35:00Z',
+            scopes: {
+              read_context: true,
+              write_safe_actions: false,
+              execute_repo_tasks: false,
+            },
+          },
           capacity: {
             max_concurrency: 2,
             current_load: 0,
@@ -980,6 +1069,66 @@ describe('transport decoders', () => {
         },
       ],
     })
+
+    expect(decoded).toMatchObject({
+      active_authority_node_id: 'vel-desktop',
+      active_authority_epoch: 1,
+      generated_at: 1_710_000_100,
+      workers: [
+        {
+          worker_id: 'worker_remote',
+          node_id: 'node_remote',
+          node_display_name: 'Remote Mac',
+          client_kind: 'vel_macos',
+          client_version: '0.1.0',
+          protocol_version: '1',
+          build_id: 'build_remote',
+          worker_classes: ['sync'],
+          capabilities: ['sync_bootstrap'],
+          status: 'ok',
+          queue_depth: 0,
+          reachability: 'reachable',
+          latency_class: 'low',
+          compute_class: 'standard',
+          power_class: 'ac_or_unknown',
+          recent_failure_rate: 0,
+          tailscale_preferred: true,
+          last_heartbeat_at: 1_710_000_090,
+          started_at: 1_710_000_000,
+          sync_base_url: 'http://remote.tailnet.ts.net:4130',
+          sync_transport: 'tailscale',
+          tailscale_base_url: 'http://remote.tailnet.ts.net:4130',
+          preferred_tailnet_endpoint: null,
+          tailscale_reachable: true,
+          lan_base_url: null,
+          localhost_base_url: null,
+          ping_ms: 14,
+          sync_status: 'ready',
+          last_upstream_sync_at: null,
+          last_downstream_sync_at: null,
+          last_sync_error: null,
+          incoming_linking_prompt: {
+            target_node_id: 'node_remote',
+            target_node_display_name: 'Remote Mac',
+            issued_by_node_id: 'vel-desktop',
+            issued_by_node_display_name: 'Vel Desktop',
+            issued_at: '2026-03-16T18:20:00Z',
+            expires_at: '2026-03-16T18:35:00Z',
+            scopes: {
+              read_context: true,
+              write_safe_actions: false,
+              execute_repo_tasks: false,
+            },
+          },
+          capacity: {
+            max_concurrency: 2,
+            current_load: 0,
+            available_concurrency: 2,
+          },
+        },
+      ],
+    })
+    expect(decoded.workers[0].incoming_linking_prompt?.target_node_display_name).toBe('Remote Mac')
   })
 
   it('decodes suggestion detail payloads with evidence', () => {
@@ -1324,6 +1473,21 @@ describe('transport decoders', () => {
         mode: 'focus',
         global_risk_level: 'high',
       })
+    }
+  })
+
+  it('decodes websocket linking update events', () => {
+    const event = decodeWsEvent({
+      type: 'linking:updated',
+      timestamp: '2026-03-16T12:09:00Z',
+      payload: {
+        reason: 'pairing_prompt_saved',
+      },
+    })
+
+    expect(event.type).toBe('linking:updated')
+    if (event.type === 'linking:updated') {
+      expect(event.payload).toEqual({ reason: 'pairing_prompt_saved' })
     }
   })
 
