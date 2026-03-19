@@ -1140,6 +1140,7 @@ export type DailyLoopPromptKindData =
   | 'commitment_reduction'
   | 'constraint_check';
 export type DailyStandupBucketData = 'must' | 'should' | 'stretch';
+export type DailyLoopCheckInResolutionKindData = 'submitted' | 'bypassed';
 
 export interface DailyLoopStartMetadataData {
   source: DailyLoopStartSourceData;
@@ -1176,10 +1177,19 @@ export type MorningIntentSignalData =
   | { kind: 'focus_intent'; text: string }
   | { kind: 'meeting_doubt'; text: string };
 
+export interface DailyLoopCheckInResolutionData {
+  prompt_id: string;
+  ordinal: number;
+  kind: DailyLoopCheckInResolutionKindData;
+  response_text: string | null;
+  note_text: string | null;
+}
+
 export interface MorningOverviewStateData {
   snapshot: string;
   friction_callouts: MorningFrictionCalloutData[];
   signals: MorningIntentSignalData[];
+  check_in_history: DailyLoopCheckInResolutionData[];
 }
 
 export interface DailyCommitmentDraftData {
@@ -1206,10 +1216,15 @@ export interface DailyStandupOutcomeData {
   deferred_tasks: DailyDeferredTaskData[];
   confirmed_calendar: string[];
   focus_blocks: DailyFocusBlockProposalData[];
+  check_in_history: DailyLoopCheckInResolutionData[];
 }
 
 export type DailyLoopSessionOutcomeData =
-  | { phase: 'morning_overview'; signals: MorningIntentSignalData[] }
+  | {
+      phase: 'morning_overview';
+      signals: MorningIntentSignalData[];
+      check_in_history: DailyLoopCheckInResolutionData[];
+    }
   | ({ phase: 'standup' } & DailyStandupOutcomeData);
 
 export type DailyLoopSessionStateData =
@@ -2602,6 +2617,34 @@ export function decodeMorningIntentSignalData(value: unknown): MorningIntentSign
   }
 }
 
+export function decodeDailyLoopCheckInResolutionKindData(
+  value: unknown,
+): DailyLoopCheckInResolutionKindData {
+  return expectEnumString(value, 'daily loop check-in resolution kind', [
+    'submitted',
+    'bypassed',
+  ]);
+}
+
+export function decodeDailyLoopCheckInResolutionData(
+  value: unknown,
+): DailyLoopCheckInResolutionData {
+  const record = expectRecord(value, 'daily loop check-in resolution');
+  return {
+    prompt_id: expectString(record.prompt_id, 'daily loop check-in resolution.prompt_id'),
+    ordinal: expectNumber(record.ordinal, 'daily loop check-in resolution.ordinal'),
+    kind: decodeDailyLoopCheckInResolutionKindData(record.kind),
+    response_text: expectNullableString(
+      record.response_text ?? null,
+      'daily loop check-in resolution.response_text',
+    ),
+    note_text: expectNullableString(
+      record.note_text ?? null,
+      'daily loop check-in resolution.note_text',
+    ),
+  };
+}
+
 export function decodeMorningOverviewStateData(value: unknown): MorningOverviewStateData {
   const record = expectRecord(value, 'morning overview state');
   return {
@@ -2611,6 +2654,10 @@ export function decodeMorningOverviewStateData(value: unknown): MorningOverviewS
       decodeMorningFrictionCalloutData,
     ),
     signals: decodeArray(record.signals ?? [], decodeMorningIntentSignalData),
+    check_in_history: decodeArray(
+      record.check_in_history ?? [],
+      decodeDailyLoopCheckInResolutionData,
+    ),
   };
 }
 
@@ -2651,6 +2698,10 @@ export function decodeDailyStandupOutcomeData(value: unknown): DailyStandupOutco
       expectString(item, 'daily standup outcome.confirmed_calendar'),
     ),
     focus_blocks: decodeArray(record.focus_blocks ?? [], decodeDailyFocusBlockProposalData),
+    check_in_history: decodeArray(
+      record.check_in_history ?? [],
+      decodeDailyLoopCheckInResolutionData,
+    ),
   };
 }
 
@@ -2661,6 +2712,10 @@ export function decodeDailyLoopSessionOutcomeData(value: unknown): DailyLoopSess
     return {
       phase,
       signals: decodeArray(record.signals ?? [], decodeMorningIntentSignalData),
+      check_in_history: decodeArray(
+        record.check_in_history ?? [],
+        decodeDailyLoopCheckInResolutionData,
+      ),
     };
   }
   return {

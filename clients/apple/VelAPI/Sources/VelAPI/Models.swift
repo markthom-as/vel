@@ -367,10 +367,24 @@ public struct MorningIntentSignalData: Codable, Sendable {
     public let text: String
 }
 
+public enum DailyLoopCheckInResolutionKindData: String, Codable, Sendable {
+    case submitted
+    case bypassed
+}
+
+public struct DailyLoopCheckInResolutionData: Codable, Sendable {
+    public let prompt_id: String
+    public let ordinal: Int
+    public let kind: DailyLoopCheckInResolutionKindData
+    public let response_text: String?
+    public let note_text: String?
+}
+
 public struct MorningOverviewStateData: Codable, Sendable {
     public let snapshot: String
     public let friction_callouts: [MorningFrictionCalloutData]
     public let signals: [MorningIntentSignalData]
+    public let check_in_history: [DailyLoopCheckInResolutionData]
 }
 
 public struct DailyCommitmentDraftData: Codable, Sendable {
@@ -397,6 +411,7 @@ public struct DailyStandupOutcomeData: Codable, Sendable {
     public let deferred_tasks: [DailyDeferredTaskData]
     public let confirmed_calendar: [String]
     public let focus_blocks: [DailyFocusBlockProposalData]
+    public let check_in_history: [DailyLoopCheckInResolutionData]
 }
 
 public struct DailyLoopSessionStateData: Codable, Sendable {
@@ -408,6 +423,7 @@ public struct DailyLoopSessionStateData: Codable, Sendable {
     public let deferred_tasks: [DailyDeferredTaskData]
     public let confirmed_calendar: [String]
     public let focus_blocks: [DailyFocusBlockProposalData]
+    public let check_in_history: [DailyLoopCheckInResolutionData]
 }
 
 public struct DailyLoopSessionOutcomeData: Codable, Sendable {
@@ -417,6 +433,7 @@ public struct DailyLoopSessionOutcomeData: Codable, Sendable {
     public let deferred_tasks: [DailyDeferredTaskData]
     public let confirmed_calendar: [String]
     public let focus_blocks: [DailyFocusBlockProposalData]
+    public let check_in_history: [DailyLoopCheckInResolutionData]
 }
 
 public struct DailyLoopSessionData: Codable, Sendable, Identifiable {

@@ -190,6 +190,7 @@ Implementation rule for the current migration lane:
 - `Now` should consume that typed seam rather than owning check-in semantics locally
 - escalation toward `Threads` should remain metadata/linkage rather than hard-coded shell behavior
 - shells should treat the typed `check_in` transition list as the valid next-step contract rather than improvising additional semantic actions
+- submit and bypass validation, including any required bypass note, should be enforced in Rust service layers rather than left to shell goodwill
 
 It may become blocking when it gates:
 

@@ -327,7 +327,8 @@ mod tests {
     use sqlx::SqlitePool;
     use time::macros::datetime;
     use vel_core::{
-        DailyCommitmentDraft, DailyDeferredTask, DailyFocusBlockProposal, DailyLoopPromptKind,
+        DailyCommitmentDraft, DailyDeferredTask, DailyFocusBlockProposal,
+        DailyLoopCheckInResolution, DailyLoopCheckInResolutionKind, DailyLoopPromptKind,
         DailyLoopSessionOutcome, DailyLoopStartSource, DailyLoopSurface, DailyStandupBucket,
         DailyStandupOutcome, MorningFrictionCallout, MorningIntentSignal, MorningOverviewState,
     };
@@ -367,6 +368,13 @@ mod tests {
                 signals: vec![MorningIntentSignal::FocusIntent {
                     text: "Protect writing time".to_string(),
                 }],
+                check_in_history: vec![DailyLoopCheckInResolution {
+                    prompt_id: "prompt_1".to_string(),
+                    ordinal: 1,
+                    kind: DailyLoopCheckInResolutionKind::Submitted,
+                    response_text: Some("Protect writing time".to_string()),
+                    note_text: None,
+                }],
             }),
             outcome: None,
         }
@@ -390,6 +398,13 @@ mod tests {
                 start_at: datetime!(2026-03-19 15:00:00 UTC),
                 end_at: datetime!(2026-03-19 16:00:00 UTC),
                 reason: "Best uninterrupted slot".to_string(),
+            }],
+            check_in_history: vec![DailyLoopCheckInResolution {
+                prompt_id: "standup_prompt_1".to_string(),
+                ordinal: 1,
+                kind: DailyLoopCheckInResolutionKind::Submitted,
+                response_text: Some("Ship Phase 10 storage seam".to_string()),
+                note_text: None,
             }],
         })
     }
@@ -435,6 +450,7 @@ mod tests {
             deferred_tasks: vec![],
             confirmed_calendar: vec![],
             focus_blocks: vec![],
+            check_in_history: vec![],
         }
         .into();
         completed.outcome = Some(standup_outcome());
@@ -471,6 +487,13 @@ mod tests {
             &DailyLoopSessionOutcome::MorningOverview {
                 signals: vec![MorningIntentSignal::MustDoHint {
                     text: "Finalize review notes".to_string(),
+                }],
+                check_in_history: vec![DailyLoopCheckInResolution {
+                    prompt_id: "prompt_1".to_string(),
+                    ordinal: 1,
+                    kind: DailyLoopCheckInResolutionKind::Submitted,
+                    response_text: Some("Finalize review notes".to_string()),
+                    note_text: None,
                 }],
             },
             completed_at,

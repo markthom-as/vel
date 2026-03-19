@@ -51,13 +51,14 @@ pub use context::{
     ContextCapture, ContextMigrator, CurrentContextV1, OrientationSnapshot, SearchResult,
 };
 pub use daily_loop::{
-    DailyCommitmentDraft, DailyDeferredTask, DailyFocusBlockProposal, DailyLoopCommitmentLimit,
-    DailyLoopPhase, DailyLoopPrompt, DailyLoopPromptKind, DailyLoopQuestionBudget,
-    DailyLoopSession, DailyLoopSessionId, DailyLoopSessionOutcome, DailyLoopSessionState,
-    DailyLoopStartMetadata, DailyLoopStartRequest, DailyLoopStartSource, DailyLoopStatus,
-    DailyLoopSurface, DailyLoopTurnAction, DailyLoopTurnRequest, DailyLoopTurnState,
-    DailyStandupBucket, DailyStandupOutcome, MorningFrictionCallout, MorningIntentSignal,
-    MorningOverviewState, DAILY_LOOP_MAX_COMMITMENTS, DAILY_LOOP_MAX_QUESTIONS,
+    DailyCommitmentDraft, DailyDeferredTask, DailyFocusBlockProposal, DailyLoopCheckInResolution,
+    DailyLoopCheckInResolutionKind, DailyLoopCommitmentLimit, DailyLoopPhase, DailyLoopPrompt,
+    DailyLoopPromptKind, DailyLoopQuestionBudget, DailyLoopSession, DailyLoopSessionId,
+    DailyLoopSessionOutcome, DailyLoopSessionState, DailyLoopStartMetadata, DailyLoopStartRequest,
+    DailyLoopStartSource, DailyLoopStatus, DailyLoopSurface, DailyLoopTurnAction,
+    DailyLoopTurnRequest, DailyLoopTurnState, DailyStandupBucket, DailyStandupOutcome,
+    MorningFrictionCallout, MorningIntentSignal, MorningOverviewState, DAILY_LOOP_MAX_COMMITMENTS,
+    DAILY_LOOP_MAX_QUESTIONS,
 };
 pub use execution::{
     AgentProfile, ExecutionHandoff, ExecutionPolicyInput, ExecutionReviewGate, ExecutionTaskKind,

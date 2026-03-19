@@ -230,13 +230,25 @@ async fn morning_turns_stay_bounded_and_resume_without_creating_commitments() {
             &DailyLoopTurnRequestData {
                 session_id: session.id.clone(),
                 action: DailyLoopTurnActionData::Skip,
-                response_text: None,
+                response_text: Some("Need to confirm the noon dependency first".to_string()),
             },
         ))
         .await
         .unwrap();
     let session = decode_session(skip_one).await;
-    assert_eq!(session.current_prompt.expect("prompt 2").ordinal, 2);
+    assert_eq!(
+        session.current_prompt.as_ref().expect("prompt 2").ordinal,
+        2
+    );
+    let session_json = serde_json::to_value(&session).unwrap();
+    assert_eq!(
+        session_json["state"]["check_in_history"][0]["kind"],
+        "bypassed"
+    );
+    assert_eq!(
+        session_json["state"]["check_in_history"][0]["note_text"],
+        "Need to confirm the noon dependency first"
+    );
 
     let resume = app
         .clone()
@@ -289,6 +301,8 @@ async fn morning_turns_stay_bounded_and_resume_without_creating_commitments() {
     let outcome_json = serde_json::to_value(session.outcome.expect("morning outcome")).unwrap();
     assert_eq!(outcome_json["phase"], "morning_overview");
     assert!(outcome_json.get("commitments").is_none());
+    assert_eq!(outcome_json["check_in_history"][0]["kind"], "bypassed");
+    assert_eq!(outcome_json["check_in_history"][1]["kind"], "submitted");
 
     let final_commitments = storage
         .list_commitments(None, None, None, 64)
@@ -304,4 +318,42 @@ async fn morning_turns_stay_bounded_and_resume_without_creating_commitments() {
         .await
         .unwrap();
     assert!(decode_optional_session(active).await.is_none());
+}
+
+#[tokio::test]
+async fn morning_bypass_requires_operator_note() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage,
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let started = app
+        .clone()
+        .oneshot(authed_json_request(
+            "POST",
+            "/v1/daily-loop/sessions",
+            &morning_start_request(),
+        ))
+        .await
+        .unwrap();
+    let session = decode_session(started).await;
+
+    let response = app
+        .oneshot(authed_json_request(
+            "POST",
+            &format!("/v1/daily-loop/sessions/{}/turn", session.id),
+            &DailyLoopTurnRequestData {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnActionData::Skip,
+                response_text: None,
+            },
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }

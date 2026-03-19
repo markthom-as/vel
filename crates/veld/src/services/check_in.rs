@@ -2,7 +2,8 @@ use time::OffsetDateTime;
 use vel_core::{
     ActionItemId, CheckInCard, CheckInEscalation, CheckInEscalationTarget, CheckInSourceKind,
     CheckInSubmitTarget, CheckInSubmitTargetKind, CheckInTransition, CheckInTransitionKind,
-    CheckInTransitionTargetKind, DailyLoopPhase, DailyLoopSession,
+    CheckInTransitionTargetKind, DailyLoopCheckInResolution, DailyLoopCheckInResolutionKind,
+    DailyLoopPhase, DailyLoopSession, DailyLoopTurnAction, DailyLoopTurnRequest,
 };
 use vel_storage::Storage;
 
@@ -28,6 +29,70 @@ pub async fn get_current_check_in(
     }
 
     Ok(None)
+}
+
+pub fn prepare_turn_request(
+    session: &DailyLoopSession,
+    request: DailyLoopTurnRequest,
+) -> Result<(DailyLoopTurnRequest, Option<DailyLoopCheckInResolution>), AppError> {
+    let Some(prompt) = session.current_prompt.as_ref() else {
+        return Ok((request, None));
+    };
+
+    match request.action {
+        DailyLoopTurnAction::Submit => {
+            let response_text = request
+                .response_text
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .ok_or_else(|| {
+                    AppError::bad_request("check-in submit requires a non-empty response")
+                })?;
+            Ok((
+                DailyLoopTurnRequest {
+                    response_text: Some(response_text.clone()),
+                    ..request
+                },
+                Some(DailyLoopCheckInResolution {
+                    prompt_id: prompt.prompt_id.clone(),
+                    ordinal: prompt.ordinal,
+                    kind: DailyLoopCheckInResolutionKind::Submitted,
+                    response_text: Some(response_text),
+                    note_text: None,
+                }),
+            ))
+        }
+        DailyLoopTurnAction::Skip => {
+            if !prompt.allow_skip {
+                return Err(AppError::bad_request("current check-in cannot be bypassed"));
+            }
+            let note_text = request
+                .response_text
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .ok_or_else(|| {
+                    AppError::bad_request("check-in bypass requires a short operator note")
+                })?;
+            Ok((
+                DailyLoopTurnRequest {
+                    response_text: None,
+                    ..request
+                },
+                Some(DailyLoopCheckInResolution {
+                    prompt_id: prompt.prompt_id.clone(),
+                    ordinal: prompt.ordinal,
+                    kind: DailyLoopCheckInResolutionKind::Bypassed,
+                    response_text: None,
+                    note_text: Some(note_text),
+                }),
+            ))
+        }
+        DailyLoopTurnAction::Resume => Ok((request, None)),
+    }
 }
 
 pub fn transitions_for_card(card: &CheckInCard) -> Vec<CheckInTransition> {
@@ -124,7 +189,8 @@ mod tests {
     use vel_core::{
         DailyLoopPhase, DailyLoopPrompt, DailyLoopPromptKind, DailyLoopSession,
         DailyLoopSessionState, DailyLoopStartMetadata, DailyLoopStartSource, DailyLoopStatus,
-        DailyLoopSurface, DailyLoopTurnState, DailyStandupOutcome,
+        DailyLoopSurface, DailyLoopTurnAction, DailyLoopTurnRequest, DailyLoopTurnState,
+        DailyStandupOutcome,
     };
 
     #[test]
@@ -151,6 +217,7 @@ mod tests {
                 deferred_tasks: vec![],
                 confirmed_calendar: vec![],
                 focus_blocks: vec![],
+                check_in_history: vec![],
             }),
             outcome: None,
         };
@@ -165,5 +232,94 @@ mod tests {
         assert_eq!(card.transitions[0].kind, CheckInTransitionKind::Submit);
         assert_eq!(card.transitions[1].kind, CheckInTransitionKind::Bypass);
         assert_eq!(card.transitions[2].kind, CheckInTransitionKind::Escalate);
+    }
+
+    #[test]
+    fn submit_check_in_requires_non_empty_response() {
+        let session = DailyLoopSession {
+            id: "dls_test".to_string().into(),
+            session_date: "2026-03-19".to_string(),
+            phase: DailyLoopPhase::Standup,
+            status: DailyLoopStatus::WaitingForInput,
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::Web,
+            },
+            turn_state: DailyLoopTurnState::WaitingForInput,
+            current_prompt: Some(DailyLoopPrompt {
+                prompt_id: "standup_prompt_1".to_string(),
+                kind: DailyLoopPromptKind::CommitmentReduction,
+                text: "Name the one to three commitments that matter most today.".to_string(),
+                ordinal: 1,
+                allow_skip: true,
+            }),
+            state: DailyLoopSessionState::Standup(DailyStandupOutcome {
+                commitments: vec![],
+                deferred_tasks: vec![],
+                confirmed_calendar: vec![],
+                focus_blocks: vec![],
+                check_in_history: vec![],
+            }),
+            outcome: None,
+        };
+
+        let result = prepare_turn_request(
+            &session,
+            DailyLoopTurnRequest {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnAction::Submit,
+                response_text: Some("   ".to_string()),
+            },
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn bypass_check_in_requires_note_and_emits_resolution() {
+        let session = DailyLoopSession {
+            id: "dls_test".to_string().into(),
+            session_date: "2026-03-19".to_string(),
+            phase: DailyLoopPhase::Standup,
+            status: DailyLoopStatus::WaitingForInput,
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::Web,
+            },
+            turn_state: DailyLoopTurnState::WaitingForInput,
+            current_prompt: Some(DailyLoopPrompt {
+                prompt_id: "standup_prompt_1".to_string(),
+                kind: DailyLoopPromptKind::CommitmentReduction,
+                text: "Name the one to three commitments that matter most today.".to_string(),
+                ordinal: 1,
+                allow_skip: true,
+            }),
+            state: DailyLoopSessionState::Standup(DailyStandupOutcome {
+                commitments: vec![],
+                deferred_tasks: vec![],
+                confirmed_calendar: vec![],
+                focus_blocks: vec![],
+                check_in_history: vec![],
+            }),
+            outcome: None,
+        };
+
+        let (request, resolution) = prepare_turn_request(
+            &session,
+            DailyLoopTurnRequest {
+                session_id: session.id.clone(),
+                action: DailyLoopTurnAction::Skip,
+                response_text: Some("Need to sort scope first".to_string()),
+            },
+        )
+        .expect("bypass should validate");
+
+        assert!(request.response_text.is_none());
+        let resolution = resolution.expect("resolution should exist");
+        assert_eq!(resolution.kind, DailyLoopCheckInResolutionKind::Bypassed);
+        assert_eq!(
+            resolution.note_text.as_deref(),
+            Some("Need to sort scope first")
+        );
     }
 }

@@ -326,7 +326,7 @@ Plans:
 **Goal:** Implement the next wave of operator product behavior as Rust-owned commands, queries, policies, and read models on top of the migrated seams, so later Apple/web/desktop UI phases become embodiment work rather than product-logic design work.
 **Requirements**: LOGIC-01, FLOW-01, MODE-02, READMODEL-02, SHELL-ARCH-01
 **Depends on:** Phase 15
-**Plans:** 1/5 plans complete
+**Plans:** 2/5 plans complete
 
 **Delivery note:** This phase is where the product logic discovered in Phase 14 should become canonical backend/application behavior, with UI phases following behind instead of leading product definition.
 **Included from thread decisions:** business logic should be defined and implemented before broad shell expansion, with later UI phases focused on embodiment, interaction quality, and surface-specific affordances rather than inventing product semantics.
@@ -334,7 +334,7 @@ Plans:
 
 Plans:
 - [x] 16-01-PLAN.md — Ratify the canonical operator-action transition contract and logic entry points before behavior widens
-- [ ] 16-02-PLAN.md — Implement backend-owned `check_in` accept/bypass/completion behavior over daily-loop/session seams
+- [x] 16-02-PLAN.md — Implement backend-owned `check_in` accept/bypass/completion behavior over daily-loop/session seams
 - [ ] 16-03-PLAN.md — Implement backend-owned `reflow` confirm/apply/edit behavior and follow-up state generation
 - [ ] 16-04-PLAN.md — Tighten trust/readiness follow-through so degraded posture yields canonical backend-owned recovery/review actions
 - [ ] 16-05-PLAN.md — Close project-scoped action behavior and typed thread escalation/routing without reopening shell debates

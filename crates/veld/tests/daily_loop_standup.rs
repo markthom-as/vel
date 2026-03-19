@@ -123,7 +123,7 @@ async fn standup_can_resume_from_morning_and_persists_three_commitments_max() {
             &DailyLoopTurnRequestData {
                 session_id: morning.id.clone(),
                 action: DailyLoopTurnActionData::Skip,
-                response_text: None,
+                response_text: Some("Need one more pass over the morning constraints".to_string()),
             },
         ))
         .await
@@ -230,13 +230,18 @@ async fn standup_repompts_once_then_exits_with_typed_outcome_when_no_commitments
             &DailyLoopTurnRequestData {
                 session_id: standup.id.clone(),
                 action: DailyLoopTurnActionData::Skip,
-                response_text: None,
+                response_text: Some("Still too vague to commit".to_string()),
             },
         ))
         .await
         .unwrap();
     let reprompt = decode_session(reprompt).await;
     assert_eq!(reprompt.current_prompt.as_ref().unwrap().ordinal, 2);
+    let reprompt_json = serde_json::to_value(&reprompt).unwrap();
+    assert_eq!(
+        reprompt_json["state"]["check_in_history"][0]["kind"],
+        "bypassed"
+    );
 
     let complete = app
         .clone()
@@ -246,7 +251,7 @@ async fn standup_repompts_once_then_exits_with_typed_outcome_when_no_commitments
             &DailyLoopTurnRequestData {
                 session_id: reprompt.id.clone(),
                 action: DailyLoopTurnActionData::Skip,
-                response_text: None,
+                response_text: Some("Still blocked on upstream input".to_string()),
             },
         ))
         .await
@@ -259,4 +264,6 @@ async fn standup_repompts_once_then_exits_with_typed_outcome_when_no_commitments
     assert!(outcome["deferred_tasks"].is_array());
     assert!(outcome["confirmed_calendar"].is_array());
     assert!(outcome["focus_blocks"].is_array());
+    assert_eq!(outcome["check_in_history"][0]["kind"], "bypassed");
+    assert_eq!(outcome["check_in_history"][1]["kind"], "bypassed");
 }

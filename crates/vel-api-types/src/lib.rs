@@ -734,6 +734,8 @@ pub struct MorningOverviewStateData {
     pub friction_callouts: Vec<MorningFrictionCalloutData>,
     #[serde(default)]
     pub signals: Vec<MorningIntentSignalData>,
+    #[serde(default)]
+    pub check_in_history: Vec<DailyLoopCheckInResolutionData>,
 }
 
 impl From<vel_core::MorningOverviewState> for MorningOverviewStateData {
@@ -746,6 +748,7 @@ impl From<vel_core::MorningOverviewState> for MorningOverviewStateData {
                 .map(Into::into)
                 .collect(),
             signals: value.signals.into_iter().map(Into::into).collect(),
+            check_in_history: value.check_in_history.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -760,6 +763,67 @@ impl From<MorningOverviewStateData> for vel_core::MorningOverviewState {
                 .map(Into::into)
                 .collect(),
             signals: value.signals.into_iter().map(Into::into).collect(),
+            check_in_history: value.check_in_history.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopCheckInResolutionKindData {
+    Submitted,
+    Bypassed,
+}
+
+impl From<vel_core::DailyLoopCheckInResolutionKind> for DailyLoopCheckInResolutionKindData {
+    fn from(value: vel_core::DailyLoopCheckInResolutionKind) -> Self {
+        match value {
+            vel_core::DailyLoopCheckInResolutionKind::Submitted => Self::Submitted,
+            vel_core::DailyLoopCheckInResolutionKind::Bypassed => Self::Bypassed,
+        }
+    }
+}
+
+impl From<DailyLoopCheckInResolutionKindData> for vel_core::DailyLoopCheckInResolutionKind {
+    fn from(value: DailyLoopCheckInResolutionKindData) -> Self {
+        match value {
+            DailyLoopCheckInResolutionKindData::Submitted => Self::Submitted,
+            DailyLoopCheckInResolutionKindData::Bypassed => Self::Bypassed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyLoopCheckInResolutionData {
+    pub prompt_id: String,
+    pub ordinal: u8,
+    pub kind: DailyLoopCheckInResolutionKindData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note_text: Option<String>,
+}
+
+impl From<vel_core::DailyLoopCheckInResolution> for DailyLoopCheckInResolutionData {
+    fn from(value: vel_core::DailyLoopCheckInResolution) -> Self {
+        Self {
+            prompt_id: value.prompt_id,
+            ordinal: value.ordinal,
+            kind: value.kind.into(),
+            response_text: value.response_text,
+            note_text: value.note_text,
+        }
+    }
+}
+
+impl From<DailyLoopCheckInResolutionData> for vel_core::DailyLoopCheckInResolution {
+    fn from(value: DailyLoopCheckInResolutionData) -> Self {
+        Self {
+            prompt_id: value.prompt_id,
+            ordinal: value.ordinal,
+            kind: value.kind.into(),
+            response_text: value.response_text,
+            note_text: value.note_text,
         }
     }
 }
@@ -890,6 +954,8 @@ pub struct DailyStandupOutcomeData {
     pub confirmed_calendar: Vec<String>,
     #[serde(default)]
     pub focus_blocks: Vec<DailyFocusBlockProposalData>,
+    #[serde(default)]
+    pub check_in_history: Vec<DailyLoopCheckInResolutionData>,
 }
 
 impl From<vel_core::DailyStandupOutcome> for DailyStandupOutcomeData {
@@ -899,6 +965,7 @@ impl From<vel_core::DailyStandupOutcome> for DailyStandupOutcomeData {
             deferred_tasks: value.deferred_tasks.into_iter().map(Into::into).collect(),
             confirmed_calendar: value.confirmed_calendar,
             focus_blocks: value.focus_blocks.into_iter().map(Into::into).collect(),
+            check_in_history: value.check_in_history.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -910,6 +977,7 @@ impl From<DailyStandupOutcomeData> for vel_core::DailyStandupOutcome {
             deferred_tasks: value.deferred_tasks.into_iter().map(Into::into).collect(),
             confirmed_calendar: value.confirmed_calendar,
             focus_blocks: value.focus_blocks.into_iter().map(Into::into).collect(),
+            check_in_history: value.check_in_history.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -919,6 +987,8 @@ impl From<DailyStandupOutcomeData> for vel_core::DailyStandupOutcome {
 pub enum DailyLoopSessionOutcomeData {
     MorningOverview {
         signals: Vec<MorningIntentSignalData>,
+        #[serde(default)]
+        check_in_history: Vec<DailyLoopCheckInResolutionData>,
     },
     Standup(DailyStandupOutcomeData),
 }
@@ -926,11 +996,13 @@ pub enum DailyLoopSessionOutcomeData {
 impl From<vel_core::DailyLoopSessionOutcome> for DailyLoopSessionOutcomeData {
     fn from(value: vel_core::DailyLoopSessionOutcome) -> Self {
         match value {
-            vel_core::DailyLoopSessionOutcome::MorningOverview { signals } => {
-                Self::MorningOverview {
-                    signals: signals.into_iter().map(Into::into).collect(),
-                }
-            }
+            vel_core::DailyLoopSessionOutcome::MorningOverview {
+                signals,
+                check_in_history,
+            } => Self::MorningOverview {
+                signals: signals.into_iter().map(Into::into).collect(),
+                check_in_history: check_in_history.into_iter().map(Into::into).collect(),
+            },
             vel_core::DailyLoopSessionOutcome::Standup(outcome) => Self::Standup(outcome.into()),
         }
     }
@@ -939,8 +1011,12 @@ impl From<vel_core::DailyLoopSessionOutcome> for DailyLoopSessionOutcomeData {
 impl From<DailyLoopSessionOutcomeData> for vel_core::DailyLoopSessionOutcome {
     fn from(value: DailyLoopSessionOutcomeData) -> Self {
         match value {
-            DailyLoopSessionOutcomeData::MorningOverview { signals } => Self::MorningOverview {
+            DailyLoopSessionOutcomeData::MorningOverview {
+                signals,
+                check_in_history,
+            } => Self::MorningOverview {
                 signals: signals.into_iter().map(Into::into).collect(),
+                check_in_history: check_in_history.into_iter().map(Into::into).collect(),
             },
             DailyLoopSessionOutcomeData::Standup(outcome) => Self::Standup(outcome.into()),
         }
@@ -5317,15 +5393,16 @@ mod tests {
         AppleResponseModeData, AppleScheduleEventData, AppleScheduleSnapshotData,
         AppleTurnProvenanceData, AppleVoiceIntentData, AppleVoiceTurnQueuedMutationSummaryData,
         AppleVoiceTurnRequestData, AppleVoiceTurnResponseData, DailyCommitmentDraftData,
-        DailyDeferredTaskData, DailyFocusBlockProposalData, DailyLoopPhaseData,
-        DailyLoopSessionData, DailyLoopSessionOutcomeData, DailyLoopStartMetadataData,
-        DailyLoopStartRequestData, DailyLoopStartSourceData, DailyLoopSurfaceData,
-        DailyLoopTurnActionData, DailyLoopTurnRequestData, DailyStandupBucketData,
-        DailyStandupOutcomeData, ExecutionHandoffData, ExecutionHandoffReviewStateData,
-        ExecutionReviewGateData, ExecutionTaskKindData, LocalRuntimeKindData,
-        MorningIntentSignalData, NowTaskData, ProjectExecutionContextData, ProjectFamilyData,
-        ProjectProvisionRequestData, ProjectRecordData, ProjectRootRefData, ProjectStatusData,
-        ReviewSnapshotData, TokenBudgetClassData,
+        DailyDeferredTaskData, DailyFocusBlockProposalData, DailyLoopCheckInResolutionData,
+        DailyLoopCheckInResolutionKindData, DailyLoopPhaseData, DailyLoopSessionData,
+        DailyLoopSessionOutcomeData, DailyLoopStartMetadataData, DailyLoopStartRequestData,
+        DailyLoopStartSourceData, DailyLoopSurfaceData, DailyLoopTurnActionData,
+        DailyLoopTurnRequestData, DailyStandupBucketData, DailyStandupOutcomeData,
+        ExecutionHandoffData, ExecutionHandoffReviewStateData, ExecutionReviewGateData,
+        ExecutionTaskKindData, LocalRuntimeKindData, MorningIntentSignalData, NowTaskData,
+        ProjectExecutionContextData, ProjectFamilyData, ProjectProvisionRequestData,
+        ProjectRecordData, ProjectRootRefData, ProjectStatusData, ReviewSnapshotData,
+        TokenBudgetClassData,
     };
     use std::collections::BTreeMap;
     use time::macros::datetime;
@@ -5689,11 +5766,25 @@ mod tests {
                 signals: vec![MorningIntentSignal::MustDoHint {
                     text: "Finish review notes".to_string(),
                 }],
+                check_in_history: vec![vel_core::DailyLoopCheckInResolution {
+                    prompt_id: "prompt_morning_1".to_string(),
+                    ordinal: 1,
+                    kind: vel_core::DailyLoopCheckInResolutionKind::Submitted,
+                    response_text: Some("Finish review notes".to_string()),
+                    note_text: None,
+                }],
             }
             .into(),
             outcome: Some(DailyLoopSessionOutcome::MorningOverview {
                 signals: vec![MorningIntentSignal::FocusIntent {
                     text: "Protect a deep-work block".to_string(),
+                }],
+                check_in_history: vec![vel_core::DailyLoopCheckInResolution {
+                    prompt_id: "prompt_morning_1".to_string(),
+                    ordinal: 1,
+                    kind: vel_core::DailyLoopCheckInResolutionKind::Submitted,
+                    response_text: Some("Protect a deep-work block".to_string()),
+                    note_text: None,
                 }],
             }),
         };
@@ -5733,6 +5824,13 @@ mod tests {
                     end_at: datetime!(2026-03-19 16:00:00 UTC),
                     reason: "Best uninterrupted slot before review".to_string(),
                 }],
+                check_in_history: vec![vel_core::DailyLoopCheckInResolution {
+                    prompt_id: "prompt_standup_1".to_string(),
+                    ordinal: 1,
+                    kind: vel_core::DailyLoopCheckInResolutionKind::Submitted,
+                    response_text: Some("Ship Phase 10 contract slice".to_string()),
+                    note_text: None,
+                }],
             }
             .into(),
             outcome: Some(DailyLoopSessionOutcome::Standup(DailyStandupOutcome {
@@ -5752,6 +5850,13 @@ mod tests {
                     start_at: datetime!(2026-03-19 15:00:00 UTC),
                     end_at: datetime!(2026-03-19 16:00:00 UTC),
                     reason: "Best uninterrupted slot before review".to_string(),
+                }],
+                check_in_history: vec![vel_core::DailyLoopCheckInResolution {
+                    prompt_id: "prompt_standup_1".to_string(),
+                    ordinal: 1,
+                    kind: vel_core::DailyLoopCheckInResolutionKind::Submitted,
+                    response_text: Some("Ship Phase 10 contract slice".to_string()),
+                    note_text: None,
                 }],
             })),
         };
@@ -5781,6 +5886,13 @@ mod tests {
             signals: vec![MorningIntentSignalData::MustDoHint {
                 text: "Handle payroll first".to_string(),
             }],
+            check_in_history: vec![DailyLoopCheckInResolutionData {
+                prompt_id: "prompt_morning_1".to_string(),
+                ordinal: 1,
+                kind: DailyLoopCheckInResolutionKindData::Submitted,
+                response_text: Some("Handle payroll first".to_string()),
+                note_text: None,
+            }],
         };
         let standup = DailyLoopSessionOutcomeData::Standup(DailyStandupOutcomeData {
             commitments: vec![DailyCommitmentDraftData {
@@ -5799,6 +5911,13 @@ mod tests {
                 start_at: datetime!(2026-03-19 16:00:00 UTC),
                 end_at: datetime!(2026-03-19 16:30:00 UTC),
                 reason: "Smallest uninterrupted slot".to_string(),
+            }],
+            check_in_history: vec![DailyLoopCheckInResolutionData {
+                prompt_id: "prompt_standup_1".to_string(),
+                ordinal: 1,
+                kind: DailyLoopCheckInResolutionKindData::Submitted,
+                response_text: Some("Close payroll".to_string()),
+                note_text: None,
             }],
         });
 

@@ -81,6 +81,24 @@ pub enum DailyLoopTurnAction {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum DailyLoopCheckInResolutionKind {
+    Submitted,
+    Bypassed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DailyLoopCheckInResolution {
+    pub prompt_id: String,
+    pub ordinal: u8,
+    pub kind: DailyLoopCheckInResolutionKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note_text: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum DailyLoopTurnState {
     InProgress,
     WaitingForInput,
@@ -193,6 +211,8 @@ pub struct MorningOverviewState {
     pub snapshot: String,
     pub friction_callouts: Vec<MorningFrictionCallout>,
     pub signals: Vec<MorningIntentSignal>,
+    #[serde(default)]
+    pub check_in_history: Vec<DailyLoopCheckInResolution>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -231,6 +251,8 @@ pub struct DailyStandupOutcome {
     pub deferred_tasks: Vec<DailyDeferredTask>,
     pub confirmed_calendar: Vec<String>,
     pub focus_blocks: Vec<DailyFocusBlockProposal>,
+    #[serde(default)]
+    pub check_in_history: Vec<DailyLoopCheckInResolution>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -255,7 +277,11 @@ impl From<DailyStandupOutcome> for DailyLoopSessionState {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "phase", rename_all = "snake_case")]
 pub enum DailyLoopSessionOutcome {
-    MorningOverview { signals: Vec<MorningIntentSignal> },
+    MorningOverview {
+        signals: Vec<MorningIntentSignal>,
+        #[serde(default)]
+        check_in_history: Vec<DailyLoopCheckInResolution>,
+    },
     Standup(DailyStandupOutcome),
 }
 

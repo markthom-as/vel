@@ -764,7 +764,7 @@ fn describe_daily_loop_session(
         (
             DailyLoopPhase::MorningOverview,
             DailyLoopSessionState::MorningOverview(_),
-            Some(DailyLoopSessionOutcome::MorningOverview { signals }),
+            Some(DailyLoopSessionOutcome::MorningOverview { signals, .. }),
             _,
         ) => (
             if signals.is_empty() {

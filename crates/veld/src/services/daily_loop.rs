@@ -1,8 +1,8 @@
 use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{
-    DailyCommitmentDraft, DailyDeferredTask, DailyFocusBlockProposal, DailyLoopPhase,
-    DailyLoopPrompt, DailyLoopPromptKind, DailyLoopSession, DailyLoopSessionId,
+    DailyCommitmentDraft, DailyDeferredTask, DailyFocusBlockProposal, DailyLoopCheckInResolution,
+    DailyLoopPhase, DailyLoopPrompt, DailyLoopPromptKind, DailyLoopSession, DailyLoopSessionId,
     DailyLoopSessionOutcome, DailyLoopSessionState, DailyLoopStartRequest, DailyLoopStatus,
     DailyLoopTurnAction, DailyLoopTurnRequest, DailyLoopTurnState, DailyStandupBucket,
     DailyStandupOutcome, MorningIntentSignal, MorningOverviewState, DAILY_LOOP_MAX_COMMITMENTS,
@@ -45,6 +45,9 @@ pub async fn submit_turn(
         return Err(AppError::not_found("daily loop session not found"));
     };
 
+    let (request, resolution) =
+        crate::services::check_in::prepare_turn_request(&record.session, request)?;
+
     if matches!(request.action, DailyLoopTurnAction::Resume)
         || matches!(
             record.session.status,
@@ -55,8 +58,10 @@ pub async fn submit_turn(
     }
 
     match record.session.phase {
-        DailyLoopPhase::MorningOverview => advance_morning_turn(storage, record, request).await,
-        DailyLoopPhase::Standup => advance_standup_turn(storage, record, request).await,
+        DailyLoopPhase::MorningOverview => {
+            advance_morning_turn(storage, record, request, resolution).await
+        }
+        DailyLoopPhase::Standup => advance_standup_turn(storage, record, request, resolution).await,
     }
 }
 
@@ -86,6 +91,7 @@ async fn start_morning_overview(
             snapshot: snapshot.summary,
             friction_callouts: snapshot.friction_callouts,
             signals: Vec::new(),
+            check_in_history: Vec::new(),
         }),
         outcome: None,
     };
@@ -137,10 +143,12 @@ async fn advance_morning_turn(
     storage: &Storage,
     record: DailySessionRecord,
     request: DailyLoopTurnRequest,
+    resolution: Option<DailyLoopCheckInResolution>,
 ) -> Result<DailyLoopSession, AppError> {
     let DailyLoopSessionState::MorningOverview(mut state) = record.session.state.clone() else {
         return Err(AppError::internal("expected morning overview state"));
     };
+    append_resolution(&mut state.check_in_history, resolution);
 
     let current_ordinal = record
         .session
@@ -161,6 +169,7 @@ async fn advance_morning_turn(
     if current_ordinal >= DAILY_LOOP_MAX_QUESTIONS {
         let outcome = DailyLoopSessionOutcome::MorningOverview {
             signals: state.signals.clone(),
+            check_in_history: state.check_in_history.clone(),
         };
         return Ok(storage
             .complete_daily_session(
@@ -194,10 +203,12 @@ async fn advance_standup_turn(
     storage: &Storage,
     record: DailySessionRecord,
     request: DailyLoopTurnRequest,
+    resolution: Option<DailyLoopCheckInResolution>,
 ) -> Result<DailyLoopSession, AppError> {
     let DailyLoopSessionState::Standup(mut state) = record.session.state.clone() else {
         return Err(AppError::internal("expected standup state"));
     };
+    append_resolution(&mut state.check_in_history, resolution);
     let current_ordinal = record
         .session
         .current_prompt
@@ -384,6 +395,16 @@ fn build_standup_state(
         deferred_tasks: Vec::new(),
         confirmed_calendar: Vec::new(),
         focus_blocks: Vec::new(),
+        check_in_history: Vec::new(),
+    }
+}
+
+fn append_resolution(
+    history: &mut Vec<DailyLoopCheckInResolution>,
+    resolution: Option<DailyLoopCheckInResolution>,
+) {
+    if let Some(resolution) = resolution {
+        history.push(resolution);
     }
 }
 
@@ -398,7 +419,7 @@ async fn list_candidate_titles(storage: &Storage) -> Result<Vec<String>, AppErro
 
 fn morning_signals_from_record(record: DailySessionRecord) -> Option<Vec<MorningIntentSignal>> {
     match record.session.outcome {
-        Some(DailyLoopSessionOutcome::MorningOverview { signals }) => Some(signals),
+        Some(DailyLoopSessionOutcome::MorningOverview { signals, .. }) => Some(signals),
         _ => match record.session.state {
             DailyLoopSessionState::MorningOverview(state) => Some(state.signals),
             _ => None,
