@@ -386,6 +386,53 @@ pub struct TodoistCommitmentActionRequest {
     pub commitment_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct NotesCreateNoteRequest {
+    pub path: String,
+    pub content: String,
+    pub project_id: Option<String>,
+    pub notes_root_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NotesAppendNoteRequest {
+    pub path: String,
+    pub content: String,
+    pub project_id: Option<String>,
+    pub notes_root_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReminderCreateRequest {
+    pub reminder_id: Option<String>,
+    pub title: String,
+    pub list_id: Option<String>,
+    pub list_title: Option<String>,
+    pub notes: Option<String>,
+    pub due_at: Option<i64>,
+    pub priority: Option<i64>,
+    pub tags: Option<Vec<String>>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReminderUpdateRequest {
+    pub reminder_id: String,
+    pub title: Option<String>,
+    pub list_id: Option<String>,
+    pub list_title: Option<String>,
+    pub notes: Option<String>,
+    pub due_at: Option<i64>,
+    pub priority: Option<i64>,
+    pub tags: Option<Vec<String>>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReminderActionRequest {
+    pub reminder_id: String,
+}
+
 pub async fn todoist_create_task(
     State(state): State<AppState>,
     Json(payload): Json<TodoistCreateTaskRequest>,
@@ -451,6 +498,121 @@ pub async fn todoist_reopen_task(
         &state.storage,
         state.config.node_id.as_deref().unwrap_or("vel-local"),
         payload.commitment_id.trim(),
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn notes_create_note(
+    State(state): State<AppState>,
+    Json(payload): Json<NotesCreateNoteRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::notes_create_note(
+        &state.storage,
+        &state.config,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        writeback::NotesWriteRequest {
+            path: payload.path,
+            content: payload.content,
+            project_id: payload.project_id,
+            notes_root_path: payload.notes_root_path,
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn notes_append_note(
+    State(state): State<AppState>,
+    Json(payload): Json<NotesAppendNoteRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::notes_append_note(
+        &state.storage,
+        &state.config,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        writeback::NotesWriteRequest {
+            path: payload.path,
+            content: payload.content,
+            project_id: payload.project_id,
+            notes_root_path: payload.notes_root_path,
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn reminders_create(
+    State(state): State<AppState>,
+    Json(payload): Json<ReminderCreateRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::reminders_create(
+        &state.storage,
+        &state.config,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        writeback::ReminderWriteRequest {
+            reminder_id: payload.reminder_id,
+            title: Some(payload.title),
+            list_id: payload.list_id,
+            list_title: payload.list_title,
+            notes: payload.notes,
+            due_at: payload.due_at,
+            priority: payload.priority,
+            tags: payload.tags,
+            metadata: payload.metadata,
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn reminders_update(
+    State(state): State<AppState>,
+    Json(payload): Json<ReminderUpdateRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::reminders_update(
+        &state.storage,
+        &state.config,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        writeback::ReminderWriteRequest {
+            reminder_id: Some(payload.reminder_id),
+            title: payload.title,
+            list_id: payload.list_id,
+            list_title: payload.list_title,
+            notes: payload.notes,
+            due_at: payload.due_at,
+            priority: payload.priority,
+            tags: payload.tags,
+            metadata: payload.metadata,
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+}
+
+pub async fn reminders_complete(
+    State(state): State<AppState>,
+    Json(payload): Json<ReminderActionRequest>,
+) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
+    let operation = writeback::reminders_complete(
+        &state.storage,
+        &state.config,
+        state.config.node_id.as_deref().unwrap_or("vel-local"),
+        writeback::ReminderWriteRequest {
+            reminder_id: Some(payload.reminder_id),
+            title: None,
+            list_id: None,
+            list_title: None,
+            notes: None,
+            due_at: None,
+            priority: None,
+            tags: None,
+            metadata: None,
+        },
     )
     .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());

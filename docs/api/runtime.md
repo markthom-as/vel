@@ -293,6 +293,16 @@ Todoist read/write boundary:
 - If upstream state drifted since the last synced snapshot, the runtime opens a conflict review item with `stale_write` or `upstream_vs_local` instead of silently overwriting.
 - Todoist labels remain compatibility-only metadata at the adapter boundary; Vel's durable typed contract is `project_id`, `scheduled_for`, `priority`, `waiting_on`, and `review_state`.
 
+Notes and reminders write boundary:
+
+- `POST /v1/sync/notes`, `POST /v1/sync/reminders`, and `POST /v1/sync/transcripts` remain the read/sync paths.
+- The allowed notes write surface is bounded to `notes_create_note` and `notes_append_note` through `/api/integrations/notes/create-note` and `/api/integrations/notes/append-note`.
+- Notes writes are scoped to the configured `notes_path` or a typed project's project notes roots. Out-of-scope writes are persisted as `blocked` instead of escaping the configured filesystem boundary.
+- Transcript ingestion is read-only and is tagged as a notes source subtype so transcript context folds under the same local-first notes lane without becoming a separate write surface.
+- Reminder writes are intent-based through `/api/integrations/reminders/create`, `/api/integrations/reminders/update`, and `/api/integrations/reminders/complete`.
+- Reminder intents persist explicit lifecycle state through durable writeback and conflict records: `queued`, `applied`, `executor_unavailable`, and `conflicted`.
+- If no approved local reminder executor is available, the runtime opens an `executor_unavailable` conflict instead of pretending the write succeeded.
+
 ### `POST /v1/evaluate`
 
 - orchestrated recompute-and-persist path for context, risk, and downstream outputs

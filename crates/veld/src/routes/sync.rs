@@ -705,6 +705,8 @@ pub async fn sync_messaging(
     }))
 }
 
+// `/v1/sync/reminders` remains the read/sync path; reminder writes use the bounded
+// operator integration routes and surface through `pending_writebacks`.
 pub async fn sync_reminders(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<SyncResultData>>, AppError> {

@@ -136,6 +136,8 @@ interface LocalSourceOptionDescriptor {
   detail: string;
 }
 
+type HostPlatform = 'apple' | 'linux' | 'windows' | 'unknown';
+
 type LegacySettingsTab = 'components' | 'runs' | 'loops';
 export type SettingsTab = 'general' | 'integrations' | 'runtime';
 
@@ -469,6 +471,36 @@ function pathBasename(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
+function isVelManagedPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, '/').toLowerCase();
+  return normalized.includes('/library/application support/vel/')
+    || normalized.includes('/appdata/roaming/vel/')
+    || normalized.includes('/.local/share/vel/')
+    || normalized.startsWith('var/integrations/')
+    || normalized.includes('/vel/integrations/');
+}
+
+function detectCurrentHostPlatform(): HostPlatform {
+  if (typeof navigator === 'undefined') {
+    return 'unknown';
+  }
+  const sample = `${navigator.platform ?? ''} ${navigator.userAgent ?? ''}`.toLowerCase();
+  if (sample.includes('mac') || sample.includes('iphone') || sample.includes('ipad')) {
+    return 'apple';
+  }
+  if (sample.includes('linux') || sample.includes('x11')) {
+    return 'linux';
+  }
+  if (sample.includes('win')) {
+    return 'windows';
+  }
+  return 'unknown';
+}
+
+function isAppleOnlyIntegration(source: LocalIntegrationSource): boolean {
+  return source === 'health' || source === 'messaging' || source === 'reminders';
+}
+
 function describeLocalSourcePath(
   source: LocalIntegrationSource,
   path: string,
@@ -579,6 +611,7 @@ export function SettingsPage({
   initialTab = 'general',
   initialIntegrationId,
 }: SettingsPageProps) {
+  const currentHostPlatform = useMemo(() => detectCurrentHostPlatform(), []);
   const [activeTab, setActiveTab] = useState<SettingsTab>(normalizeSettingsTab(initialTab));
   const [saving, setSaving] = useState(false);
   const [pendingIntegrationActions, setPendingIntegrationActions] = useState<Record<string, true>>({});
@@ -718,6 +751,13 @@ export function SettingsPage({
   const messagingFeedback = integrationFeedbackForSection(integrationFeedback, 'messaging');
   const notesFeedback = integrationFeedbackForSection(integrationFeedback, 'notes');
   const transcriptsFeedback = integrationFeedbackForSection(integrationFeedback, 'transcripts');
+  const visibleLocalIntegrationSpecs = useMemo(
+    () =>
+      LOCAL_INTEGRATION_SPECS.filter(
+        (spec) => !isAppleOnlyIntegration(spec.key) || currentHostPlatform === 'apple',
+      ),
+    [currentHostPlatform],
+  );
   const { data: runs = [] } = useQuery<RunSummaryData[]>(
     runsKey,
     async () => {
@@ -789,7 +829,8 @@ export function SettingsPage({
       const next = { ...current };
       for (const spec of LOCAL_INTEGRATION_SPECS) {
         const configuredPath = integrations[spec.key].source_path;
-        const nextSelection = configuredPath ? [configuredPath] : [];
+        const nextSelection =
+          configuredPath && !isVelManagedPath(configuredPath) ? [configuredPath] : [];
         const currentSelection = current[spec.key];
         if (
           currentSelection.length !== nextSelection.length
@@ -2215,7 +2256,7 @@ export function SettingsPage({
             ) : null}
           </div>
 
-          {LOCAL_INTEGRATION_SPECS.map((spec) => {
+          {visibleLocalIntegrationSpecs.map((spec) => {
             const integration = integrations[spec.key] as LocalIntegrationData;
             const feedback = ({
               activity: activityFeedback,
@@ -2297,30 +2338,51 @@ export function SettingsPage({
                     ) : null}
                     {availablePaths.length > 0 ? (
                       <div className="grid gap-2">
-                        {availablePaths.map((path) => (
-                          <button
-                            key={path}
-                            type="button"
-                            aria-pressed={selectedPaths.includes(path)}
-                            onClick={() => {
-                              toggleSuggestedPathSelection(spec.key, path);
-                            }}
-                            className={`rounded-md border px-3 py-2 text-left transition ${
-                              selectedPaths.includes(path)
-                                ? 'border-zinc-500 bg-zinc-800/70 text-white'
-                                : 'border-zinc-700 bg-zinc-950/40 text-zinc-300 hover:border-zinc-500 hover:text-white'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm">{describeLocalSourcePath(spec.key, path, false).title}</p>
-                                <p className="text-xs text-zinc-500">{describeLocalSourcePath(spec.key, path, false).detail}</p>
+                        {availablePaths.map((path) => {
+                          const selectable = !isVelManagedPath(path);
+                          const descriptor = describeLocalSourcePath(spec.key, path, !selectable);
+                          if (!selectable) {
+                            return (
+                              <div
+                                key={path}
+                                className="rounded-md border border-zinc-800 bg-zinc-950/20 px-3 py-2 text-left text-zinc-500"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm">{descriptor.title}</p>
+                                    <p className="text-xs text-zinc-600">{descriptor.detail}</p>
+                                  </div>
+                                  <span className="text-xs text-zinc-600">Read only</span>
+                                </div>
+                                <p className="mt-1 text-xs text-zinc-700">{path}</p>
                               </div>
-                              <span className="text-xs text-zinc-500">{selectedPaths.includes(path) ? 'Selected' : 'Select'}</span>
-                            </div>
-                            <p className="mt-1 text-xs text-zinc-600">{path}</p>
-                          </button>
-                        ))}
+                            );
+                          }
+                          return (
+                            <button
+                              key={path}
+                              type="button"
+                              aria-pressed={selectedPaths.includes(path)}
+                              onClick={() => {
+                                toggleSuggestedPathSelection(spec.key, path);
+                              }}
+                              className={`rounded-md border px-3 py-2 text-left transition ${
+                                selectedPaths.includes(path)
+                                  ? 'border-zinc-500 bg-zinc-800/70 text-white'
+                                  : 'border-zinc-700 bg-zinc-950/40 text-zinc-300 hover:border-zinc-500 hover:text-white'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm">{descriptor.title}</p>
+                                  <p className="text-xs text-zinc-500">{descriptor.detail}</p>
+                                </div>
+                                <span className="text-xs text-zinc-500">{selectedPaths.includes(path) ? 'Selected' : 'Select'}</span>
+                              </div>
+                              <p className="mt-1 text-xs text-zinc-600">{path}</p>
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-sm text-zinc-500">No current-host source paths were discovered yet.</p>
@@ -2330,28 +2392,19 @@ export function SettingsPage({
                         <p className="text-xs text-zinc-600">Vel internal/default paths</p>
                         <div className="grid gap-2">
                           {internalPaths.map((path) => (
-                            <button
+                            <div
                               key={`internal:${path}`}
-                              type="button"
-                              aria-pressed={selectedPaths.includes(path)}
-                              onClick={() => {
-                                toggleSuggestedPathSelection(spec.key, path);
-                              }}
-                              className={`rounded-md border px-3 py-2 text-left transition ${
-                                selectedPaths.includes(path)
-                                  ? 'border-zinc-700 bg-zinc-900/70 text-zinc-300'
-                                  : 'border-zinc-800 bg-zinc-950/20 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
-                              }`}
+                              className="rounded-md border border-zinc-800 bg-zinc-950/20 px-3 py-2 text-left text-zinc-500"
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <p className="text-sm">{describeLocalSourcePath(spec.key, path, true).title}</p>
                                   <p className="text-xs text-zinc-600">{describeLocalSourcePath(spec.key, path, true).detail}</p>
                                 </div>
-                                <span className="text-xs text-zinc-600">{selectedPaths.includes(path) ? 'Selected' : 'Select'}</span>
+                                <span className="text-xs text-zinc-600">Read only</span>
                               </div>
                               <p className="mt-1 text-xs text-zinc-700">{path}</p>
-                            </button>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -2371,30 +2424,51 @@ export function SettingsPage({
                             <p className="text-xs text-zinc-500">{section.caption}</p>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {section.paths.map((path) => (
-                              <button
-                                key={`${section.nodeId}:${path}`}
-                                type="button"
-                                aria-pressed={selectedPaths.includes(path)}
-                                onClick={() => {
-                                  toggleSuggestedPathSelection(spec.key, path);
-                                }}
-                                className={`rounded-md border px-3 py-2 text-left transition ${
-                                  selectedPaths.includes(path)
-                                    ? 'border-zinc-500 bg-zinc-800/70 text-white'
-                                    : 'border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white'
-                                }`}
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm">{describeLocalSourcePath(spec.key, path, true).title}</p>
-                                    <p className="text-xs text-zinc-500">{section.caption}</p>
+                            {section.paths.map((path) => {
+                              const selectable = !isVelManagedPath(path);
+                              const descriptor = describeLocalSourcePath(spec.key, path, !selectable);
+                              if (!selectable) {
+                                return (
+                                  <div
+                                    key={`${section.nodeId}:${path}`}
+                                    className="rounded-md border border-zinc-800 bg-zinc-950/20 px-3 py-2 text-left text-zinc-500"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <p className="text-sm">{descriptor.title}</p>
+                                        <p className="text-xs text-zinc-500">{section.caption}</p>
+                                      </div>
+                                      <span className="text-xs text-zinc-600">Read only</span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-zinc-700">{path}</p>
                                   </div>
-                                  <span className="text-xs text-zinc-500">{selectedPaths.includes(path) ? 'Selected' : 'Select'}</span>
-                                </div>
-                                <p className="mt-1 text-xs text-zinc-600">{path}</p>
-                              </button>
-                            ))}
+                                );
+                              }
+                              return (
+                                <button
+                                  key={`${section.nodeId}:${path}`}
+                                  type="button"
+                                  aria-pressed={selectedPaths.includes(path)}
+                                  onClick={() => {
+                                    toggleSuggestedPathSelection(spec.key, path);
+                                  }}
+                                  className={`rounded-md border px-3 py-2 text-left transition ${
+                                    selectedPaths.includes(path)
+                                      ? 'border-zinc-500 bg-zinc-800/70 text-white'
+                                      : 'border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-sm">{descriptor.title}</p>
+                                      <p className="text-xs text-zinc-500">{section.caption}</p>
+                                    </div>
+                                    <span className="text-xs text-zinc-500">{selectedPaths.includes(path) ? 'Selected' : 'Select'}</span>
+                                  </div>
+                                  <p className="mt-1 text-xs text-zinc-600">{path}</p>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       ))}

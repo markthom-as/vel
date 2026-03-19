@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: "06"
 current_phase_name: high-value-write-back-integrations-and-lightweight-people-graph
-current_plan: "4"
+current_plan: "5"
 status: executing
-stopped_at: Completed 06-03-PLAN.md; 06-04 next
-last_updated: "2026-03-19T04:23:05Z"
+stopped_at: Completed 06-04-PLAN.md; 06-05 next
+last_updated: "2026-03-19T04:42:42Z"
 last_activity: "2026-03-19"
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 34
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -28,23 +28,23 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 Status: Executing Phase 06
 Current Phase: 06
 Current Phase Name: high-value-write-back-integrations-and-lightweight-people-graph
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 7
-Progress: 71%
+Progress: 57%
 Last Activity: 2026-03-19
-Last Activity Description: Completed 06-03 Todoist typed write-back lane with conflict review; 06-04 notes/reminders next
+Last Activity Description: Completed 06-04 scoped notes write-back, reminder intent execution, and transcript-under-notes folding; 06-05 people/graph next
 
 ## Current Position
 
 Phase: 06 (high-value-write-back-integrations-and-lightweight-people-graph) — EXECUTING
-Plan: 3 of 7 complete
-Next: 06-04-PLAN.md
+Plan: 4 of 7 complete
+Next: 06-05-PLAN.md
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 24
+- Total plans completed: 25
 - Average duration: 22m
 - Total execution time: 175m
 
@@ -151,5 +151,5 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-03-19T03:28:39Z
-Stopped at: Completed 06-03-PLAN.md; 06-04 next
+Stopped at: Completed 06-04-PLAN.md; 06-05 next
 Resume file: None

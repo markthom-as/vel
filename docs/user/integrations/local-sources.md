@@ -106,11 +106,22 @@ Practical setup:
 - point Vel's `notes` / `Obsidian Vault` setting at the local vault root on the daemon host
 - run `sync notes`, then `evaluate`
 
+Scoped note writes now use the bounded operator routes under `/api/integrations/notes/*`.
+Vel will only write inside the configured `notes_path` or a typed project's project notes roots.
+That includes `project.primary_notes_root.path` and any `project.secondary_notes_roots[].path`.
+If a requested note path escapes those roots, the runtime records a blocked write-back instead of applying it.
+
 ## Messaging and health
 
 `messaging`, `reminders`, and `health` are currently snapshot-backed. If the export file is not updated, Vel has nothing new to ingest.
 
 That is especially relevant on macOS where the exporter or host permissions determine whether those snapshots exist.
+
+Reminder write-back is now intent-based rather than ambient file mutation.
+The bounded routes under `/api/integrations/reminders/*` persist a reminder intent first, then either apply it through the configured local snapshot executor or leave an inspectable `executor_unavailable` conflict for a local executor or linked client to resolve later.
+
+Transcript snapshots remain read-only, but transcript ingestion now folds under the same notes lane as a notes source subtype.
+Use `sync transcripts` for the read path; write surfaces stay on notes and reminders only.
 
 ## Scope Clarification
 

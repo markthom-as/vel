@@ -1975,6 +1975,37 @@ mod tests {
             .await
             .unwrap();
         storage
+            .insert_writeback_operation(
+                &WritebackOperationRecord {
+                    id: "wb_sync_reminder".to_string().into(),
+                    kind: WritebackOperationKind::RemindersCreate,
+                    risk: WritebackRisk::Safe,
+                    status: WritebackStatus::Queued,
+                    target: WritebackTargetRef {
+                        family: IntegrationFamily::Tasks,
+                        provider_key: "reminders".to_string(),
+                        project_id: None,
+                        connection_id: Some("icn_reminders".to_string().into()),
+                        external_id: Some("rem_local_1".to_string()),
+                    },
+                    requested_payload: serde_json::json!({"title": "Take meds", "state": "queued"}),
+                    result_payload: Some(serde_json::json!({"state": "queued"})),
+                    provenance: vec![],
+                    conflict_case_id: None,
+                    requested_by_node_id: "node_alpha".to_string(),
+                    requested_at: now,
+                    applied_at: None,
+                    updated_at: now,
+                },
+                &OrderingStamp::new(
+                    now.unix_timestamp(),
+                    2,
+                    NodeIdentity::from("123e4567-e89b-12d3-a456-426614174000".to_string()),
+                ),
+            )
+            .await
+            .unwrap();
+        storage
             .insert_conflict_case(&ConflictCaseRecord {
                 id: "conf_sync_1".to_string().into(),
                 kind: ConflictCaseKind::UpstreamVsLocal,
@@ -1996,13 +2027,43 @@ mod tests {
             })
             .await
             .unwrap();
+        storage
+            .insert_conflict_case(&ConflictCaseRecord {
+                id: "conf_sync_reminder".to_string().into(),
+                kind: ConflictCaseKind::ExecutorUnavailable,
+                status: ConflictCaseStatus::Open,
+                target: WritebackTargetRef {
+                    family: IntegrationFamily::Tasks,
+                    provider_key: "reminders".to_string(),
+                    project_id: None,
+                    connection_id: Some("icn_reminders".to_string().into()),
+                    external_id: Some("rem_local_1".to_string()),
+                },
+                summary: "executor unavailable".to_string(),
+                local_payload: serde_json::json!({"title": "Take meds"}),
+                upstream_payload: Some(serde_json::json!({"state": "executor_unavailable"})),
+                resolution_payload: None,
+                opened_at: now,
+                resolved_at: None,
+                updated_at: now,
+            })
+            .await
+            .unwrap();
 
         let bootstrap = build_sync_bootstrap(&state).await.unwrap();
 
-        assert_eq!(bootstrap.pending_writebacks.len(), 1);
-        assert_eq!(bootstrap.conflicts.len(), 1);
-        assert_eq!(bootstrap.cluster.pending_writebacks.len(), 1);
-        assert_eq!(bootstrap.cluster.conflicts.len(), 1);
+        assert_eq!(bootstrap.pending_writebacks.len(), 2);
+        assert_eq!(bootstrap.conflicts.len(), 2);
+        assert_eq!(bootstrap.cluster.pending_writebacks.len(), 2);
+        assert_eq!(bootstrap.cluster.conflicts.len(), 2);
+        assert!(bootstrap
+            .pending_writebacks
+            .iter()
+            .any(|record| record.kind == vel_core::WritebackOperationKind::RemindersCreate));
+        assert!(bootstrap
+            .conflicts
+            .iter()
+            .any(|record| record.kind == vel_core::ConflictCaseKind::ExecutorUnavailable));
     }
 
     #[test]

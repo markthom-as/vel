@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { SettingsPage } from './SettingsPage'
 import * as client from '../api/client'
@@ -7,6 +7,8 @@ import { resetWsQuerySyncForTests } from '../data/ws-sync'
 import type { WsEnvelope } from '../types'
 
 const subscribeWs = vi.fn()
+const originalNavigatorPlatform = navigator.platform
+const originalNavigatorUserAgent = navigator.userAgent
 
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
@@ -58,6 +60,14 @@ async function openIntegrationsTab(container: HTMLElement) {
 
 describe('SettingsPage', () => {
   beforeEach(() => {
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: 'MacIntel',
+    })
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36',
+    })
     clearQueryCache()
     resetWsQuerySyncForTests()
     vi.useRealTimers()
@@ -458,6 +468,17 @@ describe('SettingsPage', () => {
     })
     vi.mocked(client.apiPatch).mockResolvedValue({} as never)
     vi.mocked(client.apiPost).mockResolvedValue({ ok: true } as never)
+  })
+
+  afterAll(() => {
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: originalNavigatorPlatform,
+    })
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: originalNavigatorUserAgent,
+    })
   })
 
   it('shows Back button and Settings heading when loaded', async () => {
@@ -896,14 +917,35 @@ describe('SettingsPage', () => {
     expect(activityCard).not.toBeNull()
 
     const zshOption = within(activityCard as HTMLElement).getByRole('button', { name: /zsh shell history/i })
-    const snapshotOption = within(activityCard as HTMLElement).getByRole('button', { name: /activity snapshot/i })
+    const snapshotOption = within(activityCard as HTMLElement).getByText('/tmp/activity.json').closest('button')
 
-    expect(snapshotOption).toHaveAttribute('aria-pressed', 'true')
+    expect(snapshotOption).not.toBeNull()
+    expect(snapshotOption as HTMLElement).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(zshOption)
 
     expect(zshOption).toHaveAttribute('aria-pressed', 'true')
-    expect(snapshotOption).toHaveAttribute('aria-pressed', 'true')
+    expect(snapshotOption as HTMLElement).toHaveAttribute('aria-pressed', 'true')
     expect(within(activityCard as HTMLElement).getByText('2 selected')).toBeInTheDocument()
+  })
+
+  it('hides apple-only integrations on non-apple hosts by default', async () => {
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: 'Linux x86_64',
+    })
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+    })
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+
+    expect(within(root).queryByRole('heading', { name: /health/i })).not.toBeInTheDocument()
+    expect(within(root).queryByRole('heading', { name: /^messaging$/i })).not.toBeInTheDocument()
+    expect(within(root).queryByRole('heading', { name: /apple reminders/i })).not.toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /computer activity/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /obsidian vault/i })).toBeInTheDocument()
   })
 
   it('saves a local integration source path from the settings card', async () => {

@@ -1,12 +1,43 @@
-use serde_json::Value as JsonValue;
+use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
+use vel_config::AppConfig;
 use vel_core::{
-    ConflictCaseRecord, ConflictCaseStatus, OrderingStamp, WritebackOperationId,
-    WritebackOperationKind, WritebackOperationRecord, WritebackRisk, WritebackStatus,
+    ConflictCaseKind, ConflictCaseRecord, ConflictCaseStatus, IntegrationConnectionId,
+    IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, IntegrationSourceRef,
+    NodeIdentity, OrderingStamp, WritebackOperationId, WritebackOperationKind,
+    WritebackOperationRecord, WritebackRisk, WritebackStatus, WritebackTargetRef,
 };
-use vel_storage::Storage;
+use vel_storage::{IntegrationConnectionFilters, IntegrationConnectionInsert, Storage};
 
-use crate::{errors::AppError, services::integrations_todoist};
+use crate::{
+    adapters::{notes, reminders},
+    errors::AppError,
+    services::integrations_todoist,
+};
+
+const NOTES_PROVIDER_KEY: &str = "notes";
+const REMINDERS_PROVIDER_KEY: &str = "reminders";
+
+#[derive(Debug, Clone)]
+pub(crate) struct NotesWriteRequest {
+    pub path: String,
+    pub content: String,
+    pub project_id: Option<String>,
+    pub notes_root_path: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ReminderWriteRequest {
+    pub reminder_id: Option<String>,
+    pub title: Option<String>,
+    pub list_id: Option<String>,
+    pub list_title: Option<String>,
+    pub notes: Option<String>,
+    pub due_at: Option<i64>,
+    pub priority: Option<i64>,
+    pub tags: Option<Vec<String>>,
+    pub metadata: Option<JsonValue>,
+}
 
 pub async fn queue_writeback_operation(
     storage: &Storage,
@@ -108,6 +139,441 @@ pub async fn list_open_conflicts(
 ) -> Result<Vec<ConflictCaseRecord>, AppError> {
     storage
         .list_open_conflict_cases(limit)
+        .await
+        .map_err(Into::into)
+}
+
+pub(crate) async fn notes_create_note(
+    storage: &Storage,
+    config: &AppConfig,
+    requested_by_node_id: &str,
+    request: NotesWriteRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    execute_notes_writeback(
+        storage,
+        config,
+        requested_by_node_id,
+        request,
+        WritebackOperationKind::NotesCreateNote,
+        false,
+    )
+    .await
+}
+
+pub(crate) async fn notes_append_note(
+    storage: &Storage,
+    config: &AppConfig,
+    requested_by_node_id: &str,
+    request: NotesWriteRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    execute_notes_writeback(
+        storage,
+        config,
+        requested_by_node_id,
+        request,
+        WritebackOperationKind::NotesAppendNote,
+        true,
+    )
+    .await
+}
+
+pub(crate) async fn reminders_create(
+    storage: &Storage,
+    config: &AppConfig,
+    requested_by_node_id: &str,
+    request: ReminderWriteRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    execute_reminder_writeback(
+        storage,
+        config,
+        requested_by_node_id,
+        WritebackOperationKind::RemindersCreate,
+        request,
+        reminders::ReminderWriteKind::Create,
+    )
+    .await
+}
+
+pub(crate) async fn reminders_update(
+    storage: &Storage,
+    config: &AppConfig,
+    requested_by_node_id: &str,
+    request: ReminderWriteRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    if request.title.is_none()
+        && request.list_id.is_none()
+        && request.list_title.is_none()
+        && request.notes.is_none()
+        && request.due_at.is_none()
+        && request.priority.is_none()
+        && request.tags.is_none()
+        && request.metadata.is_none()
+    {
+        return Err(AppError::bad_request(
+            "reminders_update requires at least one changed field",
+        ));
+    }
+    execute_reminder_writeback(
+        storage,
+        config,
+        requested_by_node_id,
+        WritebackOperationKind::RemindersUpdate,
+        request,
+        reminders::ReminderWriteKind::Update,
+    )
+    .await
+}
+
+pub(crate) async fn reminders_complete(
+    storage: &Storage,
+    config: &AppConfig,
+    requested_by_node_id: &str,
+    request: ReminderWriteRequest,
+) -> Result<WritebackOperationRecord, AppError> {
+    execute_reminder_writeback(
+        storage,
+        config,
+        requested_by_node_id,
+        WritebackOperationKind::RemindersComplete,
+        request,
+        reminders::ReminderWriteKind::Complete,
+    )
+    .await
+}
+
+async fn execute_notes_writeback(
+    storage: &Storage,
+    config: &AppConfig,
+    requested_by_node_id: &str,
+    request: NotesWriteRequest,
+    kind: WritebackOperationKind,
+    append: bool,
+) -> Result<WritebackOperationRecord, AppError> {
+    let requested_payload = json!({
+        "path": request.path,
+        "content": request.content,
+        "project_id": request.project_id,
+        "notes_root_path": request.notes_root_path,
+        "operation": kind.to_string(),
+    });
+    let requested_by_node_id = normalize_requested_by_node_id(requested_by_node_id);
+    let connection_id = ensure_foundation_connection(
+        storage,
+        IntegrationFamily::Notes,
+        NOTES_PROVIDER_KEY,
+        "Notes",
+        IntegrationConnectionStatus::Connected,
+    )
+    .await?;
+    let projects = storage.list_projects().await?;
+    let scoped_roots = notes_roots_for_request(config, &projects, request.project_id.as_deref())?;
+
+    match notes::write_scoped_note(
+        &scoped_roots,
+        &request.path,
+        request.notes_root_path.as_deref(),
+        &request.content,
+        append,
+    )
+    .await
+    {
+        Ok(result) => {
+            let target = WritebackTargetRef {
+                family: IntegrationFamily::Notes,
+                provider_key: NOTES_PROVIDER_KEY.to_string(),
+                project_id: scoped_roots.iter().find_map(|root| root.project_id.clone()),
+                connection_id: Some(connection_id.clone()),
+                external_id: Some(result.absolute_path.display().to_string()),
+            };
+            let provenance = vec![IntegrationSourceRef {
+                family: IntegrationFamily::Notes,
+                provider_key: NOTES_PROVIDER_KEY.to_string(),
+                connection_id,
+                external_id: result.absolute_path.display().to_string(),
+            }];
+            insert_terminal_writeback(
+                storage,
+                &requested_by_node_id,
+                WritebackOperationRecord {
+                    id: WritebackOperationId::new(),
+                    kind,
+                    risk: WritebackRisk::Safe,
+                    status: WritebackStatus::Applied,
+                    target,
+                    requested_payload,
+                    result_payload: Some(json!({
+                        "state": "applied",
+                        "absolute_path": result.absolute_path.display().to_string(),
+                        "relative_path": result.relative_path,
+                        "root_path": result.root_path.display().to_string(),
+                        "bytes_written": result.bytes_written,
+                    })),
+                    provenance,
+                    conflict_case_id: None,
+                    requested_by_node_id: requested_by_node_id.clone(),
+                    requested_at: OffsetDateTime::now_utc(),
+                    applied_at: Some(OffsetDateTime::now_utc()),
+                    updated_at: OffsetDateTime::now_utc(),
+                },
+            )
+            .await
+        }
+        Err(notes::ScopedNoteWriteError::Blocked(message)) => {
+            let target = WritebackTargetRef {
+                family: IntegrationFamily::Notes,
+                provider_key: NOTES_PROVIDER_KEY.to_string(),
+                project_id: scoped_roots.iter().find_map(|root| root.project_id.clone()),
+                connection_id: Some(connection_id),
+                external_id: Some(request.path.clone()),
+            };
+            insert_terminal_writeback(
+                storage,
+                &requested_by_node_id,
+                WritebackOperationRecord {
+                    id: WritebackOperationId::new(),
+                    kind,
+                    risk: WritebackRisk::Blocked,
+                    status: WritebackStatus::Denied,
+                    target,
+                    requested_payload,
+                    result_payload: Some(json!({
+                        "state": "blocked",
+                        "message": message,
+                    })),
+                    provenance: vec![],
+                    conflict_case_id: None,
+                    requested_by_node_id: requested_by_node_id.clone(),
+                    requested_at: OffsetDateTime::now_utc(),
+                    applied_at: None,
+                    updated_at: OffsetDateTime::now_utc(),
+                },
+            )
+            .await
+        }
+        Err(notes::ScopedNoteWriteError::NoAllowedRoots) => Err(AppError::bad_request(
+            "notes writeback requires notes_path or project notes roots",
+        )),
+        Err(notes::ScopedNoteWriteError::InvalidPath(message)) => {
+            Err(AppError::bad_request(message))
+        }
+        Err(notes::ScopedNoteWriteError::Io(message)) => Err(AppError::internal(message)),
+    }
+}
+
+async fn execute_reminder_writeback(
+    storage: &Storage,
+    config: &AppConfig,
+    requested_by_node_id: &str,
+    kind: WritebackOperationKind,
+    request: ReminderWriteRequest,
+    write_kind: reminders::ReminderWriteKind,
+) -> Result<WritebackOperationRecord, AppError> {
+    let requested_by_node_id = normalize_requested_by_node_id(requested_by_node_id);
+    let reminder_id = request
+        .reminder_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            (write_kind == reminders::ReminderWriteKind::Create)
+                .then(|| format!("rem_local_{}", uuid::Uuid::new_v4().simple()))
+        });
+    let connection_id = ensure_foundation_connection(
+        storage,
+        IntegrationFamily::Tasks,
+        REMINDERS_PROVIDER_KEY,
+        "Apple Reminders",
+        IntegrationConnectionStatus::Connected,
+    )
+    .await?;
+    let target = WritebackTargetRef {
+        family: IntegrationFamily::Tasks,
+        provider_key: REMINDERS_PROVIDER_KEY.to_string(),
+        project_id: None,
+        connection_id: Some(connection_id.clone()),
+        external_id: reminder_id.clone(),
+    };
+    let requested_payload = json!({
+        "reminder_id": reminder_id,
+        "title": request.title,
+        "list_id": request.list_id,
+        "list_title": request.list_title,
+        "notes": request.notes,
+        "due_at": request.due_at,
+        "priority": request.priority,
+        "tags": request.tags,
+        "metadata": request.metadata,
+        "operation": kind.to_string(),
+    });
+
+    let queued = queue_writeback_operation(
+        storage,
+        WritebackOperationRecord {
+            id: WritebackOperationId::new(),
+            kind,
+            risk: WritebackRisk::Safe,
+            status: WritebackStatus::Queued,
+            target: target.clone(),
+            requested_payload: requested_payload.clone(),
+            result_payload: Some(json!({"state": "queued"})),
+            provenance: vec![],
+            conflict_case_id: None,
+            requested_by_node_id: requested_by_node_id.clone(),
+            requested_at: OffsetDateTime::now_utc(),
+            applied_at: None,
+            updated_at: OffsetDateTime::now_utc(),
+        },
+        ordering_stamp_for(&requested_by_node_id),
+    )
+    .await?;
+
+    // Reminder intents surface queued, applied, conflicted, and executor_unavailable states.
+    let snapshot_available = config
+        .reminders_snapshot_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some();
+    if !snapshot_available {
+        let now = OffsetDateTime::now_utc();
+        let conflict = open_conflict_case(
+            storage,
+            ConflictCaseRecord {
+                id: vel_core::ConflictCaseId::new(),
+                kind: ConflictCaseKind::ExecutorUnavailable,
+                status: ConflictCaseStatus::Open,
+                target,
+                summary: "reminder intent queued because no local reminders executor is configured"
+                    .to_string(),
+                local_payload: requested_payload,
+                upstream_payload: Some(json!({
+                    "state": "executor_unavailable",
+                    "executor": "local_snapshot",
+                })),
+                resolution_payload: None,
+                opened_at: now,
+                resolved_at: None,
+                updated_at: now,
+            },
+            Some(&queued.id),
+        )
+        .await?;
+        let mut stored = storage
+            .get_writeback_operation(queued.id.as_ref())
+            .await?
+            .ok_or_else(|| AppError::not_found("queued reminder writeback not found"))?;
+        stored.conflict_case_id = Some(conflict.id.to_string());
+        return Ok(stored);
+    }
+
+    let result = reminders::apply_write_intent(
+        config,
+        write_kind,
+        reminder_id.as_deref(),
+        reminders::ReminderWriteMutation {
+            title: request.title,
+            list_id: request.list_id,
+            list_title: request.list_title,
+            notes: request.notes,
+            due_at: request.due_at,
+            priority: request.priority,
+            tags: request.tags,
+            metadata: request.metadata,
+        },
+    )
+    .await?;
+    let applied = mark_writeback_applied(
+        storage,
+        &queued.id,
+        Some(json!({
+            "state": "applied",
+            "snapshot_path": result.snapshot_path,
+            "reminder_id": result.reminder.reminder_id,
+            "completed": result.reminder.completed,
+        })),
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(applied)
+}
+
+async fn insert_terminal_writeback(
+    storage: &Storage,
+    requested_by_node_id: &str,
+    record: WritebackOperationRecord,
+) -> Result<WritebackOperationRecord, AppError> {
+    queue_writeback_operation(storage, record, ordering_stamp_for(requested_by_node_id)).await
+}
+
+fn notes_roots_for_request(
+    config: &AppConfig,
+    projects: &[vel_storage::ProjectRecord],
+    project_id: Option<&str>,
+) -> Result<Vec<notes::AllowedNotesRoot>, AppError> {
+    // Allowed note writes are bounded to notes_path, project.primary_notes_root, and
+    // project.secondary_notes_roots. Anything else is persisted as blocked.
+    let selected_project = project_id.map(str::trim).filter(|value| !value.is_empty());
+    if let Some(project_id) = selected_project {
+        let project = projects
+            .iter()
+            .find(|project| project.id.as_ref() == project_id)
+            .ok_or_else(|| AppError::not_found("project not found"))?;
+        return Ok(notes::allowed_write_roots(
+            &AppConfig::default(),
+            std::slice::from_ref(project),
+        ));
+    }
+    Ok(notes::allowed_write_roots(config, projects))
+}
+
+fn ordering_stamp_for(requested_by_node_id: &str) -> OrderingStamp {
+    OrderingStamp::new(
+        OffsetDateTime::now_utc().unix_timestamp(),
+        0,
+        NodeIdentity::from(normalize_requested_by_node_id(requested_by_node_id)),
+    )
+}
+
+fn normalize_requested_by_node_id(node_id: &str) -> String {
+    let trimmed = node_id.trim();
+    if trimmed.is_empty() {
+        "vel-local".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+async fn ensure_foundation_connection(
+    storage: &Storage,
+    family: IntegrationFamily,
+    provider_key: &str,
+    display_name: &str,
+    status: IntegrationConnectionStatus,
+) -> Result<IntegrationConnectionId, AppError> {
+    let mut existing = storage
+        .list_integration_connections(IntegrationConnectionFilters {
+            family: Some(family),
+            provider_key: Some(provider_key.to_string()),
+            status: None,
+            include_disabled: true,
+        })
+        .await?;
+    if let Some(connection) = existing.pop() {
+        return Ok(connection.id);
+    }
+
+    let provider = IntegrationProvider::new(family, provider_key)
+        .map_err(|error| AppError::internal(format!("{provider_key} provider: {error}")))?;
+    storage
+        .insert_integration_connection(IntegrationConnectionInsert {
+            family,
+            provider,
+            status,
+            display_name: display_name.to_string(),
+            account_ref: None,
+            metadata_json: json!({ "foundation": true }),
+        })
         .await
         .map_err(Into::into)
 }

@@ -260,6 +260,26 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::integrations::todoist_reopen_task),
         )
         .route(
+            "/api/integrations/notes/create-note",
+            post(routes::integrations::notes_create_note),
+        )
+        .route(
+            "/api/integrations/notes/append-note",
+            post(routes::integrations::notes_append_note),
+        )
+        .route(
+            "/api/integrations/reminders/create",
+            post(routes::integrations::reminders_create),
+        )
+        .route(
+            "/api/integrations/reminders/update",
+            post(routes::integrations::reminders_update),
+        )
+        .route(
+            "/api/integrations/reminders/complete",
+            post(routes::integrations::reminders_complete),
+        )
+        .route(
             "/v1/synthesis/week",
             post(routes::synthesis::synthesis_week),
         )

@@ -1,4 +1,5 @@
-//! Transcript adapter: ingest assistant/chat transcript snapshots into assistant_transcripts and signals.
+//! Transcript adapter: ingest assistant/chat transcript snapshots into assistant_transcripts and
+//! notes-compatible assistant_message signals.
 
 use sha2::{Digest, Sha256};
 use vel_config::AppConfig;
@@ -59,7 +60,7 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
         let transcript_id = message.id.clone().unwrap_or_else(|| {
             stable_transcript_id(&source, &conversation_id, timestamp, &role, &content)
         });
-        let metadata = message.metadata.unwrap_or_else(|| serde_json::json!({}));
+        let metadata = transcript_metadata(message.metadata, &conversation_id, &role);
         let inserted = storage
             .insert_assistant_transcript(AssistantTranscriptInsert {
                 id: transcript_id.clone(),
@@ -90,6 +91,10 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
                     "role": role,
                     "content": content,
                     "metadata": metadata,
+                    "notes": {
+                        "source_subtype": "transcript",
+                        "conversation_id": conversation_id,
+                    },
                 })),
             })
             .await
@@ -98,6 +103,31 @@ pub async fn ingest(storage: &Storage, config: &AppConfig) -> Result<u32, crate:
     }
 
     Ok(signals_count)
+}
+
+fn transcript_metadata(
+    metadata: Option<serde_json::Value>,
+    conversation_id: &str,
+    role: &str,
+) -> serde_json::Value {
+    let mut metadata = match metadata {
+        Some(serde_json::Value::Object(map)) => map,
+        Some(other) => {
+            let mut map = serde_json::Map::new();
+            map.insert("raw_metadata".to_string(), other);
+            map
+        }
+        None => serde_json::Map::new(),
+    };
+    metadata.insert(
+        "notes".to_string(),
+        serde_json::json!({
+            "source_subtype": "transcript",
+            "conversation_id": conversation_id,
+            "role": role,
+        }),
+    );
+    serde_json::Value::Object(metadata)
 }
 
 fn stable_transcript_id(
@@ -180,5 +210,14 @@ mod tests {
         let b = stable_transcript_id("chatgpt", "conv_1", 100, "user", "hello");
         assert_eq!(a, b);
         assert!(a.starts_with("tr_"));
+    }
+
+    #[test]
+    fn transcript_metadata_adds_notes_source_subtype() {
+        let metadata = transcript_metadata(None, "conv_1", "assistant");
+
+        assert_eq!(metadata["notes"]["source_subtype"], "transcript");
+        assert_eq!(metadata["notes"]["conversation_id"], "conv_1");
+        assert_eq!(metadata["notes"]["role"], "assistant");
     }
 }
