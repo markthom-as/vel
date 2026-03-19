@@ -1,6 +1,7 @@
 pub mod capability;
 pub mod command;
 pub mod commitment;
+pub mod conflicts;
 pub mod connect;
 pub mod context;
 pub mod integration;
@@ -8,7 +9,10 @@ pub mod intervention;
 pub mod linking;
 pub mod loops;
 pub mod message;
+pub mod node_identity;
 pub mod operator_queue;
+pub mod ordering;
+pub mod people;
 pub mod project;
 pub mod protocol;
 pub mod provenance;
@@ -20,6 +24,7 @@ pub mod time;
 pub mod types;
 pub mod uncertainty;
 pub mod vocabulary;
+pub mod writeback;
 
 pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 pub use command::{
@@ -28,6 +33,7 @@ pub use command::{
     TypedTarget,
 };
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
+pub use conflicts::{ConflictCaseId, ConflictCaseKind, ConflictCaseRecord, ConflictCaseStatus};
 pub use connect::{
     ConnectInstance, ConnectInstanceCapabilityManifest, ConnectInstanceStatus,
     ConnectRuntimeCapability,
@@ -47,10 +53,13 @@ pub use message::{
     Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
 };
+pub use node_identity::NodeIdentity;
 pub use operator_queue::{
     ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionState, ActionSurface,
     ReviewSnapshot,
 };
+pub use ordering::OrderingStamp;
+pub use people::{PersonAlias, PersonId, PersonLinkRef, PersonRecord};
 pub use project::{
     ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus,
 };
@@ -79,6 +88,10 @@ pub use vocabulary::{
     dsl_registry_entries, glossary_entries, glossary_entry, glossary_entry_for_kind,
     normalize_should_command_verb, should_command_verb_entries, GlossaryCategory, GlossaryEntry,
     SHOULD_COMMAND_VERBS,
+};
+pub use writeback::{
+    WritebackOperationId, WritebackOperationKind, WritebackOperationRecord, WritebackRisk,
+    WritebackStatus, WritebackTargetRef,
 };
 
 use ::time::OffsetDateTime;

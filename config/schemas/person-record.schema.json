@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/person-record.schema.json",
+  "title": "Vel Person Record",
+  "description": "Canonical Phase 06 practical people record contract with inspectable aliases and durable links.",
+  "type": "object",
+  "$defs": {
+    "IntegrationSourceRef": {
+      "type": "object",
+      "properties": {
+        "family": { "type": "string", "minLength": 1 },
+        "provider_key": { "type": "string", "minLength": 1 },
+        "connection_id": {
+          "type": "string",
+          "pattern": "^icn_[A-Za-z0-9]+$"
+        },
+        "external_id": { "type": "string", "minLength": 1 }
+      },
+      "required": ["family", "provider_key", "connection_id", "external_id"],
+      "additionalProperties": false
+    },
+    "PersonAlias": {
+      "type": "object",
+      "properties": {
+        "platform": { "type": "string", "minLength": 1 },
+        "handle": { "type": "string", "minLength": 1 },
+        "display": { "type": "string", "minLength": 1 },
+        "source_ref": {
+          "anyOf": [
+            { "$ref": "#/$defs/IntegrationSourceRef" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["platform", "handle", "display", "source_ref"],
+      "additionalProperties": false
+    },
+    "PersonLinkRef": {
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 }
+      },
+      "required": ["kind", "id", "label"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^per_[A-Za-z0-9]+$"
+    },
+    "display_name": { "type": "string", "minLength": 1 },
+    "given_name": { "type": ["string", "null"] },
+    "family_name": { "type": ["string", "null"] },
+    "relationship_context": { "type": ["string", "null"] },
+    "birthday": {
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "last_contacted_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "aliases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PersonAlias" }
+    },
+    "links": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PersonLinkRef" }
+    }
+  },
+  "required": [
+    "id",
+    "display_name",
+    "given_name",
+    "family_name",
+    "relationship_context",
+    "birthday",
+    "last_contacted_at",
+    "aliases",
+    "links"
+  ],
+  "additionalProperties": false
+}

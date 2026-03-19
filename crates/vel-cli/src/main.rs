@@ -481,6 +481,8 @@ enum ImportCommand {
     },
     #[command(name = "url")]
     CaptureUrl { url: String },
+    #[command(name = "codex-workspace")]
+    CodexWorkspace { path: String },
 }
 
 #[derive(Debug, Subcommand)]
@@ -818,6 +820,9 @@ async fn main() -> anyhow::Result<()> {
             ImportCommand::Lines { r#type: t } => commands::import_::run_lines(&client, &t).await,
             ImportCommand::CaptureUrl { url } => {
                 commands::import_::run_capture_url(&client, &url).await
+            }
+            ImportCommand::CodexWorkspace { path } => {
+                commands::import_::run_codex_workspace(&config, &path).await
             }
         },
         Command::Export {

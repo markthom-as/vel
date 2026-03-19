@@ -8,6 +8,7 @@ import {
   decodeGoogleCalendarAuthStartData,
   decodeIntegrationLogEventData,
   decodeIntegrationsData,
+  decodeLocalIntegrationPathSelectionData,
   decodeLinkedNodeData,
   decodeLoopData,
   decodePairingTokenData,
@@ -22,6 +23,7 @@ import {
   type GoogleCalendarAuthStartData,
   type IntegrationLogEventData,
   type IntegrationsData,
+  type LocalIntegrationPathSelectionData,
   type LinkScopeData,
   type LinkedNodeData,
   type LoopData,
@@ -224,6 +226,16 @@ export function updateLocalIntegrationSource(
     `/api/integrations/${encodeURIComponent(integrationId.trim())}/source`,
     patch,
     (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function chooseLocalIntegrationSourcePath(
+  integrationId: string,
+): Promise<ApiResponse<LocalIntegrationPathSelectionData>> {
+  return apiPost<ApiResponse<LocalIntegrationPathSelectionData>>(
+    `/api/integrations/${encodeURIComponent(integrationId.trim())}/path-dialog`,
+    {},
+    (value) => decodeApiResponse(value, decodeLocalIntegrationPathSelectionData),
   );
 }
 

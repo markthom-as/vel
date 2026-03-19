@@ -13,11 +13,11 @@ pub use db::{
     Storage, StorageError, SuggestionEvidenceInsert, SuggestionEvidenceRecord,
     SuggestionFeedbackInsert, SuggestionFeedbackRecord, SuggestionFeedbackSummary,
     SuggestionInsertV2, SuggestionRecord, UncertaintyRecord, UncertaintyRecordInsert,
-    WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentUpdate,
+    UpstreamObjectRefRecord, WorkAssignmentInsert, WorkAssignmentRecord, WorkAssignmentUpdate,
 };
 pub use vel_core::{
-    ContextCapture, LinkScope, LinkStatus, LinkedNodeRecord, OrientationSnapshot,
-    PairingTokenRecord, ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord,
-    ProjectRootRef, ProjectStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
-    WorkAssignmentStatus,
+    ConflictCaseRecord, ContextCapture, LinkScope, LinkStatus, LinkedNodeRecord, OrderingStamp,
+    OrientationSnapshot, PairingTokenRecord, ProjectFamily, ProjectId, ProjectProvisionRequest,
+    ProjectRecord, ProjectRootRef, ProjectStatus, SearchResult, SemanticHit, SemanticMemoryRecord,
+    SemanticQuery, WorkAssignmentStatus, WritebackOperationRecord, WritebackStatus,
 };

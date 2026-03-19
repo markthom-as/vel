@@ -8,7 +8,8 @@ use uuid::Uuid;
 
 use crate::{errors::AppError, state::AppState};
 use vel_core::{
-    ActionItem, Commitment, CommitmentStatus, LinkedNodeRecord, PrivacyClass, ProjectRecord,
+    ActionItem, Commitment, CommitmentStatus, ConflictCaseRecord, LinkedNodeRecord, PrivacyClass,
+    ProjectRecord, WritebackOperationRecord,
 };
 use vel_storage::{
     CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert, CommitmentInsert, SignalInsert,
@@ -25,6 +26,9 @@ pub struct SyncBootstrap {
     pub linked_nodes: Vec<LinkedNodeRecord>,
     pub projects: Vec<ProjectRecord>,
     pub action_items: Vec<ActionItem>,
+    pub pending_writebacks: Vec<WritebackOperationRecord>,
+    pub conflicts: Vec<ConflictCaseRecord>,
+    pub people: Vec<vel_core::PersonRecord>,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +48,9 @@ pub struct ClusterBootstrap {
     pub linked_nodes: Vec<LinkedNodeRecord>,
     pub projects: Vec<ProjectRecord>,
     pub action_items: Vec<ActionItem>,
+    pub pending_writebacks: Vec<WritebackOperationRecord>,
+    pub conflicts: Vec<ConflictCaseRecord>,
+    pub people: Vec<vel_core::PersonRecord>,
 }
 
 #[derive(Debug, Clone)]
@@ -256,6 +263,9 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrap, App
     cluster.linked_nodes = linked_nodes.clone();
     cluster.projects = projects.clone();
     cluster.action_items = action_queue.action_items.clone();
+    cluster.pending_writebacks = action_queue.pending_writebacks.clone();
+    cluster.conflicts = action_queue.conflicts.clone();
+    cluster.people = vec![];
 
     Ok(SyncBootstrap {
         cluster,
@@ -265,6 +275,9 @@ pub async fn build_sync_bootstrap(state: &AppState) -> Result<SyncBootstrap, App
         linked_nodes,
         projects,
         action_items: action_queue.action_items,
+        pending_writebacks: action_queue.pending_writebacks,
+        conflicts: action_queue.conflicts,
+        people: vec![],
     })
 }
 
@@ -381,6 +394,9 @@ fn cluster_bootstrap_from_config(config: &vel_config::AppConfig) -> ClusterBoots
         linked_nodes: vec![],
         projects: vec![],
         action_items: vec![],
+        pending_writebacks: vec![],
+        conflicts: vec![],
+        people: vec![],
     }
 }
 
@@ -1746,6 +1762,10 @@ mod tests {
     use super::*;
     use tokio::sync::broadcast;
     use vel_config::AppConfig;
+    use vel_core::{
+        ConflictCaseKind, ConflictCaseStatus, IntegrationFamily, NodeIdentity, OrderingStamp,
+        WritebackOperationKind, WritebackRisk, WritebackStatus, WritebackTargetRef,
+    };
     use vel_storage::Storage;
 
     fn test_state(storage: Storage) -> AppState {
@@ -1914,6 +1934,75 @@ mod tests {
         assert!(error
             .to_string()
             .contains("validation profile unknown-profile is not available on this node"));
+    }
+
+    #[tokio::test]
+    async fn build_sync_bootstrap_includes_pending_writebacks_and_conflicts() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let state = test_state(storage.clone());
+        let now = OffsetDateTime::now_utc();
+
+        storage
+            .insert_writeback_operation(
+                &WritebackOperationRecord {
+                    id: "wb_sync_1".to_string().into(),
+                    kind: WritebackOperationKind::TodoistCreateTask,
+                    risk: WritebackRisk::Safe,
+                    status: WritebackStatus::Queued,
+                    target: WritebackTargetRef {
+                        family: IntegrationFamily::Tasks,
+                        provider_key: "todoist".to_string(),
+                        project_id: None,
+                        connection_id: Some("icn_sync".to_string().into()),
+                        external_id: Some("todo_sync".to_string()),
+                    },
+                    requested_payload: serde_json::json!({"content": "sync"}),
+                    result_payload: None,
+                    provenance: vec![],
+                    conflict_case_id: None,
+                    requested_by_node_id: "node_alpha".to_string(),
+                    requested_at: now,
+                    applied_at: None,
+                    updated_at: now,
+                },
+                &OrderingStamp::new(
+                    now.unix_timestamp(),
+                    1,
+                    NodeIdentity::from("123e4567-e89b-12d3-a456-426614174000".to_string()),
+                ),
+            )
+            .await
+            .unwrap();
+        storage
+            .insert_conflict_case(&ConflictCaseRecord {
+                id: "conf_sync_1".to_string().into(),
+                kind: ConflictCaseKind::UpstreamVsLocal,
+                status: ConflictCaseStatus::Open,
+                target: WritebackTargetRef {
+                    family: IntegrationFamily::Tasks,
+                    provider_key: "todoist".to_string(),
+                    project_id: None,
+                    connection_id: Some("icn_sync".to_string().into()),
+                    external_id: Some("todo_sync".to_string()),
+                },
+                summary: "upstream changed".to_string(),
+                local_payload: serde_json::json!({"content": "local"}),
+                upstream_payload: Some(serde_json::json!({"content": "upstream"})),
+                resolution_payload: None,
+                opened_at: now,
+                resolved_at: None,
+                updated_at: now,
+            })
+            .await
+            .unwrap();
+
+        let bootstrap = build_sync_bootstrap(&state).await.unwrap();
+
+        assert_eq!(bootstrap.pending_writebacks.len(), 1);
+        assert_eq!(bootstrap.conflicts.len(), 1);
+        assert_eq!(bootstrap.cluster.pending_writebacks.len(), 1);
+        assert_eq!(bootstrap.cluster.conflicts.len(), 1);
     }
 
     #[test]

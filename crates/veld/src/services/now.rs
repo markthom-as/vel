@@ -2,8 +2,8 @@ use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{
-    normalize_risk_level, ActionItem, Commitment, CommitmentStatus, CurrentContextV1,
-    ReviewSnapshot,
+    normalize_risk_level, ActionItem, Commitment, CommitmentStatus, ConflictCaseRecord,
+    CurrentContextV1, ReviewSnapshot, WritebackOperationRecord,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -21,6 +21,9 @@ pub struct NowOutput {
     pub freshness: NowFreshnessOutput,
     pub action_items: Vec<ActionItem>,
     pub review_snapshot: ReviewSnapshot,
+    pub pending_writebacks: Vec<WritebackOperationRecord>,
+    pub conflicts: Vec<ConflictCaseRecord>,
+    pub people: Vec<vel_core::PersonRecord>,
     pub reasons: Vec<String>,
     pub debug: NowDebugOutput,
 }
@@ -351,6 +354,9 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         freshness,
         action_items: action_queue.action_items.into_iter().take(5).collect(),
         review_snapshot: action_queue.review_snapshot,
+        pending_writebacks: action_queue.pending_writebacks,
+        conflicts: action_queue.conflicts,
+        people: vec![],
         reasons,
         debug: NowDebugOutput {
             raw_context: context.clone().into_json(),
@@ -448,6 +454,9 @@ fn empty_now(now_ts: i64, timezone: &str) -> NowOutput {
         },
         action_items: Vec::new(),
         review_snapshot: ReviewSnapshot::default(),
+        pending_writebacks: Vec::new(),
+        conflicts: Vec::new(),
+        people: Vec::new(),
         reasons: vec!["No current context yet. Sync integrations or run evaluate.".to_string()],
         debug: NowDebugOutput {
             raw_context: json!({}),

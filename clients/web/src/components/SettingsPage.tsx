@@ -22,6 +22,7 @@ import type { QueryKey } from '../data/query';
 import { issuePairingToken } from '../data/operator';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import {
+  chooseLocalIntegrationSourcePath,
   disconnectGoogleCalendar,
   disconnectTodoist as disconnectTodoistIntegration,
   decodeGoogleCalendarAuthStartResponse,
@@ -71,6 +72,8 @@ type IntegrationActionKey =
   | 'git-save'
   | 'messaging-sync'
   | 'messaging-save'
+  | 'reminders-sync'
+  | 'reminders-save'
   | 'notes-sync'
   | 'notes-save'
   | 'transcripts-sync'
@@ -85,9 +88,17 @@ type IntegrationSectionKey =
   | 'health'
   | 'git'
   | 'messaging'
+  | 'reminders'
   | 'notes'
   | 'transcripts';
-type LocalIntegrationSource = 'activity' | 'health' | 'git' | 'messaging' | 'notes' | 'transcripts';
+type LocalIntegrationSource =
+  | 'activity'
+  | 'health'
+  | 'git'
+  | 'messaging'
+  | 'reminders'
+  | 'notes'
+  | 'transcripts';
 type IntegrationLogSource = 'google-calendar' | 'todoist' | LocalIntegrationSource;
 
 interface RunActionState {
@@ -164,6 +175,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   activity: {
     configured: false,
     source_path: null,
+    suggested_paths: [],
+    source_kind: 'file',
     last_sync_at: null,
     last_sync_status: null,
     last_error: null,
@@ -173,6 +186,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   health: {
     configured: false,
     source_path: null,
+    suggested_paths: [],
+    source_kind: 'file',
     last_sync_at: null,
     last_sync_status: null,
     last_error: null,
@@ -182,6 +197,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   git: {
     configured: false,
     source_path: null,
+    suggested_paths: [],
+    source_kind: 'file',
     last_sync_at: null,
     last_sync_status: null,
     last_error: null,
@@ -191,6 +208,19 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   messaging: {
     configured: false,
     source_path: null,
+    suggested_paths: [],
+    source_kind: 'file',
+    last_sync_at: null,
+    last_sync_status: null,
+    last_error: null,
+    last_item_count: null,
+    guidance: null,
+  },
+  reminders: {
+    configured: false,
+    source_path: null,
+    suggested_paths: [],
+    source_kind: 'file',
     last_sync_at: null,
     last_sync_status: null,
     last_error: null,
@@ -200,6 +230,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   notes: {
     configured: false,
     source_path: null,
+    suggested_paths: [],
+    source_kind: 'directory',
     last_sync_at: null,
     last_sync_status: null,
     last_error: null,
@@ -209,6 +241,8 @@ const DEFAULT_INTEGRATIONS: IntegrationsData = {
   transcripts: {
     configured: false,
     source_path: null,
+    suggested_paths: [],
+    source_kind: 'file',
     last_sync_at: null,
     last_sync_status: null,
     last_error: null,
@@ -241,6 +275,11 @@ const LOCAL_INTEGRATION_SPECS: Array<{
     key: 'messaging',
     title: 'Messaging',
     description: 'Local messaging thread snapshots for response debt and scheduling awareness.',
+  },
+  {
+    key: 'reminders',
+    title: 'Apple Reminders',
+    description: 'Local reminders snapshots for task alignment and short-horizon planning context.',
   },
   {
     key: 'notes',
@@ -323,6 +362,7 @@ export function SettingsPage({
     health: '',
     git: '',
     messaging: '',
+    reminders: '',
     notes: '',
     transcripts: '',
   });
@@ -351,6 +391,7 @@ export function SettingsPage({
     health: null,
     git: null,
     messaging: null,
+    reminders: null,
     notes: null,
     transcripts: null,
   });
@@ -361,6 +402,7 @@ export function SettingsPage({
     health: null,
     git: null,
     messaging: null,
+    reminders: null,
     notes: null,
     transcripts: null,
   });
@@ -948,6 +990,38 @@ export function SettingsPage({
           sourcePath.length > 0
             ? 'Source path saved.'
             : 'Source path cleared.',
+      });
+    } catch (error) {
+      finishIntegrationAction(actionKey, actionId, {
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const chooseLocalPath = async (source: LocalIntegrationSource) => {
+    const actionKey = `${source}-save` as IntegrationActionKey;
+    const actionId = beginIntegrationAction(actionKey);
+    try {
+      const response = await chooseLocalIntegrationSourcePath(source);
+      if (!response.ok) {
+        throw new Error(response.error?.message ?? 'Failed to open path chooser');
+      }
+      const selectedPath = response.data?.source_path ?? null;
+      if (!selectedPath) {
+        finishIntegrationAction(actionKey, actionId, {
+          status: 'success',
+          message: 'Path chooser closed without selecting a path.',
+        });
+        return;
+      }
+      setLocalSourceDrafts((current) => ({
+        ...current,
+        [source]: selectedPath,
+      }));
+      finishIntegrationAction(actionKey, actionId, {
+        status: 'success',
+        message: 'Path selected. Save to apply it.',
       });
     } catch (error) {
       finishIntegrationAction(actionKey, actionId, {
@@ -1843,6 +1917,7 @@ export function SettingsPage({
               health: integrationFeedbackForSection(integrationFeedback, 'health'),
               git: gitFeedback,
               messaging: messagingFeedback,
+              reminders: integrationFeedbackForSection(integrationFeedback, 'reminders'),
               notes: notesFeedback,
               transcripts: transcriptsFeedback,
             } as const)[spec.key] ?? [];
@@ -1892,12 +1967,42 @@ export function SettingsPage({
                     />
                   </label>
                 </div>
+                {integration.suggested_paths.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">Suggested paths</p>
+                    <div className="flex flex-wrap gap-2">
+                      {integration.suggested_paths.map((path) => (
+                        <button
+                          key={path}
+                          type="button"
+                          onClick={() => {
+                            setLocalSourceDrafts((current) => ({
+                              ...current,
+                              [spec.key]: path,
+                            }));
+                          }}
+                          className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+                        >
+                          {path}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {spec.key === 'notes' ? (
                   <p className="mt-2 text-sm text-zinc-500">
                     Vel reads the vault from disk after Obsidian Sync lands the files locally. This keeps note sync local-first while the daemon ingests the same markdown across clients.
                   </p>
                 ) : null}
                 <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void chooseLocalPath(spec.key)}
+                    disabled={Boolean(pendingIntegrationActions[saveActionKey])}
+                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
+                  >
+                    {spec.key === 'notes' ? 'Choose vault…' : 'Choose path…'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => void saveLocalSourcePath(spec.key)}

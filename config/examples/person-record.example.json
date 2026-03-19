@@ -1,0 +1,45 @@
+{
+  "id": "per_anniecase01",
+  "display_name": "Annie Case",
+  "given_name": "Annie",
+  "family_name": "Case",
+  "relationship_context": "Collaborator on design and product review",
+  "birthday": null,
+  "last_contacted_at": "2026-03-18T19:30:00Z",
+  "aliases": [
+    {
+      "platform": "email",
+      "handle": "annie@example.com",
+      "display": "annie@example.com",
+      "source_ref": {
+        "family": "messaging",
+        "provider_key": "email",
+        "connection_id": "icn_email001",
+        "external_id": "thread_991"
+      }
+    },
+    {
+      "platform": "github",
+      "handle": "anniecase",
+      "display": "@anniecase",
+      "source_ref": {
+        "family": "git",
+        "provider_key": "github",
+        "connection_id": "icn_github001",
+        "external_id": "user_42"
+      }
+    }
+  ],
+  "links": [
+    {
+      "kind": "project",
+      "id": "proj_nowinboxcore",
+      "label": "Now + Inbox Core"
+    },
+    {
+      "kind": "message_thread",
+      "id": "thread_991",
+      "label": "Phase 6 writeback review"
+    }
+  ]
+}

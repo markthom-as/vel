@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/writeback-operation.schema.json",
+  "title": "Vel Writeback Operation",
+  "description": "Canonical Phase 06 write-back operation contract for bounded provider writes, statuses, and provenance.",
+  "type": "object",
+  "$defs": {
+    "WritebackRisk": {
+      "type": "string",
+      "enum": ["safe", "confirm_required", "blocked"]
+    },
+    "WritebackStatus": {
+      "type": "string",
+      "enum": ["queued", "in_progress", "applied", "conflicted", "denied", "failed", "cancelled"]
+    },
+    "WritebackOperationKind": {
+      "type": "string",
+      "enum": [
+        "todoist_create_task",
+        "todoist_update_task",
+        "todoist_complete_task",
+        "todoist_reopen_task",
+        "notes_create_note",
+        "notes_append_note",
+        "reminders_create",
+        "reminders_update",
+        "reminders_complete",
+        "github_create_issue",
+        "github_add_comment",
+        "github_close_issue",
+        "github_reopen_issue",
+        "email_create_draft_reply",
+        "email_send_draft"
+      ]
+    },
+    "WritebackTargetRef": {
+      "type": "object",
+      "properties": {
+        "family": { "type": "string", "minLength": 1 },
+        "provider_key": { "type": "string", "minLength": 1 },
+        "project_id": {
+          "type": ["string", "null"],
+          "pattern": "^proj_[A-Za-z0-9]+$"
+        },
+        "connection_id": {
+          "type": ["string", "null"],
+          "pattern": "^icn_[A-Za-z0-9]+$"
+        },
+        "external_id": { "type": ["string", "null"] }
+      },
+      "required": ["family", "provider_key", "project_id", "connection_id", "external_id"],
+      "additionalProperties": false
+    },
+    "IntegrationSourceRef": {
+      "type": "object",
+      "properties": {
+        "family": { "type": "string", "minLength": 1 },
+        "provider_key": { "type": "string", "minLength": 1 },
+        "connection_id": {
+          "type": "string",
+          "pattern": "^icn_[A-Za-z0-9]+$"
+        },
+        "external_id": { "type": "string", "minLength": 1 }
+      },
+      "required": ["family", "provider_key", "connection_id", "external_id"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^wb_[A-Za-z0-9]+$"
+    },
+    "kind": { "$ref": "#/$defs/WritebackOperationKind" },
+    "risk": { "$ref": "#/$defs/WritebackRisk" },
+    "status": { "$ref": "#/$defs/WritebackStatus" },
+    "target": { "$ref": "#/$defs/WritebackTargetRef" },
+    "requested_payload": {
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    },
+    "result_payload": {
+      "type": ["object", "array", "string", "number", "boolean", "null"]
+    },
+    "provenance": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/IntegrationSourceRef" }
+    },
+    "conflict_case_id": {
+      "type": ["string", "null"],
+      "pattern": "^conf_[A-Za-z0-9]+$"
+    },
+    "requested_by_node_id": { "type": "string", "minLength": 1 },
+    "requested_at": { "type": "string", "format": "date-time" },
+    "applied_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": [
+    "id",
+    "kind",
+    "risk",
+    "status",
+    "target",
+    "requested_payload",
+    "result_payload",
+    "provenance",
+    "conflict_case_id",
+    "requested_by_node_id",
+    "requested_at",
+    "applied_at",
+    "updated_at"
+  ],
+  "additionalProperties": false
+}

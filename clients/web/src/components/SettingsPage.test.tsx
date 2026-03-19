@@ -160,6 +160,8 @@ describe('SettingsPage', () => {
             activity: {
               configured: true,
               source_path: '/tmp/activity.json',
+              suggested_paths: ['/tmp/activity.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -169,6 +171,8 @@ describe('SettingsPage', () => {
             health: {
               configured: true,
               source_path: '/tmp/health.json',
+              suggested_paths: ['/tmp/health.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -178,6 +182,8 @@ describe('SettingsPage', () => {
             git: {
               configured: true,
               source_path: '/tmp/git.json',
+              suggested_paths: ['/tmp/git.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -187,6 +193,19 @@ describe('SettingsPage', () => {
             messaging: {
               configured: true,
               source_path: '/tmp/messaging.json',
+              suggested_paths: ['/tmp/messaging.json'],
+              source_kind: 'file',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+            reminders: {
+              configured: true,
+              source_path: '/tmp/reminders.json',
+              suggested_paths: ['/tmp/reminders.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -196,6 +215,8 @@ describe('SettingsPage', () => {
             notes: {
               configured: true,
               source_path: '/tmp/notes',
+              suggested_paths: ['/Users/test/Vault', '/tmp/notes'],
+              source_kind: 'directory',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -209,6 +230,8 @@ describe('SettingsPage', () => {
             transcripts: {
               configured: true,
               source_path: '/tmp/transcripts.json',
+              suggested_paths: ['/tmp/transcripts.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -653,9 +676,11 @@ describe('SettingsPage', () => {
     expect(within(root).getByRole('heading', { name: /computer activity/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /git activity/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /^messaging$/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /apple reminders/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /obsidian vault/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /transcripts/i })).toBeInTheDocument()
     expect(within(root).getByText('Source: /tmp/activity.json')).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: '/Users/test/Vault' })).toBeInTheDocument()
 
     const notesSyncButton = within(root).getAllByRole('button', { name: /sync now/i }).find((button) =>
       button.closest('.rounded-lg')?.textContent?.includes('Obsidian Vault'),
@@ -760,6 +785,33 @@ describe('SettingsPage', () => {
     expect(within(notesCard as HTMLElement).getByText('Obsidian Vault synced (4 signals).')).toBeInTheDocument()
   })
 
+  it('chooses a local integration path from the native dialog action', async () => {
+    vi.mocked(client.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: { source_path: '/Users/test/Vault' },
+      meta: { request_id: 'req_path_dialog' },
+    } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openIntegrationsTab(container)
+    const notesCard = within(root).getByRole('heading', { name: /obsidian vault/i }).closest('.rounded-lg')
+    expect(notesCard).not.toBeNull()
+
+    fireEvent.click(within(notesCard as HTMLElement).getByRole('button', { name: /choose vault/i }))
+
+    await waitFor(() => {
+      expect(client.apiPost).toHaveBeenCalledWith(
+        '/api/integrations/notes/path-dialog',
+        {},
+        expect.any(Function),
+      )
+    })
+    expect(
+      within(notesCard as HTMLElement).getByDisplayValue('/Users/test/Vault'),
+    ).toBeInTheDocument()
+    expect(within(notesCard as HTMLElement).getByText('Path selected. Save to apply it.')).toBeInTheDocument()
+  })
+
   it('saves a local integration source path from the settings card', async () => {
     vi.mocked(client.apiPatch).mockResolvedValueOnce({
       ok: true,
@@ -790,6 +842,8 @@ describe('SettingsPage', () => {
         activity: {
           configured: true,
           source_path: '/tmp/fresh-activity.json',
+          suggested_paths: ['/tmp/fresh-activity.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -799,6 +853,8 @@ describe('SettingsPage', () => {
         health: {
           configured: true,
           source_path: '/tmp/health.json',
+          suggested_paths: ['/tmp/health.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -808,6 +864,8 @@ describe('SettingsPage', () => {
         git: {
           configured: true,
           source_path: '/tmp/git.json',
+          suggested_paths: ['/tmp/git.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -817,6 +875,19 @@ describe('SettingsPage', () => {
         messaging: {
           configured: true,
           source_path: '/tmp/messaging.json',
+          suggested_paths: ['/tmp/messaging.json'],
+          source_kind: 'file',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        reminders: {
+          configured: true,
+          source_path: '/tmp/reminders.json',
+          suggested_paths: ['/tmp/reminders.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -826,6 +897,8 @@ describe('SettingsPage', () => {
         notes: {
           configured: true,
           source_path: '/tmp/notes',
+          suggested_paths: ['/Users/test/Vault', '/tmp/notes'],
+          source_kind: 'directory',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -835,6 +908,8 @@ describe('SettingsPage', () => {
         transcripts: {
           configured: true,
           source_path: '/tmp/transcripts.json',
+          suggested_paths: ['/tmp/transcripts.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -911,6 +986,8 @@ describe('SettingsPage', () => {
             activity: {
               configured: false,
               source_path: null,
+              suggested_paths: ['/tmp/activity.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -924,6 +1001,8 @@ describe('SettingsPage', () => {
             health: {
               configured: true,
               source_path: '/tmp/health.json',
+              suggested_paths: ['/tmp/health.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -933,6 +1012,8 @@ describe('SettingsPage', () => {
             git: {
               configured: true,
               source_path: '/tmp/git.json',
+              suggested_paths: ['/tmp/git.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -942,6 +1023,19 @@ describe('SettingsPage', () => {
             messaging: {
               configured: true,
               source_path: '/tmp/messaging.json',
+              suggested_paths: ['/tmp/messaging.json'],
+              source_kind: 'file',
+              last_sync_at: null,
+              last_sync_status: null,
+              last_error: null,
+              last_item_count: null,
+              guidance: null,
+            },
+            reminders: {
+              configured: true,
+              source_path: '/tmp/reminders.json',
+              suggested_paths: ['/tmp/reminders.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -951,6 +1045,8 @@ describe('SettingsPage', () => {
             notes: {
               configured: true,
               source_path: '/tmp/notes',
+              suggested_paths: ['/Users/test/Vault', '/tmp/notes'],
+              source_kind: 'directory',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -960,6 +1056,8 @@ describe('SettingsPage', () => {
             transcripts: {
               configured: true,
               source_path: '/tmp/transcripts.json',
+              suggested_paths: ['/tmp/transcripts.json'],
+              source_kind: 'file',
               last_sync_at: null,
               last_sync_status: null,
               last_error: null,
@@ -1004,6 +1102,8 @@ describe('SettingsPage', () => {
         activity: {
           configured: true,
           source_path: '/tmp/activity.json',
+          suggested_paths: ['/tmp/activity.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -1013,6 +1113,8 @@ describe('SettingsPage', () => {
         health: {
           configured: true,
           source_path: '/tmp/health.json',
+          suggested_paths: ['/tmp/health.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -1022,6 +1124,8 @@ describe('SettingsPage', () => {
         git: {
           configured: true,
           source_path: '/tmp/git.json',
+          suggested_paths: ['/tmp/git.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -1031,6 +1135,19 @@ describe('SettingsPage', () => {
         messaging: {
           configured: true,
           source_path: '/tmp/messaging.json',
+          suggested_paths: ['/tmp/messaging.json'],
+          source_kind: 'file',
+          last_sync_at: null,
+          last_sync_status: null,
+          last_error: null,
+          last_item_count: null,
+          guidance: null,
+        },
+        reminders: {
+          configured: true,
+          source_path: '/tmp/reminders.json',
+          suggested_paths: ['/tmp/reminders.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -1040,6 +1157,8 @@ describe('SettingsPage', () => {
         notes: {
           configured: true,
           source_path: '/tmp/notes',
+          suggested_paths: ['/Users/test/Vault', '/tmp/notes'],
+          source_kind: 'directory',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,
@@ -1049,6 +1168,8 @@ describe('SettingsPage', () => {
         transcripts: {
           configured: true,
           source_path: '/tmp/transcripts.json',
+          suggested_paths: ['/tmp/transcripts.json'],
+          source_kind: 'file',
           last_sync_at: null,
           last_sync_status: null,
           last_error: null,

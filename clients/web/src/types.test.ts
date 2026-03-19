@@ -125,6 +125,8 @@ describe('transport decoders', () => {
           activity: {
             configured: true,
             source_path: '/tmp/activity.json',
+            suggested_paths: ['/tmp/activity.json'],
+            source_kind: 'file',
             last_sync_at: 12,
             last_sync_status: 'ok',
             last_error: null,
@@ -134,6 +136,8 @@ describe('transport decoders', () => {
           health: {
             configured: true,
             source_path: '/tmp/health.json',
+            suggested_paths: ['/tmp/health.json'],
+            source_kind: 'file',
             last_sync_at: 14,
             last_sync_status: 'ok',
             last_error: null,
@@ -143,6 +147,8 @@ describe('transport decoders', () => {
           git: {
             configured: false,
             source_path: null,
+            suggested_paths: ['/tmp/git.json'],
+            source_kind: 'file',
             last_sync_at: null,
             last_sync_status: null,
             last_error: null,
@@ -156,6 +162,19 @@ describe('transport decoders', () => {
           messaging: {
             configured: false,
             source_path: null,
+            suggested_paths: [],
+            source_kind: 'file',
+            last_sync_at: null,
+            last_sync_status: null,
+            last_error: null,
+            last_item_count: null,
+            guidance: null,
+          },
+          reminders: {
+            configured: false,
+            source_path: null,
+            suggested_paths: [],
+            source_kind: 'file',
             last_sync_at: null,
             last_sync_status: null,
             last_error: null,
@@ -165,6 +184,8 @@ describe('transport decoders', () => {
           notes: {
             configured: false,
             source_path: null,
+            suggested_paths: ['/Users/test/Vault'],
+            source_kind: 'directory',
             last_sync_at: null,
             last_sync_status: null,
             last_error: null,
@@ -174,6 +195,8 @@ describe('transport decoders', () => {
           transcripts: {
             configured: false,
             source_path: null,
+            suggested_paths: [],
+            source_kind: 'file',
             last_sync_at: null,
             last_sync_status: null,
             last_error: null,
@@ -189,6 +212,8 @@ describe('transport decoders', () => {
     expect(response.data?.activity.source_path).toBe('/tmp/activity.json')
     expect(response.data?.health.source_path).toBe('/tmp/health.json')
     expect(response.data?.activity.last_item_count).toBe(4)
+    expect(response.data?.notes.suggested_paths).toEqual(['/Users/test/Vault'])
+    expect(response.data?.notes.source_kind).toBe('directory')
     expect(response.data?.google_calendar.guidance?.action).toBe('Save credentials')
   })
 

@@ -32,6 +32,21 @@ impl From<services::now::NowOutput> for NowData {
                 .map(ActionItemData::from)
                 .collect(),
             review_snapshot: value.review_snapshot.into(),
+            pending_writebacks: value
+                .pending_writebacks
+                .into_iter()
+                .map(vel_api_types::WritebackOperationData::from)
+                .collect(),
+            conflicts: value
+                .conflicts
+                .into_iter()
+                .map(vel_api_types::ConflictCaseData::from)
+                .collect(),
+            people: value
+                .people
+                .into_iter()
+                .map(vel_api_types::PersonRecordData::from)
+                .collect(),
             reasons: value.reasons,
             debug: value.debug.into(),
         }
@@ -302,6 +317,9 @@ mod tests {
                 triage_count: 0,
                 projects_needing_review: 0,
             },
+            pending_writebacks: vec![],
+            conflicts: vec![],
+            people: vec![],
             reasons: vec!["Mode: Day".to_string()],
             debug: services::now::NowDebugOutput {
                 raw_context: json!({"mode":"day_mode"}),

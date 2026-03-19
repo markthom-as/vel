@@ -107,10 +107,19 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route("/v1/context/end-of-day", get(routes::context::end_of_day))
         .route("/v1/context/current", get(routes::context::current))
         .route("/v1/context/timeline", get(routes::context::timeline))
-        .route("/v1/linking/tokens", post(routes::linking::issue_pairing_token))
-        .route("/v1/linking/redeem", post(routes::linking::redeem_pairing_token))
+        .route(
+            "/v1/linking/tokens",
+            post(routes::linking::issue_pairing_token),
+        )
+        .route(
+            "/v1/linking/redeem",
+            post(routes::linking::redeem_pairing_token),
+        )
         .route("/v1/linking/status", get(routes::linking::linking_status))
-        .route("/v1/linking/revoke/:node_id", post(routes::linking::revoke_link))
+        .route(
+            "/v1/linking/revoke/:node_id",
+            post(routes::linking::revoke_link),
+        )
         .route("/v1/now", get(routes::now::get_now))
         .route("/v1/explain/nudge/:id", get(routes::explain::explain_nudge))
         .route("/v1/explain/context", get(routes::explain::explain_context))
@@ -209,6 +218,10 @@ fn operator_authenticated_routes() -> Router<AppState> {
         .route(
             "/api/integrations/:id/source",
             axum::routing::patch(routes::integrations::patch_local_integration_source),
+        )
+        .route(
+            "/api/integrations/:id/path-dialog",
+            post(routes::integrations::choose_local_integration_source_path),
         )
         .route(
             "/api/integrations/google-calendar",
@@ -9788,6 +9801,8 @@ END:VCALENDAR
         assert_eq!(json["data"]["health"]["source_path"], "/tmp/health.json");
         assert_eq!(json["data"]["notes"]["configured"], true);
         assert_eq!(json["data"]["notes"]["source_path"], "/tmp/notes");
+        assert_eq!(json["data"]["notes"]["source_kind"], "directory");
+        assert!(json["data"]["notes"]["suggested_paths"].is_array());
         assert_eq!(json["data"]["notes"]["last_sync_status"], "ok");
         assert_eq!(json["data"]["notes"]["last_item_count"], 2);
         assert_eq!(
@@ -10596,18 +10611,24 @@ END:VCALENDAR
                 .as_str()
                 .map(|title| title.contains("Vel"))
                 .unwrap_or(false)));
-        assert!(json["data"]["review_snapshot"]["open_action_count"]
-            .as_u64()
-            .unwrap_or_default()
-            > 0);
-        assert!(json["data"]["review_snapshot"]["triage_count"]
-            .as_u64()
-            .unwrap_or_default()
-            > 0);
-        assert!(json["data"]["review_snapshot"]["projects_needing_review"]
-            .as_u64()
-            .unwrap_or_default()
-            > 0);
+        assert!(
+            json["data"]["review_snapshot"]["open_action_count"]
+                .as_u64()
+                .unwrap_or_default()
+                > 0
+        );
+        assert!(
+            json["data"]["review_snapshot"]["triage_count"]
+                .as_u64()
+                .unwrap_or_default()
+                > 0
+        );
+        assert!(
+            json["data"]["review_snapshot"]["projects_needing_review"]
+                .as_u64()
+                .unwrap_or_default()
+                > 0
+        );
     }
 
     #[tokio::test]
@@ -11161,6 +11182,8 @@ END:VCALENDAR
             .unwrap();
         let list_json: serde_json::Value = serde_json::from_slice(&list_body).unwrap();
         assert_eq!(list_json["data"]["projects"][0]["slug"], "vel-phase5");
+        assert!(list_json["data"]["projects"][0]["created_at"].is_string());
+        assert!(list_json["data"]["projects"][0]["updated_at"].is_string());
 
         let get = app
             .oneshot(
@@ -11173,6 +11196,12 @@ END:VCALENDAR
             .await
             .unwrap();
         assert_eq!(get.status(), StatusCode::OK);
+        let get_body = axum::body::to_bytes(get.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let get_json: serde_json::Value = serde_json::from_slice(&get_body).unwrap();
+        assert!(get_json["data"]["created_at"].is_string());
+        assert!(get_json["data"]["updated_at"].is_string());
     }
 
     #[tokio::test]

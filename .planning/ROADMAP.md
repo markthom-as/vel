@@ -125,7 +125,7 @@ Remaining execution order: 5 → 6 → 7 → 8 → 9
 | 3. Deterministic Verification & Continuous Alignment | 5/5 | Complete | 2026-03-18 |
 | 4. Autonomous Swarm, Graph RAG & Zero-Trust Execution | 5/5 | Closed / Re-scoped | 2026-03-19 |
 | 5. Now + Inbox core and project substrate | 9/9 | Complete | 2026-03-19 |
-| 6. High-value write-back integrations and lightweight people graph | 0/7 | Planned | - |
+| 6. High-value write-back integrations and lightweight people graph | 1/7 | In Progress | - |
 | 7. Apple action loops and behavioral signal ingestion | 0/0 | Not planned | - |
 | 8. Coding-centric supervised execution with GSD and local agents | 0/0 | Not planned | - |
 | 9. Backup-first trust surfaces and simple operator control | 0/0 | Not planned | - |
@@ -153,10 +153,10 @@ Plans:
 **Goal:** Deliver safe write-back for the highest-value integrations, make upstream systems authoritative with explicit conflict prompts, translate Todoist label syntax into Vel-native typed fields, and add a practical people registry tied to commitments, scheduling, messages, intervention loops, and cross-client reconciliation.
 **Requirements**: WB-01, WB-02, WB-03, CONFLICT-01, PROV-01, RECON-01, TODO-01, NOTES-01, REMIND-01, GH-01, EMAIL-01, PEOPLE-01, PEOPLE-02
 **Depends on:** Phase 5
-**Plans:** 7 plans
+**Plans:** 1/7 plans executed
 
 Plans:
-- [ ] 06-01-PLAN.md — Publish typed Phase 06 contracts, schemas, and owner docs for write-back, conflicts, and people
+- [x] 06-01-PLAN.md — Publish typed Phase 06 contracts, schemas, and owner docs for write-back, conflicts, and people
 - [ ] 06-02-PLAN.md — Install deterministic ordering, conflict queue, write-back history, and upstream ownership foundations
 - [ ] 06-03-PLAN.md — Close the Todoist lane with typed write-back, project linkage, and conflict handling
 - [ ] 06-04-PLAN.md — Add scoped notes write-back, transcript-under-notes folding, and reminder intent execution tracking

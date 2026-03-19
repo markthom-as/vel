@@ -189,6 +189,21 @@ fn sync_bootstrap_cluster_to_api(
             .into_iter()
             .map(vel_api_types::ActionItemData::from)
             .collect(),
+        pending_writebacks: cluster
+            .pending_writebacks
+            .into_iter()
+            .map(vel_api_types::WritebackOperationData::from)
+            .collect(),
+        conflicts: cluster
+            .conflicts
+            .into_iter()
+            .map(vel_api_types::ConflictCaseData::from)
+            .collect(),
+        people: cluster
+            .people
+            .into_iter()
+            .map(vel_api_types::PersonRecordData::from)
+            .collect(),
     }
 }
 
@@ -230,6 +245,21 @@ fn sync_bootstrap_to_api(data: crate::services::client_sync::SyncBootstrap) -> S
             .action_items
             .into_iter()
             .map(vel_api_types::ActionItemData::from)
+            .collect(),
+        pending_writebacks: data
+            .pending_writebacks
+            .into_iter()
+            .map(vel_api_types::WritebackOperationData::from)
+            .collect(),
+        conflicts: data
+            .conflicts
+            .into_iter()
+            .map(vel_api_types::ConflictCaseData::from)
+            .collect(),
+        people: data
+            .people
+            .into_iter()
+            .map(vel_api_types::PersonRecordData::from)
             .collect(),
     }
 }

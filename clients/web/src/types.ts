@@ -160,11 +160,17 @@ export interface TodoistIntegrationData {
 export interface LocalIntegrationData {
   configured: boolean;
   source_path: string | null;
+  suggested_paths: string[];
+  source_kind: string;
   last_sync_at: UnixSeconds | null;
   last_sync_status: string | null;
   last_error: string | null;
   last_item_count: number | null;
   guidance: IntegrationGuidanceData | null;
+}
+
+export interface LocalIntegrationPathSelectionData {
+  source_path: string | null;
 }
 
 export interface IntegrationsData {
@@ -174,7 +180,7 @@ export interface IntegrationsData {
   health: LocalIntegrationData;
   git: LocalIntegrationData;
   messaging: LocalIntegrationData;
-  reminders?: LocalIntegrationData;
+  reminders: LocalIntegrationData;
   notes: LocalIntegrationData;
   transcripts: LocalIntegrationData;
 }
@@ -1573,11 +1579,23 @@ export function decodeLocalIntegrationData(value: unknown): LocalIntegrationData
   return {
     configured: expectBoolean(record.configured, 'local integration.configured'),
     source_path: expectNullableString(record.source_path, 'local integration.source_path'),
+    suggested_paths: decodeArray(record.suggested_paths ?? [], (item) =>
+      expectString(item, 'local integration.suggested_paths[]')),
+    source_kind: expectString(record.source_kind ?? 'path', 'local integration.source_kind'),
     last_sync_at: expectNullableUnixSeconds(record.last_sync_at, 'local integration.last_sync_at'),
     last_sync_status: expectNullableString(record.last_sync_status, 'local integration.last_sync_status'),
     last_error: expectNullableString(record.last_error, 'local integration.last_error'),
     last_item_count: expectNullableNumber(record.last_item_count, 'local integration.last_item_count'),
     guidance: decodeNullable(record.guidance, decodeIntegrationGuidanceData),
+  };
+}
+
+export function decodeLocalIntegrationPathSelectionData(
+  value: unknown,
+): LocalIntegrationPathSelectionData {
+  const record = expectRecord(value, 'local integration path selection');
+  return {
+    source_path: expectNullableString(record.source_path, 'local integration path selection.source_path'),
   };
 }
 
@@ -1592,10 +1610,7 @@ export function decodeIntegrationsData(value: unknown): IntegrationsData {
     health: decodeLocalIntegrationData(record.health ?? {}),
     git: decodeLocalIntegrationData(record.git ?? {}),
     messaging: decodeLocalIntegrationData(record.messaging ?? {}),
-    reminders:
-      record.reminders === undefined
-        ? undefined
-        : decodeLocalIntegrationData(record.reminders),
+    reminders: decodeLocalIntegrationData(record.reminders ?? {}),
     notes: decodeLocalIntegrationData(record.notes ?? {}),
     transcripts: decodeLocalIntegrationData(record.transcripts ?? {}),
   };

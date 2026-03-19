@@ -190,6 +190,18 @@
       "path": "config/examples/operator-action-item.example.json",
       "kind": "operator_action_item",
       "schema": "config/schemas/operator-action-item.schema.json"
+    },
+    {
+      "id": "writeback_operation_example",
+      "path": "config/examples/writeback-operation.example.json",
+      "kind": "writeback_operation",
+      "schema": "config/schemas/writeback-operation.schema.json"
+    },
+    {
+      "id": "person_record_example",
+      "path": "config/examples/person-record.example.json",
+      "kind": "person_record",
+      "schema": "config/schemas/person-record.schema.json"
     }
   ],
   "authority_docs": [
@@ -201,6 +213,7 @@
     "docs/cognitive-agent-architecture/agents/sandbox-host-abi.md",
     "docs/cognitive-agent-architecture/architecture/swarm-protocol-contract.md",
     "docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md",
+    "docs/cognitive-agent-architecture/integrations/writeback-and-conflict-contracts.md",
     "docs/tickets/phase-1/021-canonical-schema-and-config-contracts.md",
     "docs/tickets/phase-1/022-data-sources-and-connector-architecture.md",
     "docs/tickets/phase-1/023-self-awareness-and-supervised-self-modification.md",

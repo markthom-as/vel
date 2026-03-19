@@ -75,6 +75,7 @@ Vel uses Nix for a reproducible toolchain. Ensure you are in the `nix-shell` bef
 ```bash
 vel health                  # Check daemon status
 vel capture "Lidar budget"  # Quick capture
+vel import codex-workspace ~/code/codex-workspace  # Import curated workspace notes, projects, and schedules
 vel today                   # Generate morning briefing
 vel runs                    # View active worker runs
 vel config show             # Inspect local node configuration

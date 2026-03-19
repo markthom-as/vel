@@ -9,7 +9,8 @@ use vel_api_types::{
     ApiResponse, GoogleCalendarAuthStartData, GoogleCalendarIntegrationData,
     IntegrationCalendarData, IntegrationConnectionData, IntegrationConnectionEventData,
     IntegrationConnectionSettingRefData, IntegrationGuidanceData, IntegrationLogEventData,
-    IntegrationsData, LocalIntegrationData, TodoistIntegrationData,
+    IntegrationsData, LocalIntegrationData, LocalIntegrationPathSelectionData,
+    TodoistIntegrationData,
 };
 
 use crate::{errors::AppError, services::integrations, state::AppState};
@@ -88,6 +89,8 @@ impl From<integrations::LocalIntegrationOutput> for LocalIntegrationData {
             configured: value.configured,
             guidance: value.guidance.map(Into::into),
             source_path: value.source_path,
+            suggested_paths: value.suggested_paths,
+            source_kind: value.source_kind,
             last_sync_at: value.last_sync_at,
             last_sync_status: value.last_sync_status,
             last_error: value.last_error,
@@ -368,4 +371,15 @@ pub async fn patch_local_integration_source(
             .into();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
+}
+
+pub async fn choose_local_integration_source_path(
+    Path(integration_id): Path<String>,
+) -> Result<Json<ApiResponse<LocalIntegrationPathSelectionData>>, AppError> {
+    let source_path = integrations::choose_local_source_path(integration_id.trim()).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(
+        LocalIntegrationPathSelectionData { source_path },
+        request_id,
+    )))
 }

@@ -2,12 +2,13 @@ use crate::{
     infra,
     repositories::{
         artifacts_repo, assistant_transcripts_repo, broker_events_repo, captures_repo, chat_repo,
-        cluster_workers_repo, commitment_risk_repo, commitments_repo, connect_runs_repo,
-        context_timeline_repo, current_context_repo, inferred_state_repo,
+        cluster_workers_repo, commitment_risk_repo, commitments_repo, conflict_cases_repo,
+        connect_runs_repo, context_timeline_repo, current_context_repo, inferred_state_repo,
         integration_connections_repo, linking_repo, nudges_repo, processing_jobs_repo,
         projects_repo, run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo,
         settings_repo, signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
-        uncertainty_records_repo, work_assignments_repo,
+        uncertainty_records_repo, upstream_refs_repo, work_assignments_repo,
+        writeback_operations_repo,
     },
 };
 use serde::Serialize;
@@ -18,12 +19,14 @@ use vel_core::context::CurrentContextV1;
 pub use vel_core::WorkAssignmentStatus;
 use vel_core::{
     ArtifactId, ArtifactStorageKind, CaptureId, Commitment, CommitmentId, CommitmentStatus,
-    ContextCapture, ConversationId, EventId, IntegrationConnection, IntegrationConnectionEvent,
-    IntegrationConnectionEventType, IntegrationConnectionId, IntegrationConnectionSettingRef,
-    IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, InterventionId, JobId,
-    JobStatus, LinkedNodeRecord, MessageId, OrientationSnapshot, PairingTokenRecord, PrivacyClass,
-    ProjectFamily, ProjectId, ProjectRecord, Ref, Run, RunEvent, RunEventType, RunId, RunKind,
-    RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass,
+    ConflictCaseRecord, ContextCapture, ConversationId, EventId, IntegrationConnection,
+    IntegrationConnectionEvent, IntegrationConnectionEventType, IntegrationConnectionId,
+    IntegrationConnectionSettingRef, IntegrationConnectionStatus, IntegrationFamily,
+    IntegrationProvider, InterventionId, JobId, JobStatus, LinkedNodeRecord, MessageId,
+    OrderingStamp, OrientationSnapshot, PairingTokenRecord, PrivacyClass, ProjectFamily, ProjectId,
+    ProjectRecord, Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult,
+    SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass, WritebackOperationRecord,
+    WritebackStatus,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -342,6 +345,21 @@ pub struct IntegrationConnectionInsert {
     pub status: IntegrationConnectionStatus,
     pub display_name: String,
     pub account_ref: Option<String>,
+    pub metadata_json: JsonValue,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UpstreamObjectRefRecord {
+    pub id: String,
+    pub family: IntegrationFamily,
+    pub provider_key: String,
+    pub project_id: Option<ProjectId>,
+    pub local_object_kind: String,
+    pub local_object_id: String,
+    pub external_id: String,
+    pub external_parent_id: Option<String>,
+    pub ordering_stamp: OrderingStamp,
+    pub last_seen_at: OffsetDateTime,
     pub metadata_json: JsonValue,
 }
 
@@ -1093,6 +1111,82 @@ impl Storage {
             limit,
         )
         .await
+    }
+
+    pub async fn insert_writeback_operation(
+        &self,
+        record: &WritebackOperationRecord,
+        ordering_stamp: &OrderingStamp,
+    ) -> Result<WritebackOperationRecord, StorageError> {
+        writeback_operations_repo::insert_writeback_operation(self.pool(), record, ordering_stamp)
+            .await
+    }
+
+    pub async fn get_writeback_operation(
+        &self,
+        id: &str,
+    ) -> Result<Option<WritebackOperationRecord>, StorageError> {
+        writeback_operations_repo::get_writeback_operation(self.pool(), id).await
+    }
+
+    pub async fn list_writeback_operations(
+        &self,
+        status_filter: Option<WritebackStatus>,
+        limit: u32,
+    ) -> Result<Vec<WritebackOperationRecord>, StorageError> {
+        writeback_operations_repo::list_writeback_operations(self.pool(), status_filter, limit)
+            .await
+    }
+
+    pub async fn update_writeback_operation(
+        &self,
+        record: &WritebackOperationRecord,
+    ) -> Result<WritebackOperationRecord, StorageError> {
+        writeback_operations_repo::update_writeback_operation(self.pool(), record).await
+    }
+
+    pub async fn insert_conflict_case(
+        &self,
+        record: &ConflictCaseRecord,
+    ) -> Result<ConflictCaseRecord, StorageError> {
+        conflict_cases_repo::insert_conflict_case(self.pool(), record).await
+    }
+
+    pub async fn get_conflict_case(
+        &self,
+        id: &str,
+    ) -> Result<Option<ConflictCaseRecord>, StorageError> {
+        conflict_cases_repo::get_conflict_case(self.pool(), id).await
+    }
+
+    pub async fn list_open_conflict_cases(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<ConflictCaseRecord>, StorageError> {
+        conflict_cases_repo::list_open_conflict_cases(self.pool(), limit).await
+    }
+
+    pub async fn update_conflict_case(
+        &self,
+        record: &ConflictCaseRecord,
+    ) -> Result<ConflictCaseRecord, StorageError> {
+        conflict_cases_repo::update_conflict_case(self.pool(), record).await
+    }
+
+    pub async fn upsert_upstream_object_ref(
+        &self,
+        record: &UpstreamObjectRefRecord,
+    ) -> Result<UpstreamObjectRefRecord, StorageError> {
+        upstream_refs_repo::upsert_upstream_object_ref(self.pool(), record).await
+    }
+
+    pub async fn get_upstream_object_ref(
+        &self,
+        local_object_kind: &str,
+        local_object_id: &str,
+    ) -> Result<Option<UpstreamObjectRefRecord>, StorageError> {
+        upstream_refs_repo::get_upstream_object_ref(self.pool(), local_object_kind, local_object_id)
+            .await
     }
 
     // --- Threads (thread graph) ---

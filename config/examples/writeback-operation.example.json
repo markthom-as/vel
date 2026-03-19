@@ -1,0 +1,31 @@
+{
+  "id": "wb_todoistcreate01",
+  "kind": "todoist_create_task",
+  "risk": "safe",
+  "status": "queued",
+  "target": {
+    "family": "tasks",
+    "provider_key": "todoist",
+    "project_id": "proj_nowinboxcore",
+    "connection_id": "icn_todoist001",
+    "external_id": null
+  },
+  "requested_payload": {
+    "content": "Draft Phase 6 writeback contracts",
+    "priority": 3
+  },
+  "result_payload": null,
+  "provenance": [
+    {
+      "family": "tasks",
+      "provider_key": "todoist",
+      "connection_id": "icn_todoist001",
+      "external_id": "todo_9812"
+    }
+  ],
+  "conflict_case_id": null,
+  "requested_by_node_id": "node_authority",
+  "requested_at": "2026-03-19T02:00:00Z",
+  "applied_at": null,
+  "updated_at": "2026-03-19T02:00:00Z"
+}

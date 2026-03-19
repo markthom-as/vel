@@ -35,6 +35,8 @@ Use it to answer four questions quickly:
   - `schemas/semantic-memory-record.schema.json`
   - `schemas/project-workspace.schema.json`
   - `schemas/operator-action-item.schema.json`
+  - `schemas/writeback-operation.schema.json`
+  - `schemas/person-record.schema.json`
   - `schemas/sandbox-policy.schema.json`
   - `schemas/sandbox-host-call.schema.json`
   - `schemas/swarm-protocol-envelope.schema.json`
@@ -50,6 +52,8 @@ Use it to answer four questions quickly:
   - `examples/semantic-memory-record.example.json`
   - `examples/project-workspace.example.json`
   - `examples/operator-action-item.example.json`
+  - `examples/writeback-operation.example.json`
+  - `examples/person-record.example.json`
   - `examples/sandbox-host-call.example.json`
   - `examples/swarm-protocol-envelope.example.json`
   - `contracts-manifest.json`
@@ -60,6 +64,7 @@ Use it to answer four questions quickly:
 - `crates/veld/src/policy_config.rs` owns policy config loading and runtime interpretation.
 - `docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md` owns the contract map and schema-governance rules.
 - `docs/cognitive-agent-architecture/integrations/canonical-data-sources-and-connectors.md` owns connector vocabulary and manifest semantics.
+- `docs/cognitive-agent-architecture/integrations/writeback-and-conflict-contracts.md` owns the Phase 06 write-back, conflict, and people contract vocabulary.
 - `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md` owns self-model and writable-scope semantics.
 - `docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md` owns the Phase 05 typed project, operator-action, and linking vocabulary.
 

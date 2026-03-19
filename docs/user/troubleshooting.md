@@ -179,9 +179,10 @@ That usually means the local source path is not configured or not resolvable.
 What to do:
 
 1. open Settings
-2. save the correct local source path for that integration
-3. run `Sync now`
-4. rerun `evaluate` if needed
+2. try the suggested paths on the integration card or use `Choose path` / `Choose vault`
+3. save the correct local source path for that integration
+4. run `Sync now`
+5. rerun `evaluate` if needed
 
 On macOS, if the source is one of the auto-discovered local sources, you can also place the file in the Application Support location instead of manually configuring a path.
 

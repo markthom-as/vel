@@ -1,8 +1,10 @@
 use std::{
     env,
+    ffi::OsString,
     path::{Path, PathBuf},
 };
 
+use serde_json::Value as JsonValue;
 use vel_config::AppConfig;
 
 const LOCAL_INTEGRATION_IDS: &[&str] = &[
@@ -19,6 +21,12 @@ const MACOS_SUPPORT_RELATIVE_DIRS: &[&str] = &[
     "Library/Application Support/vel/integrations",
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LocalSourcePathKind {
+    File,
+    Directory,
+}
+
 pub(crate) fn effective_local_source_path(
     integration_id: &str,
     settings_source: Option<&str>,
@@ -26,6 +34,91 @@ pub(crate) fn effective_local_source_path(
 ) -> Option<String> {
     configured_source_path(integration_id, settings_source, config_source)
         .or_else(|| auto_local_source_path(integration_id))
+}
+
+pub(crate) fn local_source_path_kind(integration_id: &str) -> Option<LocalSourcePathKind> {
+    match integration_id {
+        "notes" => Some(LocalSourcePathKind::Directory),
+        "activity" | "health" | "git" | "messaging" | "reminders" | "transcripts" => {
+            Some(LocalSourcePathKind::File)
+        }
+        _ => None,
+    }
+}
+
+pub(crate) fn suggested_local_source_paths(
+    integration_id: &str,
+    settings_source: Option<&str>,
+    config_source: Option<&str>,
+) -> Vec<String> {
+    let home = current_home_dir();
+    let appdata = env::var_os("APPDATA").map(PathBuf::from);
+    let user_profile = env::var_os("USERPROFILE").map(PathBuf::from);
+    let mut suggestions = Vec::new();
+
+    if let Some(value) = settings_source
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    {
+        suggestions.push(value);
+    }
+    if let Some(value) = config_source
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+    {
+        suggestions.push(value);
+    }
+
+    if let Some(home) = home.as_deref() {
+        suggestions.extend(platform_candidate_paths(
+            integration_id,
+            home,
+            appdata.as_deref(),
+            user_profile.as_deref(),
+        ));
+        if integration_id == "notes" {
+            suggestions.extend(discover_obsidian_vault_paths(
+                home,
+                appdata.as_deref(),
+                user_profile.as_deref(),
+            ));
+        }
+    }
+
+    dedupe_paths(suggestions)
+}
+
+pub(crate) async fn choose_local_source_path(
+    integration_id: &str,
+) -> Result<Option<String>, crate::errors::AppError> {
+    let kind = local_source_path_kind(integration_id)
+        .ok_or_else(|| crate::errors::AppError::bad_request("unsupported local integration"))?;
+    let prompt = match integration_id {
+        "notes" => "Choose Obsidian vault",
+        "activity" => "Choose activity snapshot",
+        "health" => "Choose health snapshot",
+        "git" => "Choose git activity snapshot",
+        "messaging" => "Choose messaging snapshot",
+        "reminders" => "Choose reminders snapshot",
+        "transcripts" => "Choose transcript snapshot",
+        _ => "Choose local source path",
+    };
+
+    if cfg!(target_os = "macos") {
+        return choose_with_osascript(kind, prompt).await;
+    }
+    if cfg!(target_os = "linux") {
+        return choose_with_linux_dialog(kind, prompt).await;
+    }
+    if cfg!(target_os = "windows") {
+        return choose_with_powershell(kind, prompt).await;
+    }
+
+    Err(crate::errors::AppError::bad_request(
+        "path dialogs are not supported on this host platform",
+    ))
 }
 
 pub(crate) fn sanitize_missing_default_local_sources(config: &mut AppConfig) {
@@ -81,6 +174,12 @@ fn auto_local_source_path(integration_id: &str) -> Option<String> {
     auto_local_source_path_for_integration(integration_id)
 }
 
+fn current_home_dir() -> Option<PathBuf> {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("USERPROFILE").map(PathBuf::from))
+}
+
 fn running_on_macos() -> bool {
     cfg!(target_os = "macos")
         || env::var("VEL_FORCE_MACOS_LOCAL_SOURCE_DISCOVERY")
@@ -98,45 +197,65 @@ pub(crate) fn auto_local_source_path_from_home(
     integration_id: &str,
     home: &Path,
 ) -> Option<String> {
-    let candidates = match integration_id {
-        "activity" => vec![
-            home.join("Library/Application Support/Vel/activity/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/activity/snapshot.json"),
-        ],
-        "health" => vec![
-            home.join("Library/Application Support/Vel/health/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/health/snapshot.json"),
-        ],
-        "git" => vec![
-            home.join("Library/Application Support/Vel/git/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/git/snapshot.json"),
-        ],
-        "messaging" => vec![
-            home.join("Library/Application Support/Vel/messages/snapshot.json"),
-            home.join("Library/Application Support/Vel/messaging/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/messages/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/messaging/snapshot.json"),
-        ],
-        "notes" => vec![
-            home.join("Library/Application Support/Vel/notes"),
-            home.join("Library/Application Support/Vel/integrations/notes"),
-        ],
-        "reminders" => vec![
-            home.join("Library/Application Support/Vel/reminders/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/reminders/snapshot.json"),
-        ],
-        "transcripts" => vec![
-            home.join("Library/Application Support/Vel/transcripts/snapshot.json"),
-            home.join("Library/Application Support/Vel/integrations/transcripts/snapshot.json"),
-        ],
-        _ => Vec::new(),
-    };
+    let candidates = candidate_paths_for_home(integration_id, home);
 
     candidates
         .into_iter()
         .find(|candidate| candidate.exists())
         .map(|candidate| candidate.to_string_lossy().to_string())
         .or_else(|| auto_local_source_path_from_support_roots(integration_id, home))
+}
+
+fn candidate_paths_for_home(integration_id: &str, home: &Path) -> Vec<PathBuf> {
+    match integration_id {
+        "activity" => vec![
+            home.join("Library/Application Support/Vel/activity/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/activity/snapshot.json"),
+            home.join(".local/share/vel/activity/snapshot.json"),
+            home.join(".local/share/vel/integrations/activity/snapshot.json"),
+        ],
+        "health" => vec![
+            home.join("Library/Application Support/Vel/health/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/health/snapshot.json"),
+            home.join(".local/share/vel/health/snapshot.json"),
+            home.join(".local/share/vel/integrations/health/snapshot.json"),
+        ],
+        "git" => vec![
+            home.join("Library/Application Support/Vel/git/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/git/snapshot.json"),
+            home.join(".local/share/vel/git/snapshot.json"),
+            home.join(".local/share/vel/integrations/git/snapshot.json"),
+        ],
+        "messaging" => vec![
+            home.join("Library/Application Support/Vel/messages/snapshot.json"),
+            home.join("Library/Application Support/Vel/messaging/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/messages/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/messaging/snapshot.json"),
+            home.join(".local/share/vel/messages/snapshot.json"),
+            home.join(".local/share/vel/messaging/snapshot.json"),
+            home.join(".local/share/vel/integrations/messages/snapshot.json"),
+            home.join(".local/share/vel/integrations/messaging/snapshot.json"),
+        ],
+        "notes" => vec![
+            home.join("Library/Application Support/Vel/notes"),
+            home.join("Library/Application Support/Vel/integrations/notes"),
+            home.join(".local/share/vel/notes"),
+            home.join(".local/share/vel/integrations/notes"),
+        ],
+        "reminders" => vec![
+            home.join("Library/Application Support/Vel/reminders/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/reminders/snapshot.json"),
+            home.join(".local/share/vel/reminders/snapshot.json"),
+            home.join(".local/share/vel/integrations/reminders/snapshot.json"),
+        ],
+        "transcripts" => vec![
+            home.join("Library/Application Support/Vel/transcripts/snapshot.json"),
+            home.join("Library/Application Support/Vel/integrations/transcripts/snapshot.json"),
+            home.join(".local/share/vel/transcripts/snapshot.json"),
+            home.join(".local/share/vel/integrations/transcripts/snapshot.json"),
+        ],
+        _ => Vec::new(),
+    }
 }
 
 fn auto_local_source_path_from_support_roots(integration_id: &str, home: &Path) -> Option<String> {
@@ -160,6 +279,283 @@ fn auto_local_source_path_from_support_roots(integration_id: &str, home: &Path) 
         })
         .find(|candidate| candidate.exists())
         .map(|candidate| candidate.to_string_lossy().to_string())
+}
+
+fn platform_candidate_paths(
+    integration_id: &str,
+    home: &Path,
+    appdata: Option<&Path>,
+    user_profile: Option<&Path>,
+) -> Vec<String> {
+    let mut candidates = candidate_paths_for_home(integration_id, home);
+
+    if let Some(appdata) = appdata {
+        candidates.extend(match integration_id {
+            "activity" => vec![
+                appdata.join("Vel/activity/snapshot.json"),
+                appdata.join("Vel/integrations/activity/snapshot.json"),
+            ],
+            "health" => vec![
+                appdata.join("Vel/health/snapshot.json"),
+                appdata.join("Vel/integrations/health/snapshot.json"),
+            ],
+            "git" => vec![
+                appdata.join("Vel/git/snapshot.json"),
+                appdata.join("Vel/integrations/git/snapshot.json"),
+            ],
+            "messaging" => vec![
+                appdata.join("Vel/messages/snapshot.json"),
+                appdata.join("Vel/messaging/snapshot.json"),
+                appdata.join("Vel/integrations/messages/snapshot.json"),
+                appdata.join("Vel/integrations/messaging/snapshot.json"),
+            ],
+            "notes" => vec![
+                appdata.join("Vel/notes"),
+                appdata.join("Vel/integrations/notes"),
+            ],
+            "reminders" => vec![
+                appdata.join("Vel/reminders/snapshot.json"),
+                appdata.join("Vel/integrations/reminders/snapshot.json"),
+            ],
+            "transcripts" => vec![
+                appdata.join("Vel/transcripts/snapshot.json"),
+                appdata.join("Vel/integrations/transcripts/snapshot.json"),
+            ],
+            _ => Vec::new(),
+        });
+    }
+
+    if let Some(user_profile) = user_profile {
+        candidates.extend(match integration_id {
+            "activity" => vec![user_profile.join("AppData/Roaming/Vel/activity/snapshot.json")],
+            "health" => vec![user_profile.join("AppData/Roaming/Vel/health/snapshot.json")],
+            "git" => vec![user_profile.join("AppData/Roaming/Vel/git/snapshot.json")],
+            "messaging" => vec![
+                user_profile.join("AppData/Roaming/Vel/messages/snapshot.json"),
+                user_profile.join("AppData/Roaming/Vel/messaging/snapshot.json"),
+            ],
+            "notes" => vec![user_profile.join("AppData/Roaming/Vel/notes")],
+            "reminders" => vec![user_profile.join("AppData/Roaming/Vel/reminders/snapshot.json")],
+            "transcripts" => {
+                vec![user_profile.join("AppData/Roaming/Vel/transcripts/snapshot.json")]
+            }
+            _ => Vec::new(),
+        });
+    }
+
+    candidates
+        .into_iter()
+        .map(|candidate| candidate.to_string_lossy().to_string())
+        .collect()
+}
+
+fn discover_obsidian_vault_paths(
+    home: &Path,
+    appdata: Option<&Path>,
+    user_profile: Option<&Path>,
+) -> Vec<String> {
+    let mut config_paths = vec![
+        home.join("Library/Application Support/obsidian/obsidian.json"),
+        home.join(".config/obsidian/obsidian.json"),
+        home.join(".var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json"),
+        home.join("snap/obsidian/current/.config/obsidian/obsidian.json"),
+    ];
+    if let Some(appdata) = appdata {
+        config_paths.push(appdata.join("obsidian/obsidian.json"));
+    }
+    if let Some(user_profile) = user_profile {
+        config_paths.push(user_profile.join("AppData/Roaming/obsidian/obsidian.json"));
+    }
+
+    let mut suggestions = Vec::new();
+    for config_path in dedupe_paths(
+        config_paths
+            .into_iter()
+            .map(|path| path.to_string_lossy().to_string())
+            .collect(),
+    ) {
+        let path = PathBuf::from(&config_path);
+        let Ok(contents) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        suggestions.extend(parse_obsidian_vault_paths(&contents));
+    }
+
+    if let Ok(entries) =
+        std::fs::read_dir(home.join("Library/Mobile Documents/iCloud~md~obsidian/Documents"))
+    {
+        suggestions.extend(
+            entries
+                .filter_map(Result::ok)
+                .map(|entry| entry.path())
+                .filter(|path| path.is_dir())
+                .map(|path| path.to_string_lossy().to_string()),
+        );
+    }
+
+    dedupe_paths(suggestions)
+}
+
+fn parse_obsidian_vault_paths(contents: &str) -> Vec<String> {
+    let Ok(json) = serde_json::from_str::<JsonValue>(contents) else {
+        return Vec::new();
+    };
+    let Some(vaults) = json.get("vaults").and_then(JsonValue::as_object) else {
+        return Vec::new();
+    };
+
+    dedupe_paths(
+        vaults
+            .values()
+            .filter_map(|value| value.get("path").and_then(JsonValue::as_str))
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+    )
+}
+
+fn dedupe_paths(values: Vec<String>) -> Vec<String> {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut existing = Vec::new();
+    let mut missing = Vec::new();
+
+    for value in values {
+        let normalized = value.trim();
+        if normalized.is_empty() || !seen.insert(normalized.to_string()) {
+            continue;
+        }
+        if Path::new(normalized).exists() {
+            existing.push(normalized.to_string());
+        } else {
+            missing.push(normalized.to_string());
+        }
+    }
+
+    existing.extend(missing);
+    existing
+}
+
+async fn choose_with_osascript(
+    kind: LocalSourcePathKind,
+    prompt: &str,
+) -> Result<Option<String>, crate::errors::AppError> {
+    let chooser = match kind {
+        LocalSourcePathKind::Directory => {
+            "set chosenPath to POSIX path of (choose folder with prompt \""
+        }
+        LocalSourcePathKind::File => "set chosenPath to POSIX path of (choose file with prompt \"",
+    };
+    let script = format!(
+        "{}{}\")\nreturn chosenPath",
+        chooser,
+        prompt.replace('"', "\\\""),
+    );
+    run_path_picker_command("osascript", [OsString::from("-e"), OsString::from(script)]).await
+}
+
+async fn choose_with_linux_dialog(
+    kind: LocalSourcePathKind,
+    prompt: &str,
+) -> Result<Option<String>, crate::errors::AppError> {
+    if let Ok(selection) = run_path_picker_command(
+        "zenity",
+        match kind {
+            LocalSourcePathKind::Directory => vec![
+                OsString::from("--file-selection"),
+                OsString::from("--directory"),
+                OsString::from("--title"),
+                OsString::from(prompt),
+            ],
+            LocalSourcePathKind::File => vec![
+                OsString::from("--file-selection"),
+                OsString::from("--title"),
+                OsString::from(prompt),
+            ],
+        },
+    )
+    .await
+    {
+        return Ok(selection);
+    }
+
+    let kdialog_args = match kind {
+        LocalSourcePathKind::Directory => {
+            vec![
+                OsString::from("--getexistingdirectory"),
+                OsString::from("."),
+            ]
+        }
+        LocalSourcePathKind::File => vec![OsString::from("--getopenfilename"), OsString::from(".")],
+    };
+    run_path_picker_command("kdialog", kdialog_args).await
+}
+
+async fn choose_with_powershell(
+    kind: LocalSourcePathKind,
+    prompt: &str,
+) -> Result<Option<String>, crate::errors::AppError> {
+    let script = match kind {
+        LocalSourcePathKind::Directory => format!(
+            "Add-Type -AssemblyName System.Windows.Forms; \
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog; \
+$dialog.Description = '{}'; \
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ Write-Output $dialog.SelectedPath }}",
+            prompt.replace('\'', "''"),
+        ),
+        LocalSourcePathKind::File => format!(
+            "Add-Type -AssemblyName System.Windows.Forms; \
+$dialog = New-Object System.Windows.Forms.OpenFileDialog; \
+$dialog.Title = '{}'; \
+if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ Write-Output $dialog.FileName }}",
+            prompt.replace('\'', "''"),
+        ),
+    };
+    run_path_picker_command(
+        "powershell",
+        [
+            OsString::from("-NoProfile"),
+            OsString::from("-Command"),
+            OsString::from(script),
+        ],
+    )
+    .await
+}
+
+async fn run_path_picker_command<I>(
+    program: &str,
+    args: I,
+) -> Result<Option<String>, crate::errors::AppError>
+where
+    I: IntoIterator<Item = OsString>,
+{
+    let output = tokio::process::Command::new(program)
+        .args(args)
+        .output()
+        .await
+        .map_err(|error| {
+            crate::errors::AppError::bad_request(format!("path dialog unavailable: {}", error))
+        })?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    if output.status.success() {
+        return Ok((!stdout.is_empty()).then_some(stdout));
+    }
+
+    if stderr.contains("User canceled")
+        || stderr.contains("User cancelled")
+        || stderr.contains("-128")
+        || output.status.code() == Some(1)
+    {
+        return Ok(None);
+    }
+
+    Err(crate::errors::AppError::bad_request(format!(
+        "path dialog failed: {}",
+        if stderr.is_empty() { stdout } else { stderr }
+    )))
 }
 
 #[cfg(test)]
@@ -266,6 +662,62 @@ mod tests {
         let resolved = auto_local_source_path_from_home("reminders", &home)
             .expect("reminders snapshot should be discovered");
         assert_eq!(resolved, snapshot_path.to_string_lossy());
+
+        let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn parses_obsidian_vault_paths_from_config() {
+        let suggestions = parse_obsidian_vault_paths(
+            r#"{
+              "vaults": {
+                "work": { "path": "/Users/test/Notes/Work" },
+                "personal": { "path": "/Users/test/Notes/Personal" }
+              }
+            }"#,
+        );
+
+        assert_eq!(
+            suggestions,
+            vec![
+                "/Users/test/Notes/Personal".to_string(),
+                "/Users/test/Notes/Work".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn suggested_paths_include_existing_obsidian_vaults() {
+        let home = unique_temp_dir("obsidian-home");
+        let config_path = home.join("Library/Application Support/obsidian/obsidian.json");
+        let work_vault = home.join("Notes/Work");
+        let personal_vault = home.join("Notes/Personal");
+        fs::create_dir_all(
+            config_path
+                .parent()
+                .expect("obsidian config parent should exist"),
+        )
+        .expect("obsidian config dir should be created");
+        fs::create_dir_all(&work_vault).expect("work vault should exist");
+        fs::create_dir_all(&personal_vault).expect("personal vault should exist");
+        fs::write(
+            &config_path,
+            format!(
+                r#"{{
+                  "vaults": {{
+                    "work": {{ "path": "{}" }},
+                    "personal": {{ "path": "{}" }}
+                  }}
+                }}"#,
+                work_vault.to_string_lossy(),
+                personal_vault.to_string_lossy(),
+            ),
+        )
+        .expect("obsidian config should be written");
+
+        let suggestions = discover_obsidian_vault_paths(&home, None, None);
+        assert!(suggestions.contains(&work_vault.to_string_lossy().to_string()));
+        assert!(suggestions.contains(&personal_vault.to_string_lossy().to_string()));
 
         let _ = fs::remove_dir_all(home);
     }

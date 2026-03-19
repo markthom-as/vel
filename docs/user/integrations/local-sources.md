@@ -48,6 +48,13 @@ Look for:
 - `notes_path`
 - `transcript_snapshot_path`
 
+The Settings page now surfaces two faster setup aids for local-source integrations:
+
+- suggested paths from the host platform when Vel can infer likely locations
+- a `Choose path` or `Choose vault` dialog from the integration card
+
+For Obsidian-backed notes, Vel also suggests locally configured vault roots when it can read the host Obsidian config.
+
 ## How to sync a local source
 
 Examples:

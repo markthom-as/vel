@@ -80,6 +80,8 @@ pub struct LocalIntegrationOutput {
     pub configured: bool,
     pub guidance: Option<IntegrationGuidanceOutput>,
     pub source_path: Option<String>,
+    pub suggested_paths: Vec<String>,
+    pub source_kind: String,
     pub last_sync_at: Option<i64>,
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
@@ -420,7 +422,13 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsOutput, A
         google_calendar: google_status(&google),
         todoist: map_todoist_status(integrations_todoist::todoist_status(&todoist)),
         activity: local_status(
+            "activity",
             integrations_host::effective_local_source_path(
+                "activity",
+                activity.source_path.as_deref(),
+                None,
+            ),
+            integrations_host::suggested_local_source_paths(
                 "activity",
                 activity.source_path.as_deref(),
                 None,
@@ -428,7 +436,13 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsOutput, A
             &activity,
         ),
         health: local_status(
+            "health",
             integrations_host::effective_local_source_path(
+                "health",
+                health.source_path.as_deref(),
+                None,
+            ),
+            integrations_host::suggested_local_source_paths(
                 "health",
                 health.source_path.as_deref(),
                 None,
@@ -436,11 +450,23 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsOutput, A
             &health,
         ),
         git: local_status(
+            "git",
             integrations_host::effective_local_source_path("git", git.source_path.as_deref(), None),
+            integrations_host::suggested_local_source_paths(
+                "git",
+                git.source_path.as_deref(),
+                None,
+            ),
             &git,
         ),
         messaging: local_status(
+            "messaging",
             integrations_host::effective_local_source_path(
+                "messaging",
+                messaging.source_path.as_deref(),
+                None,
+            ),
+            integrations_host::suggested_local_source_paths(
                 "messaging",
                 messaging.source_path.as_deref(),
                 None,
@@ -448,7 +474,13 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsOutput, A
             &messaging,
         ),
         reminders: local_status(
+            "reminders",
             integrations_host::effective_local_source_path(
+                "reminders",
+                reminders.source_path.as_deref(),
+                None,
+            ),
+            integrations_host::suggested_local_source_paths(
                 "reminders",
                 reminders.source_path.as_deref(),
                 None,
@@ -456,7 +488,13 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsOutput, A
             &reminders,
         ),
         notes: local_status(
+            "notes",
             integrations_host::effective_local_source_path(
+                "notes",
+                notes.source_path.as_deref(),
+                None,
+            ),
+            integrations_host::suggested_local_source_paths(
                 "notes",
                 notes.source_path.as_deref(),
                 None,
@@ -464,7 +502,13 @@ pub async fn get_integrations(storage: &Storage) -> Result<IntegrationsOutput, A
             &notes,
         ),
         transcripts: local_status(
+            "transcripts",
             integrations_host::effective_local_source_path(
+                "transcripts",
+                transcripts.source_path.as_deref(),
+                None,
+            ),
+            integrations_host::suggested_local_source_paths(
                 "transcripts",
                 transcripts.source_path.as_deref(),
                 None,
@@ -491,7 +535,13 @@ pub async fn get_integrations_with_config(
         google_calendar: google_status(&google),
         todoist: map_todoist_status(integrations_todoist::todoist_status(&todoist)),
         activity: local_status(
+            "activity",
             integrations_host::effective_local_source_path(
+                "activity",
+                activity.source_path.as_deref(),
+                config.activity_snapshot_path.as_deref(),
+            ),
+            integrations_host::suggested_local_source_paths(
                 "activity",
                 activity.source_path.as_deref(),
                 config.activity_snapshot_path.as_deref(),
@@ -499,7 +549,13 @@ pub async fn get_integrations_with_config(
             &activity,
         ),
         health: local_status(
+            "health",
             integrations_host::effective_local_source_path(
+                "health",
+                health.source_path.as_deref(),
+                config.health_snapshot_path.as_deref(),
+            ),
+            integrations_host::suggested_local_source_paths(
                 "health",
                 health.source_path.as_deref(),
                 config.health_snapshot_path.as_deref(),
@@ -507,7 +563,13 @@ pub async fn get_integrations_with_config(
             &health,
         ),
         git: local_status(
+            "git",
             integrations_host::effective_local_source_path(
+                "git",
+                git.source_path.as_deref(),
+                config.git_snapshot_path.as_deref(),
+            ),
+            integrations_host::suggested_local_source_paths(
                 "git",
                 git.source_path.as_deref(),
                 config.git_snapshot_path.as_deref(),
@@ -515,7 +577,13 @@ pub async fn get_integrations_with_config(
             &git,
         ),
         messaging: local_status(
+            "messaging",
             integrations_host::effective_local_source_path(
+                "messaging",
+                messaging.source_path.as_deref(),
+                config.messaging_snapshot_path.as_deref(),
+            ),
+            integrations_host::suggested_local_source_paths(
                 "messaging",
                 messaging.source_path.as_deref(),
                 config.messaging_snapshot_path.as_deref(),
@@ -523,7 +591,13 @@ pub async fn get_integrations_with_config(
             &messaging,
         ),
         reminders: local_status(
+            "reminders",
             integrations_host::effective_local_source_path(
+                "reminders",
+                reminders.source_path.as_deref(),
+                config.reminders_snapshot_path.as_deref(),
+            ),
+            integrations_host::suggested_local_source_paths(
                 "reminders",
                 reminders.source_path.as_deref(),
                 config.reminders_snapshot_path.as_deref(),
@@ -531,7 +605,13 @@ pub async fn get_integrations_with_config(
             &reminders,
         ),
         notes: local_status(
+            "notes",
             integrations_host::effective_local_source_path(
+                "notes",
+                notes.source_path.as_deref(),
+                config.notes_path.as_deref(),
+            ),
+            integrations_host::suggested_local_source_paths(
                 "notes",
                 notes.source_path.as_deref(),
                 config.notes_path.as_deref(),
@@ -539,7 +619,13 @@ pub async fn get_integrations_with_config(
             &notes,
         ),
         transcripts: local_status(
+            "transcripts",
             integrations_host::effective_local_source_path(
+                "transcripts",
+                transcripts.source_path.as_deref(),
+                config.transcript_snapshot_path.as_deref(),
+            ),
+            integrations_host::suggested_local_source_paths(
                 "transcripts",
                 transcripts.source_path.as_deref(),
                 config.transcript_snapshot_path.as_deref(),
@@ -871,6 +957,13 @@ pub async fn update_local_source_path(
     get_integrations(storage).await
 }
 
+pub async fn choose_local_source_path(source: &str) -> Result<Option<String>, AppError> {
+    if local_settings_key(source).is_empty() {
+        return Err(AppError::not_found("integration not found"));
+    }
+    integrations_host::choose_local_source_path(source).await
+}
+
 pub async fn disconnect_google_calendar(storage: &Storage) -> Result<IntegrationsOutput, AppError> {
     let mut settings = load_google_settings(storage).await?;
     settings.access_token = None;
@@ -1031,13 +1124,21 @@ fn google_status(settings: &GoogleCalendarSettings) -> GoogleCalendarIntegration
 }
 
 fn local_status(
+    integration_id: &str,
     source_path: Option<String>,
+    suggested_paths: Vec<String>,
     settings: &LocalIntegrationSettings,
 ) -> LocalIntegrationOutput {
     LocalIntegrationOutput {
         configured: source_path.is_some(),
         guidance: local_guidance(source_path.as_deref(), settings),
         source_path,
+        suggested_paths,
+        source_kind: match integrations_host::local_source_path_kind(integration_id) {
+            Some(integrations_host::LocalSourcePathKind::Directory) => "directory".to_string(),
+            Some(integrations_host::LocalSourcePathKind::File) => "file".to_string(),
+            None => "path".to_string(),
+        },
         last_sync_at: settings.last_sync_at,
         last_sync_status: settings.last_sync_status.clone(),
         last_error: settings.last_error.clone(),

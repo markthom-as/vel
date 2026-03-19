@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 use vel_core::{
-    ActionItemId, ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, PrivacyClass,
-    ProjectId, ResolvedCommand, RiskFactors, RiskSnapshot, RunId, SyncClass,
+    ActionItemId, ArtifactId, ArtifactStorageKind, CaptureId, CommitmentId, ConflictCaseId,
+    IntegrationConnectionId, IntegrationFamily, PersonId, PrivacyClass, ProjectId, ResolvedCommand,
+    RiskFactors, RiskSnapshot, RunId, SyncClass, WritebackOperationId,
 };
 
 /// Wire-level timestamp for resource DTO fields that use Unix seconds.
@@ -231,6 +232,63 @@ pub struct ClusterBootstrapData {
     pub projects: Vec<ProjectRecordData>,
     #[serde(default)]
     pub action_items: Vec<ActionItemData>,
+    #[serde(default)]
+    pub pending_writebacks: Vec<WritebackOperationData>,
+    #[serde(default)]
+    pub conflicts: Vec<ConflictCaseData>,
+    #[serde(default)]
+    pub people: Vec<PersonRecordData>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IntegrationFamilyData {
+    Calendar,
+    Tasks,
+    Activity,
+    Git,
+    Messaging,
+    Notes,
+    Transcripts,
+    Documents,
+    Health,
+    Gaming,
+}
+
+impl From<IntegrationFamily> for IntegrationFamilyData {
+    fn from(value: IntegrationFamily) -> Self {
+        match value {
+            IntegrationFamily::Calendar => Self::Calendar,
+            IntegrationFamily::Tasks => Self::Tasks,
+            IntegrationFamily::Activity => Self::Activity,
+            IntegrationFamily::Git => Self::Git,
+            IntegrationFamily::Messaging => Self::Messaging,
+            IntegrationFamily::Notes => Self::Notes,
+            IntegrationFamily::Transcripts => Self::Transcripts,
+            IntegrationFamily::Documents => Self::Documents,
+            IntegrationFamily::Health => Self::Health,
+            IntegrationFamily::Gaming => Self::Gaming,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrationSourceRefData {
+    pub family: IntegrationFamilyData,
+    pub provider_key: String,
+    pub connection_id: IntegrationConnectionId,
+    pub external_id: String,
+}
+
+impl From<vel_core::IntegrationSourceRef> for IntegrationSourceRefData {
+    fn from(value: vel_core::IntegrationSourceRef) -> Self {
+        Self {
+            family: value.family.into(),
+            provider_key: value.provider_key,
+            connection_id: value.connection_id,
+            external_id: value.external_id,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -320,8 +378,11 @@ pub struct ProjectRecordData {
     pub upstream_ids: BTreeMap<String, String>,
     #[serde(default)]
     pub pending_provision: ProjectProvisionRequestData,
+    #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
     pub updated_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
     pub archived_at: Option<OffsetDateTime>,
 }
 
@@ -529,6 +590,300 @@ impl From<vel_core::ReviewSnapshot> for ReviewSnapshotData {
             open_action_count: value.open_action_count,
             triage_count: value.triage_count,
             projects_needing_review: value.projects_needing_review,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WritebackTargetRefData {
+    pub family: IntegrationFamilyData,
+    pub provider_key: String,
+    pub project_id: Option<ProjectId>,
+    pub connection_id: Option<IntegrationConnectionId>,
+    pub external_id: Option<String>,
+}
+
+impl From<vel_core::WritebackTargetRef> for WritebackTargetRefData {
+    fn from(value: vel_core::WritebackTargetRef) -> Self {
+        Self {
+            family: value.family.into(),
+            provider_key: value.provider_key,
+            project_id: value.project_id,
+            connection_id: value.connection_id,
+            external_id: value.external_id,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WritebackRiskData {
+    Safe,
+    ConfirmRequired,
+    Blocked,
+}
+
+impl From<vel_core::WritebackRisk> for WritebackRiskData {
+    fn from(value: vel_core::WritebackRisk) -> Self {
+        match value {
+            vel_core::WritebackRisk::Safe => Self::Safe,
+            vel_core::WritebackRisk::ConfirmRequired => Self::ConfirmRequired,
+            vel_core::WritebackRisk::Blocked => Self::Blocked,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WritebackStatusData {
+    Queued,
+    InProgress,
+    Applied,
+    Conflicted,
+    Denied,
+    Failed,
+    Cancelled,
+}
+
+impl From<vel_core::WritebackStatus> for WritebackStatusData {
+    fn from(value: vel_core::WritebackStatus) -> Self {
+        match value {
+            vel_core::WritebackStatus::Queued => Self::Queued,
+            vel_core::WritebackStatus::InProgress => Self::InProgress,
+            vel_core::WritebackStatus::Applied => Self::Applied,
+            vel_core::WritebackStatus::Conflicted => Self::Conflicted,
+            vel_core::WritebackStatus::Denied => Self::Denied,
+            vel_core::WritebackStatus::Failed => Self::Failed,
+            vel_core::WritebackStatus::Cancelled => Self::Cancelled,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WritebackOperationKindData {
+    TodoistCreateTask,
+    TodoistUpdateTask,
+    TodoistCompleteTask,
+    TodoistReopenTask,
+    NotesCreateNote,
+    NotesAppendNote,
+    RemindersCreate,
+    RemindersUpdate,
+    RemindersComplete,
+    GithubCreateIssue,
+    GithubAddComment,
+    GithubCloseIssue,
+    GithubReopenIssue,
+    EmailCreateDraftReply,
+    EmailSendDraft,
+}
+
+impl From<vel_core::WritebackOperationKind> for WritebackOperationKindData {
+    fn from(value: vel_core::WritebackOperationKind) -> Self {
+        match value {
+            vel_core::WritebackOperationKind::TodoistCreateTask => Self::TodoistCreateTask,
+            vel_core::WritebackOperationKind::TodoistUpdateTask => Self::TodoistUpdateTask,
+            vel_core::WritebackOperationKind::TodoistCompleteTask => Self::TodoistCompleteTask,
+            vel_core::WritebackOperationKind::TodoistReopenTask => Self::TodoistReopenTask,
+            vel_core::WritebackOperationKind::NotesCreateNote => Self::NotesCreateNote,
+            vel_core::WritebackOperationKind::NotesAppendNote => Self::NotesAppendNote,
+            vel_core::WritebackOperationKind::RemindersCreate => Self::RemindersCreate,
+            vel_core::WritebackOperationKind::RemindersUpdate => Self::RemindersUpdate,
+            vel_core::WritebackOperationKind::RemindersComplete => Self::RemindersComplete,
+            vel_core::WritebackOperationKind::GithubCreateIssue => Self::GithubCreateIssue,
+            vel_core::WritebackOperationKind::GithubAddComment => Self::GithubAddComment,
+            vel_core::WritebackOperationKind::GithubCloseIssue => Self::GithubCloseIssue,
+            vel_core::WritebackOperationKind::GithubReopenIssue => Self::GithubReopenIssue,
+            vel_core::WritebackOperationKind::EmailCreateDraftReply => Self::EmailCreateDraftReply,
+            vel_core::WritebackOperationKind::EmailSendDraft => Self::EmailSendDraft,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WritebackOperationData {
+    pub id: WritebackOperationId,
+    pub kind: WritebackOperationKindData,
+    pub risk: WritebackRiskData,
+    pub status: WritebackStatusData,
+    pub target: WritebackTargetRefData,
+    pub requested_payload: JsonValue,
+    pub result_payload: Option<JsonValue>,
+    #[serde(default)]
+    pub provenance: Vec<IntegrationSourceRefData>,
+    pub conflict_case_id: Option<String>,
+    pub requested_by_node_id: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub requested_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub applied_at: Option<OffsetDateTime>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub updated_at: OffsetDateTime,
+}
+
+impl From<vel_core::WritebackOperationRecord> for WritebackOperationData {
+    fn from(value: vel_core::WritebackOperationRecord) -> Self {
+        Self {
+            id: value.id,
+            kind: value.kind.into(),
+            risk: value.risk.into(),
+            status: value.status.into(),
+            target: value.target.into(),
+            requested_payload: value.requested_payload,
+            result_payload: value.result_payload,
+            provenance: value.provenance.into_iter().map(Into::into).collect(),
+            conflict_case_id: value.conflict_case_id,
+            requested_by_node_id: value.requested_by_node_id,
+            requested_at: value.requested_at,
+            applied_at: value.applied_at,
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictCaseKindData {
+    UpstreamVsLocal,
+    CrossClient,
+    StaleWrite,
+    ExecutorUnavailable,
+}
+
+impl From<vel_core::ConflictCaseKind> for ConflictCaseKindData {
+    fn from(value: vel_core::ConflictCaseKind) -> Self {
+        match value {
+            vel_core::ConflictCaseKind::UpstreamVsLocal => Self::UpstreamVsLocal,
+            vel_core::ConflictCaseKind::CrossClient => Self::CrossClient,
+            vel_core::ConflictCaseKind::StaleWrite => Self::StaleWrite,
+            vel_core::ConflictCaseKind::ExecutorUnavailable => Self::ExecutorUnavailable,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictCaseStatusData {
+    Open,
+    Acknowledged,
+    Resolved,
+    Dismissed,
+    Expired,
+}
+
+impl From<vel_core::ConflictCaseStatus> for ConflictCaseStatusData {
+    fn from(value: vel_core::ConflictCaseStatus) -> Self {
+        match value {
+            vel_core::ConflictCaseStatus::Open => Self::Open,
+            vel_core::ConflictCaseStatus::Acknowledged => Self::Acknowledged,
+            vel_core::ConflictCaseStatus::Resolved => Self::Resolved,
+            vel_core::ConflictCaseStatus::Dismissed => Self::Dismissed,
+            vel_core::ConflictCaseStatus::Expired => Self::Expired,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictCaseData {
+    pub id: ConflictCaseId,
+    pub kind: ConflictCaseKindData,
+    pub status: ConflictCaseStatusData,
+    pub target: WritebackTargetRefData,
+    pub summary: String,
+    pub local_payload: JsonValue,
+    pub upstream_payload: Option<JsonValue>,
+    pub resolution_payload: Option<JsonValue>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub opened_at: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub resolved_at: Option<OffsetDateTime>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub updated_at: OffsetDateTime,
+}
+
+impl From<vel_core::ConflictCaseRecord> for ConflictCaseData {
+    fn from(value: vel_core::ConflictCaseRecord) -> Self {
+        Self {
+            id: value.id,
+            kind: value.kind.into(),
+            status: value.status.into(),
+            target: value.target.into(),
+            summary: value.summary,
+            local_payload: value.local_payload,
+            upstream_payload: value.upstream_payload,
+            resolution_payload: value.resolution_payload,
+            opened_at: value.opened_at,
+            resolved_at: value.resolved_at,
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonAliasData {
+    pub platform: String,
+    pub handle: String,
+    pub display: String,
+    pub source_ref: Option<IntegrationSourceRefData>,
+}
+
+impl From<vel_core::PersonAlias> for PersonAliasData {
+    fn from(value: vel_core::PersonAlias) -> Self {
+        Self {
+            platform: value.platform,
+            handle: value.handle,
+            display: value.display,
+            source_ref: value.source_ref.map(Into::into),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonLinkRefData {
+    pub kind: String,
+    pub id: String,
+    pub label: String,
+}
+
+impl From<vel_core::PersonLinkRef> for PersonLinkRefData {
+    fn from(value: vel_core::PersonLinkRef) -> Self {
+        Self {
+            kind: value.kind,
+            id: value.id,
+            label: value.label,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PersonRecordData {
+    pub id: PersonId,
+    pub display_name: String,
+    pub given_name: Option<String>,
+    pub family_name: Option<String>,
+    pub relationship_context: Option<String>,
+    pub birthday: Option<String>,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub last_contacted_at: Option<OffsetDateTime>,
+    #[serde(default)]
+    pub aliases: Vec<PersonAliasData>,
+    #[serde(default)]
+    pub links: Vec<PersonLinkRefData>,
+}
+
+impl From<vel_core::PersonRecord> for PersonRecordData {
+    fn from(value: vel_core::PersonRecord) -> Self {
+        Self {
+            id: value.id,
+            display_name: value.display_name,
+            given_name: value.given_name,
+            family_name: value.family_name,
+            relationship_context: value.relationship_context,
+            birthday: value.birthday,
+            last_contacted_at: value.last_contacted_at,
+            aliases: value.aliases.into_iter().map(Into::into).collect(),
+            links: value.links.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -1478,11 +1833,19 @@ pub struct TodoistIntegrationData {
 pub struct LocalIntegrationData {
     pub configured: bool,
     pub source_path: Option<String>,
+    #[serde(default)]
+    pub suggested_paths: Vec<String>,
+    pub source_kind: String,
     pub last_sync_at: Option<UnixSeconds>,
     pub last_sync_status: Option<String>,
     pub last_error: Option<String>,
     pub last_item_count: Option<u32>,
     pub guidance: Option<IntegrationGuidanceData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalIntegrationPathSelectionData {
+    pub source_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2324,6 +2687,12 @@ pub struct SyncBootstrapData {
     pub projects: Vec<ProjectRecordData>,
     #[serde(default)]
     pub action_items: Vec<ActionItemData>,
+    #[serde(default)]
+    pub pending_writebacks: Vec<WritebackOperationData>,
+    #[serde(default)]
+    pub conflicts: Vec<ConflictCaseData>,
+    #[serde(default)]
+    pub people: Vec<PersonRecordData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2447,6 +2816,12 @@ pub struct NowData {
     pub action_items: Vec<ActionItemData>,
     #[serde(default)]
     pub review_snapshot: ReviewSnapshotData,
+    #[serde(default)]
+    pub pending_writebacks: Vec<WritebackOperationData>,
+    #[serde(default)]
+    pub conflicts: Vec<ConflictCaseData>,
+    #[serde(default)]
+    pub people: Vec<PersonRecordData>,
     pub reasons: Vec<String>,
     pub debug: NowDebugData,
 }
@@ -2596,10 +2971,12 @@ pub struct NudgeEventData {
 mod tests {
     use super::{
         ActionEvidenceRefData, ActionItemData, ActionKindData, ActionStateData, ActionSurfaceData,
-        NowTaskData, ReviewSnapshotData,
+        NowTaskData, ProjectFamilyData, ProjectProvisionRequestData, ProjectRecordData,
+        ProjectRootRefData, ProjectStatusData, ReviewSnapshotData,
     };
+    use std::collections::BTreeMap;
     use time::macros::datetime;
-    use vel_core::ActionItemId;
+    use vel_core::{ActionItemId, ProjectId};
 
     #[test]
     fn now_task_due_at_serializes_as_rfc3339_string() {
@@ -2665,5 +3042,41 @@ mod tests {
         let value = serde_json::to_value(item).expect("action item should serialize");
         assert_eq!(value["surfaced_at"], "2026-03-19T02:10:00Z");
         assert_eq!(value["snoozed_until"], "2026-03-19T02:20:00Z");
+    }
+
+    #[test]
+    fn project_record_timestamps_serialize_as_rfc3339_strings() {
+        let project = ProjectRecordData {
+            id: ProjectId::from("proj_1".to_string()),
+            slug: "vel".to_string(),
+            name: "Vel".to_string(),
+            family: ProjectFamilyData::Work,
+            status: ProjectStatusData::Active,
+            primary_repo: ProjectRootRefData {
+                path: "/tmp/vel".to_string(),
+                label: "vel".to_string(),
+                kind: "repo".to_string(),
+            },
+            primary_notes_root: ProjectRootRefData {
+                path: "/tmp/notes/vel".to_string(),
+                label: "vel".to_string(),
+                kind: "notes_root".to_string(),
+            },
+            secondary_repos: vec![],
+            secondary_notes_roots: vec![],
+            upstream_ids: BTreeMap::new(),
+            pending_provision: ProjectProvisionRequestData {
+                create_repo: false,
+                create_notes_root: false,
+            },
+            created_at: datetime!(2026-03-19 02:10:00 UTC),
+            updated_at: datetime!(2026-03-19 02:20:00 UTC),
+            archived_at: None,
+        };
+
+        let value = serde_json::to_value(project).expect("project should serialize");
+        assert_eq!(value["created_at"], "2026-03-19T02:10:00Z");
+        assert_eq!(value["updated_at"], "2026-03-19T02:20:00Z");
+        assert!(value["archived_at"].is_null());
     }
 }

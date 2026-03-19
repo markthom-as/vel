@@ -4,8 +4,8 @@ use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{
     ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionState, ActionSurface,
-    Commitment, CommitmentStatus, LinkStatus, LinkedNodeRecord, ProjectId, ProjectRecord,
-    ProjectStatus, ReviewSnapshot,
+    Commitment, CommitmentStatus, ConflictCaseRecord, LinkStatus, LinkedNodeRecord, ProjectId,
+    ProjectRecord, ProjectStatus, ReviewSnapshot, WritebackOperationRecord, WritebackStatus,
 };
 use vel_storage::{InterventionRecord, Storage};
 
@@ -15,6 +15,7 @@ const FRESHNESS_ALERT_RANK: i64 = 90;
 const LINKING_ALERT_RANK: i64 = 85;
 const INTERVENTION_RANK: i64 = 80;
 const PROJECT_BLOCKED_RANK: i64 = 75;
+const WRITEBACK_PENDING_RANK: i64 = 72;
 const NEXT_COMMITMENT_RANK: i64 = 70;
 const PROJECT_REVIEW_RANK: i64 = 60;
 const SNOOZED_INTERVENTION_RANK: i64 = 40;
@@ -23,6 +24,8 @@ const SNOOZED_INTERVENTION_RANK: i64 = 40;
 pub struct ActionQueueSnapshot {
     pub action_items: Vec<ActionItem>,
     pub review_snapshot: ReviewSnapshot,
+    pub pending_writebacks: Vec<WritebackOperationRecord>,
+    pub conflicts: Vec<ConflictCaseRecord>,
 }
 
 pub async fn build_action_items(
@@ -37,6 +40,9 @@ pub async fn build_action_items(
         .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
         .await?;
     let interventions = storage.list_interventions_active(64).await?;
+    let pending_writebacks =
+        crate::services::writeback::list_pending_writebacks(storage, 32).await?;
+    let conflicts = crate::services::writeback::list_open_conflicts(storage, 32).await?;
     let integrations = integrations::get_integrations_with_config(storage, config).await?;
     let current_context = storage.get_current_context().await?;
 
@@ -47,6 +53,8 @@ pub async fn build_action_items(
         &integrations,
     ));
     items.extend(build_linking_items(linked_nodes));
+    items.extend(build_writeback_items(&pending_writebacks));
+    items.extend(build_conflict_items(&conflicts));
     items.extend(build_intervention_items(interventions));
     items.extend(build_project_items(now, &projects));
     items.extend(build_commitment_items(now, commitments, &project_lookup));
@@ -79,7 +87,64 @@ pub async fn build_action_items(
     Ok(ActionQueueSnapshot {
         action_items: items,
         review_snapshot,
+        pending_writebacks,
+        conflicts,
     })
+}
+
+fn build_writeback_items(records: &[WritebackOperationRecord]) -> Vec<ActionItem> {
+    records
+        .iter()
+        .filter(|record| !matches!(record.status, WritebackStatus::Conflicted))
+        .map(|record| ActionItem {
+            id: ActionItemId::from(format!("act_writeback_{}", record.id.as_ref())),
+            surface: ActionSurface::Inbox,
+            kind: ActionKind::NextStep,
+            title: format!("Queued write: {}", record.kind),
+            summary: format!(
+                "Status is {} for {}:{}.",
+                record.status, record.target.family, record.target.provider_key
+            ),
+            project_id: record.target.project_id.clone(),
+            state: ActionState::Active,
+            rank: WRITEBACK_PENDING_RANK,
+            surfaced_at: record.updated_at,
+            snoozed_until: None,
+            evidence: vec![ActionEvidenceRef {
+                source_kind: "writeback_operation".to_string(),
+                source_id: record.id.to_string(),
+                label: record.kind.to_string(),
+                detail: Some(format!("risk={}, status={}", record.risk, record.status)),
+            }],
+        })
+        .collect()
+}
+
+fn build_conflict_items(records: &[ConflictCaseRecord]) -> Vec<ActionItem> {
+    records
+        .iter()
+        .map(|record| ActionItem {
+            id: ActionItemId::from(format!("act_conflict_{}", record.id.as_ref())),
+            surface: ActionSurface::Inbox,
+            kind: ActionKind::Conflict,
+            title: format!("Conflict needs review: {}", record.summary),
+            summary: format!(
+                "{}:{} has an open {} case.",
+                record.target.family, record.target.provider_key, record.kind
+            ),
+            project_id: record.target.project_id.clone(),
+            state: ActionState::Active,
+            rank: LINKING_ALERT_RANK + 1,
+            surfaced_at: record.updated_at,
+            snoozed_until: None,
+            evidence: vec![ActionEvidenceRef {
+                source_kind: "conflict_case".to_string(),
+                source_id: record.id.to_string(),
+                label: record.kind.to_string(),
+                detail: Some(record.summary.clone()),
+            }],
+        })
+        .collect()
 }
 
 fn build_freshness_items(
@@ -473,7 +538,9 @@ mod tests {
     use super::*;
     use time::Duration;
     use vel_core::{
-        LinkScope, ProjectFamily, ProjectProvisionRequest, ProjectRootRef, ProjectStatus,
+        ConflictCaseKind, ConflictCaseStatus, IntegrationFamily, LinkScope, NodeIdentity,
+        OrderingStamp, ProjectFamily, ProjectProvisionRequest, ProjectRootRef, ProjectStatus,
+        WritebackOperationKind, WritebackRisk, WritebackStatus, WritebackTargetRef,
     };
     use vel_storage::{ConversationInsert, InterventionInsert, MessageInsert};
 
@@ -587,6 +654,59 @@ mod tests {
             })
             .await
             .unwrap();
+        storage
+            .insert_writeback_operation(
+                &WritebackOperationRecord {
+                    id: "wb_action_items".to_string().into(),
+                    kind: WritebackOperationKind::TodoistCreateTask,
+                    risk: WritebackRisk::ConfirmRequired,
+                    status: WritebackStatus::Queued,
+                    target: WritebackTargetRef {
+                        family: IntegrationFamily::Tasks,
+                        provider_key: "todoist".to_string(),
+                        project_id: Some("proj_action_items".to_string().into()),
+                        connection_id: Some("icn_action_items".to_string().into()),
+                        external_id: Some("todo_queued".to_string()),
+                    },
+                    requested_payload: serde_json::json!({"content": "queued"}),
+                    result_payload: None,
+                    provenance: vec![],
+                    conflict_case_id: None,
+                    requested_by_node_id: "node_alpha".to_string(),
+                    requested_at: now,
+                    applied_at: None,
+                    updated_at: now,
+                },
+                &OrderingStamp::new(
+                    now.unix_timestamp(),
+                    1,
+                    NodeIdentity::from("123e4567-e89b-12d3-a456-426614174000".to_string()),
+                ),
+            )
+            .await
+            .unwrap();
+        storage
+            .insert_conflict_case(&ConflictCaseRecord {
+                id: "conf_action_items".to_string().into(),
+                kind: ConflictCaseKind::UpstreamVsLocal,
+                status: ConflictCaseStatus::Open,
+                target: WritebackTargetRef {
+                    family: IntegrationFamily::Tasks,
+                    provider_key: "todoist".to_string(),
+                    project_id: Some("proj_action_items".to_string().into()),
+                    connection_id: Some("icn_action_items".to_string().into()),
+                    external_id: Some("todo_conflict".to_string()),
+                },
+                summary: "Todoist differs upstream".to_string(),
+                local_payload: serde_json::json!({"content": "local"}),
+                upstream_payload: Some(serde_json::json!({"content": "remote"})),
+                resolution_payload: None,
+                opened_at: now,
+                resolved_at: None,
+                updated_at: now,
+            })
+            .await
+            .unwrap();
 
         let snapshot = build_action_items(&storage, &AppConfig::default())
             .await
@@ -596,8 +716,11 @@ mod tests {
         assert!(snapshot.action_items.iter().any(|item| item.rank == 85));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 80));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 75));
+        assert!(snapshot.action_items.iter().any(|item| item.rank == 72));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 70));
         assert!(snapshot.action_items.iter().any(|item| item.rank == 60));
+        assert_eq!(snapshot.pending_writebacks.len(), 1);
+        assert_eq!(snapshot.conflicts.len(), 1);
         assert!(snapshot
             .action_items
             .iter()

@@ -41,9 +41,36 @@ pub async fn bootstrap(
                 environment: profile.environment,
             })
             .collect(),
-        linked_nodes: vec![],
-        projects: vec![],
-        action_items: vec![],
+        linked_nodes: data
+            .linked_nodes
+            .into_iter()
+            .map(vel_api_types::LinkedNodeData::from)
+            .collect(),
+        projects: data
+            .projects
+            .into_iter()
+            .map(vel_api_types::ProjectRecordData::from)
+            .collect(),
+        action_items: data
+            .action_items
+            .into_iter()
+            .map(vel_api_types::ActionItemData::from)
+            .collect(),
+        pending_writebacks: data
+            .pending_writebacks
+            .into_iter()
+            .map(vel_api_types::WritebackOperationData::from)
+            .collect(),
+        conflicts: data
+            .conflicts
+            .into_iter()
+            .map(vel_api_types::ConflictCaseData::from)
+            .collect(),
+        people: data
+            .people
+            .into_iter()
+            .map(vel_api_types::PersonRecordData::from)
+            .collect(),
     };
     Ok(response::success(data))
 }
