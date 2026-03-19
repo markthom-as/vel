@@ -7,7 +7,7 @@ use futures::future::join_all;
 use time::OffsetDateTime;
 use tokio::time::{timeout, Duration};
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, SyncBootstrapData};
+use vel_api_types::{ApiResponse, ClusterBootstrapData};
 
 use crate::{errors::AppError, state::AppState};
 use vel_core::{
@@ -462,10 +462,10 @@ async fn fetch_tailscale_peer_worker(
             continue;
         }
 
-        let Ok(body) = response.json::<ApiResponse<SyncBootstrapData>>().await else {
+        let Ok(body) = response.json::<ApiResponse<ClusterBootstrapData>>().await else {
             continue;
         };
-        let Some(cluster) = body.data.map(|data| data.cluster) else {
+        let Some(cluster) = body.data else {
             continue;
         };
         return Some(discovered_worker_from_bootstrap(
@@ -496,7 +496,7 @@ async fn discover_lan_workers(
 
 fn discovered_worker_from_bootstrap(
     peer: &crate::services::tailscale::TailscalePeer,
-    cluster: vel_api_types::ClusterBootstrapData,
+    cluster: ClusterBootstrapData,
     now: i64,
     resolved_base_url: &str,
 ) -> WorkerPresence {

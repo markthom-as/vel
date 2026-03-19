@@ -2,7 +2,7 @@
 
 ## Overview
 
-Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical baselines with unfinished original-scope work explicitly re-scoped into Phases 5, 6, and 8. There is no remaining active roadmap work before Phase 5. The active roadmap now begins with the product-shaping sequence focused on `Now + Inbox`, project substrate, high-value write-back integrations, Apple action loops, coding-centric supervised execution, backup-first trust surfaces, a strict daily-loop MVP, and operator-shell/onboarding ergonomics (Phases 5-11). Each remaining phase produces a verifiable capability boundary before the next begins.
+Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical baselines with unfinished original-scope work explicitly re-scoped into Phases 5, 6, and 8. There is no remaining active roadmap work before Phase 5. The active roadmap now begins with the product-shaping sequence focused on `Now + Inbox`, project substrate, high-value write-back integrations, Apple action loops, coding-centric supervised execution, backup-first trust surfaces, a strict daily-loop MVP, agent grounding over real Vel data/tools, and operator-shell/onboarding ergonomics (Phases 5-12). Each remaining phase produces a verifiable capability boundary before the next begins.
 
 ## Phases
 
@@ -21,7 +21,8 @@ Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical base
 - [x] **Phase 8: Coding-centric supervised execution with GSD and local agents** - Launch and supervise coding-first runtimes with direct GSD integration and local-agent support (COMPLETE)
 - [ ] **Phase 9: Backup-first trust surfaces and simple operator control** - Add backup-first trust workflows and keep control/config surfaces simple
 - [ ] **Phase 10: Daily-loop morning overview and standup commitment engine** - Turn `Now`, calendar, Todoist, commitments, and voice into a bounded daily prioritization loop
-- [ ] **Phase 11: Operator shell, onboarding, and connector ergonomics** - Make the daily loop and integration surfaces easier to adopt, navigate, and trust
+- [ ] **Phase 11: Agent grounding and operator-relevant data/tool awareness** - Make supervised agents aware of real Vel state, projects, people, commitments, and bounded tool surfaces
+- [ ] **Phase 12: Operator shell, onboarding, and connector ergonomics** - Make the daily loop and integration surfaces easier to adopt, navigate, and trust
 
 ## Phase Details
 
@@ -117,7 +118,7 @@ Residual work moved forward:
 ## Progress
 
 **Execution Order:**
-Remaining execution order: 9 → 10 → 11
+Remaining execution order: 9 → 10 → 11 → 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -132,7 +133,8 @@ Remaining execution order: 9 → 10 → 11
 | 8. Coding-centric supervised execution with GSD and local agents | 6/6 | Complete | 2026-03-19 |
 | 9. Backup-first trust surfaces and simple operator control | 0/4 | Ready to execute | - |
 | 10. Daily-loop morning overview and standup commitment engine | 0/0 | Not planned | - |
-| 11. Operator shell, onboarding, and connector ergonomics | 0/0 | Not planned | - |
+| 11. Agent grounding and operator-relevant data/tool awareness | 0/0 | Not planned | - |
+| 12. Operator shell, onboarding, and connector ergonomics | 0/0 | Not planned | - |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -224,15 +226,28 @@ Plans:
 Plans:
 - [ ] TBD (run /gsd:plan-phase 10 to break down)
 
-### Phase 11: Operator shell, onboarding, and connector ergonomics
+### Phase 11: Agent grounding and operator-relevant data/tool awareness
 
-**Goal:** Make Vel easier to adopt and operate daily by tightening the web/operator shell, onboarding path, contextual docs/help, project detail surfaces, integration/status affordances, and path-discovery ergonomics around the daily-loop product direction.
-**Requirements**: SHELL-01, SHELL-02, DOCS-01, ONBOARD-01, INTEGR-UX-01, PROJ-UX-01
+**Goal:** Make supervised agents meaningfully aware of the operator's real Vel state by grounding them in current context, projects, people, commitments, review queues, and bounded tool affordances, so they can act on actual product data rather than behaving like generic assistants with weak repo-only context.
+**Requirements**: AGENT-CTX-01, AGENT-CTX-02, AGENT-TOOLS-01, AGENT-TOOLS-02, AGENT-REVIEW-01, AGENT-TRUST-01
 **Depends on:** Phase 10
 **Plans:** 0 plans
 
-**Scope note:** This phase intentionally narrows the raw backlog to operator-shell and integration ergonomics. Broad new-provider expansion (full Google suite, LLM-provider routing, Dropbox-style picker proliferation, SaaS auth scaffolding, client-to-client file transfer, and reading/media systems) remains deferred until the daily loop is clearly working.
-**Included from CSV triage:** app routes, top-nav/shell polish, icon-driven and collapsible navigation, softer auto-refresh freshness UX, project detail/edit surfaces, template viewing/editing in Settings, contextual docs/help routing, threads defaulting to the latest thread, upcoming-event ordering/pagination, richer Todoist rendering, connected-service icons, hidden internal integration paths, Apple/local-source path discovery/validation, and guided onboarding/linking/autodiscovery ergonomics.
+**Priority note:** This phase is promoted ahead of shell ergonomics because the current codebase already has the raw ingredients for grounding agents in real Vel state (`/v1/now`, projects, people, review data, execution context, and handoff review), but it does not yet package that into a trustworthy operator-visible agent product path.
+**Included from CSV triage:** stronger agent awareness of Vel data, tighter operator-relevant tool access, and grounding over shipped product state rather than generic ambient assistant behavior.
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 11 to break down)
+
+### Phase 12: Operator shell, onboarding, and connector ergonomics
+
+**Goal:** Make Vel easier to adopt and operate daily by tightening the web/operator shell, onboarding path, contextual docs/help, project detail surfaces, integration/status affordances, and path-discovery ergonomics around the daily-loop product direction.
+**Requirements**: SHELL-01, SHELL-02, DOCS-01, ONBOARD-01, INTEGR-UX-01, PROJ-UX-01
+**Depends on:** Phase 11
+**Plans:** 0 plans
+
+**Scope note:** This phase intentionally narrows the raw backlog to operator-shell and integration ergonomics. Broad new-provider expansion (full Google suite, LLM-provider routing, Dropbox-style picker proliferation, SaaS auth scaffolding, client-to-client file transfer, and reading/media systems) remains deferred until the daily loop and agent grounding are clearly working.
+**Included from CSV triage:** app routes, top-nav/shell polish, icon-driven and collapsible navigation, softer auto-refresh freshness UX, project detail/edit surfaces, template viewing/editing in Settings, contextual docs/help routing, threads defaulting to the latest thread, upcoming-event ordering/pagination, richer Todoist rendering, connected-service icons, hidden internal integration paths, Apple/local-source path discovery/validation, and guided onboarding/linking/autodiscovery ergonomics.
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 12 to break down)

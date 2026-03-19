@@ -38,11 +38,11 @@ created: 2026-03-19
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 09-01-01 | 01 | 0 | BACKUP-01 | schema/doc | `node scripts/verify-repo-truth.mjs && rg -n "BACKUP-01|BACKUP-02|CTRL-01|CTRL-02" .planning/REQUIREMENTS.md` | ✅ | ⬜ pending |
+| 09-01-01 | 01 | 0 | BACKUP-01 | schema/doc | `node scripts/verify-repo-truth.mjs && rg -n "BACKUP-01|BACKUP-02|CTRL-01|CTRL-02|v1 requirements: 32 total|Mapped to phases: 32|Last updated" .planning/REQUIREMENTS.md && node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('config/schemas/backup-manifest.schema.json','utf8')); JSON.parse(fs.readFileSync('config/examples/backup-manifest.example.json','utf8'));" && rg -n "backup-manifest\\.schema\\.json|backup-manifest\\.example\\.json" config/contracts-manifest.json config/README.md && test -f docs/cognitive-agent-architecture/architecture/backup-and-operator-trust-contracts.md && rg -n "manual restore|backup inspect|backup verify" docs/user/backup-and-restore.md` | ✅ | ⬜ pending |
 | 09-01-02 | 01 | 0 | BACKUP-01 | Rust/unit | `cargo test -p vel-api-types backup -- --nocapture` | ✅ partial | ⬜ pending |
 | 09-02-01 | 02 | 2 | BACKUP-01 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture` | ❌ W0 | ⬜ pending |
 | 09-02-02 | 02 | 2 | BACKUP-01 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture` | ❌ W0 | ⬜ pending |
-| 09-03-01 | 03 | 3 | CTRL-01 | Rust/route | `cargo test -p veld chat_settings_get_and_patch -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ✅ partial | ⬜ pending |
+| 09-03-01 | 03 | 3 | CTRL-01 | Rust/route | `cargo test -p veld chat_settings_get_and_patch -- --nocapture && cargo test -p veld doctor -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ✅ partial | ⬜ pending |
 | 09-03-02 | 03 | 3 | CTRL-02 | CLI/integration | `cargo test -p veld doctor -- --nocapture && cargo test -p vel-cli doctor -- --nocapture && cargo test -p vel-cli review -- --nocapture` | ✅ partial | ⬜ pending |
 | 09-04-01 | 04 | 4 | BACKUP-01 | CLI + web | `cargo test -p vel-cli backup -- --nocapture && npm --prefix clients/web test -- --run src/data/operator.test.ts src/components/SettingsPage.test.tsx` | ❌ W0 | ⬜ pending |
 | 09-04-02 | 04 | 4 | CTRL-02 | Rust/integration | `cargo test -p veld backup_flow -- --nocapture && rg -n "nyquist_compliant: true|wave_0_complete: true" .planning/phases/09-backup-first-trust-surfaces-and-simple-operator-control/09-VALIDATION.md` | ✅ partial | ⬜ pending |

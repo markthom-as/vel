@@ -10,7 +10,7 @@ use tokio::{
     time::{timeout, Duration, Instant},
 };
 use uuid::Uuid;
-use vel_api_types::{ApiResponse, ClusterBootstrapData, SyncBootstrapData};
+use vel_api_types::{ApiResponse, ClusterBootstrapData};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -245,10 +245,10 @@ async fn fetch_http_probe_peer(
         return None;
     }
     let body = response
-        .json::<ApiResponse<SyncBootstrapData>>()
+        .json::<ApiResponse<ClusterBootstrapData>>()
         .await
         .ok()?;
-    let cluster = body.data?.cluster;
+    let cluster = body.data?;
     if cluster.node_id == local_node_id {
         return None;
     }

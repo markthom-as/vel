@@ -6,11 +6,11 @@ current_phase: 09
 current_phase_name: backup-first-trust-surfaces-and-simple-operator-control
 current_plan: 1
 status: ready_to_execute
-stopped_at: Added Phases 10 and 11; Phase 09 remains next
-last_updated: "2026-03-19T10:24:00Z"
+stopped_at: Added Phases 10-12 with agent grounding promoted ahead of shell ergonomics; Phase 09 remains next
+last_updated: "2026-03-19T10:37:00Z"
 last_activity: 2026-03-19
 progress:
-  total_phases: 11
+  total_phases: 12
   completed_phases: 8
   total_plans: 44
   completed_plans: 38
@@ -33,7 +33,7 @@ Current Plan: 1
 Total Plans in Phase: 4
 Progress: 0%
 Last Activity: 2026-03-19
-Last Activity Description: Added Phase 10 daily-loop MVP and Phase 11 shell/onboarding ergonomics while keeping Phase 09 as the active next lane
+Last Activity Description: Promoted agent grounding into committed Phase 11, shifted shell ergonomics to Phase 12, and kept Phase 09 as the active next lane
 
 ## Current Position
 
@@ -116,7 +116,8 @@ Recent decisions affecting current work:
 - [Phase 8+]: GSD integration should begin through repo-local docs/context that GSD already consumes; Vel should eventually route by token budget and agent profile
 - [Phase 9+]: Backup matters mainly as trust against loss; recovery is lower priority than core usability and backup/export confidence
 - [Phase 10+]: The next major product-value lane after backup/trust should be a strict daily loop built on existing `Now`, commitments, calendar/Todoist, and Apple voice seams rather than a brand-new planner subsystem.
-- [Phase 11+]: The raw UI/integration backlog should be narrowed to shell, onboarding, docs, and connector ergonomics first; broad provider proliferation stays deferred until the daily loop is working.
+- [Phase 11+]: Agent grounding over real Vel state and bounded tool surfaces is important enough to be a committed roadmap phase, not just backlog.
+- [Phase 12+]: The raw UI/integration backlog should be narrowed to shell, onboarding, docs, and connector ergonomics first; broad provider proliferation stays deferred until the daily loop and agent grounding are working.
 - [Phase 07]: Apple voice turns now persist transcript provenance before any query or mutation response is returned.
 - [Phase 07]: Apple schedule answers are derived from backend /v1/now output rather than Swift-local synthesis.
 - [Phase 07]: Low-risk Apple voice mutations reuse the existing client_sync action path and fail closed when the backend cannot resolve a safe target.
@@ -142,8 +143,9 @@ Recent decisions affecting current work:
 - Phase 8 parallel execution advanced (2026-03-19): plans 08-04 through 08-06 completed after 08-01 through 08-03, leaving Phase 08 ready to verify behind the active Phase 07 lane
 - Phase 7 and Phase 8 closed (2026-03-19): Phase 07 completed after skipped-manual UAT, then Phase 08 UAT was skipped and the roadmap advanced to Phase 09
 - Phase 10 added (2026-03-19): Daily-loop morning overview and standup commitment engine
-- Phase 11 added (2026-03-19): Operator shell, onboarding, and connector ergonomics
-- CSV backlog triaged (2026-03-19): interface and daily-loop fixes assigned to Phases 10 and 11; remaining provider/platform expansion captured in BACKLOG.md
+- Phase 11 promoted (2026-03-19): Agent grounding and operator-relevant data/tool awareness
+- Phase 12 added (2026-03-19): Operator shell, onboarding, and connector ergonomics
+- CSV backlog triaged (2026-03-19): daily-loop fixes assigned to Phase 10, agent awareness promoted into Phase 11, shell/interface fixes assigned to Phase 12, and remaining provider/platform expansion captured in BACKLOG.md
 
 ### Pending Todos
 
@@ -168,10 +170,10 @@ Recent decisions affecting current work:
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 - Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
-- Future work now extends through Phase 11; Phase 10 is the next product-value phase after the active Phase 09 backup/trust lane
+- Future work now extends through Phase 12; Phase 10 is the next product-value phase after the active Phase 09 backup/trust lane, with agent grounding committed ahead of shell ergonomics
 
 ## Session Continuity
 
 Last session: 2026-03-19T07:35:55.445Z
-Stopped at: Added Phases 10 and 11; Phase 09 remains next
+Stopped at: Added Phases 10-12 with agent grounding promoted ahead of shell ergonomics; Phase 09 remains next
 Resume file: None
