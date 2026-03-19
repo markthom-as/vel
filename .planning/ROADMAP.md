@@ -187,9 +187,9 @@ Plans:
 **Parallelization note:** `08-01` through `08-03` are intentionally scoped to project/protocol/runtime seams and can be executed in parallel with Phase 07 implementation after its contract slice (`07-01`) is in place. Final Phase 08 closure still waits on its own later slices and the overall roadmap order.
 
 Plans:
-- [ ] 08-01-PLAN.md — Publish typed execution-context, handoff, routing-policy, and local-agent manifest contracts
-- [ ] 08-02-PLAN.md — Persist project execution context and generate bounded repo-local GSD artifact packs
-- [ ] 08-03-PLAN.md — Activate authenticated `/v1/connect` transport and supervised local runtime lifecycle
+- [x] 08-01-PLAN.md — Publish typed execution-context, handoff, routing-policy, and local-agent manifest contracts
+- [x] 08-02-PLAN.md — Persist project execution context and generate bounded repo-local GSD artifact packs
+- [x] 08-03-PLAN.md — Activate authenticated `/v1/connect` transport and supervised local runtime lifecycle
 - [ ] 08-04-PLAN.md — Surface explicit routing and handoff review across operator CLI/web surfaces
 - [ ] 08-05-PLAN.md — Add direct WASM guest-runtime execution behind the same mediated connect boundary
 - [ ] 08-06-PLAN.md — Close the loop with SDK, repo-local workflow docs, and execution-backed operator guidance

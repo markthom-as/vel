@@ -6,15 +6,15 @@ current_phase: 07
 current_phase_name: apple-action-loops-and-behavioral-signal-ingestion
 current_plan: 4
 status: executing
-stopped_at: Completed 07-03-PLAN.md
-last_updated: "2026-03-19T07:23:28.595Z"
+stopped_at: Completed 07-04-PLAN.md
+last_updated: "2026-03-19T07:35:55.446Z"
 last_activity: 2026-03-19
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 44
-  completed_plans: 32
-  percent: 25
+  completed_plans: 35
+  percent: 75
 ---
 
 # Project State
@@ -26,19 +26,19 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** Phase 07 — apple-action-loops-and-behavioral-signal-ingestion
 
-Status: Phase 07 ready to execute
+Status: Phase 07 executing
 Current Phase: 07
 Current Phase Name: apple-action-loops-and-behavioral-signal-ingestion
 Current Plan: 4
 Total Plans in Phase: 4
 Progress: 75%
 Last Activity: 2026-03-19
-Last Activity Description: Completed 07-03 bounded Apple behavior summaries; 07-04 Apple client wiring and docs are next
+Last Activity Description: Completed 08-01 through 08-03 in parallel; 07-04 Apple client wiring and docs remain next on the critical path
 
 ## Current Position
 
-Phase: 07 (apple-action-loops-and-behavioral-signal-ingestion) — READY TO EXECUTE
-Plan: 1 of 4 pending
+Phase: 07 (apple-action-loops-and-behavioral-signal-ingestion) — EXECUTING
+Plan: 4 of 4 pending
 Next: $gsd-execute-phase 07
 
 ## Performance Metrics
@@ -70,6 +70,7 @@ Next: $gsd-execute-phase 07
 | Phase 07 P1 | 11m | 2 tasks | 12 files |
 | Phase 07 P02 | 6m | 2 tasks | 9 files |
 | Phase 07 P3 | 5m | 2 tasks | 8 files |
+| Phase 07 P04 | 7m | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -117,6 +118,9 @@ Recent decisions affecting current work:
 - [Phase 07]: Apple voice turns now persist transcript provenance before any query or mutation response is returned.
 - [Phase 07]: Apple schedule answers are derived from backend /v1/now output rather than Swift-local synthesis.
 - [Phase 07]: Low-risk Apple voice mutations reuse the existing client_sync action path and fail closed when the backend cannot resolve a safe target.
+- [Phase 07]: Apple schedule retrieval now uses typed /v1/now transport and cache data instead of Swift-local schedule synthesis.
+- [Phase 07]: Supported iPhone voice replies route through the backend Apple voice endpoint; offline fallback is limited to provenance capture, cached backend rendering, and queued safe actions.
+- [Phase 07]: Apple quick-loop auth stays in shared VelAPI transport via explicit operator/bearer header configuration rather than per-view request logic.
 
 ### Roadmap Evolution
 
@@ -159,6 +163,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-19T07:10:16.718Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-03-19T07:35:55.445Z
+Stopped at: Completed 07-04-PLAN.md
 Resume file: None
