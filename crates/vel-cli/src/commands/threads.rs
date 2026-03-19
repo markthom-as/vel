@@ -20,8 +20,9 @@ pub async fn run_list(
     if json {
         println!("{}", serde_json::to_string_pretty(threads)?);
     } else if threads.is_empty() {
-        println!("No threads.");
+        println!("No threads in the continuity/archive lane.");
     } else {
+        println!("threads (continuity and archive):");
         for t in threads {
             println!("{}  {}  {}  {}", t.id, t.thread_type, t.status, t.title);
         }
@@ -35,6 +36,7 @@ pub async fn run_inspect(client: &ApiClient, id: &str) -> anyhow::Result<()> {
         .data
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("no data"))?;
+    println!("thread detail:");
     println!("id:          {}", t.id);
     println!("type:        {}", t.thread_type);
     println!("title:       {}", t.title);

@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use vel_config::AppConfig;
 
 #[derive(Debug, Parser)]
-#[command(name = "vel", about = "Vel operator shell")]
+#[command(name = "vel", about = "Vel operator shell for now, setup, and threads")]
 struct Cli {
     #[arg(long)]
     base_url: Option<String>,
@@ -18,10 +18,12 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 #[allow(clippy::enum_variant_names)]
 enum Command {
+    #[command(about = "Run advanced trust and runtime checks")]
     Doctor {
         #[arg(long)]
         json: bool,
     },
+    #[command(about = "Show published docs for daily use, setup, and deeper detail")]
     Docs {
         #[arg(long)]
         json: bool,
@@ -51,6 +53,7 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
+    #[command(about = "Show the daily-use Now lane summary")]
     Today {
         #[arg(long)]
         json: bool,
@@ -216,6 +219,7 @@ enum Command {
         #[command(subcommand)]
         command: ExplainCommand,
     },
+    #[command(about = "List and inspect the continuity/archive thread lane")]
     Thread {
         #[command(subcommand)]
         command: ThreadCommand,
@@ -1460,6 +1464,16 @@ mod tests {
             Command::Docs { json } => assert!(json),
             _ => panic!("expected docs command"),
         }
+    }
+
+    #[test]
+    fn cli_help_uses_shell_taxonomy_framing() {
+        let help = Cli::command().render_long_help().to_string();
+        assert!(help.contains("Vel operator shell for now, setup, and threads"));
+        assert!(help.contains("Run advanced trust and runtime checks"));
+        assert!(help.contains("Show published docs for daily use, setup, and deeper detail"));
+        assert!(help.contains("Show the daily-use Now lane summary"));
+        assert!(help.contains("List and inspect the continuity/archive thread lane"));
     }
 
     #[test]

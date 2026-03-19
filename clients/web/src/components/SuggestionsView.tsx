@@ -128,9 +128,10 @@ export function SuggestionsView() {
         <section className="border-b border-zinc-800 xl:border-b-0 xl:border-r">
           <header className="border-b border-zinc-800 px-6 py-5">
             <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Suggestions</p>
-            <h1 className="mt-2 text-2xl font-semibold text-zinc-100">Steering proposals</h1>
+            <h1 className="mt-2 text-2xl font-semibold text-zinc-100">Reviewable suggestion detail</h1>
             <p className="mt-2 text-sm text-zinc-400">
-              Pending adjustments and deferred low-confidence decisions that still need operator judgment.
+              Pending adjustments and deferred low-confidence decisions stay available here as a
+              supporting detail surface, not a first-contact destination.
             </p>
           </header>
           <div className="h-[calc(100%-112px)] overflow-y-auto px-4 py-4">

@@ -55,6 +55,23 @@ Important rule:
 
 If it looks wrong, fix the upstream source or rerun `evaluate` rather than trying to patch the context by hand.
 
+## Web shell taxonomy
+
+The default web shell now foregrounds five categories:
+
+- `Now`
+- `Inbox`
+- `Threads`
+- `Projects`
+- `Settings`
+
+Important posture:
+
+- `Now` and `Inbox` are the primary daily-use surfaces
+- `Threads` and `Projects` are visible support surfaces, not equal first-contact peers
+- `Settings` remains the advanced setup and trust surface
+- detail views such as `Suggestions` and `Stats` still exist, but the shell no longer teaches them as top-level peer destinations
+
 ## `Now`
 
 The web `Now` view is the main “what matters right now” surface.
@@ -68,6 +85,32 @@ Today it shows:
 - direct recovery actions like `Re-run evaluate`, `Sync calendar`, `Sync Todoist`, `Sync activity`, and `Sync messaging` when appropriate
 
 Treat it as a decision surface, not as magic truth. If freshness is degraded, use the recovery actions before trusting it.
+
+## `Inbox`
+
+`Inbox` is the explicit triage surface.
+
+Use it when the question is:
+
+- what needs sorting,
+- what still needs commitment or review,
+- what should be deferred, dismissed, or promoted,
+- what project-linked work is still actionable.
+
+`Inbox` is where queued work becomes explicit operator decisions.
+
+## `Threads`
+
+`Threads` is the continuity and archive/search surface.
+
+Use it for:
+
+- longer interactive follow-up,
+- conversation history,
+- parallel workstreams,
+- filtered thread views linked from `Now` or `Inbox`.
+
+It is important, but it is not the default triage surface.
 
 ## Projects
 
@@ -162,6 +205,14 @@ Use the Suggestions surface when you want:
 - accept/reject control with evidence.
 
 If there are no pending suggestions, that is a normal state.
+
+The shell now treats Suggestions as a detail surface rather than a peer destination beside `Now` or `Inbox`.
+
+## Stats
+
+Stats is a deeper inspection surface.
+
+Use it when you want more context or operational detail, not as the first daily-use landing area.
 
 ## Settings and integrations
 

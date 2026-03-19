@@ -6,7 +6,7 @@ import { SettingsPage } from './SettingsPage';
 import { SuggestionsView } from './SuggestionsView';
 import { StatsView } from './StatsView';
 import { ThreadView } from './ThreadView';
-import type { MainView } from './Sidebar';
+import { getSurfaceDefinition, type MainView } from '../data/operatorSurfaces';
 
 type SettingsNavigationTarget = {
   tab: SettingsTab;
@@ -33,6 +33,8 @@ export function MainPanel({
   settingsTarget,
   onOpenSettings,
 }: MainPanelProps) {
+  const surface = getSurfaceDefinition(mainView);
+
   if (mainView === 'now') {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -90,9 +92,9 @@ export function MainPanel({
 
   return (
     <SurfacePlaceholder
-      title="Unknown surface"
-      subtitle="This surface is not mapped yet."
-      body="Select one of the canonical operator surfaces from the shell navigation."
+      title={surface.label}
+      subtitle={`${surface.label} is still a detail surface.`}
+      body={surface.blurb}
     />
   );
 }

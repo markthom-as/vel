@@ -9,6 +9,92 @@ vi.mock('../api/client', () => ({
   apiPost: vi.fn(),
 }))
 
+function buildNowData(overrides: Record<string, unknown> = {}) {
+  return {
+    computed_at: 1710000000,
+    timezone: 'America/Denver',
+    summary: {
+      mode: { key: 'day_mode', label: 'Day' },
+      phase: { key: 'engaged', label: 'Engaged' },
+      meds: { key: 'pending', label: 'Pending' },
+      risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
+    },
+    schedule: {
+      empty_message: null,
+      next_event: null,
+      upcoming_events: [],
+    },
+    tasks: {
+      todoist: [],
+      other_open: [],
+      next_commitment: null,
+    },
+    attention: {
+      state: { key: 'on_task', label: 'On task' },
+      drift: { key: 'none', label: 'None' },
+      severity: { key: 'none', label: 'None' },
+      confidence: 0.8,
+      reasons: [],
+    },
+    sources: {
+      git_activity: null,
+      health: null,
+      mood: null,
+      pain: null,
+      note_document: null,
+      assistant_message: null,
+    },
+    freshness: {
+      overall_status: 'fresh',
+      sources: [],
+    },
+    trust_readiness: {
+      level: 'ok',
+      headline: 'Ready',
+      summary: 'No trust blockers are active.',
+      backup: {
+        level: 'ok',
+        label: 'Backup',
+        detail: 'Backup trust is healthy.',
+      },
+      freshness: {
+        level: 'ok',
+        label: 'Freshness',
+        detail: 'Inputs are fresh enough to trust.',
+      },
+      review: {
+        open_action_count: 0,
+        pending_execution_reviews: 0,
+        pending_writeback_count: 0,
+        conflict_count: 0,
+      },
+      guidance: [],
+      follow_through: [],
+    },
+    check_in: null,
+    reflow: null,
+    reflow_status: null,
+    action_items: [],
+    review_snapshot: {
+      open_action_count: 0,
+      triage_count: 0,
+      projects_needing_review: 0,
+      pending_execution_reviews: 0,
+    },
+    pending_writebacks: [],
+    conflicts: [],
+    people: [],
+    reasons: [],
+    debug: {
+      raw_context: {},
+      signals_used: [],
+      commitments_used: [],
+      risk_used: [],
+    },
+    ...overrides,
+  }
+}
+
 describe('NowView', () => {
   beforeEach(() => {
     cleanup()
@@ -22,7 +108,7 @@ describe('NowView', () => {
       if (path === '/v1/now') {
         return {
           ok: true,
-          data: {
+          data: buildNowData({
             computed_at: 1710000000,
             timezone: 'America/Denver',
             summary: {
@@ -150,9 +236,13 @@ describe('NowView', () => {
                 id: 'action_1',
                 surface: 'now',
                 kind: 'next_step',
+                permission_mode: 'user_confirm',
+                scope_affinity: 'project',
                 title: 'Confirm the design review agenda',
                 summary: 'Prep materials and confirm the current owner before the meeting starts.',
                 project_id: 'proj_ops',
+                project_label: 'Ops',
+                project_family: 'areas',
                 state: 'active',
                 rank: 1,
                 surfaced_at: '2026-03-16T18:30:00Z',
@@ -171,14 +261,25 @@ describe('NowView', () => {
                     detail: null,
                   },
                 ],
+                thread_route: {
+                  target: 'filtered_threads',
+                  label: 'Open related threads',
+                  thread_id: null,
+                  thread_type: 'project_review',
+                  project_id: 'proj_ops',
+                },
               },
               {
                 id: 'action_2',
                 surface: 'now',
                 kind: 'review',
+                permission_mode: 'user_confirm',
+                scope_affinity: 'project',
                 title: 'Review execution handoff for runtime lane',
                 summary: 'The supervised coding handoff is waiting for explicit approval.',
                 project_id: 'proj_exec',
+                project_label: 'Execution',
+                project_family: 'areas',
                 state: 'active',
                 rank: 2,
                 surfaced_at: '2026-03-16T19:00:00Z',
@@ -191,12 +292,160 @@ describe('NowView', () => {
                     detail: 'write_scope_requires_approval | write scopes: /tmp/vel',
                   },
                 ],
+                thread_route: {
+                  target: 'existing_thread',
+                  label: 'Open execution thread',
+                  thread_id: 'thr_exec_1',
+                  thread_type: 'execution_review',
+                  project_id: 'proj_exec',
+                },
               },
             ],
             review_snapshot: {
               open_action_count: 2,
               triage_count: 1,
               projects_needing_review: 1,
+              pending_execution_reviews: 1,
+            },
+            trust_readiness: {
+              level: 'warn',
+              headline: 'Review is pending',
+              summary: 'One execution review and one recovery follow-through still need attention.',
+              backup: {
+                level: 'warn',
+                label: 'Backup',
+                detail: 'Backup trust is degraded until the next verification run.',
+              },
+              freshness: {
+                level: 'ok',
+                label: 'Freshness',
+                detail: 'Current context and integrations look fresh enough to trust.',
+              },
+              review: {
+                open_action_count: 2,
+                pending_execution_reviews: 1,
+                pending_writeback_count: 1,
+                conflict_count: 1,
+              },
+              guidance: [
+                'Review the remaining conflicts or supervised execution handoffs before risky actions.',
+              ],
+              follow_through: [
+                {
+                  id: 'action_recovery_1',
+                  surface: 'inbox',
+                  kind: 'recovery',
+                  permission_mode: 'user_confirm',
+                  scope_affinity: 'global',
+                  title: 'Backup is stale',
+                  summary: 'Create or verify a fresh backup before risky maintenance.',
+                  project_id: null,
+                  project_label: null,
+                  project_family: null,
+                  state: 'active',
+                  rank: 88,
+                  surfaced_at: '2026-03-16T18:20:00Z',
+                  snoozed_until: null,
+                  evidence: [
+                    {
+                      source_kind: 'backup_trust',
+                      source_id: 'warn',
+                      label: 'Backup trust',
+                      detail: 'Backup trust is degraded. Create or verify a fresh backup before risky maintenance.',
+                    },
+                  ],
+                  thread_route: null,
+                },
+              ],
+            },
+            check_in: {
+              id: 'act_check_in_1',
+              source_kind: 'daily_loop',
+              phase: 'standup',
+              session_id: 'dls_1',
+              title: 'Standup check-in',
+              summary: 'Vel needs one short answer before the standup can continue.',
+              prompt_id: 'standup_prompt_1',
+              prompt_text: 'Name the one to three commitments that matter most today.',
+              suggested_action_label: 'Continue standup',
+              suggested_response: null,
+              allow_skip: true,
+              blocking: true,
+              submit_target: {
+                kind: 'daily_loop_turn',
+                reference_id: 'dls_1',
+              },
+              escalation: {
+                target: 'threads',
+                label: 'Continue in Threads',
+              },
+              transitions: [
+                {
+                  kind: 'submit',
+                  label: 'Continue standup',
+                  target: 'daily_loop_turn',
+                  reference_id: 'dls_1',
+                  requires_response: true,
+                  requires_note: false,
+                },
+                {
+                  kind: 'bypass',
+                  label: 'Skip for now',
+                  target: 'daily_loop_turn',
+                  reference_id: 'dls_1',
+                  requires_response: false,
+                  requires_note: true,
+                },
+                {
+                  kind: 'escalate',
+                  label: 'Continue in Threads',
+                  target: 'threads',
+                  reference_id: 'dls_1',
+                  requires_response: false,
+                  requires_note: false,
+                },
+              ],
+            },
+            reflow: {
+              id: 'act_reflow_1',
+              title: 'Day changed',
+              summary: 'A scheduled event appears to have slipped past without the plan being updated.',
+              trigger: 'missed_event',
+              severity: 'critical',
+              accept_mode: 'confirm_required',
+              suggested_action_label: 'Accept',
+              preview_lines: [
+                'Next scheduled event started 20 minutes ago.',
+                'Leave-by threshold passed 10 minutes ago.',
+              ],
+              edit_target: {
+                target: 'threads',
+                label: 'Edit',
+              },
+              transitions: [
+                {
+                  kind: 'accept',
+                  label: 'Accept',
+                  target: 'apply_suggestion',
+                  confirm_required: true,
+                },
+                {
+                  kind: 'edit',
+                  label: 'Edit',
+                  target: 'threads',
+                  confirm_required: false,
+                },
+              ],
+            },
+            reflow_status: {
+              kind: 'editing',
+              trigger: 'missed_event',
+              severity: 'critical',
+              headline: 'Reflow moved to Threads',
+              detail: 'Vel opened a thread-backed reflow follow-up so the day plan can be shaped before anything else changes.',
+              recorded_at: 1710000150,
+              preview_lines: ['Next scheduled event started 20 minutes ago.'],
+              thread_id: 'thr_reflow_1',
             },
             pending_writebacks: [
               {
@@ -269,7 +518,7 @@ describe('NowView', () => {
               commitments_used: ['commit_1'],
               risk_used: ['risk_1'],
             },
-          },
+          }),
           meta: { request_id: 'req_now' },
         } as never
       }
@@ -524,28 +773,26 @@ describe('NowView', () => {
     })
 
     expect(screen.getAllByText('Day').length).toBeGreaterThan(0)
-    expect(screen.getByText('Engaged')).toBeInTheDocument()
+    expect(screen.getAllByText('Engaged').length).toBeGreaterThan(0)
     expect(screen.getByText('Pending')).toBeInTheDocument()
     expect(screen.getByText(/medium · 72%/i)).toBeInTheDocument()
-    expect(screen.getByText('Design review')).toBeInTheDocument()
-    expect(screen.getByText('Room 4B')).toBeInTheDocument()
+    expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Room 4B').length).toBeGreaterThan(0)
     expect(screen.getByText(/prep 15m/i)).toBeInTheDocument()
     expect(screen.getByText(/travel 0m/i)).toBeInTheDocument()
     expect(screen.getAllByText('Reply to Dimitri').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
-    expect(screen.getByText('Action stack')).toBeInTheDocument()
+    expect(screen.getByText('Immediate pressure')).toBeInTheDocument()
+    expect(screen.getByText('Day changed')).toBeInTheDocument()
+    expect(screen.getByText('Standup check-in')).toBeInTheDocument()
+    expect(screen.getByText('Trust and readiness')).toBeInTheDocument()
+    expect(screen.getByText('Waiting elsewhere')).toBeInTheDocument()
+    expect(screen.getByText('1 waiting for Inbox triage')).toBeInTheDocument()
+    expect(screen.getByText('Backup is stale')).toBeInTheDocument()
     expect(screen.getByText('Confirm the design review agenda')).toBeInTheDocument()
     expect(screen.getByText('Review execution handoff for runtime lane')).toBeInTheDocument()
-    expect(screen.getByText('Design review at 10:00')).toBeInTheDocument()
-    expect(screen.getByText('2 open actions')).toBeInTheDocument()
-    expect(screen.getByText('1 execution reviews pending')).toBeInTheDocument()
-    expect(
-      screen
-        .getByText('Confirm the design review agenda')
-        .compareDocumentPosition(screen.getByText('Review execution handoff for runtime lane')) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    expect(screen.getByText('Execution review')).toBeInTheDocument()
-    expect(screen.getByText('write_scope_requires_approval | write scopes: /tmp/vel')).toBeInTheDocument()
+    expect(screen.getByText('Continue in Threads')).toBeInTheDocument()
+    expect(screen.getAllByText('Reflow moved to Threads').length).toBeGreaterThan(0)
     expect(screen.getByText('Prep window active')).toBeInTheDocument()
     expect(screen.getByText('recent git activity indicates active work')).toBeInTheDocument()
     expect(screen.getByText('Recent source activity')).toBeInTheDocument()
@@ -629,15 +876,8 @@ describe('NowView', () => {
   it('surfaces degraded freshness warnings while keeping stale data visible', async () => {
     vi.mocked(api.apiGet).mockImplementationOnce(async () => ({
       ok: true,
-      data: {
+      data: buildNowData({
         computed_at: 1710000000,
-        timezone: 'America/Denver',
-        summary: {
-          mode: { key: 'day_mode', label: 'Day' },
-          phase: { key: 'engaged', label: 'Engaged' },
-          meds: { key: 'pending', label: 'Pending' },
-          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
-        },
         schedule: {
           empty_message: null,
           next_event: {
@@ -717,13 +957,7 @@ describe('NowView', () => {
           ],
         },
         reasons: ['Prep window active'],
-        debug: {
-          raw_context: {},
-          signals_used: [],
-          commitments_used: [],
-          risk_used: [],
-        },
-      },
+      }),
       meta: { request_id: 'req_now_degraded' },
     }) as never)
 
@@ -746,7 +980,7 @@ describe('NowView', () => {
     expect(
       screen.getByText('Current context is a bit behind. Re-run evaluate if you need fresher state.'),
     ).toBeInTheDocument()
-    expect(screen.getByText('Design review')).toBeInTheDocument()
+    expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
     expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()
   })
 
@@ -754,37 +988,8 @@ describe('NowView', () => {
     vi.mocked(api.apiGet)
       .mockResolvedValueOnce({
         ok: true,
-        data: {
+        data: buildNowData({
           computed_at: 1710000000,
-          timezone: 'America/Denver',
-          summary: {
-            mode: { key: 'day_mode', label: 'Day' },
-            phase: { key: 'engaged', label: 'Engaged' },
-            meds: { key: 'pending', label: 'Pending' },
-            risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
-          },
-          schedule: {
-            empty_message: null,
-            next_event: null,
-            upcoming_events: [],
-          },
-          tasks: {
-            todoist: [],
-            other_open: [],
-            next_commitment: null,
-          },
-          attention: {
-            state: { key: 'on_task', label: 'On task' },
-            drift: { key: 'none', label: 'None' },
-            severity: { key: 'none', label: 'None' },
-            confidence: 0.8,
-            reasons: [],
-          },
-          sources: {
-            git_activity: null,
-            note_document: null,
-            assistant_message: null,
-          },
           freshness: {
             overall_status: 'aging',
             sources: [
@@ -798,48 +1003,18 @@ describe('NowView', () => {
               },
             ],
           },
-          reasons: [],
-          debug: {
-            raw_context: {},
-            signals_used: [],
-            commitments_used: [],
-            risk_used: [],
-          },
-        },
+        }),
         meta: { request_id: 'req_now_degraded_context' },
       } as never)
       .mockResolvedValueOnce({
         ok: true,
-        data: {
+        data: buildNowData({
           computed_at: 1710000300,
-          timezone: 'America/Denver',
           summary: {
             mode: { key: 'day_mode', label: 'Day' },
             phase: { key: 'engaged', label: 'Engaged' },
             meds: { key: 'pending', label: 'Pending' },
             risk: { level: 'low', score: 0.32, label: 'low · 32%' },
-          },
-          schedule: {
-            empty_message: null,
-            next_event: null,
-            upcoming_events: [],
-          },
-          tasks: {
-            todoist: [],
-            other_open: [],
-            next_commitment: null,
-          },
-          attention: {
-            state: { key: 'on_task', label: 'On task' },
-            drift: { key: 'none', label: 'None' },
-            severity: { key: 'none', label: 'None' },
-            confidence: 0.8,
-            reasons: [],
-          },
-          sources: {
-            git_activity: null,
-            note_document: null,
-            assistant_message: null,
           },
           freshness: {
             overall_status: 'fresh',
@@ -854,14 +1029,7 @@ describe('NowView', () => {
               },
             ],
           },
-          reasons: [],
-          debug: {
-            raw_context: {},
-            signals_used: [],
-            commitments_used: [],
-            risk_used: [],
-          },
-        },
+        }),
         meta: { request_id: 'req_now_refreshed_context' },
       } as never)
 
@@ -885,37 +1053,8 @@ describe('NowView', () => {
   it('retries calendar sync directly from degraded freshness warnings', async () => {
     const staleNow = {
       ok: true,
-      data: {
+      data: buildNowData({
         computed_at: 1710000000,
-        timezone: 'America/Denver',
-        summary: {
-          mode: { key: 'day_mode', label: 'Day' },
-          phase: { key: 'engaged', label: 'Engaged' },
-          meds: { key: 'pending', label: 'Pending' },
-          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
-        },
-        schedule: {
-          empty_message: null,
-          next_event: null,
-          upcoming_events: [],
-        },
-        tasks: {
-          todoist: [],
-          other_open: [],
-          next_commitment: null,
-        },
-        attention: {
-          state: { key: 'on_task', label: 'On task' },
-          drift: { key: 'none', label: 'None' },
-          severity: { key: 'none', label: 'None' },
-          confidence: 0.8,
-          reasons: [],
-        },
-        sources: {
-          git_activity: null,
-          note_document: null,
-          assistant_message: null,
-        },
         freshness: {
           overall_status: 'stale',
           sources: [
@@ -929,14 +1068,7 @@ describe('NowView', () => {
             },
           ],
         },
-        reasons: [],
-        debug: {
-          raw_context: {},
-          signals_used: [],
-          commitments_used: [],
-          risk_used: [],
-        },
-      },
+      }),
       meta: { request_id: 'req_now_calendar_stale' },
     }
     const freshNow = {
@@ -995,49 +1127,15 @@ describe('NowView', () => {
   it('refetches on focus and reveals debug payload on demand', async () => {
     const initial = {
       ok: true,
-      data: {
+      data: buildNowData({
         computed_at: 1710000000,
-        timezone: 'America/Denver',
-        summary: {
-          mode: { key: 'day_mode', label: 'Day' },
-          phase: { key: 'engaged', label: 'Engaged' },
-          meds: { key: 'pending', label: 'Pending' },
-          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
-        },
-        schedule: {
-          empty_message: null,
-          next_event: null,
-          upcoming_events: [],
-        },
-        tasks: {
-          todoist: [],
-          other_open: [],
-          next_commitment: null,
-        },
-        attention: {
-          state: { key: 'on_task', label: 'On task' },
-          drift: { key: 'none', label: 'None' },
-          severity: { key: 'none', label: 'None' },
-          confidence: 0.8,
-          reasons: [],
-        },
-        sources: {
-          git_activity: null,
-          note_document: null,
-          assistant_message: null,
-        },
-        freshness: {
-          overall_status: 'fresh',
-          sources: [],
-        },
-        reasons: [],
         debug: {
           raw_context: { mode: 'day_mode' },
           signals_used: ['sig_1'],
           commitments_used: ['commit_1'],
           risk_used: ['risk_1'],
         },
-      },
+      }),
       meta: { request_id: 'req_now_1' },
     }
     const refreshed = {
@@ -1071,13 +1169,13 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByText('Day')).toBeInTheDocument()
+      expect(screen.getAllByText('Day').length).toBeGreaterThan(0)
     })
 
     fireEvent(window, new Event('focus'))
 
     await waitFor(() => {
-      expect(screen.getByText('Meeting prep')).toBeInTheDocument()
+      expect(screen.getAllByText('Meeting prep').length).toBeGreaterThan(0)
     })
 
     fireEvent.click(screen.getByText(/show raw fields/i))
@@ -1089,49 +1187,9 @@ describe('NowView', () => {
     const setIntervalSpy = vi.spyOn(window, 'setInterval')
     const initial = {
       ok: true,
-      data: {
+      data: buildNowData({
         computed_at: 1710000000,
-        timezone: 'America/Denver',
-        summary: {
-          mode: { key: 'day_mode', label: 'Day' },
-          phase: { key: 'engaged', label: 'Engaged' },
-          meds: { key: 'pending', label: 'Pending' },
-          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
-        },
-        schedule: {
-          empty_message: null,
-          next_event: null,
-          upcoming_events: [],
-        },
-        tasks: {
-          todoist: [],
-          other_open: [],
-          next_commitment: null,
-        },
-        attention: {
-          state: { key: 'on_task', label: 'On task' },
-          drift: { key: 'none', label: 'None' },
-          severity: { key: 'none', label: 'None' },
-          confidence: 0.8,
-          reasons: [],
-        },
-        sources: {
-          git_activity: null,
-          note_document: null,
-          assistant_message: null,
-        },
-        freshness: {
-          overall_status: 'fresh',
-          sources: [],
-        },
-        reasons: [],
-        debug: {
-          raw_context: {},
-          signals_used: [],
-          commitments_used: [],
-          risk_used: [],
-        },
-      },
+      }),
       meta: { request_id: 'req_now_1' },
     }
     const refreshed = {
@@ -1151,7 +1209,7 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByText('Engaged')).toBeInTheDocument()
+      expect(screen.getAllByText('Engaged').length).toBeGreaterThan(0)
     })
     expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000)
     setIntervalSpy.mockRestore()
@@ -1160,37 +1218,8 @@ describe('NowView', () => {
   it('opens integration settings for non-retryable degraded sources', async () => {
     vi.mocked(api.apiGet).mockResolvedValueOnce({
       ok: true,
-      data: {
+      data: buildNowData({
         computed_at: 1710000000,
-        timezone: 'America/Denver',
-        summary: {
-          mode: { key: 'day_mode', label: 'Day' },
-          phase: { key: 'engaged', label: 'Engaged' },
-          meds: { key: 'pending', label: 'Pending' },
-          risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
-        },
-        schedule: {
-          empty_message: null,
-          next_event: null,
-          upcoming_events: [],
-        },
-        tasks: {
-          todoist: [],
-          other_open: [],
-          next_commitment: null,
-        },
-        attention: {
-          state: { key: 'on_task', label: 'On task' },
-          drift: { key: 'none', label: 'None' },
-          severity: { key: 'none', label: 'None' },
-          confidence: 0.8,
-          reasons: [],
-        },
-        sources: {
-          git_activity: null,
-          note_document: null,
-          assistant_message: null,
-        },
         freshness: {
           overall_status: 'disconnected',
           sources: [
@@ -1212,14 +1241,7 @@ describe('NowView', () => {
             },
           ],
         },
-        reasons: [],
-        debug: {
-          raw_context: {},
-          signals_used: [],
-          commitments_used: [],
-          risk_used: [],
-        },
-      },
+      }),
       meta: { request_id: 'req_now_settings' },
     } as never)
 

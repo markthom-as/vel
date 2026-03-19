@@ -1,6 +1,12 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { MainPanel } from './MainPanel'
+import {
+  detailSurfaces,
+  operatorSurfaces,
+  primarySurfaces,
+  secondarySurfaces,
+} from '../data/operatorSurfaces'
 
 vi.mock('./NowView', () => ({
   NowView: () => <div>Now view</div>,
@@ -81,5 +87,18 @@ describe('MainPanel', () => {
   it('shows the Settings surface when mainView is settings', () => {
     renderMainPanel('settings')
     expect(screen.getByText('Settings page general')).toBeInTheDocument()
+  })
+
+  it('uses the approved taxonomy as the first-class route set', () => {
+    expect(primarySurfaces.map((surface) => surface.view)).toEqual(['now', 'inbox'])
+    expect(secondarySurfaces.map((surface) => surface.view)).toEqual(['threads', 'projects'])
+    expect(
+      operatorSurfaces.filter((surface) => surface.navVisible).map((surface) => surface.view),
+    ).toEqual(['now', 'inbox', 'threads', 'projects', 'settings'])
+  })
+
+  it('keeps suggestions and stats as detail surfaces instead of primary peers', () => {
+    expect(detailSurfaces.map((surface) => surface.view)).toEqual(['suggestions', 'stats'])
+    expect(detailSurfaces.every((surface) => surface.navVisible === false)).toBe(true)
   })
 })

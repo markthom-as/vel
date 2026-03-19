@@ -21,16 +21,16 @@ describe('Sidebar', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^Stats$/ }))
+    expect(screen.queryByRole('button', { name: /^Stats$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Suggestions$/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Projects/ }))
-    fireEvent.click(screen.getByRole('button', { name: /^Settings$/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Settings/ }))
 
-    expect(onSelectView).toHaveBeenCalledWith('stats')
     expect(onSelectView).toHaveBeenCalledWith('projects')
     expect(onSelectView).toHaveBeenCalledWith('settings')
   })
 
-  it('keeps now, inbox, then projects at the front of navigation order', () => {
+  it('keeps now and inbox first, with threads then projects demoted behind them', () => {
     render(
       <Sidebar
         activeView="now"
@@ -47,10 +47,12 @@ describe('Sidebar', () => {
 
     const nowIndex = topLevelButtons.findIndex((label) => label.includes('Now'))
     const inboxIndex = topLevelButtons.findIndex((label) => label.includes('Inbox'))
+    const threadsIndex = topLevelButtons.findIndex((label) => label.includes('Threads'))
     const projectsIndex = topLevelButtons.findIndex((label) => label.includes('Projects'))
 
     expect(nowIndex).toBeLessThan(inboxIndex)
-    expect(inboxIndex).toBeLessThan(projectsIndex)
+    expect(inboxIndex).toBeLessThan(threadsIndex)
+    expect(threadsIndex).toBeLessThan(projectsIndex)
   })
 
   it('shows conversation list only while on the Threads surface', () => {
@@ -76,7 +78,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Conversation list conv_1')).toBeInTheDocument()
   })
 
-  it('groups primary navigation ahead of support surfaces', () => {
+  it('groups daily-use, support, then advanced surfaces', () => {
     render(
       <Sidebar
         activeView="now"
@@ -86,7 +88,8 @@ describe('Sidebar', () => {
       />,
     )
 
-    expect(screen.getAllByText('Primary').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Daily Use').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Support').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Advanced').length).toBeGreaterThan(0)
   })
 })

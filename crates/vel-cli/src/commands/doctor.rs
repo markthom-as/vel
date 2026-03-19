@@ -22,6 +22,7 @@ pub async fn run(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     }
 
     let data = response.data.expect("doctor response missing data");
+    println!("advanced trust and runtime checks:");
     for check in &data.checks {
         let status_str = match check.status {
             DiagnosticStatus::Ok => "ok",

@@ -140,12 +140,27 @@ export function ProjectsView() {
       <div className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-8">
           <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Projects</p>
-          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Anchor work to durable project records</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Project context and durable roots</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-            Keep project roots local-first, then explicitly confirm any upstream repo or notes-root
-            provisioning when the project is ready for wider continuity.
+            Keep projects as durable context and drill-down for work that already lives in `Now`,
+            `Inbox`, and `Threads`. Local roots stay explicit before any wider provisioning.
           </p>
         </header>
+
+        <section className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+              Secondary surface
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+              Project-owned context
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-zinc-300">
+            Use this view to inspect project identity, local roots, and bounded follow-up. Triage
+            still belongs in `Inbox`, and immediate pressure still belongs in `Now`.
+          </p>
+        </section>
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
@@ -199,10 +214,10 @@ export function ProjectsView() {
           <div className="space-y-6">
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
               <div className="mb-4">
-                <h2 className="text-lg font-medium text-zinc-100">Project details</h2>
+                <h2 className="text-lg font-medium text-zinc-100">Selected project context</h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Primary repo and notes roots stay visible so every surfaced action can trace back
-                  to a durable workspace.
+                  Durable roots and provisioning intent stay visible so project-scoped actions can
+                  trace back to a stable workspace without turning this into a second inbox.
                 </p>
               </div>
               {selectedProject ? (

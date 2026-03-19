@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 17
 current_phase_name: shell-embodiment-operator-mode-application-and-surface-simplification
-current_plan: 0
-status: executing
-stopped_at: Completed Phase 16-05 and Phase 16; next logical step is execute 17-01
-last_updated: "2026-03-19T22:55:22Z"
+current_plan: 4
+status: completed
+stopped_at: Milestone audit found closeout gaps; next logical step is plan milestone gaps
+last_updated: "2026-03-19T23:35:52Z"
 last_activity: 2026-03-19
 progress:
   total_phases: 17
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 73
-  completed_plans: 66
-  percent: 72
+  completed_plans: 70
+  percent: 76
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 17 execution — shell-embodiment-operator-mode-application-and-surface-simplification
+**Current focus:** Milestone audit follow-up and closeout gap planning
 
-Status: Phase 16 is complete; Phase 17 is planned and 17-01 is next
+Status: Phase 17 complete; milestone audit found closeout gaps and the next workflow lane is gap planning
 Current Phase: 17
 Current Phase Name: shell-embodiment-operator-mode-application-and-surface-simplification
-Current Plan: 0
+Current Plan: 4
 Total Plans in Phase: 4
-Progress: 0%
+Progress: 100%
 Last Activity: 2026-03-19
-Last Activity Description: Completed 16-05 and closed Phase 16 by adding typed project-scoped thread routing hints across queue, threads, DTO, and shell boundaries
+Last Activity Description: Wrote the v1.0 milestone audit and identified closeout blockers in verification coverage, requirements reconciliation, and roadmap/archive bookkeeping
 
 ## Current Position
 
-Phase: 17 (shell-embodiment-operator-mode-application-and-surface-simplification) — READY
-Plan: 1 of 4
+Phase: 17 (shell-embodiment-operator-mode-application-and-surface-simplification) — COMPLETE
+Plan: 4 of 4
 
 ## Performance Metrics
 
@@ -180,6 +180,11 @@ Recent decisions affecting current work:
 - Phase 16 execution advanced (2026-03-19): 16-04 completed by surfacing canonical backend-owned trust/readiness follow-through actions for degraded backup, freshness, conflict, and review posture
 - Phase 16 completed (2026-03-19): 16-05 closed project-scoped action behavior with typed thread routing hints and filtered thread-route support, leaving Phase 17 to embody already-owned backend semantics
 - Phase 17 planning created (2026-03-19): 4-plan rollout covering web shell classification, default-surface embodiment, advanced/support disclosure, and Apple/CLI alignment
+- Phase 17 execution started (2026-03-19): 17-01 completed by publishing one shared web shell taxonomy source and reclassifying top-level navigation around daily-use, support, advanced, and detail surfaces
+- Phase 17 execution advanced (2026-03-19): 17-02 completed by tightening web `Now` into a minimal urgent-first surface, keeping `Inbox` triage-first, and reframing `Threads` as continuity/history over the same typed backend-owned state
+- Phase 17 execution advanced (2026-03-19): 17-03 completed by reframing `Projects` as contextual drill-down, making `Settings` summary-first before runtime internals, and demoting `Stats`/`Suggestions` into passive detail surfaces
+- Phase 17 completed (2026-03-19): 17-04 aligned Apple and CLI wording, grouping, and docs to the same summary-first shell taxonomy, completing the embodiment lane without widening backend semantics
+- Milestone audit created (2026-03-19): v1.0 audit reported closeout gaps in verification coverage, requirements reconciliation, and roadmap/archive readiness; milestone archival is blocked pending gap planning
 
 ### Pending Todos
 
@@ -204,10 +209,10 @@ Recent decisions affecting current work:
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 - Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
-- Phase 17 is active; the next lane is 17-01 execution
+- Phase 17 is complete; the next lane is milestone gap planning
 
 ## Session Continuity
 
 Last session: 2026-03-19T07:35:55.445Z
-Stopped at: Completed Phase 16-05 and Phase 16; next logical step is 17-01 execution
+Stopped at: Milestone audit found closeout gaps; next logical step is plan milestone gaps
 Resume file: None

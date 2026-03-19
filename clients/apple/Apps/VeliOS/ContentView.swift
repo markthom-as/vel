@@ -39,7 +39,7 @@ private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
         case .chat:
             return "Threads"
         case .capture:
-            return "Capture"
+            return "Quick entry"
         case .settings:
             return "Settings"
         }
@@ -56,7 +56,7 @@ private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
         case .chat:
             return "bubble.left.and.bubble.right"
         case .capture:
-            return "camera"
+            return "plus.circle"
         case .settings:
             return "gearshape"
         }
@@ -294,7 +294,10 @@ private struct ProjectsTab: View {
 
     var body: some View {
         List {
-            Section("Projects") {
+            Section("Project context") {
+                Text("Projects stay secondary on Apple. Use them for durable roots and project-specific context after `Now`, `Inbox`, or `Threads` point you here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 let projects = store.offlineStore.cachedProjects()
                 if projects.isEmpty {
                     Text("No cached projects yet.")
@@ -314,8 +317,8 @@ private struct ProjectsTab: View {
                 }
             }
 
-            Section("Capabilities") {
-                Text("Project inspector scaffold is enabled for iPad.")
+            Section("Project-owned detail") {
+                Text("Project drill-down is available here without turning Apple into a second daily-use dashboard.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -436,7 +439,7 @@ private struct TodayTab: View {
                     }
                 }
 
-                todaySection("Projects") {
+                todaySection("Project context") {
                     if cachedProjects.isEmpty {
                         Text("No cached projects.")
                             .foregroundStyle(.secondary)
@@ -680,7 +683,7 @@ private struct NudgesTab: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 SurfaceSectionCard("Inbox") {
-                    Text("This lane is the Apple triage surface. Full inbox consolidation is still in progress.")
+                    Text("This is the Apple triage lane. Urgent review stays here; deeper archive and history stay in `Threads`.")
                         .foregroundStyle(.secondary)
                     Text("\(inboxActionCount) backend action items are currently tagged for inbox review.")
                         .font(.caption)
@@ -744,7 +747,7 @@ private struct ActivityTab: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 SurfaceSectionCard("Threads") {
-                    Text("Apple thread continuity is still a bounded shell surface. Recent message-oriented activity is shown here for now.")
+                    Text("Threads are the Apple continuity lane. Use this surface for recent thread-oriented history and deeper follow-up, not daily-use triage.")
                         .foregroundStyle(.secondary)
                     if let urgentThreads = store.context?.context?.message_urgent_thread_count {
                         Text("\(urgentThreads) urgent threads are currently flagged in context.")
@@ -1679,7 +1682,10 @@ private struct SettingsTab: View {
     }
 
     private var runtimeSection: some View {
-        Section("Status") {
+        Section("Advanced operator setup") {
+            Text("Apple stays summary-first by default. Daily-use work belongs in `Now`, `Inbox`, and `Threads`; deeper setup and trust detail live here.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             ConnectionSummaryRow(store: store)
             if let lastSyncAt = store.lastSyncAt {
                 Text("Last sync: \(formatDate(lastSyncAt))")
@@ -1695,7 +1701,7 @@ private struct SettingsTab: View {
     }
 
     private var endpointOverrideSection: some View {
-        Section("Connection") {
+        Section("Connection and trust") {
             TextField("http://host:4130", text: $baseURLOverride)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -1720,7 +1726,7 @@ private struct SettingsTab: View {
     }
 
     private var linkingSection: some View {
-        Section("Setup and linking") {
+        Section("Linking and recovery") {
             scopeToggle(label: "Read context", value: $pairingReadContext)
             scopeToggle(label: "Write safe actions", value: $pairingWriteSafeActions)
             scopeToggle(label: "Execute repo tasks", value: $pairingExecuteRepoTasks)
@@ -1821,7 +1827,7 @@ private struct SettingsTab: View {
     }
 
     private var linkedDevicesSection: some View {
-        Section("Linked devices") {
+        Section("Linked devices and scopes") {
             if store.linkedNodes.isEmpty {
                 Text("No linked devices yet.")
                     .font(.caption)
@@ -1928,7 +1934,7 @@ private struct SettingsTab: View {
     }
 
     private var docsSection: some View {
-        Section("Docs") {
+        Section("Docs and deeper detail") {
             ForEach(VelDocumentationCatalog.core) { doc in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(doc.title)

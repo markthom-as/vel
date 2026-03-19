@@ -76,6 +76,7 @@ describe('InboxView realtime sync', () => {
       expect(screen.getByText('Reply before the review window closes')).toBeInTheDocument()
     })
 
+    expect(screen.getByText('Triage what still needs a decision')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Snooze 10m' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
@@ -107,6 +108,7 @@ describe('InboxView realtime sync', () => {
     await waitFor(() => {
       expect(screen.getByText('Inbox is clear')).toBeInTheDocument()
     })
+    expect(screen.getByText('Triage what still needs a decision')).toBeInTheDocument()
     expect(screen.getByText(/No actions need triage right now/i)).toBeInTheDocument()
 
     requireWsListener(wsListener)({

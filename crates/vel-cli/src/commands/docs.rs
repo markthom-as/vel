@@ -30,17 +30,17 @@ pub fn run(json: bool) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    println!("Core documentation");
+    println!("Core and daily-use documentation");
     for doc in docs.iter().filter(|entry| entry.category == "core") {
         println!("- {}: {} — {}", doc.title, doc.path, doc.description);
     }
     println!();
-    println!("User-specific Vel documentation");
+    println!("User-specific and setup documentation");
     for doc in docs.iter().filter(|entry| entry.category == "user") {
         println!("- {}: {} — {}", doc.title, doc.path, doc.description);
     }
     println!();
-    println!("Published contracts");
+    println!("Published contracts and deeper detail");
     println!(
         "- manifest version {} (live: {}, templates: {}, examples: {}, schemas: {})",
         manifest.version,

@@ -111,9 +111,10 @@ export function StatsView() {
       <div className="mx-auto max-w-6xl px-6 py-8 space-y-8">
         <header>
           <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Stats</p>
-          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">System observability</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Passive detail and observability</h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Runtime health, source freshness, and execution behavior in one place.
+            Use this drill-down when you want richer context, runtime health, and execution detail
+            without turning it into a first-contact daily-use surface.
           </p>
         </header>
 

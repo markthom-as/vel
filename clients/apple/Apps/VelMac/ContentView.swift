@@ -16,7 +16,10 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             List {
-                Section("Status") {
+                Section("Now") {
+                    Text("VelMac stays summary-first. Use this shell for current context, inbox pressure, quick entry, and project drill-down without turning macOS into a runtime console.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Label(store.isReachable ? "Connected" : "Offline cache", systemImage: store.isReachable ? "checkmark.circle" : "wifi.slash")
                     Text("Role: \(appEnvironment.featureCapabilities.roleLabel)")
                         .font(.caption)
@@ -55,14 +58,17 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Section("Context") {
+                Section("Current context") {
                     if let ctx = context?.context {
                         if let mode = ctx.mode { Text("Mode: \(mode)") }
                         if let state = ctx.morning_state { Text("Morning: \(state)") }
                         if let meds = ctx.meds_status { Text("Meds: \(meds)") }
                     }
                 }
-                Section("Nudges") {
+                Section("Inbox") {
+                    Text("This is the Mac triage lane. Urgent nudges and open commitments stay here; longer history and archive live elsewhere.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     ForEach(nudges.filter { $0.state == "active" || $0.state == "snoozed" }) { nudge in
                         VStack(alignment: .leading) {
                             Text(nudge.message)
@@ -83,7 +89,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                Section("Commitments") {
+                Section("Open commitments") {
                     HStack {
                         TextField("Add commitment", text: $commitmentText)
                         Button("Add") {
@@ -109,7 +115,10 @@ struct ContentView: View {
                         }
                     }
                 }
-                Section("Projects") {
+                Section("Project context") {
+                    Text("Projects are a secondary surface for durable roots and project-specific context.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     if projects.isEmpty {
                         Text("No cached projects.")
                             .foregroundStyle(.secondary)
@@ -126,7 +135,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                Section("Capture") {
+                Section("Quick entry") {
                     HStack {
                         TextField("Quick capture", text: $captureText)
                         Button("Save") {
@@ -140,7 +149,7 @@ struct ContentView: View {
                         }
                     }
                 }
-                Section("Documentation") {
+                Section("Settings and docs") {
                     DocumentationListView()
                 }
             }

@@ -98,9 +98,9 @@ export function InboxView({ onOpenThread }: InboxViewProps) {
       <div className="mx-auto max-w-5xl px-6 py-8">
         <header className="mb-6">
           <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Inbox</p>
-          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Triage newly surfaced work</h1>
+          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Triage what still needs a decision</h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Clear items quickly, then open the underlying thread only when you need more evidence.
+            This is the explicit action queue. Clear items quickly, then open the underlying thread only when you need more evidence.
           </p>
         </header>
 

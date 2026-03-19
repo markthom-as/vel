@@ -36,6 +36,9 @@ describe('ProjectsView', () => {
       expect(screen.getByText('Project registry')).toBeInTheDocument()
     })
 
+    expect(screen.getByText('Project context and durable roots')).toBeInTheDocument()
+    expect(screen.getByText('Secondary surface')).toBeInTheDocument()
+    expect(screen.getByText('Project-owned context')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Personal' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Creative' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Work' })).toBeInTheDocument()

@@ -171,7 +171,8 @@ mod tests {
         AgentGroundingPackData, AgentInspectData, AgentInspectExplainabilityData,
         AgentReviewObligationsData, CommitmentData, ExecutionReviewGateData, NowAttentionData,
         NowData, NowDebugData, NowFreshnessData, NowLabelData, NowRiskSummaryData, NowScheduleData,
-        NowSourcesData, NowSummaryData, NowTasksData, ReviewSnapshotData,
+        NowSourcesData, NowSummaryData, NowTasksData, ReviewSnapshotData, TrustReadinessData,
+        TrustReadinessFacetData, TrustReadinessReviewData,
     };
 
     fn sample_inspect() -> AgentInspectData {
@@ -238,11 +239,38 @@ mod tests {
                         overall_status: "fresh".to_string(),
                         sources: Vec::new(),
                     },
+                    trust_readiness: TrustReadinessData {
+                        level: "ok".to_string(),
+                        headline: "Trust looks good".to_string(),
+                        summary: "No trust blockers are active.".to_string(),
+                        backup: TrustReadinessFacetData {
+                            level: "ok".to_string(),
+                            label: "Backup".to_string(),
+                            detail: "Recent backup available".to_string(),
+                        },
+                        freshness: TrustReadinessFacetData {
+                            level: "ok".to_string(),
+                            label: "Freshness".to_string(),
+                            detail: "Context is fresh".to_string(),
+                        },
+                        review: TrustReadinessReviewData {
+                            open_action_count: 3,
+                            pending_execution_reviews: 0,
+                            pending_writeback_count: 0,
+                            conflict_count: 0,
+                        },
+                        guidance: Vec::new(),
+                        follow_through: Vec::new(),
+                    },
+                    check_in: None,
+                    reflow: None,
+                    reflow_status: None,
                     action_items: Vec::new(),
                     review_snapshot: ReviewSnapshotData {
                         open_action_count: 3,
                         triage_count: 1,
                         projects_needing_review: 1,
+                        pending_execution_reviews: 0,
                     },
                     pending_writebacks: Vec::new(),
                     conflicts: Vec::new(),
@@ -283,6 +311,7 @@ mod tests {
                         open_action_count: 3,
                         triage_count: 1,
                         projects_needing_review: 1,
+                        pending_execution_reviews: 0,
                     },
                     pending_writebacks: Vec::new(),
                     conflicts: Vec::new(),

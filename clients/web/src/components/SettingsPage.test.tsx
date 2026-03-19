@@ -1082,6 +1082,7 @@ describe('SettingsPage', () => {
     })
     const root = getSettingsRoot(container)
     expect(within(root).getByRole('heading', { name: /settings/i })).toBeInTheDocument()
+    expect(within(root).getByText(/advanced operator setup, trust summaries, and runtime detail live here/i)).toBeInTheDocument()
   })
 
   it('renders checkboxes for disable_proactive, toggle_risks, toggle_reminders', async () => {
@@ -1091,6 +1092,7 @@ describe('SettingsPage', () => {
       expect(within(root).getByDisplayValue('America/Denver')).toBeInTheDocument()
     })
     const root = getSettingsRoot(container)
+    expect(within(root).getByRole('heading', { name: /advanced operator setup/i })).toBeInTheDocument()
     expect(within(root).getByText(/disable proactive/i)).toBeInTheDocument()
     expect(within(root).getByText(/show risks/i)).toBeInTheDocument()
     expect(within(root).getByText(/show reminders/i)).toBeInTheDocument()

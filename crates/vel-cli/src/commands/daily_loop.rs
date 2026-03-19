@@ -158,6 +158,7 @@ mod tests {
                 deferred_tasks: vec![],
                 confirmed_calendar: vec![],
                 focus_blocks: vec![],
+                check_in_history: vec![],
             }),
             outcome: Some(DailyLoopSessionOutcomeData::Standup(
                 DailyStandupOutcomeData {
@@ -165,6 +166,7 @@ mod tests {
                     deferred_tasks: vec![],
                     confirmed_calendar: vec![],
                     focus_blocks: vec![],
+                    check_in_history: vec![],
                 },
             )),
         };

@@ -4,8 +4,9 @@ import { decodeApiResponse, decodeConversationData, type ApiResponse, type Conve
 import { AppShell } from './components/AppShell';
 import { ContextPanel } from './components/ContextPanel';
 import { MainPanel } from './components/MainPanel';
-import { Sidebar, type MainView } from './components/Sidebar';
+import { Sidebar } from './components/Sidebar';
 import { chatQueryKeys } from './data/chat';
+import type { MainView } from './data/operatorSurfaces';
 import { invalidateQuery } from './data/query';
 
 export type SettingsNavigationTarget = {

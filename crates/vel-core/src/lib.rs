@@ -81,12 +81,12 @@ pub use message::{
 pub use node_identity::NodeIdentity;
 pub use operator_queue::{
     ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionPermissionMode,
-    ActionScopeAffinity, ActionState, ActionSurface, ActionThreadRoute,
-    ActionThreadRouteTarget, CheckInCard, CheckInEscalation, CheckInEscalationTarget,
-    CheckInSourceKind, CheckInSubmitTarget, CheckInSubmitTargetKind, CheckInTransition,
-    CheckInTransitionKind, CheckInTransitionTargetKind, ReflowAcceptMode, ReflowCard,
-    ReflowEditTarget, ReflowSeverity, ReflowTransition, ReflowTransitionKind,
-    ReflowTransitionTargetKind, ReflowTriggerKind, ReviewSnapshot,
+    ActionScopeAffinity, ActionState, ActionSurface, ActionThreadRoute, ActionThreadRouteTarget,
+    CheckInCard, CheckInEscalation, CheckInEscalationTarget, CheckInSourceKind,
+    CheckInSubmitTarget, CheckInSubmitTargetKind, CheckInTransition, CheckInTransitionKind,
+    CheckInTransitionTargetKind, ReflowAcceptMode, ReflowCard, ReflowEditTarget, ReflowSeverity,
+    ReflowTransition, ReflowTransitionKind, ReflowTransitionTargetKind, ReflowTriggerKind,
+    ReviewSnapshot,
 };
 pub use ordering::OrderingStamp;
 pub use people::{PersonAlias, PersonId, PersonLinkRef, PersonRecord};

@@ -11,7 +11,10 @@ struct ContentView: View {
         let linkedNodes = store.offlineStore.cachedLinkedNodes()
 
         List {
-            Section("Status") {
+            Section("Now") {
+                Text("Apple Watch stays summary-first. Show immediate context here; deeper setup stays on iPhone or Mac.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Text(store.message)
                     .font(.caption)
                     .lineLimit(3)
@@ -49,11 +52,6 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(3)
                 }
-                Button("Refresh") {
-                    Task { await store.refresh() }
-                }
-            }
-            Section("Now") {
                 if let mode = store.mode, !mode.isEmpty {
                     Text("Mode: \(mode)")
                         .font(.caption2)
@@ -84,8 +82,11 @@ struct ContentView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                Button("Refresh") {
+                    Task { await store.refresh() }
+                }
             }
-            Section("Behavior") {
+            Section("Advisories") {
                 if let headline = store.behaviorHeadline, !headline.isEmpty {
                     Text(headline)
                         .font(.caption)
@@ -103,7 +104,7 @@ struct ContentView: View {
                 }
             }
             if store.activeNudgeID != nil {
-                Section("Actions") {
+                Section("Inbox actions") {
                     Button("Done") {
                         Task { await store.markTopNudgeDone() }
                     }
@@ -113,7 +114,7 @@ struct ContentView: View {
                 }
             }
 
-            Section("Quick capture") {
+            Section("Quick entry") {
                 Button("Meds taken") {
                     Task {
                         await store.createCapture(
@@ -151,7 +152,7 @@ struct ContentView: View {
                 .disabled(captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
-            Section("Quick commitment") {
+            Section("Commitments") {
                 TextField("Add task", text: $commitmentText)
 
                 Button("Add task") {
@@ -165,7 +166,7 @@ struct ContentView: View {
                 .disabled(commitmentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
-            Section("Docs") {
+            Section("Settings and docs") {
                 Text("Core: docs/MASTER_PLAN.md")
                     .font(.caption2)
                 Text("User: docs/user/daily-use.md")

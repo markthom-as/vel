@@ -139,7 +139,7 @@ Remaining execution order: 16
 | 14. Product discovery, operator modes, and milestone shaping | 4/4 | Complete | 2026-03-19 |
 | 15. Incremental core migration and canonical Rust service seams | 5/5 | Complete | 2026-03-19 |
 | 16. Logic-first product closure on canonical core surfaces | 1/5 | In Progress | - |
-| 17. Shell embodiment, operator-mode application, and surface simplification | 0/4 | Planned | - |
+| 17. Shell embodiment, operator-mode application, and surface simplification | 4/4 | Complete | 2026-03-19 |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -180,7 +180,7 @@ Plans:
 **Goal:** Make Vel useful from iPhone/watch first through fast capture and response loops, while ingesting lightweight behavioral signals that improve daily orientation without making health or astrology core dependencies.
 **Requirements**: IOS-01, IOS-02, IOS-03, HEALTH-01, HEALTH-02, APPLE-01
 **Depends on:** Phase 6
-**Plans:** 4 plans
+**Plans:** 1/4 plans complete
 
 Plans:
 - [x] 07-01-PLAN.md — Publish typed Apple voice, schedule, and behavior-summary contracts before implementation widens
@@ -210,7 +210,7 @@ Plans:
 **Goal:** Add lightweight backup/export and simple control surfaces that reduce fear of loss, while keeping restore/recovery and advanced policy surfaces intentionally smaller than the core daily loop.
 **Requirements**: BACKUP-01, BACKUP-02, CTRL-01, CTRL-02
 **Depends on:** Phase 8
-**Plans:** 4 plans
+**Plans:** 2/4 plans complete
 
 Plans:
 - [x] 09-01-PLAN.md — Ratify Phase 09 requirements and publish backup manifest/trust contracts before runtime work widens
@@ -350,7 +350,7 @@ Plans:
 **Phase 14 carry-forward:** Phase 17 should embody minimal `Now`, triage-first `Inbox`, archive/search-first `Threads`, secondary-but-real `Projects`, inline `check_in`, and heavier `reflow` treatment without reopening the taxonomy or action-model decisions.
 
 Plans:
-- [ ] 17-01-PLAN.md — Stabilize shared web shell classification and top-level routing around the approved taxonomy
-- [ ] 17-02-PLAN.md — Embody minimal `Now`, triage-first `Inbox`, and archive/search-first `Threads` in the web shell
-- [ ] 17-03-PLAN.md — Apply progressive disclosure to `Projects`, `Settings`, trust/setup, and passive support surfaces
-- [ ] 17-04-PLAN.md — Align Apple and CLI shells to the same taxonomy and disclosure rules without widening backend semantics
+- [x] 17-01-PLAN.md — Stabilize shared web shell classification and top-level routing around the approved taxonomy
+- [x] 17-02-PLAN.md — Embody minimal `Now`, triage-first `Inbox`, and archive/search-first `Threads` in the web shell
+- [x] 17-03-PLAN.md — Apply progressive disclosure to `Projects`, `Settings`, trust/setup, and passive support surfaces
+- [x] 17-04-PLAN.md — Align Apple and CLI shells to the same taxonomy and disclosure rules without widening backend semantics

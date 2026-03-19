@@ -8,7 +8,14 @@ import {
 } from '../data/context';
 import { operatorQueryKeys, runEvaluate, syncSource } from '../data/operator';
 import { invalidateQuery, setQueryData, useQuery } from '../data/query';
-import type { ActionItemData, DailyLoopPhaseData, DailyLoopSessionData, NowData, NowTaskData } from '../types';
+import type {
+  ActionItemData,
+  DailyLoopPhaseData,
+  DailyLoopSessionData,
+  NowData,
+  NowTaskData,
+  ReviewSnapshotData,
+} from '../types';
 import { SurfaceState } from './SurfaceState';
 
 type SettingsIntegrationTarget =
@@ -277,13 +284,14 @@ export function NowView({ onOpenSettings }: NowViewProps) {
     open_action_count: 0,
     triage_count: 0,
     projects_needing_review: 0,
+    pending_execution_reviews: 0,
   };
   const pendingWritebacks = data.pending_writebacks ?? [];
   const conflicts = data.conflicts ?? [];
   const peopleReview = peopleNeedingReview(data);
-  const executionReviewCount = actionItems.filter((item) =>
-    item.evidence.some((evidence) => evidence.source_kind === 'execution_handoff'),
-  ).length;
+  const summarizedActionItems = actionItems.slice(0, 3);
+  const threadAttentionCount = actionItems.filter((item) => item.thread_route !== null).length
+    + (data.reflow_status?.thread_id ? 1 : 0);
 
   return (
     <div className="flex-1 overflow-y-auto bg-zinc-950">
@@ -310,6 +318,51 @@ export function NowView({ onOpenSettings }: NowViewProps) {
           onRunAction={runFreshnessAction}
         />
 
+        <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <ContextStripCard
+            label="Mode"
+            value={data.summary.mode.label}
+            detail={data.summary.phase.label}
+          />
+          <ContextStripCard
+            label="Next event"
+            value={data.schedule.next_event?.title ?? 'No event'}
+            detail={data.schedule.next_event?.location ?? 'No location attached'}
+          />
+          <ContextStripCard
+            label="Next commitment"
+            value={data.tasks.next_commitment?.text ?? 'Nothing selected'}
+            detail={data.tasks.next_commitment?.project ?? 'No project'}
+          />
+          <ContextStripCard
+            label="Inbox pressure"
+            value={`${reviewSnapshot.triage_count} waiting`}
+            detail={`${reviewSnapshot.open_action_count} open actions`}
+          />
+          <ContextStripCard
+            label="Threads"
+            value={threadAttentionCount > 0 ? `${threadAttentionCount} need context` : 'Quiet'}
+            detail={data.reflow_status?.headline ?? 'Archive and follow-ups live here'}
+          />
+        </section>
+
+        <Panel
+          title="Immediate pressure"
+          subtitle="Keep this view minimal. Handle only what needs attention now, then go deeper elsewhere."
+        >
+          <div className="space-y-4">
+            {data.reflow ? <ReflowCardView reflow={data.reflow} /> : null}
+            {data.reflow_status ? <ReflowStatusView status={data.reflow_status} timezone={data.timezone} /> : null}
+            {data.check_in ? <CheckInCardView checkIn={data.check_in} /> : null}
+            <TrustReadinessPanel trustReadiness={data.trust_readiness} timezone={data.timezone} />
+            <QueuePressureSummary
+              reviewSnapshot={reviewSnapshot}
+              actionItems={summarizedActionItems}
+              threadAttentionCount={threadAttentionCount}
+            />
+          </div>
+        </Panel>
+
         <DailyLoopPanel
           sessionDate={sessionDate}
           activeSession={activeDailyLoop}
@@ -322,35 +375,6 @@ export function NowView({ onOpenSettings }: NowViewProps) {
           onSubmit={() => void advanceLoop('submit')}
           onSkip={() => void advanceLoop('skip')}
         />
-
-        <Panel
-          title="Action stack"
-          subtitle="Ranked actions derived from persisted evidence and the current review snapshot"
-        >
-          <div className="mb-4 flex flex-wrap gap-2 text-xs text-zinc-400">
-            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
-              {reviewSnapshot.open_action_count} open actions
-            </span>
-            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
-              {reviewSnapshot.triage_count} waiting for Inbox triage
-            </span>
-            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
-              {reviewSnapshot.projects_needing_review} projects need review
-            </span>
-            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
-              {executionReviewCount} execution reviews pending
-            </span>
-          </div>
-          {actionItems.length === 0 ? (
-            <SurfaceState message="No ranked actions yet. Re-run evaluate after syncing sources." />
-          ) : (
-            <div className="space-y-3">
-              {actionItems.map((item) => (
-                <ActionItemRow key={item.id} item={item} timezone={data.timezone} />
-              ))}
-            </div>
-          )}
-        </Panel>
 
         <section className="mt-8 grid gap-4 md:grid-cols-4">
           <FocusCard label="Mode" value={data.summary.mode.label} />
@@ -799,6 +823,234 @@ function DailyLoopPanel({
         </p>
       ) : null}
     </Panel>
+  );
+}
+
+function ContextStripCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <p className="mt-2 text-sm font-medium text-zinc-100">{value}</p>
+      <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+    </div>
+  );
+}
+
+function CheckInCardView({ checkIn }: { checkIn: NowData['check_in'] }) {
+  if (!checkIn) {
+    return null;
+  }
+
+  return (
+    <article className={`rounded-2xl border p-4 ${checkIn.blocking ? 'border-emerald-700/50 bg-emerald-950/20' : 'border-zinc-800 bg-zinc-950/50'}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-emerald-700/50 bg-emerald-950/40 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-emerald-200">
+          Check-in
+        </span>
+        {checkIn.blocking ? (
+          <span className="rounded-full border border-amber-700/50 bg-amber-950/30 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-amber-100">
+            Blocking
+          </span>
+        ) : null}
+      </div>
+      <h3 className="mt-3 text-lg font-medium text-zinc-100">{checkIn.title}</h3>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">{checkIn.summary}</p>
+      <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
+        <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Prompt</p>
+        <p className="mt-2 text-sm text-zinc-100">{checkIn.prompt_text}</p>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-400">
+        {checkIn.suggested_action_label ? (
+          <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+            Suggested: {checkIn.suggested_action_label}
+          </span>
+        ) : null}
+        {checkIn.allow_skip ? (
+          <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+            Bypass allowed with note
+          </span>
+        ) : null}
+        {checkIn.escalation ? (
+          <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+            {checkIn.escalation.label}
+          </span>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function ReflowCardView({ reflow }: { reflow: NowData['reflow'] }) {
+  if (!reflow) {
+    return null;
+  }
+
+  return (
+    <article className={`rounded-2xl border p-4 ${reflow.severity === 'critical' ? 'border-rose-700/50 bg-rose-950/20' : 'border-amber-700/40 bg-amber-950/20'}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-rose-700/50 bg-rose-950/40 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-rose-100">
+          Reflow
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+          {reflow.severity}
+        </span>
+      </div>
+      <h3 className="mt-3 text-lg font-medium text-zinc-100">{reflow.title}</h3>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">{reflow.summary}</p>
+      {reflow.preview_lines.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {reflow.preview_lines.map((line) => (
+            <li key={line} className="rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-100">
+              {line}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-300">
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {reflow.suggested_action_label}
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {reflow.edit_target.label}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function ReflowStatusView({
+  status,
+  timezone,
+}: {
+  status: NowData['reflow_status'];
+  timezone: string;
+}) {
+  if (!status) {
+    return null;
+  }
+
+  return (
+    <article className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+          Reflow status
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+          {status.kind}
+        </span>
+      </div>
+      <h3 className="mt-3 text-base font-medium text-zinc-100">{status.headline}</h3>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">{status.detail}</p>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+        <span>Recorded {formatTimestamp(status.recorded_at, timezone)}</span>
+        {status.thread_id ? <span>Thread {status.thread_id}</span> : null}
+      </div>
+    </article>
+  );
+}
+
+function TrustReadinessPanel({
+  trustReadiness,
+}: {
+  trustReadiness: NowData['trust_readiness'];
+  timezone: string;
+}) {
+  return (
+    <article className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+          Trust and readiness
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+          {trustReadiness.level}
+        </span>
+      </div>
+      <h3 className="mt-3 text-base font-medium text-zinc-100">{trustReadiness.headline}</h3>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">{trustReadiness.summary}</p>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-400">
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {trustReadiness.review.pending_execution_reviews} execution reviews
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {trustReadiness.review.pending_writeback_count} pending writebacks
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {trustReadiness.review.conflict_count} conflicts
+        </span>
+      </div>
+      {trustReadiness.follow_through.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {trustReadiness.follow_through.map((item) => (
+            <div key={item.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+              <p className="text-sm font-medium text-zinc-100">{item.title}</p>
+              <p className="mt-1 text-xs text-zinc-400">{item.summary}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function QueuePressureSummary({
+  reviewSnapshot,
+  actionItems,
+  threadAttentionCount,
+}: {
+  reviewSnapshot: ReviewSnapshotData;
+  actionItems: ActionItemData[];
+  threadAttentionCount: number;
+}) {
+  return (
+    <article className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+          Waiting elsewhere
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-zinc-300">
+        Keep `Now` lightweight. Use `Inbox` for explicit triage and `Threads` for longer context, history, and follow-up.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-400">
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {reviewSnapshot.triage_count} waiting for Inbox triage
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {threadAttentionCount} need thread context
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {reviewSnapshot.projects_needing_review} projects need review
+        </span>
+      </div>
+      {actionItems.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {actionItems.map((item) => (
+            <li key={item.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-zinc-100">{item.title}</span>
+                <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[11px] uppercase tracking-[0.16em] text-zinc-500">
+                  {formatActionKind(item.kind)}
+                </span>
+                {item.project_label ? (
+                  <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[11px] text-emerald-300">
+                    {item.project_label}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-1 text-xs text-zinc-400">{item.summary}</p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </article>
   );
 }
 

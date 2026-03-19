@@ -2118,7 +2118,13 @@ export function SettingsPage({
       >
         ← Back
       </button>
-      <h2 className="text-xl font-medium text-zinc-200 mb-6">Settings</h2>
+      <div className="mb-6">
+        <h2 className="text-xl font-medium text-zinc-200">Settings</h2>
+        <p className="mt-2 text-sm text-zinc-500">
+          Advanced operator setup, trust summaries, and runtime detail live here. Daily-use triage
+          stays in `Now`, `Inbox`, and `Threads`.
+        </p>
+      </div>
       <div className="mb-8 flex gap-2 border-b border-zinc-800 pb-3">
         {(['general', 'integrations', 'runtime'] as const).map((tab) => (
           <button
@@ -2138,6 +2144,20 @@ export function SettingsPage({
 
       {activeTab === 'general' ? (
         <div className="space-y-4">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-base font-medium text-zinc-100">Advanced operator setup</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Start with summary trust, onboarding, linking, and review posture here before
+                  dropping into runtime internals.
+                </p>
+              </div>
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
+                summary-first
+              </span>
+            </div>
+          </div>
           <label className="flex items-center justify-between gap-4">
             <span className="text-zinc-300">Disable proactive interventions</span>
             <input
@@ -3838,7 +3858,7 @@ export function SettingsPage({
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
           <h3 className="text-base font-medium text-zinc-100">Runtime controls</h3>
           <p className="mt-1 text-sm text-zinc-500">
-            This tab is for operator actions only: adjust loops, manage retries, and restart components. Use Stats for passive observability.
+            Internal and implementation-aware controls live here: adjust loops, manage retries, and restart components. Use Stats for passive observability.
           </p>
         </div>
         {diagnostics ? (

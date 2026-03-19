@@ -228,6 +228,13 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     <>
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 relative">
         <div className="max-w-2xl mx-auto">
+          <header className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Threads</p>
+            <h1 className="mt-2 text-2xl font-semibold text-zinc-100">Continuity, history, and longer follow-up</h1>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              Use Threads when `Now` or `Inbox` needs deeper context, longer back-and-forth, or searchable history.
+            </p>
+          </header>
           {messages.length === 0 && (
             <SurfaceState message="No messages yet." />
           )}

@@ -1,14 +1,11 @@
 import { useEffect, useState } from 'react';
 import { ConversationList } from './ConversationList';
-
-export type MainView =
-  | 'now'
-  | 'inbox'
-  | 'threads'
-  | 'suggestions'
-  | 'projects'
-  | 'stats'
-  | 'settings';
+import {
+  advancedSurfaces,
+  primarySurfaces,
+  secondarySurfaces,
+  type MainView,
+} from '../data/operatorSurfaces';
 
 interface SidebarProps {
   activeView: MainView;
@@ -26,17 +23,6 @@ export function Sidebar({
   onNewConversation,
 }: SidebarProps) {
   const [showThreadHistory, setShowThreadHistory] = useState(activeView === 'threads');
-  const primaryItems: Array<{ view: MainView; label: string; icon: string; blurb: string }> = [
-    { view: 'now', label: 'Now', icon: '◉', blurb: 'Daily orientation and freshness' },
-    { view: 'inbox', label: 'Inbox', icon: '◎', blurb: 'Triage queued work' },
-    { view: 'projects', label: 'Projects', icon: '▣', blurb: 'Workspace detail and structure' },
-  ];
-  const supportItems: Array<{ view: MainView; label: string; icon: string }> = [
-    { view: 'threads', label: 'Threads', icon: '◌' },
-    { view: 'suggestions', label: 'Suggestions', icon: '△' },
-    { view: 'stats', label: 'Stats', icon: '□' },
-    { view: 'settings', label: 'Settings', icon: '◇' },
-  ];
 
   useEffect(() => {
     if (activeView === 'threads') {
@@ -51,9 +37,9 @@ export function Sidebar({
         <p className="text-xs text-zinc-500">Operator surface</p>
       </div>
       <nav className="shrink-0 border-b border-zinc-800 p-2">
-        <p className="px-3 pb-2 text-[11px] uppercase tracking-[0.18em] text-zinc-500">Primary</p>
+        <p className="px-3 pb-2 text-[11px] uppercase tracking-[0.18em] text-zinc-500">Daily Use</p>
         <ul className="space-y-1">
-          {primaryItems.map((item) => (
+          {primarySurfaces.map((item) => (
             <li key={item.view}>
               <button
                 type="button"
@@ -81,7 +67,7 @@ export function Sidebar({
         </ul>
         <p className="px-3 pb-2 pt-4 text-[11px] uppercase tracking-[0.18em] text-zinc-500">Support</p>
         <ul className="space-y-1">
-          {supportItems.map((item) => (
+          {secondarySurfaces.map((item) => (
             <li key={item.view}>
               <button
                 type="button"
@@ -96,7 +82,40 @@ export function Sidebar({
                   <span aria-hidden="true" className="text-xs text-zinc-500">
                     {item.icon}
                   </span>
-                  <span>{item.label}</span>
+                  <span className="min-w-0">
+                    <span className="block">{item.label}</span>
+                    <span className={`block text-xs ${activeView === item.view ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                      {item.blurb}
+                    </span>
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <p className="px-3 pb-2 pt-4 text-[11px] uppercase tracking-[0.18em] text-zinc-500">Advanced</p>
+        <ul className="space-y-1">
+          {advancedSurfaces.map((item) => (
+            <li key={item.view}>
+              <button
+                type="button"
+                onClick={() => onSelectView(item.view)}
+                className={`w-full rounded-md px-3 py-2 text-left text-sm transition ${
+                  activeView === item.view
+                    ? 'bg-zinc-800 text-zinc-100'
+                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <span aria-hidden="true" className="text-xs text-zinc-500">
+                    {item.icon}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block">{item.label}</span>
+                    <span className={`block text-xs ${activeView === item.view ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                      {item.blurb}
+                    </span>
+                  </span>
                 </span>
               </button>
             </li>

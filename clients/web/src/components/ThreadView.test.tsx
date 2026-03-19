@@ -59,6 +59,7 @@ describe('ThreadView realtime sync', () => {
     await waitFor(() => {
       expect(within(thread).getByText('No messages yet.')).toBeInTheDocument()
     })
+    expect(within(thread).getByText('Continuity, history, and longer follow-up')).toBeInTheDocument()
 
     const message = {
       id: 'msg_1',
@@ -110,6 +111,7 @@ describe('ThreadView realtime sync', () => {
     await waitFor(() => {
       expect(within(thread).getByText('No messages yet.')).toBeInTheDocument()
     })
+    expect(within(thread).getByText('Continuity, history, and longer follow-up')).toBeInTheDocument()
 
     requireWsListener(wsListener)({
       type: 'messages:new',
