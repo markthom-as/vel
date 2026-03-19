@@ -174,19 +174,19 @@ describe('NowView', () => {
                 id: 'action_2',
                 surface: 'now',
                 kind: 'review',
-                title: 'Clear Todoist follow-ups',
-                summary: 'The open backlog still contains overdue outreach work.',
-                project_id: null,
+                title: 'Review execution handoff for runtime lane',
+                summary: 'The supervised coding handoff is waiting for explicit approval.',
+                project_id: 'proj_exec',
                 state: 'active',
                 rank: 2,
                 surfaced_at: '2026-03-16T19:00:00Z',
                 snoozed_until: null,
                 evidence: [
                   {
-                    source_kind: 'todoist_task',
-                    source_id: 'task_1',
-                    label: 'Reply to Dimitri',
-                    detail: null,
+                    source_kind: 'execution_handoff',
+                    source_id: 'handoff_1',
+                    label: 'implementation · quality · large',
+                    detail: 'write_scope_requires_approval | write scopes: /tmp/vel',
                   },
                 ],
               },
@@ -347,14 +347,17 @@ describe('NowView', () => {
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
     expect(screen.getByText('Action stack')).toBeInTheDocument()
     expect(screen.getByText('Confirm the design review agenda')).toBeInTheDocument()
-    expect(screen.getByText('Clear Todoist follow-ups')).toBeInTheDocument()
+    expect(screen.getByText('Review execution handoff for runtime lane')).toBeInTheDocument()
     expect(screen.getByText('Design review at 10:00')).toBeInTheDocument()
     expect(screen.getByText('2 open actions')).toBeInTheDocument()
+    expect(screen.getByText('1 execution reviews pending')).toBeInTheDocument()
     expect(
       screen
         .getByText('Confirm the design review agenda')
-        .compareDocumentPosition(screen.getByText('Clear Todoist follow-ups')) & Node.DOCUMENT_POSITION_FOLLOWING,
+        .compareDocumentPosition(screen.getByText('Review execution handoff for runtime lane')) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+    expect(screen.getByText('Execution review')).toBeInTheDocument()
+    expect(screen.getByText('write_scope_requires_approval | write scopes: /tmp/vel')).toBeInTheDocument()
     expect(screen.getByText('Prep window active')).toBeInTheDocument()
     expect(screen.getByText('recent git activity indicates active work')).toBeInTheDocument()
     expect(screen.getByText('Recent source activity')).toBeInTheDocument()

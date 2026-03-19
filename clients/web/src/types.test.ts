@@ -6,6 +6,7 @@ import {
   decodeCreateMessageResponse,
   decodeContextExplainData,
   decodeCurrentContextData,
+  decodeExecutionHandoffRecordData,
   decodeComponentData,
   decodeComponentLogEventData,
   decodeClusterWorkersData,
@@ -241,6 +242,92 @@ describe('transport decoders', () => {
     expect(response.data?.notes.suggested_paths).toEqual(['/Users/test/Vault'])
     expect(response.data?.notes.source_kind).toBe('directory')
     expect(response.data?.google_calendar.guidance?.action).toBe('Save credentials')
+  })
+
+  it('decodes persisted execution handoff review records', () => {
+    const handoff = decodeExecutionHandoffRecordData({
+      id: 'handoff_1',
+      project_id: 'proj_exec',
+      origin_kind: 'human_to_agent',
+      review_state: 'pending_review',
+      handoff: {
+        handoff: {
+          task_id: 'task_1',
+          trace_id: 'trace_1',
+          from_agent: 'operator',
+          to_agent: 'codex-local',
+          objective: 'Implement the next safe slice',
+          inputs: { project: 'vel' },
+          constraints: ['sidecar only'],
+          read_scopes: ['/tmp/vel', '/tmp/vel/notes'],
+          write_scopes: ['/tmp/vel'],
+          project_id: 'proj_exec',
+          task_kind: 'implementation',
+          agent_profile: 'quality',
+          token_budget: 'large',
+          review_gate: 'operator_approval',
+          repo_root: {
+            path: '/tmp/vel',
+            label: 'vel',
+            branch: 'main',
+            head_rev: 'abc123',
+          },
+          allowed_tools: ['rg', 'cargo test'],
+          capability_scope: {
+            read_scopes: ['/tmp/vel'],
+            write_scopes: ['/tmp/vel'],
+          },
+          deadline: null,
+          expected_output_schema: {
+            artifacts: ['patch', 'summary'],
+          },
+        },
+        project_id: 'proj_exec',
+        task_kind: 'implementation',
+        agent_profile: 'quality',
+        token_budget: 'large',
+        review_gate: 'operator_approval',
+        repo: {
+          path: '/tmp/vel',
+          label: 'vel',
+          branch: 'main',
+          head_rev: 'abc123',
+        },
+        notes_root: {
+          path: '/tmp/vel/notes',
+          label: 'vel-notes',
+          kind: 'notes_root',
+        },
+        manifest_id: 'local-codex',
+      },
+      routing: {
+        task_kind: 'implementation',
+        agent_profile: 'quality',
+        token_budget: 'large',
+        review_gate: 'operator_approval',
+        read_scopes: ['/tmp/vel'],
+        write_scopes: ['/tmp/vel'],
+        allowed_tools: ['rg', 'cargo test'],
+        reasons: [
+          {
+            code: 'write_scope_requires_approval',
+            message: 'write scopes require explicit operator approval before launch',
+          },
+        ],
+      },
+      manifest_id: 'local-codex',
+      requested_by: 'operator_shell',
+      reviewed_by: null,
+      decision_reason: null,
+      reviewed_at: null,
+      launched_at: null,
+      created_at: '2026-03-19T00:00:00Z',
+      updated_at: '2026-03-19T00:00:00Z',
+    })
+
+    expect(handoff.handoff.handoff.objective).toBe('Implement the next safe slice')
+    expect(handoff.routing.reasons[0]?.code).toBe('write_scope_requires_approval')
+    expect(handoff.review_state).toBe('pending_review')
   })
 
   it('decodes canonical integration connection data', () => {

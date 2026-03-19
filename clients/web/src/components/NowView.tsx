@@ -149,6 +149,9 @@ export function NowView({ onOpenSettings }: NowViewProps) {
   const pendingWritebacks = data.pending_writebacks ?? [];
   const conflicts = data.conflicts ?? [];
   const peopleReview = peopleNeedingReview(data);
+  const executionReviewCount = actionItems.filter((item) =>
+    item.evidence.some((evidence) => evidence.source_kind === 'execution_handoff'),
+  ).length;
 
   return (
     <div className="flex-1 overflow-y-auto bg-zinc-950">
@@ -188,6 +191,9 @@ export function NowView({ onOpenSettings }: NowViewProps) {
             </span>
             <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
               {reviewSnapshot.projects_needing_review} projects need review
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+              {executionReviewCount} execution reviews pending
             </span>
           </div>
           {actionItems.length === 0 ? (
@@ -601,6 +607,9 @@ function TaskCard({ task, timezone }: { task: NowTaskData; timezone: string }) {
 }
 
 function ActionItemRow({ item, timezone }: { item: ActionItemData; timezone: string }) {
+  const executionHandoffEvidence = item.evidence.find(
+    (evidence) => evidence.source_kind === 'execution_handoff',
+  );
   return (
     <article className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -612,6 +621,11 @@ function ActionItemRow({ item, timezone }: { item: ActionItemData; timezone: str
             <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-500">
               Rank {item.rank}
             </span>
+            {executionHandoffEvidence ? (
+              <span className="rounded-full border border-amber-700/60 bg-amber-950/30 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-amber-100">
+                Execution review
+              </span>
+            ) : null}
             {item.project_id ? (
               <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-emerald-300">
                 {item.project_id}
@@ -620,6 +634,9 @@ function ActionItemRow({ item, timezone }: { item: ActionItemData; timezone: str
           </div>
           <h3 className="mt-3 text-lg font-medium text-zinc-100">{item.title}</h3>
           <p className="mt-2 text-sm leading-6 text-zinc-300">{item.summary}</p>
+          {executionHandoffEvidence?.detail ? (
+            <p className="mt-2 text-sm text-amber-200">{executionHandoffEvidence.detail}</p>
+          ) : null}
         </div>
         <div className="shrink-0 text-sm text-zinc-500">
           Surfaced {formatRfc3339(item.surfaced_at, timezone)}
@@ -637,6 +654,8 @@ function ActionItemRow({ item, timezone }: { item: ActionItemData; timezone: str
               className={`rounded-full border px-2.5 py-1 text-xs ${
                 evidence.source_kind === 'person'
                   ? 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200'
+                  : evidence.source_kind === 'execution_handoff'
+                    ? 'border-amber-700/60 bg-amber-950/30 text-amber-100'
                   : 'border-zinc-800 bg-zinc-900/70 text-zinc-400'
               }`}
             >

@@ -6,6 +6,7 @@ import {
   decodeClusterWorkersData,
   decodeComponentData,
   decodeComponentLogEventData,
+  decodeExecutionHandoffRecordData,
   decodeGoogleCalendarAuthStartData,
   decodeIntegrationLogEventData,
   decodeIntegrationsData,
@@ -23,6 +24,8 @@ import {
   type ComponentData,
   type ComponentLogEventData,
   type ConflictCaseData,
+  type ExecutionHandoffRecordData,
+  type ExecutionHandoffReviewStateData,
   type GoogleCalendarAuthStartData,
   type IntegrationLogEventData,
   type IntegrationsData,
@@ -56,6 +59,7 @@ export interface OperatorReviewStatusData {
   pending_writebacks: WritebackOperationData[];
   open_conflicts: ConflictCaseData[];
   people_needing_review: PersonRecordData[];
+  pending_execution_handoffs: ExecutionHandoffRecordData[];
 }
 
 function decodeSyncResultData(value: unknown): SyncResultData {
@@ -88,6 +92,8 @@ export const operatorQueryKeys = {
   clusterWorkers: () => ['cluster', 'workers'] as const,
   projects: () => ['projects'] as const,
   linkingStatus: () => ['linking', 'status'] as const,
+  executionHandoffs: (state: ExecutionHandoffReviewStateData = 'pending_review') =>
+    ['execution', 'handoffs', state] as const,
   settings: () => ['settings'] as const,
   integrations: () => ['integrations'] as const,
   loops: () => ['loops'] as const,
@@ -100,6 +106,7 @@ export const operatorQueryKeys = {
 export function buildOperatorReviewStatus(
   now: NowData | null | undefined,
   settings: SettingsData | null | undefined,
+  handoffs: ExecutionHandoffRecordData[] | null | undefined = [],
 ): OperatorReviewStatusData {
   const peopleById = new Map<string, PersonRecordData>(
     (now?.people ?? []).map((person) => [person.id, person]),
@@ -123,7 +130,43 @@ export function buildOperatorReviewStatus(
     pending_writebacks: now?.pending_writebacks ?? [],
     open_conflicts: now?.conflicts ?? [],
     people_needing_review: [...peopleNeedingReview.values()],
+    pending_execution_handoffs: handoffs ?? [],
   };
+}
+
+export function loadExecutionHandoffs(
+  state: ExecutionHandoffReviewStateData = 'pending_review',
+): Promise<ApiResponse<ExecutionHandoffRecordData[]>> {
+  return apiGet<ApiResponse<ExecutionHandoffRecordData[]>>(
+    `/v1/execution/handoffs?state=${encodeURIComponent(state)}`,
+    (value) =>
+      decodeApiResponse(
+        value,
+        (data) => decodeArray(data, decodeExecutionHandoffRecordData),
+      ),
+  );
+}
+
+export function approveExecutionHandoff(
+  handoffId: string,
+  payload: { reviewed_by: string; decision_reason?: string | null },
+): Promise<ApiResponse<ExecutionHandoffRecordData>> {
+  return apiPost<ApiResponse<ExecutionHandoffRecordData>>(
+    `/v1/execution/handoffs/${handoffId}/approve`,
+    payload,
+    (value) => decodeApiResponse(value, decodeExecutionHandoffRecordData),
+  );
+}
+
+export function rejectExecutionHandoff(
+  handoffId: string,
+  payload: { reviewed_by: string; decision_reason?: string | null },
+): Promise<ApiResponse<ExecutionHandoffRecordData>> {
+  return apiPost<ApiResponse<ExecutionHandoffRecordData>>(
+    `/v1/execution/handoffs/${handoffId}/reject`,
+    payload,
+    (value) => decodeApiResponse(value, decodeExecutionHandoffRecordData),
+  );
 }
 
 export function loadClusterBootstrap(): Promise<ApiResponse<ClusterBootstrapData>> {

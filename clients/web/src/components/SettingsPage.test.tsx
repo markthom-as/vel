@@ -240,6 +240,88 @@ describe('SettingsPage', () => {
           meta: { request_id: 'req_now' },
         } as never
       }
+      if (path === '/v1/execution/handoffs?state=pending_review') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'xho_1',
+              project_id: 'proj_exec',
+              origin_kind: 'human_to_agent',
+              review_state: 'pending_review',
+              handoff: {
+                handoff: {
+                  task_id: 'task_1',
+                  trace_id: 'trace_1',
+                  from_agent: 'operator',
+                  to_agent: 'codex-local',
+                  objective: 'Implement the runtime review queue',
+                  inputs: {},
+                  constraints: [],
+                  read_scopes: ['/tmp/vel'],
+                  write_scopes: ['/tmp/vel'],
+                  project_id: 'proj_exec',
+                  task_kind: 'implementation',
+                  agent_profile: 'quality',
+                  token_budget: 'large',
+                  review_gate: 'operator_approval',
+                  repo_root: {
+                    path: '/tmp/vel',
+                    label: 'vel',
+                    branch: null,
+                    head_rev: null,
+                  },
+                  allowed_tools: ['rg'],
+                  capability_scope: {},
+                  deadline: null,
+                  expected_output_schema: { artifacts: ['patch'] },
+                },
+                project_id: 'proj_exec',
+                task_kind: 'implementation',
+                agent_profile: 'quality',
+                token_budget: 'large',
+                review_gate: 'operator_approval',
+                repo: {
+                  path: '/tmp/vel',
+                  label: 'vel',
+                  branch: null,
+                  head_rev: null,
+                },
+                notes_root: {
+                  path: '/tmp/vel/notes',
+                  label: 'vel-notes',
+                  kind: 'notes_root',
+                },
+                manifest_id: null,
+              },
+              routing: {
+                task_kind: 'implementation',
+                agent_profile: 'quality',
+                token_budget: 'large',
+                review_gate: 'operator_approval',
+                read_scopes: ['/tmp/vel'],
+                write_scopes: ['/tmp/vel'],
+                allowed_tools: ['rg'],
+                reasons: [
+                  {
+                    code: 'write_scope_requires_approval',
+                    message: 'write scopes require explicit operator approval before launch',
+                  },
+                ],
+              },
+              manifest_id: null,
+              requested_by: 'operator_shell',
+              reviewed_by: null,
+              decision_reason: null,
+              reviewed_at: null,
+              launched_at: null,
+              created_at: '2026-03-18T18:00:00Z',
+              updated_at: '2026-03-18T18:00:00Z',
+            },
+          ],
+          meta: { request_id: 'req_handoffs' },
+        } as never
+      }
       if (path === '/v1/cluster/bootstrap') {
         return {
           ok: true,
@@ -590,6 +672,91 @@ describe('SettingsPage', () => {
             },
           ],
           meta: { request_id: 'req_loops' },
+        } as never
+      }
+      if (path === '/v1/execution/handoffs?state=pending_review') {
+        return {
+          ok: true,
+          data: [
+            {
+              id: 'handoff_1',
+              project_id: 'proj_exec',
+              origin_kind: 'human_to_agent',
+              review_state: 'pending_review',
+              handoff: {
+                handoff: {
+                  task_id: 'task_1',
+                  trace_id: 'trace_1',
+                  from_agent: 'operator',
+                  to_agent: 'codex-local',
+                  objective: 'Implement the next safe slice',
+                  inputs: { project: 'vel' },
+                  constraints: ['sidecar only'],
+                  read_scopes: ['/tmp/vel', '/tmp/vel/notes'],
+                  write_scopes: ['/tmp/vel'],
+                  project_id: 'proj_exec',
+                  task_kind: 'implementation',
+                  agent_profile: 'quality',
+                  token_budget: 'large',
+                  review_gate: 'operator_approval',
+                  repo_root: {
+                    path: '/tmp/vel',
+                    label: 'vel',
+                    branch: 'main',
+                    head_rev: 'abc123',
+                  },
+                  allowed_tools: ['rg', 'cargo test'],
+                  capability_scope: {
+                    read_scopes: ['/tmp/vel'],
+                    write_scopes: ['/tmp/vel'],
+                  },
+                  deadline: null,
+                  expected_output_schema: { artifacts: ['patch', 'summary'] },
+                },
+                project_id: 'proj_exec',
+                task_kind: 'implementation',
+                agent_profile: 'quality',
+                token_budget: 'large',
+                review_gate: 'operator_approval',
+                repo: {
+                  path: '/tmp/vel',
+                  label: 'vel',
+                  branch: 'main',
+                  head_rev: 'abc123',
+                },
+                notes_root: {
+                  path: '/tmp/vel/notes',
+                  label: 'vel-notes',
+                  kind: 'notes_root',
+                },
+                manifest_id: 'local-codex',
+              },
+              routing: {
+                task_kind: 'implementation',
+                agent_profile: 'quality',
+                token_budget: 'large',
+                review_gate: 'operator_approval',
+                read_scopes: ['/tmp/vel', '/tmp/vel/notes'],
+                write_scopes: ['/tmp/vel'],
+                allowed_tools: ['rg', 'cargo test'],
+                reasons: [
+                  {
+                    code: 'write_scope_requires_approval',
+                    message: 'write scopes require explicit operator approval before launch',
+                  },
+                ],
+              },
+              manifest_id: 'local-codex',
+              requested_by: 'operator_shell',
+              reviewed_by: null,
+              decision_reason: null,
+              reviewed_at: null,
+              launched_at: null,
+              created_at: '2026-03-18T18:00:00Z',
+              updated_at: '2026-03-18T18:00:00Z',
+            },
+          ],
+          meta: { request_id: 'req_handoffs' },
         } as never
       }
       if (path === '/api/components/evaluate/logs?limit=50') {
@@ -1760,6 +1927,114 @@ describe('SettingsPage', () => {
     expect(within(root).getAllByText(/Restarts: 0/)).toHaveLength(2)
   })
 
+  it('renders pending execution handoff review and approves it from runtime controls', async () => {
+    vi.mocked(client.apiPost).mockImplementation(async (path: string) => {
+      if (path === '/v1/execution/handoffs/handoff_1/approve') {
+        return {
+          ok: true,
+          data: {
+            id: 'handoff_1',
+            project_id: 'proj_exec',
+            origin_kind: 'human_to_agent',
+            review_state: 'approved',
+            handoff: {
+              handoff: {
+                task_id: 'task_1',
+                trace_id: 'trace_1',
+                from_agent: 'operator',
+                to_agent: 'codex-local',
+                objective: 'Implement the next safe slice',
+                inputs: { project: 'vel' },
+                constraints: ['sidecar only'],
+                read_scopes: ['/tmp/vel', '/tmp/vel/notes'],
+                write_scopes: ['/tmp/vel'],
+                project_id: 'proj_exec',
+                task_kind: 'implementation',
+                agent_profile: 'quality',
+                token_budget: 'large',
+                review_gate: 'operator_approval',
+                repo_root: {
+                  path: '/tmp/vel',
+                  label: 'vel',
+                  branch: 'main',
+                  head_rev: 'abc123',
+                },
+                allowed_tools: ['rg', 'cargo test'],
+                capability_scope: {
+                  read_scopes: ['/tmp/vel'],
+                  write_scopes: ['/tmp/vel'],
+                },
+                deadline: null,
+                expected_output_schema: { artifacts: ['patch', 'summary'] },
+              },
+              project_id: 'proj_exec',
+              task_kind: 'implementation',
+              agent_profile: 'quality',
+              token_budget: 'large',
+              review_gate: 'operator_approval',
+              repo: {
+                path: '/tmp/vel',
+                label: 'vel',
+                branch: 'main',
+                head_rev: 'abc123',
+              },
+              notes_root: {
+                path: '/tmp/vel/notes',
+                label: 'vel-notes',
+                kind: 'notes_root',
+              },
+              manifest_id: 'local-codex',
+            },
+            routing: {
+              task_kind: 'implementation',
+              agent_profile: 'quality',
+              token_budget: 'large',
+              review_gate: 'operator_approval',
+              read_scopes: ['/tmp/vel', '/tmp/vel/notes'],
+              write_scopes: ['/tmp/vel'],
+              allowed_tools: ['rg', 'cargo test'],
+              reasons: [
+                {
+                  code: 'write_scope_requires_approval',
+                  message: 'write scopes require explicit operator approval before launch',
+                },
+              ],
+            },
+            manifest_id: 'local-codex',
+            requested_by: 'operator_shell',
+            reviewed_by: 'operator_shell',
+            decision_reason: 'Approved from runtime review queue.',
+            reviewed_at: '2026-03-18T18:05:00Z',
+            launched_at: null,
+            created_at: '2026-03-18T18:00:00Z',
+            updated_at: '2026-03-18T18:05:00Z',
+          },
+          meta: { request_id: 'req_handoff_approve' },
+        } as never
+      }
+      return { ok: true } as never
+    })
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = await openRuntimeTab(container)
+
+    expect(within(root).getByText('Execution handoff review')).toBeInTheDocument()
+    expect(within(root).getByText('Pending execution review')).toBeInTheDocument()
+    expect(within(root).getByText('Implement the next safe slice')).toBeInTheDocument()
+    expect(within(root).getByText('write_scope_requires_approval')).toBeInTheDocument()
+
+    fireEvent.click(within(root).getByRole('button', { name: 'Approve' }))
+
+    await waitFor(() => {
+      expect(within(root).getByText('Execution handoff approved.')).toBeInTheDocument()
+    })
+    expect(client.apiPost).toHaveBeenCalledWith(
+      '/v1/execution/handoffs/handoff_1/approve',
+      expect.objectContaining({ reviewed_by: 'operator_shell' }),
+      expect.any(Function),
+    )
+  })
+
   it('expands component logs and shows restart event history', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openRuntimeTab(container)
@@ -2663,6 +2938,20 @@ describe('SettingsPage', () => {
     })
 
     expect(within(root).getByText(/Linked as Vel Desktop/i)).toBeInTheDocument()
+  })
+
+  it('shows pending execution reviews in the runtime tab', async () => {
+    const { container } = render(<SettingsPage onBack={() => {}} initialTab="runtime" />)
+    const root = await openRuntimeTab(container)
+
+    await waitFor(() => {
+      expect(within(root).getByText('Pending execution review')).toBeInTheDocument()
+    })
+
+    expect(within(root).getByText('Implement the runtime review queue')).toBeInTheDocument()
+    expect(within(root).getByText('1 pending')).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: /^Approve$/i })).toBeInTheDocument()
+    expect(within(root).getByRole('button', { name: /^Reject$/i })).toBeInTheDocument()
   })
 
 })

@@ -42,9 +42,13 @@ For coding-oriented project work, keep the execution handoff explicit and repo-l
 cargo run -p vel-cli -- exec save <project_id> --objective "ship the next safe slice" --constraint "sidecar only"
 cargo run -p vel-cli -- exec preview <project_id>
 cargo run -p vel-cli -- exec export <project_id>
+cargo run -p vel-cli -- exec review --state pending_review
+cargo run -p vel-cli -- exec launch-preview <handoff_id>
+cargo run -p vel-cli -- exec approve <handoff_id> --reason "scope and output contract look right"
 ```
 
 The execution export writes only a small sidecar pack under the project's primary repo root, by default at `.planning/vel/`, so supervised GSD-readable handoffs stay inspectable and bounded instead of mutating arbitrary repo files.
+The review queue keeps human-to-agent and agent-to-agent coding handoffs explicit: objective, read scope, write scope, routing reasons, and review gate are persisted before any supervised runtime launch can proceed.
 
 If you use the Apple clients during the day:
 

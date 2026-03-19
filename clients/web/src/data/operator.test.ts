@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { buildOperatorReviewStatus } from './operator'
 
 describe('buildOperatorReviewStatus', () => {
-  it('derives pending writebacks, conflicts, and people needing review from now plus settings', () => {
+  it('derives writeback, handoff, conflict, and people review state from now plus settings', () => {
     const status = buildOperatorReviewStatus(
       {
         computed_at: 1710000000,
@@ -136,11 +136,88 @@ describe('buildOperatorReviewStatus', () => {
         },
       },
       { writeback_enabled: false },
+      [
+        {
+          id: 'handoff_1',
+          project_id: 'proj_exec',
+          origin_kind: 'human_to_agent',
+          review_state: 'pending_review',
+          handoff: {
+            handoff: {
+              task_id: 'task_1',
+              trace_id: 'trace_1',
+              from_agent: 'operator',
+              to_agent: 'codex-local',
+              objective: 'Implement the next safe slice',
+              inputs: {},
+              constraints: [],
+              read_scopes: ['/tmp/vel'],
+              write_scopes: ['/tmp/vel'],
+              project_id: 'proj_exec',
+              task_kind: 'implementation',
+              agent_profile: 'quality',
+              token_budget: 'large',
+              review_gate: 'operator_approval',
+              repo_root: {
+                path: '/tmp/vel',
+                label: 'vel',
+                branch: null,
+                head_rev: null,
+              },
+              allowed_tools: ['rg'],
+              capability_scope: {},
+              deadline: null,
+              expected_output_schema: { artifacts: ['patch'] },
+            },
+            project_id: 'proj_exec',
+            task_kind: 'implementation',
+            agent_profile: 'quality',
+            token_budget: 'large',
+            review_gate: 'operator_approval',
+            repo: {
+              path: '/tmp/vel',
+              label: 'vel',
+              branch: null,
+              head_rev: null,
+            },
+            notes_root: {
+              path: '/tmp/vel/notes',
+              label: 'vel-notes',
+              kind: 'notes_root',
+            },
+            manifest_id: null,
+          },
+          routing: {
+            task_kind: 'implementation',
+            agent_profile: 'quality',
+            token_budget: 'large',
+            review_gate: 'operator_approval',
+            read_scopes: ['/tmp/vel'],
+            write_scopes: ['/tmp/vel'],
+            allowed_tools: ['rg'],
+            reasons: [
+              {
+                code: 'write_scope_requires_approval',
+                message: 'write scopes require explicit operator approval before launch',
+              },
+            ],
+          },
+          manifest_id: null,
+          requested_by: 'operator_shell',
+          reviewed_by: null,
+          decision_reason: null,
+          reviewed_at: null,
+          launched_at: null,
+          created_at: '2026-03-18T18:00:00Z',
+          updated_at: '2026-03-18T18:00:00Z',
+        },
+      ],
     )
 
     expect(status.writeback_enabled).toBe(false)
     expect(status.pending_writebacks).toHaveLength(1)
     expect(status.open_conflicts).toHaveLength(1)
     expect(status.people_needing_review.map((person) => person.display_name)).toEqual(['Annie Case'])
+    expect(status.pending_execution_handoffs).toHaveLength(1)
   })
 })

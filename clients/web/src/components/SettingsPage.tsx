@@ -10,6 +10,7 @@ import type {
   ComponentData,
   ComponentLogEventData,
   DiagnosticsData,
+  ExecutionHandoffRecordData,
   IntegrationLogEventData,
   IntegrationsData,
   LocalIntegrationData,
@@ -21,7 +22,14 @@ import type {
 } from '../types';
 import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type { QueryKey } from '../data/query';
-import { buildOperatorReviewStatus, issuePairingToken, redeemPairingToken } from '../data/operator';
+import {
+  approveExecutionHandoff,
+  buildOperatorReviewStatus,
+  issuePairingToken,
+  loadExecutionHandoffs,
+  redeemPairingToken,
+  rejectExecutionHandoff,
+} from '../data/operator';
 import { subscribeWsQuerySync } from '../data/ws-sync';
 import {
   chooseLocalIntegrationSourcePath,
@@ -686,6 +694,11 @@ export function SettingsPage({
   const [loopDrafts, setLoopDrafts] = useState<Record<string, LoopDraft>>({});
   const [loopActionState, setLoopActionState] = useState<Record<string, LoopActionState>>({});
   const [diagnostics, setDiagnostics] = useState<DiagnosticsData | null>(null);
+  const [pendingExecutionReviewActions, setPendingExecutionReviewActions] = useState<Record<string, 'approve' | 'reject'>>({});
+  const [executionReviewFeedback, setExecutionReviewFeedback] = useState<Record<string, {
+    status: 'success' | 'error';
+    message: string;
+  }>>({});
   const nextIntegrationActionIdRef = useRef(0);
   const latestIntegrationActionIdByKeyRef = useRef<Record<IntegrationActionKey, number>>(
     {} as Record<IntegrationActionKey, number>,
@@ -724,6 +737,10 @@ export function SettingsPage({
   const loopsKey = useMemo(() => queryKeys.loops(), []);
   const nowKey = useMemo(() => queryKeys.now(), []);
   const currentContextKey = useMemo(() => queryKeys.currentContext(), []);
+  const executionHandoffsKey = useMemo(
+    () => queryKeys.executionHandoffs('pending_review'),
+    [],
+  );
   const {
     data: nowData,
   } = useQuery(
@@ -810,6 +827,14 @@ export function SettingsPage({
     },
     { enabled: activeTab === 'runtime' },
   );
+  const { data: pendingExecutionHandoffs = [] } = useQuery<ExecutionHandoffRecordData[]>(
+    executionHandoffsKey,
+    async () => {
+      const response = await loadExecutionHandoffs('pending_review');
+      return response.ok && response.data ? response.data : [];
+    },
+    { enabled: activeTab === 'runtime' },
+  );
 
   useEffect(() => {
     return subscribeWsQuerySync();
@@ -861,9 +886,66 @@ export function SettingsPage({
   }, [integrations]);
 
   const operatorReviewStatus = useMemo(
-    () => buildOperatorReviewStatus(nowData, settings),
-    [nowData, settings],
+    () => buildOperatorReviewStatus(nowData, settings, pendingExecutionHandoffs),
+    [nowData, pendingExecutionHandoffs, settings],
   );
+
+  const runExecutionHandoffReview = async (
+    handoffId: string,
+    action: 'approve' | 'reject',
+  ) => {
+    setPendingExecutionReviewActions((current) => ({
+      ...current,
+      [handoffId]: action,
+    }));
+    setExecutionReviewFeedback((current) => {
+      const next = { ...current };
+      delete next[handoffId];
+      return next;
+    });
+
+    try {
+      const payload = {
+        reviewed_by: 'operator_shell',
+        decision_reason:
+          action === 'approve'
+            ? 'Approved from runtime review queue.'
+            : 'Rejected from runtime review queue.',
+      };
+      const response = action === 'approve'
+        ? await approveExecutionHandoff(handoffId, payload)
+        : await rejectExecutionHandoff(handoffId, payload);
+      if (!response.ok) {
+        throw new Error(
+          response.error?.message
+            ?? `Failed to ${action === 'approve' ? 'approve' : 'reject'} execution handoff`,
+        );
+      }
+      invalidateQuery(executionHandoffsKey, { refetch: true });
+      invalidateQuery(nowKey, { refetch: true });
+      setExecutionReviewFeedback((current) => ({
+        ...current,
+        [handoffId]: {
+          status: 'success',
+          message: `Execution handoff ${action === 'approve' ? 'approved' : 'rejected'}.`,
+        },
+      }));
+    } catch (error) {
+      setExecutionReviewFeedback((current) => ({
+        ...current,
+        [handoffId]: {
+          status: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      }));
+    } finally {
+      setPendingExecutionReviewActions((current) => {
+        const next = { ...current };
+        delete next[handoffId];
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     setSelectedHostPaths((current) => {
@@ -1973,7 +2055,7 @@ export function SettingsPage({
                   </div>
                 </dl>
               ) : null}
-              <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2 xl:grid-cols-4">
+              <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2 xl:grid-cols-5">
                 <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                   <dt className="text-zinc-500">Writeback mode</dt>
                   <dd className="mt-1 text-base text-zinc-100">
@@ -1998,12 +2080,137 @@ export function SettingsPage({
                     {operatorReviewStatus.people_needing_review.length}
                   </dd>
                 </div>
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                  <dt className="text-zinc-500">Pending execution review</dt>
+                  <dd className="mt-1 text-base text-zinc-100">
+                    {operatorReviewStatus.pending_execution_handoffs.length}
+                  </dd>
+                </div>
               </dl>
-              {operatorReviewStatus.pending_writebacks.length > 0 || operatorReviewStatus.open_conflicts.length > 0 ? (
+              {operatorReviewStatus.pending_writebacks.length > 0
+                || operatorReviewStatus.open_conflicts.length > 0
+                || operatorReviewStatus.pending_execution_handoffs.length > 0 ? (
                 <div className="rounded-md border border-amber-700/40 bg-amber-950/20 p-3 text-sm text-amber-100">
-                  Pending writebacks and conflicts are visible here before you trust integration-backed edits. Review them from Now first if the queue is non-empty.
+                  Pending execution reviews, writebacks, and conflicts are visible here before you trust supervised runtime or integration-backed actions. Review them from Now or the runtime queue first if the count is non-zero.
                 </div>
               ) : null}
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-zinc-100">Execution handoff review</h4>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Coding-task routing stays explicit here: review objective, scopes, and typed routing reasons before any supervised launch work proceeds.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-300">
+                    {operatorReviewStatus.pending_execution_handoffs.length} pending
+                  </span>
+                </div>
+                {operatorReviewStatus.pending_execution_handoffs.length === 0 ? (
+                  <p className="mt-4 text-sm text-zinc-500">
+                    No execution handoffs are waiting for review.
+                  </p>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {operatorReviewStatus.pending_execution_handoffs.map((handoff) => {
+                      const pendingAction = pendingExecutionReviewActions[handoff.id];
+                      const feedback = executionReviewFeedback[handoff.id];
+                      return (
+                        <article
+                          key={handoff.id}
+                          className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4"
+                        >
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap gap-2 text-xs text-zinc-400">
+                                <span className="rounded-full border border-amber-700/50 bg-amber-950/30 px-2.5 py-1 text-amber-100">
+                                  {handoff.review_state.replace('_', ' ')}
+                                </span>
+                                <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+                                  {handoff.routing.task_kind}
+                                </span>
+                                <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+                                  {handoff.routing.agent_profile}
+                                </span>
+                                <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+                                  {handoff.routing.token_budget}
+                                </span>
+                              </div>
+                              <h5 className="mt-3 text-base font-medium text-zinc-100">
+                                {handoff.handoff.handoff.objective}
+                              </h5>
+                              <p className="mt-1 text-sm text-zinc-400">
+                                {handoff.handoff.handoff.from_agent} to {handoff.handoff.handoff.to_agent}
+                                {' '}· review gate {handoff.routing.review_gate}
+                              </p>
+                              <div className="mt-3 grid gap-3 text-sm text-zinc-300 lg:grid-cols-2">
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                    Read scopes
+                                  </p>
+                                  <p className="mt-1 break-all text-zinc-400">
+                                    {handoff.routing.read_scopes.join(', ') || 'None'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                    Write scopes
+                                  </p>
+                                  <p className="mt-1 break-all text-zinc-400">
+                                    {handoff.routing.write_scopes.join(', ') || 'None'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="mt-3">
+                                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                                  Routing reasons
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {handoff.routing.reasons.map((reason) => (
+                                    <span
+                                      key={`${handoff.id}-${reason.code}`}
+                                      className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-300"
+                                      title={reason.message}
+                                    >
+                                      {reason.code}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 flex-col gap-2 lg:w-40">
+                              <button
+                                type="button"
+                                onClick={() => void runExecutionHandoffReview(handoff.id, 'approve')}
+                                disabled={pendingAction != null}
+                                className="rounded-md border border-emerald-700/60 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 transition hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {pendingAction === 'approve' ? 'Approving…' : 'Approve'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void runExecutionHandoffReview(handoff.id, 'reject')}
+                                disabled={pendingAction != null}
+                                className="rounded-md border border-rose-700/60 bg-rose-950/20 px-3 py-2 text-sm text-rose-100 transition hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {pendingAction === 'reject' ? 'Rejecting…' : 'Reject'}
+                              </button>
+                              <p className="text-xs text-zinc-500">
+                                Requested by {handoff.requested_by}
+                              </p>
+                            </div>
+                          </div>
+                          {feedback ? (
+                            <p className={`mt-3 text-sm ${feedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+                              {feedback.message}
+                            </p>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               {clusterBootstrapError ? (
                 <p className="text-sm text-amber-300">
                   Cluster bootstrap unavailable: {clusterBootstrapError}
