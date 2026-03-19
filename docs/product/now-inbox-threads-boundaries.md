@@ -45,6 +45,7 @@ Contextual rendering rule:
 - when something needs immediate action, `Now` may show actionable cards or controls directly
 - when no immediate action is needed, `Now` should prefer summary counts and compact previews that link out to `Inbox` or `Threads`
 - examples include inbox pressure, nudges needing triage, and threads needing attention
+- once an item is acted on, it can leave the active `Now` area and fall into a muted `Now` history section near the bottom of the scroll for lightweight review
 
 Mobile note:
 
@@ -62,6 +63,7 @@ Rule of thumb:
 - `Now` summarizes and routes.
 - It may briefly host immediate-action UI when context warrants it.
 - It does not own the full long-tail interaction model.
+- A lightweight, greyed-out `Now` history section is acceptable for recently handled items, as long as it stays secondary to the active surface.
 
 ## `Inbox`
 
@@ -82,6 +84,12 @@ It should contain:
 - reviewable suggestions when they need triage
 - project-linked items when they are still actionable queue items
 
+Rendering rule:
+
+- unresolved or still-actionable items should stay in the active inbox area
+- recently handled items may fall into a muted recent-history section near the bottom of the inbox
+- long-term completed/archive history should not dominate the main inbox view
+
 It should not become:
 
 - the top context/orientation surface
@@ -92,6 +100,7 @@ Rule of thumb:
 
 - `Inbox` is where the operator decides what to do with incoming or pending work.
 - It is the main work surface, but not the whole product.
+- It should mirror `Now` by keeping active items prominent and recently handled items visible but visually demoted.
 
 ## `Threads`
 
@@ -112,6 +121,11 @@ It should contain:
 - search and filtering across conversation/work streams
 - entry into subordinate or related subfeeds when needed
 
+Default posture:
+
+- `Threads` should lean more toward archive, continuity, and search than toward acting as a second inbox
+- active threads may still be visible, but the default model should favor retrieval, filtering, and drill-down over top-level triage pressure
+
 It should not become:
 
 - the default first screen for everyday use
@@ -122,6 +136,7 @@ Rule of thumb:
 
 - `Threads` is for continuity, parallelism, and searchable history.
 - It should be powerful on desktop in particular.
+- `Now` and `Inbox` may deep-link into specific thread messages or filtered thread views when attention is needed, without making `Threads` itself the main triage surface.
 
 ## Shared Entry, Distinct Destinations
 
@@ -179,6 +194,6 @@ If forced to choose top-level destinations today, the cleanest set remains:
 These remain intentionally open for later Phase 14 discovery:
 
 - how much inbox summary should appear on `Now` before it starts feeling like a second inbox
-- whether `Threads` should expose lightweight "running work" cards outside the main thread surface
+- whether `Threads` should expose lightweight "running work" cards outside the main thread surface, even if its default posture remains archive/search-oriented
 - how much project context should appear inline inside `Inbox`
 - whether desktop gets richer thread visibility than mobile by default

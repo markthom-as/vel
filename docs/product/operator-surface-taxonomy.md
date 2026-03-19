@@ -293,11 +293,32 @@ Cross-surface overlap is acceptable, but ownership should stay clear:
 
 - `Now` may summarize inbox pressure, but it should not become the full inbox
 - `Now` may show direct actionable UI when something needs immediate attention, but otherwise it should prefer summary counts and launch points
+- handled `Now` items may drop into a muted recent-history section at the bottom of the surface instead of staying pinned in the active area
 - `Now` may expose the primary entry into thread-capable interaction, but it should not become the long-form history surface
 - `Inbox` may launch a thread or show thread-linked work, but it should not become the main conversation archive
+- `Inbox` should keep unresolved/actionable items primary and may demote recently handled items into a muted recent-history section instead of keeping one flat endless list
+- `Threads` should lean archive/search-first by default, and `Now` or `Inbox` may deep-link into specific thread messages or filtered thread views when attention is needed
 - `Threads` may surface captures or work artifacts, but it should not replace inbox triage or daily orientation
 
 See [now-inbox-threads-boundaries.md](now-inbox-threads-boundaries.md) for the fuller boundary draft used by Phase 14 discovery.
+
+## Action Taxonomy Note
+
+Surface filters such as `Needs triage`, `Needs reply`, `Needs review`, or `Commitments` should be treated as views over a canonical action model, not as the core model itself.
+
+That canonical model should capture:
+
+- action kind
+- actor or initiator
+- permission mode
+- surface affinity
+- urgency
+- state
+- source reference
+- target reference
+- short explainability summary plus inspectable detail
+
+See [operator-action-taxonomy.md](operator-action-taxonomy.md) for the current Phase 14 discovery draft.
 
 ## Non-Goals
 

@@ -44,6 +44,7 @@ This phase is not broad UI implementation, not architecture migration, and not b
 - [locked] Advanced/runtime/developer concerns should not remain mixed into the same conceptual bucket as daily-use product surfaces.
 - [locked] The product should prefer compact, contextual, icon-driven surfaces with tap/click to expand detail rather than broad equal-weight dashboards.
 - [locked] A unified action entry should handle capture, voice chat, text chat, action requests, and thread starts with automatic routing plus an override affordance.
+- [locked] Surface filters should be treated as views over a canonical action taxonomy, not as the core product model.
 
 ### Roadmap-shaping decisions
 - [locked] Phase 15 should stay focused on seam migration.
@@ -67,6 +68,8 @@ This phase is not broad UI implementation, not architecture migration, and not b
 - An early Phase 14 recommendation is to add a future post-16 shell embodiment phase rather than forcing UI simplification into Phase 16.
 - The operator wants eventual iOS parity, but mobile should remain summary-first, with grounding buried for now and advanced/runtime detail web-first.
 - The current boundary draft is: `Now` for orientation and immediate pressure, `Inbox` for triage and actionable queue work, `Threads` for parallel interactive work and searchable history.
+- Discovery should define an action taxonomy covering action kind, actor, permission mode, urgency, state, and surface affinity before filter labels harden into product semantics.
+- The Todoist user-story export in `/home/jove/Downloads/Vel.csv` reinforces several directionally important choices: subtle top status/context, icon-driven and collapsible shell affordances, strong onboarding, route-aware contextual help, integration hygiene, and richer project drill-down without promoting Projects back to the main daily-use surface.
 
 </specifics>
 
@@ -87,6 +90,7 @@ This phase is not broad UI implementation, not architecture migration, and not b
 - `docs/user/daily-use.md` — current operator workflow and daily-use framing
 - `docs/product/operator-surface-taxonomy.md` — active surface classification authority
 - `docs/product/now-inbox-threads-boundaries.md` — working boundary draft for the primary daily-use surfaces
+- `docs/product/operator-action-taxonomy.md` — working action-model draft behind filters, permissions, and cross-surface routing
 - `docs/user/setup.md` — onboarding and setup framing
 - `clients/web/src/components/NowView.tsx` — current primary daily-use surface
 - `clients/web/src/components/SettingsPage.tsx` — current trust/runtime/onboarding sprawl and disclosure boundary

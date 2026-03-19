@@ -53,6 +53,44 @@ Phase 14 should therefore be a discovery-and-decision phase, not a thin UX polis
 
 **Primary recommendation:** Treat Phase 14 as a product-contract phase that produces a canonical surface taxonomy and explicitly inserts a new post-16 shell embodiment phase.
 
+## Additional Evidence: Todoist User-Story Export
+
+The Todoist-style backlog in `/home/jove/Downloads/Vel.csv` is strong corroborating evidence for the current Phase 14 direction. Even though many items are implementation-specific, the pattern across them is clear: the desired product is compact, contextual, route-aware, integration-rich, and subtle by default rather than sprawling.
+
+What the export reinforces:
+
+- `Now` needs a subtle top status/context strip rather than a loud dashboard.
+  Evidence: requests for a top navbar showing time, status, active jobs, help, connected clients, and room for voice/chat.
+- The shell should be more icon-driven and collapsible.
+  Evidence: sidebar icons, icon-only collapse, new conversation as icon button, collapsible context sidebar.
+- Threads are a support surface, not the default home.
+  Evidence: request for Threads to auto-open the latest thread instead of becoming the main entry surface.
+- Context freshness and degraded-input states should be less obtrusive and more automatic.
+  Evidence: explicit request that degraded-input state be less obtrusive and refresh happen automatically; explicit desire for relative freshness labels such as `Now`, `<1m`, `<5m`, `<30m`, `>1hr`.
+- Projects matter, but as richer drill-down and filtering/context, not as the primary daily surface.
+  Evidence: request for project descriptions, connected-service icons, tags, color coding, resource links, stats/activity/commitments, and project-specific drill-down.
+- Onboarding is a major missing product layer.
+  Evidence: explicit request for a first-class onboarding experience that explains features, asks about the user and goals, sets identity/customization, sets up integrations, and links clients.
+- Integration hygiene matters as much as raw capability count.
+  Evidence: connected-service icons, hidden internal Vel paths, Apple-path discovery/validation, Google-family connector grouping, and template editing in Settings.
+- Route-aware contextual help is important.
+  Evidence: request for markdown docs rendered contextually by route or focused section, not buried at the bottom of Settings.
+
+What the export suggests should stay secondary or deferred:
+
+- client-to-client file transfer
+- broad LLM-provider routing and budgeting
+- reading/media tracking
+- SaaS auth scaffolding
+
+Those may be valid future phases, but they do not change the near-term product-core shape. They read more like later platform-expansion or power-user lanes than immediate default-surface requirements.
+
+Research conclusion from the export:
+
+- The operator wants a compact, contextual, action-capable shell with subtle status, strong onboarding, clean integration ergonomics, and deeper drill-downs behind lighter default surfaces.
+- This supports the current Phase 14 move away from equal-weight top-level destinations and toward a tighter `Now` / `Inbox` / `Threads` model with `Projects` as a secondary context surface.
+- It also supports defining a canonical action taxonomy early, because many backlog items are really about how actions, advisories, and integration states should surface rather than about one-off pages.
+
 ## Standard Stack
 
 ### Core
@@ -104,7 +142,7 @@ clients/web/src/
 ```
 
 ### Pattern 1: Default Shell Is Daily-Use First
-**What:** Keep the default operator path centered on `Now`, `Inbox`, `Projects`, and the daily-loop entry points.
+**What:** Keep the default operator path centered on `Now`, `Inbox`, and the daily-loop entry points, with `Projects` available as a secondary context/filter surface.
 **When to use:** Any navigation, onboarding, or information-architecture decision.
 **Example:**
 ```tsx
@@ -165,6 +203,12 @@ onboardingGuide.nextAction
 **Why it happens:** Settings already contains valid but unrelated slices: onboarding, sync routing, trust, runtime controls, and local path management.
 **How to avoid:** Phase 14 should classify each section as core settings, advanced operator, or developer/internal.
 **Warning signs:** A single page is responsible for setup, recovery, diagnostics, execution review, and component restarts.
+
+### Pitfall 2b: Top-Level Navigation Freezes Too Early
+**What goes wrong:** Temporary surface names or current sidebar structure harden into product truth before the action model and operator journeys are clear.
+**Why it happens:** Backlog items mention routes, icons, top bars, collapsible UI, and richer project pages, which can tempt the product into shell-first decisions.
+**How to avoid:** Treat navigation labels and filters as shell embodiment details downstream of the Phase 14 taxonomy and action model.
+**Warning signs:** The team debates whether `Projects` or `Threads` is top-level before agreeing what work each surface actually owns.
 
 ### Pitfall 3: Discovery Bleeds Into Refactor Or UI Work
 **What goes wrong:** The roadmap starts migrating components or rewriting layouts before the product-mode contract exists.
