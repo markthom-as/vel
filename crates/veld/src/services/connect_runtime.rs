@@ -89,27 +89,6 @@ pub async fn launch_connect_runtime(
         )
         .await?;
 
-    let child = match spawn_local_runtime(&request).await {
-        Ok(child) => child,
-        Err(error) => {
-            let error_json = json!({ "reason": error.to_string() });
-            state
-                .storage
-                .update_run_status(
-                    run_id.as_ref(),
-                    RunStatus::Failed,
-                    Some(now),
-                    Some(now),
-                    None,
-                    Some(&error_json),
-                )
-                .await?;
-            return Err(AppError::internal(format!(
-                "launch connect runtime: {error}"
-            )));
-        }
-    };
-
     state
         .storage
         .insert_connect_run(
@@ -123,10 +102,107 @@ pub async fn launch_connect_runtime(
         )
         .await?;
 
-    runtime_registry()
-        .lock()
-        .await
-        .insert(run_id.to_string(), ManagedRuntime { child });
+    match request.runtime_kind.as_str() {
+        "local_command" => {
+            let child = match spawn_local_runtime(&request).await {
+                Ok(child) => child,
+                Err(error) => {
+                    let error_json = json!({ "reason": error.to_string() });
+                    state
+                        .storage
+                        .update_run_status(
+                            run_id.as_ref(),
+                            RunStatus::Failed,
+                            Some(now),
+                            Some(now),
+                            None,
+                            Some(&error_json),
+                        )
+                        .await?;
+                    state
+                        .storage
+                        .terminate_connect_run(run_id.as_ref(), now, "launch_failed")
+                        .await?;
+                    return Err(AppError::internal(format!(
+                        "launch connect runtime: {error}"
+                    )));
+                }
+            };
+
+            runtime_registry()
+                .lock()
+                .await
+                .insert(run_id.to_string(), ManagedRuntime { child });
+        }
+        "wasm_guest" => {
+            let module_path = request
+                .command
+                .first()
+                .cloned()
+                .ok_or_else(|| AppError::bad_request("wasm_guest requires a module path"))?;
+            let working_dir = request
+                .working_dir
+                .clone()
+                .ok_or_else(|| AppError::bad_request("working_dir is required for wasm_guest"))?;
+
+            let outcome = crate::services::wasm_guest_runtime::execute_guest_module(
+                state,
+                &run_id,
+                &trace_id,
+                &crate::services::wasm_guest_runtime::WasmGuestLaunchRequest {
+                    module_path,
+                    working_dir,
+                    writable_roots: request.writable_roots.clone(),
+                    capability_allowlist: request.capability_allowlist.clone(),
+                },
+            )
+            .await;
+
+            let terminated_at = time::OffsetDateTime::now_utc().unix_timestamp();
+            match outcome {
+                Ok(result) => {
+                    let terminal_reason = match result.terminal_status {
+                        vel_core::SandboxDecisionStatus::Approved => "guest_completed",
+                        vel_core::SandboxDecisionStatus::Denied => "guest_denied",
+                        vel_core::SandboxDecisionStatus::Failed => "guest_failed",
+                    };
+                    state
+                        .storage
+                        .terminate_connect_run(run_id.as_ref(), terminated_at, terminal_reason)
+                        .await?;
+                    if result.terminal_status != vel_core::SandboxDecisionStatus::Approved {
+                        return Err(AppError::forbidden(format!(
+                            "wasm guest {} denied: {}",
+                            result.module_id, result.reason
+                        )));
+                    }
+                }
+                Err(error) => {
+                    state
+                        .storage
+                        .update_run_status(
+                            run_id.as_ref(),
+                            RunStatus::Failed,
+                            Some(now),
+                            Some(terminated_at),
+                            None,
+                            Some(&json!({ "reason": error.to_string() })),
+                        )
+                        .await?;
+                    state
+                        .storage
+                        .terminate_connect_run(
+                            run_id.as_ref(),
+                            terminated_at,
+                            "guest_launch_failed",
+                        )
+                        .await?;
+                    return Err(error);
+                }
+            }
+        }
+        _ => unreachable!("validate_launch_request enforces runtime kind"),
+    }
 
     get_connect_instance(state, run_id.as_ref()).await
 }
@@ -392,12 +468,6 @@ async fn run_input_json(state: &AppState, run_id: &str) -> Result<JsonValue, App
 }
 
 fn validate_launch_request(request: &LaunchConnectRuntimeRequest) -> Result<(), AppError> {
-    if request.runtime_kind != "local_command" {
-        return Err(AppError::bad_request(format!(
-            "unsupported runtime kind: {}",
-            request.runtime_kind
-        )));
-    }
     if request.actor_id.trim().is_empty() {
         return Err(AppError::bad_request("actor_id is required"));
     }
@@ -410,10 +480,12 @@ fn validate_launch_request(request: &LaunchConnectRuntimeRequest) -> Result<(), 
         ));
     }
 
-    let working_dir = request
-        .working_dir
-        .as_deref()
-        .ok_or_else(|| AppError::bad_request("working_dir is required for local_command"))?;
+    let working_dir = request.working_dir.as_deref().ok_or_else(|| {
+        AppError::bad_request(format!(
+            "working_dir is required for {}",
+            request.runtime_kind
+        ))
+    })?;
     let working_dir = canonicalize_existing_dir(working_dir)?;
     for root in &request.writable_roots {
         let root = canonicalize_existing_dir(root)?;
@@ -422,6 +494,30 @@ fn validate_launch_request(request: &LaunchConnectRuntimeRequest) -> Result<(), 
                 "writable root {} escapes working_dir {}",
                 root.display(),
                 working_dir.display()
+            )));
+        }
+    }
+
+    match request.runtime_kind.as_str() {
+        "local_command" => {}
+        "wasm_guest" => {
+            if request.command.len() != 1 {
+                return Err(AppError::bad_request(
+                    "wasm_guest expects command[0] to be the guest module spec path",
+                ));
+            }
+            let module_path = Path::new(&request.command[0]);
+            if !module_path.exists() {
+                return Err(AppError::bad_request(format!(
+                    "guest module {} does not exist",
+                    module_path.display()
+                )));
+            }
+        }
+        other => {
+            return Err(AppError::bad_request(format!(
+                "unsupported runtime kind: {}",
+                other
             )));
         }
     }

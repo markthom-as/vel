@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use futures::future::join_all;
 use time::OffsetDateTime;
 use tokio::time::{timeout, Duration};
 use uuid::Uuid;
@@ -377,7 +378,7 @@ async fn discover_tailscale_workers_bounded(
     now: i64,
 ) -> Vec<WorkerPresence> {
     match timeout(
-        Duration::from_millis(1500),
+        Duration::from_millis(3500),
         discover_tailscale_workers(state, local_bootstrap, now),
     )
     .await
@@ -425,18 +426,21 @@ async fn discover_tailscale_workers(
         }
     };
 
-    let mut workers = Vec::new();
-    for peer in crate::services::tailscale::discover_peers(&state.config).await {
-        if !peer.online || peer.base_url == local_bootstrap.sync_base_url {
-            continue;
-        }
-        let Some(worker) = fetch_tailscale_peer_worker(&client, &peer, now).await else {
-            continue;
-        };
-        workers.push(worker);
-    }
+    let peers = crate::services::tailscale::discover_peers(&state.config)
+        .await
+        .into_iter()
+        .filter(|peer| peer.online && peer.base_url != local_bootstrap.sync_base_url)
+        .collect::<Vec<_>>();
 
-    workers
+    join_all(
+        peers
+            .iter()
+            .map(|peer| fetch_tailscale_peer_worker(&client, peer, now)),
+    )
+    .await
+    .into_iter()
+    .flatten()
+    .collect()
 }
 
 async fn fetch_tailscale_peer_worker(

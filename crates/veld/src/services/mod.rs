@@ -45,4 +45,5 @@ pub mod synthesis;
 pub(crate) mod tailscale;
 pub mod timezone;
 pub mod uncertainty;
+pub mod wasm_guest_runtime;
 pub mod writeback;

@@ -118,11 +118,14 @@ These are mounted as `future_external` and currently return `403` (deny-by-defau
 
 - operator-authenticated connect-runtime lifecycle for supervised local coding runtimes
 - `POST /v1/connect/instances` currently accepts only `runtime_kind: "local_command"`
+- `POST /v1/connect/instances` accepts `runtime_kind: "local_command"` and `runtime_kind: "wasm_guest"`
 - launches create a persisted backing run plus a persisted connect-run lease record keyed by the same `run_id`
+- `runtime_kind: "wasm_guest"` executes through the same brokered sandbox policy boundary and then terminates immediately with an inspectable terminal reason
 - `POST /v1/connect/instances/:id/heartbeat` extends the lease for a running instance
 - `POST /v1/connect/instances/:id/terminate` marks the connect instance terminated and cancels the backing run
 - unsupported runtime kinds fail closed with `400`
 - writable roots that escape the declared working directory fail closed with `403`
+- guest modules that request undeclared writable roots or any network expansion fail closed with `403`
 - unsupported `/v1/connect` and `/v1/connect/worker` paths remain reserved under `future_external`
 
 ## Capture and journal
