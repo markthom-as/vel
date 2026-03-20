@@ -1258,4 +1258,122 @@ describe('NowView', () => {
     expect(onOpenSettings).toHaveBeenNthCalledWith(1, { tab: 'integrations', integrationId: 'google' })
     expect(onOpenSettings).toHaveBeenNthCalledWith(2, { tab: 'integrations', integrationId: 'activity' })
   })
+
+  it('submits assistant entry from Now and follows backend inbox routing', async () => {
+    vi.mocked(api.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        route_target: 'inbox',
+        user_message: {
+          id: 'msg_now_1',
+          conversation_id: 'conv_now_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: 'Remember to send the update' },
+          status: null,
+          importance: null,
+          created_at: 1,
+          updated_at: null,
+        },
+        assistant_message: null,
+        assistant_error: null,
+        conversation: {
+          id: 'conv_now_1',
+          title: 'Capture',
+          kind: 'general',
+          pinned: false,
+          archived: true,
+          created_at: 1,
+          updated_at: 1,
+        },
+      },
+      meta: { request_id: 'req_now_entry_inbox' },
+    } as never)
+
+    const onOpenInbox = vi.fn()
+    const onOpenThread = vi.fn()
+    render(<NowView onOpenInbox={onOpenInbox} onOpenThread={onOpenThread} />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/ask, capture, or talk to vel/i)).toBeInTheDocument()
+    })
+    expect(
+      screen.getByText(/type or hold the mic to talk locally/i),
+    ).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText(/ask, capture, or talk to vel/i), {
+      target: { value: 'Remember to send the update' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(api.apiPost).toHaveBeenCalledWith(
+        '/api/assistant/entry',
+        { text: 'Remember to send the update' },
+        expect.any(Function),
+      )
+    })
+    await waitFor(() => {
+      expect(onOpenInbox).toHaveBeenCalledTimes(1)
+    })
+    expect(onOpenThread).not.toHaveBeenCalled()
+  })
+
+  it('renders inline assistant replies in Now when the backend returns inline handling', async () => {
+    vi.mocked(api.apiPost).mockResolvedValueOnce({
+      ok: true,
+      data: {
+        route_target: 'inline',
+        user_message: {
+          id: 'msg_now_2',
+          conversation_id: 'conv_now_2',
+          role: 'user',
+          kind: 'text',
+          content: { text: 'Quick status check' },
+          status: null,
+          importance: null,
+          created_at: 2,
+          updated_at: null,
+        },
+        assistant_message: {
+          id: 'msg_now_3',
+          conversation_id: 'conv_now_2',
+          role: 'assistant',
+          kind: 'text',
+          content: { text: 'You are clear until the next meeting.' },
+          status: null,
+          importance: null,
+          created_at: 3,
+          updated_at: null,
+        },
+        assistant_error: null,
+        conversation: {
+          id: 'conv_now_2',
+          title: 'Inline',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          created_at: 2,
+          updated_at: 3,
+        },
+      },
+      meta: { request_id: 'req_now_entry_inline' },
+    } as never)
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/ask, capture, or talk to vel/i)).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByPlaceholderText(/ask, capture, or talk to vel/i), {
+      target: { value: 'Quick status check' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/handled here in now/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/you are clear until the next meeting\./i)).toBeInTheDocument()
+  })
 })

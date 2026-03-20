@@ -142,10 +142,10 @@ Remaining execution order: 16
 | 17. Shell embodiment, operator-mode application, and surface simplification | 4/4 | Complete | 2026-03-19 |
 | 18. Milestone verification backfill and requirement reconciliation | 4/4 | Complete | 2026-03-20 |
 | 19. Archive readiness, re-audit, and milestone closeout | 0/4 | Deferred / Skipped | 2026-03-20 |
-| 20. Grounded assistant entry and daily-use usability closure | 0/0 | Planned | - |
-| 21. Cross-surface voice assistant parity and desktop push-to-talk | 0/0 | Planned | - |
-| 22. Assistant-supported daily loop, closeout, and thread resolution | 0/0 | Planned | - |
-| 23. Safe assistant-mediated actions and supervised write lanes | 0/0 | Planned | - |
+| 20. Grounded assistant entry and daily-use usability closure | 4/4 | Complete | 2026-03-20 |
+| 21. Cross-surface voice assistant parity and desktop push-to-talk | 4/4 | Complete | 2026-03-20 |
+| 22. Assistant-supported daily loop, closeout, and thread resolution | 4/4 | Complete | 2026-03-20 |
+| 23. Safe assistant-mediated actions and supervised write lanes | 1/4 | In Progress | 2026-03-20 |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -216,7 +216,7 @@ Plans:
 **Goal:** Add lightweight backup/export and simple control surfaces that reduce fear of loss, while keeping restore/recovery and advanced policy surfaces intentionally smaller than the core daily loop.
 **Requirements**: BACKUP-01, BACKUP-02, CTRL-01, CTRL-02
 **Depends on:** Phase 8
-**Plans:** 2/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 09-01-PLAN.md — Ratify Phase 09 requirements and publish backup manifest/trust contracts before runtime work widens
@@ -350,7 +350,7 @@ Plans:
 **Goal:** Apply the Phase 14 product taxonomy and Phase 15-16 backend ownership decisions across web, Apple, CLI, and future desktop-ready shells so the default operator experience is simpler, advanced/runtime concerns are progressively disclosed, and internal implementation categories stop leaking into everyday use.
 **Requirements**: SHELL-MODE-01, SHELL-MODE-02, TRUST-SUMMARY-01, APPLE-SHELL-01
 **Depends on:** Phase 16
-**Plans:** 1/4 plans complete
+**Plans:** 3/4 plans complete
 
 **Embodiment note:** This phase exists so UI/surface simplification does not get mixed into migration or backend logic closure. It should apply the approved product-mode policy and shell boundaries rather than invent new product semantics.
 **Phase 14 carry-forward:** Phase 17 should embody minimal `Now`, triage-first `Inbox`, archive/search-first `Threads`, secondary-but-real `Projects`, inline `check_in`, and heavier `reflow` treatment without reopening the taxonomy or action-model decisions.
@@ -400,13 +400,13 @@ Plans:
 **Goal:** Make Vel materially more usable for repeated daily operation by turning the grounded Rust-owned assistant into the default operator entry for text, capture, and thread continuity, while tightening the `Now` / `Inbox` / `Threads` loop and reducing setup friction enough for real daily use.
 **Requirements**: USABLE-01, USABLE-02, NOW-UX-01, INBOX-UX-01, THREADS-UX-01, ENTRY-01, SETTINGS-UX-01, ASSIST-01, ASSIST-02, THREADS-02
 **Depends on:** Phase 17 shipped behavior; Phase 19 closeout explicitly deferred
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 20-01-PLAN.md — Stabilize the thread/composer contract and repair the known ThreadView placeholder drift
-- [ ] 20-02-PLAN.md — Add the backend-owned grounded assistant entry seam over the existing conversation/message stack
-- [ ] 20-03-PLAN.md — Embody assistant-first entry in `Now` and shared thread/composer web flows
-- [ ] 20-04-PLAN.md — Close Inbox, Threads, and Settings daily-use friction without breaking surface boundaries
+- [x] 20-01-PLAN.md — Stabilize the thread/composer contract and repair the known ThreadView placeholder drift
+- [x] 20-02-PLAN.md — Add the backend-owned grounded assistant entry seam over the existing conversation/message stack
+- [x] 20-03-PLAN.md — Embody assistant-first entry in `Now` and shared thread/composer web flows
+- [x] 20-04-PLAN.md — Close Inbox, Threads, and Settings daily-use friction without breaking surface boundaries
 
 **Priority note:** This phase is promoted ahead of milestone archival because the operator explicitly chose usability and repeated daily use over more closeout bookkeeping.
 
@@ -425,7 +425,7 @@ It should not widen into broad new provider expansion or another architecture ph
 **Goal:** Make voice a first-class path into the same grounded assistant/runtime authority across web, desktop, and Apple surfaces, preferring local speech-to-text where practical while keeping backend-owned product semantics and thread continuity.
 **Requirements**: VOICE-02, VOICE-03, APPLE-VOICE-02, DESKTOP-VOICE-01, DESKTOP-VOICE-02
 **Depends on:** Phase 20
-**Plans:** 0 plans
+**Plans:** 4/4 plans complete
 
 **Scope note:** This phase should unify voice-facing behavior rather than growing a separate voice product:
 
@@ -439,7 +439,7 @@ It should not widen into broad new provider expansion or another architecture ph
 **Goal:** Extend the grounded assistant seam so morning briefing, standup, end-of-day closeout, and multi-step resolution of action items can all happen through one backend-owned conversation/thread model instead of separate ad hoc flows.
 **Requirements**: DAILY-AI-01, DAILY-AI-02, EOD-01, EOD-02, THREAD-RES-01, THREAD-RES-02
 **Depends on:** Phase 21
-**Plans:** 0 plans
+**Plans:** 4/4 plans complete
 
 **Scope note:** This phase should reuse the existing daily-loop and operator-action contracts rather than inventing a parallel assistant-only planning system:
 
@@ -453,10 +453,36 @@ It should not widen into broad new provider expansion or another architecture ph
 **Goal:** Open the next step beyond read-only grounding by letting the assistant propose or stage bounded actions through the existing review, trust, and writeback gates, so the assistant can help resolve real work without bypassing operator control.
 **Requirements**: ASSIST-ACT-01, ASSIST-ACT-02, REVIEW-02, TRUST-02
 **Depends on:** Phase 22
-**Plans:** 0 plans
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 23-01-PLAN.md — Publish the assistant proposal contract and first backend staging seam
+- [x] 23-02-PLAN.md — Integrate assistant proposals with review/trust surfaces and fail-closed SAFE MODE gates
+- [x] 23-03-PLAN.md — Connect thread continuity to staged approvals and confirmations with preserved provenance
+- [x] 23-04-PLAN.md — Close Phase 23 with shell/docs verification and honest shipped limits
 
 **Scope note:** This phase is intentionally later than the conversation and voice phases. The assistant should become deeply useful before it becomes mutation-capable:
 
 - assistant-proposed actions must reuse existing review and SAFE MODE lanes
 - no raw credential widening or silent background writes
 - thread-based resolution should be able to hand off into explicit approval or confirmation paths
+
+### Phase 24: Approved assistant action application and reversible write execution
+
+**Goal:** Turn staged assistant proposals into explicitly approved, applied, and inspectable outcomes by reusing the existing confirmation, execution-review, and writeback seams instead of leaving assistant actions permanently stuck at staging.
+**Requirements**: ASSIST-APPLY-01, ASSIST-APPLY-02, REVIEW-03, TRUST-03
+**Depends on:** Phase 23
+**Plans:** 1/4 plans complete
+
+Plans:
+- [x] 24-01-PLAN.md — Publish the approved-application contract and canonical proposal state transitions
+- [ ] 24-02-PLAN.md — Complete review-gated execution and writeback application for approved assistant proposals
+- [ ] 24-03-PLAN.md — Preserve applied outcome provenance, reversibility, and thread/Now follow-through
+- [ ] 24-04-PLAN.md — Close Phase 24 with shell/docs verification and honest shipped limits
+
+**Scope note:** This phase should make approved assistant work real without weakening supervision:
+
+- bounded confirmations should be able to apply through the canonical operator-action lane
+- supervised write work should advance only after existing review gates are satisfied
+- applied assistant actions should remain inspectable, explainable, and reversible where the underlying product contract already requires it
+- no ambient widening of assistant authority, credentials, or background mutation behavior

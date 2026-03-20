@@ -1,4 +1,4 @@
-//! vel thread — list, inspect, close, reopen threads. See docs/api/runtime.md.
+//! vel thread — list, inspect, close, reopen continuity/history threads, including backend-owned resolution follow-through. See docs/api/runtime.md.
 
 use crate::client::ApiClient;
 use anyhow::Context;
@@ -22,7 +22,7 @@ pub async fn run_list(
     } else if threads.is_empty() {
         println!("No threads in the continuity/archive lane.");
     } else {
-        println!("threads (continuity and archive):");
+        println!("threads (continuity, archive, and follow-through history):");
         for t in threads {
             println!("{}  {}  {}  {}", t.id, t.thread_type, t.status, t.title);
         }

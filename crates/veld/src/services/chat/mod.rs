@@ -7,3 +7,4 @@ pub mod messages;
 pub mod provenance;
 pub mod reads;
 pub mod settings;
+pub mod tools;

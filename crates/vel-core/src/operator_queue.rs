@@ -152,6 +152,29 @@ impl Display for ActionState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssistantProposalState {
+    Staged,
+    Approved,
+    Applied,
+    Failed,
+    Reversed,
+}
+
+impl Display for AssistantProposalState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let value = match self {
+            Self::Staged => "staged",
+            Self::Approved => "approved",
+            Self::Applied => "applied",
+            Self::Failed => "failed",
+            Self::Reversed => "reversed",
+        };
+        f.write_str(value)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActionEvidenceRef {
     pub source_kind: String,
@@ -244,6 +267,8 @@ impl Display for CheckInEscalationTarget {
 pub struct CheckInEscalation {
     pub target: CheckInEscalationTarget,
     pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -455,6 +480,22 @@ pub struct ActionItem {
     pub snoozed_until: Option<OffsetDateTime>,
     #[serde(default)]
     pub evidence: Vec<ActionEvidenceRef>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_route: Option<ActionThreadRoute>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AssistantActionProposal {
+    pub action_item_id: ActionItemId,
+    pub state: AssistantProposalState,
+    pub kind: ActionKind,
+    pub permission_mode: ActionPermissionMode,
+    pub scope_affinity: ActionScopeAffinity,
+    pub title: String,
+    pub summary: String,
+    pub project_id: Option<ProjectId>,
+    pub project_label: Option<String>,
+    pub project_family: Option<ProjectFamily>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_route: Option<ActionThreadRoute>,
 }

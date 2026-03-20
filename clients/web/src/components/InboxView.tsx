@@ -102,6 +102,9 @@ export function InboxView({ onOpenThread }: InboxViewProps) {
           <p className="mt-2 text-sm text-zinc-400">
             This is the explicit action queue. Clear items quickly, then open the underlying thread only when you need more evidence.
           </p>
+          <p className="mt-2 text-xs uppercase tracking-[0.18em] text-zinc-500">
+            Triage first here. History and longer back-and-forth stay in Threads.
+          </p>
         </header>
 
         {visibleItems.length === 0 ? (
@@ -110,6 +113,9 @@ export function InboxView({ onOpenThread }: InboxViewProps) {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
               No actions need triage right now. Return to `Now` for the current decision set, or
               open `Threads` to inspect the evidence behind recent state.
+            </p>
+            <p className="mt-3 text-xs uppercase tracking-[0.18em] text-zinc-500">
+              This surface stays focused on unresolved decisions, not archive browsing.
             </p>
           </section>
         ) : (
@@ -210,6 +216,9 @@ export function InboxView({ onOpenThread }: InboxViewProps) {
                           Open thread
                         </button>
                       ) : null}
+                      <p className="text-xs leading-5 text-zinc-500">
+                        Keep the decision here unless you need continuity, history, or a longer follow-up.
+                      </p>
                     </div>
                   </div>
                 </article>

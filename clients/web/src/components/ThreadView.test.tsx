@@ -36,6 +36,18 @@ describe('ThreadView realtime sync', () => {
     vi.mocked(api.apiPost).mockReset()
   })
 
+  function conversationRecord(id: string, title: string, updatedAt = 10) {
+    return {
+      id,
+      title,
+      kind: 'general',
+      pinned: false,
+      archived: false,
+      created_at: 1,
+      updated_at: updatedAt,
+    }
+  }
+
   it('appends websocket messages for the active conversation and deduplicates repeats', async () => {
     let wsListener: ((event: WsEnvelope) => void) | null = null
     subscribeWs.mockImplementation((listener) => {
@@ -44,6 +56,9 @@ describe('ThreadView realtime sync', () => {
     })
 
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return { ok: true, data: [conversationRecord('conv_1', 'Current thread')], meta: { request_id: 'req_0' } }
+      }
       if (path === '/api/conversations/conv_1/messages') {
         return { ok: true, data: [], meta: { request_id: 'req_1' } }
       }
@@ -57,9 +72,12 @@ describe('ThreadView realtime sync', () => {
     const thread = requireHtmlElement(container as HTMLElement | null)
 
     await waitFor(() => {
-      expect(within(thread).getByText('No messages yet.')).toBeInTheDocument()
+      expect(within(thread).getByText(/no messages yet\./i)).toBeInTheDocument()
     })
     expect(within(thread).getByText('Continuity, history, and longer follow-up')).toBeInTheDocument()
+    expect(
+      within(thread).getByPlaceholderText(/ask, capture, or talk to vel/i),
+    ).toBeInTheDocument()
 
     const message = {
       id: 'msg_1',
@@ -96,6 +114,9 @@ describe('ThreadView realtime sync', () => {
     })
 
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return { ok: true, data: [conversationRecord('conv_1', 'Current thread')], meta: { request_id: 'req_0' } }
+      }
       if (path === '/api/conversations/conv_1/messages') {
         return { ok: true, data: [], meta: { request_id: 'req_1' } }
       }
@@ -109,9 +130,12 @@ describe('ThreadView realtime sync', () => {
     const thread = requireHtmlElement(container as HTMLElement | null)
 
     await waitFor(() => {
-      expect(within(thread).getByText('No messages yet.')).toBeInTheDocument()
+      expect(within(thread).getByText(/no messages yet\./i)).toBeInTheDocument()
     })
     expect(within(thread).getByText('Continuity, history, and longer follow-up')).toBeInTheDocument()
+    expect(
+      within(thread).getByPlaceholderText(/ask, capture, or talk to vel/i),
+    ).toBeInTheDocument()
 
     requireWsListener(wsListener)({
       type: 'messages:new',
@@ -160,6 +184,9 @@ describe('ThreadView realtime sync', () => {
     })
 
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return { ok: true, data: [conversationRecord('conv_1', 'Existing')], meta: { request_id: 'req_0' } }
+      }
       if (path === '/api/conversations/conv_1/messages') {
         return { ok: true, data: [], meta: { request_id: 'req_1' } }
       }
@@ -169,7 +196,7 @@ describe('ThreadView realtime sync', () => {
       throw new Error(`Unexpected GET ${path}`)
     })
     vi.mocked(api.apiPost).mockImplementation(async (path: string) => {
-      if (path === '/api/conversations/conv_1/messages') {
+      if (path === '/api/assistant/entry') {
         requireWsListener(wsListener)({
           type: 'messages:new',
           timestamp: '2026-03-16T12:03:00Z',
@@ -188,6 +215,7 @@ describe('ThreadView realtime sync', () => {
         return {
           ok: true,
           data: {
+            route_target: 'threads',
             user_message: {
               id: 'msg_real',
               conversation_id: 'conv_1',
@@ -200,6 +228,16 @@ describe('ThreadView realtime sync', () => {
               updated_at: null,
             },
             assistant_message: null,
+            assistant_error: null,
+            conversation: {
+              id: 'conv_1',
+              title: 'Existing',
+              kind: 'general',
+              pinned: false,
+              archived: false,
+              created_at: 0,
+              updated_at: 10,
+            },
           },
           meta: { request_id: 'req_3' },
         }
@@ -211,10 +249,10 @@ describe('ThreadView realtime sync', () => {
     const thread = requireHtmlElement(container as HTMLElement | null)
 
     await waitFor(() => {
-      expect(within(thread).getByText('No messages yet.')).toBeInTheDocument()
+      expect(within(thread).getByText(/no messages yet\./i)).toBeInTheDocument()
     })
 
-    fireEvent.change(within(thread).getByPlaceholderText(/message/i), { target: { value: 'Hi' } })
+    fireEvent.change(within(thread).getByPlaceholderText(/ask, capture, or talk to vel/i), { target: { value: 'Hi' } })
     fireEvent.click(within(thread).getByRole('button', { name: 'Send' }))
 
     await waitFor(() => {
@@ -226,6 +264,9 @@ describe('ThreadView realtime sync', () => {
     subscribeWs.mockImplementation(() => () => {})
 
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return { ok: true, data: [conversationRecord('conv_1', 'Needs action')], meta: { request_id: 'req_0' } }
+      }
       if (path === '/api/conversations/conv_1/messages') {
         return {
           ok: true,
@@ -288,22 +329,8 @@ describe('ThreadView realtime sync', () => {
         return {
           ok: true,
           data: [
-            {
-              id: 'conv_old',
-              title: 'Old thread',
-              kind: 'general',
-              pinned: false,
-              created_at: 1,
-              updated_at: 10,
-            },
-            {
-              id: 'conv_latest',
-              title: 'Latest thread',
-              kind: 'general',
-              pinned: false,
-              created_at: 2,
-              updated_at: 20,
-            },
+            conversationRecord('conv_old', 'Old thread', 10),
+            conversationRecord('conv_latest', 'Latest thread', 20),
           ],
           meta: { request_id: 'req_conversations' },
         }
@@ -353,6 +380,9 @@ describe('ThreadView realtime sync', () => {
 
     let interventionsFetchCount = 0
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return { ok: true, data: [conversationRecord('conv_1', 'Needs action')], meta: { request_id: 'req_0' } }
+      }
       if (path === '/api/conversations/conv_1/messages') {
         return {
           ok: true,
@@ -423,5 +453,51 @@ describe('ThreadView realtime sync', () => {
     await waitFor(() => {
       expect(within(thread).queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument()
     })
+  })
+
+  it('filters recent threads and lets the operator switch continuity without reopening inbox triage', async () => {
+    subscribeWs.mockImplementation(() => () => {})
+
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return {
+          ok: true,
+          data: [
+            conversationRecord('conv_1', 'Design review'),
+            conversationRecord('conv_2', 'Weekly planning', 20),
+          ],
+          meta: { request_id: 'req_conversations' },
+        }
+      }
+      if (path === '/api/conversations/conv_1/messages') {
+        return { ok: true, data: [], meta: { request_id: 'req_messages' } }
+      }
+      if (path === '/api/conversations/conv_1/interventions') {
+        return { ok: true, data: [], meta: { request_id: 'req_interventions' } }
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    const onSelectConversation = vi.fn()
+    const { container } = render(
+      <ThreadView conversationId="conv_1" onSelectConversation={onSelectConversation} />,
+    )
+    const thread = requireHtmlElement(container as HTMLElement | null)
+
+    await waitFor(() => {
+      expect(within(thread).getByPlaceholderText(/filter recent threads/i)).toBeInTheDocument()
+    })
+
+    expect(within(thread).getByText(/continuity only\. triage stays in inbox\./i)).toBeInTheDocument()
+    fireEvent.change(within(thread).getByPlaceholderText(/filter recent threads/i), {
+      target: { value: 'weekly' },
+    })
+
+    await waitFor(() => {
+      expect(within(thread).getByRole('button', { name: 'Weekly planning' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(thread).getByRole('button', { name: 'Weekly planning' }))
+    expect(onSelectConversation).toHaveBeenCalledWith('conv_2')
   })
 })

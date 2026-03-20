@@ -63,6 +63,9 @@ fn format_agent_inspect(inspect: &AgentInspectData) -> String {
         "- pending execution handoffs: {}",
         grounding.review.pending_execution_handoffs.len()
     ));
+    lines.push(
+        "- assistant proposals: staged only; supervised writes stay review-gated".to_string(),
+    );
 
     lines.push(String::new());
     lines.push("review obligations:".to_string());

@@ -5,6 +5,7 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
+use serde_json::Value;
 use uuid::Uuid;
 use vel_api_types::{
     ApiResponse, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest,
@@ -50,15 +51,22 @@ fn thread_data_from_summary(
         lifecycle_stage,
         created_at,
         updated_at,
+        metadata: None,
         links: None,
     }
+}
+
+fn parse_thread_metadata(metadata_json: &str) -> Option<Value> {
+    serde_json::from_str::<Value>(metadata_json)
+        .ok()
+        .filter(|value| value.is_object())
 }
 
 fn thread_data_from_row(
     row: (String, String, String, String, String, i64, i64),
     links: Option<Vec<ThreadLinkData>>,
 ) -> ThreadData {
-    let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row;
+    let (id, thread_type, title, status, metadata_json, created_at, updated_at) = row;
     let (planning_kind, lifecycle_stage) = planning_thread_fields(&thread_type, &status);
     ThreadData {
         id,
@@ -69,6 +77,7 @@ fn thread_data_from_row(
         lifecycle_stage,
         created_at,
         updated_at,
+        metadata: parse_thread_metadata(&metadata_json),
         links,
     }
 }
@@ -152,6 +161,7 @@ async fn matches_thread_filters(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use tokio::sync::broadcast;
     use vel_config::AppConfig;
 
@@ -217,6 +227,33 @@ mod tests {
         assert_eq!(data.len(), 1);
         assert_eq!(data[0].id, "thr_project_review_1");
     }
+
+    #[test]
+    fn thread_row_preserves_resolution_metadata_on_detail_reads() {
+        let data = thread_data_from_row(
+            (
+                "thr_action_1".to_string(),
+                "action_resolution".to_string(),
+                "Follow up".to_string(),
+                "deferred".to_string(),
+                json!({
+                    "source": "check_in",
+                    "resolution_state": "deferred",
+                    "prompt_id": "standup_prompt_1"
+                })
+                .to_string(),
+                1,
+                2,
+            ),
+            None,
+        );
+
+        assert_eq!(
+            data.metadata.as_ref().unwrap()["resolution_state"],
+            "deferred"
+        );
+        assert_eq!(data.metadata.as_ref().unwrap()["source"], "check_in");
+    }
 }
 
 pub async fn get_thread(
@@ -224,7 +261,7 @@ pub async fn get_thread(
     Path(id): Path<String>,
 ) -> Result<Json<ApiResponse<ThreadData>>, AppError> {
     let row = state.storage.get_thread_by_id(id.trim()).await?;
-    let (id, thread_type, title, status, _metadata_json, created_at, updated_at) =
+    let (id, thread_type, title, status, metadata_json, created_at, updated_at) =
         row.ok_or_else(|| AppError::not_found("thread not found"))?;
     let links_rows = state.storage.list_thread_links(&id).await?;
     let links: Vec<ThreadLinkData> = links_rows
@@ -244,7 +281,7 @@ pub async fn get_thread(
             thread_type,
             title,
             status,
-            String::new(),
+            metadata_json,
             created_at,
             updated_at,
         ),
@@ -277,6 +314,10 @@ pub async fn create_thread(
         now,
         now,
     );
+    let data = ThreadData {
+        metadata: payload.metadata_json,
+        ..data
+    };
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -295,7 +336,7 @@ pub async fn update_thread(
         .get_thread_by_id(id)
         .await?
         .ok_or_else(|| AppError::not_found("thread not found"))?;
-    let (id, thread_type, title, status, _metadata_json, created_at, updated_at) = row;
+    let (id, thread_type, title, status, metadata_json, created_at, updated_at) = row;
     let links_rows = state.storage.list_thread_links(&id).await?;
     let links: Vec<ThreadLinkData> = links_rows
         .into_iter()
@@ -314,7 +355,7 @@ pub async fn update_thread(
             thread_type,
             title,
             status,
-            String::new(),
+            metadata_json,
             created_at,
             updated_at,
         ),

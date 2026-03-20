@@ -34,6 +34,84 @@ pub async fn get_active_session(
         .map(|record| record.session))
 }
 
+pub fn assistant_requested_phase(text: &str) -> Option<DailyLoopPhase> {
+    let normalized = text.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+    if normalized.contains("standup") {
+        return Some(DailyLoopPhase::Standup);
+    }
+
+    const MORNING_MARKERS: &[&str] = &[
+        "good morning",
+        "start my day",
+        "start the day",
+        "start my morning",
+        "morning overview",
+        "morning briefing",
+    ];
+    if MORNING_MARKERS
+        .iter()
+        .any(|marker| normalized.contains(marker))
+    {
+        Some(DailyLoopPhase::MorningOverview)
+    } else {
+        None
+    }
+}
+
+pub fn assistant_prefers_resume(text: &str) -> bool {
+    let normalized = text.to_ascii_lowercase();
+    normalized.contains("resume") || normalized.contains("continue")
+}
+
+pub async fn start_or_resume_assistant_session(
+    storage: &Storage,
+    config: &AppConfig,
+    transcript: &str,
+    surface: vel_core::DailyLoopSurface,
+) -> Result<Option<DailyLoopSession>, AppError> {
+    let Some(phase) = assistant_requested_phase(transcript) else {
+        return Ok(None);
+    };
+    let timezone = crate::services::timezone::resolve_timezone(storage).await?;
+    let session_date =
+        crate::services::timezone::local_date_string(&timezone, OffsetDateTime::now_utc());
+    if assistant_prefers_resume(transcript) {
+        if let Some(active) = get_active_session(storage, &session_date, phase).await? {
+            return Ok(Some(active));
+        }
+    }
+
+    start_session(
+        storage,
+        config,
+        DailyLoopStartRequest {
+            phase,
+            session_date,
+            start: vel_core::DailyLoopStartMetadata {
+                source: vel_core::DailyLoopStartSource::Manual,
+                surface,
+            },
+        },
+    )
+    .await
+    .map(Some)
+}
+
+pub fn assistant_entry_summary(session: &DailyLoopSession) -> String {
+    let prompt = session
+        .current_prompt
+        .as_ref()
+        .map(|prompt| prompt.text.as_str())
+        .unwrap_or("Continue in the daily loop.");
+    match session.phase {
+        DailyLoopPhase::MorningOverview => format!("Morning overview ready. {prompt}"),
+        DailyLoopPhase::Standup => format!("Standup ready. {prompt}"),
+    }
+}
+
 pub async fn submit_turn(
     storage: &Storage,
     request: DailyLoopTurnRequest,
@@ -47,6 +125,12 @@ pub async fn submit_turn(
 
     let (request, resolution) =
         crate::services::check_in::prepare_turn_request(&record.session, request)?;
+    crate::services::check_in::persist_resolution_follow_through(
+        storage,
+        &record.session,
+        resolution.as_ref(),
+    )
+    .await?;
 
     if matches!(request.action, DailyLoopTurnAction::Resume)
         || matches!(

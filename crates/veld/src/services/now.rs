@@ -592,7 +592,11 @@ fn trust_follow_through_items(action_items: &[ActionItem]) -> Vec<ActionItem> {
                     | ActionKind::Freshness
                     | ActionKind::Review
                     | ActionKind::Conflict
-            )
+            ) || (item.kind == ActionKind::Intervention
+                && item
+                    .evidence
+                    .iter()
+                    .any(|evidence| evidence.source_kind == "assistant_proposal"))
         })
         .take(3)
         .cloned()
@@ -960,7 +964,10 @@ fn label(key: &str, text: &str) -> NowLabelOutput {
 mod tests {
     use super::*;
     use time::{Duration, Month};
-    use vel_core::{CommitmentId, CommitmentStatus, ContextMigrator};
+    use vel_core::{
+        ActionEvidenceRef, ActionPermissionMode, ActionScopeAffinity, ActionState, ActionSurface,
+        CommitmentId, CommitmentStatus, ContextMigrator,
+    };
 
     #[test]
     fn pending_medication_today_outranks_ordinary_task() {
@@ -1062,6 +1069,37 @@ mod tests {
         assert_eq!(output.headline, "Review is pending");
         assert_eq!(output.review.pending_execution_reviews, 1);
         assert_eq!(output.review.conflict_count, 1);
+    }
+
+    #[test]
+    fn trust_readiness_surfaces_assistant_proposals_in_follow_through() {
+        let item = ActionItem {
+            id: "act_assistant_proposal_1".to_string().into(),
+            surface: ActionSurface::Inbox,
+            kind: ActionKind::Intervention,
+            permission_mode: ActionPermissionMode::Blocked,
+            scope_affinity: ActionScopeAffinity::Global,
+            title: "Send the draft reply".to_string(),
+            summary: "Gate: SAFE MODE keeps writeback disabled.".to_string(),
+            project_id: None,
+            project_label: None,
+            project_family: None,
+            state: ActionState::Active,
+            rank: 79,
+            surfaced_at: OffsetDateTime::UNIX_EPOCH,
+            snoozed_until: None,
+            evidence: vec![ActionEvidenceRef {
+                source_kind: "assistant_proposal".to_string(),
+                source_id: "act_intervention_intv_1".to_string(),
+                label: "assistant staged action".to_string(),
+                detail: Some("message_id=msg_1 permission_mode=blocked".to_string()),
+            }],
+            thread_route: None,
+        };
+
+        let follow_through = trust_follow_through_items(&[item.clone()]);
+        assert_eq!(follow_through.len(), 1);
+        assert_eq!(follow_through[0].id, item.id);
     }
 
     #[test]

@@ -9,9 +9,10 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 use vel_api_types::{
-    ActionEvidenceRefData, ApiResponse, ConversationCreateRequest, ConversationData,
-    ConversationUpdateRequest, CreateMessageResponse, InboxItemData, InterventionActionData,
-    MessageCreateRequest, MessageData, ProvenanceData, ProvenanceEvent,
+    ActionEvidenceRefData, ApiResponse, AssistantActionProposalData, AssistantEntryRequest,
+    AssistantEntryResponse, AssistantEntryRouteTargetData, ConversationCreateRequest,
+    ConversationData, ConversationUpdateRequest, CreateMessageResponse, InboxItemData,
+    InterventionActionData, MessageCreateRequest, MessageData, ProvenanceData, ProvenanceEvent,
 };
 
 use crate::services::chat::{
@@ -25,7 +26,9 @@ use crate::services::chat::{
     interventions::{dismiss_intervention, resolve_intervention, snooze_intervention},
     mapping::{conversation_record_to_data, message_record_to_data},
     messages::{
-        create_message_response, ChatMessage, ChatMessageCreateInput, ChatMessageCreateResult,
+        create_assistant_entry_response, create_message_response, AssistantEntryCreateInput,
+        AssistantEntryCreateResult, AssistantEntryRouteTarget, ChatMessage, ChatMessageCreateInput,
+        ChatMessageCreateResult, VoiceEntryProvenance,
     },
     reads::{
         build_message_provenance_data, list_conversation_intervention_items, list_inbox_items,
@@ -131,6 +134,25 @@ fn map_create_message_response(data: ChatMessageCreateResult) -> CreateMessageRe
         user_message: map_chat_message_data(data.user_message),
         assistant_message: data.assistant_message.map(map_chat_message_data),
         assistant_error: data.assistant_error,
+    }
+}
+
+fn map_assistant_entry_response(data: AssistantEntryCreateResult) -> AssistantEntryResponse {
+    AssistantEntryResponse {
+        route_target: match data.route_target {
+            AssistantEntryRouteTarget::Inbox => AssistantEntryRouteTargetData::Inbox,
+            AssistantEntryRouteTarget::Threads => AssistantEntryRouteTargetData::Threads,
+            AssistantEntryRouteTarget::Inline => AssistantEntryRouteTargetData::Inline,
+        },
+        user_message: map_chat_message_data(data.user_message),
+        assistant_message: data.assistant_message.map(map_chat_message_data),
+        assistant_error: data.assistant_error,
+        conversation: data.conversation.map(map_conversation_data),
+        proposal: data.proposal.map(AssistantActionProposalData::from),
+        daily_loop_session: data.daily_loop_session.map(Into::into),
+        end_of_day: data
+            .end_of_day
+            .map(crate::routes::context::map_end_of_day_data),
     }
 }
 
@@ -257,6 +279,34 @@ pub async fn create_message(
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
         map_create_message_response(response),
+        request_id,
+    )))
+}
+
+pub async fn create_assistant_entry(
+    State(state): State<AppState>,
+    Json(payload): Json<AssistantEntryRequest>,
+) -> Result<Json<ApiResponse<AssistantEntryResponse>>, AppError> {
+    let response = create_assistant_entry_response(
+        &state,
+        &AssistantEntryCreateInput {
+            text: payload.text,
+            conversation_id: payload.conversation_id,
+            voice: payload.voice.map(|voice| VoiceEntryProvenance {
+                surface: voice.surface,
+                source_device: voice.source_device,
+                locale: voice.locale,
+                transcript_origin: voice.transcript_origin,
+                recorded_at: voice.recorded_at,
+                offline_captured_at: voice.offline_captured_at,
+                queued_at: voice.queued_at,
+            }),
+        },
+    )
+    .await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(
+        map_assistant_entry_response(response),
         request_id,
     )))
 }
@@ -532,6 +582,7 @@ pub fn chat_routes() -> Router<AppState> {
             "/api/conversations/:id/messages",
             get(list_messages).post(create_message),
         )
+        .route("/api/assistant/entry", post(create_assistant_entry))
         .route(
             "/api/conversations/:id/interventions",
             get(list_conversation_interventions),

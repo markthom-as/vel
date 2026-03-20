@@ -1,18 +1,15 @@
-import { useState, useCallback } from 'react';
-import { apiPost } from '../api/client';
+import { useRef, useState, useCallback } from 'react';
+import { submitAssistantEntry } from '../data/chat';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import {
-  decodeApiResponse,
-  decodeCreateMessageResponse,
-  type ApiResponse,
-  type CreateMessageResponse,
-  type MessageData,
+  type AssistantEntryResponse,
+  type AssistantEntryVoiceProvenanceData,
 } from '../types';
 
 interface MessageComposerProps {
-  conversationId: string;
+  conversationId?: string | null;
   onOptimisticSend?: (text: string) => string | undefined;
-  onSent: (clientMessageId: string | undefined, userMessage: MessageData, assistantMessage?: MessageData | null) => void;
+  onSent: (clientMessageId: string | undefined, response: AssistantEntryResponse) => void;
   onSendFailed?: (clientMessageId: string | undefined) => void;
 }
 
@@ -20,9 +17,18 @@ export function MessageComposer({ conversationId, onOptimisticSend, onSent, onSe
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingVoice, setPendingVoice] = useState<AssistantEntryVoiceProvenanceData | null>(null);
+  const voicePressActiveRef = useRef(false);
 
   const appendVoiceTranscript = useCallback((transcript: string) => {
     setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    setPendingVoice({
+      surface: 'web',
+      source_device: 'browser',
+      locale: typeof navigator === 'undefined' ? 'en-US' : navigator.language ?? 'en-US',
+      transcript_origin: 'local_browser_stt',
+      recorded_at: new Date().toISOString(),
+    });
   }, []);
 
   const {
@@ -44,14 +50,11 @@ export function MessageComposer({ conversationId, onOptimisticSend, onSent, onSe
     setSending(true);
     const clientMessageId = onOptimisticSend?.(trimmed);
     try {
-      const res = await apiPost<ApiResponse<CreateMessageResponse>>(
-        `/api/conversations/${conversationId}/messages`,
-        { role: 'user', kind: 'text', content: { text: trimmed } },
-        (value) => decodeApiResponse(value, decodeCreateMessageResponse),
-      );
+      const res = await submitAssistantEntry(trimmed, conversationId, pendingVoice);
       if (res.ok && res.data) {
-        onSent(clientMessageId, res.data.user_message, res.data.assistant_message ?? null);
+        onSent(clientMessageId, res.data);
         setText('');
+        setPendingVoice(null);
         if (res.data.assistant_error) {
           setError(res.data.assistant_error);
         }
@@ -68,7 +71,7 @@ export function MessageComposer({ conversationId, onOptimisticSend, onSent, onSe
     } finally {
       setSending(false);
     }
-  }, [text, conversationId, sending, onOptimisticSend, onSent, onSendFailed]);
+  }, [text, conversationId, sending, pendingVoice, onOptimisticSend, onSent, onSendFailed]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -77,13 +80,46 @@ export function MessageComposer({ conversationId, onOptimisticSend, onSent, onSe
     }
   };
 
-  const toggleVoice = () => {
+  const beginVoiceCapture = () => {
+    if (sending || !voiceSupported || voicePressActiveRef.current) {
+      return;
+    }
     if (voiceError) setError(null);
-    if (isListening) stopVoice();
-    else startVoice();
+    voicePressActiveRef.current = true;
+    startVoice();
+  };
+
+  const endVoiceCapture = () => {
+    if (!voicePressActiveRef.current) {
+      return;
+    }
+    voicePressActiveRef.current = false;
+    stopVoice();
+  };
+
+  const handleVoiceKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.repeat) {
+      return;
+    }
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      beginVoiceCapture();
+    }
+  };
+
+  const handleVoiceKeyUp = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      endVoiceCapture();
+    }
   };
 
   const displayError = error ?? voiceError ?? null;
+  const voiceHint = voiceSupported
+    ? isListening
+      ? 'Release to stop. Transcript stays local until you send it.'
+      : 'Hold the mic to talk locally. Vel routes the transcript into Now, Inbox, or Threads.'
+    : 'Local speech-to-text is not available in this browser yet. Type your message instead.';
 
   return (
     <div className="shrink-0 border-t border-zinc-800 p-3">
@@ -98,25 +134,37 @@ export function MessageComposer({ conversationId, onOptimisticSend, onSent, onSe
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message… (Enter to send, Shift+Enter for newline)"
+            placeholder="Ask, capture, or talk to Vel… (Enter to send, Shift+Enter for newline)"
             rows={2}
             className="w-full rounded-lg bg-zinc-800/50 border border-zinc-700 px-3 py-2 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
             disabled={sending}
           />
           {interimTranscript && (
             <p className="text-zinc-500 text-xs" aria-live="polite">
-              Listening… {interimTranscript}
+              Listening locally… {interimTranscript}
             </p>
           )}
+          {!interimTranscript ? (
+            <p className="text-zinc-500 text-xs" aria-live="polite">
+              {voiceHint}
+            </p>
+          ) : null}
         </div>
         {voiceSupported && (
           <button
             type="button"
-            onClick={toggleVoice}
+            onMouseDown={beginVoiceCapture}
+            onMouseUp={endVoiceCapture}
+            onMouseLeave={endVoiceCapture}
+            onTouchStart={beginVoiceCapture}
+            onTouchEnd={endVoiceCapture}
+            onTouchCancel={endVoiceCapture}
+            onKeyDown={handleVoiceKeyDown}
+            onKeyUp={handleVoiceKeyUp}
             disabled={sending}
             aria-pressed={isListening}
-            aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
-            title={isListening ? 'Stop listening' : 'Speak to type'}
+            aria-label={isListening ? 'Release to stop local voice input' : 'Hold to talk locally'}
+            title={isListening ? 'Release to stop local voice input' : 'Hold to talk locally with browser speech-to-text'}
             className={`shrink-0 p-2.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 disabled:opacity-50 disabled:pointer-events-none ${
               isListening
                 ? 'bg-red-900/40 border-red-600/60 text-red-200'

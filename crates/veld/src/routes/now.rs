@@ -410,6 +410,7 @@ mod tests {
                 escalation: Some(vel_core::CheckInEscalation {
                     target: vel_core::CheckInEscalationTarget::Threads,
                     label: "Continue in Threads".to_string(),
+                    thread_id: None,
                 }),
                 transitions: vec![
                     vel_core::CheckInTransition {

@@ -94,6 +94,7 @@ pub async fn edit_current_reflow(
     let thread_id = format!("thr_{}", Uuid::new_v4().simple());
     let metadata = json!({
         "source": "reflow",
+        "resolution_state": "editing",
         "context_computed_at": context.computed_at,
         "trigger": card.trigger.to_string(),
         "severity": card.severity.to_string(),

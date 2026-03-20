@@ -24,10 +24,12 @@ import { SurfaceState } from './SurfaceState';
 
 interface ThreadViewProps {
   conversationId: string | null;
+  onSelectConversation?: (conversationId: string) => void;
 }
 
-export function ThreadView({ conversationId }: ThreadViewProps) {
+export function ThreadView({ conversationId, onSelectConversation }: ThreadViewProps) {
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
+  const [threadFilter, setThreadFilter] = useState('');
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data: conversations = [], loading: conversationsLoading, error: conversationsError } = useQuery(
@@ -36,7 +38,6 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
       const response = await loadConversationList();
       return response.ok && response.data ? response.data : [];
     },
-    { enabled: !conversationId },
   );
   const fallbackConversationId = useMemo(() => {
     if (conversationId || conversations.length === 0) {
@@ -45,6 +46,23 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
     return [...conversations]
       .sort((left, right) => right.updated_at - left.updated_at)[0]?.id ?? null;
   }, [conversationId, conversations]);
+  const filteredConversations = useMemo(() => {
+    const query = threadFilter.trim().toLowerCase();
+    const sorted = [...conversations].sort((left, right) => right.updated_at - left.updated_at);
+    if (!query) {
+      return sorted.slice(0, 6);
+    }
+    return sorted
+      .filter((conversation) => {
+        const haystacks = [
+          conversation.title ?? '',
+          conversation.kind,
+          conversation.id,
+        ];
+        return haystacks.some((value) => value.toLowerCase().includes(query));
+      })
+      .slice(0, 6);
+  }, [conversations, threadFilter]);
   const resolvedConversationId = conversationId ?? fallbackConversationId;
   const messagesKey = useMemo(
     () => chatQueryKeys.conversationMessages(resolvedConversationId),
@@ -234,9 +252,50 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
             <p className="mt-2 text-sm leading-6 text-zinc-400">
               Use Threads when `Now` or `Inbox` needs deeper context, longer back-and-forth, or searchable history.
             </p>
+            <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <label className="flex-1">
+                  <span className="sr-only">Filter threads</span>
+                  <input
+                    type="text"
+                    value={threadFilter}
+                    onChange={(event) => setThreadFilter(event.target.value)}
+                    placeholder="Filter recent threads"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
+                  />
+                </label>
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Continuity only. Triage stays in Inbox.
+                </p>
+              </div>
+              {filteredConversations.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {filteredConversations.map((conversation) => {
+                    const active = conversation.id === resolvedConversationId;
+                    return (
+                      <button
+                        key={conversation.id}
+                        type="button"
+                        onClick={() => onSelectConversation?.(conversation.id)}
+                        disabled={!onSelectConversation || active}
+                        className={`rounded-full border px-3 py-1.5 text-xs ${
+                          active
+                            ? 'border-emerald-700 bg-emerald-950/40 text-emerald-200'
+                            : 'border-zinc-700 bg-zinc-950 text-zinc-300 hover:border-zinc-600 hover:text-zinc-100'
+                        } disabled:cursor-default`}
+                      >
+                        {conversation.title ?? 'Untitled thread'}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-zinc-500">No recent threads match that filter.</p>
+              )}
+            </div>
           </header>
           {messages.length === 0 && (
-            <SurfaceState message="No messages yet." />
+            <SurfaceState message="No messages yet. Start here when `Now` or `Inbox` needs deeper follow-up." />
           )}
           {messages.map((message) => (
             <MessageRenderer
@@ -280,13 +339,13 @@ export function ThreadView({ conversationId }: ThreadViewProps) {
           );
           return clientMessageId;
         }}
-        onSent={(clientMessageId, userMessage, assistantMessage) => {
+        onSent={(clientMessageId, response) => {
           setQueryData<MessageData[]>(messagesKey, (prev = []) =>
             reconcileConfirmedSend(
               prev,
               clientMessageId,
-              userMessage,
-              assistantMessage ? [assistantMessage] : [],
+              response.user_message,
+              response.assistant_message ? [response.assistant_message] : [],
             ),
           );
           invalidateQuery(conversationsKey, { refetch: true });

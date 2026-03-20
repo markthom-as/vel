@@ -258,6 +258,7 @@ public struct AppleVoiceTurnResponseData: Codable, Sendable {
     public let mode: AppleResponseModeData
     public let summary: String
     public let capture_id: String?
+    public let thread_id: String?
     public let reasons: [String]
     public let evidence: [AppleResponseEvidenceData]
     public let queued_mutation: AppleVoiceTurnQueuedMutationSummaryData?

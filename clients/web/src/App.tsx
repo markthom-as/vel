@@ -41,6 +41,10 @@ function App() {
     setMainView('threads');
   }
 
+  function openInbox() {
+    setMainView('inbox');
+  }
+
   return (
     <AppShell
       sidebar={(
@@ -60,6 +64,7 @@ function App() {
           conversationId={selectedConversationId}
           mainView={mainView}
           onNavigate={setMainView}
+          onOpenInbox={openInbox}
           onOpenThread={openConversationThread}
           onOpenSettings={openSettings}
           settingsTarget={settingsTarget}

@@ -45,6 +45,7 @@ describe('MainPanel', () => {
         conversationId={mainView === 'threads' ? 'conv_1' : null}
         mainView={mainView}
         onNavigate={() => {}}
+        onOpenInbox={() => {}}
         onOpenThread={() => {}}
         onOpenSettings={() => {}}
         settingsTarget={{ tab: 'general' }}

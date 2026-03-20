@@ -73,7 +73,7 @@ fn map_morning_data(data: MorningContextData) -> MorningData {
     }
 }
 
-fn map_end_of_day_data(data: EndOfDayContextData) -> EndOfDayData {
+pub(crate) fn map_end_of_day_data(data: EndOfDayContextData) -> EndOfDayData {
     EndOfDayData {
         date: data.date,
         what_was_done: data.what_was_done.into_iter().map(Into::into).collect(),

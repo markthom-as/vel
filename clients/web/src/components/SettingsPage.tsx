@@ -2147,6 +2147,26 @@ export function SettingsPage({
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
+                <h3 className="text-base font-medium text-zinc-100">Assistant readiness</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Normal daily use should start in `Now`, continue through `Inbox`, and move into
+                  `Threads` only for continuity. Remote model routing is optional, and runtime
+                  controls stay one step deeper.
+                </p>
+              </div>
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
+                default loop
+              </span>
+            </div>
+            <ul className="mt-4 space-y-2 text-sm text-zinc-300">
+              <li>Web voice input uses local browser speech-to-text before the assistant route.</li>
+              <li>Assistant replies need a configured model, but capture and triage still work without one.</li>
+              <li>Use the runtime tab only when you need deeper logs, components, or review controls.</li>
+            </ul>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
                 <h3 className="text-base font-medium text-zinc-100">Advanced operator setup</h3>
                 <p className="mt-1 text-sm text-zinc-500">
                   Start with summary trust, onboarding, linking, and review posture here before

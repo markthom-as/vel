@@ -1430,7 +1430,7 @@ private struct VoiceTab: View {
                     .disabled(!voiceModel.hasTranscript)
                 }
 
-                Text("Voice submissions preserve transcript provenance, then defer schedule and behavior replies to the backend Apple route.")
+                Text("Voice submissions preserve transcript provenance, defer shared product behavior to the backend Apple route, and keep longer follow-up in Threads.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
 
@@ -3380,7 +3380,8 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         let detailParts = response.queued_mutation.map(\.summary).flatMap { [$0] } ?? []
         let reasonParts = Array(response.reasons.prefix(2))
         let evidenceParts = response.evidence.prefix(2).map { "\($0.label): \($0.detail)" }
-        let detail = (detailParts + reasonParts + evidenceParts)
+        let threadParts = response.thread_id.map { _ in ["Saved in Threads for follow-up."] } ?? []
+        let detail = (detailParts + reasonParts + evidenceParts + threadParts)
             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             .joined(separator: " ")
         setResponse(summary: response.summary, detail: detail.isEmpty ? nil : detail)

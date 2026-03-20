@@ -17,7 +17,7 @@ use crate::{
 
 const NOTES_PROVIDER_KEY: &str = "notes";
 const REMINDERS_PROVIDER_KEY: &str = "reminders";
-const SAFE_MODE_MESSAGE: &str =
+pub(crate) const SAFE_MODE_MESSAGE: &str =
     "writeback is disabled by default (safe mode). Enable writeback in Settings before applying external mutations";
 
 #[derive(Debug, Clone)]

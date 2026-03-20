@@ -55,6 +55,17 @@ The most important local config keys are:
 
 The checked-in repo config already points these at local seed files under `var/integrations/`.
 
+## LLM routing and remote OpenAI auth
+
+Vel's assistant path uses the configured model routing under `configs/models/`.
+
+- local models use `provider = "llama_cpp"`
+- localhost OAuth-backed OpenAI-compatible proxies use `provider = "openai_oauth"`
+- `openai_oauth` profiles are only enabled when `VEL_ENABLE_OPENAI_OAUTH=1`
+- for safety, `openai_oauth` base URLs must point to `localhost` or `127.0.0.1`
+
+The assistant chat path can now use a bounded read-only Vel tool surface on top of the configured LLM profile. That means the model can answer from `Now`, projects, people, commitments, semantic memory, active daily-loop state, and filtered threads instead of only seeing bare conversation history.
+
 ## Local integrations
 
 Vel currently ingests several sources from local files or snapshots.

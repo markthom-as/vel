@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 17
-current_phase_name: shell-embodiment-operator-mode-application-and-surface-simplification
-current_plan: 4
-status: completed
-stopped_at: Milestone audit found closeout gaps; next logical step is plan milestone gaps
-last_updated: "2026-03-19T23:35:52Z"
-last_activity: 2026-03-19
+current_phase: 24
+current_phase_name: approved-assistant-action-application-and-reversible-write-execution
+current_plan: 2
+status: in_progress
+stopped_at: Phase 24 24-01 complete; next logical step is 24-02 review-gated application
+last_updated: "2026-03-20T06:52:00Z"
+last_activity: 2026-03-20
 progress:
-  total_phases: 17
-  completed_phases: 14
-  total_plans: 73
-  completed_plans: 70
-  percent: 76
+  total_phases: 24
+  completed_phases: 16
+  total_plans: 90
+  completed_plans: 87
+  percent: 70
 ---
 
 # Project State
@@ -24,27 +24,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Milestone audit follow-up and closeout gap planning
+**Current focus:** Phase 24 execution — approved assistant action application and reversible write execution
 
-Status: Phase 17 complete; milestone audit found closeout gaps and the next workflow lane is gap planning
-Current Phase: 17
-Current Phase Name: shell-embodiment-operator-mode-application-and-surface-simplification
-Current Plan: 4
+Status: Phase 19 deferred by operator choice; Phase 24 execution is active and the next workflow lane is 24-02
+Current Phase: 24
+Current Phase Name: approved-assistant-action-application-and-reversible-write-execution
+Current Plan: 2
 Total Plans in Phase: 4
-Progress: 100%
-Last Activity: 2026-03-19
-Last Activity Description: Wrote the v1.0 milestone audit and identified closeout blockers in verification coverage, requirements reconciliation, and roadmap/archive bookkeeping
+Progress: 25%
+Last Activity: 2026-03-20
+Last Activity Description: Completed 24-01 by publishing explicit assistant proposal lifecycle state and persisting staged state into thread metadata
 
 ## Current Position
 
-Phase: 17 (shell-embodiment-operator-mode-application-and-surface-simplification) — COMPLETE
-Plan: 4 of 4
+Phase: 24 (approved-assistant-action-application-and-reversible-write-execution) — IN EXECUTION
+Plan: 2 of 4
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 29
+- Total plans completed: 32
 - Average duration: 22m
 - Total execution time: 186m
 
@@ -173,6 +173,7 @@ Recent decisions affecting current work:
 - Phase 15 execution advanced (2026-03-19): 15-04 completed by composing the first backend-owned trust/readiness summary from backup trust, freshness, conflicts/writebacks, and supervised review pressure
 - Phase 15 completed (2026-03-19): 15-05 preserved project-scoped operator-action ownership through core, service, DTO, and shell seams and advanced the next lane to Phase 16 planning
 - Phase 16 discussion completed (2026-03-19): wrote `16-CONTEXT.md` to lock logic-first closure priorities, product rules, and code-context references ahead of planning
+- Phase 24 added (2026-03-20): approved assistant action application and reversible write execution became the next feature lane after staged assistant proposals landed in Phase 23
 - Phase 16 planning created (2026-03-19): 5-plan rollout covering transition contracts, backend-owned `check_in`, backend-owned `reflow`, trust/readiness follow-through, and project-scoped action behavior
 - Phase 16 execution started (2026-03-19): 16-01 completed by publishing typed backend-owned `check_in` and `reflow` transitions and wiring them through the `Now`/web contract
 - Phase 16 execution advanced (2026-03-19): 16-02 completed by implementing backend-owned `check_in` submit/bypass validation, typed resolution history, and daily-loop persistence through API, web, and Apple boundaries
@@ -185,6 +186,23 @@ Recent decisions affecting current work:
 - Phase 17 execution advanced (2026-03-19): 17-03 completed by reframing `Projects` as contextual drill-down, making `Settings` summary-first before runtime internals, and demoting `Stats`/`Suggestions` into passive detail surfaces
 - Phase 17 completed (2026-03-19): 17-04 aligned Apple and CLI wording, grouping, and docs to the same summary-first shell taxonomy, completing the embodiment lane without widening backend semantics
 - Milestone audit created (2026-03-19): v1.0 audit reported closeout gaps in verification coverage, requirements reconciliation, and roadmap/archive readiness; milestone archival is blocked pending gap planning
+- Milestone gap phases planned (2026-03-19): added Phase 18 for verification/requirements reconciliation and Phase 19 for archive readiness, re-audit, and milestone closeout
+- Phase 18 planning created (2026-03-19): 4-plan rollout covering closeout inventory/rules, historical verification backfill, shipped-phase verification backfill, and requirements reconciliation
+- Phase 18 execution started (2026-03-19): 18-01 created the stable closeout inventory and reconciliation rules, mapping milestone phases to summary/verification coverage and ledger posture before backfill begins
+- Phase 18 execution advanced (2026-03-19): 18-02 backfilled durable verification artifacts for Phases 2-4, verifying Phase 3 as complete and Phases 2/4 as historical baselines with explicit deferred scope
+- Phase 18 execution advanced (2026-03-19): 18-03 backfilled durable verification artifacts for Phases 5-17, preserving the original no-UAT and environment-gap notes while creating one phase-level verification substrate per shipped phase
+- Phase 18 completed (2026-03-20): 18-04 reconciled REQUIREMENTS.md against verification truth, satisfied CLOSEOUT-01/CLOSEOUT-02, updated the audit follow-up note, and left a concrete Phase 19 handoff for archive-readiness and rerun audit work
+- Phase 19 discussion completed (2026-03-20): wrote `19-CONTEXT.md` to lock the repaired closeout truth, remaining audit blockers, and archive-readiness deliverables before planning
+- Phase 19 planning created (2026-03-20): 4-plan rollout covering metadata repair, milestone-level integration evidence, milestone-level flow evidence, and rerun audit/archival readiness
+- Phase 19 deferred (2026-03-20): operator chose to skip closeout bookkeeping for now and move back to feature work focused on usability
+- Phase 20 discussion completed (2026-03-20): wrote `20-CONTEXT.md` to lock the next feature lane around daily-use usability, unified entry, and reduced setup friction
+- Phase 20 completed (2026-03-20): the default web loop now enters through `Now`, triages in `Inbox`, continues in `Threads`, and uses summary-first `Settings` for assistant readiness and setup depth
+- Phase 21 planning created (2026-03-20): 4-plan rollout covering shared backend voice entry, desktop/browser push-to-talk polish, Apple voice alignment, and cross-surface parity closeout
+- Phase 21 execution started (2026-03-20): 21-01 completed by extending assistant entry with explicit voice provenance and reusing the same normalization helper for Apple transcript capture
+- Phase 21 execution advanced (2026-03-20): 21-02 completed by making desktop/browser voice a clearer push-to-talk path into the shared assistant seam with explicit local-STT fallback behavior and web voice provenance on assistant entry
+- Phase 21 execution advanced (2026-03-20): 21-03 completed by aligning Apple voice onto the shared assistant continuity seam while preserving typed Apple responses and bounded offline/cache behavior
+- Phase 21 completed (2026-03-20): 21-04 closed cross-surface voice docs and verification notes so web/browser and Apple now teach one backend-owned voice story with explicit remaining platform limits
+- Phase 22 planning created (2026-03-20): 4-plan rollout covering assistant-capable morning/standup routing, assistant-capable closeout, durable thread-resolution follow-through, and shell/docs verification closure
 
 ### Pending Todos
 
@@ -209,10 +227,10 @@ Recent decisions affecting current work:
 - Concrete WASM guest runtime choice is still unresolved, but it no longer blocks Phase 4 closure because the shipped boundary is the decoded-ABI host executor plus supervised protocol/runtime mediation baseline
 - Phase 6 execution should build on the completed typed project/action/linking substrate and preserve backend-owned conflict and write-back policy
 - Phase 08 implementation is complete and closed; the next active lane is Phase 09 backup/trust execution
-- Phase 17 is complete; the next lane is milestone gap planning
+- Phase 20 is complete; the default web daily-use loop now enters through Now, triages in Inbox, continues in Threads, and defers setup depth to summary-first Settings
 
 ## Session Continuity
 
 Last session: 2026-03-19T07:35:55.445Z
-Stopped at: Milestone audit found closeout gaps; next logical step is plan milestone gaps
+Stopped at: Completed 21-01; next logical step is 21-02 web/desktop push-to-talk polish over the shared assistant seam
 Resume file: None

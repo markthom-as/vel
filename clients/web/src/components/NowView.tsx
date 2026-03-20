@@ -9,6 +9,7 @@ import {
 import { operatorQueryKeys, runEvaluate, syncSource } from '../data/operator';
 import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type {
+  AssistantEntryResponse,
   ActionItemData,
   DailyLoopPhaseData,
   DailyLoopSessionData,
@@ -16,6 +17,8 @@ import type {
   NowTaskData,
   ReviewSnapshotData,
 } from '../types';
+import { chatQueryKeys } from '../data/chat';
+import { MessageComposer } from './MessageComposer';
 import { SurfaceState } from './SurfaceState';
 
 type SettingsIntegrationTarget =
@@ -28,14 +31,18 @@ type SettingsIntegrationTarget =
   | 'transcripts';
 
 interface NowViewProps {
+  onOpenInbox?: () => void;
+  onOpenThread?: (conversationId: string) => void;
   onOpenSettings?: (target: { tab: 'integrations'; integrationId: SettingsIntegrationTarget }) => void;
 }
 
-export function NowView({ onOpenSettings }: NowViewProps) {
+export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const currentContextKey = useMemo(() => contextQueryKeys.currentContext(), []);
   const commitmentsKey = useMemo(() => contextQueryKeys.commitments(25), []);
   const integrationsKey = useMemo(() => operatorQueryKeys.integrations(), []);
+  const inboxKey = useMemo(() => chatQueryKeys.inbox(), []);
+  const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data, loading, error, refetch } = useQuery<NowData | null>(
     nowKey,
     async () => {
@@ -85,6 +92,11 @@ export function NowView({ onOpenSettings }: NowViewProps) {
     status: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [assistantEntryMessage, setAssistantEntryMessage] = useState<{
+    status: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  const [assistantInlineResponse, setAssistantInlineResponse] = useState<AssistantEntryResponse | null>(null);
   const [recentCompletedDailyLoop, setRecentCompletedDailyLoop] = useState<DailyLoopSessionData | null>(null);
   const activeDailyLoop = standupDailyLoop ?? morningDailyLoop ?? null;
 
@@ -260,6 +272,38 @@ export function NowView({ onOpenSettings }: NowViewProps) {
     setDailyLoopResponse('');
   }, [activeDailyLoop?.id, activeDailyLoop?.current_prompt?.prompt_id]);
 
+  const handleAssistantEntry = async (response: AssistantEntryResponse) => {
+    invalidateQuery(conversationsKey, { refetch: true });
+    invalidateQuery(inboxKey, { refetch: true });
+    setAssistantEntryMessage(null);
+    setAssistantInlineResponse(null);
+
+    if (response.route_target === 'threads') {
+      onOpenThread?.(response.conversation.id);
+      return;
+    }
+    if (response.route_target === 'inbox') {
+      setAssistantEntryMessage({
+        status: 'success',
+        message: 'Saved to Inbox for follow-up.',
+      });
+      onOpenInbox?.();
+      return;
+    }
+    setAssistantInlineResponse(response);
+    if (response.assistant_error) {
+      setAssistantEntryMessage({
+        status: 'error',
+        message: response.assistant_error,
+      });
+      return;
+    }
+    setAssistantEntryMessage({
+      status: 'success',
+      message: 'Handled here in Now.',
+    });
+  };
+
   if (loading) {
     return <SurfaceState message="Loading your current state…" layout="centered" />;
   }
@@ -345,6 +389,39 @@ export function NowView({ onOpenSettings }: NowViewProps) {
             detail={data.reflow_status?.headline ?? 'Archive and follow-ups live here'}
           />
         </section>
+
+        <Panel
+          title="Ask, capture, or talk"
+          subtitle="Start from Now. Type or hold the mic to talk locally, then let Vel decide whether it belongs inline, in Inbox, or in Threads."
+        >
+          <div className="space-y-4">
+            {assistantEntryMessage ? (
+              <p
+                className={`rounded-xl border px-4 py-3 text-sm ${
+                  assistantEntryMessage.status === 'error'
+                    ? 'border-red-900/70 bg-red-950/40 text-red-200'
+                    : 'border-emerald-900/60 bg-emerald-950/30 text-emerald-200'
+                }`}
+                role={assistantEntryMessage.status === 'error' ? 'alert' : 'status'}
+              >
+                {assistantEntryMessage.message}
+              </p>
+            ) : null}
+            {assistantInlineResponse?.assistant_message ? (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Inline reply</p>
+                <p className="mt-2 text-sm leading-6 text-zinc-200">
+                  {extractMessageText(assistantInlineResponse.assistant_message) ?? 'Vel responded inline.'}
+                </p>
+              </div>
+            ) : null}
+            <MessageComposer
+              onSent={(_, response) => {
+                void handleAssistantEntry(response);
+              }}
+            />
+          </div>
+        </Panel>
 
         <Panel
           title="Immediate pressure"
@@ -1568,6 +1645,13 @@ function labelFreshness(status: string): string {
     default:
       return status;
   }
+}
+
+function extractMessageText(message: AssistantEntryResponse['assistant_message']): string | null {
+  if (!message || typeof message.content !== 'object' || message.content === null || Array.isArray(message.content)) {
+    return null;
+  }
+  return typeof message.content.text === 'string' ? message.content.text : null;
 }
 
 function isRenderableDailyLoopSession(value: DailyLoopSessionData | null): value is DailyLoopSessionData {

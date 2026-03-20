@@ -22,13 +22,76 @@ pub async fn get_current_check_in(
     for phase in [DailyLoopPhase::Standup, DailyLoopPhase::MorningOverview] {
         if let Some(session) = daily_loop::get_active_session(storage, &session_date, phase).await?
         {
-            if let Some(card) = card_from_daily_loop_session(session) {
+            if let Some(card) = card_from_daily_loop_session(storage, session).await? {
                 return Ok(Some(card));
             }
         }
     }
 
     Ok(None)
+}
+
+fn escalation_thread_id(session_id: &str, prompt_id: &str) -> String {
+    format!("thr_check_in_{}_{}", session_id, prompt_id)
+}
+
+async fn ensure_follow_through_thread(
+    storage: &Storage,
+    session_id: &str,
+    phase: DailyLoopPhase,
+    prompt: &vel_core::DailyLoopPrompt,
+) -> Result<String, AppError> {
+    let thread_id = escalation_thread_id(session_id, &prompt.prompt_id);
+    if storage.get_thread_by_id(&thread_id).await?.is_none() {
+        let metadata = serde_json::json!({
+            "source": "check_in",
+            "resolution_state": "pending",
+            "phase": match phase {
+                DailyLoopPhase::MorningOverview => "morning_overview",
+                DailyLoopPhase::Standup => "standup",
+            },
+            "session_id": session_id,
+            "prompt_id": prompt.prompt_id,
+            "prompt_text": prompt.text,
+            "ordinal": prompt.ordinal,
+        })
+        .to_string();
+        storage
+            .insert_thread(
+                &thread_id,
+                "daily_loop_check_in",
+                "Check-in follow-through",
+                "open",
+                &metadata,
+            )
+            .await?;
+        let _ = storage
+            .insert_thread_link(
+                &thread_id,
+                "daily_loop_session",
+                session_id,
+                "follow_through",
+            )
+            .await?;
+    }
+    Ok(thread_id)
+}
+
+async fn update_follow_through_thread_status(
+    storage: &Storage,
+    session: &DailyLoopSession,
+    resolution: &DailyLoopCheckInResolution,
+) -> Result<(), AppError> {
+    let thread_id = escalation_thread_id(session.id.as_ref(), &resolution.prompt_id);
+    if storage.get_thread_by_id(&thread_id).await?.is_none() {
+        return Ok(());
+    }
+    let status = match resolution.kind {
+        DailyLoopCheckInResolutionKind::Submitted => "resolved",
+        DailyLoopCheckInResolutionKind::Bypassed => "deferred",
+    };
+    storage.update_thread_status(&thread_id, status).await?;
+    Ok(())
 }
 
 pub fn prepare_turn_request(
@@ -95,6 +158,17 @@ pub fn prepare_turn_request(
     }
 }
 
+pub async fn persist_resolution_follow_through(
+    storage: &Storage,
+    session: &DailyLoopSession,
+    resolution: Option<&DailyLoopCheckInResolution>,
+) -> Result<(), AppError> {
+    if let Some(resolution) = resolution {
+        update_follow_through_thread_status(storage, session, resolution).await?;
+    }
+    Ok(())
+}
+
 pub fn transitions_for_card(card: &CheckInCard) -> Vec<CheckInTransition> {
     let mut transitions = vec![CheckInTransition {
         kind: CheckInTransitionKind::Submit,
@@ -124,7 +198,7 @@ pub fn transitions_for_card(card: &CheckInCard) -> Vec<CheckInTransition> {
             kind: CheckInTransitionKind::Escalate,
             label: escalation.label.clone(),
             target: CheckInTransitionTargetKind::Threads,
-            reference_id: Some(card.session_id.clone()),
+            reference_id: escalation.thread_id.clone(),
             requires_response: false,
             requires_note: false,
         });
@@ -133,14 +207,20 @@ pub fn transitions_for_card(card: &CheckInCard) -> Vec<CheckInTransition> {
     transitions
 }
 
-fn card_from_daily_loop_session(session: DailyLoopSession) -> Option<CheckInCard> {
+async fn card_from_daily_loop_session(
+    storage: &Storage,
+    session: DailyLoopSession,
+) -> Result<Option<CheckInCard>, AppError> {
     let DailyLoopSession {
         id,
         phase,
         current_prompt,
         ..
     } = session;
-    let prompt = current_prompt?;
+    let Some(prompt) = current_prompt else {
+        return Ok(None);
+    };
+    let thread_id = ensure_follow_through_thread(storage, id.as_ref(), phase, &prompt).await?;
     let (title, summary, suggested_action_label, suggested_response) = match phase {
         DailyLoopPhase::MorningOverview => (
             "Morning check-in".to_string(),
@@ -176,11 +256,12 @@ fn card_from_daily_loop_session(session: DailyLoopSession) -> Option<CheckInCard
         escalation: Some(CheckInEscalation {
             target: CheckInEscalationTarget::Threads,
             label: "Continue in Threads".to_string(),
+            thread_id: Some(thread_id.clone()),
         }),
         transitions: Vec::new(),
     };
     card.transitions = transitions_for_card(&card);
-    Some(card)
+    Ok(Some(card))
 }
 
 #[cfg(test)]
@@ -193,8 +274,10 @@ mod tests {
         DailyStandupOutcome,
     };
 
-    #[test]
-    fn builds_check_in_card_from_daily_loop_prompt() {
+    #[tokio::test]
+    async fn builds_check_in_card_from_daily_loop_prompt() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
         let session = DailyLoopSession {
             id: "dls_test".to_string().into(),
             session_date: "2026-03-19".to_string(),
@@ -222,16 +305,28 @@ mod tests {
             outcome: None,
         };
 
-        let card = card_from_daily_loop_session(session).expect("card should build");
+        let card = card_from_daily_loop_session(&storage, session)
+            .await
+            .expect("card should build")
+            .expect("card should exist");
 
         assert_eq!(card.phase, DailyLoopPhase::Standup);
         assert_eq!(card.submit_target.reference_id, "dls_test");
-        assert_eq!(card.escalation.unwrap().label, "Continue in Threads");
+        let escalation = card.escalation.expect("escalation");
+        assert_eq!(escalation.label, "Continue in Threads");
+        assert_eq!(
+            escalation.thread_id.as_deref(),
+            Some("thr_check_in_dls_test_standup_prompt_1")
+        );
         assert_eq!(card.id.as_ref(), "act_check_in_dls_test_standup_prompt_1");
         assert_eq!(card.transitions.len(), 3);
         assert_eq!(card.transitions[0].kind, CheckInTransitionKind::Submit);
         assert_eq!(card.transitions[1].kind, CheckInTransitionKind::Bypass);
         assert_eq!(card.transitions[2].kind, CheckInTransitionKind::Escalate);
+        assert_eq!(
+            card.transitions[2].reference_id.as_deref(),
+            Some("thr_check_in_dls_test_standup_prompt_1")
+        );
     }
 
     #[test]

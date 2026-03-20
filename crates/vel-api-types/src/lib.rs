@@ -1487,6 +1487,8 @@ pub struct AppleVoiceTurnResponseData {
     pub summary: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capture_id: Option<CaptureId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
     #[serde(default)]
     pub reasons: Vec<String>,
     #[serde(default)]
@@ -1506,6 +1508,7 @@ impl From<vel_core::AppleVoiceTurnResponse> for AppleVoiceTurnResponseData {
             mode: value.mode.into(),
             summary: value.summary,
             capture_id: value.capture_id,
+            thread_id: value.thread_id,
             reasons: value.reasons,
             evidence: value.evidence.into_iter().map(Into::into).collect(),
             queued_mutation: value.queued_mutation.map(Into::into),
@@ -2492,6 +2495,8 @@ impl From<vel_core::CheckInEscalationTarget> for CheckInEscalationTargetData {
 pub struct CheckInEscalationData {
     pub target: CheckInEscalationTargetData,
     pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
 }
 
 impl From<vel_core::CheckInEscalation> for CheckInEscalationData {
@@ -2499,6 +2504,7 @@ impl From<vel_core::CheckInEscalation> for CheckInEscalationData {
         Self {
             target: value.target.into(),
             label: value.label,
+            thread_id: value.thread_id,
         }
     }
 }
@@ -4410,6 +4416,115 @@ pub struct MessageCreateRequest {
     pub content: JsonValue,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AssistantEntryRouteTargetData {
+    Inbox,
+    Threads,
+    Inline,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantEntryVoiceProvenanceData {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub surface: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_device: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcript_origin: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recorded_at: Option<OffsetDateTime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offline_captured_at: Option<OffsetDateTime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queued_at: Option<OffsetDateTime>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantEntryRequest {
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conversation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub voice: Option<AssistantEntryVoiceProvenanceData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantEntryResponse {
+    pub route_target: AssistantEntryRouteTargetData,
+    pub user_message: MessageData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_message: Option<MessageData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conversation: Option<ConversationData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal: Option<AssistantActionProposalData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub daily_loop_session: Option<DailyLoopSessionData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_of_day: Option<EndOfDayData>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssistantProposalStateData {
+    Staged,
+    Approved,
+    Applied,
+    Failed,
+    Reversed,
+}
+
+impl From<vel_core::AssistantProposalState> for AssistantProposalStateData {
+    fn from(value: vel_core::AssistantProposalState) -> Self {
+        match value {
+            vel_core::AssistantProposalState::Staged => Self::Staged,
+            vel_core::AssistantProposalState::Approved => Self::Approved,
+            vel_core::AssistantProposalState::Applied => Self::Applied,
+            vel_core::AssistantProposalState::Failed => Self::Failed,
+            vel_core::AssistantProposalState::Reversed => Self::Reversed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantActionProposalData {
+    pub action_item_id: ActionItemId,
+    pub state: AssistantProposalStateData,
+    pub kind: ActionKindData,
+    pub permission_mode: ActionPermissionModeData,
+    pub scope_affinity: ActionScopeAffinityData,
+    pub title: String,
+    pub summary: String,
+    pub project_id: Option<ProjectId>,
+    pub project_label: Option<String>,
+    pub project_family: Option<ProjectFamilyData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_route: Option<ActionThreadRouteData>,
+}
+
+impl From<vel_core::AssistantActionProposal> for AssistantActionProposalData {
+    fn from(value: vel_core::AssistantActionProposal) -> Self {
+        Self {
+            action_item_id: value.action_item_id,
+            state: value.state.into(),
+            kind: value.kind.into(),
+            permission_mode: value.permission_mode.into(),
+            scope_affinity: value.scope_affinity.into(),
+            title: value.title,
+            summary: value.summary,
+            project_id: value.project_id,
+            project_label: value.project_label,
+            project_family: value.project_family.map(Into::into),
+            thread_route: value.thread_route.map(Into::into),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InboxItemData {
     pub id: String,
@@ -5357,6 +5472,8 @@ pub struct ThreadData {
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<JsonValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Vec<ThreadLinkData>>,
 }
 
@@ -5788,6 +5905,7 @@ mod tests {
             mode: AppleResponseModeData::SpokenSummary,
             summary: "You have standup in 20 minutes.".to_string(),
             capture_id: Some("cap_voice_1".to_string().into()),
+            thread_id: Some("conv_voice_1".to_string()),
             reasons: vec!["Standup starts at 09:00.".to_string()],
             evidence: vec![AppleResponseEvidenceData {
                 kind: "event".to_string(),

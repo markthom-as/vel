@@ -198,11 +198,20 @@ Voice capture notes:
 - transcript is editable before submit and intent suggestions update live
 - supported backend voice query intents: morning briefing, current schedule, next commitment, active nudges, explain-why, and behavior summary
 - the iOS voice surface sends supported replies through `POST /v1/apple/voice/turn`; MorningBriefing now starts or resumes the shared backend daily loop, and Swift renders typed session state instead of synthesizing morning/standup policy locally
+- when the backend handles a supported Apple voice turn, the transcript is also persisted into shared thread continuity with the same voice provenance shape used by assistant entry; Swift may render that as a follow-up hint, but it should not invent separate thread policy locally
+- longer `check_in`, `reflow`, and action follow-through should use that same shared thread continuity lane with typed resolution metadata; Apple may deep-link to the hinted thread, but it should not synthesize local deferred/resolved semantics
 - commitment creation still uses the existing direct capture/queue shell because it is not part of the current Apple voice backend contract
 - supported voice action intents include targeted commitment done and nudge snooze/done when the backend route is reachable; offline fallback is limited to provenance capture plus queued safe actions
 - when the daemon is offline, the iOS voice surface may show cached active morning/standup session state, but resume/submit requires reconnect so the backend remains the source of truth
 - voice responses can be spoken back with built-in TTS playback
 - voice transcript handoff can open the capture flow directly for multimodal draft composition
+
+Cross-surface parity note:
+
+- desktop/browser voice uses local browser speech-to-text and then submits through `/api/assistant/entry`
+- Apple voice keeps its typed quick-loop route at `/v1/apple/voice/turn` for compatibility, but supported backend-handled turns now preserve the same shared thread continuity substrate
+- in both cases, shells own permissions, push-to-talk, local STT/TTS, and offline presentation, while the backend owns transcript provenance, daily-loop authority, and continuity routing
+- current platform limit: browser voice depends on browser STT availability, and full Apple app-target validation still requires Xcode/macOS even though `make check-apple-swift` validates the shared Swift package on Linux
 
 Multimodal capture notes:
 

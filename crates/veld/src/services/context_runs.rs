@@ -259,6 +259,37 @@ pub async fn generate_end_of_day_at(
     }
 }
 
+pub fn assistant_requested_end_of_day(text: &str) -> bool {
+    let normalized = text.trim().to_ascii_lowercase();
+    if normalized.is_empty() {
+        return false;
+    }
+
+    const MARKERS: &[&str] = &[
+        "end my day",
+        "end the day",
+        "close out my day",
+        "close out the day",
+        "closeout",
+        "close out today",
+        "end of day",
+        "review today",
+        "wrap up today",
+    ];
+
+    MARKERS.iter().any(|marker| normalized.contains(marker))
+}
+
+pub fn assistant_end_of_day_summary(data: &EndOfDayContextData) -> String {
+    let done_count = data.what_was_done.len();
+    let open_count = data.what_remains_open.len();
+    let tomorrow_count = data.what_may_matter_tomorrow.len();
+    format!(
+        "End-of-day closeout ready for {}. {} done, {} still open, {} worth carrying into tomorrow.",
+        data.date, done_count, open_count, tomorrow_count
+    )
+}
+
 /// Shared orchestration: transition to running, load snapshot, compute, write artifact, refs, events, succeed.
 /// Returns (artifact_id, data) on success.
 async fn run_context_generation<T, F>(

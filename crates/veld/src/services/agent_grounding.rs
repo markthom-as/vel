@@ -147,6 +147,7 @@ pub async fn build_agent_inspect(state: &AppState) -> Result<AgentInspectData, A
                     kind: AgentCapabilityGroupKindData::MutationActions,
                     label: "Bounded mutation affordances".to_string(),
                     entries: vec![
+                        assistant_staged_actions_capability(writeback_enabled),
                         integration_writeback_capability(writeback_enabled),
                         repo_handoff_capability(
                             pending_handoffs.as_slice(),
@@ -261,6 +262,20 @@ fn integration_writeback_capability(writeback_enabled: bool) -> AgentCapabilityE
         label: "Request integration writeback".to_string(),
         summary: "Bounded upstream mutations remain subject to SAFE MODE and review gates."
             .to_string(),
+        available: writeback_enabled,
+        blocked_reason: (!writeback_enabled).then_some(writeback_disabled_blocker()),
+        requires_review_gate: Some(ExecutionReviewGateData::OperatorPreview),
+        requires_writeback_enabled: true,
+    }
+}
+
+fn assistant_staged_actions_capability(writeback_enabled: bool) -> AgentCapabilityEntryData {
+    AgentCapabilityEntryData {
+        key: "assistant_staged_actions".to_string(),
+        label: "Stage assistant-mediated actions".to_string(),
+        summary:
+            "Assistant proposals can be staged, but mutation-capable follow-through still depends on SAFE MODE and review gates."
+                .to_string(),
         available: writeback_enabled,
         blocked_reason: (!writeback_enabled).then_some(writeback_disabled_blocker()),
         requires_review_gate: Some(ExecutionReviewGateData::OperatorPreview),

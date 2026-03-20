@@ -56,6 +56,71 @@ export interface CreateMessageResponse {
   assistant_error?: string | null;
 }
 
+export type AssistantEntryRouteTargetData = 'inbox' | 'threads' | 'inline';
+
+export interface AssistantEntryVoiceProvenanceData {
+  surface?: string | null;
+  source_device?: string | null;
+  locale?: string | null;
+  transcript_origin?: string | null;
+  recorded_at?: string | null;
+  offline_captured_at?: string | null;
+  queued_at?: string | null;
+}
+
+export interface AssistantEntryRequest {
+  text: string;
+  conversation_id?: string | null;
+  voice?: AssistantEntryVoiceProvenanceData | null;
+}
+
+export interface AssistantEntryResponse {
+  route_target: AssistantEntryRouteTargetData;
+  user_message: MessageData;
+  assistant_message?: MessageData | null;
+  assistant_error?: string | null;
+  conversation: ConversationData;
+  proposal?: AssistantActionProposalData | null;
+  daily_loop_session?: DailyLoopSessionData | null;
+  end_of_day?: EndOfDayData | null;
+}
+
+export interface AssistantActionProposalData {
+  action_item_id: string;
+  state: AssistantProposalStateData;
+  kind: ActionKindData;
+  permission_mode: ActionPermissionModeData;
+  scope_affinity: ActionScopeAffinityData;
+  title: string;
+  summary: string;
+  project_id: string | null;
+  project_label: string | null;
+  project_family: ProjectFamilyData | null;
+  thread_route?: ActionThreadRouteData | null;
+}
+
+export type AssistantProposalStateData =
+  | 'staged'
+  | 'approved'
+  | 'applied'
+  | 'failed'
+  | 'reversed';
+
+export interface ContextCapture {
+  capture_id: string;
+  capture_type: string;
+  content_text: string;
+  occurred_at: Rfc3339Timestamp;
+  source_device?: string | null;
+}
+
+export interface EndOfDayData {
+  date: string;
+  what_was_done: ContextCapture[];
+  what_remains_open: string[];
+  what_may_matter_tomorrow: string[];
+}
+
 export interface InboxItemData {
   id: string;
   message_id: string;
@@ -688,6 +753,7 @@ export interface CheckInSubmitTargetData {
 export interface CheckInEscalationData {
   target: CheckInEscalationTargetData;
   label: string;
+  thread_id?: string | null;
 }
 
 export interface CheckInTransitionData {
@@ -1513,6 +1579,101 @@ export function decodeCreateMessageResponse(value: unknown): CreateMessageRespon
   };
 }
 
+export function decodeAssistantEntryRouteTargetData(value: unknown): AssistantEntryRouteTargetData {
+  return expectEnumString(value, 'assistant entry route target', ['inbox', 'threads', 'inline']);
+}
+
+export function decodeAssistantEntryResponse(value: unknown): AssistantEntryResponse {
+  const record = expectRecord(value, 'assistant entry response');
+  return {
+    route_target: decodeAssistantEntryRouteTargetData(record.route_target),
+    user_message: decodeMessageData(record.user_message),
+    assistant_message:
+      record.assistant_message === undefined
+        ? undefined
+        : decodeNullable(record.assistant_message, decodeMessageData),
+    assistant_error:
+      record.assistant_error === undefined
+        ? undefined
+        : expectNullableString(record.assistant_error, 'assistant entry response.assistant_error'),
+    conversation: decodeConversationData(record.conversation),
+    proposal:
+      record.proposal === undefined
+        ? undefined
+        : decodeNullable(record.proposal, decodeAssistantActionProposalData),
+    daily_loop_session:
+      record.daily_loop_session === undefined
+        ? undefined
+        : decodeNullable(record.daily_loop_session, decodeDailyLoopSessionData),
+    end_of_day:
+      record.end_of_day === undefined
+        ? undefined
+        : decodeNullable(record.end_of_day, decodeEndOfDayData),
+  };
+}
+
+export function decodeAssistantActionProposalData(value: unknown): AssistantActionProposalData {
+  const record = expectRecord(value, 'assistant action proposal');
+  return {
+    action_item_id: expectString(record.action_item_id, 'assistant action proposal.action_item_id'),
+    state: decodeAssistantProposalStateData(record.state),
+    kind: decodeActionKindData(record.kind),
+    permission_mode: decodeActionPermissionModeData(record.permission_mode),
+    scope_affinity: decodeActionScopeAffinityData(record.scope_affinity),
+    title: expectString(record.title, 'assistant action proposal.title'),
+    summary: expectString(record.summary, 'assistant action proposal.summary'),
+    project_id: expectNullableString(record.project_id, 'assistant action proposal.project_id'),
+    project_label: expectNullableString(
+      record.project_label,
+      'assistant action proposal.project_label',
+    ),
+    project_family:
+      record.project_family == null ? null : decodeProjectFamilyData(record.project_family),
+    thread_route:
+      record.thread_route === undefined
+        ? undefined
+        : decodeNullable(record.thread_route, decodeActionThreadRouteData),
+  };
+}
+
+export function decodeAssistantProposalStateData(value: unknown): AssistantProposalStateData {
+  return expectEnumString(value, 'assistant proposal state', [
+    'staged',
+    'approved',
+    'applied',
+    'failed',
+    'reversed',
+  ]);
+}
+
+export function decodeContextCapture(value: unknown): ContextCapture {
+  const record = expectRecord(value, 'context capture');
+  return {
+    capture_id: expectString(record.capture_id, 'context capture.capture_id'),
+    capture_type: expectString(record.capture_type, 'context capture.capture_type'),
+    content_text: expectString(record.content_text, 'context capture.content_text'),
+    occurred_at: expectString(record.occurred_at, 'context capture.occurred_at'),
+    source_device:
+      record.source_device === undefined
+        ? undefined
+        : expectNullableString(record.source_device, 'context capture.source_device'),
+  };
+}
+
+export function decodeEndOfDayData(value: unknown): EndOfDayData {
+  const record = expectRecord(value, 'end-of-day data');
+  return {
+    date: expectString(record.date, 'end-of-day data.date'),
+    what_was_done: decodeArray(record.what_was_done, decodeContextCapture),
+    what_remains_open: decodeArray(record.what_remains_open, (item) =>
+      expectString(item, 'end-of-day data.what_remains_open[]'),
+    ),
+    what_may_matter_tomorrow: decodeArray(record.what_may_matter_tomorrow, (item) =>
+      expectString(item, 'end-of-day data.what_may_matter_tomorrow[]'),
+    ),
+  };
+}
+
 export function decodeProjectFamilyData(value: unknown): ProjectFamilyData {
   return expectEnumString(value, 'project family', ['personal', 'creative', 'work']);
 }
@@ -2105,6 +2266,7 @@ export function decodeCheckInEscalationData(value: unknown): CheckInEscalationDa
   return {
     target: decodeCheckInEscalationTargetData(record.target),
     label: expectString(record.label, 'check-in escalation.label'),
+    thread_id: expectNullableString(record.thread_id ?? null, 'check-in escalation.thread_id'),
   };
 }
 

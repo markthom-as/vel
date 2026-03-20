@@ -17,6 +17,7 @@ const BACKUP_RECOVERY_RANK: i64 = 88;
 const LINKING_ALERT_RANK: i64 = 85;
 const INTERVENTION_RANK: i64 = 80;
 const EXECUTION_HANDOFF_RANK: i64 = 78;
+const ASSISTANT_PROPOSAL_REVIEW_RANK: i64 = 79;
 const PROJECT_BLOCKED_RANK: i64 = 75;
 const WRITEBACK_PENDING_RANK: i64 = 72;
 const NEXT_COMMITMENT_RANK: i64 = 70;
@@ -83,6 +84,39 @@ fn project_thread_route(
     crate::services::projects::project_thread_route(project, purpose)
 }
 
+async fn ensure_resolution_thread(
+    storage: &Storage,
+    thread_id: &str,
+    title: &str,
+    metadata: serde_json::Value,
+    project_id: Option<&ProjectId>,
+) -> Result<vel_core::ActionThreadRoute, AppError> {
+    if storage.get_thread_by_id(thread_id).await?.is_none() {
+        storage
+            .insert_thread(
+                thread_id,
+                "action_resolution",
+                title,
+                "open",
+                &metadata.to_string(),
+            )
+            .await?;
+        if let Some(project_id) = project_id {
+            let _ = storage
+                .insert_thread_link(thread_id, "project", project_id.as_ref(), "about")
+                .await?;
+        }
+    }
+
+    Ok(vel_core::ActionThreadRoute {
+        target: vel_core::ActionThreadRouteTarget::ExistingThread,
+        label: format!("Continue in Threads: {title}"),
+        thread_id: Some(thread_id.to_string()),
+        thread_type: Some("action_resolution".to_string()),
+        project_id: project_id.cloned(),
+    })
+}
+
 pub async fn build_action_items(
     storage: &Storage,
     config: &AppConfig,
@@ -122,9 +156,9 @@ pub async fn build_action_items(
     ));
     items.extend(build_writeback_items(&pending_writebacks, &project_lookup));
     items.extend(build_conflict_items(&conflicts, &project_lookup));
-    items.extend(build_intervention_items(interventions));
+    items.extend(build_intervention_items(storage, interventions).await?);
     items.extend(build_project_items(now, &projects));
-    items.extend(build_commitment_items(now, commitments, &project_lookup));
+    items.extend(build_commitment_items(storage, now, commitments, &project_lookup).await?);
 
     items.sort_by(|left, right| {
         right
@@ -686,57 +720,170 @@ fn build_linking_items(linked_nodes: Vec<LinkedNodeRecord>) -> Vec<ActionItem> {
         .collect()
 }
 
-fn build_intervention_items(interventions: Vec<InterventionRecord>) -> Vec<ActionItem> {
-    interventions
-        .into_iter()
-        .map(|record| {
-            let state = action_state_from_str(&record.state);
-            let payload = record
-                .source_json
-                .as_deref()
-                .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok());
-            let title = payload
-                .as_ref()
-                .and_then(|value| value.get("title"))
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("Inbox intervention")
-                .to_string();
-            let summary = payload
-                .as_ref()
-                .and_then(|value| value.get("reason").or_else(|| value.get("summary")))
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("Needs operator review from the intervention queue.")
-                .to_string();
+fn permission_mode_from_value(value: &str) -> ActionPermissionMode {
+    match value {
+        "auto_allowed" => ActionPermissionMode::AutoAllowed,
+        "user_confirm" => ActionPermissionMode::UserConfirm,
+        "blocked" => ActionPermissionMode::Blocked,
+        "unavailable" => ActionPermissionMode::Unavailable,
+        _ => ActionPermissionMode::UserConfirm,
+    }
+}
 
-            ActionItem {
-                id: ActionItemId::from(format!("act_intervention_{}", record.id.as_ref())),
-                surface: ActionSurface::Inbox,
-                kind: ActionKind::Intervention,
-                permission_mode: ActionPermissionMode::UserConfirm,
-                scope_affinity: ActionScopeAffinity::Global,
-                title,
-                summary,
-                project_id: None,
-                project_label: None,
-                project_family: None,
-                state,
-                rank: if matches!(state, ActionState::Snoozed) {
-                    SNOOZED_INTERVENTION_RANK
-                } else {
-                    INTERVENTION_RANK
+fn scope_affinity_from_value(value: &str) -> ActionScopeAffinity {
+    match value {
+        "global" => ActionScopeAffinity::Global,
+        "project" => ActionScopeAffinity::Project,
+        "thread" => ActionScopeAffinity::Thread,
+        "connector" => ActionScopeAffinity::Connector,
+        "daily_loop" => ActionScopeAffinity::DailyLoop,
+        _ => ActionScopeAffinity::Global,
+    }
+}
+
+fn parse_thread_route(value: Option<&serde_json::Value>) -> Option<vel_core::ActionThreadRoute> {
+    value
+        .cloned()
+        .and_then(|value| serde_json::from_value::<vel_core::ActionThreadRoute>(value).ok())
+}
+
+async fn build_intervention_items(
+    storage: &Storage,
+    interventions: Vec<InterventionRecord>,
+) -> Result<Vec<ActionItem>, AppError> {
+    let mut items = Vec::new();
+    for record in interventions {
+        let state = action_state_from_str(&record.state);
+        let payload = record
+            .source_json
+            .as_deref()
+            .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok());
+        let title = payload
+            .as_ref()
+            .and_then(|value| value.get("title"))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("Inbox intervention")
+            .to_string();
+        let summary = payload
+            .as_ref()
+            .and_then(|value| value.get("reason").or_else(|| value.get("summary")))
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("Needs operator review from the intervention queue.")
+            .to_string();
+        let proposal = payload
+            .as_ref()
+            .and_then(|value| value.get("proposal"))
+            .and_then(serde_json::Value::as_object);
+        let permission_mode = proposal
+            .and_then(|value| value.get("permission_mode"))
+            .and_then(serde_json::Value::as_str)
+            .map(permission_mode_from_value)
+            .unwrap_or(ActionPermissionMode::UserConfirm);
+        let scope_affinity = proposal
+            .and_then(|value| value.get("scope_affinity"))
+            .and_then(serde_json::Value::as_str)
+            .map(scope_affinity_from_value)
+            .unwrap_or(ActionScopeAffinity::Global);
+        let proposal_title = proposal
+            .and_then(|value| value.get("title"))
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string);
+        let proposal_summary = proposal
+            .and_then(|value| value.get("summary"))
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string);
+        let proposal_project_id = proposal
+            .and_then(|value| value.get("project_id"))
+            .and_then(serde_json::Value::as_str)
+            .map(|value| value.to_string().into());
+        let proposal_project_label = proposal
+            .and_then(|value| value.get("project_label"))
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string);
+        let proposal_project_family = proposal
+            .and_then(|value| value.get("project_family"))
+            .and_then(serde_json::Value::as_str)
+            .and_then(|value| match value {
+                "personal" => Some(vel_core::ProjectFamily::Personal),
+                "creative" => Some(vel_core::ProjectFamily::Creative),
+                "work" => Some(vel_core::ProjectFamily::Work),
+                _ => None,
+            });
+        let proposal_thread_route =
+            parse_thread_route(proposal.and_then(|value| value.get("thread_route")));
+        let proposal_action_id = proposal
+            .and_then(|value| value.get("action_item_id"))
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string);
+        let is_assistant_proposal = proposal.is_some();
+        let thread_route = ensure_resolution_thread(
+            storage,
+            &format!("thr_action_intervention_{}", record.id.as_ref()),
+            &title,
+            serde_json::json!({
+                "source": "intervention",
+                "assistant_proposal": is_assistant_proposal,
+                "resolution_state": match state {
+                    ActionState::Resolved => "resolved",
+                    ActionState::Dismissed => "dismissed",
+                    ActionState::Snoozed => "deferred",
+                    _ => "pending",
                 },
-                surfaced_at: timestamp_or_now(Some(record.surfaced_at), OffsetDateTime::now_utc()),
-                snoozed_until: record.snoozed_until.and_then(offset_datetime),
-                evidence: vec![ActionEvidenceRef {
-                    source_kind: "intervention".to_string(),
-                    source_id: record.id.as_ref().to_string(),
-                    label: record.kind,
-                    detail: Some(format!("message_id={}", record.message_id)),
-                }],
-                thread_route: None,
-            }
-        })
-        .collect()
+                "intervention_id": record.id.as_ref(),
+                "message_id": record.message_id,
+                "kind": record.kind,
+                "summary": summary,
+            }),
+            None,
+        )
+        .await?;
+
+        items.push(ActionItem {
+            id: ActionItemId::from(format!("act_intervention_{}", record.id.as_ref())),
+            surface: ActionSurface::Inbox,
+            kind: if is_assistant_proposal {
+                ActionKind::Review
+            } else {
+                ActionKind::Intervention
+            },
+            permission_mode,
+            scope_affinity,
+            title: proposal_title.unwrap_or(title),
+            summary: proposal_summary.unwrap_or(summary),
+            project_id: proposal_project_id,
+            project_label: proposal_project_label,
+            project_family: proposal_project_family,
+            state,
+            rank: if is_assistant_proposal {
+                ASSISTANT_PROPOSAL_REVIEW_RANK
+            } else if matches!(state, ActionState::Snoozed) {
+                SNOOZED_INTERVENTION_RANK
+            } else {
+                INTERVENTION_RANK
+            },
+            surfaced_at: timestamp_or_now(Some(record.surfaced_at), OffsetDateTime::now_utc()),
+            snoozed_until: record.snoozed_until.and_then(offset_datetime),
+            evidence: vec![ActionEvidenceRef {
+                source_kind: if is_assistant_proposal {
+                    "assistant_proposal".to_string()
+                } else {
+                    "intervention".to_string()
+                },
+                source_id: proposal_action_id.unwrap_or_else(|| record.id.as_ref().to_string()),
+                label: if is_assistant_proposal {
+                    "assistant staged action".to_string()
+                } else {
+                    record.kind.clone()
+                },
+                detail: Some(format!(
+                    "message_id={} permission_mode={}",
+                    record.message_id, permission_mode
+                )),
+            }],
+            thread_route: proposal_thread_route.or(Some(thread_route)),
+        });
+    }
+    Ok(items)
 }
 
 fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<ActionItem> {
@@ -813,73 +960,94 @@ fn build_project_items(now: OffsetDateTime, projects: &[ProjectRecord]) -> Vec<A
     items
 }
 
-fn build_commitment_items(
+async fn build_commitment_items(
+    storage: &Storage,
     now: OffsetDateTime,
     commitments: Vec<Commitment>,
     project_lookup: &HashMap<String, ProjectLookupEntry>,
-) -> Vec<ActionItem> {
+) -> Result<Vec<ActionItem>, AppError> {
     let due_cutoff = now + time::Duration::hours(24);
-    commitments
-        .into_iter()
-        .filter_map(|commitment| {
-            let due_at = commitment.due_at?;
-            if due_at > due_cutoff {
-                return None;
-            }
+    let mut items = Vec::new();
+    for commitment in commitments {
+        let Some(due_at) = commitment.due_at else {
+            continue;
+        };
+        if due_at > due_cutoff {
+            continue;
+        }
 
-            let rank = if due_at < now {
-                NEXT_COMMITMENT_RANK + 2
+        let rank = if due_at < now {
+            NEXT_COMMITMENT_RANK + 2
+        } else {
+            NEXT_COMMITMENT_RANK
+        };
+        let project_id = commitment
+            .project
+            .as_deref()
+            .and_then(|value| project_lookup.get(&value.trim().to_lowercase()))
+            .map(|entry| entry.id.clone());
+        let thread_route = ensure_resolution_thread(
+            storage,
+            &format!("thr_action_commitment_{}", commitment.id.as_ref()),
+            &commitment.text,
+            serde_json::json!({
+                "source": "commitment",
+                "resolution_state": "pending",
+                "commitment_id": commitment.id.as_ref(),
+                "summary": if due_at < now {
+                    "overdue follow-through"
+                } else {
+                    "due soon follow-through"
+                },
+                "due_at": due_at.unix_timestamp(),
+                "project_id": project_id.as_ref().map(|value| value.as_ref()),
+            }),
+            project_id.as_ref(),
+        )
+        .await?;
+
+        items.push(ActionItem {
+            id: ActionItemId::from(format!("act_commitment_{}", commitment.id.as_ref())),
+            surface: ActionSurface::Now,
+            kind: ActionKind::NextStep,
+            permission_mode: ActionPermissionMode::UserConfirm,
+            scope_affinity: if project_id.is_some() {
+                ActionScopeAffinity::Project
             } else {
-                NEXT_COMMITMENT_RANK
-            };
-            let project_id = commitment
-                .project
-                .as_deref()
-                .and_then(|value| project_lookup.get(&value.trim().to_lowercase()))
-                .map(|entry| entry.id.clone());
-
-            Some(ActionItem {
-                id: ActionItemId::from(format!("act_commitment_{}", commitment.id.as_ref())),
-                surface: ActionSurface::Now,
-                kind: ActionKind::NextStep,
-                permission_mode: ActionPermissionMode::UserConfirm,
-                scope_affinity: if project_id.is_some() {
-                    ActionScopeAffinity::Project
-                } else {
-                    ActionScopeAffinity::Global
-                },
-                title: commitment.text.clone(),
-                summary: if due_at < now {
-                    "This commitment is overdue and should be handled or rescheduled.".to_string()
-                } else {
-                    "This commitment is due within the next 24 hours.".to_string()
-                },
-                project_label: project_id
-                    .as_ref()
-                    .and_then(|id| project_lookup.get(id.as_ref()))
-                    .map(|entry| entry.label.clone()),
-                project_family: project_id
-                    .as_ref()
-                    .and_then(|id| project_lookup.get(id.as_ref()))
-                    .map(|entry| entry.family),
-                project_id,
-                state: ActionState::Active,
-                rank,
-                surfaced_at: due_at,
-                snoozed_until: None,
-                evidence: vec![ActionEvidenceRef {
-                    source_kind: "commitment".to_string(),
-                    source_id: commitment.id.as_ref().to_string(),
-                    label: commitment.text,
-                    detail: commitment
-                        .commitment_kind
-                        .clone()
-                        .or_else(|| commitment.project.clone()),
-                }],
-                thread_route: None,
-            })
-        })
-        .collect()
+                ActionScopeAffinity::Global
+            },
+            title: commitment.text.clone(),
+            summary: if due_at < now {
+                "This commitment is overdue and should be handled or rescheduled.".to_string()
+            } else {
+                "This commitment is due within the next 24 hours.".to_string()
+            },
+            project_label: project_id
+                .as_ref()
+                .and_then(|id| project_lookup.get(id.as_ref()))
+                .map(|entry| entry.label.clone()),
+            project_family: project_id
+                .as_ref()
+                .and_then(|id| project_lookup.get(id.as_ref()))
+                .map(|entry| entry.family),
+            project_id,
+            state: ActionState::Active,
+            rank,
+            surfaced_at: due_at,
+            snoozed_until: None,
+            evidence: vec![ActionEvidenceRef {
+                source_kind: "commitment".to_string(),
+                source_id: commitment.id.as_ref().to_string(),
+                label: commitment.text,
+                detail: commitment
+                    .commitment_kind
+                    .clone()
+                    .or_else(|| commitment.project.clone()),
+            }],
+            thread_route: Some(thread_route),
+        });
+    }
+    Ok(items)
 }
 
 fn build_project_lookup(projects: &[ProjectRecord]) -> HashMap<String, ProjectLookupEntry> {

@@ -16,12 +16,43 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 
 ## Messages and interventions
 
+### `POST /api/assistant/entry`
+
+- create a backend-owned assistant entry without preselecting a thread
+- accepts plain operator text plus an optional `conversation_id` continuity hint
+- also accepts optional voice provenance metadata when a shell is submitting transcript-driven input
+- persists the user message through the existing conversation/message model
+- returns a typed route outcome:
+  - `threads` when the backend classifies the entry as continuity/back-and-forth work
+  - `inbox` when the backend classifies the entry as quick capture or triage work
+  - `inline` when the backend can answer directly or route into a typed bounded flow such as morning overview or standup without pushing the operator into thread continuity first
+- the web shell now uses this same route from both `Now` and `Threads`, so entry routing stays backend-owned instead of client-guessed
+- desktop/browser push-to-talk feeds this same route after local speech-to-text; transcript provenance stays explicit and the backend still owns routing into `Now`, `Inbox`, or `Threads`
+- may also return conversation continuity data, optional assistant reply/error state, and optional typed `daily_loop_session` data when assistant entry starts or resumes the canonical morning/standup flow
+- may also return typed `end_of_day` data when assistant entry starts the run-backed closeout flow inline
+- may also return a typed staged assistant proposal when the operator asks for a bounded action that still belongs in the supervised operator queue
+- morning and standup assistant entry must reuse the existing typed daily-loop session authority instead of inventing assistant-only planning state
+- end-of-day assistant entry must reuse the existing run-backed closeout/context pipeline so the returned summary remains explainable from persisted state and artifacts
+- when longer `check_in`, `reflow`, or action follow-through needs more than an inline reply, the backend escalates that work into durable thread continuity with typed resolution metadata instead of leaving meaning to shell history text alone
+- staged assistant proposals now use that same rule: the backend may create a dedicated `assistant_proposal` continuity thread with typed follow-through metadata instead of expecting shells to infer approval state from chat text
+- proposal follow-through is explicit and fail-closed:
+  - direct operator confirmation when the proposal only needs bounded confirmation
+  - execution handoff review when repo-local or other supervised write work still requires approval
+  - gated follow-through when SAFE MODE, missing writeback enablement, or another trust blocker keeps the proposal unavailable
+
 ### `GET /api/conversations/:id/messages`
 ### `POST /api/conversations/:id/messages`
 
 - list and create messages in a conversation
 - message creation uses `MessageCreateRequest`
 - responses use `CreateMessageResponse`, including the persisted user message and optional assistant reply or assistant error
+- when an LLM profile is configured, assistant replies are grounded in the typed Vel inspect/`Now` state and may use a bounded read-only Vel tool surface for memory search, projects, people, commitments, active daily-loop state, and filtered threads
+- the assistant chat surface does not bypass existing write, review, or SAFE MODE rules; tool access is read-only and thread/daily-loop continuity stays aligned with the backend-owned product lanes
+- thread-local continuity still persists through conversation messages, but the web composer now reuses the shared assistant-entry contract rather than maintaining a separate shell-owned send path
+- Apple still uses the dedicated `/v1/apple/voice/turn` compatibility route for typed Apple quick-loop replies, but supported Apple voice turns now preserve the same shared thread continuity substrate instead of inventing a separate local conversation policy
+- for default daily use, treat `Threads` as continuity/search over persisted conversations, not as the primary triage queue
+- thread continuity now also carries durable resolution context for deferred, edited, resolved, or still-pending follow-through work so shells can deep-link into the right thread without inventing separate resolution policy
+- current limit: assistant proposals are still staged-only. The assistant can surface a typed proposal and continuity target, but it does not apply writeback or supervised execution directly from chat without the existing operator review lane completing first.
 
 ### `GET /api/conversations/:id/interventions`
 ### `GET /api/messages/:id/interventions`

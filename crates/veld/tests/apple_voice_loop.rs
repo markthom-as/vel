@@ -2,7 +2,9 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
+use time::macros::datetime;
 use time::{Duration, OffsetDateTime};
+use tokio::sync::broadcast;
 use tower::util::ServiceExt;
 use vel_api_types::{ApiResponse, AppleVoiceIntentData, AppleVoiceTurnRequestData};
 use vel_config::AppConfig;
@@ -92,6 +94,7 @@ async fn apple_voice_query_persists_transcript_capture_and_returns_explainable_r
     let data = payload.data.expect("voice response data");
 
     let capture_id = data.capture_id.expect("capture id");
+    let thread_id = data.thread_id.expect("thread id");
     assert!(!data.summary.trim().is_empty());
     assert!(
         !data.reasons.is_empty(),
@@ -110,6 +113,32 @@ async fn apple_voice_query_persists_transcript_capture_and_returns_explainable_r
     assert!(
         capture.content_text.contains("What matters now?"),
         "persisted capture should preserve transcript provenance"
+    );
+
+    let signals = storage
+        .list_signals(Some("capture_created"), None, 10)
+        .await
+        .unwrap();
+    let capture_signal = signals
+        .into_iter()
+        .find(|signal| signal.source_ref.as_deref() == Some(capture_id.as_ref()))
+        .expect("capture_created signal");
+    let payload = capture_signal.payload_json;
+    assert_eq!(payload["provenance"]["surface"], "apple_ios_voice");
+    assert_eq!(payload["provenance"]["source_device"], "apple_ios_voice");
+
+    let thread_messages = storage
+        .list_messages_by_conversation(&thread_id, 10)
+        .await
+        .unwrap();
+    assert_eq!(thread_messages.len(), 1);
+    let thread_content: serde_json::Value =
+        serde_json::from_str(&thread_messages[0].content_json).unwrap();
+    assert_eq!(thread_content["input_mode"], "voice");
+    assert_eq!(thread_content["entry_route"], "threads");
+    assert_eq!(
+        thread_content["voice_provenance"]["surface"],
+        "apple_ios_voice"
     );
 }
 
@@ -182,6 +211,10 @@ async fn apple_voice_schedule_query_uses_backend_now_state_not_client_heuristics
         serde_json::from_slice(&body).unwrap();
     let data = payload.data.expect("voice response data");
 
+    assert!(
+        data.thread_id.is_some(),
+        "backend schedule query should preserve thread continuity"
+    );
     let schedule = data.schedule.expect("schedule snapshot");
     let next_event = schedule.next_event.expect("next event");
     assert_eq!(next_event.title, "Backend Planning Review");
@@ -191,6 +224,59 @@ async fn apple_voice_schedule_query_uses_backend_now_state_not_client_heuristics
             .iter()
             .any(|item| item.label.contains("Backend Planning Review")),
         "response should cite backend-derived schedule evidence"
+    );
+}
+
+#[tokio::test]
+async fn apple_voice_query_reuses_shared_voice_provenance_shape_when_metadata_is_present() {
+    let storage = test_storage().await;
+    let (broadcast_tx, _) = broadcast::channel(8);
+    let state = veld::state::AppState::new(
+        storage.clone(),
+        AppConfig::default(),
+        test_policy_config(),
+        broadcast_tx,
+        None,
+        None,
+    );
+
+    let response = veld::services::apple_voice::apple_voice_turn(
+        &state,
+        AppleVoiceTurnRequestData {
+            transcript: "What matters now?".to_string(),
+            surface: AppleClientSurface::IosVoice.into(),
+            operation: AppleRequestedOperation::CaptureOnly.into(),
+            intents: vec![AppleVoiceIntentData::Capture],
+            provenance: Some(vel_api_types::AppleTurnProvenanceData {
+                source_device: Some("iphone".to_string()),
+                locale: Some("en-US".to_string()),
+                transcript_origin: Some("speech_recognition".to_string()),
+                recorded_at: Some(datetime!(2026-03-20 03:10:00 UTC)),
+                offline_captured_at: None,
+                queued_at: None,
+            }),
+        }
+        .into(),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(response.capture_id.is_some(), true);
+    let signals = storage
+        .list_signals(Some("capture_created"), None, 10)
+        .await
+        .unwrap();
+    let payload = signals[0].payload_json.clone();
+    assert_eq!(payload["provenance"]["surface"], "apple_ios_voice");
+    assert_eq!(payload["provenance"]["source_device"], "iphone");
+    assert_eq!(payload["provenance"]["locale"], "en-US");
+    assert_eq!(
+        payload["provenance"]["transcript_origin"],
+        "speech_recognition"
+    );
+    assert_eq!(
+        payload["provenance"]["recorded_at"],
+        datetime!(2026-03-20 03:10:00 UTC).unix_timestamp()
     );
 }
 

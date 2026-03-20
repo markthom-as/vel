@@ -35,5 +35,6 @@ serde_yaml.workspace = true
 if-addrs.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
 tower.workspace = true
 vel-agent-sdk = { path = "../vel-agent-sdk" }

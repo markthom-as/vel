@@ -226,6 +226,7 @@ fn map_thread_to_data(payload: services::command_lang::ThreadPayload) -> ThreadD
         lifecycle_stage: payload.lifecycle_stage,
         created_at: payload.created_at,
         updated_at: payload.updated_at,
+        metadata: None,
         links: payload.links.map(|links| {
             links
                 .into_iter()

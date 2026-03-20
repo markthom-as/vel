@@ -12,7 +12,17 @@ use vel_storage::{CaptureInsert, SignalInsert};
 
 use crate::{
     errors::AppError,
-    services::{apple_behavior, client_sync, daily_loop, now},
+    services::{
+        apple_behavior,
+        chat::{
+            conversations::{create_conversation, ConversationCreateInput},
+            messages::{
+                create_user_message, voice_entry_provenance_json, ChatMessageCreateInput,
+                VoiceEntryProvenance,
+            },
+        },
+        client_sync, daily_loop, now,
+    },
     state::AppState,
 };
 
@@ -33,36 +43,54 @@ pub async fn apple_voice_turn(
         .first()
         .copied()
         .unwrap_or(AppleVoiceIntent::Capture);
+    let thread_id =
+        persist_shared_voice_thread_if_needed(state, &request, transcript, intent).await?;
 
     match intent {
         AppleVoiceIntent::CurrentSchedule => {
             let now = now::get_now(&state.storage, &state.config).await?;
-            Ok(schedule_response(request.operation, capture_id, now))
+            Ok(schedule_response(
+                request.operation,
+                capture_id,
+                thread_id,
+                now,
+            ))
         }
         AppleVoiceIntent::MorningBriefing => {
-            daily_loop_voice_response(state, request.operation, capture_id, transcript).await
+            daily_loop_voice_response(state, request.operation, capture_id, thread_id, transcript)
+                .await
         }
         AppleVoiceIntent::ExplainWhy => {
             let now = now::get_now(&state.storage, &state.config).await?;
-            Ok(explain_response(request.operation, capture_id, now))
+            Ok(explain_response(
+                request.operation,
+                capture_id,
+                thread_id,
+                now,
+            ))
         }
         AppleVoiceIntent::NextCommitment => {
             let now = now::get_now(&state.storage, &state.config).await?;
-            Ok(next_commitment_response(request.operation, capture_id, now))
+            Ok(next_commitment_response(
+                request.operation,
+                capture_id,
+                thread_id,
+                now,
+            ))
         }
         AppleVoiceIntent::ActiveNudges => {
-            active_nudges_response(&state.storage, request.operation, capture_id).await
+            active_nudges_response(&state.storage, request.operation, capture_id, thread_id).await
         }
         AppleVoiceIntent::SnoozeNudge => {
-            apply_nudge_snooze(state, request.operation, capture_id, transcript).await
+            apply_nudge_snooze(state, request.operation, capture_id, thread_id, transcript).await
         }
         AppleVoiceIntent::CompleteCommitment => {
-            apply_commitment_done(state, request.operation, capture_id).await
+            apply_commitment_done(state, request.operation, capture_id, thread_id).await
         }
         AppleVoiceIntent::BehaviorSummary => {
-            behavior_summary_response(state, request.operation, capture_id).await
+            behavior_summary_response(state, request.operation, capture_id, thread_id).await
         }
-        AppleVoiceIntent::Capture => Ok(capture_only_response(request.operation, capture_id)),
+        AppleVoiceIntent::Capture => Ok(capture_only_response(request.operation, capture_id, None)),
     }
 }
 
@@ -70,6 +98,7 @@ async fn daily_loop_voice_response(
     state: &AppState,
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
     transcript: &str,
 ) -> Result<AppleVoiceTurnResponse, AppError> {
     let phase = requested_daily_loop_phase(transcript);
@@ -86,7 +115,9 @@ async fn daily_loop_voice_response(
         start_daily_loop_for_apple(state, &session_date, phase).await?
     };
 
-    Ok(apple_daily_loop_response(operation, capture_id, session))
+    Ok(apple_daily_loop_response(
+        operation, capture_id, thread_id, session,
+    ))
 }
 
 async fn start_daily_loop_for_apple(
@@ -129,6 +160,34 @@ async fn persist_transcript_capture(
         })
         .await?;
 
+    let voice_provenance = VoiceEntryProvenance {
+        surface: Some(surface_source_device(request.surface).to_string()),
+        source_device: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.source_device.clone())
+            .or_else(|| Some(surface_source_device(request.surface).to_string())),
+        locale: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.locale.clone()),
+        transcript_origin: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.transcript_origin.clone()),
+        recorded_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.recorded_at),
+        offline_captured_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.offline_captured_at),
+        queued_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.queued_at),
+    };
     let payload_json = serde_json::json!({
         "capture_id": capture_id.to_string(),
         "transcript": transcript,
@@ -139,14 +198,7 @@ async fn persist_transcript_capture(
             .iter()
             .map(intent_token)
             .collect::<Vec<_>>(),
-        "provenance": request.provenance.as_ref().map(|provenance| serde_json::json!({
-            "source_device": provenance.source_device,
-            "locale": provenance.locale,
-            "transcript_origin": provenance.transcript_origin,
-            "recorded_at": provenance.recorded_at.map(|value| value.unix_timestamp()),
-            "offline_captured_at": provenance.offline_captured_at.map(|value| value.unix_timestamp()),
-            "queued_at": provenance.queued_at.map(|value| value.unix_timestamp()),
-        })),
+        "provenance": voice_entry_provenance_json(&voice_provenance),
     });
     let _ = state
         .storage
@@ -162,9 +214,107 @@ async fn persist_transcript_capture(
     Ok(capture_id)
 }
 
+async fn persist_shared_voice_thread_if_needed(
+    state: &AppState,
+    request: &AppleVoiceTurnRequest,
+    transcript: &str,
+    intent: AppleVoiceIntent,
+) -> Result<Option<String>, AppError> {
+    if !should_persist_shared_voice_thread(request.operation, intent) {
+        return Ok(None);
+    }
+
+    let voice_provenance = VoiceEntryProvenance {
+        surface: Some(surface_source_device(request.surface).to_string()),
+        source_device: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.source_device.clone())
+            .or_else(|| Some(surface_source_device(request.surface).to_string())),
+        locale: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.locale.clone()),
+        transcript_origin: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.transcript_origin.clone()),
+        recorded_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.recorded_at),
+        offline_captured_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.offline_captured_at),
+        queued_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.queued_at),
+    };
+
+    let conversation = create_conversation(
+        state,
+        ConversationCreateInput {
+            title: Some(apple_voice_thread_title(transcript)),
+            kind: "general".to_string(),
+        },
+    )
+    .await?;
+
+    create_user_message(
+        state,
+        conversation.id.as_ref(),
+        &ChatMessageCreateInput {
+            role: "user".to_string(),
+            kind: "text".to_string(),
+            content: serde_json::json!({
+                "text": transcript,
+                "entry_route": "threads",
+                "input_mode": "voice",
+                "voice_provenance": voice_entry_provenance_json(&voice_provenance),
+                "surface": surface_source_device(request.surface),
+                "apple_intent": intent_token(&intent),
+            }),
+        },
+    )
+    .await?;
+
+    Ok(Some(conversation.id.as_ref().to_string()))
+}
+
+fn should_persist_shared_voice_thread(
+    operation: AppleRequestedOperation,
+    intent: AppleVoiceIntent,
+) -> bool {
+    match operation {
+        AppleRequestedOperation::CaptureOnly => false,
+        AppleRequestedOperation::QueryOnly
+        | AppleRequestedOperation::CaptureAndQuery
+        | AppleRequestedOperation::Mutation => intent != AppleVoiceIntent::Capture,
+    }
+}
+
+fn apple_voice_thread_title(transcript: &str) -> String {
+    let trimmed = transcript.trim();
+    let mut title = trimmed
+        .split_whitespace()
+        .take(8)
+        .collect::<Vec<_>>()
+        .join(" ");
+    if title.is_empty() {
+        title = "Apple voice".to_string();
+    }
+    if trimmed.split_whitespace().count() > 8 {
+        title.push('…');
+    }
+    title
+}
+
 fn schedule_response(
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
     now: now::NowOutput,
 ) -> AppleVoiceTurnResponse {
     let schedule = schedule_snapshot(&now);
@@ -196,6 +346,7 @@ fn schedule_response(
         mode: AppleResponseMode::SpokenSummary,
         summary,
         capture_id: Some(capture_id),
+        thread_id,
         reasons: non_empty_reasons(
             schedule.reasons.clone(),
             "Schedule answers come from backend /v1/now state.".to_string(),
@@ -210,6 +361,7 @@ fn schedule_response(
 fn explain_response(
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
     now: now::NowOutput,
 ) -> AppleVoiceTurnResponse {
     let mut reasons = now.reasons.clone();
@@ -251,6 +403,7 @@ fn explain_response(
         mode: AppleResponseMode::SpokenSummary,
         summary: reasons.join(" "),
         capture_id: Some(capture_id),
+        thread_id,
         reasons,
         evidence,
         queued_mutation: None,
@@ -262,6 +415,7 @@ fn explain_response(
 fn next_commitment_response(
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
     now: now::NowOutput,
 ) -> AppleVoiceTurnResponse {
     let mut evidence = Vec::new();
@@ -288,6 +442,7 @@ fn next_commitment_response(
         mode: AppleResponseMode::SpokenSummary,
         summary,
         capture_id: Some(capture_id),
+        thread_id,
         reasons,
         evidence,
         queued_mutation: None,
@@ -299,6 +454,7 @@ fn next_commitment_response(
 fn apple_daily_loop_response(
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
     session: DailyLoopSession,
 ) -> AppleVoiceTurnResponse {
     let (summary, mut reasons, mut evidence) = describe_daily_loop_session(&session);
@@ -311,6 +467,7 @@ fn apple_daily_loop_response(
         mode: AppleResponseMode::SpokenSummary,
         summary,
         capture_id: Some(capture_id),
+        thread_id,
         reasons: non_empty_reasons(
             reasons,
             "Daily-loop answers come from the backend session authority.".to_string(),
@@ -337,6 +494,7 @@ async fn active_nudges_response(
     storage: &vel_storage::Storage,
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
 ) -> Result<AppleVoiceTurnResponse, AppError> {
     let nudges = storage.list_nudges(Some("active"), 5).await?;
     let mut evidence = nudges
@@ -366,6 +524,7 @@ async fn active_nudges_response(
             "There are no active nudges right now.".to_string()
         },
         capture_id: Some(capture_id),
+        thread_id,
         reasons: vec!["Active nudges were read from backend persisted nudge state.".to_string()],
         evidence,
         queued_mutation: None,
@@ -378,6 +537,7 @@ async fn behavior_summary_response(
     state: &AppState,
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
 ) -> Result<AppleVoiceTurnResponse, AppError> {
     let summary = apple_behavior::get_summary(&state.storage, &state.config)
         .await?
@@ -398,6 +558,7 @@ async fn behavior_summary_response(
         mode: AppleResponseMode::SpokenSummary,
         summary: summary.headline.clone(),
         capture_id: Some(capture_id),
+        thread_id,
         reasons: summary.reasons.clone(),
         evidence,
         queued_mutation: None,
@@ -410,6 +571,7 @@ async fn apply_nudge_snooze(
     state: &AppState,
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
     transcript: &str,
 ) -> Result<AppleVoiceTurnResponse, AppError> {
     let active_nudges = state.storage.list_nudges(Some("active"), 5).await?;
@@ -417,6 +579,7 @@ async fn apply_nudge_snooze(
         return Ok(ambiguous_action_response(
             operation,
             capture_id,
+            thread_id,
             "Stored the transcript, but I could not safely choose which nudge to snooze."
                 .to_string(),
         ));
@@ -453,6 +616,7 @@ async fn apply_nudge_snooze(
             )
         },
         capture_id: Some(capture_id),
+        thread_id,
         reasons: vec![
             "Low-risk Apple voice mutations reuse the existing sync action path.".to_string(),
         ],
@@ -477,12 +641,14 @@ async fn apply_commitment_done(
     state: &AppState,
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
 ) -> Result<AppleVoiceTurnResponse, AppError> {
     let now = now::get_now(&state.storage, &state.config).await?;
     let Some(commitment) = now.tasks.next_commitment else {
         return Ok(ambiguous_action_response(
             operation,
             capture_id,
+            thread_id,
             "Stored the transcript, but there is no backend next commitment to complete."
                 .to_string(),
         ));
@@ -513,6 +679,7 @@ async fn apply_commitment_done(
             format!("Applied completion for {}.", commitment.text)
         },
         capture_id: Some(capture_id),
+        thread_id,
         reasons: vec![
             "Low-risk Apple voice mutations reuse the existing sync action path.".to_string(),
         ],
@@ -536,12 +703,14 @@ async fn apply_commitment_done(
 fn capture_only_response(
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
 ) -> AppleVoiceTurnResponse {
     AppleVoiceTurnResponse {
         operation,
         mode: AppleResponseMode::Confirmation,
         summary: "Transcript stored as backend capture provenance.".to_string(),
         capture_id: Some(capture_id),
+        thread_id,
         reasons: vec!["No backend query or safe action was requested.".to_string()],
         evidence: vec![AppleResponseEvidence {
             kind: "capture".to_string(),
@@ -558,6 +727,7 @@ fn capture_only_response(
 fn ambiguous_action_response(
     operation: AppleRequestedOperation,
     capture_id: vel_core::CaptureId,
+    thread_id: Option<String>,
     summary: String,
 ) -> AppleVoiceTurnResponse {
     AppleVoiceTurnResponse {
@@ -565,6 +735,7 @@ fn ambiguous_action_response(
         mode: AppleResponseMode::ClarificationRequired,
         summary,
         capture_id: Some(capture_id),
+        thread_id,
         reasons: vec![
             "Unsupported or ambiguous Apple voice actions fail closed after transcript capture."
                 .to_string(),

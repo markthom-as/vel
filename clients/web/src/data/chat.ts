@@ -1,5 +1,6 @@
 import { apiGet, apiPost } from '../api/client';
 import {
+  decodeAssistantEntryResponse,
   decodeApiResponse,
   decodeArray,
   decodeConversationData,
@@ -7,6 +8,8 @@ import {
   decodeInterventionActionData,
   decodeMessageData,
   decodeProvenanceData,
+  type AssistantEntryResponse,
+  type AssistantEntryVoiceProvenanceData,
   type ApiResponse,
   type ConversationData,
   type InboxItemData,
@@ -35,6 +38,22 @@ export function loadConversationMessages(conversationId: string): Promise<ApiRes
   return apiGet<ApiResponse<MessageData[]>>(
     `/api/conversations/${conversationId}/messages`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeMessageData)),
+  );
+}
+
+export function submitAssistantEntry(
+  text: string,
+  conversationId?: string | null,
+  voice?: AssistantEntryVoiceProvenanceData | null,
+): Promise<ApiResponse<AssistantEntryResponse>> {
+  return apiPost<ApiResponse<AssistantEntryResponse>>(
+    '/api/assistant/entry',
+    {
+      text,
+      ...(conversationId ? { conversation_id: conversationId } : {}),
+      ...(voice ? { voice } : {}),
+    },
+    (value) => decodeApiResponse(value, decodeAssistantEntryResponse),
   );
 }
 

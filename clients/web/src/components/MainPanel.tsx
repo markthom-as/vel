@@ -17,6 +17,7 @@ interface MainPanelProps {
   conversationId: string | null;
   mainView: MainView;
   onNavigate: (view: MainView) => void;
+  onOpenInbox: () => void;
   onOpenThread: (conversationId: string) => void;
   settingsTarget: SettingsNavigationTarget;
   onOpenSettings: (target?: {
@@ -29,6 +30,7 @@ export function MainPanel({
   conversationId,
   mainView,
   onNavigate,
+  onOpenInbox,
   onOpenThread,
   settingsTarget,
   onOpenSettings,
@@ -38,7 +40,11 @@ export function MainPanel({
   if (mainView === 'now') {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <NowView onOpenSettings={onOpenSettings} />
+        <NowView
+          onOpenInbox={onOpenInbox}
+          onOpenThread={onOpenThread}
+          onOpenSettings={onOpenSettings}
+        />
       </div>
     );
   }
@@ -59,7 +65,7 @@ export function MainPanel({
   if (mainView === 'threads') {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ThreadView conversationId={conversationId} />
+        <ThreadView conversationId={conversationId} onSelectConversation={onOpenThread} />
       </div>
     );
   }

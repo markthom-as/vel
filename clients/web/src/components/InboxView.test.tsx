@@ -77,12 +77,14 @@ describe('InboxView realtime sync', () => {
     })
 
     expect(screen.getByText('Triage what still needs a decision')).toBeInTheDocument()
+    expect(screen.getByText(/triage first here\. history and longer back-and-forth stay in threads\./i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Snooze 10m' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open thread' })).toBeInTheDocument()
     expect(screen.getByText('Evidence')).toBeInTheDocument()
     expect(screen.getByText('Unanswered stakeholder thread')).toBeInTheDocument()
+    expect(screen.getByText(/keep the decision here unless you need continuity, history, or a longer follow-up\./i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Open thread' }))
     expect(onOpenThread).toHaveBeenCalledWith('conv_1')
@@ -110,6 +112,7 @@ describe('InboxView realtime sync', () => {
     })
     expect(screen.getByText('Triage what still needs a decision')).toBeInTheDocument()
     expect(screen.getByText(/No actions need triage right now/i)).toBeInTheDocument()
+    expect(screen.getByText(/this surface stays focused on unresolved decisions, not archive browsing\./i)).toBeInTheDocument()
 
     requireWsListener(wsListener)({
       type: 'interventions:new',

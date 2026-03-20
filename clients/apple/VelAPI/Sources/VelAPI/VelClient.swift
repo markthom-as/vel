@@ -148,6 +148,9 @@ public final class VelClient {
 
     // MARK: - Apple quick loops
 
+    /// Apple voice remains transcript-first and backend-owned.
+    /// The route may return a shared thread hint when the backend persisted the turn
+    /// into the same continuity substrate used by other assistant surfaces.
     public func appleVoiceTurn(_ request: AppleVoiceTurnRequestData) async throws -> AppleVoiceTurnResponseData {
         try await post("/v1/apple/voice/turn", body: request)
     }

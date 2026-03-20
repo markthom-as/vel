@@ -154,6 +154,8 @@ pub struct AppleVoiceTurnResponse {
     pub summary: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capture_id: Option<CaptureId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
     #[serde(default)]
     pub reasons: Vec<String>,
     #[serde(default)]

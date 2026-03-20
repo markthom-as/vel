@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   decodeAgentInspectData,
+  decodeAssistantEntryResponse,
   decodeActionItemData,
   decodeApiResponse,
   decodeCommitmentData,
@@ -70,6 +71,118 @@ describe('transport decoders', () => {
 
     expect(response.data?.user_message.id).toBe('msg_user')
     expect(response.data?.assistant_message?.id).toBe('msg_assistant')
+  })
+
+  it('decodes assistant-entry responses with typed route outcomes', () => {
+    const response = decodeApiResponse(
+      {
+        ok: true,
+        data: {
+          route_target: 'inline',
+          user_message: {
+            id: 'msg_user',
+            conversation_id: 'conv_1',
+            role: 'user',
+            kind: 'text',
+            content: { text: 'hello' },
+            status: null,
+            importance: null,
+            created_at: 1,
+            updated_at: null,
+          },
+          assistant_message: {
+            id: 'msg_assistant',
+            conversation_id: 'conv_1',
+            role: 'assistant',
+            kind: 'text',
+            content: { text: 'hi' },
+            status: null,
+            importance: null,
+            created_at: 2,
+            updated_at: null,
+          },
+          assistant_error: null,
+          conversation: {
+            id: 'conv_1',
+            title: 'Conversation',
+            kind: 'general',
+            pinned: false,
+            archived: false,
+            created_at: 0,
+            updated_at: 2,
+          },
+          proposal: {
+            action_item_id: 'act_intervention_intv_1',
+            state: 'staged',
+            kind: 'intervention',
+            permission_mode: 'user_confirm',
+            scope_affinity: 'global',
+            title: 'Inbox intervention',
+            summary: 'Needs operator review from the intervention queue.',
+            project_id: null,
+            project_label: null,
+            project_family: null,
+            thread_route: {
+              target: 'existing_thread',
+              label: 'Continue in Threads',
+              thread_id: 'thr_action_intervention_intv_1',
+              thread_type: 'action_resolution',
+              project_id: null,
+            },
+          },
+          daily_loop_session: {
+            id: 'dls_1',
+            session_date: '2026-03-19',
+            phase: 'morning_overview',
+            status: 'waiting_for_input',
+            start: {
+              source: 'manual',
+              surface: 'web',
+            },
+            turn_state: 'waiting_for_input',
+            current_prompt: {
+              prompt_id: 'morning_prompt_1',
+              kind: 'intent_question',
+              text: 'What matters most today?',
+              ordinal: 1,
+              allow_skip: true,
+            },
+            state: {
+              phase: 'morning_overview',
+              snapshot: 'Snapshot',
+              friction_callouts: [],
+              signals: [],
+              check_in_history: [],
+            },
+            outcome: null,
+          },
+          end_of_day: {
+            date: '2026-03-19',
+            what_was_done: [
+              {
+                capture_id: 'cap_1',
+                capture_type: 'quick_note',
+                content_text: 'finished draft',
+                occurred_at: '2026-03-19T18:00:00Z',
+                source_device: 'desktop',
+              },
+            ],
+            what_remains_open: ['follow up'],
+            what_may_matter_tomorrow: ['budget review'],
+          },
+        },
+        meta: { request_id: 'req_assistant_entry_1' },
+      },
+      decodeAssistantEntryResponse,
+    )
+
+    expect(response.data?.route_target).toBe('inline')
+    expect(response.data?.conversation.id).toBe('conv_1')
+    expect(response.data?.assistant_message?.id).toBe('msg_assistant')
+    expect(response.data?.proposal?.action_item_id).toBe('act_intervention_intv_1')
+    expect(response.data?.proposal?.state).toBe('staged')
+    expect(response.data?.daily_loop_session?.phase).toBe('morning_overview')
+    expect(response.data?.end_of_day?.what_remains_open).toEqual(['follow up'])
   })
 
   it('decodes current-context responses with nullable data', () => {
@@ -1265,6 +1378,7 @@ describe('transport decoders', () => {
           escalation: {
             target: 'threads',
             label: 'Continue in Threads',
+            thread_id: 'thr_check_in_dls_1_standup_prompt_1',
           },
           transitions: [
             {
@@ -1571,6 +1685,7 @@ describe('transport decoders', () => {
         escalation: {
           target: 'threads',
           label: 'Continue in Threads',
+          thread_id: 'thr_check_in_dls_1_standup_prompt_1',
         },
         transitions: [
           {

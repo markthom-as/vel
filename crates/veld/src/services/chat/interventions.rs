@@ -37,6 +37,24 @@ pub(crate) struct InterventionAction {
 }
 
 fn intervention_kind_for_message(message: &InterventionMessageInput) -> Option<&'static str> {
+    if message
+        .content
+        .get("proposal")
+        .and_then(serde_json::Value::as_object)
+        .is_some()
+    {
+        return Some("assistant_proposal");
+    }
+    if message.role == "user"
+        && message.kind == "text"
+        && message
+            .content
+            .get("entry_route")
+            .and_then(serde_json::Value::as_str)
+            == Some("inbox")
+    {
+        return Some("capture");
+    }
     if message.role != "assistant" {
         return None;
     }

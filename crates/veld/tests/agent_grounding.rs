@@ -264,6 +264,16 @@ async fn agent_grounding_inspect_returns_typed_grounding_and_explicit_blockers()
         Some("safe_mode_enabled")
     );
 
+    let assistant_entry = mutation_entries
+        .iter()
+        .find(|entry| entry["key"] == "assistant_staged_actions")
+        .expect("assistant staged actions entry");
+    assert_eq!(assistant_entry["available"], false);
+    assert_eq!(
+        assistant_entry["blocked_reason"]["code"].as_str(),
+        Some("safe_mode_enabled")
+    );
+
     let repo_entry = mutation_entries
         .iter()
         .find(|entry| entry["key"] == "repo_local_write_scope")

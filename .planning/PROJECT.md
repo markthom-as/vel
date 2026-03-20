@@ -57,6 +57,11 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - [ ] Phase 10 — strict daily-loop MVP: morning overview, standup, 1-3 commitments, deferrals, and focus protection over existing `Now`/calendar/Todoist/voice seams
 - [ ] Phase 11 — agent grounding over real Vel data and bounded tool surfaces: current context, projects, people, commitments, review queues, and operator-visible trust controls
 - [ ] Phase 12 — shell, onboarding, and connector ergonomics: routes, docs/help surfaces, project detail UX, linking/discovery reliability, and settings polish
+- [ ] Phase 20 — grounded assistant entry and daily-use usability closure: make the grounded assistant the default text/capture/thread entry while tightening `Now`/`Inbox`/`Threads` and reducing setup friction
+- [ ] Phase 21 — cross-surface voice assistant parity and desktop push-to-talk: unify browser/desktop/Apple voice onto the same grounded assistant seam, preferring local STT where practical
+- [ ] Phase 22 — assistant-supported daily loop, closeout, and thread resolution: let morning, standup, end-of-day, and multi-step item resolution happen through the same backend-owned conversation/thread model
+- [ ] Phase 23 — safe assistant-mediated actions and supervised write lanes: let the assistant stage bounded actions through existing review/trust gates without bypassing operator control
+- [ ] Phase 24 — approved assistant action application and reversible write execution: let explicitly approved assistant proposals apply through existing confirmation, review, and writeback seams without weakening supervision
 
 ### Out of Scope
 
@@ -100,6 +105,7 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | Daily-loop value should be built from the shipped `Now`/calendar/Todoist/voice seams instead of inventing a separate planning subsystem | Maximizes product value from already-landed foundations and avoids a parallel architecture | Accepted |
 | Agent awareness of Vel state is important enough to be committed roadmap work, not just backlog | The repo now has projects, people, `Now`, review data, execution context, and bounded tool surfaces; the missing work is productizing that grounding into a trustworthy agent path | Accepted |
 | Interface and shell fixes should be planned, while broader provider/platform expansion stays backlog-only until daily use is strong | Keeps roadmap effort focused on adoption and repeated use rather than diffuse expansion | Accepted |
+| One Rust-owned grounded assistant seam should power text, voice, daily-loop continuity, and thread escalation across shells | Prevents Apple/web/desktop from re-implementing assistant behavior and keeps future FFI/daemon/server topologies aligned | Accepted |
 
 ---
-*Last updated: 2026-03-19 after auditing completed claims and re-scoping unfinished historical work*
+*Last updated: 2026-03-20 after extending the post-Phase-23 feature roadmap with approved assistant action application as the next active feature lane*
