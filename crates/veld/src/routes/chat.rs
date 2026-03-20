@@ -12,7 +12,8 @@ use vel_api_types::{
     ActionEvidenceRefData, ApiResponse, AssistantActionProposalData, AssistantEntryRequest,
     AssistantEntryResponse, AssistantEntryRouteTargetData, ConversationCreateRequest,
     ConversationData, ConversationUpdateRequest, CreateMessageResponse, InboxItemData,
-    InterventionActionData, MessageCreateRequest, MessageData, ProvenanceData, ProvenanceEvent,
+    InterventionActionData, MessageCreateRequest, MessageData, PlanningProfileEditProposalData,
+    ProvenanceData, ProvenanceEvent,
 };
 
 use crate::services::chat::{
@@ -151,6 +152,9 @@ fn map_assistant_entry_response(data: AssistantEntryCreateResult) -> AssistantEn
         assistant_context: data.assistant_context,
         conversation: data.conversation.map(map_conversation_data),
         proposal: data.proposal.map(AssistantActionProposalData::from),
+        planning_profile_proposal: data
+            .planning_profile_proposal
+            .map(PlanningProfileEditProposalData::from),
         daily_loop_session: data.daily_loop_session.map(Into::into),
         end_of_day: data
             .end_of_day

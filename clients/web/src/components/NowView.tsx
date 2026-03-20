@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import React, { Children, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   contextQueryKeys,
   loadActiveDailyLoopSession,
+  updateCommitment,
   loadNow,
   startDailyLoopSession,
   submitDailyLoopTurn,
@@ -34,6 +35,14 @@ interface NowViewProps {
   onOpenInbox?: () => void;
   onOpenThread?: (conversationId: string) => void;
   onOpenSettings?: (target: { tab: 'integrations'; integrationId: SettingsIntegrationTarget }) => void;
+}
+
+interface ResurfacedThreadCandidate {
+  threadId: string;
+  title: string;
+  summary: string;
+  label: string;
+  projectLabel?: string | null;
 }
 
 export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewProps) {
@@ -98,6 +107,10 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
   } | null>(null);
   const [assistantInlineResponse, setAssistantInlineResponse] = useState<AssistantEntryResponse | null>(null);
   const [recentCompletedDailyLoop, setRecentCompletedDailyLoop] = useState<DailyLoopSessionData | null>(null);
+  const [pendingCommitments, setPendingCommitments] = useState<Record<string, true>>({});
+  const [commitmentMessages, setCommitmentMessages] = useState<
+    Record<string, { status: 'success' | 'error'; message: string }>
+  >({});
   const activeDailyLoop = standupDailyLoop ?? morningDailyLoop ?? null;
 
   const runFreshnessAction = async (source: NowData['freshness']['sources'][number]) => {
@@ -321,9 +334,11 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     );
   }
 
-  const actionItems = [...(data.action_items ?? [])]
-    .filter((item) => item.surface === 'now')
-    .sort((left, right) => left.rank - right.rank);
+  const actionItems = dedupeActionItems(
+    [...(data.action_items ?? [])]
+      .filter((item) => item.surface === 'now')
+      .sort((left, right) => left.rank - right.rank),
+  );
   const reviewSnapshot = data.review_snapshot ?? {
     open_action_count: 0,
     triage_count: 0,
@@ -336,31 +351,78 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
   const summarizedActionItems = actionItems.slice(0, 3);
   const threadAttentionCount = actionItems.filter((item) => item.thread_route !== null).length
     + (data.reflow_status?.thread_id ? 1 : 0);
+  const nowTs = data.computed_at;
+  const activeEvent = findActiveEvent(data.schedule.upcoming_events, nowTs);
+  const nextScheduledEvent = findNextEvent(data.schedule.upcoming_events, nowTs);
+  const activeRoutineBlock = findActiveRoutineBlock(data.day_plan, nowTs);
+  const commitmentRows = dedupeTasks([
+    data.tasks.next_commitment,
+    ...(data.tasks.other_open ?? []),
+  ]);
+  const pullableTasks = dedupeTasks(data.tasks.todoist ?? []);
+  const currentStatus = buildCurrentStatus(
+    data,
+    nowTs,
+    activeEvent,
+    activeRoutineBlock,
+    commitmentRows[0] ?? null,
+    nextScheduledEvent,
+  );
+  const attentionIndicators = buildAttentionIndicators(
+    data,
+    actionItems,
+    threadAttentionCount,
+    nextScheduledEvent,
+    nowTs,
+  );
+  const resurfacedThread = selectResurfacedThreadCandidate(actionItems, data.reflow_status);
+
+  const completeCommitment = async (commitmentId: string) => {
+    setPendingCommitments((current) => ({ ...current, [commitmentId]: true }));
+    setCommitmentMessages((current) => {
+      const next = { ...current };
+      delete next[commitmentId];
+      return next;
+    });
+    try {
+      const response = await updateCommitment(commitmentId, { status: 'done' });
+      if (!response.ok) {
+        throw new Error(response.error?.message ?? 'Failed to complete commitment');
+      }
+      invalidateQuery(nowKey, { refetch: true });
+      invalidateQuery(commitmentsKey, { refetch: true });
+      await refetch();
+      setCommitmentMessages((current) => ({
+        ...current,
+        [commitmentId]: { status: 'success', message: 'Completed.' },
+      }));
+    } catch (commitmentError) {
+      setCommitmentMessages((current) => ({
+        ...current,
+        [commitmentId]: {
+          status: 'error',
+          message: commitmentError instanceof Error ? commitmentError.message : String(commitmentError),
+        },
+      }));
+    } finally {
+      setPendingCommitments((current) => {
+        const next = { ...current };
+        delete next[commitmentId];
+        return next;
+      });
+    }
+  };
 
   return (
     <div className="flex-1 overflow-y-auto bg-zinc-950">
       <div className="mx-auto max-w-5xl px-6 py-8">
         <header className="mb-8">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Now</p>
-              <h1 className="mt-2 text-3xl font-semibold text-zinc-100">What matters right now</h1>
-            </div>
-            <span className={`rounded-full px-3 py-1 text-xs ${freshnessClass(data.freshness.overall_status)}`}>
-              {labelFreshness(data.freshness.overall_status)}
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-zinc-400">
-            Updated {formatTimestamp(data.computed_at, data.timezone)}
+          <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Now</p>
+          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Run the current day</h1>
+          <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+            Orient first, then act. Keep this surface compact enough to trust at a glance.
           </p>
         </header>
-
-        <FreshnessBanner
-          freshness={data.freshness}
-          pendingActions={pendingActions}
-          actionMessages={actionMessages}
-          onRunAction={runFreshnessAction}
-        />
 
         <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <ContextStripCard
@@ -369,29 +431,58 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
             detail={data.summary.phase.label}
           />
           <ContextStripCard
-            label="Next event"
-            value={data.schedule.next_event?.title ?? 'No event'}
-            detail={data.schedule.next_event?.location ?? 'No location attached'}
+            label="Current"
+            value={currentStatus.title}
+            detail={currentStatus.detail}
           />
           <ContextStripCard
-            label="Next commitment"
-            value={data.tasks.next_commitment?.text ?? 'Nothing selected'}
-            detail={data.tasks.next_commitment?.project ?? 'No project'}
+            label="Routine"
+            value={activeRoutineBlock?.label ?? 'No active block'}
+            detail={
+              activeRoutineBlock
+                ? `${activeRoutineBlock.source.replaceAll('_', ' ')}${activeRoutineBlock.protected ? ' · protected' : ''}`
+                : 'Routine only shows when it is active right now'
+            }
           />
           <ContextStripCard
-            label="Inbox pressure"
-            value={`${reviewSnapshot.triage_count} waiting`}
-            detail={`${reviewSnapshot.open_action_count} open actions`}
+            label="Next"
+            value={nextScheduledEvent?.title ?? 'Nothing scheduled'}
+            detail={
+              nextScheduledEvent
+                ? formatEventSummary(nextScheduledEvent, data.timezone, nowTs)
+                : 'Free until something calendar-bound matters'
+            }
           />
           <ContextStripCard
-            label="Threads"
-            value={threadAttentionCount > 0 ? `${threadAttentionCount} need context` : 'Quiet'}
-            detail={data.reflow_status?.headline ?? 'Archive and follow-ups live here'}
+            label="Commitments"
+            value={commitmentRows.length > 0 ? `${commitmentRows.length} in play` : 'Nothing committed'}
+            detail={commitmentRows[0]?.text ?? 'Pull from tasks when needed'}
           />
         </section>
 
         <Panel
-          title="Ask, capture, or talk"
+          title="Current status"
+          subtitle={currentStatus.subtitle}
+        >
+          <div className="space-y-3">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                  {currentStatus.kind}
+                </span>
+                <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-500">
+                  Updated {formatTime(nowTs, data.timezone)}
+                </span>
+              </div>
+              <h2 className="mt-3 text-xl font-medium text-zinc-100">{currentStatus.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">{currentStatus.summary}</p>
+            </div>
+          </div>
+        </Panel>
+
+        <div className="mt-8">
+          <Panel
+            title="Ask, capture, or talk"
           subtitle="Start from Now. Type or hold the mic to talk locally, then let Vel decide whether it belongs inline, in Inbox, or in Threads."
         >
           <div className="space-y-4">
@@ -421,14 +512,187 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
               }}
             />
           </div>
-        </Panel>
+          </Panel>
+        </div>
 
-        <Panel
-          title="Immediate pressure"
-          subtitle="Keep this view minimal. Handle only what needs attention now, then go deeper elsewhere."
-        >
-          <div className="space-y-4">
+        <div className="mt-8">
+          <Panel
+            title="Next event"
+            subtitle="Calendar is authoritative here. Routine blocks and low-value schedule noise stay out of this slot."
+          >
+            {nextScheduledEvent ? (
+              <EventSummaryCard
+                event={nextScheduledEvent}
+                timezone={data.timezone}
+                nowTs={nowTs}
+                emphasis="next"
+              />
+            ) : (
+              <SurfaceState
+                message={currentStatus.fallbackEventMessage ?? 'No more calendar events are in play right now.'}
+              />
+            )}
+          </Panel>
+        </div>
+
+        <div className="mt-8">
+          <Panel
+            title="Today"
+            subtitle="Commitments stay primary. Pull from tasks only when today still has room."
+          >
+            <div className="space-y-4">
+              <TodayLaneCard
+                label="Active"
+                emptyMessage="Nothing is actively in motion right now."
+              >
+                {activeEvent ? (
+                  <TodayEventRow event={activeEvent} timezone={data.timezone} nowTs={nowTs} />
+                ) : commitmentRows.length > 0 ? (
+                  <TodayCommitmentRow
+                    task={commitmentRows[0]}
+                    timezone={data.timezone}
+                    pending={Boolean(pendingCommitments[commitmentRows[0].id])}
+                    feedback={commitmentMessages[commitmentRows[0].id]}
+                    onComplete={() => void completeCommitment(commitmentRows[0].id)}
+                  />
+                ) : (
+                  <SurfaceState message={currentStatus.summary} />
+                )}
+              </TodayLaneCard>
+
+              <TodayLaneCard
+                label="Next up"
+                emptyMessage="Nothing time-bound is coming up next."
+              >
+                {nextScheduledEvent ? (
+                  <TodayEventRow event={nextScheduledEvent} timezone={data.timezone} nowTs={nowTs} />
+                ) : commitmentRows.length > 1 ? (
+                  <TodayCommitmentRow
+                    task={commitmentRows[1]}
+                    timezone={data.timezone}
+                    pending={Boolean(pendingCommitments[commitmentRows[1].id])}
+                    feedback={commitmentMessages[commitmentRows[1].id]}
+                    onComplete={() => void completeCommitment(commitmentRows[1].id)}
+                  />
+                ) : (
+                  <SurfaceState message="No next-up item is selected yet." />
+                )}
+              </TodayLaneCard>
+
+              <TodayLaneGroup
+                title="Commitments"
+                subtitle="Chosen or already in play for this day."
+                emptyMessage="No commitments are in play yet."
+              >
+                {commitmentRows.map((task, index) => (
+                  <TodayCommitmentRow
+                    key={task.id}
+                    task={task}
+                    timezone={data.timezone}
+                    pending={Boolean(pendingCommitments[task.id])}
+                    feedback={commitmentMessages[task.id]}
+                    emphasis={index === 0 ? 'primary' : 'default'}
+                    onComplete={() => void completeCommitment(task.id)}
+                  />
+                ))}
+              </TodayLaneGroup>
+
+              <TodayLaneGroup
+                title="Pull from tasks"
+                subtitle="Available work that has not earned more attention than commitments."
+                emptyMessage="No pullable tasks are surfaced right now."
+              >
+                {pullableTasks.map((task) => (
+                  <TodayTaskRow key={task.id} task={task} timezone={data.timezone} />
+                ))}
+              </TodayLaneGroup>
+            </div>
+          </Panel>
+        </div>
+
+        {attentionIndicators.length > 0 ? (
+          <div className="mt-6 flex flex-wrap gap-2">
+            {attentionIndicators.map((indicator) => (
+              <button
+                key={indicator.label}
+                type="button"
+                onClick={indicator.onClick}
+                className="rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-white"
+              >
+                {indicator.label} · {indicator.count}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {resurfacedThread ? (
+          <div className="mt-6">
+            <Panel
+              title="Resume thread"
+              subtitle="Only one thread resurfaces here when it is clearly more relevant than keeping Now clean."
+            >
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+                    Threads
+                  </span>
+                  {resurfacedThread.projectLabel ? (
+                    <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-emerald-300">
+                      {resurfacedThread.projectLabel}
+                    </span>
+                  ) : null}
+                </div>
+                <h3 className="mt-3 text-base font-medium text-zinc-100">{resurfacedThread.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-zinc-300">{resurfacedThread.summary}</p>
+                {onOpenThread ? (
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => onOpenThread(resurfacedThread.threadId)}
+                      className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800"
+                    >
+                      {resurfacedThread.label}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </Panel>
+          </div>
+        ) : null}
+
+        <details className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+          <summary className="cursor-pointer list-none text-sm font-medium text-zinc-100">
+            More context and controls
+          </summary>
+          <div className="mt-5 space-y-6">
+            <FreshnessBanner
+              freshness={data.freshness}
+              pendingActions={pendingActions}
+              actionMessages={actionMessages}
+              onRunAction={runFreshnessAction}
+            />
+
+            <DailyLoopPanel
+              sessionDate={sessionDate}
+              activeSession={activeDailyLoop}
+              completedSession={activeDailyLoop ? null : recentCompletedDailyLoop}
+              responseText={dailyLoopResponse}
+              pending={dailyLoopPending}
+              message={dailyLoopMessage}
+              onChangeResponse={setDailyLoopResponse}
+              onStart={startLoop}
+              onSubmit={() => void advanceLoop('submit')}
+              onSkip={() => void advanceLoop('skip')}
+            />
+
+            {data.day_plan ? <DayPlanCardView dayPlan={data.day_plan} timezone={data.timezone} /> : null}
             {data.reflow ? <ReflowCardView reflow={data.reflow} /> : null}
+            {data.commitment_scheduling_summary ? (
+              <CommitmentSchedulingSummaryCardView summary={data.commitment_scheduling_summary} />
+            ) : null}
+            {data.planning_profile_summary ? (
+              <PlanningProfileSummaryCardView summary={data.planning_profile_summary} />
+            ) : null}
             {data.reflow_status ? <ReflowStatusView status={data.reflow_status} timezone={data.timezone} /> : null}
             {data.check_in ? <CheckInCardView checkIn={data.check_in} /> : null}
             <TrustReadinessPanel trustReadiness={data.trust_readiness} timezone={data.timezone} />
@@ -437,288 +701,9 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
               actionItems={summarizedActionItems}
               threadAttentionCount={threadAttentionCount}
             />
+            <DebugStatePanel debug={data.debug} />
           </div>
-        </Panel>
-
-        <DailyLoopPanel
-          sessionDate={sessionDate}
-          activeSession={activeDailyLoop}
-          completedSession={activeDailyLoop ? null : recentCompletedDailyLoop}
-          responseText={dailyLoopResponse}
-          pending={dailyLoopPending}
-          message={dailyLoopMessage}
-          onChangeResponse={setDailyLoopResponse}
-          onStart={startLoop}
-          onSubmit={() => void advanceLoop('submit')}
-          onSkip={() => void advanceLoop('skip')}
-        />
-
-        <section className="mt-8 grid gap-4 md:grid-cols-4">
-          <FocusCard label="Mode" value={data.summary.mode.label} />
-          <FocusCard label="Phase" value={data.summary.phase.label} />
-          <FocusCard label="Meds" value={data.summary.meds.label} />
-          <FocusCard label="Risk" value={data.summary.risk.label} />
-        </section>
-
-        <section className="mt-8 grid gap-6 xl:grid-cols-[1.3fr_1fr]">
-          <div className="space-y-6">
-            <Panel title="Upcoming events" subtitle="Current schedule pulled from persisted calendar signals">
-              <FreshnessNotice
-                source={findFreshnessSource(data, 'calendar')}
-                message={{
-                  aging: 'Calendar is a bit behind. Confirm event timing before acting on it.',
-                  stale: 'Calendar needs a refresh. Upcoming events may be out of date.',
-                  error: 'Calendar sync last failed. Keep this schedule visible, but confirm details before relying on it.',
-                  disconnected: 'Calendar is disconnected. Events shown here may be incomplete.',
-                  missing: 'Calendar has not synced yet. This schedule may be empty.',
-                }}
-                pendingActions={pendingActions}
-                actionMessages={actionMessages}
-                onRunAction={runFreshnessAction}
-              />
-              {data.schedule.upcoming_events.length === 0 ? (
-                <SurfaceState
-                  message={
-                    data.schedule.empty_message ?? 'No upcoming calendar events in the current stream.'
-                  }
-                />
-              ) : (
-                <div className="space-y-3">
-                  {data.schedule.upcoming_events.map((event) => (
-                    <div key={`${event.title}-${event.start_ts}`} className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-base font-medium text-zinc-100">{event.title}</p>
-                          {event.location ? <p className="mt-1 text-sm text-zinc-400">{event.location}</p> : null}
-                        </div>
-                        <p className="text-sm text-zinc-400">
-                          {formatTimestamp(event.start_ts, data.timezone)}
-                        </p>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
-                        {event.end_ts ? (
-                          <span>ends {formatTimestamp(event.end_ts, data.timezone)}</span>
-                        ) : null}
-                        {event.prep_minutes != null ? <span>prep {event.prep_minutes}m</span> : null}
-                        {event.travel_minutes != null ? <span>travel {event.travel_minutes}m</span> : null}
-                        {event.leave_by_ts ? (
-                          <span>leave by {formatTimestamp(event.leave_by_ts, data.timezone)}</span>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Panel>
-
-            <Panel title="Todoist backlog" subtitle="Open commitments synced from Todoist">
-              <FreshnessNotice
-                source={findFreshnessSource(data, 'todoist')}
-                message={{
-                  aging: 'Todoist is a bit behind. Task ordering may lag recent changes.',
-                  stale: 'Todoist needs a refresh. Open tasks may not reflect current urgency.',
-                  error: 'Todoist sync last failed. Keep the backlog visible, but refresh before trusting it.',
-                  disconnected: 'Todoist is disconnected. This backlog may be missing tasks.',
-                  missing: 'Todoist has not synced yet. No backlog can be trusted yet.',
-                }}
-                pendingActions={pendingActions}
-                actionMessages={actionMessages}
-                onRunAction={runFreshnessAction}
-              />
-              {data.tasks.todoist.length === 0 ? (
-                <SurfaceState message="No open Todoist-backed commitments found." />
-              ) : (
-                <div className="space-y-3">
-                  {data.tasks.todoist.map((task) => (
-                    <TaskCard key={task.id} task={task} timezone={data.timezone} />
-                  ))}
-                </div>
-              )}
-            </Panel>
-
-            <Panel title="Recent source activity" subtitle="Latest non-calendar signals shaping current context">
-              {hasSourceActivity(data) ? (
-                <div className="space-y-3">
-                  {data.sources.git_activity ? (
-                    <SourceActivityCard
-                      title={data.sources.git_activity.label}
-                      timestamp={data.sources.git_activity.timestamp}
-                      timezone={data.timezone}
-                      lines={sourceSummaryLines(data.sources.git_activity.summary, ['repo', 'branch', 'operation'])}
-                    />
-                  ) : null}
-                  {data.sources.health ? (
-                    <SourceActivityCard
-                      title={data.sources.health.label}
-                      timestamp={data.sources.health.timestamp}
-                      timezone={data.timezone}
-                      lines={sourceSummaryLines(data.sources.health.summary, ['metric_type', 'value', 'unit', 'source_app', 'device'])}
-                    />
-                  ) : null}
-                  {data.sources.note_document ? (
-                    <SourceActivityCard
-                      title={data.sources.note_document.label}
-                      timestamp={data.sources.note_document.timestamp}
-                      timezone={data.timezone}
-                      lines={sourceSummaryLines(data.sources.note_document.summary, ['title', 'path'])}
-                    />
-                  ) : null}
-                  {data.sources.assistant_message ? (
-                    <SourceActivityCard
-                      title={data.sources.assistant_message.label}
-                      timestamp={data.sources.assistant_message.timestamp}
-                      timezone={data.timezone}
-                      lines={sourceSummaryLines(data.sources.assistant_message.summary, ['conversation_id', 'role', 'source'])}
-                    />
-                  ) : null}
-                </div>
-              ) : (
-                <SurfaceState message="No recent git, health, note, or transcript activity is attached to this snapshot." />
-              )}
-            </Panel>
-          </div>
-
-          <div className="space-y-6">
-            <Panel title="Operational state" subtitle="What Vel currently believes">
-              <FreshnessNotice
-                source={findFreshnessSource(data, 'context')}
-                message={{
-                  aging: 'Current context is a bit behind. Re-run evaluate if you need fresher state.',
-                  stale: 'Current context needs a refresh. Re-run evaluate before trusting this view.',
-                  error: 'Current context is degraded. Re-run evaluate and inspect logs.',
-                  disconnected: 'Current context is disconnected from a required source.',
-                  missing: 'Current context has not been computed yet.',
-                }}
-                pendingActions={pendingActions}
-                actionMessages={actionMessages}
-                onRunAction={runFreshnessAction}
-              />
-              <dl className="space-y-3 text-sm">
-                <Row
-                  label="Next event"
-                  value={
-                    data.schedule.next_event
-                      ? formatTimestamp(data.schedule.next_event.start_ts, data.timezone)
-                      : 'None'
-                  }
-                />
-                <Row
-                  label="Leave by"
-                  value={
-                    data.schedule.next_event?.leave_by_ts
-                      ? formatTimestamp(data.schedule.next_event.leave_by_ts, data.timezone)
-                      : 'None'
-                  }
-                />
-                <Row label="Attention" value={data.attention.state.label} />
-                <Row label="Drift" value={data.attention.drift.label} />
-                <Row
-                  label="Next commitment"
-                  value={data.tasks.next_commitment?.text ?? 'None'}
-                />
-                <Row
-                  label="Pending writebacks"
-                  value={String(pendingWritebacks.length)}
-                />
-                <Row
-                  label="Open conflicts"
-                  value={String(conflicts.length)}
-                />
-                <Row
-                  label="People needing review"
-                  value={String(peopleReview.length)}
-                />
-              </dl>
-            </Panel>
-
-            <Panel title="Why Vel thinks this" subtitle="Top context and attention drivers">
-              <ul className="space-y-2">
-                {data.reasons.length === 0 ? (
-                  <SurfaceState message="No explanation reasons available." />
-                ) : (
-                  data.reasons.map((reason) => (
-                    <li key={reason} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-200">
-                      {reason}
-                    </li>
-                  ))
-                )}
-              </ul>
-            </Panel>
-
-            <Panel title="Freshness" subtitle="How current each source is">
-              <div className="space-y-2">
-                {data.freshness.sources.map((source) => (
-                  <div key={source.key} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm text-zinc-100">{source.label}</p>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] ${freshnessClass(source.status)}`}>
-                        {labelFreshness(source.status)}
-                      </span>
-                    </div>
-                    {source.last_sync_at ? (
-                      <p className="mt-1 text-xs text-zinc-500">
-                        Last sync {formatTimestamp(source.last_sync_at, data.timezone)}
-                      </p>
-                    ) : null}
-                    {source.guidance ? (
-                      <p className="mt-1 text-xs text-amber-300">{source.guidance}</p>
-                    ) : null}
-                    <FreshnessActionControls
-                      source={source}
-                      pendingActions={pendingActions}
-                      actionMessages={actionMessages}
-                      onRunAction={runFreshnessAction}
-                      compact
-                    />
-                  </div>
-                ))}
-              </div>
-            </Panel>
-
-            <Panel title="Other open commitments" subtitle="Non-Todoist open items still in play">
-              {data.tasks.other_open.length === 0 ? (
-                <SurfaceState message="No additional open commitments surfaced." />
-              ) : (
-                <div className="space-y-2">
-                  {data.tasks.other_open.map((task) => (
-                    <div key={task.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                      <p className="text-sm text-zinc-100">{task.text}</p>
-                      <p className="mt-1 text-xs text-zinc-500">{task.source_type}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Panel>
-
-            <Panel title="People status" subtitle="People-linked writes and reviews currently in scope">
-              {peopleReview.length === 0 ? (
-                <SurfaceState message="No person-linked review items are currently open." />
-              ) : (
-                <div className="space-y-2">
-                  {peopleReview.map((person) => (
-                    <div key={person.id} className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                      <p className="text-sm text-zinc-100">{person.display_name}</p>
-                      <p className="mt-1 text-xs text-zinc-500">
-                        {person.aliases.length > 0
-                          ? person.aliases.map((alias) => `${alias.platform}:${alias.handle}`).join(' • ')
-                          : 'No alias provenance attached yet'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Panel>
-
-            <Panel title="Debug" subtitle="Raw inputs behind this snapshot">
-              <details className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                <summary className="cursor-pointer text-sm text-zinc-100">Show raw fields</summary>
-                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">
-                  {JSON.stringify(data.debug, null, 2)}
-                </pre>
-              </details>
-            </Panel>
-          </div>
-        </section>
+        </details>
       </div>
     </div>
   );
@@ -965,6 +950,110 @@ function CheckInCardView({ checkIn }: { checkIn: NowData['check_in'] }) {
   );
 }
 
+function DayPlanCardView({
+  dayPlan,
+  timezone,
+}: {
+  dayPlan: NowData['day_plan'];
+  timezone: string;
+}) {
+  if (!dayPlan) {
+    return null;
+  }
+
+  const operatorDeclaredRoutineCount = dayPlan.routine_blocks.filter(
+    (block) => block.source === 'operator_declared',
+  ).length;
+  const inferredRoutineCount = dayPlan.routine_blocks.filter(
+    (block) => block.source === 'inferred',
+  ).length;
+
+  return (
+    <article className="rounded-2xl border border-sky-800/40 bg-sky-950/20 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-sky-700/50 bg-sky-950/40 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-100">
+          Day plan
+        </span>
+        {dayPlan.needs_judgment_count > 0 ? (
+          <span className="rounded-full border border-amber-700/50 bg-amber-950/30 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-amber-100">
+            {dayPlan.needs_judgment_count} need judgment
+          </span>
+        ) : null}
+        {operatorDeclaredRoutineCount > 0 ? (
+          <span className="rounded-full border border-emerald-700/50 bg-emerald-950/30 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-emerald-100">
+            {operatorDeclaredRoutineCount} operator-managed
+          </span>
+        ) : inferredRoutineCount > 0 ? (
+          <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+            inferred fallback
+          </span>
+        ) : null}
+      </div>
+      <h3 className="mt-3 text-lg font-medium text-zinc-100">{dayPlan.headline}</h3>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">{dayPlan.summary}</p>
+      <div className="mt-4 flex flex-wrap gap-2 text-xs text-zinc-300">
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {dayPlan.scheduled_count} scheduled
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {dayPlan.deferred_count} deferred
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+          {dayPlan.did_not_fit_count} did not fit
+        </span>
+      </div>
+      {dayPlan.routine_blocks.length > 0 ? (
+        <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Routine blocks</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">
+            {operatorDeclaredRoutineCount > 0
+              ? 'These operator-managed blocks are shaping today from the durable planning profile before any recovery logic runs.'
+              : 'These routine blocks are still inferred from current context and will be replaced once durable routines are configured in Settings.'}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {dayPlan.routine_blocks.slice(0, 3).map((block) => (
+              <span
+                key={block.id}
+                className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-300"
+              >
+                {block.label} · {formatTimestamp(block.start_ts, timezone)} · {block.source === 'operator_declared' ? 'saved' : block.source.replaceAll('_', ' ')}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {dayPlan.changes.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          {dayPlan.changes.slice(0, 3).map((change) => (
+            <div
+              key={`${change.kind}-${change.title}-${change.detail}`}
+              className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-3 py-2"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-zinc-100">{change.title}</p>
+                <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[11px] uppercase tracking-[0.16em] text-zinc-400">
+                  {change.kind.replaceAll('_', ' ')}
+                </span>
+                {change.project_label ? (
+                  <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[11px] text-zinc-400">
+                    {change.project_label}
+                  </span>
+                ) : null}
+                {change.scheduled_start_ts ? (
+                  <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[11px] text-zinc-400">
+                    {formatTimestamp(change.scheduled_start_ts, timezone)}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">{change.detail}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function ReflowCardView({ reflow }: { reflow: NowData['reflow'] }) {
   if (!reflow) {
     return null;
@@ -1048,6 +1137,96 @@ function ReflowCardView({ reflow }: { reflow: NowData['reflow'] }) {
           {reflow.edit_target.label}
         </span>
       </div>
+    </article>
+  );
+}
+
+function PlanningProfileSummaryCardView({
+  summary,
+}: {
+  summary: NonNullable<NowData['planning_profile_summary']>;
+}) {
+  const latestPending = summary.latest_pending;
+  const latestApplied = summary.latest_applied;
+  const latestFailed = summary.latest_failed;
+
+  return (
+    <article className="rounded-2xl border border-emerald-800/30 bg-emerald-950/10 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-emerald-700/40 bg-emerald-950/30 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-emerald-100">
+          Planning profile
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+          {summary.pending_count} pending
+        </span>
+      </div>
+      <h3 className="mt-3 text-lg font-medium text-zinc-100">Routine edits stay review-gated</h3>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">
+        `Now` only shows whether a planning-profile change is waiting or recently applied. Approval and longer follow-up still live in `Threads`.
+      </p>
+      {latestPending ? (
+        <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2">
+          <p className="text-sm font-medium text-zinc-100">Pending: {latestPending.title}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">{latestPending.summary}</p>
+        </div>
+      ) : null}
+      {latestApplied ? (
+        <p className="mt-3 text-xs leading-5 text-zinc-400">
+          Last applied: {latestApplied.title}
+          {latestApplied.outcome_summary ? ` · ${latestApplied.outcome_summary}` : ''}
+        </p>
+      ) : null}
+      {!latestApplied && latestFailed ? (
+        <p className="mt-3 text-xs leading-5 text-rose-300">
+          Last failed: {latestFailed.title}
+          {latestFailed.outcome_summary ? ` · ${latestFailed.outcome_summary}` : ''}
+        </p>
+      ) : null}
+    </article>
+  );
+}
+
+function CommitmentSchedulingSummaryCardView({
+  summary,
+}: {
+  summary: NonNullable<NowData['commitment_scheduling_summary']>;
+}) {
+  const latestPending = summary.latest_pending;
+  const latestApplied = summary.latest_applied;
+  const latestFailed = summary.latest_failed;
+
+  return (
+    <article className="rounded-2xl border border-sky-800/30 bg-sky-950/10 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-sky-700/40 bg-sky-950/30 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-100">
+          Same-day schedule
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
+          {summary.pending_count} pending
+        </span>
+      </div>
+      <h3 className="mt-3 text-lg font-medium text-zinc-100">Schedule edits stay supervised</h3>
+      <p className="mt-2 text-sm leading-6 text-zinc-300">
+        `Now` only shows whether a bounded day-plan or reflow change is waiting or recently applied. Approval and longer schedule disagreement still live in `Threads`.
+      </p>
+      {latestPending ? (
+        <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2">
+          <p className="text-sm font-medium text-zinc-100">Pending: {latestPending.title}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">{latestPending.summary}</p>
+        </div>
+      ) : null}
+      {latestApplied ? (
+        <p className="mt-3 text-xs leading-5 text-zinc-400">
+          Last applied: {latestApplied.title}
+          {latestApplied.outcome_summary ? ` · ${latestApplied.outcome_summary}` : ''}
+        </p>
+      ) : null}
+      {!latestApplied && latestFailed ? (
+        <p className="mt-3 text-xs leading-5 text-rose-300">
+          Last failed: {latestFailed.title}
+          {latestFailed.outcome_summary ? ` · ${latestFailed.outcome_summary}` : ''}
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -1150,7 +1329,7 @@ function QueuePressureSummary({
           {reviewSnapshot.triage_count} waiting for Inbox triage
         </span>
         <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
-          {threadAttentionCount} need thread context
+          {threadAttentionCount} need continuity
         </span>
         <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
           {reviewSnapshot.projects_needing_review} projects need review
@@ -1177,6 +1356,24 @@ function QueuePressureSummary({
         </ul>
       ) : null}
     </article>
+  );
+}
+
+function DebugStatePanel({ debug }: { debug: NowData['debug'] }) {
+  return (
+    <Panel
+      title="Debug"
+      subtitle="Secondary raw fields for verification and troubleshooting. Hidden from the main Now surface."
+    >
+      <details className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+        <summary className="cursor-pointer list-none text-sm font-medium text-zinc-100">
+          Show raw fields
+        </summary>
+        <pre className="mt-4 overflow-x-auto rounded-lg bg-zinc-950 p-4 text-xs text-zinc-300">
+          {JSON.stringify(debug, null, 2)}
+        </pre>
+      </details>
+    </Panel>
   );
 }
 
@@ -1338,6 +1535,172 @@ function TaskCard({ task, timezone }: { task: NowTaskData; timezone: string }) {
   );
 }
 
+function EventSummaryCard({
+  event,
+  timezone,
+  nowTs,
+  emphasis,
+}: {
+  event: NowData['schedule']['upcoming_events'][number];
+  timezone: string;
+  nowTs: number;
+  emphasis: 'current' | 'next';
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+          {emphasis === 'current' ? 'In progress' : 'Calendar'}
+        </span>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-500">
+          {formatEventSummary(event, timezone, nowTs)}
+        </span>
+      </div>
+      <h3 className="mt-3 text-lg font-medium text-zinc-100">{event.title}</h3>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
+        {event.location ? <span>{event.location}</span> : null}
+        {event.end_ts ? <span>ends {formatTime(event.end_ts, timezone)}</span> : null}
+        {event.prep_minutes != null ? <span>prep {event.prep_minutes}m</span> : null}
+        {event.travel_minutes != null ? <span>travel {event.travel_minutes}m</span> : null}
+        {event.leave_by_ts ? <span>leave by {formatTime(event.leave_by_ts, timezone)}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function TodayLaneCard({
+  label,
+  children,
+  emptyMessage,
+}: {
+  label: string;
+  children: ReactNode;
+  emptyMessage: string;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <div className="mt-3">{children ?? <SurfaceState message={emptyMessage} />}</div>
+    </div>
+  );
+}
+
+function TodayLaneGroup({
+  title,
+  subtitle,
+  emptyMessage,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  emptyMessage: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+      <div className="mb-3">
+        <p className="text-sm font-medium text-zinc-100">{title}</p>
+        <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>
+      </div>
+      <div className="space-y-3">
+        {children && Children.count(children) > 0 ? children : <SurfaceState message={emptyMessage} />}
+      </div>
+    </div>
+  );
+}
+
+function TodayEventRow({
+  event,
+  timezone,
+  nowTs,
+}: {
+  event: NowData['schedule']['upcoming_events'][number];
+  timezone: string;
+  nowTs: number;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-zinc-100">{event.title}</p>
+          <p className="mt-1 text-xs text-zinc-500">{formatEventSummary(event, timezone, nowTs)}</p>
+        </div>
+        {event.location ? <span className="text-xs text-zinc-500">{event.location}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function TodayCommitmentRow({
+  task,
+  timezone,
+  pending,
+  feedback,
+  onComplete,
+  emphasis = 'default',
+}: {
+  task: NowTaskData;
+  timezone: string;
+  pending: boolean;
+  feedback?: { status: 'success' | 'error'; message: string };
+  onComplete: () => void;
+  emphasis?: 'primary' | 'default';
+}) {
+  return (
+    <div
+      className={`rounded-lg border p-4 ${
+        emphasis === 'primary'
+          ? 'border-emerald-700/40 bg-emerald-950/10'
+          : 'border-zinc-800 bg-zinc-900/70'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-zinc-100">{task.text}</p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+            <span>{task.project ?? 'No project'}</span>
+            {task.due_at ? <span>due {formatDateTime(task.due_at, timezone)}</span> : null}
+            {task.commitment_kind ? <span>{task.commitment_kind}</span> : null}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onComplete}
+          disabled={pending}
+          className="rounded-md border border-emerald-700/70 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:border-emerald-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
+        >
+          {pending ? 'Saving…' : 'Complete'}
+        </button>
+      </div>
+      {feedback ? (
+        <p className={`mt-2 text-xs ${feedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+          {feedback.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function TodayTaskRow({ task, timezone }: { task: NowTaskData; timezone: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-zinc-200">{task.text}</p>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+            <span>{task.project ?? 'No project'}</span>
+            {task.due_at ? <span>due {formatDateTime(task.due_at, timezone)}</span> : null}
+            {task.commitment_kind ? <span>{task.commitment_kind}</span> : null}
+          </div>
+        </div>
+        <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+          Task
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ActionItemRow({ item, timezone }: { item: ActionItemData; timezone: string }) {
   const executionHandoffEvidence = item.evidence.find(
     (evidence) => evidence.source_kind === 'execution_handoff',
@@ -1468,6 +1831,14 @@ function formatTimestamp(timestamp: number, timezone: string): string {
   return new Date(timestamp * 1000).toLocaleString(undefined, { timeZone: timezone });
 }
 
+function formatTime(timestamp: number, timezone: string): string {
+  return new Date(timestamp * 1000).toLocaleTimeString(undefined, {
+    timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function formatDateTime(value: string, timezone: string): string {
   return new Date(value).toLocaleString(undefined, { timeZone: timezone });
 }
@@ -1503,6 +1874,203 @@ function formatActionKind(kind: string): string {
 
 function findFreshnessSource(data: NowData, key: string) {
   return data.freshness.sources.find((source) => source.key === key);
+}
+
+function dedupeTasks(tasks: Array<NowTaskData | null | undefined>): NowTaskData[] {
+  const seen = new Set<string>();
+  return tasks.filter((task): task is NowTaskData => {
+    if (!task || seen.has(task.id)) {
+      return false;
+    }
+    seen.add(task.id);
+    return true;
+  });
+}
+
+function dedupeActionItems(items: ActionItemData[]): ActionItemData[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const dedupeKey = [
+      item.kind,
+      item.title.trim().toLowerCase(),
+      item.summary.trim().toLowerCase(),
+      item.project_label?.trim().toLowerCase() ?? '',
+      item.thread_route?.thread_id ?? '',
+      item.thread_route?.label.trim().toLowerCase() ?? '',
+    ].join('::');
+    if (seen.has(dedupeKey)) {
+      return false;
+    }
+    seen.add(dedupeKey);
+    return true;
+  });
+}
+
+function findActiveEvent(events: NowData['schedule']['upcoming_events'], nowTs: number) {
+  return events.find((event) => {
+    const endTs = event.end_ts ?? event.start_ts;
+    return event.start_ts <= nowTs && endTs >= nowTs;
+  }) ?? null;
+}
+
+function findNextEvent(events: NowData['schedule']['upcoming_events'], nowTs: number) {
+  return events.find((event) => event.start_ts > nowTs) ?? null;
+}
+
+function findActiveRoutineBlock(dayPlan: NowData['day_plan'], nowTs: number) {
+  return dayPlan?.routine_blocks.find((block) => block.start_ts <= nowTs && block.end_ts >= nowTs) ?? null;
+}
+
+function deriveInferredActivity(data: NowData): { title: string; detail: string } | null {
+  if (data.sources.git_activity) {
+    return {
+      title: 'Likely working from recent activity',
+      detail: sourceSummaryLines(data.sources.git_activity.summary, ['repo', 'operation'])[0] ?? 'Git activity is the strongest recent signal.',
+    };
+  }
+  if (data.sources.note_document) {
+    return {
+      title: 'Likely in note work',
+      detail: sourceSummaryLines(data.sources.note_document.summary, ['title', 'path'])[0] ?? 'A recent note is the strongest signal.',
+    };
+  }
+  return null;
+}
+
+function buildCurrentStatus(
+  data: NowData,
+  nowTs: number,
+  activeEvent: NowData['schedule']['upcoming_events'][number] | null,
+  activeRoutineBlock: RoutineBlockData | null,
+  currentCommitment: NowTaskData | null,
+  nextEvent: NowData['schedule']['upcoming_events'][number] | null,
+) {
+  if (activeEvent) {
+    return {
+      kind: 'Calendar',
+      title: activeEvent.title,
+      detail: activeEvent.location ?? formatTime(activeEvent.start_ts, data.timezone),
+      subtitle: 'What is happening now takes precedence over everything else.',
+      summary: `You are in ${activeEvent.title}${activeEvent.location ? ` at ${activeEvent.location}` : ''}.`,
+      fallbackEventMessage: null,
+    };
+  }
+  if (currentCommitment) {
+    return {
+      kind: 'Commitment',
+      title: currentCommitment.text,
+      detail: currentCommitment.project ?? 'No project',
+      subtitle: 'No calendar event is active, so the current commitment becomes the execution anchor.',
+      summary: `Current commitment: ${currentCommitment.text}.`,
+      fallbackEventMessage: null,
+    };
+  }
+  if (activeRoutineBlock) {
+    return {
+      kind: 'Routine',
+      title: activeRoutineBlock.label,
+      detail: activeRoutineBlock.source.replaceAll('_', ' '),
+      subtitle: 'Routine stays visible when it is active, but it does not replace calendar truth.',
+      summary: `Routine block in progress: ${activeRoutineBlock.label}.`,
+      fallbackEventMessage: null,
+    };
+  }
+  const inferred = deriveInferredActivity(data);
+  if (inferred) {
+    return {
+      kind: 'Inference',
+      title: inferred.title,
+      detail: inferred.detail,
+      subtitle: 'Inference only shows when no stronger declared structure is active.',
+      summary: inferred.detail,
+      fallbackEventMessage: null,
+    };
+  }
+  if (nextEvent) {
+    return {
+      kind: 'Free',
+      title: `Free until ${formatTime(nextEvent.start_ts, data.timezone)}`,
+      detail: nextEvent.title,
+      subtitle: 'Nothing explicit is active right now, so the next event sets the edge of free time.',
+      summary: `Free until ${nextEvent.title} at ${formatTime(nextEvent.start_ts, data.timezone)}.`,
+      fallbackEventMessage: `Free until ${nextEvent.title} at ${formatTime(nextEvent.start_ts, data.timezone)}.`,
+    };
+  }
+  return {
+    kind: 'Between blocks',
+    title: 'Between blocks',
+    detail: 'No event, commitment, or strong routine signal is active.',
+    subtitle: 'When Vel has no stronger current-day structure, it should say so plainly.',
+    summary: 'Nothing stronger is active right now.',
+    fallbackEventMessage: 'No more calendar events are scheduled right now.',
+  };
+}
+
+function formatEventSummary(
+  event: NowData['schedule']['upcoming_events'][number],
+  timezone: string,
+  nowTs: number,
+): string {
+  const active = event.start_ts <= nowTs && (event.end_ts ?? event.start_ts) >= nowTs;
+  if (active) {
+    return `Now · started ${formatTime(event.start_ts, timezone)}`;
+  }
+  return formatTime(event.start_ts, timezone);
+}
+
+function buildAttentionIndicators(
+  data: NowData,
+  actionItems: ActionItemData[],
+  threadAttentionCount: number,
+  nextEvent: NowData['schedule']['upcoming_events'][number] | null,
+  nowTs: number,
+) {
+  const indicators: Array<{ label: string; count: number; onClick?: () => void }> = [];
+  if (actionItems.length > 0) {
+    indicators.push({ label: 'Urgent', count: actionItems.length });
+  }
+  if (nextEvent && nextEvent.start_ts - nowTs <= 2 * 60 * 60) {
+    indicators.push({ label: 'Due soon', count: 1 });
+  }
+  if (data.review_snapshot.triage_count > 0) {
+    indicators.push({ label: 'Waiting', count: data.review_snapshot.triage_count });
+  }
+  const staleCount = data.freshness.sources.filter((source) => isDegraded(source.status)).length;
+  if (staleCount > 0 || data.reflow_status) {
+    indicators.push({ label: 'Stale', count: staleCount + (data.reflow_status ? 1 : 0) });
+  }
+  if (threadAttentionCount > 0) {
+    indicators.push({ label: 'Threads', count: threadAttentionCount });
+  }
+  return indicators;
+}
+
+function selectResurfacedThreadCandidate(
+  actionItems: ActionItemData[],
+  reflowStatus: NowData['reflow_status'],
+): ResurfacedThreadCandidate | null {
+  const rankedActionThread = actionItems.find(
+    (item) => item.thread_route?.target === 'existing_thread' && item.thread_route.thread_id,
+  );
+  if (rankedActionThread?.thread_route?.thread_id) {
+    return {
+      threadId: rankedActionThread.thread_route.thread_id,
+      title: rankedActionThread.title,
+      summary: rankedActionThread.summary,
+      label: rankedActionThread.thread_route.label,
+      projectLabel: rankedActionThread.project_label,
+    };
+  }
+  if (reflowStatus?.thread_id) {
+    return {
+      threadId: reflowStatus.thread_id,
+      title: reflowStatus.headline,
+      summary: reflowStatus.detail,
+      label: 'Open reflow thread',
+      projectLabel: null,
+    };
+  }
+  return null;
 }
 
 function hasSourceActivity(data: NowData): boolean {

@@ -279,7 +279,8 @@ pub(crate) async fn execute_chat_tool(
         }
         TOOL_GET_DAILY_LOOP_STATUS => {
             let timezone = timezone::resolve_timezone(&state.storage).await?;
-            let session_date = timezone::local_date_string(&timezone, OffsetDateTime::now_utc());
+            let session_date =
+                timezone::current_day_date_string(&timezone, OffsetDateTime::now_utc())?;
             let morning = daily_loop::get_active_session(
                 &state.storage,
                 &session_date,
@@ -404,19 +405,30 @@ pub(crate) async fn build_assistant_context(
     )
     .await?;
     let recall = RecallContextData::from(retrieval::build_recall_context_pack(query, hits));
+    let commitments = state
+        .storage
+        .list_commitments(Some(CommitmentStatus::Open), None, None, 5)
+        .await?
+        .into_iter()
+        .map(CommitmentData::from)
+        .collect::<Vec<_>>();
     let inspect = agent_grounding::build_agent_inspect(state).await?;
     let grounding_hint = agent_grounding::assistant_grounding_hint(&inspect);
     let summary = if recall.hit_count == 0 {
         format!(
-            "No directly relevant recalled context was found. {}",
+            "No directly relevant recalled context was found. {} open commitment{} with canonical scheduler rules remain available. {}",
+            commitments.len(),
+            if commitments.len() == 1 { "" } else { "s" },
             grounding_hint
         )
     } else {
         format!(
-            "Found {} relevant recalled item{} across {}. {}",
+            "Found {} relevant recalled item{} across {}. {} open commitment{} with canonical scheduler rules remain available. {}",
             recall.hit_count,
             if recall.hit_count == 1 { "" } else { "s" },
             describe_source_counts(&recall),
+            commitments.len(),
+            if commitments.len() == 1 { "" } else { "s" },
             grounding_hint
         )
     };
@@ -424,7 +436,8 @@ pub(crate) async fn build_assistant_context(
     Ok(AssistantContextData {
         query_text: query.to_string(),
         summary,
-        focus_lines: assistant_focus_lines(&recall),
+        focus_lines: assistant_focus_lines(&recall, &commitments),
+        commitments,
         recall,
     })
 }
@@ -442,8 +455,11 @@ fn describe_source_counts(recall: &RecallContextData) -> String {
         .join(", ")
 }
 
-fn assistant_focus_lines(recall: &RecallContextData) -> Vec<String> {
-    recall
+fn assistant_focus_lines(
+    recall: &RecallContextData,
+    commitments: &[CommitmentData],
+) -> Vec<String> {
+    let mut lines = recall
         .hits
         .iter()
         .take(3)
@@ -459,7 +475,37 @@ fn assistant_focus_lines(recall: &RecallContextData) -> Vec<String> {
                 .unwrap_or_else(|| hit.source_id.clone());
             format!("{:?} {}: {}", hit.source_kind, source_ref, hit.snippet).to_lowercase()
         })
-        .collect()
+        .collect::<Vec<_>>();
+
+    lines.extend(commitments.iter().take(2).map(|commitment| {
+        let mut parts = Vec::new();
+        if let Some(block) = &commitment.scheduler_rules.block_target {
+            parts.push(format!("block:{block}"));
+        }
+        if let Some(duration) = commitment.scheduler_rules.duration_minutes {
+            parts.push(format!("{duration}m"));
+        }
+        if let Some(window) = &commitment.scheduler_rules.time_window {
+            parts.push(format!("time:{window:?}").to_lowercase());
+        }
+        if commitment.scheduler_rules.calendar_free {
+            parts.push("cal:free".to_string());
+        }
+        if commitment.scheduler_rules.local_urgency {
+            parts.push("urgent".to_string());
+        }
+        if commitment.scheduler_rules.local_defer {
+            parts.push("defer".to_string());
+        }
+        let suffix = if parts.is_empty() {
+            "no explicit scheduler facets".to_string()
+        } else {
+            parts.join(", ")
+        };
+        format!("commitment {}: {}", commitment.text, suffix).to_lowercase()
+    }));
+
+    lines
 }
 
 fn parse_limit(
@@ -514,10 +560,11 @@ mod tests {
             .unwrap();
 
         let state = test_state(storage);
-        let session_date = crate::services::timezone::local_date_string(
+        let session_date = crate::services::timezone::current_day_date_string(
             &crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap(),
             OffsetDateTime::now_utc(),
-        );
+        )
+        .unwrap();
         crate::services::daily_loop::start_session(
             &state.storage,
             &state.config,
@@ -594,6 +641,21 @@ mod tests {
             )
             .await
             .unwrap();
+        storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Deep work @30m".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "task_1".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("tax".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({
+                    "labels": ["block:focus", "@cal:free", "time:prenoon", "@urgent"]
+                })),
+            })
+            .await
+            .unwrap();
 
         let state = test_state(storage);
         let value = execute_chat_tool(
@@ -615,10 +677,26 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("recalled"));
+        assert_eq!(
+            value["assistant_context"]["commitments"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            value["assistant_context"]["commitments"][0]["scheduler_rules"]["block_target"],
+            "focus"
+        );
         assert!(value["assistant_context"]["focus_lines"][0]
             .as_str()
             .unwrap()
             .contains("accountant"));
+        assert!(value["assistant_context"]["focus_lines"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|line| line.as_str().unwrap().contains("block:focus")));
         assert_eq!(value["recall"]["query_text"], "accountant follow up");
         assert_eq!(value["recall"]["hit_count"], 1);
         assert_eq!(value["recall"]["source_counts"][0]["source_kind"], "note");

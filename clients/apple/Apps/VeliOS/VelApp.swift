@@ -2,18 +2,25 @@ import SwiftUI
 import VelApplePlatform
 import VelApplication
 import VelAPI
+import VelEmbeddedBridge
 #if canImport(UIKit)
 import UIKit
 #endif
 
 @main
 struct VelApp: App {
-    @StateObject private var client = VelClientStore()
-    private let appEnvironment = VelAppEnvironment.bootstrap(
-        capabilities: FeatureCapabilityMapper.currentIOSDevice()
-    )
+    @StateObject private var client: VelClientStore
+    private let appEnvironment: VelAppEnvironment
 
     init() {
+        let environment = VelAppEnvironment.bootstrap(
+            capabilities: FeatureCapabilityMapper.currentIOSDevice()
+        )
+        self.appEnvironment = environment
+        _client = StateObject(
+            wrappedValue: VelClientStore(embeddedBridge: environment.embeddedBridge)
+        )
+
 #if canImport(UIKit)
         if #available(iOS 15.0, *) {
             UITableView.appearance().sectionHeaderTopPadding = 0
@@ -34,6 +41,7 @@ struct VelApp: App {
 final class VelClientStore: ObservableObject {
     let client: VelClient
     let offlineStore = VelOfflineStore()
+    private let embeddedBridge: any EmbeddedBridgeSurface
 
     @Published var isReachable = false
     @Published var isSyncing = false
@@ -53,8 +61,10 @@ final class VelClientStore: ObservableObject {
     @Published var signals: [SignalData] = []
     @Published var morningDailyLoop: DailyLoopSessionData?
     @Published var standupDailyLoop: DailyLoopSessionData?
+    @Published var planningProfile: PlanningProfileResponseData?
 
-    init() {
+    init(embeddedBridge: any EmbeddedBridgeSurface = NoopEmbeddedBridgeSurface()) {
+        self.embeddedBridge = embeddedBridge
         let initial = VelEndpointResolver.candidateBaseURLs().first
             ?? URL(string: "http://127.0.0.1:4130")!
         client = VelClient(baseURL: initial)
@@ -77,6 +87,7 @@ final class VelClientStore: ObservableObject {
                 let bootstrap = try await client.syncBootstrap()
                 let workers = try? await client.clusterWorkers()
                 let linkedNodes = (try? await client.linkingStatus()) ?? bootstrap.linked_nodes
+                let planningProfile = try? await client.planningProfile()
                 let morningDailyLoop = try? await client.activeDailyLoopSession(
                     sessionDate: currentDailyLoopSessionDate(),
                     phase: .morningOverview
@@ -114,6 +125,7 @@ final class VelClientStore: ObservableObject {
                 nudges = offlineStore.cachedNudgesApplyingPendingActions()
                 commitments = offlineStore.cachedCommitmentsApplyingPendingActions()
                 self.linkedNodes = linkedNodes
+                self.planningProfile = planningProfile
                 signals = recentSignals
                 self.morningDailyLoop = morningDailyLoop
                 self.standupDailyLoop = standupDailyLoop
@@ -131,6 +143,7 @@ final class VelClientStore: ObservableObject {
         authorityLabel = nil
         clusterBootstrap = nil
         clusterWorkers = nil
+        planningProfile = nil
         applyCachedState()
 
         if let lastError {
@@ -211,14 +224,20 @@ final class VelClientStore: ObservableObject {
         type: String = "note",
         source: String = "apple"
     ) async {
+        let preparedText: String
+        if embeddedBridge.configuration.permits(.localQuickActionPreparation) {
+            preparedText = embeddedBridge.quickActionBridge.prepareQuickCapture(text)
+        } else {
+            preparedText = text
+        }
         await performAction(
             queuedMessage: "Queued capture for sync.",
             remote: {
-                _ = try await client.createCapture(text: text, type: type, source: source)
+                _ = try await client.createCapture(text: preparedText, type: type, source: source)
             },
             queueFallback: {
                 offlineStore.enqueueCaptureCreate(
-                    text: queuedCaptureText(text: text, type: type, source: source)
+                    text: queuedCaptureText(text: preparedText, type: type, source: source)
                 )
             }
         )

@@ -194,6 +194,14 @@ When the web shell or Settings tells you something needs setup, use this path:
 - `Now` reflow suggestion:
   treat it as a day-plan recalculation prompt. Confirm it when the current schedule is stale, a key event was missed, or today no longer fits the remaining time.
   `Now` now shows the compact same-day recovery proposal directly; use `Threads` only when the result needs longer shaping or disagreement.
+  `Now` may also show compact same-day schedule continuity after a proposal is staged or applied; treat that as backend-owned review/apply status, not as a second planner UI.
+  if Settings or `Now` says planning is using inferred fallback, that means durable routine blocks have not been configured yet and the backend is still shaping the day from transient context only.
+- `Settings` routine/planning profile card:
+  use it when you want to save or remove durable routine blocks or bounded planning constraints.
+  those edits now go through the typed backend planning-profile seam; they are not just generic local settings text fields.
+  CLI and Apple summary surfaces read that same profile, so if those shells disagree with web `Settings`, treat that as a bug rather than separate configuration.
+  the same backend response now also carries compact proposal continuity, so summary surfaces can show pending review or the last applied/failed edit without becoming planners.
+  if assistant entry or Apple voice staged a planning-profile edit instead of applying it, continue in `Threads` to inspect the proposed change and its continuity metadata; conversational shells are not allowed to silently rewrite the saved profile.
 - linking or paired-node trust question:
   use the linking routes in Settings first, then `docs/api/runtime.md` for `/v1/linking/*` behavior and `docs/user/troubleshooting.md` for recovery.
 - Todoist token or sync question:
@@ -218,6 +226,8 @@ Examples:
 - linking problem
 - Apple local-source discovery failure
 - reflow/recovery posture when the current day plan is no longer trustworthy
+- durable routine-backed planning posture when `Now` or Settings shows inferred fallback instead of operator-managed routines
+- routine/planning profile management when you need to replace inferred fallback with saved durable routine blocks
 
 If you land directly in diagnostics, step back to the matching summary surface first unless the product is already in a clear recovery-only state.
 

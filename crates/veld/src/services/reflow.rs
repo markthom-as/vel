@@ -2,11 +2,11 @@ use serde_json::{json, Value as JsonValue};
 use time::{Duration, OffsetDateTime, Time};
 use uuid::Uuid;
 use vel_core::{
-    ActionItemId, CheckInEscalationTarget, Commitment, CommitmentStatus,
+    ActionItemId, CanonicalScheduleRules, CheckInEscalationTarget, Commitment, CommitmentStatus,
     CurrentContextReflowStatus, CurrentContextReflowStatusKind, CurrentContextV1, ReflowAcceptMode,
     ReflowCard, ReflowChange, ReflowChangeKind, ReflowEditTarget, ReflowProposal, ReflowSeverity,
     ReflowTransition, ReflowTransitionKind, ReflowTransitionTargetKind, ReflowTriggerKind,
-    ScheduleRuleFacet, ScheduleRuleFacetKind,
+    ScheduleRuleFacet, ScheduleRuleFacetKind, ScheduleTimeWindow,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -21,13 +21,13 @@ struct ReflowCandidate {
 
 #[derive(Clone)]
 struct ScheduleTask {
+    commitment_id: String,
     title: String,
     project_label: Option<String>,
     duration_minutes: i64,
     fixed_start_ts: Option<i64>,
     due_ts: Option<i64>,
-    time_window: Option<&'static str>,
-    labels: Vec<String>,
+    scheduler_rules: CanonicalScheduleRules,
 }
 
 #[derive(Clone, Copy)]
@@ -85,11 +85,61 @@ pub async fn apply_current_reflow(
 
     let candidate = derive_candidate(&context, now_ts)
         .ok_or_else(|| AppError::not_found("reflow not available"))?;
-    let card = build_card_from_candidate(&context, candidate)
+    let card = build_card_from_candidate_with_storage(storage, &context, candidate, now_ts)
+        .await?
         .ok_or_else(|| AppError::not_found("reflow not available"))?;
     if card.accept_mode == ReflowAcceptMode::ConfirmRequired && !confirmed {
         return Err(AppError::bad_request("reflow confirmation required"));
     }
+
+    let staged_proposal = match card.proposal.as_ref() {
+        Some(proposal) => crate::services::commitment_scheduling::staged_commitment_scheduling_proposal_from_reflow(
+            storage,
+            proposal,
+        )
+        .await?,
+        None => None,
+    };
+
+    let thread_id = if let Some(proposal) = staged_proposal {
+        let thread_id = format!("thr_{}", Uuid::new_v4().simple());
+        let mut metadata = json!({
+            "source": "reflow",
+            "resolution_state": "applied",
+            "context_computed_at": context.computed_at,
+            "trigger": card.trigger.to_string(),
+            "severity": card.severity.to_string(),
+            "summary": card.summary,
+            "preview_lines": card.preview_lines,
+        });
+        if let Some(object) = metadata.as_object_mut() {
+            object.extend(
+                crate::services::commitment_scheduling::applyable_proposal_metadata(&proposal)
+                    .as_object()
+                    .cloned()
+                    .unwrap_or_default(),
+            );
+        }
+        storage
+            .insert_thread(
+                &thread_id,
+                "reflow_edit",
+                "Reflow edit",
+                "open",
+                &metadata.to_string(),
+            )
+            .await?;
+        storage
+            .insert_thread_link(&thread_id, "current_context", "singleton", "reflow")
+            .await?;
+        crate::services::commitment_scheduling::apply_staged_commitment_scheduling_proposal(
+            storage, &thread_id,
+        )
+        .await?;
+        Some(thread_id)
+    } else {
+        None
+    };
 
     let status = CurrentContextReflowStatus {
         source_context_computed_at: context.computed_at,
@@ -102,7 +152,7 @@ pub async fn apply_current_reflow(
             "Vel marked this schedule drift for backend reflow follow-through and suppressed the current card until context changes."
                 .to_string(),
         preview_lines: card.preview_lines.clone(),
-        thread_id: None,
+        thread_id,
     };
 
     persist_status(storage, &mut context, status.clone(), now_ts).await?;
@@ -124,10 +174,11 @@ pub async fn edit_current_reflow(
 
     let candidate = derive_candidate(&context, now_ts)
         .ok_or_else(|| AppError::not_found("reflow not available"))?;
-    let card = build_card_from_candidate(&context, candidate)
+    let card = build_card_from_candidate_with_storage(storage, &context, candidate, now_ts)
+        .await?
         .ok_or_else(|| AppError::not_found("reflow not available"))?;
     let thread_id = format!("thr_{}", Uuid::new_v4().simple());
-    let metadata = json!({
+    let mut metadata = json!({
         "source": "reflow",
         "resolution_state": "editing",
         "context_computed_at": context.computed_at,
@@ -135,10 +186,32 @@ pub async fn edit_current_reflow(
         "severity": card.severity.to_string(),
         "summary": card.summary,
         "preview_lines": card.preview_lines,
-    })
-    .to_string();
+    });
+    if let Some(proposal) = match card.proposal.as_ref() {
+        Some(proposal) => crate::services::commitment_scheduling::staged_commitment_scheduling_proposal_from_reflow(
+            storage,
+            proposal,
+        )
+        .await?,
+        None => None,
+    } {
+        if let Some(object) = metadata.as_object_mut() {
+            object.extend(
+                crate::services::commitment_scheduling::applyable_proposal_metadata(&proposal)
+                    .as_object()
+                    .cloned()
+                    .unwrap_or_default(),
+            );
+        }
+    }
     storage
-        .insert_thread(&thread_id, "reflow_edit", "Reflow edit", "open", &metadata)
+        .insert_thread(
+            &thread_id,
+            "reflow_edit",
+            "Reflow edit",
+            "open",
+            &metadata.to_string(),
+        )
         .await?;
     storage
         .insert_thread_link(&thread_id, "current_context", "singleton", "reflow")
@@ -293,6 +366,7 @@ fn build_proposal(context: &CurrentContextV1, card: &ReflowCard) -> ReflowPropos
         .unwrap_or_else(|| card.summary.clone());
     let change = ReflowChange {
         kind: change_kind,
+        commitment_id: None,
         title,
         detail,
         project_label: None,
@@ -347,11 +421,27 @@ async fn build_remaining_day_proposal(
     let events = storage
         .list_signals(Some("calendar_event"), Some(day_start_ts(now_ts)), 64)
         .await?;
-
-    let windows = remaining_day_windows(&events, now_ts);
-    let tasks = collect_schedule_tasks(context, commitments, now_ts);
+    let planning_inputs =
+        crate::services::planning_profile::load_day_planning_inputs(storage, context, now_ts)
+            .await?;
+    let windows = remaining_day_windows(
+        &events,
+        &planning_inputs.routine_blocks,
+        &planning_inputs.planning_constraints,
+        now_ts,
+    );
+    let tasks = collect_schedule_tasks(
+        context,
+        commitments,
+        now_ts,
+        &planning_inputs.planning_constraints,
+    );
     let mut changes = Vec::new();
     let mut facets = Vec::new();
+    let overflow_requires_judgment =
+        crate::services::planning_profile::require_judgment_for_overflow(
+            &planning_inputs.planning_constraints,
+        );
 
     if card.trigger == ReflowTriggerKind::MissedEvent {
         let detail = card
@@ -361,6 +451,7 @@ async fn build_remaining_day_proposal(
             .unwrap_or_else(|| "A scheduled event already slipped.".to_string());
         changes.push(ReflowChange {
             kind: ReflowChangeKind::NeedsJudgment,
+            commitment_id: None,
             title: "Missed scheduled event".to_string(),
             detail,
             project_label: None,
@@ -390,6 +481,7 @@ async fn build_remaining_day_proposal(
             {
                 changes.push(ReflowChange {
                     kind: ReflowChangeKind::NeedsJudgment,
+                    commitment_id: Some(task.commitment_id.clone()),
                     title: task.title.clone(),
                     detail: format!(
                         "{} is anchored to a fixed time that no longer fits the remaining schedule.",
@@ -405,7 +497,12 @@ async fn build_remaining_day_proposal(
         let Some(slot_start_ts) = reserve_window_for_task(&mut working_windows, &task, now_ts)
         else {
             changes.push(ReflowChange {
-                kind: ReflowChangeKind::Unscheduled,
+                kind: if overflow_requires_judgment {
+                    ReflowChangeKind::NeedsJudgment
+                } else {
+                    ReflowChangeKind::Unscheduled
+                },
+                commitment_id: Some(task.commitment_id.clone()),
                 title: task.title.clone(),
                 detail: format!(
                     "{} no longer fits in the remaining day without operator intervention.",
@@ -419,6 +516,7 @@ async fn build_remaining_day_proposal(
 
         changes.push(ReflowChange {
             kind: ReflowChangeKind::Moved,
+            commitment_id: Some(task.commitment_id.clone()),
             title: task.title.clone(),
             detail: format!(
                 "{} can move to the next available slot in the remaining day.",
@@ -472,12 +570,13 @@ fn collect_schedule_tasks(
     context: &CurrentContextV1,
     commitments: Vec<Commitment>,
     now_ts: i64,
+    constraints: &[vel_core::PlanningConstraint],
 ) -> Vec<ScheduleTask> {
     let end_of_day = day_end_ts(now_ts);
     let mut tasks = commitments
         .into_iter()
         .filter_map(|commitment| {
-            schedule_task_from_commitment(context, commitment, now_ts, end_of_day)
+            schedule_task_from_commitment(context, commitment, now_ts, end_of_day, constraints)
         })
         .collect::<Vec<_>>();
     tasks.sort_by_key(|task| {
@@ -496,19 +595,17 @@ fn schedule_task_from_commitment(
     commitment: Commitment,
     _now_ts: i64,
     end_of_day: i64,
+    constraints: &[vel_core::PlanningConstraint],
 ) -> Option<ScheduleTask> {
-    let labels = commitment_labels(&commitment.metadata_json);
     let due_ts = commitment.due_at.map(|value| value.unix_timestamp());
-    let urgent = labels
-        .iter()
-        .any(|label| label == "urgent" || label == "@urgent");
+    let scheduler_rules = commitment.scheduler_rules();
     let relevant = context
         .next_commitment_id
         .as_ref()
         .map(|id| id == commitment.id.as_ref())
         .unwrap_or(false)
         || due_ts.map(|value| value <= end_of_day).unwrap_or(false)
-        || urgent
+        || scheduler_rules.local_urgency
         || context
             .commitments_used
             .iter()
@@ -517,88 +614,57 @@ fn schedule_task_from_commitment(
         return None;
     }
 
-    let duration_minutes = extract_duration_minutes(&commitment.text, &labels).unwrap_or(30);
+    let mut scheduler_rules = scheduler_rules;
+    if scheduler_rules.time_window.is_none() {
+        scheduler_rules.time_window =
+            crate::services::planning_profile::default_time_window(constraints);
+    }
+    let duration_minutes = scheduler_rules.duration_minutes.unwrap_or(30);
     Some(ScheduleTask {
+        commitment_id: commitment.id.to_string(),
         title: commitment.text,
         project_label: commitment.project,
         duration_minutes,
-        fixed_start_ts: fixed_start_ts(due_ts, &labels),
+        fixed_start_ts: fixed_start_ts(due_ts, &scheduler_rules),
         due_ts,
-        time_window: time_window_for_labels(&labels),
-        labels,
+        scheduler_rules,
     })
 }
 
-fn commitment_labels(metadata: &JsonValue) -> Vec<String> {
-    metadata
-        .get("labels")
-        .and_then(JsonValue::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(JsonValue::as_str)
-        .map(|label| label.trim().to_ascii_lowercase())
-        .filter(|label| !label.is_empty())
-        .collect()
-}
-
-fn extract_duration_minutes(text: &str, labels: &[String]) -> Option<i64> {
-    labels
-        .iter()
-        .find_map(|label| parse_duration_token(label))
-        .or_else(|| {
-            text.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '@'))
-                .find_map(parse_duration_token)
-        })
-}
-
-fn parse_duration_token(token: &str) -> Option<i64> {
-    let normalized = token.trim().trim_start_matches('@').to_ascii_lowercase();
-    if let Some(minutes) = normalized.strip_suffix('m') {
-        return minutes.parse::<i64>().ok().filter(|value| *value > 0);
-    }
-    if let Some(hours) = normalized.strip_suffix('h') {
-        return hours
-            .parse::<i64>()
-            .ok()
-            .filter(|value| *value > 0)
-            .map(|value| value * 60);
+fn fixed_start_ts(due_ts: Option<i64>, rules: &CanonicalScheduleRules) -> Option<i64> {
+    if rules.fixed_start {
+        return due_ts;
     }
     None
 }
 
-fn fixed_start_ts(due_ts: Option<i64>, labels: &[String]) -> Option<i64> {
-    if labels
-        .iter()
-        .any(|label| label == "fixed" || label == "fixed_start")
-    {
-        return due_ts;
-    }
-    due_ts.filter(|timestamp| timestamp % 86_400 != 0)
-}
-
-fn time_window_for_labels(labels: &[String]) -> Option<&'static str> {
-    if labels.iter().any(|label| label.ends_with("prenoon")) {
-        Some("prenoon")
-    } else if labels.iter().any(|label| label.ends_with("afternoon")) {
-        Some("afternoon")
-    } else if labels.iter().any(|label| label.ends_with("evening")) {
-        Some("evening")
-    } else if labels.iter().any(|label| label.ends_with("night")) {
-        Some("night")
-    } else if labels.iter().any(|label| label.ends_with("day")) {
-        Some("day")
-    } else {
-        None
-    }
-}
-
-fn remaining_day_windows(events: &[SignalRecord], now_ts: i64) -> Vec<ScheduleWindow> {
+fn remaining_day_windows(
+    events: &[SignalRecord],
+    routine_blocks: &[vel_core::RoutineBlock],
+    constraints: &[vel_core::PlanningConstraint],
+    now_ts: i64,
+) -> Vec<ScheduleWindow> {
     let mut windows = vec![ScheduleWindow {
         start_ts: now_ts,
         end_ts: day_end_ts(now_ts),
     }];
-    for event in events.iter().filter_map(calendar_event_block) {
+    for event in events
+        .iter()
+        .filter_map(|signal| calendar_event_block(signal, constraints))
+    {
         windows = subtract_block(windows, event);
+    }
+    for routine in routine_blocks
+        .iter()
+        .filter(|block| block.protected && block.end_ts > now_ts)
+    {
+        windows = subtract_block(
+            windows,
+            ScheduleWindow {
+                start_ts: routine.start_ts.max(now_ts),
+                end_ts: routine.end_ts,
+            },
+        );
     }
     windows
         .into_iter()
@@ -606,7 +672,10 @@ fn remaining_day_windows(events: &[SignalRecord], now_ts: i64) -> Vec<ScheduleWi
         .collect()
 }
 
-fn calendar_event_block(signal: &SignalRecord) -> Option<ScheduleWindow> {
+fn calendar_event_block(
+    signal: &SignalRecord,
+    constraints: &[vel_core::PlanningConstraint],
+) -> Option<ScheduleWindow> {
     let payload = &signal.payload_json;
     let start_ts = json_i64(payload, "start").or_else(|| json_i64(payload, "start_ts"))?;
     let end_ts = json_i64(payload, "end")
@@ -614,9 +683,13 @@ fn calendar_event_block(signal: &SignalRecord) -> Option<ScheduleWindow> {
         .unwrap_or(start_ts + 30 * 60);
     let prep_minutes = json_i64(payload, "prep_minutes").unwrap_or(0);
     let travel_minutes = json_i64(payload, "travel_minutes").unwrap_or(0);
+    let buffer_before =
+        crate::services::planning_profile::reserve_buffer_before_calendar_minutes(constraints);
+    let buffer_after =
+        crate::services::planning_profile::reserve_buffer_after_calendar_minutes(constraints);
     Some(ScheduleWindow {
-        start_ts: start_ts - ((prep_minutes + travel_minutes) * 60),
-        end_ts,
+        start_ts: start_ts - ((prep_minutes + travel_minutes + buffer_before) * 60),
+        end_ts: end_ts + (buffer_after * 60),
     })
 }
 
@@ -649,7 +722,7 @@ fn reserve_window_for_task(
     now_ts: i64,
 ) -> Option<i64> {
     let duration_seconds = task.duration_minutes * 60;
-    let window_bounds = preferred_window_bounds(task.time_window, now_ts);
+    let window_bounds = preferred_window_bounds(task.scheduler_rules.time_window, now_ts);
     for index in 0..windows.len() {
         let window = windows[index];
         let start_ts = window.start_ts.max(window_bounds.0);
@@ -664,11 +737,11 @@ fn reserve_window_for_task(
     None
 }
 
-fn preferred_window_bounds(time_window: Option<&'static str>, now_ts: i64) -> (i64, i64) {
+fn preferred_window_bounds(time_window: Option<ScheduleTimeWindow>, now_ts: i64) -> (i64, i64) {
     let now = unix_to_time(now_ts);
     let date = now.date();
     match time_window {
-        Some("prenoon") => (
+        Some(ScheduleTimeWindow::Prenoon) => (
             date.with_time(Time::from_hms(6, 0, 0).unwrap())
                 .assume_utc()
                 .unix_timestamp(),
@@ -676,7 +749,7 @@ fn preferred_window_bounds(time_window: Option<&'static str>, now_ts: i64) -> (i
                 .assume_utc()
                 .unix_timestamp(),
         ),
-        Some("afternoon") => (
+        Some(ScheduleTimeWindow::Afternoon) => (
             date.with_time(Time::from_hms(12, 0, 0).unwrap())
                 .assume_utc()
                 .unix_timestamp(),
@@ -684,7 +757,7 @@ fn preferred_window_bounds(time_window: Option<&'static str>, now_ts: i64) -> (i
                 .assume_utc()
                 .unix_timestamp(),
         ),
-        Some("evening") => (
+        Some(ScheduleTimeWindow::Evening) => (
             date.with_time(Time::from_hms(17, 0, 0).unwrap())
                 .assume_utc()
                 .unix_timestamp(),
@@ -692,8 +765,14 @@ fn preferred_window_bounds(time_window: Option<&'static str>, now_ts: i64) -> (i
                 .assume_utc()
                 .unix_timestamp(),
         ),
-        Some("night") => (
+        Some(ScheduleTimeWindow::Night) => (
             date.with_time(Time::from_hms(21, 0, 0).unwrap())
+                .assume_utc()
+                .unix_timestamp(),
+            day_end_ts(now_ts),
+        ),
+        Some(ScheduleTimeWindow::Day) => (
+            date.with_time(Time::from_hms(6, 0, 0).unwrap())
                 .assume_utc()
                 .unix_timestamp(),
             day_end_ts(now_ts),
@@ -714,49 +793,12 @@ fn window_can_fit_fixed(
 }
 
 fn rule_facets_for_task(task: &ScheduleTask) -> Vec<ScheduleRuleFacet> {
-    let mut facets = Vec::new();
-    if let Some(window) = task.time_window {
-        facets.push(ScheduleRuleFacet {
-            kind: ScheduleRuleFacetKind::TimeWindow,
-            label: format!("time:{window}"),
-            detail: Some("This task prefers a bounded part of the day.".to_string()),
-        });
-    }
-    if let Some(duration_minutes) = Some(task.duration_minutes) {
-        facets.push(ScheduleRuleFacet {
-            kind: ScheduleRuleFacetKind::Duration,
-            label: format!("{duration_minutes}m"),
-            detail: Some("Duration came from normalized task labels/text.".to_string()),
-        });
-    }
-    for label in &task.labels {
-        if let Some(block) = label.strip_prefix("block:") {
-            facets.push(ScheduleRuleFacet {
-                kind: ScheduleRuleFacetKind::BlockTarget,
-                label: format!("block:{block}"),
-                detail: Some("Task prefers a named block target.".to_string()),
-            });
-        } else if label == "cal:free" || label == "@cal:free" {
-            facets.push(ScheduleRuleFacet {
-                kind: ScheduleRuleFacetKind::CalendarFree,
-                label: "cal:free".to_string(),
-                detail: Some("Task prefers free calendar space.".to_string()),
-            });
-        } else if label == "urgent" || label == "@urgent" {
-            facets.push(ScheduleRuleFacet {
-                kind: ScheduleRuleFacetKind::LocalUrgency,
-                label: "urgent".to_string(),
-                detail: Some("Task carries local urgency.".to_string()),
-            });
-        } else if label == "defer" || label == "@defer" {
-            facets.push(ScheduleRuleFacet {
-                kind: ScheduleRuleFacetKind::LocalDefer,
-                label: "defer".to_string(),
-                detail: Some("Task is marked for local defer logic.".to_string()),
-            });
-        }
-    }
-    if task.fixed_start_ts.is_some() {
+    let mut facets = task.scheduler_rules.to_rule_facets();
+    if task.fixed_start_ts.is_some()
+        && !facets
+            .iter()
+            .any(|facet| facet.kind == ScheduleRuleFacetKind::FixedStart)
+    {
         facets.push(ScheduleRuleFacet {
             kind: ScheduleRuleFacetKind::FixedStart,
             label: "fixed_start".to_string(),
@@ -895,6 +937,10 @@ mod tests {
     use super::*;
     use serde_json::json;
     use time::OffsetDateTime;
+    use vel_core::{
+        DurableRoutineBlock, PlanningConstraint, PlanningConstraintKind, RoutineBlockSourceKind,
+        RoutinePlanningProfile,
+    };
     use vel_storage::Storage;
     use vel_storage::{CommitmentInsert, SignalInsert};
 
@@ -951,6 +997,12 @@ mod tests {
             })
             .await
             .unwrap();
+    }
+
+    async fn seed_profile(storage: &Storage, profile: RoutinePlanningProfile) {
+        crate::services::planning_profile::save_routine_planning_profile(storage, &profile)
+            .await
+            .expect("profile should save");
     }
 
     #[test]
@@ -1109,6 +1161,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn apply_current_reflow_updates_commitment_schedule_when_proposal_is_actionable() {
+        let storage = test_storage().await;
+        let now_ts = day_start_ts(1_700_000_000) + (8 * 60 * 60);
+        seed_context(
+            &storage,
+            CurrentContextV1 {
+                computed_at: now_ts - 600,
+                drift_type: Some("morning_drift".to_string()),
+                drift_severity: Some("medium".to_string()),
+                attention_reasons: vec!["Morning slipped".to_string()],
+                ..CurrentContextV1::default()
+            },
+        )
+        .await;
+        seed_commitment(
+            &storage,
+            "Deep work @30m",
+            None,
+            Some("Project Atlas"),
+            json!({ "labels": ["urgent", "block:focus"] }),
+        )
+        .await;
+        seed_calendar_event(&storage, now_ts, now_ts + (30 * 60), "Standup").await;
+
+        let status = apply_current_reflow(&storage, now_ts + 60, true)
+            .await
+            .expect("apply should update commitment schedule");
+
+        assert_eq!(status.kind, CurrentContextReflowStatusKind::Applied);
+        let thread_id = status.thread_id.as_ref().expect("thread id");
+        let thread = storage
+            .get_thread_by_id(thread_id)
+            .await
+            .unwrap()
+            .expect("thread exists");
+        let metadata: serde_json::Value =
+            serde_json::from_str(&thread.4).expect("thread metadata should parse");
+        assert_eq!(metadata["proposal_state"], "applied");
+        assert_eq!(metadata["applied_via"], "commitment_scheduling_apply");
+
+        let commitments = storage
+            .list_commitments(Some(CommitmentStatus::Open), None, None, 8)
+            .await
+            .expect("list commitments");
+        assert_eq!(commitments.len(), 1);
+        assert!(commitments[0].due_at.is_some());
+    }
+
+    #[tokio::test]
     async fn derive_current_reflow_recomputes_moved_tasks_from_remaining_windows() {
         let storage = test_storage().await;
         let now_ts = day_start_ts(1_700_000_000) + (8 * 60 * 60);
@@ -1196,5 +1297,125 @@ mod tests {
             .changes
             .iter()
             .any(|change| change.kind == ReflowChangeKind::Unscheduled));
+    }
+
+    #[tokio::test]
+    async fn derive_current_reflow_respects_operator_declared_routine_blocks() {
+        let storage = test_storage().await;
+        let now_ts = 1_710_788_400;
+        seed_profile(
+            &storage,
+            RoutinePlanningProfile {
+                routine_blocks: vec![DurableRoutineBlock {
+                    id: "routine_saved".to_string(),
+                    label: "Saved focus block".to_string(),
+                    source: RoutineBlockSourceKind::OperatorDeclared,
+                    local_timezone: "UTC".to_string(),
+                    start_local_time: "19:00".to_string(),
+                    end_local_time: "20:00".to_string(),
+                    days_of_week: vec![1],
+                    protected: true,
+                    active: true,
+                }],
+                planning_constraints: vec![],
+            },
+        )
+        .await;
+        seed_context(
+            &storage,
+            CurrentContextV1 {
+                computed_at: now_ts - 3600,
+                drift_type: Some("stale_schedule".to_string()),
+                drift_severity: Some("high".to_string()),
+                attention_reasons: vec!["Plan is stale".to_string()],
+                ..CurrentContextV1::default()
+            },
+        )
+        .await;
+        seed_commitment(
+            &storage,
+            "Deep work @30m",
+            None,
+            Some("Project Atlas"),
+            json!({ "labels": ["urgent"] }),
+        )
+        .await;
+
+        let (_, context) = storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("current context");
+        let card = derive_current_reflow(&storage, &context, now_ts)
+            .await
+            .expect("reflow derivation")
+            .expect("reflow card");
+        let proposal = card.proposal.expect("proposal");
+        let moved = proposal
+            .changes
+            .iter()
+            .find(|change| change.kind == ReflowChangeKind::Moved)
+            .expect("moved change");
+
+        assert!(moved.scheduled_start_ts.expect("scheduled start") >= now_ts + (60 * 60));
+    }
+
+    #[tokio::test]
+    async fn derive_current_reflow_uses_overflow_judgment_constraint() {
+        let storage = test_storage().await;
+        let now_ts = day_end_ts(1_700_000_000) - (30 * 60);
+        seed_profile(
+            &storage,
+            RoutinePlanningProfile {
+                routine_blocks: vec![],
+                planning_constraints: vec![PlanningConstraint {
+                    id: "overflow".to_string(),
+                    label: "Require judgment".to_string(),
+                    kind: PlanningConstraintKind::RequireJudgmentForOverflow,
+                    detail: None,
+                    time_window: None,
+                    minutes: None,
+                    max_items: None,
+                    active: true,
+                }],
+            },
+        )
+        .await;
+        seed_context(
+            &storage,
+            CurrentContextV1 {
+                computed_at: now_ts - 3600,
+                drift_type: Some("stale_schedule".to_string()),
+                drift_severity: Some("high".to_string()),
+                attention_reasons: vec!["Plan is stale".to_string()],
+                ..CurrentContextV1::default()
+            },
+        )
+        .await;
+        seed_commitment(
+            &storage,
+            "Write proposal @2h",
+            None,
+            Some("Project Atlas"),
+            json!({ "labels": ["urgent", "cal:free"] }),
+        )
+        .await;
+
+        let (_, context) = storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("current context");
+        let card = derive_current_reflow(&storage, &context, now_ts)
+            .await
+            .expect("reflow derivation")
+            .expect("reflow card");
+        let proposal = card.proposal.expect("proposal");
+
+        assert_eq!(proposal.needs_judgment_count, 1);
+        assert!(proposal
+            .changes
+            .iter()
+            .any(|change| change.kind == ReflowChangeKind::NeedsJudgment));
     }
 }

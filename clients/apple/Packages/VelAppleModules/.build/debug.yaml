@@ -1,0 +1,228 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "PackageStructure": ["<PackageStructure>"]
+  "VelApplePlatform-debug.module": ["<VelApplePlatform-debug.module>"]
+  "VelApplication-debug.module": ["<VelApplication-debug.module>"]
+  "VelDomain-debug.module": ["<VelDomain-debug.module>"]
+  "VelEmbeddedBridge-debug.module": ["<VelEmbeddedBridge-debug.module>"]
+  "VelFeatureFlags-debug.module": ["<VelFeatureFlags-debug.module>"]
+  "VelInfrastructure-debug.module": ["<VelInfrastructure-debug.module>"]
+  "VelUIShared-debug.module": ["<VelUIShared-debug.module>"]
+  "main": ["<VelApplePlatform-debug.module>","<VelApplication-debug.module>","<VelDomain-debug.module>","<VelEmbeddedBridge-debug.module>","<VelFeatureFlags-debug.module>","<VelInfrastructure-debug.module>","<VelUIShared-debug.module>"]
+  "test": ["<VelApplePlatform-debug.module>","<VelApplication-debug.module>","<VelDomain-debug.module>","<VelEmbeddedBridge-debug.module>","<VelFeatureFlags-debug.module>","<VelInfrastructure-debug.module>","<VelUIShared-debug.module>"]
+default: "main"
+nodes:
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplication/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelDomain/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelEmbeddedBridge/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelFeatureFlags/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelUIShared/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+commands:
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/VelApplePlatform.swiftmodule.o":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/VelApplePlatform.swiftmodule.o"]
+    description: "Wrapping AST for VelApplePlatform for debugging"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-modulewrap","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule","-o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/VelApplePlatform.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/PlatformAdapters.swift"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources"]
+    description: "Write auxiliary file /home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources"
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/VelApplication.swiftmodule.o":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.swiftmodule"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/VelApplication.swiftmodule.o"]
+    description: "Wrapping AST for VelApplication for debugging"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-modulewrap","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.swiftmodule","-o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/VelApplication.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources"]
+    description: "Write auxiliary file /home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources"
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/VelDomain.swiftmodule.o":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/VelDomain.swiftmodule.o"]
+    description: "Wrapping AST for VelDomain for debugging"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-modulewrap","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule","-o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/VelDomain.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelDomain/Models.swift"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources"]
+    description: "Write auxiliary file /home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources"
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/VelEmbeddedBridge.swiftmodule.o":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/VelEmbeddedBridge.swiftmodule.o"]
+    description: "Wrapping AST for VelEmbeddedBridge for debugging"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-modulewrap","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule","-o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/VelEmbeddedBridge.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelEmbeddedBridge/EmbeddedBridge.swift"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources"]
+    description: "Write auxiliary file /home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources"
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/VelFeatureFlags.swiftmodule.o":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/VelFeatureFlags.swiftmodule.o"]
+    description: "Wrapping AST for VelFeatureFlags for debugging"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-modulewrap","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule","-o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/VelFeatureFlags.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelFeatureFlags/FeatureCapabilities.swift"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources"]
+    description: "Write auxiliary file /home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources"
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/VelInfrastructure.swiftmodule.o":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/VelInfrastructure.swiftmodule.o"]
+    description: "Wrapping AST for VelInfrastructure for debugging"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-modulewrap","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule","-o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/VelInfrastructure.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources"]
+    description: "Write auxiliary file /home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources"
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/VelUIShared.swiftmodule.o":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.swiftmodule"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/VelUIShared.swiftmodule.o"]
+    description: "Wrapping AST for VelUIShared for debugging"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-modulewrap","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.swiftmodule","-o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/VelUIShared.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelUIShared/UIShared.swift"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources"]
+    description: "Write auxiliary file /home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources"
+
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/etc/profiles/per-user/jove/bin/swiftc"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+
+  "<VelApplePlatform-debug.module>":
+    tool: phony
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/PlatformAdapters.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule"]
+    outputs: ["<VelApplePlatform-debug.module>"]
+
+  "<VelApplication-debug.module>":
+    tool: phony
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/Services.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.swiftmodule"]
+    outputs: ["<VelApplication-debug.module>"]
+
+  "<VelDomain-debug.module>":
+    tool: phony
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/Models.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule"]
+    outputs: ["<VelDomain-debug.module>"]
+
+  "<VelEmbeddedBridge-debug.module>":
+    tool: phony
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/EmbeddedBridge.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule"]
+    outputs: ["<VelEmbeddedBridge-debug.module>"]
+
+  "<VelFeatureFlags-debug.module>":
+    tool: phony
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/FeatureCapabilities.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule"]
+    outputs: ["<VelFeatureFlags-debug.module>"]
+
+  "<VelInfrastructure-debug.module>":
+    tool: phony
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/Infrastructure.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule"]
+    outputs: ["<VelInfrastructure-debug.module>"]
+
+  "<VelUIShared-debug.module>":
+    tool: phony
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/UIShared.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.swiftmodule"]
+    outputs: ["<VelUIShared-debug.module>"]
+
+  "C.VelApplePlatform-debug.module":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/PlatformAdapters.swift","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/PlatformAdapters.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule"]
+    description: "Compiling Swift Module 'VelApplePlatform' (1 sources)"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-module-name","VelApplePlatform","-emit-dependencies","-emit-module","-emit-module-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule","-output-file-map","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/output-file-map.json","-parse-as-library","-incremental","-c","@/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources","-I","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug","-target","x86_64-unknown-linux-gnu","-swift-version","5","-enable-batch-mode","-Onone","-enable-testing","-j32","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache","-parseable-output","-parse-as-library","-g","-Xcc","-fPIC","-Xcc","-g","-package-name","velapplemodules","-Xcc","-fno-omit-frame-pointer"]
+
+  "C.VelApplication-debug.module":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/Services.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.swiftmodule"]
+    description: "Compiling Swift Module 'VelApplication' (1 sources)"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-module-name","VelApplication","-emit-dependencies","-emit-module","-emit-module-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.swiftmodule","-output-file-map","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/output-file-map.json","-parse-as-library","-incremental","-c","@/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources","-I","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug","-target","x86_64-unknown-linux-gnu","-swift-version","5","-enable-batch-mode","-Onone","-enable-testing","-j32","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache","-parseable-output","-parse-as-library","-g","-Xcc","-fPIC","-Xcc","-g","-package-name","velapplemodules","-Xcc","-fno-omit-frame-pointer"]
+
+  "C.VelDomain-debug.module":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelDomain/Models.swift","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/Models.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule"]
+    description: "Compiling Swift Module 'VelDomain' (1 sources)"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-module-name","VelDomain","-emit-dependencies","-emit-module","-emit-module-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule","-output-file-map","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/output-file-map.json","-parse-as-library","-incremental","-c","@/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources","-I","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug","-target","x86_64-unknown-linux-gnu","-swift-version","5","-enable-batch-mode","-Onone","-enable-testing","-j32","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache","-parseable-output","-parse-as-library","-g","-Xcc","-fPIC","-Xcc","-g","-package-name","velapplemodules","-Xcc","-fno-omit-frame-pointer"]
+
+  "C.VelEmbeddedBridge-debug.module":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelEmbeddedBridge/EmbeddedBridge.swift","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/EmbeddedBridge.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule"]
+    description: "Compiling Swift Module 'VelEmbeddedBridge' (1 sources)"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-module-name","VelEmbeddedBridge","-emit-dependencies","-emit-module","-emit-module-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule","-output-file-map","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/output-file-map.json","-parse-as-library","-incremental","-c","@/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources","-I","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug","-target","x86_64-unknown-linux-gnu","-swift-version","5","-enable-batch-mode","-Onone","-enable-testing","-j32","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache","-parseable-output","-parse-as-library","-g","-Xcc","-fPIC","-Xcc","-g","-package-name","velapplemodules","-Xcc","-fno-omit-frame-pointer"]
+
+  "C.VelFeatureFlags-debug.module":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelFeatureFlags/FeatureCapabilities.swift","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/FeatureCapabilities.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule"]
+    description: "Compiling Swift Module 'VelFeatureFlags' (1 sources)"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-module-name","VelFeatureFlags","-emit-dependencies","-emit-module","-emit-module-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule","-output-file-map","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/output-file-map.json","-parse-as-library","-incremental","-c","@/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources","-I","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug","-target","x86_64-unknown-linux-gnu","-swift-version","5","-enable-batch-mode","-Onone","-enable-testing","-j32","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache","-parseable-output","-parse-as-library","-g","-Xcc","-fPIC","-Xcc","-g","-package-name","velapplemodules","-Xcc","-fno-omit-frame-pointer"]
+
+  "C.VelInfrastructure-debug.module":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/Infrastructure.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule"]
+    description: "Compiling Swift Module 'VelInfrastructure' (1 sources)"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-module-name","VelInfrastructure","-emit-dependencies","-emit-module","-emit-module-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule","-output-file-map","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/output-file-map.json","-parse-as-library","-incremental","-c","@/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources","-I","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug","-target","x86_64-unknown-linux-gnu","-swift-version","5","-enable-batch-mode","-Onone","-enable-testing","-j32","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache","-parseable-output","-parse-as-library","-g","-Xcc","-fPIC","-Xcc","-g","-package-name","velapplemodules","-Xcc","-fno-omit-frame-pointer"]
+
+  "C.VelUIShared-debug.module":
+    tool: shell
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelUIShared/UIShared.swift","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources"]
+    outputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/UIShared.swift.o","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.swiftmodule"]
+    description: "Compiling Swift Module 'VelUIShared' (1 sources)"
+    args: ["/etc/profiles/per-user/jove/bin/swiftc","-module-name","VelUIShared","-emit-dependencies","-emit-module","-emit-module-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.swiftmodule","-output-file-map","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/output-file-map.json","-parse-as-library","-incremental","-c","@/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources","-I","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug","-target","x86_64-unknown-linux-gnu","-swift-version","5","-enable-batch-mode","-Onone","-enable-testing","-j32","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache","-parseable-output","-parse-as-library","-g","-Xcc","-fPIC","-Xcc","-g","-package-name","velapplemodules","-Xcc","-fno-omit-frame-pointer"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplication/","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelDomain/","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelEmbeddedBridge/","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelFeatureFlags/","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelUIShared/","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Package.swift","/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+

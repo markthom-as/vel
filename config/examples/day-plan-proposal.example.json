@@ -1,0 +1,81 @@
+{
+  "headline": "Today has a bounded plan",
+  "summary": "Vel shaped the morning around current routine blocks, calendar anchors, and open commitments.",
+  "scheduled_count": 2,
+  "deferred_count": 1,
+  "did_not_fit_count": 1,
+  "needs_judgment_count": 1,
+  "changes": [
+    {
+      "kind": "scheduled",
+      "title": "Draft phase contract",
+      "detail": "Placed into the prenoon focus block before the first calendar anchor.",
+      "project_label": "Vel",
+      "scheduled_start_ts": 1710000000,
+      "rule_facets": [
+        {
+          "kind": "block_target",
+          "label": "block:focus",
+          "detail": "Task prefers a named block target."
+        },
+        {
+          "kind": "time_window",
+          "label": "time:prenoon",
+          "detail": "Task prefers a bounded part of the day."
+        }
+      ]
+    },
+    {
+      "kind": "deferred",
+      "title": "Email project follow-up",
+      "detail": "Deferred because a protected routine block and fixed event leave no clean slot before lunch.",
+      "project_label": "Vel",
+      "scheduled_start_ts": null,
+      "rule_facets": [
+        {
+          "kind": "local_defer",
+          "label": "defer",
+          "detail": "Task is marked for local defer logic."
+        }
+      ]
+    },
+    {
+      "kind": "did_not_fit",
+      "title": "Admin cleanup",
+      "detail": "Did not fit in the remaining bounded windows for today.",
+      "project_label": null,
+      "scheduled_start_ts": null,
+      "rule_facets": [
+        {
+          "kind": "duration",
+          "label": "60m",
+          "detail": "Duration came from canonical scheduler normalization."
+        }
+      ]
+    },
+    {
+      "kind": "needs_judgment",
+      "title": "Call accountant",
+      "detail": "Anchored work overlaps an imported event and still needs operator judgment.",
+      "project_label": null,
+      "scheduled_start_ts": null,
+      "rule_facets": [
+        {
+          "kind": "fixed_start",
+          "label": "fixed_start",
+          "detail": "Task has an anchored scheduled start."
+        }
+      ]
+    }
+  ],
+  "routine_blocks": [
+    {
+      "id": "routine_focus_am",
+      "label": "Focus",
+      "source": "operator_declared",
+      "start_ts": 1710000000,
+      "end_ts": 1710003600,
+      "protected": true
+    }
+  ]
+}

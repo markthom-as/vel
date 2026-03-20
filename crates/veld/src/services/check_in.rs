@@ -17,7 +17,7 @@ pub async fn get_current_check_in(
     timezone: &ResolvedTimeZone,
 ) -> Result<Option<CheckInCard>, AppError> {
     let session_date =
-        crate::services::timezone::local_date_string(timezone, OffsetDateTime::now_utc());
+        crate::services::timezone::current_day_date_string(timezone, OffsetDateTime::now_utc())?;
 
     for phase in [DailyLoopPhase::Standup, DailyLoopPhase::MorningOverview] {
         if let Some(session) = daily_loop::get_active_session(storage, &session_date, phase).await?

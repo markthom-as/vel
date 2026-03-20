@@ -69,6 +69,9 @@ fn format_agent_inspect(inspect: &AgentInspectData) -> String {
     lines.push(
         "- assistant proposals: supervised writes stay review-gated; proposal threads may now show staged, approved, applied, failed, or reversed continuity".to_string(),
     );
+    lines.push(
+        "- planning-profile parity: CLI, Apple, and assistant/voice now read or stage the same backend-owned routine/planning profile; conversational edits stay staged with explicit thread continuity".to_string(),
+    );
 
     lines.push(String::new());
     lines.push("review obligations:".to_string());
@@ -175,10 +178,11 @@ mod tests {
         AgentBlockerData, AgentCapabilityEntryData, AgentCapabilityGroupData,
         AgentCapabilityGroupKindData, AgentCapabilitySummaryData, AgentContextRefData,
         AgentGroundingPackData, AgentInspectData, AgentInspectExplainabilityData,
-        AgentReviewObligationsData, CommitmentData, ExecutionReviewGateData, NowAttentionData,
-        NowData, NowDebugData, NowFreshnessData, NowLabelData, NowRiskSummaryData, NowScheduleData,
-        NowSourcesData, NowSummaryData, NowTasksData, ReviewSnapshotData, TrustReadinessData,
-        TrustReadinessFacetData, TrustReadinessReviewData,
+        AgentReviewObligationsData, CanonicalScheduleRulesData, CommitmentData,
+        ExecutionReviewGateData, NowAttentionData, NowData, NowDebugData, NowFreshnessData,
+        NowLabelData, NowRiskSummaryData, NowScheduleData, NowSourcesData, NowSummaryData,
+        NowTasksData, ReviewSnapshotData, TrustReadinessData, TrustReadinessFacetData,
+        TrustReadinessReviewData,
     };
 
     fn sample_inspect() -> AgentInspectData {
@@ -245,6 +249,8 @@ mod tests {
                         overall_status: "fresh".to_string(),
                         sources: Vec::new(),
                     },
+                    planning_profile_summary: None,
+                    commitment_scheduling_summary: None,
                     trust_readiness: TrustReadinessData {
                         level: "ok".to_string(),
                         headline: "Trust looks good".to_string(),
@@ -269,6 +275,7 @@ mod tests {
                         follow_through: Vec::new(),
                     },
                     check_in: None,
+                    day_plan: None,
                     reflow: None,
                     reflow_status: None,
                     action_items: Vec::new(),
@@ -310,6 +317,15 @@ mod tests {
                     commitment_kind: Some("must".to_string()),
                     created_at: OffsetDateTime::now_utc(),
                     resolved_at: None,
+                    scheduler_rules: CanonicalScheduleRulesData {
+                        block_target: None,
+                        duration_minutes: None,
+                        calendar_free: false,
+                        fixed_start: false,
+                        time_window: None,
+                        local_urgency: false,
+                        local_defer: false,
+                    },
                     metadata: serde_json::json!({ "priority": 1 }),
                 }],
                 review: AgentReviewObligationsData {

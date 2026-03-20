@@ -1,0 +1,28 @@
+{
+  "source_kind": "reflow",
+  "state": "staged",
+  "summary": "Vel can move one slipped commitment later today and clear one conflicting anchor if you approve the bounded repair.",
+  "requires_confirmation": true,
+  "continuity": "thread",
+  "mutations": [
+    {
+      "commitment_id": "cmt_write_spec",
+      "kind": "set_due_at",
+      "title": "Finish phase 33 contract slice",
+      "summary": "Move the work into the next free same-day window.",
+      "project_label": "Vel",
+      "previous_due_at_ts": 1774039200,
+      "next_due_at_ts": 1774046400
+    },
+    {
+      "commitment_id": "cmt_old_anchor",
+      "kind": "clear_due_at",
+      "title": "Old anchor that already slipped",
+      "summary": "Clear the stale scheduled time so follow-through can continue in Threads.",
+      "project_label": "Vel",
+      "previous_due_at_ts": 1774035600
+    }
+  ],
+  "thread_id": "thr_reflow_schedule_1",
+  "thread_type": "reflow_edit"
+}

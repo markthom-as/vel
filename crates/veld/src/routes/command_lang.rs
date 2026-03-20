@@ -50,6 +50,11 @@ fn payload_to_data(
             })
         }
         services::command_lang::CommandExecutionPayload::CommitmentCreated(payload) => {
+            let scheduler_rules = vel_core::CanonicalScheduleRules::from_commitment_parts(
+                &payload.text,
+                &payload.metadata,
+                payload.due_at,
+            );
             CommandExecutionPayloadData::CommitmentCreated(CommitmentData {
                 id: payload.id,
                 text: payload.text,
@@ -61,6 +66,7 @@ fn payload_to_data(
                 commitment_kind: payload.commitment_kind,
                 created_at: payload.created_at,
                 resolved_at: payload.resolved_at,
+                scheduler_rules: scheduler_rules.into(),
                 metadata: payload.metadata,
             })
         }

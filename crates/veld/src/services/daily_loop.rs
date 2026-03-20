@@ -77,7 +77,7 @@ pub async fn start_or_resume_assistant_session(
     };
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
     let session_date =
-        crate::services::timezone::local_date_string(&timezone, OffsetDateTime::now_utc());
+        crate::services::timezone::current_day_date_string(&timezone, OffsetDateTime::now_utc())?;
     if assistant_prefers_resume(transcript) {
         if let Some(active) = get_active_session(storage, &session_date, phase).await? {
             return Ok(Some(active));

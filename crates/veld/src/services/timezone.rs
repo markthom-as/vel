@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, LocalResult, TimeZone, Utc};
+use chrono::{DateTime, Datelike, LocalResult, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use time::OffsetDateTime;
 use vel_storage::Storage;
@@ -6,11 +6,19 @@ use vel_storage::Storage;
 use crate::errors::AppError;
 
 const TIMEZONE_SETTING_KEY: &str = "timezone";
+pub const CURRENT_DAY_ROLLOVER_HOUR: u32 = 4;
 
 #[derive(Clone, Debug)]
 pub struct ResolvedTimeZone {
     pub name: String,
     tz: Tz,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CurrentDayWindow {
+    pub start_ts: i64,
+    pub end_ts: i64,
+    pub session_date: String,
 }
 
 impl ResolvedTimeZone {
@@ -30,6 +38,10 @@ impl ResolvedTimeZone {
             name: trimmed.to_string(),
             tz,
         })
+    }
+
+    pub(crate) fn tz(&self) -> Tz {
+        self.tz
     }
 }
 
@@ -57,20 +69,59 @@ pub fn start_of_local_day_timestamp(
 ) -> Result<i64, AppError> {
     let local = utc_datetime(now_utc).with_timezone(&timezone.tz);
     let local_midnight =
-        match timezone
-            .tz
-            .with_ymd_and_hms(local.year(), local.month(), local.day(), 0, 0, 0)
-        {
-            LocalResult::Single(value) => value,
-            LocalResult::Ambiguous(earliest, _) => earliest,
-            LocalResult::None => {
-                return Err(AppError::internal(format!(
-                    "unable to resolve local midnight for timezone {}",
-                    timezone.name
-                )));
-            }
-        };
+        resolve_local_datetime(timezone, local.year(), local.month(), local.day(), 0, 0, 0)?;
     Ok(local_midnight.with_timezone(&Utc).timestamp())
+}
+
+pub fn current_day_window(
+    timezone: &ResolvedTimeZone,
+    now_utc: OffsetDateTime,
+) -> Result<CurrentDayWindow, AppError> {
+    let local = utc_datetime(now_utc).with_timezone(&timezone.tz);
+    let mut session_date = local.date_naive();
+    if local.hour() < CURRENT_DAY_ROLLOVER_HOUR {
+        session_date = session_date
+            .pred_opt()
+            .ok_or_else(|| AppError::internal("unable to compute previous local date"))?;
+    }
+    let next_date = session_date
+        .succ_opt()
+        .ok_or_else(|| AppError::internal("unable to compute next local date"))?;
+    let start = resolve_local_datetime(
+        timezone,
+        session_date.year(),
+        session_date.month(),
+        session_date.day(),
+        CURRENT_DAY_ROLLOVER_HOUR,
+        0,
+        0,
+    )?;
+    let end = resolve_local_datetime(
+        timezone,
+        next_date.year(),
+        next_date.month(),
+        next_date.day(),
+        CURRENT_DAY_ROLLOVER_HOUR,
+        0,
+        0,
+    )?;
+    Ok(CurrentDayWindow {
+        start_ts: start.with_timezone(&Utc).timestamp(),
+        end_ts: end.with_timezone(&Utc).timestamp(),
+        session_date: format!(
+            "{:04}-{:02}-{:02}",
+            session_date.year(),
+            session_date.month(),
+            session_date.day()
+        ),
+    })
+}
+
+pub fn current_day_date_string(
+    timezone: &ResolvedTimeZone,
+    value: OffsetDateTime,
+) -> Result<String, AppError> {
+    Ok(current_day_window(timezone, value)?.session_date)
 }
 
 pub fn same_local_day(
@@ -96,6 +147,28 @@ pub fn local_date_string(timezone: &ResolvedTimeZone, value: OffsetDateTime) -> 
 fn utc_datetime(value: OffsetDateTime) -> DateTime<Utc> {
     DateTime::<Utc>::from_timestamp(value.unix_timestamp(), value.nanosecond())
         .expect("offset datetime should convert to chrono datetime")
+}
+
+fn resolve_local_datetime(
+    timezone: &ResolvedTimeZone,
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+) -> Result<DateTime<Tz>, AppError> {
+    match timezone
+        .tz
+        .with_ymd_and_hms(year, month, day, hour, minute, second)
+    {
+        LocalResult::Single(value) => Ok(value),
+        LocalResult::Ambiguous(earliest, _) => Ok(earliest),
+        LocalResult::None => Err(AppError::internal(format!(
+            "unable to resolve local datetime for timezone {}",
+            timezone.name
+        ))),
+    }
 }
 
 #[cfg(test)]
@@ -141,5 +214,41 @@ mod tests {
         let date = local_date_string(&timezone, value);
 
         assert_eq!(date, "2026-03-15");
+    }
+
+    #[test]
+    fn current_day_window_stays_on_previous_day_before_rollover_hour() {
+        let timezone = ResolvedTimeZone::parse("America/Denver").unwrap();
+        let now_utc = datetime!(2026-03-16 08:30:00 UTC);
+
+        let window = current_day_window(&timezone, now_utc).unwrap();
+
+        assert_eq!(window.session_date, "2026-03-15");
+        assert_eq!(
+            window.start_ts,
+            datetime!(2026-03-15 10:00:00 UTC).unix_timestamp()
+        );
+        assert_eq!(
+            window.end_ts,
+            datetime!(2026-03-16 10:00:00 UTC).unix_timestamp()
+        );
+    }
+
+    #[test]
+    fn current_day_window_advances_after_rollover_hour() {
+        let timezone = ResolvedTimeZone::parse("America/Denver").unwrap();
+        let now_utc = datetime!(2026-03-16 11:30:00 UTC);
+
+        let window = current_day_window(&timezone, now_utc).unwrap();
+
+        assert_eq!(window.session_date, "2026-03-16");
+        assert_eq!(
+            window.start_ts,
+            datetime!(2026-03-16 10:00:00 UTC).unix_timestamp()
+        );
+        assert_eq!(
+            window.end_ts,
+            datetime!(2026-03-17 10:00:00 UTC).unix_timestamp()
+        );
     }
 }

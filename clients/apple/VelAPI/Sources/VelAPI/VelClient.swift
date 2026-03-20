@@ -48,6 +48,10 @@ public final class VelClient {
         try await get("/v1/now")
     }
 
+    public func planningProfile() async throws -> PlanningProfileResponseData {
+        try await get("/v1/planning-profile")
+    }
+
     // MARK: - Signals / activity
 
     public func signals(

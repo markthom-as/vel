@@ -65,7 +65,7 @@ describe('Sidebar', () => {
       />,
     )
     expect(screen.queryByText('Conversation list conv_1')).toBeNull()
-    expect(screen.getAllByText(/Conversation history is scoped to the Threads surface/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Conversation history is scoped to Threads/i).length).toBeGreaterThan(0)
 
     rerender(
       <Sidebar
@@ -91,5 +91,33 @@ describe('Sidebar', () => {
     expect(screen.getAllByText('Daily Use').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Support').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Advanced').length).toBeGreaterThan(0)
+  })
+
+  it('keeps thread controls contextual instead of surfacing them on every surface', () => {
+    const { rerender } = render(
+      <Sidebar
+        activeView="now"
+        onSelectView={() => {}}
+        selectedConversationId={null}
+        onSelectConversation={() => {}}
+        onNewConversation={() => {}}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /new thread/i })).toBeNull()
+    expect(screen.getAllByText(/threads stay contextual/i).length).toBeGreaterThan(0)
+
+    rerender(
+      <Sidebar
+        activeView="threads"
+        onSelectView={() => {}}
+        selectedConversationId="conv_1"
+        onSelectConversation={() => {}}
+        onNewConversation={() => {}}
+      />,
+    )
+
+    expect(screen.getAllByRole('button', { name: /new thread/i }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: /hide history/i }).length).toBeGreaterThan(0)
   })
 })

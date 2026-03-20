@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.dev/schemas/apple-embedded-runtime-profile.schema.json",
+  "title": "Apple Embedded Runtime Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_version",
+    "current_truth_mode",
+    "embedded_target",
+    "feature_gates",
+    "embedded_safe_flows",
+    "daemon_backed_flows"
+  ],
+  "properties": {
+    "profile_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "current_truth_mode": {
+      "type": "string",
+      "enum": ["daemon_backed"]
+    },
+    "embedded_target": {
+      "type": "string",
+      "enum": ["iphone_only"]
+    },
+    "feature_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "embedded_bridge_available",
+        "platform_gate",
+        "embedded_mode_enabled",
+        "approved_flow_only"
+      ],
+      "properties": {
+        "embedded_bridge_available": { "type": "boolean" },
+        "platform_gate": {
+          "type": "string",
+          "enum": ["iphone"]
+        },
+        "embedded_mode_enabled": { "type": "boolean" },
+        "approved_flow_only": { "type": "boolean" }
+      }
+    },
+    "embedded_safe_flows": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "cached_now_hydration",
+          "local_quick_action_preparation",
+          "offline_request_packaging",
+          "deterministic_domain_helpers"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "daemon_backed_flows": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "heavy_recall",
+          "integration_sync",
+          "long_running_jobs",
+          "shared_thread_sync",
+          "supervised_review_apply",
+          "global_policy_decisions"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

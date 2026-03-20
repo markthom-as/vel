@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.example/schemas/commitment-scheduling-proposal.schema.json",
+  "title": "CommitmentSchedulingProposal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_kind",
+    "state",
+    "summary",
+    "requires_confirmation",
+    "continuity",
+    "mutations"
+  ],
+  "properties": {
+    "source_kind": {
+      "type": "string",
+      "enum": ["day_plan", "reflow"]
+    },
+    "state": {
+      "type": "string",
+      "enum": ["staged", "approved", "applied", "failed", "reversed"]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "requires_confirmation": {
+      "type": "boolean"
+    },
+    "continuity": {
+      "type": "string",
+      "enum": ["inline", "thread"]
+    },
+    "mutations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/commitmentSchedulingMutation"
+      }
+    },
+    "outcome_summary": {
+      "type": ["string", "null"]
+    },
+    "thread_id": {
+      "type": ["string", "null"]
+    },
+    "thread_type": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "commitmentSchedulingMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_id", "kind", "title", "summary"],
+      "properties": {
+        "commitment_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["set_due_at", "clear_due_at"]
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "project_label": {
+          "type": ["string", "null"]
+        },
+        "previous_due_at_ts": {
+          "type": ["integer", "null"]
+        },
+        "next_due_at_ts": {
+          "type": ["integer", "null"]
+        }
+      }
+    }
+  }
+}

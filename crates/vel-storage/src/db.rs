@@ -5,11 +5,11 @@ use crate::{
         captures_repo, chat_repo, cluster_workers_repo, commitment_risk_repo, commitments_repo,
         conflict_cases_repo, connect_runs_repo, context_timeline_repo, current_context_repo,
         daily_sessions_repo, execution_contexts_repo, execution_handoffs_repo, inferred_state_repo,
-        integration_connections_repo, linking_repo, nudges_repo, people_repo, processing_jobs_repo,
-        projects_repo, run_refs_repo, runs_repo, runtime_loops_repo, semantic_memory_repo,
-        settings_repo, signals_repo, suggestion_feedback_repo, suggestions_repo, threads_repo,
-        uncertainty_records_repo, upstream_refs_repo, work_assignments_repo,
-        writeback_operations_repo,
+        integration_connections_repo, linking_repo, nudges_repo, people_repo,
+        planning_profiles_repo, processing_jobs_repo, projects_repo, run_refs_repo, runs_repo,
+        runtime_loops_repo, semantic_memory_repo, settings_repo, signals_repo,
+        suggestion_feedback_repo, suggestions_repo, threads_repo, uncertainty_records_repo,
+        upstream_refs_repo, work_assignments_repo, writeback_operations_repo,
     },
 };
 use serde::Serialize;
@@ -26,9 +26,10 @@ use vel_core::{
     IntegrationConnectionEventType, IntegrationConnectionId, IntegrationConnectionSettingRef,
     IntegrationConnectionStatus, IntegrationFamily, IntegrationProvider, InterventionId, JobId,
     JobStatus, LinkedNodeRecord, MessageId, OrderingStamp, OrientationSnapshot, PairingTokenRecord,
-    PersonAlias, PersonId, PersonRecord, PrivacyClass, ProjectFamily, ProjectId, ProjectRecord,
-    Ref, Run, RunEvent, RunEventType, RunId, RunKind, RunStatus, SearchResult, SemanticHit,
-    SemanticMemoryRecord, SemanticQuery, SyncClass, WritebackOperationRecord, WritebackStatus,
+    PersonAlias, PersonId, PersonRecord, PlanningProfileMutation, PrivacyClass, ProjectFamily,
+    ProjectId, ProjectRecord, Ref, RoutinePlanningProfile, Run, RunEvent, RunEventType, RunId,
+    RunKind, RunStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery, SyncClass,
+    WritebackOperationRecord, WritebackStatus,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("../../migrations");
@@ -2184,6 +2185,26 @@ impl Storage {
         value: &serde_json::Value,
     ) -> Result<(), StorageError> {
         settings_repo::set_setting(self.pool(), key, value).await
+    }
+
+    pub async fn load_routine_planning_profile(
+        &self,
+    ) -> Result<RoutinePlanningProfile, StorageError> {
+        planning_profiles_repo::load_routine_planning_profile(self.pool()).await
+    }
+
+    pub async fn replace_routine_planning_profile(
+        &self,
+        profile: &RoutinePlanningProfile,
+    ) -> Result<(), StorageError> {
+        planning_profiles_repo::replace_routine_planning_profile(self.pool(), profile).await
+    }
+
+    pub async fn apply_routine_planning_profile_mutation(
+        &self,
+        mutation: &PlanningProfileMutation,
+    ) -> Result<RoutinePlanningProfile, StorageError> {
+        planning_profiles_repo::apply_routine_planning_profile_mutation(self.pool(), mutation).await
     }
 
     pub async fn claim_due_loop(

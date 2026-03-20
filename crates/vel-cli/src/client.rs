@@ -11,9 +11,9 @@ use vel_api_types::{
     HealthData, IntegrationConnectionData, IntegrationConnectionEventData, LinkScopeData,
     LinkedNodeData, LoopData, LoopUpdateRequest, MoodJournalCreateRequest, MorningData, NowData,
     NudgeData, NudgeSnoozeRequest, PainJournalCreateRequest, PairingTokenData,
-    ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest, SearchQuery, SearchResults,
-    SyncBootstrapData, SyncClusterStateData, SyncResultData, SynthesisWeekData, TodayData,
-    UncertaintyData, ValidationRequestData,
+    PlanningProfileResponseData, ProjectListResponseData, QueuedWorkRoutingData, RunUpdateRequest,
+    SearchQuery, SearchResults, SyncBootstrapData, SyncClusterStateData, SyncResultData,
+    SynthesisWeekData, TodayData, UncertaintyData, ValidationRequestData,
 };
 use vel_core::ResolvedCommand;
 
@@ -252,6 +252,12 @@ impl ApiClient {
 
     pub async fn doctor(&self) -> anyhow::Result<ApiResponse<DoctorData>> {
         self.get("/v1/doctor").await
+    }
+
+    pub async fn planning_profile(
+        &self,
+    ) -> anyhow::Result<ApiResponse<PlanningProfileResponseData>> {
+        self.get("/v1/planning-profile").await
     }
 
     pub async fn backup_status(&self) -> anyhow::Result<ApiResponse<BackupStatusData>> {

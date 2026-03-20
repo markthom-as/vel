@@ -40,6 +40,14 @@ Use it to answer four questions quickly:
 - `schemas/execution-handoff.schema.json`
 - `schemas/local-agent-manifest.schema.json`
 - `schemas/operator-action-item.schema.json`
+- `schemas/canonical-scheduler-rules.schema.json`
+- `schemas/day-plan-proposal.schema.json`
+- `schemas/commitment-scheduling-proposal.schema.json`
+- `schemas/routine-planning-profile.schema.json`
+- `schemas/planning-profile-mutation.schema.json`
+- `schemas/planning-profile-edit-proposal.schema.json`
+- `schemas/apple-embedded-runtime-profile.schema.json`
+- `schemas/apple-local-voice-continuity.schema.json`
 - `schemas/writeback-operation.schema.json`
 - `schemas/person-record.schema.json`
 - `schemas/sandbox-policy.schema.json`
@@ -63,6 +71,14 @@ Use it to answer four questions quickly:
   - `examples/execution-handoff.example.json`
   - `examples/local-agent-manifest.example.json`
   - `examples/operator-action-item.example.json`
+  - `examples/canonical-scheduler-rules.example.json`
+  - `examples/day-plan-proposal.example.json`
+  - `examples/commitment-scheduling-proposal.example.json`
+  - `examples/routine-planning-profile.example.json`
+  - `examples/planning-profile-mutation.example.json`
+  - `examples/planning-profile-edit-proposal.example.json`
+  - `examples/apple-embedded-runtime-profile.example.json`
+  - `examples/apple-local-voice-continuity.example.json`
   - `examples/writeback-operation.example.json`
   - `examples/person-record.example.json`
   - `examples/sandbox-host-call.example.json`
@@ -81,8 +97,15 @@ Use it to answer four questions quickly:
 - `docs/cognitive-agent-architecture/cognition/self-awareness-and-supervised-self-modification.md` owns self-model and writable-scope semantics.
 - `docs/cognitive-agent-architecture/architecture/project-action-linking-contracts.md` owns the Phase 05 typed project, operator-action, and linking vocabulary.
 - `docs/cognitive-agent-architecture/apple/apple-action-loop-contracts.md` owns the Phase 07 Apple voice, schedule, and bounded behavior-summary vocabulary.
+- `docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md` owns the Phase 37 embedded-capable Apple runtime and daemon-vs-embedded boundary vocabulary.
+- `docs/cognitive-agent-architecture/apple/apple-local-first-voice-continuity-contract.md` owns the Phase 38 iPhone local-first voice continuity, cached `Now`, and offline quick-action vocabulary.
 - `docs/cognitive-agent-architecture/agents/coding-execution-contracts.md` owns the Phase 08 repo-aware execution-context, local-manifest, and supervised handoff vocabulary.
 - `docs/cognitive-agent-architecture/architecture/backup-and-operator-trust-contracts.md` owns the Phase 09 backup manifest, inspection, and manual-first restore vocabulary.
+- `docs/cognitive-agent-architecture/architecture/durable-routine-planning-contract.md` owns the durable planning-profile input vocabulary.
+- `docs/cognitive-agent-architecture/architecture/planning-profile-management-contract.md` owns the typed planning-profile management mutation vocabulary.
+- `docs/cognitive-agent-architecture/architecture/planning-profile-parity-contract.md` owns the cross-surface parity and assistant-managed planning-profile edit vocabulary.
+- `docs/cognitive-agent-architecture/architecture/planning-profile-application-contract.md` owns the supervised planning-profile proposal lifecycle and approved-application vocabulary.
+- `docs/cognitive-agent-architecture/architecture/day-plan-application-contract.md` owns the supervised same-day `day_plan` / `reflow` application vocabulary over commitment scheduling.
 
 ## Scientific Substrate vs Symbolic Layer
 

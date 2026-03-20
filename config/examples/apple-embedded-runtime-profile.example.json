@@ -1,0 +1,30 @@
+{
+  "profile_version": 1,
+  "current_truth_mode": "daemon_backed",
+  "embedded_target": "iphone_only",
+  "feature_gates": {
+    "embedded_bridge_available": false,
+    "platform_gate": "iphone",
+    "embedded_mode_enabled": false,
+    "approved_flow_only": true
+  },
+  "embedded_safe_flows": [
+    "cached_now_hydration",
+    "local_quick_action_preparation",
+    "offline_request_packaging",
+    "deterministic_domain_helpers"
+  ],
+  "daemon_backed_flows": [
+    "heavy_recall",
+    "integration_sync",
+    "long_running_jobs",
+    "shared_thread_sync",
+    "supervised_review_apply",
+    "global_policy_decisions"
+  ],
+  "notes": [
+    "Phase 37 keeps the daemon-backed HTTP model as current truth.",
+    "The embedded-capable path is additive and iPhone-first.",
+    "Feature gates must fail closed to daemon-backed behavior."
+  ]
+}

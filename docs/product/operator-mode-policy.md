@@ -40,6 +40,7 @@ Policy:
 - tapping those indicators should usually deep-link into the matching filtered `Inbox` view first
 - `Inbox` remains the explicit triage queue
 - `Threads` remains the longer-form continuity and archive surface
+- the web sidebar should default to a thin icon rail: visible enough to discover, compact enough to ignore, and not a place for long explanatory blurbs
 
 ## Advanced Operator Mode
 
@@ -64,6 +65,8 @@ Internal/developer mode should expose:
 
 These surfaces should not define the product story.
 
+`Settings` should stay summary-first even when it grows. The general tab should group durable controls into a few clear buckets such as daily-use defaults, planning/recovery, devices/sync, and support/docs instead of one long blended document.
+
 ## `Now` Policy
 
 `Now` should be:
@@ -78,6 +81,12 @@ Rules:
 - non-urgent items should appear as status badges, counts, or compact deep links
 - recently handled items may fall into muted `Now` history at the bottom of the scroll
 - `Now` should support a floating microphone or equivalent primary voice entry on mobile
+- the default `Now` order should be: compact context bar, current status, primary ask/capture/talk input, next event, unified today lane, then compressed attention indicators
+- the backend-owned “today” feeding that surface should be sleep-relative rather than midnight-only, so late-night current-day work is not fragmented just because the clock crossed 00:00
+- the today lane should stay commitment-first: active item, next up, must/should commitments, then pullable tasks and collapsed recent completions
+- `next event` should stay strictly calendar-relevant and future-facing: routine blocks, all-day noise, free/transparent holds, declined events, and cancelled events should not occupy that slot
+- `Now` may resurface one clearly ranked thread when follow-through is still immediately relevant, but it should not widen that into a thread inbox by default
+- freshness, sync, debug, and broader operational posture should be demoted behind secondary controls rather than occupying primary scroll space
 
 ### `Now` action policy
 
@@ -100,9 +109,21 @@ Preferred first surface:
 Current shipped baseline:
 
 - the backend now computes a bounded same-day remaining-day proposal from persisted commitments and calendar events
+- those commitments now carry canonical scheduler rules as durable backend semantics, so shells should not infer scheduling meaning from raw label syntax
+- durable routine blocks and bounded planning constraints now feed the same backend-owned planning substrate before `reflow` runs, with inferred routine fallback only when no durable blocks are configured
 - `Now` should render aggregate counts plus compact `moved`, `unscheduled`, and `needs_judgment` rows from that typed proposal
 - `Settings` may summarize the same recovery posture, but it should not become a second planner surface
 - `Threads` remains the escalation lane for longer shaping or disagreement
+
+Current planning-contract note:
+
+- Phase 28 now publishes a bounded proactive day-plan contract over routine blocks, calendar anchors, and canonical scheduler rules
+- implementation should keep `day_plan` and later `reflow` on one backend-owned substrate rather than creating a second planner model
+- current shipped shells now consume optional typed `day_plan` output from `GET /v1/now` directly: `Now` shows the compact plan plus whether the day is using operator-managed routines or inferred fallback, `Threads` carries longer shaping/disagreement, and `Settings` summarizes posture without becoming a planner
+- Phase 30 now exposes typed planning-profile management over that same substrate: `Settings` can inspect and mutate durable routine blocks and bounded planning constraints, but shells still do not own planning semantics locally
+- Phase 31 extends inspection parity and staged edit parity across CLI, Apple, and assistant/voice entry: those surfaces can now read the same planning profile and stage bounded profile edits, but confirmation and thread continuity remain explicit and the profile is not silently mutated by conversational shells
+- Phase 32 now closes the supervised apply lane: approved planning-profile proposals can apply through the canonical backend mutation seam, but proposal state and applied/failed outcomes still remain explicit continuity in `Threads`, `Now`, and summary surfaces rather than becoming inline planner writes
+- Phase 33 now applies the same pattern to same-day schedule changes: `day_plan` / `reflow` proposals can resolve through the canonical commitment-scheduling apply seam, while `Now`, CLI, and Apple only show compact pending/applied/failed continuity from backend state
 
 `Edit` should open the `Threads` interface so the operator can give feedback and shape the recalculation.
 
@@ -134,6 +155,7 @@ Rules:
 - it is the escalation path for longer clarification flows
 - it should support durable history when an interaction becomes meaningfully multi-step
 - it does not need to become a durable thread for every one-step inline interaction
+- the default framing should emphasize continuity and resume-ability over “chat” identity, so operators understand it as follow-through rather than a second inbox
 
 ## `Projects` Policy
 
@@ -219,9 +241,12 @@ If a blocking `check_in` is ignored:
 
 Apple should remain summary-first.
 
+Phase 37 adds an additive iPhone embedded-capable seam for bounded local helper flows, but Apple still must not become a second policy or authority brain. Embedded use is justified for responsiveness and offline resilience only where the boundary is explicit and fail-closed; daemon-backed truth remains primary.
+
 Rules:
 
 - bounded trust, freshness, and check-in cues are appropriate
+- local-first voice recovery may surface as compact draft/pending/merged continuity in Apple `Now` and `Threads`, but Apple must still defer to canonical thread identity and backend-owned answers when reconnect happens
 - grounding and deeper advanced surfaces should remain less prominent than on web
 - eventual parity is desirable, but default mobile embodiment should remain compact and contextual
 

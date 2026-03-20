@@ -6,7 +6,9 @@ use time::macros::datetime;
 use time::{Duration, OffsetDateTime};
 use tokio::sync::broadcast;
 use tower::util::ServiceExt;
-use vel_api_types::{ApiResponse, AppleVoiceIntentData, AppleVoiceTurnRequestData};
+use vel_api_types::{
+    ApiResponse, AppleResponseModeData, AppleVoiceIntentData, AppleVoiceTurnRequestData,
+};
 use vel_config::AppConfig;
 use vel_core::{
     AppleClientSurface, AppleRequestedOperation, CurrentContextV1, DailyLoopPhase, DailyLoopStatus,
@@ -483,4 +485,48 @@ async fn apple_voice_standup_resume_uses_shared_standup_session_flow() {
 
     assert_eq!(record.session.phase, DailyLoopPhase::Standup);
     assert_eq!(record.session.start.surface, DailyLoopSurface::AppleVoice);
+}
+
+#[tokio::test]
+async fn apple_voice_mutation_stages_planning_profile_edit_with_confirmation() {
+    let storage = test_storage().await;
+    let app = build_app(
+        storage.clone(),
+        AppConfig::default(),
+        test_policy_config(),
+        None,
+        None,
+    );
+
+    let response = app
+        .oneshot(build_request(AppleVoiceTurnRequestData {
+            transcript: "Add a protected weekday Focus block from 09:00 to 11:00 in America/Denver"
+                .to_string(),
+            surface: AppleClientSurface::IosVoice.into(),
+            operation: AppleRequestedOperation::Mutation.into(),
+            intents: vec![],
+            provenance: None,
+        }))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let payload: ApiResponse<vel_api_types::AppleVoiceTurnResponseData> =
+        serde_json::from_slice(&body).unwrap();
+    let data = payload.data.expect("voice response data");
+
+    assert_eq!(data.mode, AppleResponseModeData::Confirmation);
+    assert!(data.summary.contains("Stage routine block"));
+    let queued = data.queued_mutation.expect("queued mutation summary");
+    assert_eq!(queued.mutation_kind, "planning_profile_edit");
+    let thread_id = data.thread_id.expect("thread id");
+    let thread = storage
+        .get_thread_by_id(&thread_id)
+        .await
+        .unwrap()
+        .expect("planning profile proposal thread");
+    assert_eq!(thread.1, "planning_profile_edit");
 }

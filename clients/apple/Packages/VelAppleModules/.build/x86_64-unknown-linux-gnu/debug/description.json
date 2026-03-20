@@ -1,0 +1,935 @@
+{
+  "builtTestProducts" : [
+
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.VelApplePlatform-debug.module" : {
+      "executable" : "/etc/profiles/per-user/jove/bin/swiftc",
+      "fileList" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources",
+      "importPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/PlatformAdapters.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VelApplePlatform",
+      "moduleOutputPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule",
+      "objects" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/PlatformAdapters.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-swift-version",
+        "5",
+        "-enable-batch-mode",
+        "-Onone",
+        "-enable-testing",
+        "-j32",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-g",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "velapplemodules",
+        "-Xcc",
+        "-fno-omit-frame-pointer"
+      ],
+      "outputFileMapPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/PlatformAdapters.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule"
+        }
+      ],
+      "sources" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/PlatformAdapters.swift"
+      ],
+      "tempsPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.VelApplication-debug.module" : {
+      "executable" : "/etc/profiles/per-user/jove/bin/swiftc",
+      "fileList" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources",
+      "importPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VelApplication",
+      "moduleOutputPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.swiftmodule",
+      "objects" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/Services.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-swift-version",
+        "5",
+        "-enable-batch-mode",
+        "-Onone",
+        "-enable-testing",
+        "-j32",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-g",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "velapplemodules",
+        "-Xcc",
+        "-fno-omit-frame-pointer"
+      ],
+      "outputFileMapPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/Services.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.swiftmodule"
+        }
+      ],
+      "sources" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift"
+      ],
+      "tempsPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.VelDomain-debug.module" : {
+      "executable" : "/etc/profiles/per-user/jove/bin/swiftc",
+      "fileList" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources",
+      "importPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelDomain/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VelDomain",
+      "moduleOutputPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule",
+      "objects" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/Models.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-swift-version",
+        "5",
+        "-enable-batch-mode",
+        "-Onone",
+        "-enable-testing",
+        "-j32",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-g",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "velapplemodules",
+        "-Xcc",
+        "-fno-omit-frame-pointer"
+      ],
+      "outputFileMapPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule"
+        }
+      ],
+      "sources" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelDomain/Models.swift"
+      ],
+      "tempsPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.VelEmbeddedBridge-debug.module" : {
+      "executable" : "/etc/profiles/per-user/jove/bin/swiftc",
+      "fileList" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources",
+      "importPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelEmbeddedBridge/EmbeddedBridge.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VelEmbeddedBridge",
+      "moduleOutputPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule",
+      "objects" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/EmbeddedBridge.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-swift-version",
+        "5",
+        "-enable-batch-mode",
+        "-Onone",
+        "-enable-testing",
+        "-j32",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-g",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "velapplemodules",
+        "-Xcc",
+        "-fno-omit-frame-pointer"
+      ],
+      "outputFileMapPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/EmbeddedBridge.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.swiftmodule"
+        }
+      ],
+      "sources" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelEmbeddedBridge/EmbeddedBridge.swift"
+      ],
+      "tempsPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.VelFeatureFlags-debug.module" : {
+      "executable" : "/etc/profiles/per-user/jove/bin/swiftc",
+      "fileList" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources",
+      "importPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelFeatureFlags/FeatureCapabilities.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VelFeatureFlags",
+      "moduleOutputPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule",
+      "objects" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/FeatureCapabilities.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-swift-version",
+        "5",
+        "-enable-batch-mode",
+        "-Onone",
+        "-enable-testing",
+        "-j32",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-g",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "velapplemodules",
+        "-Xcc",
+        "-fno-omit-frame-pointer"
+      ],
+      "outputFileMapPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/FeatureCapabilities.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule"
+        }
+      ],
+      "sources" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelFeatureFlags/FeatureCapabilities.swift"
+      ],
+      "tempsPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.VelInfrastructure-debug.module" : {
+      "executable" : "/etc/profiles/per-user/jove/bin/swiftc",
+      "fileList" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources",
+      "importPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VelInfrastructure",
+      "moduleOutputPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule",
+      "objects" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/Infrastructure.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-swift-version",
+        "5",
+        "-enable-batch-mode",
+        "-Onone",
+        "-enable-testing",
+        "-j32",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-g",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "velapplemodules",
+        "-Xcc",
+        "-fno-omit-frame-pointer"
+      ],
+      "outputFileMapPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/Infrastructure.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.swiftmodule"
+        }
+      ],
+      "sources" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift"
+      ],
+      "tempsPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.VelUIShared-debug.module" : {
+      "executable" : "/etc/profiles/per-user/jove/bin/swiftc",
+      "fileList" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources",
+      "importPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelUIShared/UIShared.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "VelUIShared",
+      "moduleOutputPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.swiftmodule",
+      "objects" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/UIShared.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-swift-version",
+        "5",
+        "-enable-batch-mode",
+        "-Onone",
+        "-enable-testing",
+        "-j32",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-g",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "velapplemodules",
+        "-Xcc",
+        "-fno-omit-frame-pointer"
+      ],
+      "outputFileMapPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/UIShared.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.swiftmodule"
+        }
+      ],
+      "sources" : [
+        "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelUIShared/UIShared.swift"
+      ],
+      "tempsPath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "VelApplePlatform" : [
+      "/etc/profiles/per-user/jove/bin/swiftc",
+      "-module-name",
+      "VelApplePlatform",
+      "-package-name",
+      "velapplemodules",
+      "-incremental",
+      "-c",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/PlatformAdapters.swift",
+      "-I",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-swift-version",
+      "5",
+      "-enable-batch-mode",
+      "-Onone",
+      "-enable-testing",
+      "-j32",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-g",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "velapplemodules",
+      "-Xcc",
+      "-fno-omit-frame-pointer",
+      "-driver-use-frontend-path",
+      "/etc/profiles/per-user/jove/bin/swiftc"
+    ],
+    "VelApplication" : [
+      "/etc/profiles/per-user/jove/bin/swiftc",
+      "-module-name",
+      "VelApplication",
+      "-package-name",
+      "velapplemodules",
+      "-incremental",
+      "-c",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift",
+      "-I",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-swift-version",
+      "5",
+      "-enable-batch-mode",
+      "-Onone",
+      "-enable-testing",
+      "-j32",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-g",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "velapplemodules",
+      "-Xcc",
+      "-fno-omit-frame-pointer",
+      "-driver-use-frontend-path",
+      "/etc/profiles/per-user/jove/bin/swiftc"
+    ],
+    "VelDomain" : [
+      "/etc/profiles/per-user/jove/bin/swiftc",
+      "-module-name",
+      "VelDomain",
+      "-package-name",
+      "velapplemodules",
+      "-incremental",
+      "-c",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelDomain/Models.swift",
+      "-I",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-swift-version",
+      "5",
+      "-enable-batch-mode",
+      "-Onone",
+      "-enable-testing",
+      "-j32",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-g",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "velapplemodules",
+      "-Xcc",
+      "-fno-omit-frame-pointer",
+      "-driver-use-frontend-path",
+      "/etc/profiles/per-user/jove/bin/swiftc"
+    ],
+    "VelEmbeddedBridge" : [
+      "/etc/profiles/per-user/jove/bin/swiftc",
+      "-module-name",
+      "VelEmbeddedBridge",
+      "-package-name",
+      "velapplemodules",
+      "-incremental",
+      "-c",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelEmbeddedBridge/EmbeddedBridge.swift",
+      "-I",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-swift-version",
+      "5",
+      "-enable-batch-mode",
+      "-Onone",
+      "-enable-testing",
+      "-j32",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-g",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "velapplemodules",
+      "-Xcc",
+      "-fno-omit-frame-pointer",
+      "-driver-use-frontend-path",
+      "/etc/profiles/per-user/jove/bin/swiftc"
+    ],
+    "VelFeatureFlags" : [
+      "/etc/profiles/per-user/jove/bin/swiftc",
+      "-module-name",
+      "VelFeatureFlags",
+      "-package-name",
+      "velapplemodules",
+      "-incremental",
+      "-c",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelFeatureFlags/FeatureCapabilities.swift",
+      "-I",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-swift-version",
+      "5",
+      "-enable-batch-mode",
+      "-Onone",
+      "-enable-testing",
+      "-j32",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-g",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "velapplemodules",
+      "-Xcc",
+      "-fno-omit-frame-pointer",
+      "-driver-use-frontend-path",
+      "/etc/profiles/per-user/jove/bin/swiftc"
+    ],
+    "VelInfrastructure" : [
+      "/etc/profiles/per-user/jove/bin/swiftc",
+      "-module-name",
+      "VelInfrastructure",
+      "-package-name",
+      "velapplemodules",
+      "-incremental",
+      "-c",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift",
+      "-I",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-swift-version",
+      "5",
+      "-enable-batch-mode",
+      "-Onone",
+      "-enable-testing",
+      "-j32",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-g",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "velapplemodules",
+      "-Xcc",
+      "-fno-omit-frame-pointer",
+      "-driver-use-frontend-path",
+      "/etc/profiles/per-user/jove/bin/swiftc"
+    ],
+    "VelUIShared" : [
+      "/etc/profiles/per-user/jove/bin/swiftc",
+      "-module-name",
+      "VelUIShared",
+      "-package-name",
+      "velapplemodules",
+      "-incremental",
+      "-c",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelUIShared/UIShared.swift",
+      "-I",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-swift-version",
+      "5",
+      "-enable-batch-mode",
+      "-Onone",
+      "-enable-testing",
+      "-j32",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-g",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "velapplemodules",
+      "-Xcc",
+      "-fno-omit-frame-pointer",
+      "-driver-use-frontend-path",
+      "/etc/profiles/per-user/jove/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "VelApplePlatform" : [
+      "VelFeatureFlags"
+    ],
+    "VelApplication" : [
+      "VelEmbeddedBridge",
+      "VelApplePlatform",
+      "VelInfrastructure",
+      "VelFeatureFlags",
+      "VelDomain"
+    ],
+    "VelDomain" : [
+
+    ],
+    "VelEmbeddedBridge" : [
+      "VelFeatureFlags",
+      "VelDomain"
+    ],
+    "VelFeatureFlags" : [
+
+    ],
+    "VelInfrastructure" : [
+      "VelDomain"
+    ],
+    "VelUIShared" : [
+      "VelFeatureFlags"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+
+  },
+  "writeCommands" : {
+    "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/PlatformAdapters.swift"
+        }
+      ],
+      "outputFilePath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/sources"
+    },
+    "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift"
+        }
+      ],
+      "outputFilePath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplication.build/sources"
+    },
+    "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelDomain/Models.swift"
+        }
+      ],
+      "outputFilePath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelDomain.build/sources"
+    },
+    "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelEmbeddedBridge/EmbeddedBridge.swift"
+        }
+      ],
+      "outputFilePath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelEmbeddedBridge.build/sources"
+    },
+    "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelFeatureFlags/FeatureCapabilities.swift"
+        }
+      ],
+      "outputFilePath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelFeatureFlags.build/sources"
+    },
+    "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelInfrastructure/Infrastructure.swift"
+        }
+      ],
+      "outputFilePath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelInfrastructure.build/sources"
+    },
+    "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelUIShared/UIShared.swift"
+        }
+      ],
+      "outputFilePath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelUIShared.build/sources"
+    },
+    "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/etc/profiles/per-user/jove/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/swift-version-4033961ABEA29090.txt"
+    }
+  }
+}

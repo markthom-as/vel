@@ -2,7 +2,7 @@ use serde_json::Value as JsonValue;
 use sqlx::{Row, Sqlite, SqlitePool, Transaction};
 use time::OffsetDateTime;
 use uuid::Uuid;
-use vel_core::{Commitment, CommitmentId, CommitmentStatus};
+use vel_core::{CanonicalScheduleRules, Commitment, CommitmentId, CommitmentStatus};
 
 use crate::db::{CommitmentInsert, StorageError};
 use crate::mapping::timestamp_to_datetime;
@@ -23,13 +23,16 @@ pub(crate) async fn insert_commitment_in_tx(
 ) -> Result<CommitmentId, StorageError> {
     let id = CommitmentId::new();
     let now = OffsetDateTime::now_utc().unix_timestamp();
-    let metadata_str = serde_json::to_string(
+    let normalized_metadata = normalized_commitment_metadata(
+        &input.text,
+        input.due_at,
         input
             .metadata_json
             .as_ref()
             .unwrap_or(&serde_json::json!({})),
-    )
-    .map_err(|e| StorageError::Validation(e.to_string()))?;
+    );
+    let metadata_str = serde_json::to_string(&normalized_metadata)
+        .map_err(|e| StorageError::Validation(e.to_string()))?;
     let due_ts = input.due_at.map(|t| t.unix_timestamp());
 
     sqlx::query(
@@ -137,9 +140,13 @@ pub(crate) async fn update_commitment(
         Some(_) => resolved,
         None => c.resolved_at.map(|t| t.unix_timestamp()),
     };
-    let meta = metadata_json
-        .map(|v| serde_json::to_string(v).unwrap_or_else(|_| "{}".to_string()))
-        .unwrap_or_else(|| c.metadata_json.to_string());
+    let normalized_due_at = new_due.and_then(|timestamp| timestamp_to_datetime(timestamp).ok());
+    let normalized_metadata = metadata_json
+        .map(|value| normalized_commitment_metadata(&new_text, normalized_due_at, value))
+        .unwrap_or_else(|| {
+            normalized_commitment_metadata(&new_text, normalized_due_at, &c.metadata_json)
+        });
+    let meta = serde_json::to_string(&normalized_metadata).unwrap_or_else(|_| "{}".to_string());
 
     sqlx::query(
         r#"
@@ -247,4 +254,129 @@ fn map_commitment_row(row: &sqlx::sqlite::SqliteRow) -> Result<Commitment, Stora
             .and_then(|t| timestamp_to_datetime(t).ok()),
         metadata_json,
     })
+}
+
+fn normalized_commitment_metadata(
+    text: &str,
+    due_at: Option<OffsetDateTime>,
+    metadata: &JsonValue,
+) -> JsonValue {
+    let mut normalized = metadata.clone();
+    let rules = CanonicalScheduleRules::from_commitment_parts(text, metadata, due_at);
+    rules.write_into_metadata(&mut normalized);
+    normalized
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::db::{CommitmentInsert, Storage};
+    use serde_json::json;
+    use time::OffsetDateTime;
+    use vel_core::CommitmentStatus;
+
+    async fn test_storage() -> Storage {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+    }
+
+    #[tokio::test]
+    async fn insert_commitment_persists_normalized_scheduler_rules() {
+        let storage = test_storage().await;
+        let id = storage
+            .insert_commitment(CommitmentInsert {
+                text: "Deep work @30m".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "task_1".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("atlas".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({
+                    "labels": ["block:focus", "@cal:free", "time:prenoon", "@urgent"]
+                })),
+            })
+            .await
+            .unwrap();
+
+        let stored = storage
+            .get_commitment_by_id(id.as_ref())
+            .await
+            .unwrap()
+            .expect("stored commitment");
+
+        assert_eq!(
+            stored.metadata_json["scheduler_rules"]["block_target"],
+            "focus"
+        );
+        assert_eq!(
+            stored.metadata_json["scheduler_rules"]["duration_minutes"],
+            30
+        );
+        assert_eq!(
+            stored.metadata_json["scheduler_rules"]["time_window"],
+            "prenoon"
+        );
+        assert_eq!(
+            stored.scheduler_rules().block_target.as_deref(),
+            Some("focus")
+        );
+    }
+
+    #[tokio::test]
+    async fn update_commitment_refreshes_normalized_scheduler_rules() {
+        let storage = test_storage().await;
+        let id = storage
+            .insert_commitment(CommitmentInsert {
+                text: "Write proposal".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "task_2".to_string(),
+                status: CommitmentStatus::Open,
+                due_at: None,
+                project: Some("atlas".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(json!({
+                    "labels": ["defer"]
+                })),
+            })
+            .await
+            .unwrap();
+
+        storage
+            .update_commitment(
+                id.as_ref(),
+                Some("Write proposal @1h"),
+                None,
+                Some(Some(
+                    OffsetDateTime::from_unix_timestamp(1_700_000_123).unwrap(),
+                )),
+                None,
+                None,
+                Some(&json!({
+                    "labels": ["block:admin", "time:afternoon"]
+                })),
+            )
+            .await
+            .unwrap();
+
+        let stored = storage
+            .get_commitment_by_id(id.as_ref())
+            .await
+            .unwrap()
+            .expect("updated commitment");
+
+        assert_eq!(
+            stored.metadata_json["scheduler_rules"]["duration_minutes"],
+            60
+        );
+        assert_eq!(
+            stored.metadata_json["scheduler_rules"]["block_target"],
+            "admin"
+        );
+        assert_eq!(
+            stored.metadata_json["scheduler_rules"]["time_window"],
+            "afternoon"
+        );
+        assert_eq!(stored.metadata_json["scheduler_rules"]["fixed_start"], true);
+    }
 }

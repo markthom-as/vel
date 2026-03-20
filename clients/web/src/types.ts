@@ -83,6 +83,7 @@ export interface AssistantEntryResponse {
   assistant_context?: AssistantContextData | null;
   conversation: ConversationData;
   proposal?: AssistantActionProposalData | null;
+  planning_profile_proposal?: PlanningProfileEditProposalData | null;
   daily_loop_session?: DailyLoopSessionData | null;
   end_of_day?: EndOfDayData | null;
 }
@@ -195,7 +196,132 @@ export interface AssistantContextData {
   query_text: string;
   summary: string;
   focus_lines: string[];
+  commitments: CommitmentData[];
   recall: RecallContextData;
+}
+
+export type ScheduleTimeWindowData =
+  | 'prenoon'
+  | 'afternoon'
+  | 'evening'
+  | 'night'
+  | 'day';
+
+export interface CanonicalScheduleRulesData {
+  block_target: string | null;
+  duration_minutes: number | null;
+  calendar_free: boolean;
+  fixed_start: boolean;
+  time_window: ScheduleTimeWindowData | null;
+  local_urgency: boolean;
+  local_defer: boolean;
+}
+
+export interface DurableRoutineBlockData {
+  id: string;
+  label: string;
+  source: RoutineBlockSourceKindData;
+  local_timezone: string;
+  start_local_time: string;
+  end_local_time: string;
+  days_of_week: number[];
+  protected: boolean;
+  active: boolean;
+}
+
+export type PlanningConstraintKindData =
+  | 'max_scheduled_items'
+  | 'reserve_buffer_before_calendar'
+  | 'reserve_buffer_after_calendar'
+  | 'default_time_window'
+  | 'require_judgment_for_overflow';
+
+export interface PlanningConstraintData {
+  id: string;
+  label: string;
+  kind: PlanningConstraintKindData;
+  detail: string | null;
+  time_window: ScheduleTimeWindowData | null;
+  minutes: number | null;
+  max_items: number | null;
+  active: boolean;
+}
+
+export interface RoutinePlanningProfileData {
+  routine_blocks: DurableRoutineBlockData[];
+  planning_constraints: PlanningConstraintData[];
+}
+
+export interface PlanningProfileRemoveTargetData {
+  id: string;
+}
+
+export type PlanningProfileMutationData =
+  | { kind: 'upsert_routine_block'; data: DurableRoutineBlockData }
+  | { kind: 'remove_routine_block'; data: PlanningProfileRemoveTargetData }
+  | { kind: 'upsert_planning_constraint'; data: PlanningConstraintData }
+  | { kind: 'remove_planning_constraint'; data: PlanningProfileRemoveTargetData };
+
+export interface PlanningProfileMutationRequestData {
+  mutation: PlanningProfileMutationData;
+}
+
+export interface PlanningProfileResponseData {
+  profile: RoutinePlanningProfileData;
+  proposal_summary?: PlanningProfileProposalSummaryData | null;
+}
+
+export type PlanningProfileSurfaceData =
+  | 'web_settings'
+  | 'cli'
+  | 'apple'
+  | 'assistant'
+  | 'voice';
+
+export type PlanningProfileContinuityData = 'inline' | 'thread';
+
+export interface PlanningProfileEditProposalData {
+  source_surface: PlanningProfileSurfaceData;
+  state: AssistantProposalStateData;
+  mutation: PlanningProfileMutationData;
+  summary: string;
+  requires_confirmation: boolean;
+  continuity: PlanningProfileContinuityData;
+  outcome_summary?: string | null;
+  thread_id?: string | null;
+  thread_type?: string | null;
+}
+
+export interface PlanningProfileProposalSummaryItemData {
+  thread_id: string;
+  state: AssistantProposalStateData;
+  title: string;
+  summary: string;
+  outcome_summary?: string | null;
+  updated_at: UnixSeconds;
+}
+
+export interface PlanningProfileProposalSummaryData {
+  pending_count: number;
+  latest_pending?: PlanningProfileProposalSummaryItemData | null;
+  latest_applied?: PlanningProfileProposalSummaryItemData | null;
+  latest_failed?: PlanningProfileProposalSummaryItemData | null;
+}
+
+export interface CommitmentSchedulingProposalSummaryItemData {
+  thread_id: string;
+  state: AssistantProposalStateData;
+  title: string;
+  summary: string;
+  outcome_summary?: string | null;
+  updated_at: UnixSeconds;
+}
+
+export interface CommitmentSchedulingProposalSummaryData {
+  pending_count: number;
+  latest_pending?: CommitmentSchedulingProposalSummaryItemData | null;
+  latest_applied?: CommitmentSchedulingProposalSummaryItemData | null;
+  latest_failed?: CommitmentSchedulingProposalSummaryItemData | null;
 }
 
 export interface InboxItemData {
@@ -1274,6 +1400,43 @@ export interface NowDebugData {
   risk_used: string[];
 }
 
+export type DayPlanChangeKindData =
+  | 'scheduled'
+  | 'deferred'
+  | 'did_not_fit'
+  | 'needs_judgment';
+
+export type RoutineBlockSourceKindData = 'operator_declared' | 'inferred' | 'imported';
+
+export interface RoutineBlockData {
+  id: string;
+  label: string;
+  source: RoutineBlockSourceKindData;
+  start_ts: UnixSeconds;
+  end_ts: UnixSeconds;
+  protected: boolean;
+}
+
+export interface DayPlanChangeData {
+  kind: DayPlanChangeKindData;
+  title: string;
+  detail: string;
+  project_label: string | null;
+  scheduled_start_ts: UnixSeconds | null;
+  rule_facets: ScheduleRuleFacetData[];
+}
+
+export interface DayPlanProposalData {
+  headline: string;
+  summary: string;
+  scheduled_count: number;
+  deferred_count: number;
+  did_not_fit_count: number;
+  needs_judgment_count: number;
+  changes: DayPlanChangeData[];
+  routine_blocks: RoutineBlockData[];
+}
+
 export interface NowData {
   computed_at: UnixSeconds;
   timezone: string;
@@ -1284,7 +1447,10 @@ export interface NowData {
   sources: NowSourcesData;
   freshness: NowFreshnessData;
   trust_readiness: TrustReadinessData;
+  planning_profile_summary?: PlanningProfileProposalSummaryData | null;
+  commitment_scheduling_summary?: CommitmentSchedulingProposalSummaryData | null;
   check_in: CheckInCardData | null;
+  day_plan: DayPlanProposalData | null;
   reflow: ReflowCardData | null;
   reflow_status: CurrentContextReflowStatusData | null;
   action_items: ActionItemData[];
@@ -1425,6 +1591,7 @@ export interface CommitmentData {
   commitment_kind: string | null;
   created_at: string;
   resolved_at: string | null;
+  scheduler_rules: CanonicalScheduleRulesData;
   metadata: JsonValue;
 }
 
@@ -1687,6 +1854,10 @@ export function decodeAssistantEntryResponse(value: unknown): AssistantEntryResp
       record.proposal === undefined
         ? undefined
         : decodeNullable(record.proposal, decodeAssistantActionProposalData),
+    planning_profile_proposal:
+      record.planning_profile_proposal === undefined
+        ? undefined
+        : decodeNullable(record.planning_profile_proposal, decodePlanningProfileEditProposalData),
     daily_loop_session:
       record.daily_loop_session === undefined
         ? undefined
@@ -1813,7 +1984,37 @@ export function decodeAssistantContextData(value: unknown): AssistantContextData
     focus_lines: decodeArray(record.focus_lines, (item) =>
       expectString(item, 'assistant context.focus_lines[]'),
     ),
+    commitments: decodeArray(record.commitments ?? [], decodeCommitmentData),
     recall: decodeRecallContextData(record.recall),
+  };
+}
+
+export function decodeScheduleTimeWindowData(value: unknown): ScheduleTimeWindowData {
+  return expectEnumString(value, 'schedule time window', [
+    'prenoon',
+    'afternoon',
+    'evening',
+    'night',
+    'day',
+  ]);
+}
+
+export function decodeCanonicalScheduleRulesData(value: unknown): CanonicalScheduleRulesData {
+  const record = expectRecord(value, 'canonical schedule rules');
+  return {
+    block_target: expectNullableString(record.block_target, 'canonical schedule rules.block_target'),
+    duration_minutes:
+      record.duration_minutes === null || record.duration_minutes === undefined
+        ? null
+        : expectNumber(record.duration_minutes, 'canonical schedule rules.duration_minutes'),
+    calendar_free: expectBoolean(record.calendar_free, 'canonical schedule rules.calendar_free'),
+    fixed_start: expectBoolean(record.fixed_start, 'canonical schedule rules.fixed_start'),
+    time_window:
+      record.time_window === null || record.time_window === undefined
+        ? null
+        : decodeScheduleTimeWindowData(record.time_window),
+    local_urgency: expectBoolean(record.local_urgency, 'canonical schedule rules.local_urgency'),
+    local_defer: expectBoolean(record.local_defer, 'canonical schedule rules.local_defer'),
   };
 }
 
@@ -2624,6 +2825,344 @@ export function decodeCurrentContextReflowStatusData(
   };
 }
 
+export function decodeDayPlanChangeKindData(value: unknown): DayPlanChangeKindData {
+  return expectEnumString(value, 'day plan change kind', [
+    'scheduled',
+    'deferred',
+    'did_not_fit',
+    'needs_judgment',
+  ]);
+}
+
+export function decodeRoutineBlockSourceKindData(value: unknown): RoutineBlockSourceKindData {
+  return expectEnumString(value, 'routine block source', [
+    'operator_declared',
+    'inferred',
+    'imported',
+  ]);
+}
+
+export function decodeRoutineBlockData(value: unknown): RoutineBlockData {
+  const record = expectRecord(value, 'routine block');
+  return {
+    id: expectString(record.id, 'routine block.id'),
+    label: expectString(record.label, 'routine block.label'),
+    source: decodeRoutineBlockSourceKindData(record.source),
+    start_ts: expectUnixSeconds(record.start_ts, 'routine block.start_ts'),
+    end_ts: expectUnixSeconds(record.end_ts, 'routine block.end_ts'),
+    protected: expectBoolean(record.protected, 'routine block.protected'),
+  };
+}
+
+export function decodeDayPlanChangeData(value: unknown): DayPlanChangeData {
+  const record = expectRecord(value, 'day plan change');
+  return {
+    kind: decodeDayPlanChangeKindData(record.kind),
+    title: expectString(record.title, 'day plan change.title'),
+    detail: expectString(record.detail, 'day plan change.detail'),
+    project_label: expectNullableString(
+      record.project_label ?? null,
+      'day plan change.project_label',
+    ),
+    scheduled_start_ts: expectNullableUnixSeconds(
+      record.scheduled_start_ts ?? null,
+      'day plan change.scheduled_start_ts',
+    ),
+    rule_facets: decodeArray(record.rule_facets ?? [], decodeScheduleRuleFacetData),
+  };
+}
+
+export function decodeDayPlanProposalData(value: unknown): DayPlanProposalData {
+  const record = expectRecord(value, 'day plan proposal');
+  return {
+    headline: expectString(record.headline, 'day plan proposal.headline'),
+    summary: expectString(record.summary, 'day plan proposal.summary'),
+    scheduled_count: expectNumber(record.scheduled_count, 'day plan proposal.scheduled_count'),
+    deferred_count: expectNumber(record.deferred_count, 'day plan proposal.deferred_count'),
+    did_not_fit_count: expectNumber(
+      record.did_not_fit_count,
+      'day plan proposal.did_not_fit_count',
+    ),
+    needs_judgment_count: expectNumber(
+      record.needs_judgment_count,
+      'day plan proposal.needs_judgment_count',
+    ),
+    changes: decodeArray(record.changes ?? [], decodeDayPlanChangeData),
+    routine_blocks: decodeArray(record.routine_blocks ?? [], decodeRoutineBlockData),
+  };
+}
+
+export function decodeDurableRoutineBlockData(value: unknown): DurableRoutineBlockData {
+  const record = expectRecord(value, 'durable routine block');
+  return {
+    id: expectString(record.id, 'durable routine block.id'),
+    label: expectString(record.label, 'durable routine block.label'),
+    source: decodeRoutineBlockSourceKindData(record.source),
+    local_timezone: expectString(record.local_timezone, 'durable routine block.local_timezone'),
+    start_local_time: expectString(
+      record.start_local_time,
+      'durable routine block.start_local_time',
+    ),
+    end_local_time: expectString(record.end_local_time, 'durable routine block.end_local_time'),
+    days_of_week: decodeArray(record.days_of_week ?? [], (item) =>
+      expectNumber(item, 'durable routine block.days_of_week'),
+    ),
+    protected: expectBoolean(record.protected, 'durable routine block.protected'),
+    active: expectBoolean(record.active, 'durable routine block.active'),
+  };
+}
+
+export function decodePlanningConstraintKindData(value: unknown): PlanningConstraintKindData {
+  return expectEnumString(value, 'planning constraint kind', [
+    'max_scheduled_items',
+    'reserve_buffer_before_calendar',
+    'reserve_buffer_after_calendar',
+    'default_time_window',
+    'require_judgment_for_overflow',
+  ]);
+}
+
+export function decodePlanningConstraintData(value: unknown): PlanningConstraintData {
+  const record = expectRecord(value, 'planning constraint');
+  return {
+    id: expectString(record.id, 'planning constraint.id'),
+    label: expectString(record.label, 'planning constraint.label'),
+    kind: decodePlanningConstraintKindData(record.kind),
+    detail: expectNullableString(record.detail ?? null, 'planning constraint.detail'),
+    time_window: decodeNullable(record.time_window, decodeScheduleTimeWindowData),
+    minutes: expectNullableNumber(record.minutes ?? null, 'planning constraint.minutes'),
+    max_items: expectNullableNumber(record.max_items ?? null, 'planning constraint.max_items'),
+    active: expectBoolean(record.active, 'planning constraint.active'),
+  };
+}
+
+export function decodeRoutinePlanningProfileData(value: unknown): RoutinePlanningProfileData {
+  const record = expectRecord(value, 'routine planning profile');
+  return {
+    routine_blocks: decodeArray(record.routine_blocks ?? [], decodeDurableRoutineBlockData),
+    planning_constraints: decodeArray(
+      record.planning_constraints ?? [],
+      decodePlanningConstraintData,
+    ),
+  };
+}
+
+export function decodePlanningProfileRemoveTargetData(
+  value: unknown,
+): PlanningProfileRemoveTargetData {
+  const record = expectRecord(value, 'planning profile remove target');
+  return {
+    id: expectString(record.id, 'planning profile remove target.id'),
+  };
+}
+
+export function decodePlanningProfileMutationData(value: unknown): PlanningProfileMutationData {
+  const record = expectRecord(value, 'planning profile mutation');
+  const kind = expectEnumString(record.kind, 'planning profile mutation.kind', [
+    'upsert_routine_block',
+    'remove_routine_block',
+    'upsert_planning_constraint',
+    'remove_planning_constraint',
+  ]);
+  const data = record.data;
+  switch (kind) {
+    case 'upsert_routine_block':
+      return { kind, data: decodeDurableRoutineBlockData(data) };
+    case 'remove_routine_block':
+      return { kind, data: decodePlanningProfileRemoveTargetData(data) };
+    case 'upsert_planning_constraint':
+      return { kind, data: decodePlanningConstraintData(data) };
+    case 'remove_planning_constraint':
+      return { kind, data: decodePlanningProfileRemoveTargetData(data) };
+  }
+}
+
+export function decodePlanningProfileMutationRequestData(
+  value: unknown,
+): PlanningProfileMutationRequestData {
+  const record = expectRecord(value, 'planning profile mutation request');
+  return {
+    mutation: decodePlanningProfileMutationData(record.mutation),
+  };
+}
+
+export function decodePlanningProfileResponseData(value: unknown): PlanningProfileResponseData {
+  const record = expectRecord(value, 'planning profile response');
+  return {
+    profile: decodeRoutinePlanningProfileData(record.profile),
+    proposal_summary:
+      record.proposal_summary === undefined
+        ? undefined
+        : decodeNullable(record.proposal_summary, decodePlanningProfileProposalSummaryData),
+  };
+}
+
+export function decodePlanningProfileSurfaceData(value: unknown): PlanningProfileSurfaceData {
+  return expectEnumString(value, 'planning profile surface', [
+    'web_settings',
+    'cli',
+    'apple',
+    'assistant',
+    'voice',
+  ]);
+}
+
+export function decodePlanningProfileContinuityData(
+  value: unknown,
+): PlanningProfileContinuityData {
+  return expectEnumString(value, 'planning profile continuity', ['inline', 'thread']);
+}
+
+export function decodePlanningProfileEditProposalData(
+  value: unknown,
+): PlanningProfileEditProposalData {
+  const record = expectRecord(value, 'planning profile edit proposal');
+  return {
+    source_surface: decodePlanningProfileSurfaceData(record.source_surface),
+    state: decodeAssistantProposalStateData(record.state),
+    mutation: decodePlanningProfileMutationData(record.mutation),
+    summary: expectString(record.summary, 'planning profile edit proposal.summary'),
+    requires_confirmation: expectBoolean(
+      record.requires_confirmation,
+      'planning profile edit proposal.requires_confirmation',
+    ),
+    continuity: decodePlanningProfileContinuityData(record.continuity),
+    outcome_summary:
+      record.outcome_summary === undefined
+        ? undefined
+        : expectNullableString(
+            record.outcome_summary,
+            'planning profile edit proposal.outcome_summary',
+          ),
+    thread_id:
+      record.thread_id === undefined
+        ? undefined
+        : expectNullableString(record.thread_id, 'planning profile edit proposal.thread_id'),
+    thread_type:
+      record.thread_type === undefined
+        ? undefined
+        : expectNullableString(record.thread_type, 'planning profile edit proposal.thread_type'),
+  };
+}
+
+export function decodePlanningProfileProposalSummaryItemData(
+  value: unknown,
+): PlanningProfileProposalSummaryItemData {
+  const record = expectRecord(value, 'planning profile proposal summary item');
+  return {
+    thread_id: expectString(record.thread_id, 'planning profile proposal summary item.thread_id'),
+    state: decodeAssistantProposalStateData(record.state),
+    title: expectString(record.title, 'planning profile proposal summary item.title'),
+    summary: expectString(record.summary, 'planning profile proposal summary item.summary'),
+    outcome_summary:
+      record.outcome_summary === undefined
+        ? undefined
+        : expectNullableString(
+            record.outcome_summary,
+            'planning profile proposal summary item.outcome_summary',
+          ),
+    updated_at: expectNumber(
+      record.updated_at,
+      'planning profile proposal summary item.updated_at',
+    ),
+  };
+}
+
+export function decodePlanningProfileProposalSummaryData(
+  value: unknown,
+): PlanningProfileProposalSummaryData {
+  const record = expectRecord(value, 'planning profile proposal summary');
+  return {
+    pending_count: expectNumber(record.pending_count, 'planning profile proposal summary.pending_count'),
+    latest_pending:
+      record.latest_pending === undefined
+        ? undefined
+        : decodeNullable(
+            record.latest_pending,
+            decodePlanningProfileProposalSummaryItemData,
+          ),
+    latest_applied:
+      record.latest_applied === undefined
+        ? undefined
+        : decodeNullable(
+            record.latest_applied,
+            decodePlanningProfileProposalSummaryItemData,
+          ),
+    latest_failed:
+      record.latest_failed === undefined
+        ? undefined
+        : decodeNullable(
+            record.latest_failed,
+            decodePlanningProfileProposalSummaryItemData,
+          ),
+  };
+}
+
+export function decodeCommitmentSchedulingProposalSummaryItemData(
+  value: unknown,
+): CommitmentSchedulingProposalSummaryItemData {
+  const record = expectRecord(value, 'commitment scheduling proposal summary item');
+  return {
+    thread_id: expectString(
+      record.thread_id,
+      'commitment scheduling proposal summary item.thread_id',
+    ),
+    state: decodeAssistantProposalStateData(record.state),
+    title: expectString(
+      record.title,
+      'commitment scheduling proposal summary item.title',
+    ),
+    summary: expectString(
+      record.summary,
+      'commitment scheduling proposal summary item.summary',
+    ),
+    outcome_summary:
+      record.outcome_summary === undefined
+        ? undefined
+        : expectNullableString(
+            record.outcome_summary,
+            'commitment scheduling proposal summary item.outcome_summary',
+          ),
+    updated_at: expectNumber(
+      record.updated_at,
+      'commitment scheduling proposal summary item.updated_at',
+    ),
+  };
+}
+
+export function decodeCommitmentSchedulingProposalSummaryData(
+  value: unknown,
+): CommitmentSchedulingProposalSummaryData {
+  const record = expectRecord(value, 'commitment scheduling proposal summary');
+  return {
+    pending_count: expectNumber(
+      record.pending_count,
+      'commitment scheduling proposal summary.pending_count',
+    ),
+    latest_pending:
+      record.latest_pending === undefined
+        ? undefined
+        : decodeNullable(
+            record.latest_pending,
+            decodeCommitmentSchedulingProposalSummaryItemData,
+          ),
+    latest_applied:
+      record.latest_applied === undefined
+        ? undefined
+        : decodeNullable(
+            record.latest_applied,
+            decodeCommitmentSchedulingProposalSummaryItemData,
+          ),
+    latest_failed:
+      record.latest_failed === undefined
+        ? undefined
+        : decodeNullable(
+            record.latest_failed,
+            decodeCommitmentSchedulingProposalSummaryItemData,
+          ),
+  };
+}
+
 export function decodeLinkStatusData(value: unknown): LinkStatusData {
   return expectEnumString(value, 'link status', ['pending', 'linked', 'revoked', 'expired']);
 }
@@ -2939,7 +3478,22 @@ export function decodeNowData(value: unknown): NowData {
       }),
     },
     trust_readiness: decodeTrustReadinessData(record.trust_readiness),
+    planning_profile_summary:
+      record.planning_profile_summary === undefined
+        ? undefined
+        : decodeNullable(
+            record.planning_profile_summary,
+            decodePlanningProfileProposalSummaryData,
+          ),
+    commitment_scheduling_summary:
+      record.commitment_scheduling_summary === undefined
+        ? undefined
+        : decodeNullable(
+            record.commitment_scheduling_summary,
+            decodeCommitmentSchedulingProposalSummaryData,
+          ),
     check_in: decodeNullable(record.check_in ?? null, decodeCheckInCardData),
+    day_plan: decodeNullable(record.day_plan ?? null, decodeDayPlanProposalData),
     reflow: decodeNullable(record.reflow ?? null, decodeReflowCardData),
     reflow_status: decodeNullable(
       record.reflow_status ?? null,
@@ -4191,6 +4745,7 @@ export function decodeCommitmentData(value: unknown): CommitmentData {
     commitment_kind: expectNullableString(record.commitment_kind, 'commitment.commitment_kind'),
     created_at: decodeDateTimeString(record.created_at, 'commitment.created_at'),
     resolved_at: decodeNullableDateTimeString(record.resolved_at, 'commitment.resolved_at'),
+    scheduler_rules: decodeCanonicalScheduleRulesData(record.scheduler_rules ?? {}),
     metadata: decodeJsonValue(record.metadata ?? null),
   };
 }

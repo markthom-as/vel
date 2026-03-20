@@ -209,6 +209,19 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::linking::revoke_link),
         )
         .route("/v1/now", get(routes::now::get_now))
+        .route(
+            "/v1/commitment-scheduling/proposals/:id/apply",
+            post(routes::commitment_scheduling::apply_commitment_scheduling_proposal),
+        )
+        .route(
+            "/v1/planning-profile",
+            get(routes::planning_profile::get_planning_profile)
+                .patch(routes::planning_profile::patch_planning_profile),
+        )
+        .route(
+            "/v1/planning-profile/proposals/:id/apply",
+            post(routes::planning_profile::apply_planning_profile_proposal),
+        )
         .route("/v1/explain/nudge/:id", get(routes::explain::explain_nudge))
         .route("/v1/explain/context", get(routes::explain::explain_context))
         .route(
@@ -11284,6 +11297,153 @@ END:VCALENDAR
         assert_eq!(
             json["data"]["freshness"]["sources"][1]["status"],
             "unchecked"
+        );
+    }
+
+    #[tokio::test]
+    async fn now_endpoint_filters_calendar_noise_and_uses_next_future_event() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now,
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    meds_status: "done".to_string(),
+                    global_risk_level: "low".to_string(),
+                    global_risk_score: Some(0.1),
+                    attention_state: "on_task".to_string(),
+                    drift_type: Some("none".to_string()),
+                    drift_severity: Some("none".to_string()),
+                    attention_confidence: Some(0.9),
+                    signals_used: vec![],
+                    ..CurrentContextV1::default()
+                }),
+            )
+            .await
+            .unwrap();
+        for (title, start, end, extra) in [
+            (
+                "Working session",
+                now - 900,
+                now + 900,
+                serde_json::json!({
+                    "status": "confirmed",
+                    "transparency": "opaque",
+                    "response_status": "accepted",
+                    "all_day": false
+                }),
+            ),
+            (
+                "Design review",
+                now + 3600,
+                now + 5400,
+                serde_json::json!({
+                    "status": "confirmed",
+                    "transparency": "opaque",
+                    "response_status": "accepted",
+                    "all_day": false
+                }),
+            ),
+            (
+                "FYI hold",
+                now + 1800,
+                now + 2700,
+                serde_json::json!({
+                    "status": "confirmed",
+                    "transparency": "free",
+                    "response_status": "accepted",
+                    "all_day": false
+                }),
+            ),
+            (
+                "Declined sync",
+                now + 2400,
+                now + 3000,
+                serde_json::json!({
+                    "status": "confirmed",
+                    "transparency": "opaque",
+                    "response_status": "declined",
+                    "all_day": false
+                }),
+            ),
+            (
+                "All day note",
+                now - 3600,
+                now + 20_000,
+                serde_json::json!({
+                    "status": "confirmed",
+                    "transparency": "opaque",
+                    "response_status": "accepted",
+                    "all_day": true
+                }),
+            ),
+        ] {
+            let mut payload = serde_json::json!({
+                "title": title,
+                "start": start,
+                "end": end,
+                "prep_minutes": 0,
+                "travel_minutes": 0
+            });
+            payload
+                .as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
+            storage
+                .insert_signal(vel_storage::SignalInsert {
+                    signal_type: "calendar_event".to_string(),
+                    source: "google_calendar".to_string(),
+                    source_ref: None,
+                    timestamp: start,
+                    payload_json: Some(payload),
+                })
+                .await
+                .unwrap();
+        }
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let titles = json["data"]["schedule"]["upcoming_events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|event| event["title"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            titles,
+            vec!["Working session".to_string(), "Design review".to_string()]
+        );
+        assert_eq!(
+            json["data"]["schedule"]["next_event"]["title"],
+            "Design review"
         );
     }
 

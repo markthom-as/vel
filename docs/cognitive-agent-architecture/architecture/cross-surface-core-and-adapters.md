@@ -22,6 +22,7 @@ related_files:
   - docs/api/runtime.md
   - docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md
   - docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md
+  - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
   - clients/apple/README.md
   - clients/apple/VelAPI/Sources/VelAPI/VelClient.swift
   - crates/vel-core/src/lib.rs
@@ -103,6 +104,8 @@ Current truth:
 - Apple presentation, lifecycle, App Intents, widgets, complications, notifications, and platform permission flows remain Swift-owned shell concerns
 
 Apple does **not** currently embed Rust as the primary runtime path.
+
+The new Phase 37 embedded-capable Apple contract is additive and iPhone-first. It does not change the current-truth statement above.
 
 ## Web Boundary
 

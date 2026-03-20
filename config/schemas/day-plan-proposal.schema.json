@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/day-plan-proposal.schema.json",
+  "title": "Vel Day Plan Proposal",
+  "description": "Bounded same-day planning output over commitments, routine blocks, calendar anchors, and canonical scheduler rules.",
+  "type": "object",
+  "$defs": {
+    "ScheduleRuleFacet": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "block_target",
+            "duration",
+            "calendar_free",
+            "fixed_start",
+            "time_window",
+            "local_urgency",
+            "local_defer"
+          ]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "detail": { "type": ["string", "null"] }
+      },
+      "required": ["kind", "label", "detail"],
+      "additionalProperties": false
+    },
+    "DayPlanChange": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["scheduled", "deferred", "did_not_fit", "needs_judgment"]
+        },
+        "title": { "type": "string", "minLength": 1 },
+        "detail": { "type": "string", "minLength": 1 },
+        "project_label": { "type": ["string", "null"] },
+        "scheduled_start_ts": { "type": ["integer", "null"] },
+        "rule_facets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ScheduleRuleFacet" }
+        }
+      },
+      "required": ["kind", "title", "detail", "project_label", "scheduled_start_ts", "rule_facets"],
+      "additionalProperties": false
+    },
+    "RoutineBlock": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "source": {
+          "type": "string",
+          "enum": ["operator_declared", "inferred", "imported"]
+        },
+        "start_ts": { "type": "integer" },
+        "end_ts": { "type": "integer" },
+        "protected": { "type": "boolean" }
+      },
+      "required": ["id", "label", "source", "start_ts", "end_ts", "protected"],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "headline": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "scheduled_count": { "type": "integer", "minimum": 0 },
+    "deferred_count": { "type": "integer", "minimum": 0 },
+    "did_not_fit_count": { "type": "integer", "minimum": 0 },
+    "needs_judgment_count": { "type": "integer", "minimum": 0 },
+    "changes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/DayPlanChange" }
+    },
+    "routine_blocks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/RoutineBlock" }
+    }
+  },
+  "required": [
+    "headline",
+    "summary",
+    "scheduled_count",
+    "deferred_count",
+    "did_not_fit_count",
+    "needs_judgment_count",
+    "changes",
+    "routine_blocks"
+  ],
+  "additionalProperties": false
+}

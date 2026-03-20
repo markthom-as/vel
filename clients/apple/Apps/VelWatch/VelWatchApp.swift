@@ -32,6 +32,7 @@ final class VelWatchStore: ObservableObject {
     @Published var nextCommitmentText: String?
     @Published var scheduleSummary: String?
     @Published var scheduleDetail: String?
+    @Published var scheduleProposalStatus: String?
     @Published var topActionTitle: String?
     @Published var behaviorHeadline: String?
     @Published var behaviorReason: String?
@@ -87,6 +88,7 @@ final class VelWatchStore: ObservableObject {
                 nextCommitmentText = nil
                 scheduleSummary = nil
                 scheduleDetail = nil
+                scheduleProposalStatus = nil
                 topActionTitle = nil
                 behaviorHeadline = nil
                 behaviorReason = nil
@@ -197,6 +199,21 @@ final class VelWatchStore: ObservableObject {
             scheduleDetailValue = nil
         }
 
+        let scheduleProposalStatusValue: String?
+        if let proposalSummary = now?.commitment_scheduling_summary {
+            if let latestPending = proposalSummary.latest_pending {
+                scheduleProposalStatusValue = "Pending schedule edit: \(latestPending.title)"
+            } else if let latestApplied = proposalSummary.latest_applied {
+                scheduleProposalStatusValue = "Last applied schedule edit: \(latestApplied.title)"
+            } else if let latestFailed = proposalSummary.latest_failed {
+                scheduleProposalStatusValue = "Last failed schedule edit: \(latestFailed.title)"
+            } else {
+                scheduleProposalStatusValue = "Schedule continuity: \(proposalSummary.pending_count) pending"
+            }
+        } else {
+            scheduleProposalStatusValue = nil
+        }
+
         nudgeCount = active.count
         message = scheduleSummaryValue ?? active.first?.message ?? "No quick-loop state yet"
         transport = transportLabel
@@ -206,6 +223,7 @@ final class VelWatchStore: ObservableObject {
         nextCommitmentText = now?.tasks.next_commitment?.text
         scheduleSummary = scheduleSummaryValue
         scheduleDetail = scheduleDetailValue
+        scheduleProposalStatus = scheduleProposalStatusValue
         topActionTitle = now?.action_items.first?.title
         behaviorHeadline = behavior?.headline
         behaviorReason = behavior?.reasons.first

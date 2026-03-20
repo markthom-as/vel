@@ -1,5 +1,6 @@
 import Foundation
 import VelApplePlatform
+import VelEmbeddedBridge
 import VelDomain
 import VelFeatureFlags
 import VelInfrastructure
@@ -68,6 +69,7 @@ public struct VelAppEnvironment {
     public var planningService: any PlanningService
     public var notificationRouter: any NotificationRouter
     public var watchBridge: any WatchBridge
+    public var embeddedBridge: any EmbeddedBridgeSurface
     public var featureCapabilities: FeatureCapabilities
     public var logger: any AppLogger
     public var auditStore: any AuditStore
@@ -81,6 +83,7 @@ public struct VelAppEnvironment {
         planningService: any PlanningService,
         notificationRouter: any NotificationRouter,
         watchBridge: any WatchBridge,
+        embeddedBridge: any EmbeddedBridgeSurface,
         featureCapabilities: FeatureCapabilities,
         logger: any AppLogger,
         auditStore: any AuditStore
@@ -93,13 +96,29 @@ public struct VelAppEnvironment {
         self.planningService = planningService
         self.notificationRouter = notificationRouter
         self.watchBridge = watchBridge
+        self.embeddedBridge = embeddedBridge
         self.featureCapabilities = featureCapabilities
         self.logger = logger
         self.auditStore = auditStore
     }
 
     public static func bootstrap(capabilities: FeatureCapabilities) -> VelAppEnvironment {
-        VelAppEnvironment(
+        let embeddedBridge = NoopEmbeddedBridgeSurface(
+            configuration: EmbeddedBridgeConfiguration(
+                isBridgeAvailableInBuild: capabilities.supportsEmbeddedRustBridge,
+                mode: capabilities.supportsEmbeddedRustBridge ? .embeddedCapable : .daemonBacked,
+                target: capabilities.supportsEmbeddedRustBridge ? .iphoneOnly : .unavailable,
+                approvedFlows: capabilities.supportsEmbeddedRustBridge
+                    ? [
+                        .cachedNowHydration,
+                        .localQuickActionPreparation,
+                        .offlineRequestPackaging,
+                        .deterministicDomainHelpers
+                    ]
+                    : []
+            )
+        )
+        return VelAppEnvironment(
             sessionStore: SessionState(),
             syncController: NoopSyncController(),
             apiClient: NoopAPIClient(),
@@ -108,6 +127,7 @@ public struct VelAppEnvironment {
             planningService: PlaceholderPlanningService(),
             notificationRouter: NoopNotificationRouter(),
             watchBridge: NoopWatchBridge(),
+            embeddedBridge: embeddedBridge,
             featureCapabilities: capabilities,
             logger: NoopAppLogger(),
             auditStore: NoopAuditStore()

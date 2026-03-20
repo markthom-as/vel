@@ -1,5 +1,55 @@
 import Foundation
 
+public struct AppleVoiceDraftData: Codable, Sendable {
+    public let transcript: String
+    public let suggested_intent: String
+    public let suggested_text: String
+    public let updated_at: Date
+
+    public init(
+        transcript: String,
+        suggested_intent: String,
+        suggested_text: String,
+        updated_at: Date = .now
+    ) {
+        self.transcript = transcript
+        self.suggested_intent = suggested_intent
+        self.suggested_text = suggested_text
+        self.updated_at = updated_at
+    }
+}
+
+public struct AppleVoiceContinuityEntryData: Codable, Sendable, Identifiable {
+    public let id: UUID
+    public let created_at: Date
+    public let transcript: String
+    public let suggested_intent: String
+    public let committed_intent: String?
+    public let status: String
+    public let thread_id: String?
+    public let merged_at: Date?
+
+    public init(
+        id: UUID = UUID(),
+        created_at: Date = .now,
+        transcript: String,
+        suggested_intent: String,
+        committed_intent: String?,
+        status: String,
+        thread_id: String? = nil,
+        merged_at: Date? = nil
+    ) {
+        self.id = id
+        self.created_at = created_at
+        self.transcript = transcript
+        self.suggested_intent = suggested_intent
+        self.committed_intent = committed_intent
+        self.status = status
+        self.thread_id = thread_id
+        self.merged_at = merged_at
+    }
+}
+
 public struct QueuedAction: Codable, Sendable, Identifiable {
     public enum Kind: String, Codable, Sendable {
         case nudgeDone = "nudge.done"
@@ -47,6 +97,8 @@ public final class VelOfflineStore {
         static let dailyLoopMorning = "vel.cached.daily_loop.morning"
         static let dailyLoopStandup = "vel.cached.daily_loop.standup"
         static let queuedActions = "vel.queued.actions"
+        static let voiceDraft = "vel.voice.draft.v1"
+        static let voiceContinuityHistory = "vel.voice.continuity.history.v1"
     }
 
     private let userDefaults: UserDefaults
@@ -145,6 +197,26 @@ public final class VelOfflineStore {
 
     public func queuedActions() -> [QueuedAction] {
         decode([QueuedAction].self, forKey: Keys.queuedActions) ?? []
+    }
+
+    public func cachedVoiceDraft() -> AppleVoiceDraftData? {
+        decode(AppleVoiceDraftData.self, forKey: Keys.voiceDraft)
+    }
+
+    public func saveVoiceDraft(_ draft: AppleVoiceDraftData) {
+        encode(draft, forKey: Keys.voiceDraft)
+    }
+
+    public func clearVoiceDraft() {
+        userDefaults.removeObject(forKey: Keys.voiceDraft)
+    }
+
+    public func cachedVoiceContinuityHistory() -> [AppleVoiceContinuityEntryData] {
+        decode([AppleVoiceContinuityEntryData].self, forKey: Keys.voiceContinuityHistory) ?? []
+    }
+
+    public func saveVoiceContinuityHistory(_ history: [AppleVoiceContinuityEntryData]) {
+        encode(Array(history.prefix(40)), forKey: Keys.voiceContinuityHistory)
     }
 
     public func pendingActionCount() -> Int {

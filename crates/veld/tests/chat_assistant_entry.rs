@@ -396,6 +396,78 @@ async fn mutation_like_assistant_proposal_fails_closed_when_safe_mode_is_enabled
 }
 
 #[tokio::test]
+async fn assistant_entry_stages_planning_profile_edit_with_thread_continuity() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+    let app = veld::app::build_app_with_state(test_state(storage.clone(), None, None));
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"text":"Add a protected weekday Focus block from 09:00 to 11:00 in America/Denver"}"#.to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["data"]["route_target"], "threads");
+    assert!(json["data"]["proposal"].is_null());
+    assert_eq!(
+        json["data"]["planning_profile_proposal"]["source_surface"],
+        "assistant"
+    );
+    assert_eq!(
+        json["data"]["planning_profile_proposal"]["mutation"]["kind"],
+        "upsert_routine_block"
+    );
+    assert_eq!(
+        json["data"]["planning_profile_proposal"]["continuity"],
+        "thread"
+    );
+    let thread_id = json["data"]["planning_profile_proposal"]["thread_id"]
+        .as_str()
+        .expect("thread id");
+    let thread_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/v1/threads/{thread_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(thread_response.status(), StatusCode::OK);
+    let thread_body = axum::body::to_bytes(thread_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let thread_json: serde_json::Value = serde_json::from_slice(&thread_body).unwrap();
+    assert_eq!(thread_json["data"]["thread_type"], "planning_profile_edit");
+    assert_eq!(
+        thread_json["data"]["metadata"]["source"],
+        "planning_profile_proposal"
+    );
+    assert_eq!(thread_json["data"]["metadata"]["proposal_state"], "staged");
+    assert_eq!(
+        thread_json["data"]["metadata"]["mutation"]["kind"],
+        "upsert_routine_block"
+    );
+}
+
+#[tokio::test]
 async fn assistant_repo_write_proposal_links_thread_to_pending_execution_review() {
     let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
     storage.migrate().await.unwrap();

@@ -115,6 +115,7 @@ public struct HealthData: Codable, Sendable {
 public typealias AppleVoiceTurnResponse = APIEnvelope<AppleVoiceTurnResponseData>
 public typealias AppleBehaviorSummaryResponse = APIEnvelope<AppleBehaviorSummaryData>
 public typealias NowResponse = APIEnvelope<NowData>
+public typealias PlanningProfileResponse = APIEnvelope<PlanningProfileResponseData>
 public typealias DailyLoopSessionResponse = APIEnvelope<DailyLoopSessionData>
 public typealias DailyLoopActiveSessionResponse = APIEnvelope<DailyLoopSessionData?>
 
@@ -449,6 +450,94 @@ public struct DailyLoopSessionData: Codable, Sendable, Identifiable {
     public let outcome: DailyLoopSessionOutcomeData?
 }
 
+// MARK: - Planning profile
+
+public enum RoutineBlockSourceKindData: String, Codable, Sendable {
+    case inferred
+    case operatorDeclared = "operator_declared"
+}
+
+public enum ScheduleTimeWindowData: String, Codable, Sendable {
+    case prenoon
+    case afternoon
+    case evening
+    case night
+    case day
+}
+
+public enum PlanningConstraintKindData: String, Codable, Sendable {
+    case maxScheduledItems = "max_scheduled_items"
+    case reserveBufferBeforeCalendar = "reserve_buffer_before_calendar"
+    case reserveBufferAfterCalendar = "reserve_buffer_after_calendar"
+    case defaultTimeWindow = "default_time_window"
+    case requireJudgmentForOverflow = "require_judgment_for_overflow"
+}
+
+public struct DurableRoutineBlockData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let label: String
+    public let source: RoutineBlockSourceKindData
+    public let local_timezone: String
+    public let start_local_time: String
+    public let end_local_time: String
+    public let days_of_week: [UInt8]
+    public let protected: Bool
+    public let active: Bool
+}
+
+public struct PlanningConstraintData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let label: String
+    public let kind: PlanningConstraintKindData
+    public let detail: String?
+    public let time_window: ScheduleTimeWindowData?
+    public let minutes: UInt32?
+    public let max_items: UInt32?
+    public let active: Bool
+}
+
+public struct RoutinePlanningProfileData: Codable, Sendable {
+    public let routine_blocks: [DurableRoutineBlockData]
+    public let planning_constraints: [PlanningConstraintData]
+}
+
+public struct PlanningProfileResponseData: Codable, Sendable {
+    public let profile: RoutinePlanningProfileData
+    public let proposal_summary: PlanningProfileProposalSummaryData?
+}
+
+public struct PlanningProfileProposalSummaryItemData: Codable, Sendable {
+    public let thread_id: String
+    public let state: String
+    public let title: String
+    public let summary: String
+    public let outcome_summary: String?
+    public let updated_at: Int
+}
+
+public struct PlanningProfileProposalSummaryData: Codable, Sendable {
+    public let pending_count: Int
+    public let latest_pending: PlanningProfileProposalSummaryItemData?
+    public let latest_applied: PlanningProfileProposalSummaryItemData?
+    public let latest_failed: PlanningProfileProposalSummaryItemData?
+}
+
+public struct CommitmentSchedulingProposalSummaryItemData: Codable, Sendable {
+    public let thread_id: String
+    public let state: String
+    public let title: String
+    public let summary: String
+    public let outcome_summary: String?
+    public let updated_at: Int
+}
+
+public struct CommitmentSchedulingProposalSummaryData: Codable, Sendable {
+    public let pending_count: Int
+    public let latest_pending: CommitmentSchedulingProposalSummaryItemData?
+    public let latest_applied: CommitmentSchedulingProposalSummaryItemData?
+    public let latest_failed: CommitmentSchedulingProposalSummaryItemData?
+}
+
 // MARK: - Now
 
 public struct NowLabelData: Codable, Sendable {
@@ -554,6 +643,8 @@ public struct NowData: Codable, Sendable {
     public let attention: NowAttentionData
     public let sources: NowSourcesData
     public let freshness: NowFreshnessData
+    public let planning_profile_summary: PlanningProfileProposalSummaryData?
+    public let commitment_scheduling_summary: CommitmentSchedulingProposalSummaryData?
     public let action_items: [ActionItemData]
     public let reasons: [String]
     public let debug: NowDebugData

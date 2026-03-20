@@ -143,6 +143,8 @@ pub(crate) async fn sync_google_calendar(
             let Some(start_ts) = google_event_start_ts(&event) else {
                 continue;
             };
+            let all_day = event_is_all_day(&event);
+            let response_status = event_self_response_status(&event).unwrap_or_default();
             let source_ref = format!(
                 "google_calendar:{}:{}:{}",
                 calendar.id,
@@ -156,9 +158,12 @@ pub(crate) async fn sync_google_calendar(
                 "title": event.summary.clone().unwrap_or_else(|| "(untitled event)".to_string()),
                 "start": start_ts,
                 "end": google_event_end_ts(&event),
+                "all_day": all_day,
                 "location": event.location.unwrap_or_default(),
                 "description": event.description.unwrap_or_default(),
-                "status": event.status.unwrap_or_default(),
+                "status": event.status.clone().unwrap_or_default(),
+                "transparency": event.transparency.clone().unwrap_or_default(),
+                "response_status": response_status,
                 "url": event.html_link.unwrap_or_default(),
                 "attendees": event.attendees.unwrap_or_default().into_iter().filter_map(|item| item.email.or(item.display_name)).collect::<Vec<_>>(),
                 "prep_minutes": 15,
@@ -393,6 +398,23 @@ fn google_event_end_ts(event: &GoogleCalendarEvent) -> Option<i64> {
     google_event_time_to_ts(event.end.as_ref())
 }
 
+fn event_is_all_day(event: &GoogleCalendarEvent) -> bool {
+    event
+        .start
+        .as_ref()
+        .and_then(|value| value.date.as_ref())
+        .is_some()
+}
+
+fn event_self_response_status(event: &GoogleCalendarEvent) -> Option<String> {
+    event
+        .attendees
+        .as_ref()?
+        .iter()
+        .find(|attendee| attendee.self_attendee.unwrap_or(false))
+        .and_then(|attendee| attendee.response_status.clone())
+}
+
 fn google_event_time_to_ts(value: Option<&GoogleEventDateTime>) -> Option<i64> {
     let value = value?;
     if let Some(date_time) = value.date_time.as_deref() {
@@ -467,6 +489,8 @@ struct GoogleCalendarEvent {
     status: Option<String>,
     #[serde(default)]
     updated: Option<String>,
+    #[serde(default)]
+    transparency: Option<String>,
     #[serde(default, rename = "htmlLink")]
     html_link: Option<String>,
     #[serde(default)]
@@ -489,4 +513,8 @@ struct GoogleEventAttendee {
     email: Option<String>,
     #[serde(default, rename = "displayName")]
     display_name: Option<String>,
+    #[serde(default, rename = "responseStatus")]
+    response_status: Option<String>,
+    #[serde(default, rename = "self")]
+    self_attendee: Option<bool>,
 }

@@ -69,15 +69,25 @@ Undefined routes are fail-closed with an explicit `404` fallback handler.
 
 ### `GET /v1/health`
 ### `GET /v1/doctor`
+### `GET /v1/planning-profile`
+### `PATCH /v1/planning-profile`
 
 - daemon and storage health
 - effective runtime diagnostics
 - published contract-manifest parse health (`contracts_manifest` check from `config/contracts-manifest.json`)
+- typed inspection and mutation of the durable routine-planning profile used by same-day `day_plan` and `reflow`
+- `GET /v1/planning-profile` returns the canonical backend-owned pack of saved routine blocks and bounded planning constraints plus compact planning-profile proposal continuity (`pending`, latest applied, latest failed) for summary surfaces
+- `PATCH /v1/planning-profile` applies one typed mutation at a time (`upsert_*` or `remove_*`) with service-level validation and explicit failure for malformed or missing targets
+- `POST /v1/planning-profile/proposals/:id/apply` resolves an approved or staged planning-profile proposal thread through the same canonical mutation seam and records `approved`, `applied`, or `failed` continuity back onto that thread
+- web `Settings`, CLI, and Apple summary surfaces now inspect that same canonical profile instead of maintaining shell-local planning state
+- assistant and voice shells do not bypass this seam: they may stage bounded planning-profile edit proposals, but supervised approval/application still resolves back through the canonical profile mutation model
 
 Exposure:
 
 - `GET /v1/health`: `local_public`
 - `GET /v1/doctor`: `operator_authenticated`
+- `GET /v1/planning-profile`: `operator_authenticated`
+- `PATCH /v1/planning-profile`: `operator_authenticated`
 
 ### `GET /v1/backup/status`
 ### `POST /v1/backup/create`
@@ -203,6 +213,11 @@ Repo-local supervised workflow:
 ### `POST /v1/commitments/:id/dependencies`
 
 - commitment CRUD plus dependency management
+- persisted commitment records now carry canonical `scheduler_rules` derived from compatibility labels, text tokens, and due metadata
+- these rules are the backend-owned scheduling semantics used by same-day `reflow`, assistant context, and grounding paths
+- raw upstream labels remain compatibility/search metadata rather than the durable runtime truth for scheduling behavior
+- durable routine blocks and bounded planning constraints are now persisted separately from generic settings and are consumed by same-day `day_plan` / `reflow` as backend-owned planning inputs
+- those durable planning inputs are now operator-manageable through `/v1/planning-profile`; shells should submit typed profile mutations there instead of hiding routine edits inside generic settings JSON
 
 ### `GET /v1/projects`
 ### `GET /v1/projects/:id`
@@ -286,11 +301,22 @@ CLI fallback when the web shell is unavailable:
 
 - persisted current-context and operator-facing "what matters now" projections
 - `GET /v1/now` is the typed place to orient in Now: it returns ranked `action_items` plus the `review_snapshot` counts (`open_action_count`, `triage_count`, `projects_needing_review`)
+- current shipped web `Now` treats this route as an execution-first current-day surface: compact context bar, current status, next event, unified today lane, and compressed attention indicators all derive from `GET /v1/now`
+- that current-day model is sleep-relative rather than midnight-bound: the backend keeps the same operator day active until the rollover boundary is crossed, so late-night unfinished work, remaining commitments, and relevant events can still belong to the same day
+- `next_event` is the next future relevant calendar event, not the current event and not routine/noise placeholders; all-day, free/transparent, declined, and cancelled calendar rows are filtered before the shell sees them
+- the unified today lane is commitment-first on the backend seam: `next_commitment` and `other_open` represent work already in play for the current sleep-relative day, while `todoist` remains the secondary pullable task lane
 - Apple surfaces should treat `GET /v1/now` as the schedule and quick-loop authority instead of synthesizing schedule answers locally
+- cross-surface continuity should stay equally bounded: `Now` may resurface one clearly ranked resumable thread, but shells should not widen that into a live thread inbox on the main surface
+- the `day_plan` portion of `GET /v1/now` now carries a backend-owned bounded same-day planning proposal with explicit `scheduled`, `deferred`, `did_not_fit`, and `needs_judgment` outcomes plus the routine blocks used to shape the proposal
+- those routine blocks now come from the durable routine-planning profile when configured, with inferred fallback only when no durable blocks exist
+- bounded planning constraints can now influence default time-window preference, calendar buffer windows, and overflow judgment inside the same backend-owned planning substrate
 - the `reflow` portion of `GET /v1/now` now carries a backend-owned same-day recovery proposal with explicit `moved`, `unscheduled`, `needs_judgment`, and normalized scheduler `rule_facets`
-- shells should render that typed proposal directly; they should not compute schedule diffs or remaining-day placements locally
+- `GET /v1/now` now also carries compact same-day scheduling proposal continuity (`pending_count`, latest pending, latest applied, latest failed) over the same backend-owned commitment-scheduling seam used by supervised apply
+- shells should render `day_plan` and `reflow` directly from those typed proposals; they should not compute their own placements, diffs, or routine semantics locally
+- shells may render the compact continuity summary, but they must not derive scheduling state locally from raw thread metadata or invent planner-side apply rules
 - staged assistant proposals feed this same operator lane: trust/readiness follow-through and ranked action items may surface assistant-originated review work, but the runtime still uses the canonical operator queue and review state instead of a chat-only side channel
 - current recall limit: the shipped semantic layer is still a bounded local hybrid retrieval baseline over persisted Vel data. It returns explainable scores and provenance, but it is not yet a broad graph-memory or hosted RAG system.
+- current closeout limit: `GET /v1/now` is sufficient for compact current-day orientation and next-event truth, but the runtime still does not publish a separate contextual-help payload or a dedicated forward-browse/pagination contract for schedule exploration on the main `Now` surface
 
 ## Apple quick loops
 
@@ -300,10 +326,28 @@ CLI fallback when the web shell is unavailable:
 - operator-authenticated Apple shell routes for iPhone/watch quick loops
 - `POST /v1/apple/voice/turn` persists transcript provenance first, then returns a typed backend-owned reply for supported Apple intents; `MorningBriefing` delegates into the shared `/v1/daily-loop/*` authority after transcript capture instead of using a separate Apple-only morning policy path
 - for supported backend-handled voice turns, the route also preserves shared thread continuity and may return a `thread_id` hint so Apple can acknowledge follow-up without inventing local thread policy
+- bounded planning-profile edit requests now use that same confirmation-first voice lane: Apple can stage a typed routine-block or planning-constraint proposal, but the edit remains staged and thread-backed rather than silently applying profile mutations
+- when a planning-profile edit is recognized, the route returns typed proposal continuity metadata rather than mutating saved routines directly; Apple should treat that as an explicit follow-through handoff, not as an already-applied planner change
 - `GET /v1/apple/behavior-summary` returns the bounded daily behavior rollup used by Apple quick-loop surfaces
 - Apple clients should send the same operator auth headers as the rest of `/v1/*` (`x-vel-operator-token` or `Authorization: Bearer <token>`) when token policy is configured
 - safe offline Apple mutations should continue to reuse `POST /v1/sync/actions`; clients should not invent a parallel Apple-only write lane
 - current limit: Apple still depends on the dedicated `/v1/apple/voice/turn` compatibility route for typed quick-loop replies, while browser/desktop voice goes through `/api/assistant/entry` after local speech-to-text
+- Phase 37 adds the first additive iPhone embedded-capable seam for bounded local helper flows such as cached-`Now` hydration and quick-action preparation, but daemon-backed HTTP remains the current authority path and the route surface above is still the source of truth
+- Phase 38 now defines the local-first iPhone voice/offline contract over that seam: cached `Now`, queued voice capture, local quick actions, and local thread drafts are allowed as one bounded recovery lane, but canonical thread merge and backend-only answers remain daemon-backed
+- Apple shells may surface that lane as compact continuity in `Now` and `Threads` only: local draft ready, recovery pending, merged, or saved-to-Threads. They must not invent a second offline-only thread model or imply that cached answers were freshly reasoned locally
+
+### `POST /api/assistant/entry`
+
+- browser/desktop assistant entry remains the shared text and local-STT route for backend-owned conversation, daily-loop starts, end-of-day closeout, staged assistant proposals, and now staged planning-profile edits
+- when a planning-profile request is recognized, the backend stages a typed `PlanningProfileEditProposal` over the canonical mutation seam, returns explicit `thread_id` / `thread_type` continuity metadata, and does not apply the edit silently
+- these staged edits intentionally reuse the same backend-owned planning-profile vocabulary that `GET/PATCH /v1/planning-profile` exposes; assistant entry is a proposal surface, not a parallel planner API
+- current limit: this route stages bounded routine-block and planning-constraint edits only; later application still requires the supervised proposal-apply lane and should remain explicit in `Threads` continuity rather than becoming an inline planner write
+
+### `POST /v1/commitment-scheduling/proposals/:id/apply`
+
+- supervised backend apply lane for staged same-day `day_plan` / `reflow` scheduling proposals
+- reconstructs the typed proposal from thread metadata, applies canonical commitment mutations, and records `approved`, `applied`, or `failed` continuity back into the proposal thread
+- summary surfaces such as web `Now`, CLI review output, and Apple quick-loop shells should reflect that compact continuity from backend DTOs rather than inventing second planner state
 
 ## Explainability and search
 

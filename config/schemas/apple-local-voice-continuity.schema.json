@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.dev/schemas/apple-local-voice-continuity.schema.json",
+  "title": "Apple Local Voice Continuity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_version",
+    "surface",
+    "offline_baseline",
+    "safe_offline_quick_actions",
+    "daemon_backed_limits",
+    "merge_model"
+  ],
+  "properties": {
+    "profile_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "surface": {
+      "type": "string",
+      "enum": [
+        "iphone_voice"
+      ]
+    },
+    "offline_baseline": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "cached_now",
+          "queued_voice_capture",
+          "local_quick_actions",
+          "local_thread_draft"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "safe_offline_quick_actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "capture_create",
+          "commitment_create",
+          "commitment_done",
+          "nudge_done",
+          "nudge_snooze"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "daemon_backed_limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "backend_voice_answers",
+          "canonical_thread_merge",
+          "heavy_recall",
+          "heavy_reasoning",
+          "shared_history_sync",
+          "integrations_sync",
+          "review_apply"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "merge_model": {
+      "type": "string",
+      "enum": [
+        "single_thread_backed_continuity"
+      ]
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

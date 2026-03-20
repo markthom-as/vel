@@ -65,6 +65,18 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - [ ] Phase 25 — local recall, semantic memory, and grounded assistant context: improve explainable local recall and backend-owned assistant context without widening into hosted memory infrastructure
 - [ ] Phase 26 — real day-plan reflow and schedule reconciliation: turn stale schedule recovery into a real backend-owned day-repair lane with explainable remaining-day recomputation
 - [ ] Phase 27 — canonical scheduler facets and commitment rule normalization: turn proven tag/rule semantics into first-class Vel-backed fields/facets for agents, recall, and reflow
+- [ ] Phase 28 — routine blocks and commitment-aware day planning: use canonical scheduler rules plus calendar anchors to shape a bounded backend-owned plan before day drift occurs
+- [ ] Phase 29 — durable routine blocks and operator-managed planning constraints: replace inferred-only routine inputs with persisted backend-owned routine blocks and bounded planning constraints over the same day-plan substrate
+- [ ] Phase 30 — routine and planning-profile management surfaces: let operators manage durable routine blocks and bounded planning constraints through typed backend seams and thin shipped surfaces
+- [ ] Phase 31 — cross-surface planning-profile parity and assistant-managed routine edits: extend the canonical planning-profile seam into CLI, Apple, and assistant/voice flows without creating a second planner
+- [ ] Phase 32 — approved planning-profile edits and supervised routine application: let staged assistant/voice planning-profile edits resolve through review and canonical backend mutation without silent conversational writes
+- [ ] Phase 33 — approved day-plan and reflow application over commitment scheduling: let bounded same-day planning outcomes apply through supervised backend scheduling seams without broad planner authority
+- [ ] Phase 34 — `Now` view simplification, current-day truth, and `Vel.csv` acceptance: turn `Now` into a compact current-day control surface while fixing calendar/Todoist truth, duplicated UI, and low-value status clutter
+- [ ] Phase 35 — sleep-relative day boundary and today-lane correctness: make `Now`, next-event truth, commitments, and thread resurfacing agree on one sleep-relative current-day model
+- [ ] Phase 36 — shell hierarchy, settings, and continuity simplification: reduce slop across `Now`, `Threads`, `Settings`, and sidebar behavior without reintroducing shell-owned product logic
+- [ ] Phase 37 — iPhone embedded Rust core and Apple FFI foundation: add the real iPhone embedded-capable Apple path behind feature/platform gates while preserving one canonical Rust-owned product model
+- [ ] Phase 38 — local-first iPhone voice continuity and offline action lane: make voice capture, cached `Now`, queued quick actions, and thread drafts feel local-first on iPhone
+- [ ] Phase 39 — `Vel.csv` regression sweep and daily-use closeout: sweep remaining `Vel.csv` usability pressure and verify that web and Apple can support a real daily-use loop cleanly
 
 ### Out of Scope
 
@@ -110,6 +122,13 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | Interface and shell fixes should be planned, while broader provider/platform expansion stays backlog-only until daily use is strong | Keeps roadmap effort focused on adoption and repeated use rather than diffuse expansion | Accepted |
 | One Rust-owned grounded assistant seam should power text, voice, daily-loop continuity, and thread escalation across shells | Prevents Apple/web/desktop from re-implementing assistant behavior and keeps future FFI/daemon/server topologies aligned | Accepted |
 | Scheduler and tagging semantics should become canonical Vel-backed fields/facets instead of staying raw provider labels | Preserves the proven `codex-workspace` rule system while making it explainable, SQL-queryable, and agent-usable without provider drift | Accepted |
+| Canonical scheduler rules should feed an explicit backend-owned day-planning lane before broader planner ambitions | Keeps morning/day shaping product-useful and explainable while avoiding a speculative multi-day planner rewrite | Accepted |
+| Routine blocks should become durable backend-owned planning records before any richer planner or habit-system ambitions | Strengthens same-day planning trust and operator control without widening into a speculative multi-day or lifestyle-product rewrite | Accepted |
+| After supervised planning-profile edits, the next planning value lane should be supervised application of bounded same-day day-plan and reflow changes | Turns explainable same-day planning into usable action without widening into broad autonomous calendar editing | Accepted |
+| The next product arc should repair `Now` and current-day truth before widening Apple architecture | Prevents Apple FFI work from hardening the wrong daily-use model and makes the UI/UX correction the product priority | Accepted |
+| `Now` should be an execution-first current-day control surface rather than a dashboard | Keeps the primary operator surface centered on what is happening now, what matters next, and one dominant capture/ask/talk affordance | Accepted |
+| `Vel.csv` should validate and regress the next arc, not dictate product direction | Preserves operator interview decisions and prior specs as product authority while still using shipped feedback as an acceptance guardrail | Accepted |
+| Apple embedded-core / FFI should start on iPhone, with voice continuity as the proving flow | Maximizes local-first value and offline differentiation without splitting effort across watch and Mac too early | Accepted |
 
 ---
-*Last updated: 2026-03-20 after extending the roadmap with bounded local recall closure and a new day-plan reflow/reconciliation feature lane*
+*Last updated: 2026-03-20 after defining Phases 34-39 for `Now` truth repair, shell simplification, and the mid-arc Apple embedded-core path*

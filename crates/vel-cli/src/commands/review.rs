@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use crate::client::ApiClient;
 use crate::commands::doctor::backup_summary_lines;
 use vel_api_types::{
-    ActionItemData, BackupTrustData, CommitmentData, NowData, PersonRecordData, ProjectFamilyData,
-    ProjectRecordData, ReviewSnapshotData,
+    ActionItemData, BackupTrustData, CommitmentData, CommitmentSchedulingProposalSummaryData,
+    NowData, PersonRecordData, ProjectFamilyData, ProjectRecordData, ReviewSnapshotData,
 };
 
 const TRUNCATE: usize = 50;
@@ -41,6 +41,7 @@ pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
             "latest_context_artifact": latest_ctx,
             "open_action_count": review_counts.0,
             "triage_count": review_counts.1,
+            "commitment_scheduling_summary": now.commitment_scheduling_summary,
             "pending_writebacks": now.pending_writebacks.len(),
             "open_conflicts": now.conflicts.len(),
             "people_needing_review": people_needing_review(&now).len(),
@@ -72,6 +73,7 @@ pub async fn run_today(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     } else {
         println!("Latest context artifact: (none)");
     }
+    print_commitment_scheduling_summary(now.commitment_scheduling_summary.as_ref());
     println!("Pending writebacks: {}", now.pending_writebacks.len());
     println!("Open conflicts: {}", now.conflicts.len());
     println!(
@@ -113,6 +115,7 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
             "captures_recent": captures.len(),
             "captures": captures,
             "latest_context_artifact": latest_ctx,
+            "commitment_scheduling_summary": now.commitment_scheduling_summary,
             "pending_writebacks": now.pending_writebacks.len(),
             "open_conflicts": now.conflicts.len(),
             "people_needing_review": people_needing_review(&now).len(),
@@ -144,6 +147,7 @@ pub async fn run_week(client: &ApiClient, json: bool) -> anyhow::Result<()> {
     } else {
         println!("Latest context artifact: (none)");
     }
+    print_commitment_scheduling_summary(now.commitment_scheduling_summary.as_ref());
     println!("Pending writebacks: {}", now.pending_writebacks.len());
     println!("Open conflicts: {}", now.conflicts.len());
     println!(
@@ -169,6 +173,48 @@ fn top_action_titles(action_items: &[ActionItemData]) -> Vec<String> {
 fn print_backup_summary(backup: &BackupTrustData) {
     println!();
     for line in backup_summary_lines(backup) {
+        println!("{line}");
+    }
+}
+
+fn commitment_scheduling_summary_lines(
+    summary: Option<&CommitmentSchedulingProposalSummaryData>,
+) -> Vec<String> {
+    let Some(summary) = summary else {
+        return Vec::new();
+    };
+
+    let mut lines = vec![format!(
+        "Schedule continuity: {} pending",
+        summary.pending_count
+    )];
+    if let Some(item) = &summary.latest_pending {
+        lines.push(format!("  Pending: {}", item.title));
+    }
+    if let Some(item) = &summary.latest_applied {
+        lines.push(format!(
+            "  Last applied: {}{}",
+            item.title,
+            item.outcome_summary
+                .as_deref()
+                .map(|summary| format!(" ({summary})"))
+                .unwrap_or_default()
+        ));
+    } else if let Some(item) = &summary.latest_failed {
+        lines.push(format!(
+            "  Last failed: {}{}",
+            item.title,
+            item.outcome_summary
+                .as_deref()
+                .map(|summary| format!(" ({summary})"))
+                .unwrap_or_default()
+        ));
+    }
+    lines
+}
+
+fn print_commitment_scheduling_summary(summary: Option<&CommitmentSchedulingProposalSummaryData>) {
+    for line in commitment_scheduling_summary_lines(summary) {
         println!("{line}");
     }
 }
@@ -253,15 +299,15 @@ fn build_project_review_candidates(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_project_review_candidates, people_needing_review, summarize_review_snapshot,
-        top_action_titles,
+        build_project_review_candidates, commitment_scheduling_summary_lines,
+        people_needing_review, summarize_review_snapshot, top_action_titles,
     };
     use serde_json::json;
     use time::OffsetDateTime;
     use vel_api_types::{
         ActionEvidenceRefData, ActionItemData, ActionKindData, ActionPermissionModeData,
-        ActionScopeAffinityData, ActionStateData, ActionSurfaceData, CommitmentData,
-        NowAttentionData, NowData, NowDebugData, NowFreshnessData, NowLabelData,
+        ActionScopeAffinityData, ActionStateData, ActionSurfaceData, CanonicalScheduleRulesData,
+        CommitmentData, NowAttentionData, NowData, NowDebugData, NowFreshnessData, NowLabelData,
         NowRiskSummaryData, NowScheduleData, NowSourcesData, NowSummaryData, NowTasksData,
         PersonRecordData, ProjectFamilyData, ProjectProvisionRequestData, ProjectRecordData,
         ProjectRootRefData, ProjectStatusData, ReviewSnapshotData, TrustReadinessData,
@@ -308,6 +354,15 @@ mod tests {
             commitment_kind: None,
             created_at: OffsetDateTime::UNIX_EPOCH,
             resolved_at: None,
+            scheduler_rules: CanonicalScheduleRulesData {
+                block_target: None,
+                duration_minutes: None,
+                calendar_free: false,
+                fixed_start: false,
+                time_window: None,
+                local_urgency: false,
+                local_defer: false,
+            },
             metadata: json!({}),
         }
     }
@@ -448,6 +503,8 @@ mod tests {
                 overall_status: "fresh".to_string(),
                 sources: vec![],
             },
+            planning_profile_summary: None,
+            commitment_scheduling_summary: None,
             trust_readiness: TrustReadinessData {
                 level: "ok".to_string(),
                 headline: "Trust looks good".to_string(),
@@ -472,6 +529,7 @@ mod tests {
                 follow_through: vec![],
             },
             check_in: None,
+            day_plan: None,
             reflow: None,
             reflow_status: None,
             action_items: vec![ActionItemData {
@@ -542,5 +600,38 @@ mod tests {
 
         assert_eq!(people.len(), 1);
         assert_eq!(people[0].display_name, "Annie Case");
+    }
+
+    #[test]
+    fn commitment_scheduling_summary_lines_render_pending_and_last_applied() {
+        let lines = commitment_scheduling_summary_lines(Some(
+            &vel_api_types::CommitmentSchedulingProposalSummaryData {
+                pending_count: 1,
+                latest_pending: Some(vel_api_types::CommitmentSchedulingProposalSummaryItemData {
+                    thread_id: "thr_day_plan_apply_1".to_string(),
+                    state: vel_api_types::AssistantProposalStateData::Staged,
+                    title: "Apply focus block shift".to_string(),
+                    summary: "Move the focus block after the calendar anchor.".to_string(),
+                    outcome_summary: None,
+                    updated_at: 1_710_000_000,
+                }),
+                latest_applied: Some(vel_api_types::CommitmentSchedulingProposalSummaryItemData {
+                    thread_id: "thr_reflow_edit_0".to_string(),
+                    state: vel_api_types::AssistantProposalStateData::Applied,
+                    title: "Clear stale due time".to_string(),
+                    summary: "Remove the stale due time from one commitment.".to_string(),
+                    outcome_summary: Some(
+                        "Commitment scheduling proposal applied through canonical mutation seam."
+                            .to_string(),
+                    ),
+                    updated_at: 1_709_999_900,
+                }),
+                latest_failed: None,
+            },
+        ));
+
+        assert_eq!(lines[0], "Schedule continuity: 1 pending");
+        assert_eq!(lines[1], "  Pending: Apply focus block shift");
+        assert!(lines[2].contains("Last applied: Clear stale due time"));
     }
 }

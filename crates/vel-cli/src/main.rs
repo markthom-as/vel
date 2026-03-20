@@ -240,6 +240,11 @@ enum Command {
         #[command(subcommand)]
         command: SuggestionCommand,
     },
+    #[command(about = "Inspect the canonical planning profile used by day-plan and reflow")]
+    PlanningProfile {
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -1258,6 +1263,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Suggestions { state, json } => {
             commands::suggestions::run_list(&client, state.as_deref(), json).await
         }
+        Command::PlanningProfile { json } => commands::planning_profile::run(&client, json).await,
         Command::Suggestion { command } => match command {
             SuggestionCommand::Inspect { id } => {
                 commands::suggestions::run_inspect(&client, &id).await
@@ -1467,12 +1473,22 @@ mod tests {
     }
 
     #[test]
+    fn cli_parses_planning_profile_json() {
+        let cli = Cli::try_parse_from(["vel", "planning-profile", "--json"]).unwrap();
+        match cli.command {
+            Command::PlanningProfile { json } => assert!(json),
+            _ => panic!("expected planning-profile command"),
+        }
+    }
+
+    #[test]
     fn cli_help_uses_shell_taxonomy_framing() {
         let help = Cli::command().render_long_help().to_string();
         assert!(help.contains("Vel operator shell for now, setup, and threads"));
         assert!(help.contains("Run advanced trust and runtime checks"));
         assert!(help.contains("Show published docs for daily use, setup, and deeper detail"));
         assert!(help.contains("Show the daily-use Now lane summary"));
+        assert!(help.contains("Inspect the canonical planning profile used by day-plan and reflow"));
         assert!(help.contains("List and inspect the continuity/archive thread lane"));
     }
 

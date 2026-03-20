@@ -72,6 +72,12 @@ struct ContentView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                if let scheduleProposalStatus = store.scheduleProposalStatus, !scheduleProposalStatus.isEmpty {
+                    Text(scheduleProposalStatus)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
 
                 if let next = store.nextCommitmentText, !next.isEmpty {
                     Text(next)

@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 27
-current_phase_name: canonical-scheduler-facets-and-commitment-rule-normalization
-current_plan: 1
-status: in_progress
-stopped_at: 27 planning complete; next logical step is 27-01 execution
-last_updated: "2026-03-20T14:18:00Z"
+current_phase: 39
+current_phase_name: vel-csv-regression-sweep-and-daily-use-closeout
+current_plan: "milestone_closeout"
+status: ready_for_milestone_audit
+stopped_at: Closed Phase 39 with explicit daily-use arc truth, evidence, and deferrals; next logical step is milestone audit and closeout
+last_updated: "2026-03-20T20:10:08Z"
 last_activity: 2026-03-20
 progress:
-  total_phases: 27
-  completed_phases: 17
-  total_plans: 90
-  completed_plans: 90
-  percent: 72
+  total_phases: 39
+  completed_phases: 39
+  total_plans: 169
+  completed_plans: 127
+  percent: 94
 ---
 
 # Project State
@@ -24,27 +24,27 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 27 execution for canonical scheduler facets and commitment rule normalization
+**Current focus:** Turn `Vel.csv` into a regression guardrail and closeout matrix for the repaired daily-use arc across web and Apple
 
-Status: Phase 19 deferred by operator choice; Phase 26 is complete and Phase 27 is the active feature-planning lane
-Current Phase: 27
-Current Phase Name: canonical-scheduler-facets-and-commitment-rule-normalization
-Current Plan: 1
+Status: Phase 19 deferred by operator choice; Phases 34, 35, 36, 37, 38, and 39 are complete and the milestone is ready for audit/closeout
+Current Phase: 39
+Current Phase Name: vel-csv-regression-sweep-and-daily-use-closeout
+Current Plan: milestone_closeout
 Total Plans in Phase: 4
-Progress: 0%
+Progress: 94%
 Last Activity: 2026-03-20
-Last Activity Description: Planned Phase 27 into four execution slices covering canonical scheduler facets, persistence, shared backend consumption, and closeout docs
+Last Activity Description: Closed the daily-use repair arc with explicit milestone-level evidence, doc truth, and deferred-item clarity
 
 ## Current Position
 
-Phase: 27 (canonical-scheduler-facets-and-commitment-rule-normalization) — IN PROGRESS
-Plan: 1 of 4
+Phase: 39 (vel-csv-regression-sweep-and-daily-use-closeout) — COMPLETE
+Plan: milestone audit next
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 32
+- Total plans completed: 38
 - Average duration: 22m
 - Total execution time: 186m
 

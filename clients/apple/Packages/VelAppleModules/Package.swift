@@ -14,18 +14,27 @@ let package = Package(
         .library(name: "VelInfrastructure", targets: ["VelInfrastructure"]),
         .library(name: "VelUIShared", targets: ["VelUIShared"]),
         .library(name: "VelApplePlatform", targets: ["VelApplePlatform"]),
-        .library(name: "VelFeatureFlags", targets: ["VelFeatureFlags"])
+        .library(name: "VelFeatureFlags", targets: ["VelFeatureFlags"]),
+        .library(name: "VelEmbeddedBridge", targets: ["VelEmbeddedBridge"])
     ],
     targets: [
         .target(name: "VelDomain"),
         .target(name: "VelFeatureFlags"),
+        .target(
+            name: "VelEmbeddedBridge",
+            dependencies: [
+                "VelDomain",
+                "VelFeatureFlags"
+            ]
+        ),
         .target(
             name: "VelApplication",
             dependencies: [
                 "VelDomain",
                 "VelFeatureFlags",
                 "VelInfrastructure",
-                "VelApplePlatform"
+                "VelApplePlatform",
+                "VelEmbeddedBridge"
             ]
         ),
         .target(

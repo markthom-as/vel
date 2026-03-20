@@ -247,13 +247,13 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 relative">
         <div className="max-w-2xl mx-auto">
           <header className="mb-5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Threads</p>
-            <h1 className="mt-2 text-2xl font-semibold text-zinc-100">Continuity, history, and longer follow-up</h1>
+            <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">Continuity</p>
+            <h1 className="mt-2 text-2xl font-semibold text-zinc-100">Resume longer follow-through</h1>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Use Threads when `Now` or `Inbox` needs deeper context, longer back-and-forth, or searchable history.
+              Use Threads only when `Now` or `Inbox` needs longer follow-through, deeper context, or searchable history.
             </p>
             <p className="mt-2 text-xs leading-5 text-zinc-500">
-              Reflow edits and longer schedule disagreements belong here after `Now` has already surfaced the compact recovery summary.
+              Reflow edits, planning disagreements, and schedule shaping belong here after `Now` has already shown the compact bounded summary.
             </p>
             <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -263,12 +263,12 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                     type="text"
                     value={threadFilter}
                     onChange={(event) => setThreadFilter(event.target.value)}
-                    placeholder="Filter recent threads"
+                    placeholder="Find recent follow-up"
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500"
                   />
                 </label>
                 <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                  Continuity only. Triage stays in Inbox.
+                  Longer follow-through only. Triage stays in Inbox.
                 </p>
               </div>
               {filteredConversations.length > 0 ? (
@@ -298,7 +298,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
             </div>
           </header>
           {messages.length === 0 && (
-            <SurfaceState message="No messages yet. Start here when `Now` or `Inbox` needs deeper follow-up." />
+            <SurfaceState message="Nothing needs longer follow-up yet. Start here when `Now` or `Inbox` needs continuity." />
           )}
           {messages.map((message) => (
             <MessageRenderer
@@ -320,7 +320,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
         )}
       </div>
       <p className="shrink-0 px-4 py-1 text-zinc-600 text-xs max-w-2xl mx-auto">
-        To get assistant replies, configure a chat model in configs/models/routing.toml and run the model backend. Recall stays bounded to persisted Vel data and backend-owned grounding.
+        Assistant replies require a configured chat model. Capture and bounded recall still work without one.
       </p>
       <MessageComposer
         conversationId={resolvedConversationId}

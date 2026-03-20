@@ -1,5 +1,6 @@
 //! Commitment: actionable, reviewable, statusful object (distinct from raw capture).
 
+use crate::CanonicalScheduleRules;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use time::OffsetDateTime;
@@ -85,4 +86,10 @@ pub struct Commitment {
     pub created_at: OffsetDateTime,
     pub resolved_at: Option<OffsetDateTime>,
     pub metadata_json: serde_json::Value,
+}
+
+impl Commitment {
+    pub fn scheduler_rules(&self) -> CanonicalScheduleRules {
+        CanonicalScheduleRules::from_commitment_parts(&self.text, &self.metadata_json, self.due_at)
+    }
 }

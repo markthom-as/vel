@@ -238,9 +238,73 @@ Note: Phase 12 also reinforced `DOCS-01` through contextual setup/help work, but
 - [ ] **REVIEW-02**: Review queues and approval surfaces can accept assistant-originated proposals without losing provenance or supervision
 - [ ] **TRUST-02**: SAFE MODE, writeback grants, and trust/readiness posture still fail closed when the assistant attempts a gated action
 - [ ] **ASSIST-APPLY-01**: Explicitly approved assistant proposals can advance from staged to applied through the canonical operator-action, execution-review, or writeback lanes instead of stopping at proposal state
+
+### Routine Blocks And Commitment-Aware Day Planning (Phase 28)
+
+- [ ] **DAYPLAN-01**: Vel can shape an initial same-day plan from calendar anchors, open commitments, and canonical scheduler rules before schedule drift occurs
+- [ ] **DAYPLAN-02**: Planned-day output remains explainable with explicit scheduled, deferred, and did-not-fit outcomes instead of opaque planner state
+- [ ] **ROUTINE-01**: Routine blocks become typed backend-owned planning inputs rather than shell-only hints or raw labels
+- [ ] **ROUTINE-02**: Morning/day-plan surfaces consume one shared backend-owned plan contract across CLI, web, assistant, and Apple pathways
 - [ ] **ASSIST-APPLY-02**: Applied assistant outcomes preserve provenance, resulting state, and reversible follow-through where the existing product contract already supports reversal
 - [ ] **REVIEW-03**: Review and approval surfaces can complete assistant-originated proposals into applied outcomes without losing thread, handoff, or action lineage
 - [ ] **TRUST-03**: SAFE MODE, writeback grants, approval gates, and trust/readiness posture still fail closed during apply, retry, and reverse paths for assistant-mediated work
+
+### Durable Routine Blocks And Operator-Managed Planning Constraints (Phase 29)
+
+- [ ] **ROUTINE-03**: Routine blocks can persist as durable backend-owned planning records rather than only inferred current-context hints
+- [ ] **ROUTINE-04**: Operators can manage bounded routine/planning constraints through typed backend-owned seams without creating shell-owned planning logic
+- [ ] **DAYPLAN-03**: Day shaping can consume durable routine blocks and constraints over the same backend-owned planning substrate as `reflow`
+- [ ] **DAYPLAN-04**: Shipped surfaces can summarize durable routine-backed planning posture without implying multi-day autonomy or a second planner
+
+### Cross-Surface Planning-Profile Parity And Assistant-Managed Routine Edits (Phase 31)
+
+- [ ] **PLANPROFILE-03**: CLI, Apple, and assistant-capable entry points can inspect the same canonical planning profile instead of relying on shell-local routine state
+- [ ] **PLANPROFILE-04**: Assistant or voice-driven routine/profile edits route through the typed planning-profile mutation seam with explicit confirmation and provenance
+- [ ] **ROUTINE-07**: Durable routine and planning-constraint management remains one backend-owned substrate across web, CLI, Apple, and assistant flows
+- [ ] **VOICE-04**: Voice-capable planning-profile edits preserve the same bounded confirmation, thread continuity, and fail-closed behavior as typed assistant entry
+
+### Now Simplification, Current-Day Truth, And Vel.csv Acceptance (Phase 34)
+
+- [ ] **NOW-UX-02**: `Now` becomes a compact execution-first current-day surface with a stable top-to-bottom order of context, current status, ask/capture/talk, next event, today lane, and compressed attention indicators
+- [ ] **NOW-UX-03**: The primary `Now` surface removes duplicated UI, verbose sync/runtime clutter, and non-actionable status blocks from default view
+- [ ] **CAL-UX-01**: Calendar rendering on `Now` defaults to aggressive relevance filtering and correct next-event truth for the current day
+- [ ] **TODO-UX-01**: The today lane renders commitment-first work and Todoist-backed tasks with cleaner structure, correct ordering, and meaningful quick actions over the broader task abstraction
+- [ ] **VELCSV-01**: The next UI cleanup lane uses `Vel.csv` as a regression and acceptance input while keeping operator interview decisions and prior specs as product authority
+
+### Sleep-Relative Day Boundary And Today-Lane Correctness (Phase 35)
+
+- [ ] **DAYBOUND-01**: `Now`, next-event truth, and today-lane membership use one sleep-relative day boundary instead of midnight-local heuristics
+- [ ] **DAYBOUND-02**: Late-night unfinished work, night events, and routine continuity remain in the same operator day until the sleep boundary is crossed
+- [ ] **NOW-ORDER-01**: The unified today lane stays commitment-first and execution-ordered, with tasks demoted unless explicitly promoted into commitments
+- [ ] **CONTEXT-01**: Current-status precedence remains calendar event > active commitment > routine block > inferred activity across surfaces and follow-through logic
+
+### Shell Hierarchy, Settings, And Continuity Simplification (Phase 36)
+
+- [ ] **SHELL-03**: The daily-use shell hierarchy is simplified so `Now` stays primary, `Threads` stays continuity-first, `Settings` stays advanced, and shell noise drops materially
+- [ ] **SETTINGS-UX-02**: `Settings` becomes a clearer summary-first management surface with stronger categories, less top-level clutter, and less unnecessary save/sync friction
+- [ ] **THREADS-03**: `Now` resurfaces at most one highly relevant thread contextually, and `Threads` avoids becoming a default live queue or chat inbox
+- [ ] **SIDEBAR-01**: The web sidebar becomes an optional thin icon rail that keeps secondary sync/debug/context state available without dominating core use
+
+### iPhone Embedded Rust Core And Apple FFI Foundation (Phase 37)
+
+- [ ] **APPLE-EMBED-01**: iPhone gains an explicit embedded-capable Rust path behind feature/platform gates while preserving the canonical daemon-backed model as current truth
+- [ ] **APPLE-EMBED-02**: Embedded and daemon-backed Apple flows reuse one Rust-owned domain/policy model rather than diverging into separate product logic
+- [ ] **FFI-01**: The first Apple FFI bridge and embedded boundary are documented, typed, and testable without claiming full local parity
+- [ ] **OFFLINE-01**: The embedded-capable iPhone path materially improves bounded offline/local behavior for high-frequency flows without widening to heavy local reasoning
+
+### Local-First iPhone Voice Continuity And Offline Action Lane (Phase 38)
+
+- [ ] **APPLE-OFFLINE-01**: iPhone can render cached `Now`, queue voice capture, and preserve local quick actions while offline over the embedded-capable path
+- [ ] **APPLE-OFFLINE-02**: Local thread draft continuation and later sync merge behave cleanly without duplicate, lost, or confusing continuity state
+- [ ] **VOICE-06**: iPhone voice capture becomes the first “magical” local-first Apple flow with fast acknowledgment, queued continuity, and clean eventual thread/`Now` integration
+- [ ] **THREADS-04**: Voice and text continuity remain one thread-backed model across offline and online transitions instead of forking into separate local modes
+
+### Vel.csv Regression Sweep And Daily-Use Closeout (Phase 39)
+
+- [ ] **VELCSV-02**: Remaining `Vel.csv` usability pressure is converted into a structured regression/acceptance sweep for the repaired daily-use loop
+- [ ] **DAILY-USE-01**: Web and Apple can support a real wake-up-to-closeout daily-use flow without major friction in `Now`, continuity, and quick actions
+- [ ] **DAILY-USE-02**: Richer context and follow-through surfaces help action rather than adding slop or status-heavy clutter
+- [ ] **APPLE-PARITY-01**: Apple local-first flows and daemon-backed continuity tell one coherent product story across web, Apple, and backend-owned state
 
 ## v2 Requirements
 
@@ -428,12 +492,53 @@ Deferred beyond current milestone scope.
 | SCHED-FACET-02 | Phase 27 | roadmap phase contract | Pending |
 | AGENT-SCHED-01 | Phase 27 | roadmap phase contract | Pending |
 | RECALL-SCHED-01 | Phase 27 | roadmap phase contract | Pending |
+| ROUTINE-05 | Phase 30 | roadmap phase contract | Pending |
+| ROUTINE-06 | Phase 30 | roadmap phase contract | Pending |
+| PLANPROFILE-01 | Phase 30 | roadmap phase contract | Pending |
+| PLANPROFILE-02 | Phase 30 | roadmap phase contract | Pending |
+| PLANPROFILE-03 | Phase 31 | roadmap phase contract | Pending |
+| PLANPROFILE-04 | Phase 31 | roadmap phase contract | Pending |
+| ROUTINE-07 | Phase 31 | roadmap phase contract | Pending |
+| VOICE-04 | Phase 31 | roadmap phase contract | Pending |
+| PLANPROFILE-05 | Phase 32 | roadmap phase contract | Pending |
+| PLANPROFILE-06 | Phase 32 | roadmap phase contract | Pending |
+| ROUTINE-08 | Phase 32 | roadmap phase contract | Pending |
+| VOICE-05 | Phase 32 | roadmap phase contract | Pending |
+| DAYPLAN-05 | Phase 33 | roadmap phase contract | Pending |
+| DAYPLAN-06 | Phase 33 | roadmap phase contract | Pending |
+| REFLOW-REAL-03 | Phase 33 | roadmap phase contract | Pending |
+| SCHED-APPLY-01 | Phase 33 | roadmap phase contract | Pending |
+| NOW-UX-02 | Phase 34 | roadmap phase contract | Pending |
+| NOW-UX-03 | Phase 34 | roadmap phase contract | Pending |
+| CAL-UX-01 | Phase 34 | roadmap phase contract | Pending |
+| TODO-UX-01 | Phase 34 | roadmap phase contract | Pending |
+| VELCSV-01 | Phase 34 | roadmap phase contract | Pending |
+| DAYBOUND-01 | Phase 35 | roadmap phase contract | Pending |
+| DAYBOUND-02 | Phase 35 | roadmap phase contract | Pending |
+| NOW-ORDER-01 | Phase 35 | roadmap phase contract | Pending |
+| CONTEXT-01 | Phase 35 | roadmap phase contract | Pending |
+| SHELL-03 | Phase 36 | roadmap phase contract | Pending |
+| SETTINGS-UX-02 | Phase 36 | roadmap phase contract | Pending |
+| THREADS-03 | Phase 36 | roadmap phase contract | Pending |
+| SIDEBAR-01 | Phase 36 | roadmap phase contract | Pending |
+| APPLE-EMBED-01 | Phase 37 | roadmap phase contract | Pending |
+| APPLE-EMBED-02 | Phase 37 | roadmap phase contract | Pending |
+| FFI-01 | Phase 37 | roadmap phase contract | Pending |
+| OFFLINE-01 | Phase 37 | roadmap phase contract | Pending |
+| APPLE-OFFLINE-01 | Phase 38 | roadmap phase contract | Pending |
+| APPLE-OFFLINE-02 | Phase 38 | roadmap phase contract | Pending |
+| VOICE-06 | Phase 38 | roadmap phase contract | Pending |
+| THREADS-04 | Phase 38 | roadmap phase contract | Pending |
+| VELCSV-02 | Phase 39 | roadmap phase contract | Pending |
+| DAILY-USE-01 | Phase 39 | roadmap phase contract | Pending |
+| DAILY-USE-02 | Phase 39 | roadmap phase contract | Pending |
+| APPLE-PARITY-01 | Phase 39 | roadmap phase contract | Pending |
 
 **Coverage:**
-- v1 requirements: 158 total
-- Mapped to phases: 158
+- v1 requirements: 187 total
+- Mapped to phases: 187
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-20 — Phase 18 requirement reconciliation added milestone Phase 5-17 ledger rows and reconciled statuses against verification artifacts*
+*Last updated: 2026-03-20 — added Phase 34-39 requirements for `Now` repair, shell simplification, Apple embedded-core, and `Vel.csv`-driven closeout*

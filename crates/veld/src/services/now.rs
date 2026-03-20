@@ -3,8 +3,8 @@ use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_core::{
     normalize_risk_level, ActionItem, ActionKind, CheckInCard, Commitment, CommitmentStatus,
-    ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, ReflowCard, ReviewSnapshot,
-    WritebackOperationRecord,
+    ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, DayPlanProposal, ReflowCard,
+    ReviewSnapshot, WritebackOperationRecord,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -21,7 +21,12 @@ pub struct NowOutput {
     pub sources: NowSourcesOutput,
     pub freshness: NowFreshnessOutput,
     pub trust_readiness: TrustReadinessOutput,
+    pub planning_profile_summary:
+        Option<crate::services::planning_profile::PlanningProfileProposalSummary>,
+    pub commitment_scheduling_summary:
+        Option<crate::services::commitment_scheduling::CommitmentSchedulingProposalSummary>,
     pub check_in: Option<CheckInCard>,
+    pub day_plan: Option<DayPlanProposal>,
     pub reflow: Option<ReflowCard>,
     pub reflow_status: Option<CurrentContextReflowStatus>,
     pub action_items: Vec<ActionItem>,
@@ -59,7 +64,11 @@ pub struct NowEventOutput {
     pub title: String,
     pub start_ts: i64,
     pub end_ts: Option<i64>,
+    pub all_day: bool,
     pub location: Option<String>,
+    pub status: Option<String>,
+    pub transparency: Option<String>,
+    pub response_status: Option<String>,
     pub prep_minutes: Option<i64>,
     pub travel_minutes: Option<i64>,
     pub leave_by_ts: Option<i64>,
@@ -197,41 +206,44 @@ struct IntegrationSnapshotOutput {
     messaging: SyncStatusOutput,
 }
 
+struct NowTaskBuckets {
+    next_commitment: Option<NowTaskOutput>,
+    in_play: Vec<NowTaskOutput>,
+    pullable: Vec<NowTaskOutput>,
+}
+
 pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput, AppError> {
-    let now_ts = OffsetDateTime::now_utc().unix_timestamp();
+    let now = OffsetDateTime::now_utc();
+    let now_ts = now.unix_timestamp();
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
+    let current_day = crate::services::timezone::current_day_window(&timezone, now)?;
     let check_in = crate::services::check_in::get_current_check_in(storage, &timezone).await?;
     let apple_behavior_summary =
         crate::services::apple_behavior::get_summary(storage, config).await?;
     let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
+    let planning_profile_summary =
+        crate::services::planning_profile::load_planning_profile_proposal_summary(storage).await?;
+    let commitment_scheduling_summary =
+        crate::services::commitment_scheduling::load_commitment_scheduling_proposal_summary(
+            storage,
+        )
+        .await?;
     let Some((computed_at, context)) = storage.get_current_context().await? else {
-        return Ok(empty_now(now_ts, &timezone.name, check_in, &action_queue));
+        return Ok(empty_now(
+            now_ts,
+            &timezone.name,
+            check_in,
+            &action_queue,
+            planning_profile_summary,
+            commitment_scheduling_summary,
+        ));
     };
 
     let commitments = storage
         .list_commitments(Some(CommitmentStatus::Open), None, None, 64)
         .await?;
-    let next_commitment_id = context.next_commitment_id.clone();
-    let next_commitment = next_commitment_id
-        .as_ref()
-        .and_then(|id| {
-            commitments
-                .iter()
-                .find(|commitment| commitment.id.as_ref() == id)
-        })
-        .map(now_task);
-
-    let mut todoist = Vec::new();
-    let mut other_open = Vec::new();
-    for commitment in sort_commitments(commitments) {
-        if commitment.source_type == "todoist" {
-            if todoist.len() < 6 {
-                todoist.push(now_task(&commitment));
-            }
-        } else if other_open.len() < 4 {
-            other_open.push(now_task(&commitment));
-        }
-    }
+    let sorted_commitments = sort_commitments(commitments, &timezone, now);
+    let task_buckets = split_now_tasks(&context, sorted_commitments, &timezone, now, &current_day);
 
     let signal_ids = context.signals_used.clone();
     let calendar_selection = integrations::google_calendar_selection_filter(storage).await?;
@@ -241,21 +253,20 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         .into_iter()
         .filter(|signal| calendar_selection.includes_signal(signal))
         .filter_map(calendar_event_from_signal)
+        .filter(|event| event_overlaps_current_day(event, &current_day))
         .collect::<Vec<_>>();
     if events.is_empty() {
         events = storage
-            .list_signals(Some("calendar_event"), Some(now_ts - 12 * 60 * 60), 32)
+            .list_signals(Some("calendar_event"), Some(current_day.start_ts), 32)
             .await?
             .into_iter()
             .filter(|signal| calendar_selection.includes_signal(signal))
             .filter_map(calendar_event_from_signal)
+            .filter(|event| event_overlaps_current_day(event, &current_day))
             .collect();
     }
     events.sort_by_key(|event| event.start_ts);
-    let next_event = events
-        .iter()
-        .find(|event| event.end_ts.unwrap_or(event.start_ts) >= now_ts)
-        .cloned();
+    let next_event = events.iter().find(|event| event.start_ts > now_ts).cloned();
     let upcoming_events: Vec<NowEventOutput> = events
         .into_iter()
         .filter(|event| event.end_ts.unwrap_or(event.start_ts) >= now_ts)
@@ -320,6 +331,8 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
     let attention_reasons = context.attention_reasons.clone();
     let reasons = build_reasons_typed(&context, &attention_reasons);
+    let day_plan =
+        crate::services::day_plan::derive_current_day_plan(storage, &context, now_ts).await?;
     let reflow_status = crate::services::reflow::current_status_for_snapshot(&context).cloned();
     let reflow = crate::services::reflow::derive_current_reflow(storage, &context, now_ts).await?;
 
@@ -341,9 +354,9 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
             upcoming_events,
         },
         tasks: NowTasksOutput {
-            todoist,
-            other_open,
-            next_commitment,
+            todoist: task_buckets.pullable,
+            other_open: task_buckets.in_play,
+            next_commitment: task_buckets.next_commitment,
         },
         attention: NowAttentionOutput {
             state: label_for_attention(context.attention_state.as_str()),
@@ -401,7 +414,12 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         },
         freshness,
         trust_readiness,
+        planning_profile_summary: (!planning_profile_summary.is_empty())
+            .then_some(planning_profile_summary),
+        commitment_scheduling_summary: (!commitment_scheduling_summary.is_empty())
+            .then_some(commitment_scheduling_summary),
         check_in,
+        day_plan,
         reflow,
         reflow_status,
         action_items: select_now_action_items(&action_queue.action_items, 5),
@@ -645,6 +663,9 @@ fn empty_now(
     timezone: &str,
     check_in: Option<CheckInCard>,
     action_queue: &crate::services::operator_queue::ActionQueueSnapshot,
+    planning_profile_summary: crate::services::planning_profile::PlanningProfileProposalSummary,
+    commitment_scheduling_summary:
+        crate::services::commitment_scheduling::CommitmentSchedulingProposalSummary,
 ) -> NowOutput {
     let freshness = NowFreshnessOutput {
         overall_status: "stale".to_string(),
@@ -702,7 +723,12 @@ fn empty_now(
             action_queue.conflicts.len() as u32,
             &action_queue.action_items,
         ),
+        planning_profile_summary: (!planning_profile_summary.is_empty())
+            .then_some(planning_profile_summary),
+        commitment_scheduling_summary: (!commitment_scheduling_summary.is_empty())
+            .then_some(commitment_scheduling_summary),
         check_in,
+        day_plan: None,
         reflow: None,
         reflow_status: None,
         action_items: select_now_action_items(&action_queue.action_items, 5),
@@ -867,10 +893,51 @@ fn age_status(age_seconds: i64) -> &'static str {
     }
 }
 
-fn sort_commitments(mut commitments: Vec<Commitment>) -> Vec<Commitment> {
-    let now = OffsetDateTime::now_utc();
-    commitments.sort_by(|left, right| compare_commitments(left, right, now));
+fn sort_commitments(
+    mut commitments: Vec<Commitment>,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+) -> Vec<Commitment> {
+    commitments.sort_by(|left, right| compare_commitments_in_timezone(left, right, timezone, now));
     commitments
+}
+
+fn split_now_tasks(
+    context: &CurrentContextV1,
+    commitments: Vec<Commitment>,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+) -> NowTaskBuckets {
+    let mut in_play_commitments = Vec::new();
+    let mut pullable_tasks = Vec::new();
+
+    for commitment in commitments {
+        if commitment_is_in_play(context, &commitment, timezone, now, current_day) {
+            in_play_commitments.push(commitment);
+        } else {
+            pullable_tasks.push(commitment);
+        }
+    }
+
+    let next_commitment = in_play_commitments.first().map(now_task);
+    let in_play = in_play_commitments
+        .into_iter()
+        .skip(1)
+        .take(5)
+        .map(|commitment| now_task(&commitment))
+        .collect::<Vec<_>>();
+    let pullable = pullable_tasks
+        .into_iter()
+        .take(6)
+        .map(|commitment| now_task(&commitment))
+        .collect::<Vec<_>>();
+
+    NowTaskBuckets {
+        next_commitment,
+        in_play,
+        pullable,
+    }
 }
 
 fn compare_commitments(
@@ -878,8 +945,24 @@ fn compare_commitments(
     right: &Commitment,
     now: OffsetDateTime,
 ) -> std::cmp::Ordering {
-    let left_priority = commitment_priority_key(left, now);
-    let right_priority = commitment_priority_key(right, now);
+    compare_commitments_in_timezone(
+        left,
+        right,
+        &crate::services::timezone::ResolvedTimeZone::utc(),
+        now,
+    )
+}
+
+fn compare_commitments_in_timezone(
+    left: &Commitment,
+    right: &Commitment,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+) -> std::cmp::Ordering {
+    let current_day = crate::services::timezone::current_day_window(timezone, now)
+        .expect("current day window should resolve for known timezone");
+    let left_priority = commitment_priority_key(left, timezone, now, &current_day);
+    let right_priority = commitment_priority_key(right, timezone, now, &current_day);
     left_priority
         .cmp(&right_priority)
         .then_with(|| {
@@ -898,30 +981,63 @@ fn compare_commitments(
         .then_with(|| right.created_at.cmp(&left.created_at))
 }
 
-fn commitment_priority_key(commitment: &Commitment, now: OffsetDateTime) -> (u8, i64) {
+fn commitment_is_in_play(
+    context: &CurrentContextV1,
+    commitment: &Commitment,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+) -> bool {
+    if context
+        .next_commitment_id
+        .as_deref()
+        .is_some_and(|id| id == commitment.id.as_ref())
+    {
+        return true;
+    }
+    if context
+        .commitments_used
+        .iter()
+        .any(|id| id == commitment.id.as_ref())
+    {
+        return true;
+    }
+
+    commitment_priority_key(commitment, timezone, now, current_day).0 <= 3
+}
+
+fn commitment_priority_key(
+    commitment: &Commitment,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    now: OffsetDateTime,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+) -> (u8, i64) {
     let due_ts = commitment.due_at.map(|value| value.unix_timestamp());
     let due_at = commitment.due_at;
-    let due_date = due_at.map(|value| value.date());
-    let today = now.date();
+    let due_session_date = due_at
+        .and_then(|value| crate::services::timezone::current_day_date_string(timezone, value).ok());
     let has_due_time = commitment
         .metadata_json
         .get("has_due_time")
         .and_then(|value| value.as_bool())
         .unwrap_or(false);
-    let priority_bucket =
-        if commitment.commitment_kind.as_deref() == Some("medication") && due_date == Some(today) {
-            0
-        } else if due_ts.is_some_and(|value| value < now.unix_timestamp()) {
-            1
-        } else if due_date == Some(today) && has_due_time {
-            2
-        } else if due_date == Some(today) {
-            3
-        } else if todoist_priority(commitment) >= 3 || was_recently_updated(commitment, now) {
-            4
-        } else {
-            5
-        };
+    let priority_bucket = if commitment.commitment_kind.as_deref() == Some("medication")
+        && due_session_date.as_deref() == Some(current_day.session_date.as_str())
+    {
+        0
+    } else if due_ts.is_some_and(|value| value < now.unix_timestamp()) {
+        1
+    } else if due_ts.is_some_and(|value| {
+        has_due_time && value >= current_day.start_ts && value < current_day.end_ts
+    }) {
+        2
+    } else if due_session_date.as_deref() == Some(current_day.session_date.as_str()) {
+        3
+    } else if todoist_priority(commitment) >= 3 || was_recently_updated(commitment, now) {
+        4
+    } else {
+        5
+    };
     (priority_bucket, due_ts.unwrap_or(i64::MAX))
 }
 
@@ -956,6 +1072,26 @@ fn now_task(commitment: &Commitment) -> NowTaskOutput {
     }
 }
 
+fn event_overlaps_current_day(
+    event: &NowEventOutput,
+    current_day: &crate::services::timezone::CurrentDayWindow,
+) -> bool {
+    event.start_ts < current_day.end_ts
+        && event.end_ts.unwrap_or(event.start_ts) >= current_day.start_ts
+        && event_is_relevant(event)
+}
+
+fn event_is_relevant(event: &NowEventOutput) -> bool {
+    let transparency = event.transparency.as_deref().unwrap_or_default();
+    let response_status = event.response_status.as_deref().unwrap_or_default();
+    let status = event.status.as_deref().unwrap_or_default();
+    !event.all_day
+        && !transparency.eq_ignore_ascii_case("transparent")
+        && !transparency.eq_ignore_ascii_case("free")
+        && !response_status.eq_ignore_ascii_case("declined")
+        && !status.eq_ignore_ascii_case("cancelled")
+}
+
 fn calendar_event_from_signal(signal: SignalRecord) -> Option<NowEventOutput> {
     if signal.signal_type != "calendar_event" {
         return None;
@@ -977,8 +1113,24 @@ fn calendar_event_from_signal(signal: SignalRecord) -> Option<NowEventOutput> {
         title,
         start_ts,
         end_ts: payload.get("end").and_then(|value| value.as_i64()),
+        all_day: payload
+            .get("all_day")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false),
         location: payload
             .get("location")
+            .and_then(|value| value.as_str())
+            .map(str::to_string),
+        status: payload
+            .get("status")
+            .and_then(|value| value.as_str())
+            .map(str::to_string),
+        transparency: payload
+            .get("transparency")
+            .and_then(|value| value.as_str())
+            .map(str::to_string),
+        response_status: payload
+            .get("response_status")
             .and_then(|value| value.as_str())
             .map(str::to_string),
         prep_minutes: payload.get("prep_minutes").and_then(|value| value.as_i64()),
@@ -1074,6 +1226,52 @@ mod tests {
             compare_commitments(&high_priority, &backlog, now),
             std::cmp::Ordering::Less
         );
+    }
+
+    #[test]
+    fn late_night_current_day_bucket_keeps_commitments_in_play() {
+        let timezone =
+            crate::services::timezone::ResolvedTimeZone::parse("America/Denver").unwrap();
+        let now = time::Date::from_calendar_date(2026, Month::March, 17)
+            .unwrap()
+            .with_hms(7, 30, 0)
+            .unwrap()
+            .assume_utc();
+        let current_day = crate::services::timezone::current_day_window(&timezone, now).unwrap();
+        let context = CurrentContextV1::default();
+        let same_session_commitment = commitment_fixture(
+            "Finish standup notes",
+            Some(
+                time::Date::from_calendar_date(2026, Month::March, 17)
+                    .unwrap()
+                    .with_hms(8, 30, 0)
+                    .unwrap()
+                    .assume_utc(),
+            ),
+            Some("todo"),
+            json!({ "has_due_time": true }),
+        );
+        let backlog_task = commitment_fixture("Backlog cleanup", None, Some("todo"), json!({}));
+
+        let buckets = split_now_tasks(
+            &context,
+            vec![backlog_task, same_session_commitment],
+            &timezone,
+            now,
+            &current_day,
+        );
+
+        assert_eq!(current_day.session_date, "2026-03-16");
+        assert_eq!(
+            buckets
+                .next_commitment
+                .as_ref()
+                .map(|task| task.text.as_str()),
+            Some("Finish standup notes")
+        );
+        assert_eq!(buckets.in_play.len(), 0);
+        assert_eq!(buckets.pullable.len(), 1);
+        assert_eq!(buckets.pullable[0].text, "Backlog cleanup");
     }
 
     #[test]

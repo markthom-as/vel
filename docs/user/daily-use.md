@@ -22,13 +22,27 @@ If a `check_in` turns into a longer clarification or a `reflow` needs editing, V
 
 If you are using the web shell and need the fastest path to the right help:
 
-- `Now` is the primary surface for daily orientation, freshness warnings, and the current daily-loop entry path.
-- `Now` may also surface inline check-ins, summary trust warnings, and heavier reflow suggestions when the current plan is no longer trustworthy.
+- `Now` is the primary surface for current-day orientation. The default order is compact context bar, current status, ask/capture/talk, next event, the unified today lane, and a compressed attention strip.
+- that “current day” is now sleep-relative rather than midnight-bound. If you are still awake and inside the same work session after midnight, unfinished commitments, relevant night events, and routine continuity may still belong to the same operator day until the rollover boundary is crossed.
+- `Now` should stay commitment-first: active or chosen commitments remain primary, pullable tasks stay visually secondary, and routine blocks do not pollute the upcoming-event slot.
+- `next event` should mean the next future relevant calendar event only. Routine blocks, all-day noise, free/transparent holds, declined events, and cancelled events should not win that slot.
+- freshness, sync, trust, debug, and other heavier control posture now live behind secondary controls instead of dominating the default `Now` view.
+- `Now` may still surface inline check-ins, summary trust warnings, and heavier reflow suggestions when the current plan is no longer trustworthy.
+- when backend planning has enough signal, `Now` may also show the compact bounded day plan directly: what is scheduled, what was intentionally deferred, what did not fit, and which routine blocks shaped the result
+- when durable routine blocks are configured, they now shape that compact day plan before inferred fallback logic runs; if no durable routine blocks exist yet, the shell may explicitly say that it is still using inferred fallback
 - when reflow is active, `Now` now shows the compact remaining-day proposal directly: what moved, what no longer fits, and what still needs judgment.
+- `Settings` is now the summary-first management surface for the durable routine/planning profile itself: inspect saved routine blocks, add or remove bounded planning constraints, then return to `Now` for the compact plan.
+- CLI and Apple now inspect that same backend-owned planning profile too. Treat them as parity readers over one profile, not as separate planning systems.
+- if assistant entry or Apple voice stages a routine/planning edit, treat that as a confirmation-first handoff into `Threads`, not as an already-saved profile change.
+- thread continuity on `Now` should stay sparse. A clearly relevant resumable thread may surface, but the main surface should not turn back into a thread inbox just because multiple follow-through threads exist elsewhere.
+- `Threads` itself should read like a continuity surface, not a chat inbox: resume longer follow-through there, keep triage in `Inbox`, and keep `Now` focused on the current day.
 - `Inbox` is the explicit decision queue. Clear or snooze items there before you open longer conversation history.
+- the web sidebar should now behave like a thin rail, not a second information column. Use it to move between surfaces; ignore it once you are working.
 - `Settings` is the deeper surface for Todoist, linking, writeback trust, Apple/local-source setup guidance, and summary recovery posture.
+- the general Settings tab should read as a few clear buckets rather than one long mixed-purpose document: daily-use defaults, planning and recovery, devices and sync, then support and documentation.
 - `Threads` is the conversation/history surface with lightweight filtering over persisted conversations, not the setup authority or main triage queue.
 - if a shell card points you to setup or troubleshooting work, follow the matching guide in `docs/user/setup.md`, `docs/user/integrations/`, or `docs/user/troubleshooting.md` instead of guessing from stale UI state.
+- current closeout limit: help is still guide-routed rather than driven by a dedicated contextual-help surface, and forward-browse schedule pagination remains outside the compact `Now` contract today.
 
 What you are looking for:
 
@@ -51,6 +65,8 @@ echo "snippet from terminal" | cargo run -p vel-cli -- capture -
 On desktop web, hold the microphone button to use local browser speech-to-text. Vel keeps the transcript local until you send it, then submits it through the same assistant route as typed text with explicit voice provenance. `Now` and `Threads` share that backend-owned entry seam. The backend decides whether what you said belongs inline, in `Inbox`, or in `Threads`; the shell should follow that returned route instead of guessing capture-versus-conversation locally.
 
 When Vel answers from recall, treat it as bounded local recall over persisted Vel data, not as ambient general memory. The backend now assembles a typed assistant-context pack with summary, focus lines, source breakdown, scores, and provenance so the same recall story can surface consistently across chat and assistant entry.
+
+That assistant context can also surface canonical scheduler semantics from open commitments. Today that means bounded facets like `block:*`, duration, `time:*`, `cal:free`, `urgent`, and `defer` can show up consistently in recall or grounding without each shell re-parsing raw provider labels.
 
 If local speech-to-text is unavailable in the current browser, the web shell should say so clearly and fall back to typed input instead of trying to emulate a second voice path.
 
@@ -84,7 +100,12 @@ If you use the Apple clients during the day:
 - Apple Watch quick loops should reflect backend `/v1/now` schedule state plus the bounded Apple behavior summary.
 - When offline, treat Apple surfaces as cached-render + queued-safe-action shells. Wait for reconnect before trusting new schedule or explainability answers, and do not treat cached morning/standup state as permission to invent a new local standup.
 - Apple voice and desktop/browser voice now teach one product rule: shells own permissions, push-to-talk, local STT/TTS, and offline presentation, while the backend owns routing, continuity, and daily-loop authority.
+- Apple now also has the first additive iPhone embedded-capable seam for bounded local helper flows, but treat that as responsiveness/offline support only. It does not mean the phone became a second authority runtime.
+- the Phase 38 local-first iPhone voice contract now makes the offline baseline explicit too: cached `Now`, queued voice capture, local quick actions, and local thread drafts belong to one bounded recovery lane rather than separate fallback tricks.
+- on iPhone, expect that lane to surface as compact continuity rather than a second inbox: `Now` may show draft-or-recovery posture, and `Threads` may show the latest local voice recovery state until canonical follow-through or thread persistence takes over.
+- the same rule now applies to bounded planning-profile edits: Apple voice and assistant entry can stage routine/constraint changes, but the backend keeps them explicit, thread-backed, and non-applied until a later approval/apply lane resolves them.
 - for endpoint or local-source setup questions, use `docs/user/setup.md` first and then the Apple/local-source integration guides rather than inferring behavior from cached client state.
+- current Apple setup limit: local-source path discovery/validation still depends on those setup guides and explicit operator review rather than a fully automatic Apple path-discovery flow.
 
 ## Commitments and review
 
@@ -120,8 +141,17 @@ If the day plan no longer looks trustworthy after a stale sync or missed event, 
 
 Current shipped behavior:
 
+- Vel can now do bounded same-day day shaping before drift, not just repair after drift
+- the backend-owned idea of “today” now extends past midnight until the sleep-relative rollover boundary is crossed, so current-day ordering should not fragment late-night work into a fake new day
+- the current day-plan output can explicitly show what was scheduled, deferred, did not fit, and still needs judgment
+- the proposal also carries the routine blocks the backend used while shaping the day
+- those routine blocks now come from durable operator-managed records when configured, with inferred fallback only when no durable blocks exist
+- bounded planning constraints can now influence default time-window preference, calendar buffers, and overflow handling
 - Vel can now do bounded same-day remaining-day recomputation from persisted commitments and calendar events
+- those commitments carry canonical `scheduler_rules` persisted at ingest/update time instead of relying on raw-label parsing at reflow time
 - the proposal can explicitly show work that moved, work that did not fit, and work that still needs judgment
+- compact summary surfaces now also show same-day schedule proposal continuity: whether one bounded plan/reflow change is still pending review or what was last applied/failed
+- the durable routine/planning profile can now be inspected and edited from the web `Settings` surface through typed backend-owned profile mutations rather than hidden generic settings fields
 - longer disagreement or manual shaping still belongs in `Threads`
 - this is not multi-day autonomous planning
 
@@ -153,6 +183,8 @@ The same rule applies to thread resolution during closeout and daily use: longer
 That rule also applies when the assistant proposes doing something on your behalf. Vel can stage a bounded proposal from chat or voice, but it still routes the work through the normal operator supervision lanes:
 
 - simple confirmation stays bounded and can point you into a dedicated follow-through thread,
+- planning-profile edits now follow the same pattern: assistant or Apple voice can stage a typed routine/constraint edit, but the result stays confirmation-first and thread-backed instead of silently changing your saved planning profile,
+- once that proposal is reviewed and applied, `Now`, web `Settings`, CLI, and Apple summary surfaces all report the same backend-owned continuity about what is still pending versus what actually changed,
 - repo-local or other supervised write work points at the existing execution review lane,
 - SAFE MODE or trust blockers keep the proposal explicitly gated instead of silently mutating anything,
 - once you resolve or dismiss the follow-through through the normal intervention/review path, the same proposal thread records whether the result became `applied`, `failed`, or `reversed`.

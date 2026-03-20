@@ -14,6 +14,7 @@ import {
   decodeLinkedNodeData,
   decodeLoopData,
   decodePairingTokenData,
+  decodePlanningProfileResponseData,
   decodeProjectCreateResponseData,
   decodeProjectListResponseData,
   decodeRunSummaryData,
@@ -36,6 +37,8 @@ import {
   type LoopData,
   type NowData,
   type PairingTokenData,
+  type PlanningProfileMutationRequestData,
+  type PlanningProfileResponseData,
   type PersonRecordData,
   type ProjectCreateRequestData,
   type ProjectCreateResponseData,
@@ -126,6 +129,7 @@ export const operatorQueryKeys = {
   settings: () => ['settings'] as const,
   integrations: () => ['integrations'] as const,
   loops: () => ['loops'] as const,
+  planningProfile: () => ['planning-profile'] as const,
   components: () => ['components'] as const,
   componentLogs: (componentId: string) => ['components', componentId, 'logs'] as const,
   integrationLogs: (integrationId: string) => ['integrations', integrationId, 'logs'] as const,
@@ -508,6 +512,23 @@ export function loadSettings(): Promise<ApiResponse<SettingsData>> {
   return apiGet<ApiResponse<SettingsData>>(
     '/api/settings',
     (value) => decodeApiResponse(value, decodeSettingsData),
+  );
+}
+
+export function loadPlanningProfile(): Promise<ApiResponse<PlanningProfileResponseData>> {
+  return apiGet<ApiResponse<PlanningProfileResponseData>>(
+    '/v1/planning-profile',
+    (value) => decodeApiResponse(value, decodePlanningProfileResponseData),
+  );
+}
+
+export function applyPlanningProfileMutation(
+  payload: PlanningProfileMutationRequestData,
+): Promise<ApiResponse<PlanningProfileResponseData>> {
+  return apiPatch<ApiResponse<PlanningProfileResponseData>>(
+    '/v1/planning-profile',
+    payload,
+    (value) => decodeApiResponse(value, decodePlanningProfileResponseData),
   );
 }
 

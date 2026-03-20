@@ -19,8 +19,19 @@ Status: scaffolded boundary map for iPhone, iPad, Watch, and future macOS role-a
 - `VelUIShared`: shared view-model/token primitives
 - `VelApplePlatform`: Apple-specific adapter protocols
 - `VelFeatureFlags`: capability model
+- `VelEmbeddedBridge`: iPhone-first embedded-capable bridge seam and flow gate vocabulary
 
 These are intentionally thin stubs to keep architecture explicit before deep feature migration.
+
+## Embedded-Capable Foundation
+
+Phase 37 now adds the first package-level seam for the additive iPhone embedded Rust path:
+
+- `VelFeatureFlags` owns whether a surface may support the embedded bridge at all
+- `VelEmbeddedBridge` owns the narrow embedded-safe flow vocabulary and fail-closed bridge protocols
+- `VelApplication` can depend on that seam without treating embedded execution as the default path
+
+Current truth is still daemon-backed HTTP via `VelAPI`. The embedded bridge exists so later slices can add real Rust-backed implementation without changing the shell/core ownership model.
 
 ## Current Client Wiring
 

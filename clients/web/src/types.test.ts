@@ -24,6 +24,8 @@ import {
   decodeNullable,
   decodeArray,
   decodePairingTokenData,
+  decodePlanningProfileEditProposalData,
+  decodePlanningProfileResponseData,
   decodeProjectRecordData,
   decodeRecallContextData,
   decodeReviewSnapshotData,
@@ -106,8 +108,44 @@ describe('transport decoders', () => {
           assistant_error: null,
           assistant_context: {
             query_text: 'accountant follow up',
-            summary: 'Found 1 relevant recalled item across note sources.',
+            summary:
+              'Found 1 relevant recalled item across note (1). 1 open commitment with canonical scheduler rules remain available.',
             focus_lines: ['note projects/tax/accountant.md: Need accountant follow up.'],
+            commitments: [
+              {
+                id: 'com_1',
+                text: 'Deep work @30m',
+                source_type: 'todoist',
+                source_id: 'task_1',
+                status: 'open',
+                due_at: null,
+                project: 'tax',
+                commitment_kind: 'todo',
+                created_at: '2026-03-20T00:00:00Z',
+                resolved_at: null,
+                scheduler_rules: {
+                  block_target: 'focus',
+                  duration_minutes: 30,
+                  calendar_free: true,
+                  fixed_start: false,
+                  time_window: 'prenoon',
+                  local_urgency: true,
+                  local_defer: false,
+                },
+                metadata: {
+                  labels: ['block:focus', '@cal:free', 'time:prenoon', '@urgent'],
+                  scheduler_rules: {
+                    block_target: 'focus',
+                    duration_minutes: 30,
+                    calendar_free: true,
+                    fixed_start: false,
+                    time_window: 'prenoon',
+                    local_urgency: true,
+                    local_defer: false,
+                  },
+                },
+              },
+            ],
             recall: {
               query_text: 'accountant follow up',
               hit_count: 1,
@@ -153,6 +191,29 @@ describe('transport decoders', () => {
               thread_type: 'action_resolution',
               project_id: null,
             },
+          },
+          planning_profile_proposal: {
+            source_surface: 'assistant',
+            state: 'staged',
+            mutation: {
+              kind: 'upsert_planning_constraint',
+              data: {
+                id: 'constraint_default_prenoon',
+                label: 'Default prenoon',
+                kind: 'default_time_window',
+                detail: null,
+                time_window: 'prenoon',
+                minutes: null,
+                max_items: null,
+                active: true,
+              },
+            },
+            summary: 'Stage planning constraint.',
+            requires_confirmation: true,
+            continuity: 'thread',
+            outcome_summary: null,
+            thread_id: 'thr_planning_profile_edit_msg_1',
+            thread_type: 'planning_profile_edit',
           },
           daily_loop_session: {
             id: 'dls_1',
@@ -204,8 +265,13 @@ describe('transport decoders', () => {
     expect(response.data?.conversation.id).toBe('conv_1')
     expect(response.data?.assistant_message?.id).toBe('msg_assistant')
     expect(response.data?.assistant_context?.focus_lines[0]).toContain('accountant')
+    expect(response.data?.assistant_context?.commitments[0]?.scheduler_rules.block_target).toBe(
+      'focus',
+    )
     expect(response.data?.proposal?.action_item_id).toBe('act_intervention_intv_1')
     expect(response.data?.proposal?.state).toBe('staged')
+    expect(response.data?.planning_profile_proposal?.state).toBe('staged')
+    expect(response.data?.planning_profile_proposal?.thread_type).toBe('planning_profile_edit')
     expect(response.data?.daily_loop_session?.phase).toBe('morning_overview')
     expect(response.data?.end_of_day?.what_remains_open).toEqual(['follow up'])
   })
@@ -231,6 +297,98 @@ describe('transport decoders', () => {
       inferred_activity: 'coding',
       git_activity_summary: 'commit on main',
     })
+  })
+
+  it('decodes planning-profile responses with routine blocks and constraints', () => {
+    const response = decodeApiResponse(
+      {
+        ok: true,
+        data: {
+          profile: {
+            routine_blocks: [
+              {
+                id: 'routine_focus',
+                label: 'Focus block',
+                source: 'operator_declared',
+                local_timezone: 'America/Denver',
+                start_local_time: '09:00',
+                end_local_time: '11:00',
+                days_of_week: [1, 2, 3, 4, 5],
+                protected: true,
+                active: true,
+              },
+            ],
+            planning_constraints: [
+              {
+                id: 'constraint_default_window',
+                label: 'Morning default',
+                kind: 'default_time_window',
+                detail: 'Default to the morning block first.',
+                time_window: 'prenoon',
+                minutes: null,
+                max_items: null,
+                active: true,
+              },
+            ],
+          },
+          proposal_summary: {
+            pending_count: 1,
+            latest_pending: {
+              thread_id: 'thr_planning_profile_edit_1',
+              state: 'staged',
+              title: 'Add shutdown block',
+              summary: 'Add a protected shutdown block.',
+              outcome_summary: null,
+              updated_at: 1710000000,
+            },
+            latest_applied: null,
+            latest_failed: null,
+          },
+        },
+        meta: { request_id: 'req_planning_profile_1' },
+      },
+      decodePlanningProfileResponseData,
+    )
+
+    expect(response.data?.profile.routine_blocks[0]?.local_timezone).toBe('America/Denver')
+    expect(response.data?.profile.planning_constraints[0]?.kind).toBe('default_time_window')
+    expect(response.data?.profile.planning_constraints[0]?.time_window).toBe('prenoon')
+    expect(response.data?.proposal_summary?.pending_count).toBe(1)
+    expect(response.data?.proposal_summary?.latest_pending?.thread_id).toBe(
+      'thr_planning_profile_edit_1',
+    )
+  })
+
+  it('decodes assistant-capable planning-profile edit proposals', () => {
+    const proposal = decodePlanningProfileEditProposalData({
+      source_surface: 'assistant',
+      state: 'staged',
+      mutation: {
+        kind: 'upsert_routine_block',
+        data: {
+          id: 'routine_shutdown',
+          label: 'Shutdown',
+          source: 'operator_declared',
+          local_timezone: 'America/Denver',
+          start_local_time: '17:00',
+          end_local_time: '17:30',
+          days_of_week: [1, 2, 3, 4, 5],
+          protected: true,
+          active: true,
+        },
+      },
+      summary: 'Add a protected weekday shutdown block from 17:00 to 17:30.',
+      requires_confirmation: true,
+      continuity: 'thread',
+      outcome_summary: null,
+    })
+
+    expect(proposal.source_surface).toBe('assistant')
+    expect(proposal.state).toBe('staged')
+    expect(proposal.mutation.kind).toBe('upsert_routine_block')
+    expect(proposal.requires_confirmation).toBe(true)
+    expect(proposal.continuity).toBe('thread')
+    expect(proposal.outcome_summary).toBeNull()
   })
 
   it('decodes recall-context packs with typed source counts and hits', () => {
@@ -1441,6 +1599,27 @@ describe('transport decoders', () => {
             },
           ],
         },
+        commitment_scheduling_summary: {
+          pending_count: 1,
+          latest_pending: {
+            thread_id: 'thr_day_plan_apply_1',
+            state: 'staged',
+            title: 'Apply focus block shift',
+            summary: 'Move the focus block after the calendar anchor.',
+            outcome_summary: null,
+            updated_at: 1710000000,
+          },
+          latest_applied: {
+            thread_id: 'thr_reflow_edit_0',
+            state: 'applied',
+            title: 'Clear stale due time',
+            summary: 'Remove the stale due time from one commitment.',
+            outcome_summary:
+              'Commitment scheduling proposal applied through canonical mutation seam.',
+            updated_at: 1709990000,
+          },
+          latest_failed: null,
+        },
         check_in: {
           id: 'act_check_in_1',
           source_kind: 'daily_loop',
@@ -1773,6 +1952,27 @@ describe('transport decoders', () => {
           },
         ],
       },
+      commitment_scheduling_summary: {
+        pending_count: 1,
+        latest_pending: {
+          thread_id: 'thr_day_plan_apply_1',
+          state: 'staged',
+          title: 'Apply focus block shift',
+          summary: 'Move the focus block after the calendar anchor.',
+          outcome_summary: null,
+          updated_at: 1710000000,
+        },
+        latest_applied: {
+          thread_id: 'thr_reflow_edit_0',
+          state: 'applied',
+          title: 'Clear stale due time',
+          summary: 'Remove the stale due time from one commitment.',
+          outcome_summary:
+            'Commitment scheduling proposal applied through canonical mutation seam.',
+          updated_at: 1709990000,
+        },
+        latest_failed: null,
+      },
       check_in: {
         id: 'act_check_in_1',
         source_kind: 'daily_loop',
@@ -1822,6 +2022,7 @@ describe('transport decoders', () => {
           },
         ],
       },
+      day_plan: null,
       reflow: {
         id: 'act_reflow_1',
         title: 'Day changed',

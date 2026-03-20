@@ -1,0 +1,32 @@
+{
+  "profile_version": 1,
+  "surface": "iphone_voice",
+  "offline_baseline": [
+    "cached_now",
+    "queued_voice_capture",
+    "local_quick_actions",
+    "local_thread_draft"
+  ],
+  "safe_offline_quick_actions": [
+    "capture_create",
+    "commitment_create",
+    "commitment_done",
+    "nudge_done",
+    "nudge_snooze"
+  ],
+  "daemon_backed_limits": [
+    "backend_voice_answers",
+    "canonical_thread_merge",
+    "heavy_recall",
+    "heavy_reasoning",
+    "shared_history_sync",
+    "integrations_sync",
+    "review_apply"
+  ],
+  "merge_model": "single_thread_backed_continuity",
+  "notes": [
+    "The iPhone may keep provisional local voice draft state while offline.",
+    "Canonical thread continuity remains daemon-backed.",
+    "Cached Now is for orientation, not local planner authority."
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/planning-profile-edit-proposal.schema.json",
+  "title": "PlanningProfileEditProposal",
+  "type": "object",
+  "description": "Typed assistant-capable staging payload for bounded planning-profile edits over the canonical routine/planning substrate.",
+  "additionalProperties": false,
+  "$defs": {
+    "PlanningProfileSurface": {
+      "type": "string",
+      "enum": ["web_settings", "cli", "apple", "assistant", "voice"]
+    },
+    "PlanningProfileContinuity": {
+      "type": "string",
+      "enum": ["inline", "thread"]
+    },
+    "AssistantProposalState": {
+      "type": "string",
+      "enum": ["staged", "approved", "applied", "failed", "reversed"]
+    },
+    "RoutineBlockSourceKind": {
+      "type": "string",
+      "enum": ["operator_declared", "inferred", "imported"]
+    },
+    "ScheduleTimeWindow": {
+      "type": "string",
+      "enum": ["prenoon", "afternoon", "evening", "night", "day"]
+    },
+    "DurableRoutineBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "source",
+        "local_timezone",
+        "start_local_time",
+        "end_local_time",
+        "days_of_week",
+        "protected",
+        "active"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/RoutineBlockSourceKind" },
+        "local_timezone": { "type": "string", "minLength": 1 },
+        "start_local_time": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
+        "end_local_time": { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
+        "days_of_week": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 7 }
+        },
+        "protected": { "type": "boolean" },
+        "active": { "type": "boolean" }
+      }
+    },
+    "PlanningConstraintKind": {
+      "type": "string",
+      "enum": [
+        "max_scheduled_items",
+        "reserve_buffer_before_calendar",
+        "reserve_buffer_after_calendar",
+        "default_time_window",
+        "require_judgment_for_overflow"
+      ]
+    },
+    "PlanningConstraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "kind", "active"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/PlanningConstraintKind" },
+        "detail": { "type": ["string", "null"] },
+        "time_window": {
+          "anyOf": [
+            { "$ref": "#/$defs/ScheduleTimeWindow" },
+            { "type": "null" }
+          ]
+        },
+        "minutes": { "type": ["integer", "null"], "minimum": 0 },
+        "max_items": { "type": ["integer", "null"], "minimum": 0 },
+        "active": { "type": "boolean" }
+      }
+    },
+    "PlanningProfileRemoveTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "PlanningProfileMutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "data"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "upsert_routine_block",
+            "remove_routine_block",
+            "upsert_planning_constraint",
+            "remove_planning_constraint"
+          ]
+        },
+        "data": {}
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "upsert_routine_block" } } },
+          "then": { "properties": { "data": { "$ref": "#/$defs/DurableRoutineBlock" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "remove_routine_block" } } },
+          "then": {
+            "properties": { "data": { "$ref": "#/$defs/PlanningProfileRemoveTarget" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "upsert_planning_constraint" } }
+          },
+          "then": { "properties": { "data": { "$ref": "#/$defs/PlanningConstraint" } } }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "remove_planning_constraint" } }
+          },
+          "then": {
+            "properties": { "data": { "$ref": "#/$defs/PlanningProfileRemoveTarget" } }
+          }
+        }
+      ]
+    }
+  },
+  "required": [
+    "source_surface",
+    "state",
+    "mutation",
+    "summary",
+    "requires_confirmation",
+    "continuity"
+  ],
+  "properties": {
+    "source_surface": { "$ref": "#/$defs/PlanningProfileSurface" },
+    "state": { "$ref": "#/$defs/AssistantProposalState" },
+    "mutation": { "$ref": "#/$defs/PlanningProfileMutation" },
+    "summary": { "type": "string", "minLength": 1 },
+    "requires_confirmation": { "type": "boolean" },
+    "continuity": { "$ref": "#/$defs/PlanningProfileContinuity" },
+    "outcome_summary": { "type": ["string", "null"], "minLength": 1 },
+    "thread_id": { "type": ["string", "null"], "minLength": 1 },
+    "thread_type": { "type": ["string", "null"], "minLength": 1 }
+  }
+}

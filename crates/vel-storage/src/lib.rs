@@ -17,9 +17,10 @@ pub use db::{
     WorkAssignmentUpdate,
 };
 pub use vel_core::{
-    ConflictCaseRecord, ContextCapture, LinkScope, LinkStatus, LinkedNodeRecord, OrderingStamp,
-    OrientationSnapshot, PairingTokenRecord, PersonAlias, PersonId, PersonLinkRef, PersonRecord,
+    ConflictCaseRecord, ContextCapture, DurableRoutineBlock, LinkScope, LinkStatus,
+    LinkedNodeRecord, OrderingStamp, OrientationSnapshot, PairingTokenRecord, PersonAlias,
+    PersonId, PersonLinkRef, PersonRecord, PlanningConstraint, PlanningConstraintKind,
     ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef,
-    ProjectStatus, SearchResult, SemanticHit, SemanticMemoryRecord, SemanticQuery,
-    WorkAssignmentStatus, WritebackOperationRecord, WritebackStatus,
+    ProjectStatus, RoutinePlanningProfile, SearchResult, SemanticHit, SemanticMemoryRecord,
+    SemanticQuery, WorkAssignmentStatus, WritebackOperationRecord, WritebackStatus,
 };

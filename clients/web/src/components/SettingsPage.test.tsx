@@ -141,6 +141,18 @@ describe('SettingsPage', () => {
           meta: { request_id: 'req_1' },
         } as never
       }
+      if (path === '/v1/planning-profile') {
+        return {
+          ok: true,
+          data: {
+            profile: {
+              routine_blocks: [],
+              planning_constraints: [],
+            },
+          },
+          meta: { request_id: 'req_planning_profile_minimal' },
+        } as never
+      }
       if (path === '/v1/now') {
         return {
           ok: true,
@@ -181,6 +193,25 @@ describe('SettingsPage', () => {
             freshness: {
               overall_status: 'fresh',
               sources: [],
+            },
+            day_plan: {
+              headline: 'Today has a bounded plan',
+              summary: 'Vel shaped a bounded same-day plan from current commitments, calendar anchors, and routine blocks.',
+              scheduled_count: 2,
+              deferred_count: 1,
+              did_not_fit_count: 0,
+              needs_judgment_count: 1,
+              changes: [],
+              routine_blocks: [
+                {
+                  id: 'routine_morning',
+                  label: 'Morning routine',
+                  source: 'inferred',
+                  start_ts: 1710000000,
+                  end_ts: 1710003600,
+                  protected: true,
+                },
+              ],
             },
             action_items: [
               {
@@ -275,6 +306,41 @@ describe('SettingsPage', () => {
             },
           },
           meta: { request_id: 'req_now' },
+        } as never
+      }
+      if (path === '/v1/planning-profile') {
+        return {
+          ok: true,
+          data: {
+            profile: {
+              routine_blocks: [
+                {
+                  id: 'routine_deep_work',
+                  label: 'Deep work',
+                  source: 'operator_declared',
+                  local_timezone: 'America/Denver',
+                  start_local_time: '09:00',
+                  end_local_time: '11:00',
+                  days_of_week: [1, 2, 3, 4, 5],
+                  protected: true,
+                  active: true,
+                },
+              ],
+              planning_constraints: [
+                {
+                  id: 'constraint_default_window',
+                  label: 'Morning default',
+                  kind: 'default_time_window',
+                  detail: 'Bias planning toward the morning block.',
+                  time_window: 'prenoon',
+                  minutes: null,
+                  max_items: null,
+                  active: true,
+                },
+              ],
+            },
+          },
+          meta: { request_id: 'req_planning_profile' },
         } as never
       }
       if (path === '/v1/execution/handoffs?state=pending_review') {
@@ -1082,29 +1148,32 @@ describe('SettingsPage', () => {
     })
     const root = getSettingsRoot(container)
     expect(within(root).getByRole('heading', { name: /settings/i })).toBeInTheDocument()
-    expect(within(root).getByText(/advanced operator setup, trust summaries, and runtime detail live here/i)).toBeInTheDocument()
-    expect(within(root).getByRole('heading', { name: /assistant readiness/i })).toBeInTheDocument()
-    expect(within(root).getByRole('heading', { name: /recovery posture/i })).toBeInTheDocument()
-    expect(within(root).getByText(/normal daily use should start in `Now`, continue through `Inbox`, and move into `Threads` only for continuity\./i)).toBeInTheDocument()
-    expect(within(root).getByText(/freshness, trust, and day-plan repair stay summary-first here/i)).toBeInTheDocument()
+    expect(within(root).getByText(/keep this page summary-first/i)).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /general categories/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /planning and recovery summary/i })).toBeInTheDocument()
+    expect(within(root).getByText(/use this page to manage durable settings without turning it into a second dashboard\./i)).toBeInTheDocument()
+    expect(within(root).getByText(/freshness, bounded day planning, and reflow stay summary-first here/i)).toBeInTheDocument()
+    expect(within(root).getByText(/2 scheduled · 1 judgment/i)).toBeInTheDocument()
+    expect(within(root).getByText(/vel shaped a bounded same-day plan from current commitments, calendar anchors, and routine blocks\./i)).toBeInTheDocument()
+    expect(within(root).getByText(/today is still relying on inferred routine blocks\./i)).toBeInTheDocument()
   })
 
   it('renders checkboxes for disable_proactive, toggle_risks, toggle_reminders', async () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     await waitFor(() => {
       const root = getSettingsRoot(container)
-      expect(within(root).getByDisplayValue('America/Denver')).toBeInTheDocument()
+      expect(within(root).getByPlaceholderText('America/Denver')).toHaveValue('America/Denver')
+      expect(within(root).getByLabelText(/node display name/i)).toHaveValue('Vel Desktop')
     })
     const root = getSettingsRoot(container)
-    expect(within(root).getByText(/assistant replies need a configured model, but capture and triage still work without one\./i)).toBeInTheDocument()
-    expect(within(root).getByText(/recall stays bounded to persisted vel data with backend-owned scores and provenance, not broad ambient memory\./i)).toBeInTheDocument()
-    expect(within(root).getByText(/use the runtime tab only when you need deeper logs, components, or review controls\./i)).toBeInTheDocument()
-    expect(within(root).getByRole('heading', { name: /advanced operator setup/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /daily use defaults/i })).toBeInTheDocument()
+    expect(within(root).getByText(/keep these defaults tight/i)).toBeInTheDocument()
+    expect(within(root).getByText(/behavior defaults and timezone/i)).toBeInTheDocument()
     expect(within(root).getByText(/disable proactive/i)).toBeInTheDocument()
     expect(within(root).getByText(/show risks/i)).toBeInTheDocument()
     expect(within(root).getByText(/show reminders/i)).toBeInTheDocument()
-    expect(within(root).getByDisplayValue('America/Denver')).toBeInTheDocument()
-    expect(within(root).getByDisplayValue('Vel Desktop')).toBeInTheDocument()
+    expect(within(root).getByPlaceholderText('America/Denver')).toHaveValue('America/Denver')
+    expect(within(root).getByLabelText(/node display name/i)).toHaveValue('Vel Desktop')
   })
 
   it('calls onBack when Back is clicked', async () => {
@@ -1163,10 +1232,11 @@ describe('SettingsPage', () => {
     await waitFor(() => {
       const root = getSettingsRoot(container)
       expect(within(root).getByRole('heading', { name: /cross-client sync/i })).toBeInTheDocument()
+      expect(within(root).getByLabelText(/node display name/i)).toHaveValue('Vel Desktop')
     })
 
     const root = getSettingsRoot(container)
-    fireEvent.change(within(root).getByDisplayValue('Vel Desktop'), { target: { value: 'Vel NAS' } })
+    fireEvent.change(within(root).getByLabelText(/node display name/i), { target: { value: 'Vel NAS' } })
     expect(
       within(root).getByDisplayValue('http://vel-desktop.tailnet.ts.net:4130'),
     ).toBeDisabled()
@@ -1256,7 +1326,7 @@ describe('SettingsPage', () => {
 
     await waitFor(() => {
       const root = getSettingsRoot(container)
-      expect(within(root).getByRole('heading', { name: 'Onboarding and recovery' })).toBeInTheDocument()
+      expect(within(root).getByRole('heading', { name: 'Setup and device continuity' })).toBeInTheDocument()
     })
 
     const root = getSettingsRoot(container)
@@ -1402,6 +1472,9 @@ describe('SettingsPage', () => {
     const { container } = render(<SettingsPage onBack={() => {}} />)
     const root = await openIntegrationsTab(container)
 
+    expect(within(root).getByLabelText(/google calendar product mark/i)).toBeInTheDocument()
+    expect(within(root).getByLabelText(/todoist product mark/i)).toBeInTheDocument()
+    expect(within(root).getByLabelText(/computer activity product mark/i)).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /computer activity/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /git activity/i })).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /^messaging$/i })).toBeInTheDocument()
@@ -1416,11 +1489,15 @@ describe('SettingsPage', () => {
     expect(within(root).getByText('/Users/test/Vault')).toBeInTheDocument()
     expect(within(root).getByText('/home/test/.zsh_history')).toBeInTheDocument()
     expect(within(root).getAllByText('Operator path selection').length).toBeGreaterThan(0)
-    expect(within(root).getAllByText('Internal/default paths (read only)').length).toBeGreaterThan(0)
+    expect(within(root).queryByText('Internal/default paths (read only)')).not.toBeInTheDocument()
+    expect(within(root).getAllByText('Show Vel/internal paths').length).toBeGreaterThan(0)
     expect(within(root).getAllByText('docs/user/integrations/local-sources.md').length).toBeGreaterThan(0)
     expect(within(root).getAllByText('docs/user/integrations/apple-macos.md').length).toBeGreaterThan(0)
-    expect(within(root).getAllByText('Vel notes path').length).toBeGreaterThan(0)
     expect(within(root).queryByText('Remote Mac')).not.toBeInTheDocument()
+
+    fireEvent.click(within(root).getAllByText('Show Vel/internal paths')[0] as HTMLElement)
+    expect(within(root).getAllByText('Vel/internal paths (read only)').length).toBeGreaterThan(0)
+    expect(within(root).getAllByText('Vel notes path').length).toBeGreaterThan(0)
 
     const notesSyncButton = within(root).getAllByRole('button', { name: /sync now/i }).find((button) =>
       button.closest('.rounded-lg')?.textContent?.includes('Obsidian Vault'),
@@ -3321,6 +3398,18 @@ describe('SettingsPage', () => {
           meta: { request_id: 'req_settings_prompt' },
         } as never
       }
+      if (path === '/v1/planning-profile') {
+        return {
+          ok: true,
+          data: {
+            profile: {
+              routine_blocks: [],
+              planning_constraints: [],
+            },
+          },
+          meta: { request_id: 'req_planning_profile_prompt' },
+        } as never
+      }
       if (path === '/api/integrations') {
         return {
           ok: true,
@@ -3471,6 +3560,209 @@ describe('SettingsPage', () => {
     expect(within(root).getByText('1 pending')).toBeInTheDocument()
     expect(within(root).getByRole('button', { name: /^Approve$/i })).toBeInTheDocument()
     expect(within(root).getByRole('button', { name: /^Reject$/i })).toBeInTheDocument()
+  })
+
+  it('manages the durable planning profile from the general tab', async () => {
+    const originalApiGet = vi.mocked(client.apiGet).getMockImplementation()
+    vi.mocked(client.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/planning-profile') {
+        return {
+          ok: true,
+          data: {
+            profile: {
+              routine_blocks: [
+                {
+                  id: 'routine_deep_work',
+                  label: 'Deep work',
+                  source: 'operator_declared',
+                  local_timezone: 'America/Denver',
+                  start_local_time: '09:00',
+                  end_local_time: '11:00',
+                  days_of_week: [1, 2, 3, 4, 5],
+                  protected: true,
+                  active: true,
+                },
+              ],
+              planning_constraints: [
+                {
+                  id: 'constraint_default_window',
+                  label: 'Morning default',
+                  kind: 'default_time_window',
+                  detail: 'Bias planning toward the morning block.',
+                  time_window: 'prenoon',
+                  minutes: null,
+                  max_items: null,
+                  active: true,
+                },
+              ],
+            },
+            proposal_summary: {
+              pending_count: 1,
+              latest_pending: {
+                thread_id: 'thr_planning_profile_edit_1',
+                state: 'staged',
+                title: 'Add shutdown block',
+                summary: 'Add a protected shutdown block.',
+                outcome_summary: null,
+                updated_at: 1710000000,
+              },
+              latest_applied: null,
+              latest_failed: null,
+            },
+          },
+          meta: { request_id: 'req_planning_profile_existing' },
+        } as never
+      }
+      if (!originalApiGet) {
+        throw new Error(`unexpected apiGet path: ${path}`)
+      }
+      return originalApiGet(path)
+    })
+
+    vi.mocked(client.apiPatch)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          profile: {
+            routine_blocks: [
+              {
+                id: 'routine_deep_work',
+                label: 'Deep work',
+                source: 'operator_declared',
+                local_timezone: 'America/Denver',
+                start_local_time: '09:00',
+                end_local_time: '11:00',
+                days_of_week: [1, 2, 3, 4, 5],
+                protected: true,
+                active: true,
+              },
+              {
+                id: 'routine_shutdown',
+                label: 'Shutdown',
+                source: 'operator_declared',
+                local_timezone: 'America/Denver',
+                start_local_time: '17:00',
+                end_local_time: '17:30',
+                days_of_week: [1, 2, 3, 4, 5],
+                protected: true,
+                active: true,
+              },
+            ],
+            planning_constraints: [
+              {
+                id: 'constraint_default_window',
+                label: 'Morning default',
+                kind: 'default_time_window',
+                detail: 'Bias planning toward the morning block.',
+                time_window: 'prenoon',
+                minutes: null,
+                max_items: null,
+                active: true,
+              },
+            ],
+          },
+        },
+        meta: { request_id: 'req_planning_profile_patch_1' },
+      } as never)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          profile: {
+            routine_blocks: [
+              {
+                id: 'routine_shutdown',
+                label: 'Shutdown',
+                source: 'operator_declared',
+                local_timezone: 'America/Denver',
+                start_local_time: '17:00',
+                end_local_time: '17:30',
+                days_of_week: [1, 2, 3, 4, 5],
+                protected: true,
+                active: true,
+              },
+            ],
+            planning_constraints: [
+              {
+                id: 'constraint_default_window',
+                label: 'Morning default',
+                kind: 'default_time_window',
+                detail: 'Bias planning toward the morning block.',
+                time_window: 'prenoon',
+                minutes: null,
+                max_items: null,
+                active: true,
+              },
+            ],
+          },
+        },
+        meta: { request_id: 'req_planning_profile_patch_2' },
+      } as never)
+
+    const { container } = render(<SettingsPage onBack={() => {}} />)
+    const root = getSettingsRoot(container)
+
+    await waitFor(() => {
+      expect(within(root).getByRole('heading', { name: /routine and planning profile/i })).toBeInTheDocument()
+      expect(within(root).getByText(/Deep work/i)).toBeInTheDocument()
+      expect(within(root).getByText(/Morning default/i)).toBeInTheDocument()
+      expect(within(root).getByText(/Proposal continuity/i)).toBeInTheDocument()
+      expect(within(root).getByText(/Pending: Add shutdown block/i)).toBeInTheDocument()
+    })
+
+    const routineForm = within(
+      within(root).getByRole('heading', { name: /add routine block/i }).closest('.rounded-md') as HTMLElement,
+    )
+    fireEvent.change(routineForm.getByLabelText(/label/i, { selector: 'input' }), {
+      target: { value: 'Shutdown' },
+    })
+    fireEvent.change(routineForm.getByLabelText(/start/i, { selector: 'input' }), {
+      target: { value: '17:00' },
+    })
+    fireEvent.change(routineForm.getByLabelText(/end/i, { selector: 'input' }), {
+      target: { value: '17:30' },
+    })
+    fireEvent.click(routineForm.getByRole('button', { name: /save routine block/i }))
+
+    await waitFor(() => {
+      expect(vi.mocked(client.apiPatch)).toHaveBeenCalledWith(
+        '/v1/planning-profile',
+        {
+          mutation: {
+            kind: 'upsert_routine_block',
+            data: expect.objectContaining({
+              label: 'Shutdown',
+              start_local_time: '17:00',
+              end_local_time: '17:30',
+              source: 'operator_declared',
+            }),
+          },
+        },
+        expect.any(Function),
+      )
+    })
+
+    await waitFor(() => {
+      expect(within(root).getByText(/Routine block saved./i)).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(root).getAllByRole('button', { name: /^Remove$/i })[0]!)
+
+    await waitFor(() => {
+      expect(vi.mocked(client.apiPatch)).toHaveBeenCalledWith(
+        '/v1/planning-profile',
+        {
+          mutation: {
+            kind: 'remove_routine_block',
+            data: { id: 'routine_deep_work' },
+          },
+        },
+        expect.any(Function),
+      )
+    })
+
+    await waitFor(() => {
+      expect(within(root).getByText(/Routine block removed./i)).toBeInTheDocument()
+    })
   })
 
 })

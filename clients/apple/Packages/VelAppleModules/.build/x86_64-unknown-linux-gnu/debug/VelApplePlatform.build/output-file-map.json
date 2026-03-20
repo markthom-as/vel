@@ -1,0 +1,11 @@
+{
+  "": {
+    "swift-dependencies": "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/master.swiftdeps"
+  },
+  "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/Sources/VelApplePlatform/PlatformAdapters.swift": {
+    "dependencies": "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/PlatformAdapters.d",
+    "object": "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/PlatformAdapters.swift.o",
+    "swiftmodule": "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/PlatformAdapters~partial.swiftmodule",
+    "swift-dependencies": "/home/jove/code/vel/clients/apple/Packages/VelAppleModules/.build/x86_64-unknown-linux-gnu/debug/VelApplePlatform.build/PlatformAdapters.swiftdeps"
+  }
+}

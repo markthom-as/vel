@@ -1,0 +1,9 @@
+{
+  "block_target": "focus",
+  "duration_minutes": 30,
+  "calendar_free": true,
+  "fixed_start": false,
+  "time_window": "prenoon",
+  "local_urgency": true,
+  "local_defer": false
+}

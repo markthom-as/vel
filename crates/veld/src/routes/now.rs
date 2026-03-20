@@ -1,11 +1,13 @@
 use axum::extract::State;
 use axum::Json;
 use vel_api_types::{
-    ActionItemData, ApiResponse, CheckInCardData, CurrentContextReflowStatusData, NowAttentionData,
-    NowData, NowDebugData, NowEventData, NowFreshnessData, NowFreshnessEntryData, NowLabelData,
-    NowRiskSummaryData, NowScheduleData, NowSourceActivityData, NowSourcesData, NowSummaryData,
-    NowTaskData, NowTasksData, ReflowCardData, TrustReadinessData, TrustReadinessFacetData,
-    TrustReadinessReviewData,
+    ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
+    CommitmentSchedulingProposalSummaryItemData, CurrentContextReflowStatusData,
+    DayPlanProposalData, NowAttentionData, NowData, NowDebugData, NowEventData, NowFreshnessData,
+    NowFreshnessEntryData, NowLabelData, NowRiskSummaryData, NowScheduleData,
+    NowSourceActivityData, NowSourcesData, NowSummaryData, NowTaskData, NowTasksData,
+    PlanningProfileProposalSummaryData, PlanningProfileProposalSummaryItemData, ReflowCardData,
+    TrustReadinessData, TrustReadinessFacetData, TrustReadinessReviewData,
 };
 
 use crate::{errors::AppError, routes::response, services, state::AppState};
@@ -29,7 +31,14 @@ impl From<services::now::NowOutput> for NowData {
             sources: value.sources.into(),
             freshness: value.freshness.into(),
             trust_readiness: value.trust_readiness.into(),
+            planning_profile_summary: value
+                .planning_profile_summary
+                .map(planning_profile_summary_data),
+            commitment_scheduling_summary: value
+                .commitment_scheduling_summary
+                .map(commitment_scheduling_summary_data),
             check_in: value.check_in.map(CheckInCardData::from),
+            day_plan: value.day_plan.map(DayPlanProposalData::from),
             reflow: value.reflow.map(ReflowCardData::from),
             reflow_status: value
                 .reflow_status
@@ -58,6 +67,60 @@ impl From<services::now::NowOutput> for NowData {
             reasons: value.reasons,
             debug: value.debug.into(),
         }
+    }
+}
+
+fn planning_profile_summary_data(
+    value: services::planning_profile::PlanningProfileProposalSummary,
+) -> PlanningProfileProposalSummaryData {
+    PlanningProfileProposalSummaryData {
+        pending_count: value.pending_count,
+        latest_pending: value.latest_pending.map(planning_profile_summary_item_data),
+        latest_applied: value.latest_applied.map(planning_profile_summary_item_data),
+        latest_failed: value.latest_failed.map(planning_profile_summary_item_data),
+    }
+}
+
+fn planning_profile_summary_item_data(
+    value: services::planning_profile::PlanningProfileProposalSummaryItem,
+) -> PlanningProfileProposalSummaryItemData {
+    PlanningProfileProposalSummaryItemData {
+        thread_id: value.thread_id,
+        state: value.state.into(),
+        title: value.title,
+        summary: value.summary,
+        outcome_summary: value.outcome_summary,
+        updated_at: value.updated_at,
+    }
+}
+
+fn commitment_scheduling_summary_data(
+    value: services::commitment_scheduling::CommitmentSchedulingProposalSummary,
+) -> CommitmentSchedulingProposalSummaryData {
+    CommitmentSchedulingProposalSummaryData {
+        pending_count: value.pending_count,
+        latest_pending: value
+            .latest_pending
+            .map(commitment_scheduling_summary_item_data),
+        latest_applied: value
+            .latest_applied
+            .map(commitment_scheduling_summary_item_data),
+        latest_failed: value
+            .latest_failed
+            .map(commitment_scheduling_summary_item_data),
+    }
+}
+
+fn commitment_scheduling_summary_item_data(
+    value: services::commitment_scheduling::CommitmentSchedulingProposalSummaryItem,
+) -> CommitmentSchedulingProposalSummaryItemData {
+    CommitmentSchedulingProposalSummaryItemData {
+        thread_id: value.thread_id,
+        state: value.state.into(),
+        title: value.title,
+        summary: value.summary,
+        outcome_summary: value.outcome_summary,
+        updated_at: value.updated_at,
     }
 }
 
@@ -280,7 +343,11 @@ mod tests {
                     title: "Standup".to_string(),
                     start_ts: 1_700_000_400,
                     end_ts: Some(1_700_000_700),
+                    all_day: false,
                     location: Some("Desk".to_string()),
+                    status: Some("confirmed".to_string()),
+                    transparency: Some("opaque".to_string()),
+                    response_status: Some("accepted".to_string()),
                     prep_minutes: Some(10),
                     travel_minutes: Some(5),
                     leave_by_ts: Some(1_700_000_100),
@@ -387,8 +454,42 @@ mod tests {
                     detail: Some("Backup trust is degraded. Create or verify a fresh backup before risky maintenance.".to_string()),
                 }],
                 thread_route: None,
-            }],
+                }],
             },
+            planning_profile_summary: Some(
+                services::planning_profile::PlanningProfileProposalSummary {
+                    pending_count: 1,
+                    latest_pending: Some(
+                        services::planning_profile::PlanningProfileProposalSummaryItem {
+                            thread_id: "thr_planning_profile_edit_1".to_string(),
+                            state: vel_core::AssistantProposalState::Staged,
+                            title: "Add shutdown block".to_string(),
+                            summary: "Add a protected shutdown block.".to_string(),
+                            outcome_summary: None,
+                            updated_at: 1_700_000_095,
+                        },
+                    ),
+                    latest_applied: None,
+                    latest_failed: None,
+                },
+            ),
+            commitment_scheduling_summary: Some(
+                services::commitment_scheduling::CommitmentSchedulingProposalSummary {
+                    pending_count: 1,
+                    latest_pending: Some(
+                        services::commitment_scheduling::CommitmentSchedulingProposalSummaryItem {
+                            thread_id: "thr_day_plan_apply_1".to_string(),
+                            state: vel_core::AssistantProposalState::Staged,
+                            title: "Apply focus block shift".to_string(),
+                            summary: "Move the focus block after the calendar anchor.".to_string(),
+                            outcome_summary: None,
+                            updated_at: 1_700_000_096,
+                        },
+                    ),
+                    latest_applied: None,
+                    latest_failed: None,
+                },
+            ),
             check_in: Some(vel_core::CheckInCard {
                 id: vel_core::ActionItemId::from("act_check_in_1".to_string()),
                 source_kind: vel_core::CheckInSourceKind::DailyLoop,
@@ -439,6 +540,50 @@ mod tests {
                     },
                 ],
             }),
+            day_plan: Some(vel_core::DayPlanProposal {
+                headline: "Today has a bounded plan".to_string(),
+                summary: "Vel shaped a bounded same-day plan from current commitments, calendar anchors, and routine blocks.".to_string(),
+                scheduled_count: 2,
+                deferred_count: 1,
+                did_not_fit_count: 0,
+                needs_judgment_count: 1,
+                changes: vec![
+                    vel_core::DayPlanChange {
+                        kind: vel_core::DayPlanChangeKind::Scheduled,
+                        commitment_id: Some("cmt_weekly_review".to_string()),
+                        title: "Write weekly review".to_string(),
+                        detail: "Write weekly review fits in the next bounded slot for today.".to_string(),
+                        project_label: Some("Ops".to_string()),
+                        scheduled_start_ts: Some(1_700_001_000),
+                        rule_facets: vec![vel_core::ScheduleRuleFacet {
+                            kind: vel_core::ScheduleRuleFacetKind::TimeWindow,
+                            label: "time:prenoon".to_string(),
+                            detail: Some("Task prefers the prenoon window.".to_string()),
+                        }],
+                    },
+                    vel_core::DayPlanChange {
+                        kind: vel_core::DayPlanChangeKind::Deferred,
+                        commitment_id: Some("cmt_backlog_cleanup".to_string()),
+                        title: "Backlog cleanup".to_string(),
+                        detail: "Backlog cleanup is marked for local defer and was left out of today's bounded plan.".to_string(),
+                        project_label: None,
+                        scheduled_start_ts: None,
+                        rule_facets: vec![vel_core::ScheduleRuleFacet {
+                            kind: vel_core::ScheduleRuleFacetKind::LocalDefer,
+                            label: "defer".to_string(),
+                            detail: Some("Task is marked for local defer logic.".to_string()),
+                        }],
+                    },
+                ],
+                routine_blocks: vec![vel_core::RoutineBlock {
+                    id: "routine_morning".to_string(),
+                    label: "Morning routine".to_string(),
+                    source: vel_core::RoutineBlockSourceKind::Inferred,
+                    start_ts: 1_700_000_000,
+                    end_ts: 1_700_000_600,
+                    protected: true,
+                }],
+            }),
             reflow: Some(vel_core::ReflowCard {
                 id: vel_core::ActionItemId::from("act_reflow_1".to_string()),
                 title: "Day changed".to_string(),
@@ -467,6 +612,7 @@ mod tests {
                     needs_judgment_count: 1,
                     changes: vec![vel_core::ReflowChange {
                         kind: vel_core::ReflowChangeKind::NeedsJudgment,
+                        commitment_id: None,
                         title: "Scheduled time already passed".to_string(),
                         detail: "Next scheduled event started 20 minutes ago.".to_string(),
                         project_label: None,
@@ -577,12 +723,20 @@ mod tests {
             json["trust_readiness"]["review"]["pending_execution_reviews"],
             1
         );
+        assert_eq!(json["planning_profile_summary"]["pending_count"], 1);
+        assert_eq!(
+            json["commitment_scheduling_summary"]["latest_pending"]["title"],
+            "Apply focus block shift"
+        );
         assert_eq!(json["check_in"]["phase"], "standup");
         assert_eq!(json["check_in"]["submit_target"]["kind"], "daily_loop_turn");
         assert_eq!(json["check_in"]["escalation"]["target"], "threads");
         assert_eq!(json["check_in"]["transitions"][0]["kind"], "submit");
         assert_eq!(json["check_in"]["transitions"][1]["kind"], "bypass");
         assert_eq!(json["check_in"]["transitions"][2]["target"], "threads");
+        assert_eq!(json["day_plan"]["scheduled_count"], 2);
+        assert_eq!(json["day_plan"]["deferred_count"], 1);
+        assert_eq!(json["day_plan"]["routine_blocks"][0]["source"], "inferred");
         assert_eq!(json["reflow"]["trigger"], "missed_event");
         assert_eq!(json["reflow"]["severity"], "critical");
         assert_eq!(json["reflow"]["edit_target"]["target"], "threads");

@@ -476,6 +476,8 @@ pub struct ScheduleRuleFacet {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReflowChange {
     pub kind: ReflowChangeKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commitment_id: Option<String>,
     pub title: String,
     pub detail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -515,6 +517,122 @@ pub struct ReflowCard {
     pub proposal: Option<ReflowProposal>,
     #[serde(default)]
     pub transitions: Vec<ReflowTransition>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DayPlanChangeKind {
+    Scheduled,
+    Deferred,
+    DidNotFit,
+    NeedsJudgment,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RoutineBlockSourceKind {
+    OperatorDeclared,
+    Inferred,
+    Imported,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoutineBlock {
+    pub id: String,
+    pub label: String,
+    pub source: RoutineBlockSourceKind,
+    pub start_ts: i64,
+    pub end_ts: i64,
+    #[serde(default)]
+    pub protected: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DayPlanChange {
+    pub kind: DayPlanChangeKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commitment_id: Option<String>,
+    pub title: String,
+    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scheduled_start_ts: Option<i64>,
+    #[serde(default)]
+    pub rule_facets: Vec<ScheduleRuleFacet>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DayPlanProposal {
+    pub headline: String,
+    pub summary: String,
+    #[serde(default)]
+    pub scheduled_count: u32,
+    #[serde(default)]
+    pub deferred_count: u32,
+    #[serde(default)]
+    pub did_not_fit_count: u32,
+    #[serde(default)]
+    pub needs_judgment_count: u32,
+    #[serde(default)]
+    pub changes: Vec<DayPlanChange>,
+    #[serde(default)]
+    pub routine_blocks: Vec<RoutineBlock>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitmentSchedulingSourceKind {
+    DayPlan,
+    Reflow,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitmentSchedulingContinuity {
+    #[default]
+    Inline,
+    Thread,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitmentSchedulingMutationKind {
+    SetDueAt,
+    ClearDueAt,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitmentSchedulingMutation {
+    pub commitment_id: String,
+    pub kind: CommitmentSchedulingMutationKind,
+    pub title: String,
+    pub summary: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_due_at_ts: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_due_at_ts: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitmentSchedulingProposal {
+    pub source_kind: CommitmentSchedulingSourceKind,
+    pub state: AssistantProposalState,
+    pub summary: String,
+    #[serde(default)]
+    pub requires_confirmation: bool,
+    #[serde(default)]
+    pub continuity: CommitmentSchedulingContinuity,
+    #[serde(default)]
+    pub mutations: Vec<CommitmentSchedulingMutation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome_summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -574,8 +692,10 @@ mod tests {
     use super::{
         ActionItem, ActionKind, ActionPermissionMode, ActionScopeAffinity, ActionThreadRouteTarget,
         CheckInCard, CheckInEscalationTarget, CheckInSourceKind, CheckInSubmitTargetKind,
-        CheckInTransitionKind, ReflowCard, ReflowTransitionKind,
+        CheckInTransitionKind, CommitmentSchedulingMutationKind, CommitmentSchedulingProposal,
+        DayPlanProposal, ReflowCard, ReflowTransitionKind,
     };
+    use crate::AssistantProposalState;
 
     #[test]
     fn operator_action_item_example_parses() {
@@ -728,5 +848,75 @@ mod tests {
         assert_eq!(proposal.needs_judgment_count, 1);
         assert_eq!(proposal.changes.len(), 1);
         assert_eq!(proposal.rule_facets.len(), 1);
+    }
+
+    #[test]
+    fn commitment_scheduling_proposal_example_parses() {
+        let proposal: CommitmentSchedulingProposal = serde_json::from_str(include_str!(
+            "../../../config/examples/commitment-scheduling-proposal.example.json"
+        ))
+        .expect("commitment scheduling proposal example should parse");
+
+        assert_eq!(
+            proposal.source_kind,
+            super::CommitmentSchedulingSourceKind::Reflow
+        );
+        assert_eq!(proposal.state, AssistantProposalState::Staged);
+        assert!(proposal.requires_confirmation);
+        assert_eq!(
+            proposal.continuity,
+            super::CommitmentSchedulingContinuity::Thread
+        );
+        assert_eq!(proposal.mutations.len(), 2);
+        assert_eq!(
+            proposal.mutations[0].kind,
+            CommitmentSchedulingMutationKind::SetDueAt
+        );
+    }
+
+    #[test]
+    fn day_plan_proposal_round_trips_as_json() {
+        let value = serde_json::json!({
+            "headline": "Today has a bounded plan",
+            "summary": "Vel shaped the morning around current routine blocks and commitments.",
+            "scheduled_count": 1,
+            "deferred_count": 1,
+            "did_not_fit_count": 1,
+            "needs_judgment_count": 1,
+            "changes": [
+                {
+                    "kind": "scheduled",
+                    "title": "Draft phase contract",
+                    "detail": "Placed into the prenoon focus block.",
+                    "project_label": "Vel",
+                    "scheduled_start_ts": 1710000000,
+                    "rule_facets": [
+                        {
+                            "kind": "block_target",
+                            "label": "block:focus",
+                            "detail": "Task prefers a named block target."
+                        }
+                    ]
+                }
+            ],
+            "routine_blocks": [
+                {
+                    "id": "routine_focus_am",
+                    "label": "Focus",
+                    "source": "operator_declared",
+                    "start_ts": 1710000000,
+                    "end_ts": 1710003600,
+                    "protected": true
+                }
+            ]
+        });
+
+        let proposal: DayPlanProposal =
+            serde_json::from_value(value).expect("day-plan proposal should parse");
+
+        assert_eq!(proposal.scheduled_count, 1);
+        assert_eq!(proposal.did_not_fit_count, 1);
+        assert_eq!(proposal.changes.len(), 1);
+        assert_eq!(proposal.routine_blocks.len(), 1);
     }
 }

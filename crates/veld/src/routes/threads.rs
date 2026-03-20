@@ -76,7 +76,11 @@ fn thread_data_from_row(
 ) -> ThreadData {
     let (id, thread_type, title, status, metadata_json, created_at, updated_at) = row;
     let metadata = parse_thread_metadata(&metadata_json);
-    let (planning_kind, lifecycle_stage) = if thread_type == "assistant_proposal" {
+    let (planning_kind, lifecycle_stage) = if thread_type == "assistant_proposal"
+        || thread_type == "planning_profile_edit"
+        || thread_type == "reflow_edit"
+        || thread_type == "day_plan_apply"
+    {
         (None, assistant_proposal_lifecycle_stage(&metadata))
     } else {
         planning_thread_fields(&thread_type, &status)
@@ -291,6 +295,58 @@ mod tests {
         assert_eq!(
             data.metadata.as_ref().unwrap()["applied_via"],
             "intervention_resolve"
+        );
+    }
+
+    #[test]
+    fn planning_profile_edit_thread_row_uses_proposal_state_for_lifecycle_stage() {
+        let data = thread_data_from_row(
+            (
+                "thr_planning_profile_1".to_string(),
+                "planning_profile_edit".to_string(),
+                "Add shutdown block".to_string(),
+                "resolved".to_string(),
+                json!({
+                    "proposal_state": "applied",
+                    "applied_via": "planning_profile_apply"
+                })
+                .to_string(),
+                1,
+                2,
+            ),
+            None,
+        );
+
+        assert_eq!(data.lifecycle_stage.as_deref(), Some("applied"));
+        assert_eq!(
+            data.metadata.as_ref().unwrap()["applied_via"],
+            "planning_profile_apply"
+        );
+    }
+
+    #[test]
+    fn reflow_edit_thread_row_uses_proposal_state_for_lifecycle_stage() {
+        let data = thread_data_from_row(
+            (
+                "thr_reflow_1".to_string(),
+                "reflow_edit".to_string(),
+                "Reflow edit".to_string(),
+                "resolved".to_string(),
+                json!({
+                    "proposal_state": "applied",
+                    "applied_via": "commitment_scheduling_apply"
+                })
+                .to_string(),
+                1,
+                2,
+            ),
+            None,
+        );
+
+        assert_eq!(data.lifecycle_stage.as_deref(), Some("applied"));
+        assert_eq!(
+            data.metadata.as_ref().unwrap()["applied_via"],
+            "commitment_scheduling_apply"
         );
     }
 }

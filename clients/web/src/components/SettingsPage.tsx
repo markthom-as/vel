@@ -20,6 +20,12 @@ import type {
   LocalIntegrationData,
   LoopData,
   PairingTokenData,
+  PlanningConstraintData,
+  PlanningConstraintKindData,
+  PlanningProfileMutationRequestData,
+  PlanningProfileResponseData,
+  RoutinePlanningProfileData,
+  ScheduleTimeWindowData,
   RunSummaryData,
   SettingsData,
   WorkerPresenceData,
@@ -28,12 +34,14 @@ import { invalidateQuery, setQueryData, useQuery } from '../data/query';
 import type { QueryKey } from '../data/query';
 import {
   approveExecutionHandoff,
+  applyPlanningProfileMutation,
   buildBackupTrustProjection,
   buildSettingsOnboardingGuide,
   buildOperatorReviewStatus,
   issuePairingToken,
   loadExecutionHandoffs,
   loadLinkingStatus,
+  loadPlanningProfile,
   operatorQueryKeys,
   redeemPairingToken,
   rejectExecutionHandoff,
@@ -120,6 +128,7 @@ type LocalIntegrationSource =
   | 'reminders'
   | 'notes'
   | 'transcripts';
+type IntegrationProductKey = 'google' | 'todoist' | LocalIntegrationSource;
 type IntegrationLogSource = 'google-calendar' | 'todoist' | LocalIntegrationSource;
 
 interface RunActionState {
@@ -188,6 +197,23 @@ function labelRecoveryFreshness(status: string): string {
   }
 }
 
+function labelProposalState(state: string): string {
+  switch (state) {
+    case 'staged':
+      return 'Pending review';
+    case 'approved':
+      return 'Approved';
+    case 'applied':
+      return 'Applied';
+    case 'failed':
+      return 'Failed';
+    case 'reversed':
+      return 'Reversed';
+    default:
+      return state;
+  }
+}
+
 interface LoopDraft {
   intervalSeconds: string;
 }
@@ -195,6 +221,33 @@ interface LoopDraft {
 interface LoopActionState {
   status: 'success' | 'error';
   message: string;
+}
+
+interface PlanningProfileActionState {
+  status: 'success' | 'error';
+  message: string;
+}
+
+interface RoutineBlockDraft {
+  id: string;
+  label: string;
+  local_timezone: string;
+  start_local_time: string;
+  end_local_time: string;
+  days_of_week: string;
+  protected: boolean;
+  active: boolean;
+}
+
+interface PlanningConstraintDraft {
+  id: string;
+  label: string;
+  kind: PlanningConstraintKindData;
+  detail: string;
+  time_window: ScheduleTimeWindowData | '';
+  minutes: string;
+  max_items: string;
+  active: boolean;
 }
 
 type ComponentActionState =
@@ -660,6 +713,133 @@ function capabilityStatusClass(available: boolean): string {
     : 'border-amber-800/60 bg-amber-950/20 text-amber-100';
 }
 
+function defaultRoutineBlockDraft(timezone: string): RoutineBlockDraft {
+  return {
+    id: '',
+    label: '',
+    local_timezone: timezone || 'America/Denver',
+    start_local_time: '09:00',
+    end_local_time: '10:00',
+    days_of_week: '1,2,3,4,5',
+    protected: true,
+    active: true,
+  };
+}
+
+function defaultPlanningConstraintDraft(): PlanningConstraintDraft {
+  return {
+    id: '',
+    label: '',
+    kind: 'default_time_window',
+    detail: '',
+    time_window: 'prenoon',
+    minutes: '',
+    max_items: '',
+    active: true,
+  };
+}
+
+function constraintKindLabel(kind: PlanningConstraintKindData): string {
+  switch (kind) {
+    case 'max_scheduled_items':
+      return 'Max scheduled items';
+    case 'reserve_buffer_before_calendar':
+      return 'Buffer before calendar';
+    case 'reserve_buffer_after_calendar':
+      return 'Buffer after calendar';
+    case 'default_time_window':
+      return 'Default time window';
+    case 'require_judgment_for_overflow':
+      return 'Require judgment for overflow';
+  }
+}
+
+function timeWindowLabel(window: ScheduleTimeWindowData): string {
+  switch (window) {
+    case 'prenoon':
+      return 'Prenoon';
+    case 'afternoon':
+      return 'Afternoon';
+    case 'evening':
+      return 'Evening';
+    case 'night':
+      return 'Night';
+    case 'day':
+      return 'Day';
+  }
+}
+
+function summarizeConstraint(constraint: PlanningConstraintData): string {
+  switch (constraint.kind) {
+    case 'max_scheduled_items':
+      return constraint.max_items != null ? `${constraint.max_items} items max` : 'Item cap';
+    case 'reserve_buffer_before_calendar':
+    case 'reserve_buffer_after_calendar':
+      return constraint.minutes != null ? `${constraint.minutes} minute buffer` : 'Calendar buffer';
+    case 'default_time_window':
+      return constraint.time_window ? timeWindowLabel(constraint.time_window) : 'Default window';
+    case 'require_judgment_for_overflow':
+      return 'Escalate overflow';
+  }
+}
+
+function normalizeWeekdayDraft(value: string): string {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry, index, array) => entry.length > 0 && array.indexOf(entry) === index)
+    .join(',');
+}
+
+function buildRoutineBlockMutation(
+  draft: RoutineBlockDraft,
+): PlanningProfileMutationRequestData {
+  const normalizedDays = normalizeWeekdayDraft(draft.days_of_week);
+  return {
+    mutation: {
+      kind: 'upsert_routine_block',
+      data: {
+        id: draft.id.trim(),
+        label: draft.label.trim(),
+        source: 'operator_declared',
+        local_timezone: draft.local_timezone.trim(),
+        start_local_time: draft.start_local_time.trim(),
+        end_local_time: draft.end_local_time.trim(),
+        days_of_week: normalizedDays
+          .split(',')
+          .filter((entry) => entry.length > 0)
+          .map((entry) => Number.parseInt(entry, 10)),
+        protected: draft.protected,
+        active: draft.active,
+      },
+    },
+  };
+}
+
+function buildConstraintMutation(
+  draft: PlanningConstraintDraft,
+): PlanningProfileMutationRequestData {
+  const minutes =
+    draft.minutes.trim().length > 0 ? Number.parseInt(draft.minutes.trim(), 10) : null;
+  const maxItems =
+    draft.max_items.trim().length > 0 ? Number.parseInt(draft.max_items.trim(), 10) : null;
+  return {
+    mutation: {
+      kind: 'upsert_planning_constraint',
+      data: {
+        id: draft.id.trim(),
+        label: draft.label.trim(),
+        kind: draft.kind,
+        detail: draft.detail.trim() || null,
+        time_window: draft.time_window || null,
+        minutes: Number.isFinite(minutes) ? minutes : null,
+        max_items: Number.isFinite(maxItems) ? maxItems : null,
+        active: draft.active,
+      },
+    },
+  };
+}
+
 export function SettingsPage({
   onBack,
   initialTab = 'general',
@@ -737,6 +917,14 @@ export function SettingsPage({
   const [actingLoops, setActingLoops] = useState<Record<string, true>>({});
   const [loopDrafts, setLoopDrafts] = useState<Record<string, LoopDraft>>({});
   const [loopActionState, setLoopActionState] = useState<Record<string, LoopActionState>>({});
+  const [planningProfileActionState, setPlanningProfileActionState] = useState<PlanningProfileActionState | null>(null);
+  const [planningProfilePending, setPlanningProfilePending] = useState(false);
+  const [routineBlockDraft, setRoutineBlockDraft] = useState<RoutineBlockDraft>(
+    defaultRoutineBlockDraft('America/Denver'),
+  );
+  const [planningConstraintDraft, setPlanningConstraintDraft] = useState<PlanningConstraintDraft>(
+    defaultPlanningConstraintDraft(),
+  );
   const [diagnostics, setDiagnostics] = useState<DiagnosticsData | null>(null);
   const [pendingExecutionReviewActions, setPendingExecutionReviewActions] = useState<Record<string, 'approve' | 'reject'>>({});
   const [executionReviewFeedback, setExecutionReviewFeedback] = useState<Record<string, {
@@ -773,6 +961,7 @@ export function SettingsPage({
   });
   const runLimit = 6;
   const settingsKey = useMemo(() => queryKeys.settings(), []);
+  const planningProfileKey = useMemo(() => operatorQueryKeys.planningProfile(), []);
   const clusterBootstrapKey = useMemo(() => queryKeys.clusterBootstrap(), []);
   const clusterWorkersKey = useMemo(() => queryKeys.clusterWorkers(), []);
   const integrationsKey = useMemo(() => queryKeys.integrations(), []);
@@ -806,6 +995,16 @@ export function SettingsPage({
       const response = await loadSettings();
       return response.ok && response.data ? response.data : {};
     },
+  );
+  const {
+    data: planningProfileResponse,
+  } = useQuery<PlanningProfileResponseData | null>(
+    planningProfileKey,
+    async () => {
+      const response = await loadPlanningProfile();
+      return response.ok && response.data ? response.data : null;
+    },
+    { enabled: activeTab === 'general' },
   );
   const { data: clusterWorkers } = useQuery<ClusterWorkersData>(
     clusterWorkersKey,
@@ -910,6 +1109,14 @@ export function SettingsPage({
   }, [settings.timezone]);
 
   useEffect(() => {
+    setRoutineBlockDraft((current) => (
+      current.id.trim().length > 0
+        ? current
+        : defaultRoutineBlockDraft(settings.timezone ?? 'America/Denver')
+    ));
+  }, [settings.timezone]);
+
+  useEffect(() => {
     setNodeDisplayNameDraft(settings.node_display_name ?? '');
   }, [settings.node_display_name]);
 
@@ -964,6 +1171,9 @@ export function SettingsPage({
       }),
     [clusterBootstrap, clusterWorkers, integrations, linkedNodes],
   );
+  const planningProfile = planningProfileResponse?.profile ?? null;
+  const planningProfileProposalSummary =
+    planningProfileResponse?.proposal_summary ?? nowData?.planning_profile_summary ?? null;
 
   const runExecutionHandoffReview = async (
     handoffId: string,
@@ -1185,6 +1395,73 @@ export function SettingsPage({
     } finally {
       setSaving(false);
     }
+  };
+
+  const applyPlanningMutation = async (
+    mutation: PlanningProfileMutationRequestData,
+    successMessage: string,
+  ) => {
+    setPlanningProfilePending(true);
+    setPlanningProfileActionState(null);
+    try {
+      const response = await applyPlanningProfileMutation(mutation);
+      if (!response.ok || !response.data) {
+        throw new Error(response.error?.message ?? 'Failed to update planning profile');
+      }
+      setQueryData<PlanningProfileResponseData | null>(planningProfileKey, () => response.data);
+      invalidateQuery(nowKey, { refetch: true });
+      setPlanningProfileActionState({
+        status: 'success',
+        message: successMessage,
+      });
+    } catch (error) {
+      setPlanningProfileActionState({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setPlanningProfilePending(false);
+    }
+  };
+
+  const saveRoutineBlockDraft = async () => {
+    await applyPlanningMutation(
+      buildRoutineBlockMutation(routineBlockDraft),
+      'Routine block saved.',
+    );
+    setRoutineBlockDraft(defaultRoutineBlockDraft(settings.timezone ?? 'America/Denver'));
+  };
+
+  const removeRoutineBlock = async (id: string) => {
+    await applyPlanningMutation(
+      {
+        mutation: {
+          kind: 'remove_routine_block',
+          data: { id },
+        },
+      },
+      'Routine block removed.',
+    );
+  };
+
+  const savePlanningConstraintDraft = async () => {
+    await applyPlanningMutation(
+      buildConstraintMutation(planningConstraintDraft),
+      'Planning constraint saved.',
+    );
+    setPlanningConstraintDraft(defaultPlanningConstraintDraft());
+  };
+
+  const removePlanningConstraint = async (id: string) => {
+    await applyPlanningMutation(
+      {
+        mutation: {
+          kind: 'remove_planning_constraint',
+          data: { id },
+        },
+      },
+      'Planning constraint removed.',
+    );
   };
 
   const tailscaleBaseUrlLocked = settings.tailscale_base_url_auto_discovered === true;
@@ -2142,8 +2419,8 @@ export function SettingsPage({
       <div className="mb-6">
         <h2 className="text-xl font-medium text-zinc-200">Settings</h2>
         <p className="mt-2 text-sm text-zinc-500">
-          Advanced operator setup, trust summaries, and runtime detail live here. Daily-use triage
-          stays in `Now`, `Inbox`, and `Threads`.
+          Keep this page summary-first. Daily-use triage stays in `Now`, while `Settings` handles
+          planning defaults, device continuity, recovery, and documentation.
         </p>
       </div>
       <div className="mb-8 flex gap-2 border-b border-zinc-800 pb-3">
@@ -2166,46 +2443,46 @@ export function SettingsPage({
       {activeTab === 'general' ? (
         <div className="space-y-4">
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <h3 className="text-base font-medium text-zinc-100">Assistant readiness</h3>
+                <h3 className="text-base font-medium text-zinc-100">General categories</h3>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Normal daily use should start in `Now`, continue through `Inbox`, and move into
-                  `Threads` only for continuity. Remote model routing is optional, and runtime
-                  controls stay one step deeper.
+                  Use this page to manage durable settings without turning it into a second
+                  dashboard.
                 </p>
               </div>
-              <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
-                default loop
-              </span>
+              <div className="flex flex-wrap gap-2">
+                <a href="#settings-daily" className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100">Daily use</a>
+                <a href="#settings-planning" className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100">Planning</a>
+                <a href="#settings-devices" className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100">Devices</a>
+                <a href="#settings-support" className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100">Support</a>
+              </div>
             </div>
-            <ul className="mt-4 space-y-2 text-sm text-zinc-300">
-              <li>Web voice input uses local browser speech-to-text before the assistant route.</li>
-              <li>Assistant replies need a configured model, but capture and triage still work without one.</li>
-              <li>Recall stays bounded to persisted Vel data with backend-owned scores and provenance, not broad ambient memory.</li>
-              <li>Use the runtime tab only when you need deeper logs, components, or review controls.</li>
-            </ul>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Daily use</p>
+                <p className="mt-2 text-sm text-zinc-100">Behavior defaults and timezone</p>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Planning</p>
+                <p className="mt-2 text-sm text-zinc-100">Routine blocks, constraints, and compact recovery summaries</p>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Devices</p>
+                <p className="mt-2 text-sm text-zinc-100">Onboarding, linking, and sync routing</p>
+              </div>
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Support</p>
+                <p className="mt-2 text-sm text-zinc-100">Backup trust, adaptive policy, and docs</p>
+              </div>
+            </div>
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <h3 className="text-base font-medium text-zinc-100">Advanced operator setup</h3>
+                <h3 id="settings-planning" className="text-base font-medium text-zinc-100">Planning and recovery summary</h3>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Start with summary trust, onboarding, linking, and review posture here before
-                  dropping into runtime internals.
-                </p>
-              </div>
-              <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
-                summary-first
-              </span>
-            </div>
-          </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h3 className="text-base font-medium text-zinc-100">Recovery posture</h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Freshness, trust, and day-plan repair stay summary-first here. Use `Now` for the compact reflow card and move into `Threads` only when the schedule needs longer shaping.
+                  Freshness, bounded day planning, and reflow stay summary-first here. Use `Now` for the compact plan and recovery cards, then move into `Threads` only when the schedule needs longer shaping.
                 </p>
               </div>
               <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
@@ -2213,7 +2490,26 @@ export function SettingsPage({
               </span>
             </div>
             {nowData ? (
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="mt-4 grid gap-3 md:grid-cols-4">
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Day plan</p>
+                  <p className="mt-2 text-sm font-medium text-zinc-100">
+                    {nowData.day_plan
+                      ? `${nowData.day_plan.scheduled_count} scheduled · ${nowData.day_plan.needs_judgment_count} judgment`
+                      : 'No bounded plan'}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">
+                    {nowData.day_plan?.summary
+                      ?? 'The current Now snapshot does not include a bounded same-day plan yet.'}
+                  </p>
+                  {nowData.day_plan?.routine_blocks?.length ? (
+                    <p className="mt-2 text-[11px] leading-5 text-zinc-500">
+                      {nowData.day_plan.routine_blocks.filter((block) => block.source === 'operator_declared').length > 0
+                        ? `${nowData.day_plan.routine_blocks.filter((block) => block.source === 'operator_declared').length} saved routine blocks are shaping today.`
+                        : 'Today is still relying on inferred routine blocks.'}
+                    </p>
+                  ) : null}
+                </div>
                 <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
                   <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Reflow</p>
                   <p className="mt-2 text-sm font-medium text-zinc-100">
@@ -2249,9 +2545,399 @@ export function SettingsPage({
               </div>
             ) : (
               <p className="mt-4 text-sm text-zinc-500">
-                Recovery posture appears here once a current `Now` snapshot is available.
+                Planning and recovery summaries appear here once a current `Now` snapshot is available.
               </p>
             )}
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-base font-medium text-zinc-100">Routine and planning profile</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Manage the saved routine blocks and bounded planning constraints that shape `day_plan` and `reflow`. `Now` stays compact; this is where the durable profile lives.
+                </p>
+              </div>
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
+                {planningProfile
+                  ? `${planningProfile.routine_blocks.length} routines · ${planningProfile.planning_constraints.length} constraints`
+                  : 'loading'}
+              </span>
+            </div>
+            {planningProfile ? (
+              <div className="mt-4 space-y-4">
+                {planningProfileProposalSummary ? (
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Proposal continuity</p>
+                      <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300">
+                        {planningProfileProposalSummary.pending_count} pending
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-100">
+                      {planningProfileProposalSummary.pending_count > 0
+                        ? 'Planning-profile edits are waiting in Threads for explicit approval before the backend saves them.'
+                        : 'No planning-profile edits are waiting for approval right now.'}
+                    </p>
+                    {planningProfileProposalSummary.latest_pending ? (
+                      <p className="mt-2 text-xs leading-5 text-zinc-400">
+                        Latest pending: {planningProfileProposalSummary.latest_pending.title} · {labelProposalState(planningProfileProposalSummary.latest_pending.state)}
+                      </p>
+                    ) : null}
+                    {planningProfileProposalSummary.latest_applied ? (
+                      <p className="mt-1 text-xs leading-5 text-zinc-500">
+                        Last applied: {planningProfileProposalSummary.latest_applied.title}
+                        {planningProfileProposalSummary.latest_applied.outcome_summary
+                          ? ` · ${planningProfileProposalSummary.latest_applied.outcome_summary}`
+                          : ''}
+                      </p>
+                    ) : null}
+                    {!planningProfileProposalSummary.latest_applied && planningProfileProposalSummary.latest_failed ? (
+                      <p className="mt-1 text-xs leading-5 text-rose-300">
+                        Last failed: {planningProfileProposalSummary.latest_failed.title}
+                        {planningProfileProposalSummary.latest_failed.outcome_summary
+                          ? ` · ${planningProfileProposalSummary.latest_failed.outcome_summary}`
+                          : ''}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Saved routine blocks</p>
+                    {planningProfile.routine_blocks.length > 0 ? (
+                      <div className="mt-3 space-y-3">
+                        {planningProfile.routine_blocks.map((block) => (
+                          <article key={block.id} className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-zinc-100">{block.label}</p>
+                                <p className="mt-1 text-xs text-zinc-400">
+                                  {block.start_local_time}–{block.end_local_time} · {block.local_timezone}
+                                </p>
+                                <p className="mt-1 text-xs text-zinc-500">
+                                  Days {block.days_of_week.join(', ') || 'all'} · {block.protected ? 'protected' : 'flexible'} · {block.active ? 'active' : 'inactive'}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void removeRoutineBlock(block.id)}
+                                disabled={planningProfilePending}
+                                className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-zinc-500">
+                        No durable routine blocks are saved yet. `Now` will keep falling back to inferred routine signals until you add one here.
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Planning constraints</p>
+                    {planningProfile.planning_constraints.length > 0 ? (
+                      <div className="mt-3 space-y-3">
+                        {planningProfile.planning_constraints.map((constraint) => (
+                          <article key={constraint.id} className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-zinc-100">{constraint.label}</p>
+                                <p className="mt-1 text-xs text-zinc-400">
+                                  {constraintKindLabel(constraint.kind)} · {summarizeConstraint(constraint)}
+                                </p>
+                                {constraint.detail ? (
+                                  <p className="mt-1 text-xs text-zinc-500">{constraint.detail}</p>
+                                ) : null}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void removePlanningConstraint(constraint.id)}
+                                disabled={planningProfilePending}
+                                className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-zinc-500">
+                        No bounded planning constraints are saved yet. The planner is still using only the current canonical scheduler rules on commitments.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {planningProfileActionState ? (
+                  <div
+                    className={`rounded-md border p-3 text-sm ${
+                      planningProfileActionState.status === 'success'
+                        ? 'border-emerald-800/60 bg-emerald-950/20 text-emerald-200'
+                        : 'border-rose-800/60 bg-rose-950/20 text-rose-200'
+                    }`}
+                  >
+                    {planningProfileActionState.message}
+                  </div>
+                ) : null}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-medium text-zinc-100">Add routine block</h4>
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">
+                          Save repeatable routine anchors here instead of relying on inferred-only blocks.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-400">
+                        durable
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <label className="space-y-1 md:col-span-2">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">Label</span>
+                        <input
+                          type="text"
+                          value={routineBlockDraft.label}
+                          onChange={(event) => setRoutineBlockDraft((current) => ({
+                            ...current,
+                            label: event.target.value,
+                            id: current.id || event.target.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+                          }))}
+                          placeholder="Deep work"
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">Start</span>
+                        <input
+                          type="time"
+                          value={routineBlockDraft.start_local_time}
+                          onChange={(event) => setRoutineBlockDraft((current) => ({ ...current, start_local_time: event.target.value }))}
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">End</span>
+                        <input
+                          type="time"
+                          value={routineBlockDraft.end_local_time}
+                          onChange={(event) => setRoutineBlockDraft((current) => ({ ...current, end_local_time: event.target.value }))}
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </label>
+                      <label className="space-y-1 md:col-span-2">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">Timezone</span>
+                        <input
+                          type="text"
+                          value={routineBlockDraft.local_timezone}
+                          onChange={(event) => setRoutineBlockDraft((current) => ({ ...current, local_timezone: event.target.value }))}
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </label>
+                      <label className="space-y-1 md:col-span-2">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">Days of week</span>
+                        <input
+                          type="text"
+                          value={routineBlockDraft.days_of_week}
+                          onChange={(event) => setRoutineBlockDraft((current) => ({ ...current, days_of_week: event.target.value }))}
+                          placeholder="1,2,3,4,5"
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                        />
+                        <p className="text-[11px] text-zinc-500">Use ISO weekdays 1-7, Monday through Sunday.</p>
+                      </label>
+                      <label className="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+                        <span className="text-sm text-zinc-300">Protected block</span>
+                        <input
+                          type="checkbox"
+                          checked={routineBlockDraft.protected}
+                          onChange={(event) => setRoutineBlockDraft((current) => ({ ...current, protected: event.target.checked }))}
+                          className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+                        <span className="text-sm text-zinc-300">Active</span>
+                        <input
+                          type="checkbox"
+                          checked={routineBlockDraft.active}
+                          onChange={(event) => setRoutineBlockDraft((current) => ({ ...current, active: event.target.checked }))}
+                          className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
+                        />
+                      </label>
+                    </div>
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void saveRoutineBlockDraft()}
+                        disabled={
+                          planningProfilePending
+                          || routineBlockDraft.label.trim().length === 0
+                          || routineBlockDraft.local_timezone.trim().length === 0
+                        }
+                        className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
+                      >
+                        Save routine block
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRoutineBlockDraft(defaultRoutineBlockDraft(settings.timezone ?? 'America/Denver'))}
+                        disabled={planningProfilePending}
+                        className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm font-medium text-zinc-100">Add planning constraint</h4>
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">
+                          Keep constraints bounded and explainable so `day_plan` and `reflow` stay deterministic.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-400">
+                        bounded
+                      </span>
+                    </div>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <label className="space-y-1 md:col-span-2">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">Label</span>
+                        <input
+                          type="text"
+                          value={planningConstraintDraft.label}
+                          onChange={(event) => setPlanningConstraintDraft((current) => ({
+                            ...current,
+                            label: event.target.value,
+                            id: current.id || event.target.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+                          }))}
+                          placeholder="Morning focus cap"
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                        />
+                      </label>
+                      <label className="space-y-1 md:col-span-2">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">Kind</span>
+                        <select
+                          value={planningConstraintDraft.kind}
+                          onChange={(event) => setPlanningConstraintDraft((current) => ({
+                            ...current,
+                            kind: event.target.value as PlanningConstraintKindData,
+                          }))}
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                        >
+                          <option value="default_time_window">Default time window</option>
+                          <option value="max_scheduled_items">Max scheduled items</option>
+                          <option value="reserve_buffer_before_calendar">Buffer before calendar</option>
+                          <option value="reserve_buffer_after_calendar">Buffer after calendar</option>
+                          <option value="require_judgment_for_overflow">Require judgment for overflow</option>
+                        </select>
+                      </label>
+                      <label className="space-y-1 md:col-span-2">
+                        <span className="text-xs uppercase tracking-wide text-zinc-500">Detail</span>
+                        <input
+                          type="text"
+                          value={planningConstraintDraft.detail}
+                          onChange={(event) => setPlanningConstraintDraft((current) => ({ ...current, detail: event.target.value }))}
+                          placeholder="Optional operator-facing explanation"
+                          className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+                        />
+                      </label>
+                      {planningConstraintDraft.kind === 'default_time_window' ? (
+                        <label className="space-y-1 md:col-span-2">
+                          <span className="text-xs uppercase tracking-wide text-zinc-500">Default window</span>
+                          <select
+                            value={planningConstraintDraft.time_window}
+                            onChange={(event) => setPlanningConstraintDraft((current) => ({
+                              ...current,
+                              time_window: event.target.value as ScheduleTimeWindowData,
+                            }))}
+                            className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                          >
+                            <option value="prenoon">Prenoon</option>
+                            <option value="afternoon">Afternoon</option>
+                            <option value="evening">Evening</option>
+                            <option value="night">Night</option>
+                            <option value="day">Day</option>
+                          </select>
+                        </label>
+                      ) : null}
+                      {planningConstraintDraft.kind === 'max_scheduled_items' ? (
+                        <label className="space-y-1 md:col-span-2">
+                          <span className="text-xs uppercase tracking-wide text-zinc-500">Max items</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={planningConstraintDraft.max_items}
+                            onChange={(event) => setPlanningConstraintDraft((current) => ({ ...current, max_items: event.target.value }))}
+                            className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                          />
+                        </label>
+                      ) : null}
+                      {(planningConstraintDraft.kind === 'reserve_buffer_before_calendar'
+                        || planningConstraintDraft.kind === 'reserve_buffer_after_calendar') ? (
+                          <label className="space-y-1 md:col-span-2">
+                            <span className="text-xs uppercase tracking-wide text-zinc-500">Buffer minutes</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={planningConstraintDraft.minutes}
+                              onChange={(event) => setPlanningConstraintDraft((current) => ({ ...current, minutes: event.target.value }))}
+                              className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                            />
+                          </label>
+                        ) : null}
+                      <label className="flex items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-900/70 px-3 py-2 md:col-span-2">
+                        <span className="text-sm text-zinc-300">Active</span>
+                        <input
+                          type="checkbox"
+                          checked={planningConstraintDraft.active}
+                          onChange={(event) => setPlanningConstraintDraft((current) => ({ ...current, active: event.target.checked }))}
+                          className="rounded border-zinc-600 bg-zinc-800 text-emerald-600 focus:ring-emerald-500"
+                        />
+                      </label>
+                    </div>
+                    <div className="mt-3 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void savePlanningConstraintDraft()}
+                        disabled={planningProfilePending || planningConstraintDraft.label.trim().length === 0}
+                        className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
+                      >
+                        Save constraint
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPlanningConstraintDraft(defaultPlanningConstraintDraft())}
+                        disabled={planningProfilePending}
+                        className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-zinc-500">
+                The durable planning profile will appear here once the backend profile snapshot loads.
+              </p>
+            )}
+          </div>
+          <div id="settings-daily" className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-base font-medium text-zinc-100">Daily use defaults</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Keep these defaults tight. They change day-to-day behavior without pulling runtime
+                  diagnostics back onto the main surface.
+                </p>
+              </div>
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
+                compact
+              </span>
+            </div>
           </div>
           <label className="flex items-center justify-between gap-4">
             <span className="text-zinc-300">Disable proactive interventions</span>
@@ -2313,7 +2999,7 @@ export function SettingsPage({
             <div className="space-y-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-zinc-200">Onboarding and recovery</h3>
+                  <h3 id="settings-devices" className="text-sm font-medium text-zinc-200">Setup and device continuity</h3>
                   <p className="text-sm text-zinc-500">
                     Follow the next unfinished step instead of reverse-engineering diagnostics. This
                     summary stays grounded in the same bootstrap, linking, and integration payloads
@@ -3169,7 +3855,7 @@ export function SettingsPage({
             <div className="space-y-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-zinc-200">Backup trust</h3>
+                  <h3 id="settings-support" className="text-sm font-medium text-zinc-200">Backup trust</h3>
                   <p className="text-sm text-zinc-500">
                     This card reflects the backend-owned backup trust state from Settings. Recovery stays manual-first, so inspect and verify a pack before copying anything back into the live runtime.
                   </p>
@@ -3345,11 +4031,14 @@ export function SettingsPage({
             className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5"
           >
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-medium text-zinc-100">Google Calendar</h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  OAuth-backed event sync. All calendars are included by default.
-                </p>
+              <div className="flex items-start gap-3">
+                <IntegrationProductMark product="google" />
+                <div>
+                  <h3 className="text-lg font-medium text-zinc-100">Google Calendar</h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    OAuth-backed event sync. All calendars are included by default.
+                  </p>
+                </div>
               </div>
               <IntegrationBadge
                 connected={integrations.google_calendar.connected}
@@ -3494,11 +4183,14 @@ export function SettingsPage({
             className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5"
           >
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-medium text-zinc-100">Todoist</h3>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Live task sync using your Todoist API token.
-                </p>
+              <div className="flex items-start gap-3">
+                <IntegrationProductMark product="todoist" />
+                <div>
+                  <h3 className="text-lg font-medium text-zinc-100">Todoist</h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Live task sync using your Todoist API token.
+                  </p>
+                </div>
               </div>
               <IntegrationBadge
                 connected={integrations.todoist.connected}
@@ -3614,9 +4306,12 @@ export function SettingsPage({
                 className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-medium text-zinc-100">{spec.title}</h3>
-                    <p className="mt-1 text-sm text-zinc-500">{spec.description}</p>
+                  <div className="flex items-start gap-3">
+                    <IntegrationProductMark product={spec.key} />
+                    <div>
+                      <h3 className="text-lg font-medium text-zinc-100">{spec.title}</h3>
+                      <p className="mt-1 text-sm text-zinc-500">{spec.description}</p>
+                    </div>
                   </div>
                   <IntegrationBadge
                     connected={integration.configured}
@@ -3674,8 +4369,8 @@ export function SettingsPage({
                         Operator path selection
                       </p>
                       <p className="mt-1 text-sm text-zinc-400">
-                        Select the source paths you want Vel to ingest from this host. Internal
-                        defaults stay visible below as read-only diagnostic paths.
+                        Select the source paths you want Vel to ingest from this host. Vel-owned
+                        defaults stay hidden unless you need diagnostics.
                       </p>
                       <div className="mt-3 space-y-1">
                         <p className="font-mono text-xs text-zinc-500">
@@ -3756,26 +4451,31 @@ export function SettingsPage({
                       <p className="text-sm text-zinc-500">No current-host source paths were discovered yet.</p>
                     )}
                     {internalPaths.length > 0 ? (
-                      <div className="space-y-2 pt-1">
-                        <p className="text-xs text-zinc-600">Internal/default paths (read only)</p>
-                        <div className="grid gap-2">
-                          {internalPaths.map((path) => (
-                            <div
-                              key={`internal:${path}`}
-                              className="rounded-md border border-zinc-800 bg-zinc-950/20 px-3 py-2 text-left text-zinc-500"
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-sm">{describeLocalSourcePath(spec.key, path, true).title}</p>
-                                  <p className="text-xs text-zinc-600">{describeLocalSourcePath(spec.key, path, true).detail}</p>
+                      <details className="rounded-md border border-zinc-800 bg-zinc-950/30 p-3">
+                        <summary className="cursor-pointer text-xs uppercase tracking-[0.18em] text-zinc-500">
+                          Show Vel/internal paths
+                        </summary>
+                        <div className="mt-3 space-y-2">
+                          <p className="text-xs text-zinc-600">Vel/internal paths (read only)</p>
+                          <div className="grid gap-2">
+                            {internalPaths.map((path) => (
+                              <div
+                                key={`internal:${path}`}
+                                className="rounded-md border border-zinc-800 bg-zinc-950/20 px-3 py-2 text-left text-zinc-500"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm">{describeLocalSourcePath(spec.key, path, true).title}</p>
+                                    <p className="text-xs text-zinc-600">{describeLocalSourcePath(spec.key, path, true).detail}</p>
+                                  </div>
+                                  <span className="text-xs text-zinc-600">Read only</span>
                                 </div>
-                                <span className="text-xs text-zinc-600">Read only</span>
+                                <p className="mt-1 text-xs text-zinc-700">{path}</p>
                               </div>
-                              <p className="mt-1 text-xs text-zinc-700">{path}</p>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      </details>
                     ) : null}
                   </div>
                 ) : null}
@@ -4731,6 +5431,81 @@ function IntegrationBadge({
       {label}
     </span>
   );
+}
+
+function IntegrationProductMark({ product }: { product: IntegrationProductKey }) {
+  const { label, glyph, tone } = integrationProductMarkMeta(product);
+  return (
+    <span
+      aria-label={`${label} product mark`}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border text-xs font-semibold uppercase tracking-[0.18em] ${tone}`}
+    >
+      {glyph}
+    </span>
+  );
+}
+
+function integrationProductMarkMeta(product: IntegrationProductKey): {
+  label: string;
+  glyph: string;
+  tone: string;
+} {
+  switch (product) {
+    case 'google':
+      return {
+        label: 'Google Calendar',
+        glyph: 'GC',
+        tone: 'border-sky-800/70 bg-sky-950/40 text-sky-200',
+      };
+    case 'todoist':
+      return {
+        label: 'Todoist',
+        glyph: 'TD',
+        tone: 'border-rose-800/70 bg-rose-950/40 text-rose-200',
+      };
+    case 'activity':
+      return {
+        label: 'Computer Activity',
+        glyph: 'AC',
+        tone: 'border-violet-800/70 bg-violet-950/40 text-violet-200',
+      };
+    case 'health':
+      return {
+        label: 'Health',
+        glyph: 'HL',
+        tone: 'border-emerald-800/70 bg-emerald-950/40 text-emerald-200',
+      };
+    case 'git':
+      return {
+        label: 'Git Activity',
+        glyph: 'GT',
+        tone: 'border-amber-800/70 bg-amber-950/40 text-amber-200',
+      };
+    case 'messaging':
+      return {
+        label: 'Messaging',
+        glyph: 'MS',
+        tone: 'border-fuchsia-800/70 bg-fuchsia-950/40 text-fuchsia-200',
+      };
+    case 'reminders':
+      return {
+        label: 'Apple Reminders',
+        glyph: 'AR',
+        tone: 'border-cyan-800/70 bg-cyan-950/40 text-cyan-200',
+      };
+    case 'notes':
+      return {
+        label: 'Obsidian Vault',
+        glyph: 'OB',
+        tone: 'border-indigo-800/70 bg-indigo-950/40 text-indigo-200',
+      };
+    case 'transcripts':
+      return {
+        label: 'Transcripts',
+        glyph: 'TR',
+        tone: 'border-zinc-700 bg-zinc-900/80 text-zinc-200',
+      };
+  }
 }
 
 function IntegrationMeta({

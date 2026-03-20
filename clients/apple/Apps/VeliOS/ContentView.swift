@@ -5,6 +5,7 @@ import SwiftUI
 import VelApplePlatform
 import VelApplication
 import VelAPI
+import VelDomain
 import VelFeatureFlags
 #if canImport(UIKit)
 import UIKit
@@ -87,9 +88,14 @@ struct ContentView: View {
     @EnvironmentObject var store: VelClientStore
     @State private var selectedTab: VeliOSTab = .today
     @State private var selectedPadSection: VeliPadSection = .now
-    @StateObject private var voiceModel = VoiceCaptureModel()
+    @StateObject private var voiceModel: VoiceCaptureModel
     @State private var captureSeed: CaptureDraftSeed?
     @State private var quickEntrySurface: QuickEntrySurface?
+
+    init(appEnvironment: VelAppEnvironment, voiceOfflineStore: VelOfflineStore = VelOfflineStore()) {
+        self.appEnvironment = appEnvironment
+        _voiceModel = StateObject(wrappedValue: VoiceCaptureModel(offlineStore: voiceOfflineStore))
+    }
 
     private var capabilities: FeatureCapabilities {
         appEnvironment.featureCapabilities
@@ -110,6 +116,7 @@ struct ContentView: View {
                 iPhoneTab {
                     TodayTab(
                         store: store,
+                        voiceModel: voiceModel,
                         onOpenCapture: { quickEntrySurface = .capture },
                         onOpenVoice: { quickEntrySurface = .voice }
                     )
@@ -128,7 +135,7 @@ struct ContentView: View {
                 }
 
                 iPhoneTab {
-                    ActivityTab(store: store)
+                    ActivityTab(store: store, voiceModel: voiceModel)
                 }
                 .tag(VeliOSTab.activity)
                 .tabItem {
@@ -153,7 +160,14 @@ struct ContentView: View {
             }
             .task {
                 await store.refresh()
+                voiceModel.reconcileRecoveryState(using: store)
                 await voiceModel.ensurePermissionsKnown()
+            }
+            .onChange(of: store.isReachable) { _ in
+                voiceModel.reconcileRecoveryState(using: store)
+            }
+            .onChange(of: store.pendingActionCount) { _ in
+                voiceModel.reconcileRecoveryState(using: store)
             }
             .onChange(of: selectedTab) { tab in
                 if tab == .activity {
@@ -217,7 +231,14 @@ struct ContentView: View {
             .navigationSplitViewStyle(.balanced)
             .task {
                 await store.refresh()
+                voiceModel.reconcileRecoveryState(using: store)
                 await voiceModel.ensurePermissionsKnown()
+            }
+            .onChange(of: store.isReachable) { _ in
+                voiceModel.reconcileRecoveryState(using: store)
+            }
+            .onChange(of: store.pendingActionCount) { _ in
+                voiceModel.reconcileRecoveryState(using: store)
             }
             .onChange(of: selectedPadSection) { section in
                 if section == .planning {
@@ -267,6 +288,7 @@ struct ContentView: View {
         case .now:
             TodayTab(
                 store: store,
+                voiceModel: voiceModel,
                 onOpenCapture: { quickEntrySurface = .capture },
                 onOpenVoice: { quickEntrySurface = .voice }
             )
@@ -275,7 +297,7 @@ struct ContentView: View {
         case .projects:
             ProjectsTab(store: store)
         case .chat:
-            ActivityTab(store: store)
+            ActivityTab(store: store, voiceModel: voiceModel)
         case .capture:
             CaptureTab(
                 store: store,
@@ -366,6 +388,7 @@ private struct CapabilityFlagRow: View {
 
 private struct TodayTab: View {
     @ObservedObject var store: VelClientStore
+    @ObservedObject var voiceModel: VoiceCaptureModel
     let onOpenCapture: () -> Void
     let onOpenVoice: () -> Void
     @State private var commitmentText = ""
@@ -385,6 +408,19 @@ private struct TodayTab: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 todayHeader
+
+                if let voiceSummary = voiceModel.continuitySummary(using: store) {
+                    todaySection("Voice continuity") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(voiceSummary.headline)
+                            if let detail = voiceSummary.detail {
+                                Text(detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
 
                 todaySection("Next action") {
                     if let action = actionItems.first {
@@ -740,6 +776,7 @@ private struct NudgesTab: View {
 
 private struct ActivityTab: View {
     @ObservedObject var store: VelClientStore
+    @ObservedObject var voiceModel: VoiceCaptureModel
 
     var body: some View {
         let recentSignals = Array(store.signals.prefix(80))
@@ -753,6 +790,48 @@ private struct ActivityTab: View {
                         Text("\(urgentThreads) urgent threads are currently flagged in context.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                SurfaceSectionCard("Voice continuity") {
+                    if let summary = voiceModel.continuitySummary(using: store) {
+                        Text(summary.headline)
+                        if let detail = summary.detail {
+                            Text(detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("No local voice continuity is waiting for recovery.")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    let entries = Array(voiceModel.history.prefix(3))
+                    if !entries.isEmpty {
+                        Divider()
+                            .padding(.vertical, 2)
+                        ForEach(entries) { entry in
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(entry.statusLabel)
+                                        .font(.caption2)
+                                        .foregroundStyle(entry.statusColor)
+                                    Spacer()
+                                    Text(formatDate(entry.createdAt))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(entry.transcript)
+                                    .font(.subheadline)
+                                    .lineLimit(2)
+                                if let detail = entry.continuityDetail {
+                                    Text(detail)
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
                     }
                 }
 
@@ -1697,6 +1776,52 @@ private struct SettingsTab: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
+            planningProfileSummary
+        }
+    }
+
+    @ViewBuilder
+    private var planningProfileSummary: some View {
+        if let planningProfile = store.planningProfile {
+            let profile = planningProfile.profile
+            let activeBlocks = profile.routine_blocks.filter { $0.active }.count
+            let activeConstraints = profile.planning_constraints.filter { $0.active }.count
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Planning profile")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Routine blocks: \(activeBlocks) active of \(profile.routine_blocks.count)")
+                    .font(.caption)
+                Text("Constraints: \(activeConstraints) active of \(profile.planning_constraints.count)")
+                    .font(.caption)
+                if let firstBlock = profile.routine_blocks.first {
+                    Text("Next anchor: \(firstBlock.label) \(firstBlock.start_local_time)-\(firstBlock.end_local_time)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                if let proposalSummary = planningProfile.proposal_summary {
+                    Text("Proposal continuity: \(proposalSummary.pending_count) pending")
+                        .font(.caption)
+                    if let latestPending = proposalSummary.latest_pending {
+                        Text("Pending: \(latestPending.title)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let latestApplied = proposalSummary.latest_applied {
+                        Text("Last applied: \(latestApplied.title)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    } else if let latestFailed = proposalSummary.latest_failed {
+                        Text("Last failed: \(latestFailed.title)")
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+        } else {
+            Text("Routine blocks and planning constraints load from the backend-owned planning profile used by day plan and reflow.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -2722,10 +2847,82 @@ private struct VoiceCaptureEntry: Codable, Identifiable {
     let suggestedIntent: VoiceIntent
     let committedIntent: VoiceIntent?
     let status: String
+    let threadID: String?
+    let mergedAt: Date?
+
+    var statusLabel: String {
+        if threadID != nil {
+            return "Saved in Threads"
+        }
+        if mergedAt != nil {
+            return "Merged"
+        }
+
+        switch status {
+        case "pending_review":
+            return "Local draft"
+        case "queued":
+            return "Queued locally"
+        case "capture_only":
+            return "Capture queued"
+        case "answered_cached":
+            return "Cached reply"
+        case "backend_required":
+            return "Backend required"
+        case "needs_clarification":
+            return "Needs clarification"
+        case "submitted":
+            return "Sent"
+        case "answered":
+            return "Answered"
+        default:
+            return status.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    var continuityDetail: String? {
+        if threadID != nil {
+            return "Canonical follow-up now lives in Threads."
+        }
+        if let mergedAt {
+            return "Recovered into canonical state at \(formatDate(mergedAt))."
+        }
+
+        switch status {
+        case "queued", "capture_only":
+            return "Waiting to merge once the daemon is reachable again."
+        case "answered_cached":
+            return "This came from cached backend state and was not re-answered locally."
+        case "backend_required":
+            return "Reconnect to route this through the backend-owned voice path."
+        default:
+            return nil
+        }
+    }
+
+    var statusColor: Color {
+        if threadID != nil || mergedAt != nil {
+            return .green
+        }
+
+        switch status {
+        case "queued", "capture_only", "pending_review":
+            return .orange
+        case "backend_required", "needs_clarification":
+            return .yellow
+        default:
+            return .secondary
+        }
+    }
 }
 
 private struct VoiceResponse {
     let summary: String
+    let detail: String?
+}
+
+private struct VoiceContinuitySummary {
+    let headline: String
     let detail: String?
 }
 
@@ -2760,18 +2957,20 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en_US"))
     private let speechSynthesizer = AVSpeechSynthesizer()
     private let audioEngine = AVAudioEngine()
+    private let offlineStore: VelOfflineStore
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private let historyKey = "vel.voice.capture.history.v1"
     private var didSaveCurrentSession = false
 
     var hasTranscript: Bool {
         !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    override init() {
+    init(offlineStore: VelOfflineStore = VelOfflineStore()) {
+        self.offlineStore = offlineStore
         super.init()
         loadHistory()
+        restoreDraft()
     }
 
     func ensurePermissionsKnown() async {
@@ -2801,6 +3000,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         let suggestion = VoiceIntentParser.suggest(for: value)
         suggestedIntent = suggestion.intent
         suggestedText = suggestion.cleanedText
+        persistDraft()
     }
 
     func clearTranscript() {
@@ -2808,6 +3008,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         suggestedText = ""
         suggestedIntent = .capture
         errorMessage = nil
+        offlineStore.clearVoiceDraft()
     }
 
     func applyCommandExample(_ value: String) {
@@ -2889,6 +3090,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         suggestedText = ""
         latestResponse = nil
         didSaveCurrentSession = false
+        offlineStore.clearVoiceDraft()
         speechSynthesizer.stopSpeaking(at: .immediate)
 
         if speechPermission == .unknown || microphonePermission == .unknown {
@@ -2994,9 +3196,11 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 transcript: text,
                 suggestedIntent: suggestedIntent,
                 committedIntent: result.committedIntent,
-                status: result.historyStatus
+                status: result.historyStatus,
+                threadID: result.threadID
             )
             errorMessage = result.errorMessage
+            offlineStore.clearVoiceDraft()
             return
         }
 
@@ -3010,9 +3214,11 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             transcript: text,
             suggestedIntent: suggestedIntent,
             committedIntent: result.committedIntent,
-            status: result.historyStatus
+            status: result.historyStatus,
+            threadID: result.threadID
         )
         errorMessage = result.errorMessage
+        offlineStore.clearVoiceDraft()
     }
 
     private func historyStatus(for intent: VoiceIntent, isReachable: Bool) -> String {
@@ -3114,6 +3320,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
     private struct VoiceSubmitResult {
         let committedIntent: VoiceIntent?
         let historyStatus: String
+        let threadID: String?
         let errorMessage: String?
     }
 
@@ -3124,7 +3331,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         intent: VoiceIntent
     ) async -> VoiceSubmitResult {
         guard let appleIntent = intent.appleIntent, let operation = intent.appleOperation else {
-            return VoiceSubmitResult(committedIntent: nil, historyStatus: "unsupported", errorMessage: "This voice action is not supported by the Apple backend route.")
+            return VoiceSubmitResult(committedIntent: nil, historyStatus: "unsupported", threadID: nil, errorMessage: "This voice action is not supported by the Apple backend route.")
         }
 
         if store.isReachable {
@@ -3144,6 +3351,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 return VoiceSubmitResult(
                     committedIntent: intent,
                     historyStatus: response.queued_mutation?.queued == true ? "queued" : historyStatus(for: intent, isReachable: true),
+                    threadID: response.thread_id,
                     errorMessage: nil
                 )
             } catch {
@@ -3189,6 +3397,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: .capture,
                 historyStatus: historyStatus(for: intent, isReachable: store.isReachable),
+                threadID: nil,
                 errorMessage: store.isReachable ? nil : "Voice transcript queued for sync."
             )
         case .commitmentCreate:
@@ -3200,6 +3409,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: .commitment,
                 historyStatus: historyStatus(for: intent, isReachable: store.isReachable),
+                threadID: nil,
                 errorMessage: store.isReachable ? nil : "Commitment request queued for sync."
             )
         case .commitmentDone, .nudgeDone, .nudgeSnooze, .morningBriefing, .currentSchedule, .queryNextCommitment, .queryNudges, .explainWhy, .behaviorSummary:
@@ -3210,6 +3420,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: nil,
                 historyStatus: "backend_required",
+                threadID: nil,
                 errorMessage: "Transcript capture was preserved, but the action needs the backend-owned Apple route."
             )
         }
@@ -3235,6 +3446,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: .capture,
                 historyStatus: "queued",
+                threadID: nil,
                 errorMessage: fallbackErrorMessage(prefix: "Transcript capture queued for sync.", underlyingError: underlyingError)
             )
         case .commitmentDone:
@@ -3244,6 +3456,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 return VoiceSubmitResult(
                     committedIntent: nil,
                     historyStatus: "needs_clarification",
+                    threadID: nil,
                     errorMessage: fallbackErrorMessage(prefix: "Commitment target missing.", underlyingError: underlyingError)
                 )
             }
@@ -3256,6 +3469,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 return VoiceSubmitResult(
                     committedIntent: nil,
                     historyStatus: "capture_only",
+                    threadID: nil,
                     errorMessage: fallbackErrorMessage(prefix: "No local commitment match for offline queueing.", underlyingError: underlyingError)
                 )
             }
@@ -3265,6 +3479,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 return VoiceSubmitResult(
                     committedIntent: nil,
                     historyStatus: "needs_clarification",
+                    threadID: nil,
                     errorMessage: fallbackErrorMessage(prefix: "Commitment target was ambiguous.", underlyingError: underlyingError)
                 )
             }
@@ -3274,6 +3489,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: .commitmentDone,
                 historyStatus: "queued",
+                threadID: nil,
                 errorMessage: fallbackErrorMessage(prefix: "Commitment completion queued for backend replay.", underlyingError: underlyingError)
             )
         case .nudgeDone:
@@ -3282,6 +3498,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 return VoiceSubmitResult(
                     committedIntent: nil,
                     historyStatus: "capture_only",
+                    threadID: nil,
                     errorMessage: fallbackErrorMessage(prefix: "No active nudge available for offline queueing.", underlyingError: underlyingError)
                 )
             }
@@ -3291,6 +3508,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: .nudgeDone,
                 historyStatus: "queued",
+                threadID: nil,
                 errorMessage: fallbackErrorMessage(prefix: "Top nudge resolution queued for backend replay.", underlyingError: underlyingError)
             )
         case .nudgeSnooze:
@@ -3299,6 +3517,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 return VoiceSubmitResult(
                     committedIntent: nil,
                     historyStatus: "capture_only",
+                    threadID: nil,
                     errorMessage: fallbackErrorMessage(prefix: "No active nudge available for offline queueing.", underlyingError: underlyingError)
                 )
             }
@@ -3309,6 +3528,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: .nudgeSnooze(minutes),
                 historyStatus: "queued",
+                threadID: nil,
                 errorMessage: fallbackErrorMessage(prefix: "Top nudge snooze queued for backend replay.", underlyingError: underlyingError)
             )
         case .morningBriefing, .currentSchedule, .queryNextCommitment:
@@ -3317,6 +3537,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: intent,
                 historyStatus: cached.summary.contains("Unavailable") ? "backend_required" : "answered_cached",
+                threadID: nil,
                 errorMessage: fallbackErrorMessage(prefix: "Showing cached backend schedule state only.", underlyingError: underlyingError)
             )
         case .behaviorSummary:
@@ -3325,6 +3546,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: intent,
                 historyStatus: cached.summary.contains("Unavailable") ? "backend_required" : "answered_cached",
+                threadID: nil,
                 errorMessage: fallbackErrorMessage(prefix: "Showing cached backend behavior summary only.", underlyingError: underlyingError)
             )
         case .queryNudges, .explainWhy:
@@ -3335,6 +3557,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             return VoiceSubmitResult(
                 committedIntent: nil,
                 historyStatus: "backend_required",
+                threadID: nil,
                 errorMessage: fallbackErrorMessage(prefix: "Transcript capture queued, but this voice reply requires the backend route.", underlyingError: underlyingError)
             )
         case .commitmentCreate:
@@ -3402,6 +3625,7 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
         case .morningBriefing, .currentSchedule:
             if let next = now.schedule.next_event {
                 let detail = next.leave_by_ts.map { "Leave by \(formatUnix($0))." }
+                    ?? embeddedCachedNowSummary(from: now)
                 return VoiceResponse(
                     summary: "Next event: \(next.title).",
                     detail: detail ?? now.schedule.empty_message
@@ -3409,18 +3633,18 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             }
             return VoiceResponse(
                 summary: now.schedule.empty_message ?? "No upcoming schedule is cached.",
-                detail: now.reasons.first
+                detail: embeddedCachedNowSummary(from: now) ?? now.reasons.first
             )
         case .queryNextCommitment:
             if let next = now.tasks.next_commitment {
                 return VoiceResponse(
                     summary: "Next commitment: \(next.text).",
-                    detail: next.due_at
+                    detail: next.due_at ?? embeddedCachedNowSummary(from: now)
                 )
             }
             return VoiceResponse(
                 summary: "No next commitment is cached.",
-                detail: now.schedule.empty_message
+                detail: embeddedCachedNowSummary(from: now) ?? now.schedule.empty_message
             )
         default:
             return VoiceResponse(
@@ -3428,6 +3652,21 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
                 detail: "Reconnect to fetch a backend-owned reply."
             )
         }
+    }
+
+    private func embeddedCachedNowSummary(from now: NowData) -> String? {
+        guard appEnvironment.embeddedBridge.configuration.permits(.cachedNowHydration) else {
+            return nil
+        }
+        let snapshot = VelContextSnapshot(
+            mode: now.summary.mode_label,
+            nextEventTitle: now.schedule.next_event?.title,
+            nudgeCount: now.attention.total_count
+        )
+        let parts = appEnvironment.embeddedBridge.nowBridge.hydrateCachedNowSummary(from: snapshot)
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: " · ")
     }
 
     private func offlineCachedBehaviorResponse(offlineStore: VelOfflineStore) -> VoiceResponse {
@@ -3482,26 +3721,50 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
             transcript: clean,
             suggestedIntent: suggestedIntent,
             committedIntent: nil,
-            status: "pending_review"
+            status: "pending_review",
+            threadID: nil
         )
+        persistDraft()
     }
 
     private func appendHistoryEntry(
         transcript: String,
         suggestedIntent: VoiceIntent,
         committedIntent: VoiceIntent?,
-        status: String
+        status: String,
+        threadID: String?
     ) {
-        let entry = VoiceCaptureEntry(
-            id: UUID(),
-            createdAt: Date(),
-            transcript: transcript,
-            suggestedIntent: suggestedIntent,
-            committedIntent: committedIntent,
-            status: status
-        )
-        history.insert(entry, at: 0)
-        history = Array(history.prefix(40))
+        let normalizedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedTranscript.isEmpty else { return }
+
+        if let first = history.first,
+           first.transcript == normalizedTranscript,
+           first.status == "pending_review"
+        {
+            history[0] = VoiceCaptureEntry(
+                id: first.id,
+                createdAt: first.createdAt,
+                transcript: normalizedTranscript,
+                suggestedIntent: suggestedIntent,
+                committedIntent: committedIntent,
+                status: status,
+                threadID: threadID ?? first.threadID,
+                mergedAt: first.mergedAt
+            )
+        } else {
+            let entry = VoiceCaptureEntry(
+                id: UUID(),
+                createdAt: Date(),
+                transcript: normalizedTranscript,
+                suggestedIntent: suggestedIntent,
+                committedIntent: committedIntent,
+                status: status,
+                threadID: threadID,
+                mergedAt: nil
+            )
+            history.insert(entry, at: 0)
+            history = Array(history.prefix(40))
+        }
         saveHistory()
     }
 
@@ -3510,16 +3773,128 @@ private final class VoiceCaptureModel: NSObject, ObservableObject {
     }
 
     private func loadHistory() {
-        guard let data = UserDefaults.standard.data(forKey: historyKey) else { return }
-        if let decoded = try? JSONDecoder().decode([VoiceCaptureEntry].self, from: data) {
-            history = decoded
+        history = offlineStore.cachedVoiceContinuityHistory().compactMap { entry in
+            guard let suggestedIntent = VoiceIntent(storageToken: entry.suggested_intent) else {
+                return nil
+            }
+            let committedIntent = entry.committed_intent.flatMap(VoiceIntent.init(storageToken:))
+            return VoiceCaptureEntry(
+                id: entry.id,
+                createdAt: entry.created_at,
+                transcript: entry.transcript,
+                suggestedIntent: suggestedIntent,
+                committedIntent: committedIntent,
+                status: entry.status,
+                threadID: entry.thread_id,
+                mergedAt: entry.merged_at
+            )
         }
     }
 
     private func saveHistory() {
-        if let data = try? JSONEncoder().encode(history) {
-            UserDefaults.standard.set(data, forKey: historyKey)
+        let persisted = history.map { entry in
+            AppleVoiceContinuityEntryData(
+                id: entry.id,
+                created_at: entry.createdAt,
+                transcript: entry.transcript,
+                suggested_intent: entry.suggestedIntent.storageToken,
+                committed_intent: entry.committedIntent?.storageToken,
+                status: entry.status,
+                thread_id: entry.threadID,
+                merged_at: entry.mergedAt
+            )
         }
+        offlineStore.saveVoiceContinuityHistory(persisted)
+    }
+
+    func reconcileRecoveryState(using store: VelClientStore) {
+        guard store.isReachable, store.pendingActionCount == 0 else { return }
+
+        var didChange = false
+        history = history.map { entry in
+            guard entry.threadID == nil, entry.mergedAt == nil else { return entry }
+            guard entry.status == "queued" || entry.status == "capture_only" else { return entry }
+
+            didChange = true
+            return VoiceCaptureEntry(
+                id: entry.id,
+                createdAt: entry.createdAt,
+                transcript: entry.transcript,
+                suggestedIntent: entry.suggestedIntent,
+                committedIntent: entry.committedIntent,
+                status: entry.status,
+                threadID: nil,
+                mergedAt: Date()
+            )
+        }
+
+        if didChange {
+            saveHistory()
+        }
+    }
+
+    func continuitySummary(using store: VelClientStore) -> VoiceContinuitySummary? {
+        if offlineStore.cachedVoiceDraft() != nil {
+            return VoiceContinuitySummary(
+                headline: "Voice draft ready to resume.",
+                detail: "Your latest local transcript is still on device and can be resumed without reopening a separate thread."
+            )
+        }
+
+        if let threaded = history.first(where: { $0.threadID != nil }) {
+            return VoiceContinuitySummary(
+                headline: "Voice follow-up saved in Threads.",
+                detail: threaded.transcript
+            )
+        }
+
+        let pendingRecovery = history.filter { $0.mergedAt == nil && ($0.status == "queued" || $0.status == "capture_only") }
+        if !pendingRecovery.isEmpty {
+            let detail = store.isReachable
+                ? "Local voice recovery is waiting on canonical replay."
+                : "Reconnect to merge \(pendingRecovery.count) local voice entr\(pendingRecovery.count == 1 ? "y" : "ies") back into canonical state."
+            return VoiceContinuitySummary(
+                headline: "Voice recovery pending.",
+                detail: detail
+            )
+        }
+
+        if let merged = history.first(where: { $0.mergedAt != nil }) {
+            return VoiceContinuitySummary(
+                headline: "Local voice recovery merged.",
+                detail: merged.transcript
+            )
+        }
+
+        return nil
+    }
+
+    private func restoreDraft() {
+        guard let draft = offlineStore.cachedVoiceDraft(),
+              !draft.transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return
+        }
+
+        transcript = draft.transcript
+        suggestedText = draft.suggested_text
+        suggestedIntent = VoiceIntent(storageToken: draft.suggested_intent) ?? .capture
+    }
+
+    private func persistDraft() {
+        let cleanTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleanTranscript.isEmpty {
+            offlineStore.clearVoiceDraft()
+            return
+        }
+
+        offlineStore.saveVoiceDraft(
+            AppleVoiceDraftData(
+                transcript: cleanTranscript,
+                suggested_intent: suggestedIntent.storageToken,
+                suggested_text: suggestedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        )
     }
 
     private static func mapSpeechPermission(_ status: SFSpeechRecognizerAuthorizationStatus) -> VoicePermissionState {

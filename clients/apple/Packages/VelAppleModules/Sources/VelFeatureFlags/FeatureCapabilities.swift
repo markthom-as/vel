@@ -13,6 +13,7 @@ public struct FeatureCapabilities: Sendable {
     public let supportsQuickCapture: Bool
     public let supportsNotificationActions: Bool
     public let supportsSplitViewWorkspace: Bool
+    public let supportsEmbeddedRustBridge: Bool
     public let roleLabel: String
 
     public init(
@@ -28,6 +29,7 @@ public struct FeatureCapabilities: Sendable {
         supportsQuickCapture: Bool,
         supportsNotificationActions: Bool,
         supportsSplitViewWorkspace: Bool,
+        supportsEmbeddedRustBridge: Bool,
         roleLabel: String
     ) {
         self.supportsChat = supportsChat
@@ -42,8 +44,19 @@ public struct FeatureCapabilities: Sendable {
         self.supportsQuickCapture = supportsQuickCapture
         self.supportsNotificationActions = supportsNotificationActions
         self.supportsSplitViewWorkspace = supportsSplitViewWorkspace
+        self.supportsEmbeddedRustBridge = supportsEmbeddedRustBridge
         self.roleLabel = roleLabel
     }
+}
+
+public enum EmbeddedRuntimeMode: String, Sendable {
+    case daemonBacked = "daemon_backed"
+    case embeddedCapable = "embedded_capable"
+}
+
+public enum EmbeddedRuntimeTarget: String, Sendable {
+    case iphoneOnly = "iphone_only"
+    case unavailable = "unavailable"
 }
 
 public extension FeatureCapabilities {
@@ -60,6 +73,7 @@ public extension FeatureCapabilities {
         supportsQuickCapture: true,
         supportsNotificationActions: true,
         supportsSplitViewWorkspace: false,
+        supportsEmbeddedRustBridge: true,
         roleLabel: "iPhone"
     )
 
@@ -76,6 +90,7 @@ public extension FeatureCapabilities {
         supportsQuickCapture: true,
         supportsNotificationActions: true,
         supportsSplitViewWorkspace: true,
+        supportsEmbeddedRustBridge: false,
         roleLabel: "iPad"
     )
 
@@ -92,6 +107,7 @@ public extension FeatureCapabilities {
         supportsQuickCapture: true,
         supportsNotificationActions: true,
         supportsSplitViewWorkspace: false,
+        supportsEmbeddedRustBridge: false,
         roleLabel: "Watch"
     )
 
@@ -108,6 +124,7 @@ public extension FeatureCapabilities {
         supportsQuickCapture: true,
         supportsNotificationActions: true,
         supportsSplitViewWorkspace: true,
+        supportsEmbeddedRustBridge: false,
         roleLabel: "Mac"
     )
 }

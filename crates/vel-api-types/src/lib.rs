@@ -2784,6 +2784,8 @@ impl From<vel_core::ScheduleRuleFacet> for ScheduleRuleFacetData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReflowChangeData {
     pub kind: ReflowChangeKindData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commitment_id: Option<String>,
     pub title: String,
     pub detail: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2796,6 +2798,7 @@ impl From<vel_core::ReflowChange> for ReflowChangeData {
     fn from(value: vel_core::ReflowChange) -> Self {
         Self {
             kind: value.kind.into(),
+            commitment_id: value.commitment_id,
             title: value.title,
             detail: value.detail,
             project_label: value.project_label,
@@ -2827,6 +2830,229 @@ impl From<vel_core::ReflowProposal> for ReflowProposalData {
             needs_judgment_count: value.needs_judgment_count,
             changes: value.changes.into_iter().map(Into::into).collect(),
             rule_facets: value.rule_facets.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DayPlanChangeKindData {
+    Scheduled,
+    Deferred,
+    DidNotFit,
+    NeedsJudgment,
+}
+
+impl From<vel_core::DayPlanChangeKind> for DayPlanChangeKindData {
+    fn from(value: vel_core::DayPlanChangeKind) -> Self {
+        match value {
+            vel_core::DayPlanChangeKind::Scheduled => Self::Scheduled,
+            vel_core::DayPlanChangeKind::Deferred => Self::Deferred,
+            vel_core::DayPlanChangeKind::DidNotFit => Self::DidNotFit,
+            vel_core::DayPlanChangeKind::NeedsJudgment => Self::NeedsJudgment,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RoutineBlockSourceKindData {
+    OperatorDeclared,
+    Inferred,
+    Imported,
+}
+
+impl From<vel_core::RoutineBlockSourceKind> for RoutineBlockSourceKindData {
+    fn from(value: vel_core::RoutineBlockSourceKind) -> Self {
+        match value {
+            vel_core::RoutineBlockSourceKind::OperatorDeclared => Self::OperatorDeclared,
+            vel_core::RoutineBlockSourceKind::Inferred => Self::Inferred,
+            vel_core::RoutineBlockSourceKind::Imported => Self::Imported,
+        }
+    }
+}
+
+impl From<RoutineBlockSourceKindData> for vel_core::RoutineBlockSourceKind {
+    fn from(value: RoutineBlockSourceKindData) -> Self {
+        match value {
+            RoutineBlockSourceKindData::OperatorDeclared => Self::OperatorDeclared,
+            RoutineBlockSourceKindData::Inferred => Self::Inferred,
+            RoutineBlockSourceKindData::Imported => Self::Imported,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoutineBlockData {
+    pub id: String,
+    pub label: String,
+    pub source: RoutineBlockSourceKindData,
+    pub start_ts: UnixSeconds,
+    pub end_ts: UnixSeconds,
+    pub protected: bool,
+}
+
+impl From<vel_core::RoutineBlock> for RoutineBlockData {
+    fn from(value: vel_core::RoutineBlock) -> Self {
+        Self {
+            id: value.id,
+            label: value.label,
+            source: value.source.into(),
+            start_ts: value.start_ts,
+            end_ts: value.end_ts,
+            protected: value.protected,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DurableRoutineBlockData {
+    pub id: String,
+    pub label: String,
+    pub source: RoutineBlockSourceKindData,
+    pub local_timezone: String,
+    pub start_local_time: String,
+    pub end_local_time: String,
+    #[serde(default)]
+    pub days_of_week: Vec<u8>,
+    #[serde(default)]
+    pub protected: bool,
+    #[serde(default)]
+    pub active: bool,
+}
+
+impl From<vel_core::DurableRoutineBlock> for DurableRoutineBlockData {
+    fn from(value: vel_core::DurableRoutineBlock) -> Self {
+        Self {
+            id: value.id,
+            label: value.label,
+            source: value.source.into(),
+            local_timezone: value.local_timezone,
+            start_local_time: value.start_local_time,
+            end_local_time: value.end_local_time,
+            days_of_week: value.days_of_week,
+            protected: value.protected,
+            active: value.active,
+        }
+    }
+}
+
+impl From<DurableRoutineBlockData> for vel_core::DurableRoutineBlock {
+    fn from(value: DurableRoutineBlockData) -> Self {
+        Self {
+            id: value.id,
+            label: value.label,
+            source: value.source.into(),
+            local_timezone: value.local_timezone,
+            start_local_time: value.start_local_time,
+            end_local_time: value.end_local_time,
+            days_of_week: value.days_of_week,
+            protected: value.protected,
+            active: value.active,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanningConstraintKindData {
+    MaxScheduledItems,
+    ReserveBufferBeforeCalendar,
+    ReserveBufferAfterCalendar,
+    DefaultTimeWindow,
+    RequireJudgmentForOverflow,
+}
+
+impl From<vel_core::PlanningConstraintKind> for PlanningConstraintKindData {
+    fn from(value: vel_core::PlanningConstraintKind) -> Self {
+        match value {
+            vel_core::PlanningConstraintKind::MaxScheduledItems => Self::MaxScheduledItems,
+            vel_core::PlanningConstraintKind::ReserveBufferBeforeCalendar => {
+                Self::ReserveBufferBeforeCalendar
+            }
+            vel_core::PlanningConstraintKind::ReserveBufferAfterCalendar => {
+                Self::ReserveBufferAfterCalendar
+            }
+            vel_core::PlanningConstraintKind::DefaultTimeWindow => Self::DefaultTimeWindow,
+            vel_core::PlanningConstraintKind::RequireJudgmentForOverflow => {
+                Self::RequireJudgmentForOverflow
+            }
+        }
+    }
+}
+
+impl From<PlanningConstraintKindData> for vel_core::PlanningConstraintKind {
+    fn from(value: PlanningConstraintKindData) -> Self {
+        match value {
+            PlanningConstraintKindData::MaxScheduledItems => Self::MaxScheduledItems,
+            PlanningConstraintKindData::ReserveBufferBeforeCalendar => {
+                Self::ReserveBufferBeforeCalendar
+            }
+            PlanningConstraintKindData::ReserveBufferAfterCalendar => {
+                Self::ReserveBufferAfterCalendar
+            }
+            PlanningConstraintKindData::DefaultTimeWindow => Self::DefaultTimeWindow,
+            PlanningConstraintKindData::RequireJudgmentForOverflow => {
+                Self::RequireJudgmentForOverflow
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DayPlanChangeData {
+    pub kind: DayPlanChangeKindData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commitment_id: Option<String>,
+    pub title: String,
+    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scheduled_start_ts: Option<UnixSeconds>,
+    #[serde(default)]
+    pub rule_facets: Vec<ScheduleRuleFacetData>,
+}
+
+impl From<vel_core::DayPlanChange> for DayPlanChangeData {
+    fn from(value: vel_core::DayPlanChange) -> Self {
+        Self {
+            kind: value.kind.into(),
+            commitment_id: value.commitment_id,
+            title: value.title,
+            detail: value.detail,
+            project_label: value.project_label,
+            scheduled_start_ts: value.scheduled_start_ts,
+            rule_facets: value.rule_facets.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DayPlanProposalData {
+    pub headline: String,
+    pub summary: String,
+    pub scheduled_count: u32,
+    pub deferred_count: u32,
+    pub did_not_fit_count: u32,
+    pub needs_judgment_count: u32,
+    #[serde(default)]
+    pub changes: Vec<DayPlanChangeData>,
+    #[serde(default)]
+    pub routine_blocks: Vec<RoutineBlockData>,
+}
+
+impl From<vel_core::DayPlanProposal> for DayPlanProposalData {
+    fn from(value: vel_core::DayPlanProposal) -> Self {
+        Self {
+            headline: value.headline,
+            summary: value.summary,
+            scheduled_count: value.scheduled_count,
+            deferred_count: value.deferred_count,
+            did_not_fit_count: value.did_not_fit_count,
+            needs_judgment_count: value.needs_judgment_count,
+            changes: value.changes.into_iter().map(Into::into).collect(),
+            routine_blocks: value.routine_blocks.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -4583,6 +4809,8 @@ pub struct AssistantEntryResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal: Option<AssistantActionProposalData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub planning_profile_proposal: Option<PlanningProfileEditProposalData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub daily_loop_session: Option<DailyLoopSessionData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end_of_day: Option<EndOfDayData>,
@@ -4657,6 +4885,8 @@ pub struct AssistantContextData {
     pub summary: String,
     #[serde(default)]
     pub focus_lines: Vec<String>,
+    #[serde(default)]
+    pub commitments: Vec<CommitmentData>,
     pub recall: RecallContextData,
 }
 
@@ -5123,11 +5353,13 @@ pub struct CommitmentData {
     pub created_at: OffsetDateTime,
     #[serde(with = "time::serde::rfc3339::option")]
     pub resolved_at: Option<OffsetDateTime>,
+    pub scheduler_rules: CanonicalScheduleRulesData,
     pub metadata: JsonValue,
 }
 
 impl From<vel_core::Commitment> for CommitmentData {
     fn from(c: vel_core::Commitment) -> Self {
+        let scheduler_rules = c.scheduler_rules();
         Self {
             id: c.id,
             text: c.text,
@@ -5139,7 +5371,577 @@ impl From<vel_core::Commitment> for CommitmentData {
             commitment_kind: c.commitment_kind,
             created_at: c.created_at,
             resolved_at: c.resolved_at,
+            scheduler_rules: scheduler_rules.into(),
             metadata: c.metadata_json,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScheduleTimeWindowData {
+    Prenoon,
+    Afternoon,
+    Evening,
+    Night,
+    Day,
+}
+
+impl From<vel_core::ScheduleTimeWindow> for ScheduleTimeWindowData {
+    fn from(value: vel_core::ScheduleTimeWindow) -> Self {
+        match value {
+            vel_core::ScheduleTimeWindow::Prenoon => Self::Prenoon,
+            vel_core::ScheduleTimeWindow::Afternoon => Self::Afternoon,
+            vel_core::ScheduleTimeWindow::Evening => Self::Evening,
+            vel_core::ScheduleTimeWindow::Night => Self::Night,
+            vel_core::ScheduleTimeWindow::Day => Self::Day,
+        }
+    }
+}
+
+impl From<ScheduleTimeWindowData> for vel_core::ScheduleTimeWindow {
+    fn from(value: ScheduleTimeWindowData) -> Self {
+        match value {
+            ScheduleTimeWindowData::Prenoon => Self::Prenoon,
+            ScheduleTimeWindowData::Afternoon => Self::Afternoon,
+            ScheduleTimeWindowData::Evening => Self::Evening,
+            ScheduleTimeWindowData::Night => Self::Night,
+            ScheduleTimeWindowData::Day => Self::Day,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanningConstraintData {
+    pub id: String,
+    pub label: String,
+    pub kind: PlanningConstraintKindData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_window: Option<ScheduleTimeWindowData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minutes: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_items: Option<u32>,
+    #[serde(default)]
+    pub active: bool,
+}
+
+impl From<vel_core::PlanningConstraint> for PlanningConstraintData {
+    fn from(value: vel_core::PlanningConstraint) -> Self {
+        Self {
+            id: value.id,
+            label: value.label,
+            kind: value.kind.into(),
+            detail: value.detail,
+            time_window: value.time_window.map(Into::into),
+            minutes: value.minutes,
+            max_items: value.max_items,
+            active: value.active,
+        }
+    }
+}
+
+impl From<PlanningConstraintData> for vel_core::PlanningConstraint {
+    fn from(value: PlanningConstraintData) -> Self {
+        Self {
+            id: value.id,
+            label: value.label,
+            kind: value.kind.into(),
+            detail: value.detail,
+            time_window: value.time_window.map(Into::into),
+            minutes: value.minutes,
+            max_items: value.max_items,
+            active: value.active,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoutinePlanningProfileData {
+    #[serde(default)]
+    pub routine_blocks: Vec<DurableRoutineBlockData>,
+    #[serde(default)]
+    pub planning_constraints: Vec<PlanningConstraintData>,
+}
+
+impl From<vel_core::RoutinePlanningProfile> for RoutinePlanningProfileData {
+    fn from(value: vel_core::RoutinePlanningProfile) -> Self {
+        Self {
+            routine_blocks: value.routine_blocks.into_iter().map(Into::into).collect(),
+            planning_constraints: value
+                .planning_constraints
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        }
+    }
+}
+
+impl From<RoutinePlanningProfileData> for vel_core::RoutinePlanningProfile {
+    fn from(value: RoutinePlanningProfileData) -> Self {
+        Self {
+            routine_blocks: value.routine_blocks.into_iter().map(Into::into).collect(),
+            planning_constraints: value
+                .planning_constraints
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanningProfileRemoveTargetData {
+    pub id: String,
+}
+
+impl From<vel_core::PlanningProfileRemoveTarget> for PlanningProfileRemoveTargetData {
+    fn from(value: vel_core::PlanningProfileRemoveTarget) -> Self {
+        Self { id: value.id }
+    }
+}
+
+impl From<PlanningProfileRemoveTargetData> for vel_core::PlanningProfileRemoveTarget {
+    fn from(value: PlanningProfileRemoveTargetData) -> Self {
+        Self { id: value.id }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "data", rename_all = "snake_case")]
+pub enum PlanningProfileMutationData {
+    UpsertRoutineBlock(DurableRoutineBlockData),
+    RemoveRoutineBlock(PlanningProfileRemoveTargetData),
+    UpsertPlanningConstraint(PlanningConstraintData),
+    RemovePlanningConstraint(PlanningProfileRemoveTargetData),
+}
+
+impl From<vel_core::PlanningProfileMutation> for PlanningProfileMutationData {
+    fn from(value: vel_core::PlanningProfileMutation) -> Self {
+        match value {
+            vel_core::PlanningProfileMutation::UpsertRoutineBlock(block) => {
+                Self::UpsertRoutineBlock(block.into())
+            }
+            vel_core::PlanningProfileMutation::RemoveRoutineBlock(target) => {
+                Self::RemoveRoutineBlock(target.into())
+            }
+            vel_core::PlanningProfileMutation::UpsertPlanningConstraint(constraint) => {
+                Self::UpsertPlanningConstraint(constraint.into())
+            }
+            vel_core::PlanningProfileMutation::RemovePlanningConstraint(target) => {
+                Self::RemovePlanningConstraint(target.into())
+            }
+        }
+    }
+}
+
+impl From<PlanningProfileMutationData> for vel_core::PlanningProfileMutation {
+    fn from(value: PlanningProfileMutationData) -> Self {
+        match value {
+            PlanningProfileMutationData::UpsertRoutineBlock(block) => {
+                Self::UpsertRoutineBlock(block.into())
+            }
+            PlanningProfileMutationData::RemoveRoutineBlock(target) => {
+                Self::RemoveRoutineBlock(target.into())
+            }
+            PlanningProfileMutationData::UpsertPlanningConstraint(constraint) => {
+                Self::UpsertPlanningConstraint(constraint.into())
+            }
+            PlanningProfileMutationData::RemovePlanningConstraint(target) => {
+                Self::RemovePlanningConstraint(target.into())
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanningProfileMutationRequestData {
+    pub mutation: PlanningProfileMutationData,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanningProfileResponseData {
+    pub profile: RoutinePlanningProfileData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal_summary: Option<PlanningProfileProposalSummaryData>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanningProfileProposalApplyResponseData {
+    pub profile: RoutinePlanningProfileData,
+    pub proposal: PlanningProfileEditProposalData,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitmentSchedulingSourceKindData {
+    DayPlan,
+    Reflow,
+}
+
+impl From<vel_core::CommitmentSchedulingSourceKind> for CommitmentSchedulingSourceKindData {
+    fn from(value: vel_core::CommitmentSchedulingSourceKind) -> Self {
+        match value {
+            vel_core::CommitmentSchedulingSourceKind::DayPlan => Self::DayPlan,
+            vel_core::CommitmentSchedulingSourceKind::Reflow => Self::Reflow,
+        }
+    }
+}
+
+impl From<CommitmentSchedulingSourceKindData> for vel_core::CommitmentSchedulingSourceKind {
+    fn from(value: CommitmentSchedulingSourceKindData) -> Self {
+        match value {
+            CommitmentSchedulingSourceKindData::DayPlan => Self::DayPlan,
+            CommitmentSchedulingSourceKindData::Reflow => Self::Reflow,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitmentSchedulingContinuityData {
+    #[default]
+    Inline,
+    Thread,
+}
+
+impl From<vel_core::CommitmentSchedulingContinuity> for CommitmentSchedulingContinuityData {
+    fn from(value: vel_core::CommitmentSchedulingContinuity) -> Self {
+        match value {
+            vel_core::CommitmentSchedulingContinuity::Inline => Self::Inline,
+            vel_core::CommitmentSchedulingContinuity::Thread => Self::Thread,
+        }
+    }
+}
+
+impl From<CommitmentSchedulingContinuityData> for vel_core::CommitmentSchedulingContinuity {
+    fn from(value: CommitmentSchedulingContinuityData) -> Self {
+        match value {
+            CommitmentSchedulingContinuityData::Inline => Self::Inline,
+            CommitmentSchedulingContinuityData::Thread => Self::Thread,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommitmentSchedulingMutationKindData {
+    SetDueAt,
+    ClearDueAt,
+}
+
+impl From<vel_core::CommitmentSchedulingMutationKind> for CommitmentSchedulingMutationKindData {
+    fn from(value: vel_core::CommitmentSchedulingMutationKind) -> Self {
+        match value {
+            vel_core::CommitmentSchedulingMutationKind::SetDueAt => Self::SetDueAt,
+            vel_core::CommitmentSchedulingMutationKind::ClearDueAt => Self::ClearDueAt,
+        }
+    }
+}
+
+impl From<CommitmentSchedulingMutationKindData> for vel_core::CommitmentSchedulingMutationKind {
+    fn from(value: CommitmentSchedulingMutationKindData) -> Self {
+        match value {
+            CommitmentSchedulingMutationKindData::SetDueAt => Self::SetDueAt,
+            CommitmentSchedulingMutationKindData::ClearDueAt => Self::ClearDueAt,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitmentSchedulingMutationData {
+    pub commitment_id: String,
+    pub kind: CommitmentSchedulingMutationKindData,
+    pub title: String,
+    pub summary: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_due_at_ts: Option<UnixSeconds>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_due_at_ts: Option<UnixSeconds>,
+}
+
+impl From<vel_core::CommitmentSchedulingMutation> for CommitmentSchedulingMutationData {
+    fn from(value: vel_core::CommitmentSchedulingMutation) -> Self {
+        Self {
+            commitment_id: value.commitment_id,
+            kind: value.kind.into(),
+            title: value.title,
+            summary: value.summary,
+            project_label: value.project_label,
+            previous_due_at_ts: value.previous_due_at_ts,
+            next_due_at_ts: value.next_due_at_ts,
+        }
+    }
+}
+
+impl From<CommitmentSchedulingMutationData> for vel_core::CommitmentSchedulingMutation {
+    fn from(value: CommitmentSchedulingMutationData) -> Self {
+        Self {
+            commitment_id: value.commitment_id,
+            kind: value.kind.into(),
+            title: value.title,
+            summary: value.summary,
+            project_label: value.project_label,
+            previous_due_at_ts: value.previous_due_at_ts,
+            next_due_at_ts: value.next_due_at_ts,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitmentSchedulingProposalData {
+    pub source_kind: CommitmentSchedulingSourceKindData,
+    pub state: AssistantProposalStateData,
+    pub summary: String,
+    #[serde(default)]
+    pub requires_confirmation: bool,
+    #[serde(default)]
+    pub continuity: CommitmentSchedulingContinuityData,
+    #[serde(default)]
+    pub mutations: Vec<CommitmentSchedulingMutationData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome_summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_type: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitmentSchedulingProposalApplyResponseData {
+    pub proposal: CommitmentSchedulingProposalData,
+}
+
+impl From<vel_core::CommitmentSchedulingProposal> for CommitmentSchedulingProposalData {
+    fn from(value: vel_core::CommitmentSchedulingProposal) -> Self {
+        Self {
+            source_kind: value.source_kind.into(),
+            state: value.state.into(),
+            summary: value.summary,
+            requires_confirmation: value.requires_confirmation,
+            continuity: value.continuity.into(),
+            mutations: value.mutations.into_iter().map(Into::into).collect(),
+            outcome_summary: value.outcome_summary,
+            thread_id: value.thread_id,
+            thread_type: value.thread_type,
+        }
+    }
+}
+
+impl From<CommitmentSchedulingProposalData> for vel_core::CommitmentSchedulingProposal {
+    fn from(value: CommitmentSchedulingProposalData) -> Self {
+        Self {
+            source_kind: value.source_kind.into(),
+            state: match value.state {
+                AssistantProposalStateData::Staged => vel_core::AssistantProposalState::Staged,
+                AssistantProposalStateData::Approved => vel_core::AssistantProposalState::Approved,
+                AssistantProposalStateData::Applied => vel_core::AssistantProposalState::Applied,
+                AssistantProposalStateData::Failed => vel_core::AssistantProposalState::Failed,
+                AssistantProposalStateData::Reversed => vel_core::AssistantProposalState::Reversed,
+            },
+            summary: value.summary,
+            requires_confirmation: value.requires_confirmation,
+            continuity: value.continuity.into(),
+            mutations: value.mutations.into_iter().map(Into::into).collect(),
+            outcome_summary: value.outcome_summary,
+            thread_id: value.thread_id,
+            thread_type: value.thread_type,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanningProfileSurfaceData {
+    WebSettings,
+    Cli,
+    Apple,
+    Assistant,
+    Voice,
+}
+
+impl From<vel_core::PlanningProfileSurface> for PlanningProfileSurfaceData {
+    fn from(value: vel_core::PlanningProfileSurface) -> Self {
+        match value {
+            vel_core::PlanningProfileSurface::WebSettings => Self::WebSettings,
+            vel_core::PlanningProfileSurface::Cli => Self::Cli,
+            vel_core::PlanningProfileSurface::Apple => Self::Apple,
+            vel_core::PlanningProfileSurface::Assistant => Self::Assistant,
+            vel_core::PlanningProfileSurface::Voice => Self::Voice,
+        }
+    }
+}
+
+impl From<PlanningProfileSurfaceData> for vel_core::PlanningProfileSurface {
+    fn from(value: PlanningProfileSurfaceData) -> Self {
+        match value {
+            PlanningProfileSurfaceData::WebSettings => Self::WebSettings,
+            PlanningProfileSurfaceData::Cli => Self::Cli,
+            PlanningProfileSurfaceData::Apple => Self::Apple,
+            PlanningProfileSurfaceData::Assistant => Self::Assistant,
+            PlanningProfileSurfaceData::Voice => Self::Voice,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PlanningProfileContinuityData {
+    #[default]
+    Inline,
+    Thread,
+}
+
+impl From<vel_core::PlanningProfileContinuity> for PlanningProfileContinuityData {
+    fn from(value: vel_core::PlanningProfileContinuity) -> Self {
+        match value {
+            vel_core::PlanningProfileContinuity::Inline => Self::Inline,
+            vel_core::PlanningProfileContinuity::Thread => Self::Thread,
+        }
+    }
+}
+
+impl From<PlanningProfileContinuityData> for vel_core::PlanningProfileContinuity {
+    fn from(value: PlanningProfileContinuityData) -> Self {
+        match value {
+            PlanningProfileContinuityData::Inline => Self::Inline,
+            PlanningProfileContinuityData::Thread => Self::Thread,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanningProfileEditProposalData {
+    pub source_surface: PlanningProfileSurfaceData,
+    pub state: AssistantProposalStateData,
+    pub mutation: PlanningProfileMutationData,
+    pub summary: String,
+    #[serde(default)]
+    pub requires_confirmation: bool,
+    #[serde(default)]
+    pub continuity: PlanningProfileContinuityData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome_summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_type: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanningProfileProposalSummaryItemData {
+    pub thread_id: String,
+    pub state: AssistantProposalStateData,
+    pub title: String,
+    pub summary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome_summary: Option<String>,
+    pub updated_at: UnixSeconds,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlanningProfileProposalSummaryData {
+    pub pending_count: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_pending: Option<PlanningProfileProposalSummaryItemData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_applied: Option<PlanningProfileProposalSummaryItemData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_failed: Option<PlanningProfileProposalSummaryItemData>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitmentSchedulingProposalSummaryItemData {
+    pub thread_id: String,
+    pub state: AssistantProposalStateData,
+    pub title: String,
+    pub summary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome_summary: Option<String>,
+    pub updated_at: UnixSeconds,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitmentSchedulingProposalSummaryData {
+    pub pending_count: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_pending: Option<CommitmentSchedulingProposalSummaryItemData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_applied: Option<CommitmentSchedulingProposalSummaryItemData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_failed: Option<CommitmentSchedulingProposalSummaryItemData>,
+}
+
+impl From<vel_core::PlanningProfileEditProposal> for PlanningProfileEditProposalData {
+    fn from(value: vel_core::PlanningProfileEditProposal) -> Self {
+        Self {
+            source_surface: value.source_surface.into(),
+            state: value.state.into(),
+            mutation: value.mutation.into(),
+            summary: value.summary,
+            requires_confirmation: value.requires_confirmation,
+            continuity: value.continuity.into(),
+            outcome_summary: value.outcome_summary,
+            thread_id: value.thread_id,
+            thread_type: value.thread_type,
+        }
+    }
+}
+
+impl From<PlanningProfileEditProposalData> for vel_core::PlanningProfileEditProposal {
+    fn from(value: PlanningProfileEditProposalData) -> Self {
+        Self {
+            source_surface: value.source_surface.into(),
+            state: match value.state {
+                AssistantProposalStateData::Staged => vel_core::AssistantProposalState::Staged,
+                AssistantProposalStateData::Approved => vel_core::AssistantProposalState::Approved,
+                AssistantProposalStateData::Applied => vel_core::AssistantProposalState::Applied,
+                AssistantProposalStateData::Failed => vel_core::AssistantProposalState::Failed,
+                AssistantProposalStateData::Reversed => vel_core::AssistantProposalState::Reversed,
+            },
+            mutation: value.mutation.into(),
+            summary: value.summary,
+            requires_confirmation: value.requires_confirmation,
+            continuity: value.continuity.into(),
+            outcome_summary: value.outcome_summary,
+            thread_id: value.thread_id,
+            thread_type: value.thread_type,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CanonicalScheduleRulesData {
+    #[serde(default)]
+    pub block_target: Option<String>,
+    #[serde(default)]
+    pub duration_minutes: Option<i64>,
+    #[serde(default)]
+    pub calendar_free: bool,
+    #[serde(default)]
+    pub fixed_start: bool,
+    #[serde(default)]
+    pub time_window: Option<ScheduleTimeWindowData>,
+    #[serde(default)]
+    pub local_urgency: bool,
+    #[serde(default)]
+    pub local_defer: bool,
+}
+
+impl From<vel_core::CanonicalScheduleRules> for CanonicalScheduleRulesData {
+    fn from(value: vel_core::CanonicalScheduleRules) -> Self {
+        Self {
+            block_target: value.block_target,
+            duration_minutes: value.duration_minutes,
+            calendar_free: value.calendar_free,
+            fixed_start: value.fixed_start,
+            time_window: value.time_window.map(Into::into),
+            local_urgency: value.local_urgency,
+            local_defer: value.local_defer,
         }
     }
 }
@@ -5621,8 +6423,14 @@ pub struct NowData {
     pub sources: NowSourcesData,
     pub freshness: NowFreshnessData,
     pub trust_readiness: TrustReadinessData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub planning_profile_summary: Option<PlanningProfileProposalSummaryData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commitment_scheduling_summary: Option<CommitmentSchedulingProposalSummaryData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub check_in: Option<CheckInCardData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub day_plan: Option<DayPlanProposalData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reflow: Option<ReflowCardData>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -5801,11 +6609,11 @@ mod tests {
         DailyLoopSessionOutcomeData, DailyLoopStartMetadataData, DailyLoopStartRequestData,
         DailyLoopStartSourceData, DailyLoopSurfaceData, DailyLoopTurnActionData,
         DailyLoopTurnRequestData, DailyStandupBucketData, DailyStandupOutcomeData,
-        ExecutionHandoffData, ExecutionHandoffReviewStateData, ExecutionReviewGateData,
-        ExecutionTaskKindData, LocalRuntimeKindData, MorningIntentSignalData, NowTaskData,
-        ProjectExecutionContextData, ProjectFamilyData, ProjectProvisionRequestData,
-        ProjectRecordData, ProjectRootRefData, ProjectStatusData, RecallContextData,
-        RecallContextHitData, RecallContextSourceCountData, ReviewSnapshotData,
+        DayPlanProposalData, ExecutionHandoffData, ExecutionHandoffReviewStateData,
+        ExecutionReviewGateData, ExecutionTaskKindData, LocalRuntimeKindData,
+        MorningIntentSignalData, NowTaskData, ProjectExecutionContextData, ProjectFamilyData,
+        ProjectProvisionRequestData, ProjectRecordData, ProjectRootRefData, ProjectStatusData,
+        RecallContextData, RecallContextHitData, RecallContextSourceCountData, ReviewSnapshotData,
         TokenBudgetClassData,
     };
     use std::collections::BTreeMap;
@@ -5902,6 +6710,7 @@ mod tests {
                 "note projects/tax/accountant.md: Need accountant follow up on quarterly estimate."
                     .to_string(),
             ],
+            commitments: vec![],
             recall: RecallContextData {
                 query_text: "accountant follow up".to_string(),
                 hit_count: 1,
@@ -5935,6 +6744,45 @@ mod tests {
             "note projects/tax/accountant.md: Need accountant follow up on quarterly estimate."
         );
         assert_eq!(value["recall"]["source_counts"][0]["source_kind"], "note");
+    }
+
+    #[test]
+    fn day_plan_proposal_data_serializes_counts_and_routine_blocks() {
+        let value = DayPlanProposalData::from(vel_core::DayPlanProposal {
+            headline: "Today has a bounded plan".to_string(),
+            summary: "Vel shaped the day around current routine blocks and commitments."
+                .to_string(),
+            scheduled_count: 1,
+            deferred_count: 1,
+            did_not_fit_count: 1,
+            needs_judgment_count: 0,
+            changes: vec![vel_core::DayPlanChange {
+                kind: vel_core::DayPlanChangeKind::Scheduled,
+                title: "Draft phase contract".to_string(),
+                detail: "Placed into the prenoon focus block.".to_string(),
+                project_label: Some("Vel".to_string()),
+                scheduled_start_ts: Some(1_710_000_000),
+                rule_facets: vec![vel_core::ScheduleRuleFacet {
+                    kind: vel_core::ScheduleRuleFacetKind::BlockTarget,
+                    label: "block:focus".to_string(),
+                    detail: None,
+                }],
+            }],
+            routine_blocks: vec![vel_core::RoutineBlock {
+                id: "routine_focus_am".to_string(),
+                label: "Focus".to_string(),
+                source: vel_core::RoutineBlockSourceKind::OperatorDeclared,
+                start_ts: 1_710_000_000,
+                end_ts: 1_710_003_600,
+                protected: true,
+            }],
+        });
+
+        let json = serde_json::to_value(&value).expect("day-plan data should serialize");
+        assert_eq!(json["scheduled_count"], 1);
+        assert_eq!(json["did_not_fit_count"], 1);
+        assert_eq!(json["changes"][0]["kind"], "scheduled");
+        assert_eq!(json["routine_blocks"][0]["source"], "operator_declared");
     }
 
     #[test]
@@ -6551,5 +7399,129 @@ mod tests {
         );
         assert!(owner_doc.contains("AgentInspectData"));
         assert!(owner_doc.contains("raw context JSON is supporting evidence"));
+    }
+
+    #[test]
+    fn planning_profile_management_contract_assets_parse_and_register() {
+        let profile: crate::RoutinePlanningProfileData = serde_json::from_str(include_str!(
+            "../../../config/examples/routine-planning-profile.example.json"
+        ))
+        .expect("routine planning profile example should parse");
+        assert_eq!(profile.routine_blocks.len(), 2);
+
+        let mutation_request: crate::PlanningProfileMutationRequestData = serde_json::from_str(
+            include_str!("../../../config/examples/planning-profile-mutation.example.json"),
+        )
+        .expect("planning profile mutation example should parse");
+        match mutation_request.mutation {
+            crate::PlanningProfileMutationData::UpsertRoutineBlock(block) => {
+                assert_eq!(block.id, "routine_lunch");
+            }
+            other => panic!("unexpected planning profile mutation example: {other:?}"),
+        }
+
+        let mutation_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../config/schemas/planning-profile-mutation.schema.json"
+        ))
+        .expect("planning profile mutation schema should parse");
+        assert_eq!(mutation_schema["title"], "PlanningProfileMutationRequest");
+
+        let manifest: serde_json::Value =
+            serde_json::from_str(include_str!("../../../config/contracts-manifest.json"))
+                .expect("contracts manifest should parse");
+        let examples = manifest["contract_examples"]
+            .as_array()
+            .expect("contract examples should be an array");
+        assert!(examples.iter().any(|entry| {
+            entry["path"] == "config/examples/planning-profile-mutation.example.json"
+                && entry["schema"] == "config/schemas/planning-profile-mutation.schema.json"
+        }));
+
+        let owner_doc = include_str!(
+            "../../../docs/cognitive-agent-architecture/architecture/planning-profile-management-contract.md"
+        );
+        assert!(owner_doc.contains("PlanningProfileMutation"));
+        assert!(owner_doc.contains("upsert_routine_block"));
+    }
+
+    #[test]
+    fn planning_profile_edit_proposal_contract_assets_parse_and_register() {
+        let proposal: crate::PlanningProfileEditProposalData = serde_json::from_str(include_str!(
+            "../../../config/examples/planning-profile-edit-proposal.example.json"
+        ))
+        .expect("planning profile edit proposal example should parse");
+        assert_eq!(
+            proposal.source_surface,
+            crate::PlanningProfileSurfaceData::Assistant
+        );
+        assert_eq!(proposal.state, crate::AssistantProposalStateData::Staged);
+        assert_eq!(
+            proposal.continuity,
+            crate::PlanningProfileContinuityData::Thread
+        );
+
+        let proposal_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../config/schemas/planning-profile-edit-proposal.schema.json"
+        ))
+        .expect("planning profile edit proposal schema should parse");
+        assert_eq!(proposal_schema["title"], "PlanningProfileEditProposal");
+
+        let manifest: serde_json::Value =
+            serde_json::from_str(include_str!("../../../config/contracts-manifest.json"))
+                .expect("contracts manifest should parse");
+        let examples = manifest["contract_examples"]
+            .as_array()
+            .expect("contract examples should be an array");
+        assert!(examples.iter().any(|entry| {
+            entry["path"] == "config/examples/planning-profile-edit-proposal.example.json"
+                && entry["schema"] == "config/schemas/planning-profile-edit-proposal.schema.json"
+        }));
+
+        let owner_doc = include_str!(
+            "../../../docs/cognitive-agent-architecture/architecture/planning-profile-application-contract.md"
+        );
+        assert!(owner_doc.contains("PlanningProfileEditProposal"));
+        assert!(owner_doc.contains("AssistantProposalState"));
+    }
+
+    #[test]
+    fn commitment_scheduling_proposal_contract_assets_parse_and_register() {
+        let proposal: crate::CommitmentSchedulingProposalData = serde_json::from_str(include_str!(
+            "../../../config/examples/commitment-scheduling-proposal.example.json"
+        ))
+        .expect("commitment scheduling proposal example should parse");
+        assert_eq!(
+            proposal.source_kind,
+            crate::CommitmentSchedulingSourceKindData::Reflow
+        );
+        assert_eq!(proposal.state, crate::AssistantProposalStateData::Staged);
+        assert_eq!(
+            proposal.continuity,
+            crate::CommitmentSchedulingContinuityData::Thread
+        );
+        assert_eq!(proposal.mutations.len(), 2);
+
+        let proposal_schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../config/schemas/commitment-scheduling-proposal.schema.json"
+        ))
+        .expect("commitment scheduling proposal schema should parse");
+        assert_eq!(proposal_schema["title"], "CommitmentSchedulingProposal");
+
+        let manifest: serde_json::Value =
+            serde_json::from_str(include_str!("../../../config/contracts-manifest.json"))
+                .expect("contracts manifest should parse");
+        let examples = manifest["contract_examples"]
+            .as_array()
+            .expect("contract examples should be an array");
+        assert!(examples.iter().any(|entry| {
+            entry["path"] == "config/examples/commitment-scheduling-proposal.example.json"
+                && entry["schema"] == "config/schemas/commitment-scheduling-proposal.schema.json"
+        }));
+
+        let owner_doc = include_str!(
+            "../../../docs/cognitive-agent-architecture/architecture/day-plan-application-contract.md"
+        );
+        assert!(owner_doc.contains("CommitmentSchedulingProposal"));
+        assert!(owner_doc.contains("AssistantProposalState"));
     }
 }

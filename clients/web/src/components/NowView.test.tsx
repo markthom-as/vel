@@ -7,6 +7,7 @@ import { NowView } from './NowView'
 vi.mock('../api/client', () => ({
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  apiPatch: vi.fn(),
 }))
 
 function buildNowData(overrides: Record<string, unknown> = {}) {
@@ -72,6 +73,7 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
       follow_through: [],
     },
     check_in: null,
+    day_plan: null,
     reflow: null,
     reflow_status: null,
     action_items: [],
@@ -102,6 +104,18 @@ describe('NowView', () => {
     vi.useRealTimers()
     vi.mocked(api.apiGet).mockReset()
     vi.mocked(api.apiPost).mockReset()
+    vi.mocked(api.apiPatch).mockReset()
+    vi.mocked(api.apiPatch).mockImplementation(async () => ({
+      ok: true,
+      data: {
+        id: 'commit_local_1',
+        text: 'Write weekly review',
+        source_type: 'capture',
+        due_at: null,
+        project: null,
+        commitment_kind: 'writing',
+      },
+    }))
     let morningSession: Record<string, unknown> | null = null
     let standupSession: Record<string, unknown> | null = null
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
@@ -403,6 +417,46 @@ describe('NowView', () => {
                   reference_id: 'dls_1',
                   requires_response: false,
                   requires_note: false,
+                },
+              ],
+            },
+            day_plan: {
+              headline: 'Today has a bounded plan',
+              summary: 'Vel shaped a bounded same-day plan from current commitments, calendar anchors, and routine blocks.',
+              scheduled_count: 2,
+              deferred_count: 1,
+              did_not_fit_count: 0,
+              needs_judgment_count: 1,
+              changes: [
+                {
+                  kind: 'scheduled',
+                  title: 'Write weekly review',
+                  detail: 'Write weekly review fits in the next bounded slot for today.',
+                  project_label: 'Ops',
+                  scheduled_start_ts: 1710001800,
+                  rule_facets: [
+                    { kind: 'time_window', label: 'time:prenoon', detail: 'Task prefers the prenoon window.' },
+                  ],
+                },
+                {
+                  kind: 'deferred',
+                  title: 'Backlog cleanup',
+                  detail: 'Backlog cleanup is marked for local defer and was left out of today\'s bounded plan.',
+                  project_label: null,
+                  scheduled_start_ts: null,
+                  rule_facets: [
+                    { kind: 'local_defer', label: 'defer', detail: 'Task is marked for local defer logic.' },
+                  ],
+                },
+              ],
+              routine_blocks: [
+                {
+                  id: 'routine_morning',
+                  label: 'Morning routine',
+                  source: 'inferred',
+                  start_ts: 1710000000,
+                  end_ts: 1710003600,
+                  protected: true,
                 },
               ],
             },
@@ -796,20 +850,21 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByText('What matters right now')).toBeInTheDocument()
+      expect(screen.getByText('Run the current day')).toBeInTheDocument()
     })
 
     expect(screen.getAllByText('Day').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Engaged').length).toBeGreaterThan(0)
-    expect(screen.getByText('Pending')).toBeInTheDocument()
-    expect(screen.getByText(/medium · 72%/i)).toBeInTheDocument()
+    expect(screen.getByText('Current status')).toBeInTheDocument()
+    expect(screen.getByText('Today')).toBeInTheDocument()
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Room 4B').length).toBeGreaterThan(0)
-    expect(screen.getByText(/prep 15m/i)).toBeInTheDocument()
-    expect(screen.getByText(/travel 0m/i)).toBeInTheDocument()
     expect(screen.getAllByText('Reply to Dimitri').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
-    expect(screen.getByText('Immediate pressure')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/ask, capture, or talk to vel/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText(/more context and controls/i))
+
+    expect(screen.getByText(/today has a bounded plan/i)).toBeInTheDocument()
     expect(screen.getByText('Day changed')).toBeInTheDocument()
     expect(screen.getByText('1 moved')).toBeInTheDocument()
     expect(screen.getByText('1 unscheduled')).toBeInTheDocument()
@@ -821,23 +876,74 @@ describe('NowView', () => {
     expect(screen.getByText('1 waiting for Inbox triage')).toBeInTheDocument()
     expect(screen.getByText('Backup is stale')).toBeInTheDocument()
     expect(screen.getByText('Confirm the design review agenda')).toBeInTheDocument()
-    expect(screen.getByText('Review execution handoff for runtime lane')).toBeInTheDocument()
+    expect(screen.getAllByText('Review execution handoff for runtime lane').length).toBeGreaterThan(0)
     expect(screen.getByText('Continue in Threads')).toBeInTheDocument()
     expect(screen.getAllByText('Reflow moved to Threads').length).toBeGreaterThan(0)
-    expect(screen.getByText('Prep window active')).toBeInTheDocument()
-    expect(screen.getByText('recent git activity indicates active work')).toBeInTheDocument()
-    expect(screen.getByText('Recent source activity')).toBeInTheDocument()
-    expect(screen.getByText('repo: vel')).toBeInTheDocument()
-    expect(screen.getByText('metric type: resting_heart_rate')).toBeInTheDocument()
-    expect(screen.getByText('value: 58')).toBeInTheDocument()
-    expect(screen.getByText('source app: Apple Health')).toBeInTheDocument()
-    expect(screen.getByText('path: daily/today.md')).toBeInTheDocument()
-    expect(screen.getByText('conversation id: conv_external')).toBeInTheDocument()
-    expect(screen.getByText('People status')).toBeInTheDocument()
-    expect(screen.getAllByText('Annie Case').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Fresh').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /urgent/i })).toBeInTheDocument()
+    expect(screen.getByText(/current commitment: write weekly review\./i)).toBeInTheDocument()
+    expect(screen.getByText('Next event')).toBeInTheDocument()
+    expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /start morning/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start standup/i })).toBeInTheDocument()
+  })
+
+  it('dedupes duplicate now action suggestions before rendering the compact context panel', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            action_items: [
+              {
+                id: 'act_1',
+                title: 'Review execution handoff for runtime lane',
+                summary: 'The runtime lane still needs an approval decision.',
+                kind: 'execution_review',
+                rank: 1,
+                surface: 'now',
+                project_label: 'Runtime',
+                evidence: [],
+                thread_route: {
+                  thread_id: 'thr_exec_1',
+                  label: 'Execution thread',
+                },
+              },
+              {
+                id: 'act_2',
+                title: 'Review execution handoff for runtime lane',
+                summary: 'The runtime lane still needs an approval decision.',
+                kind: 'execution_review',
+                rank: 2,
+                surface: 'now',
+                project_label: 'Runtime',
+                evidence: [],
+                thread_route: {
+                  thread_id: 'thr_exec_1',
+                  label: 'Execution thread',
+                },
+              },
+            ],
+          }),
+          meta: { request_id: 'req_now_deduped_actions' },
+        } as never
+      }
+      return {
+        ok: true,
+        data: null,
+        meta: { request_id: `req_${path.replaceAll('/', '_')}` },
+      } as never
+    })
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/more context and controls/i)).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText(/more context and controls/i))
+
+    const matchingRows = screen.getAllByText('Review execution handoff for runtime lane')
+    expect(matchingRows).toHaveLength(1)
   })
 
   it('starts morning and resumes the next backend-owned prompt in place', async () => {
@@ -994,23 +1100,15 @@ describe('NowView', () => {
 
     render(<NowView />)
 
+    fireEvent.click(await screen.findByText(/more context and controls/i))
+
     await waitFor(() => {
       expect(screen.getByText(/Some inputs need a refresh/i)).toBeInTheDocument()
     })
-
     expect(screen.getByText(/Calendar: Stale/i)).toBeInTheDocument()
     expect(screen.getByText(/Todoist: Error/i)).toBeInTheDocument()
-    expect(
-      screen.getByText('Calendar needs a refresh. Upcoming events may be out of date.'),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText('Todoist sync last failed. Keep the backlog visible, but refresh before trusting it.'),
-    ).toBeInTheDocument()
-    expect(screen.getByText(/Calendar sync failed earlier\. Inspect history and retry sync\./i)).toBeInTheDocument()
-    expect(screen.getByText(/Todoist sync failed\. Inspect history and retry sync\./i)).toBeInTheDocument()
-    expect(
-      screen.getByText('Current context is a bit behind. Re-run evaluate if you need fresher state.'),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /sync calendar/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /sync todoist/i })).toBeInTheDocument()
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
     expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()
   })
@@ -1066,6 +1164,8 @@ describe('NowView', () => {
 
     render(<NowView />)
 
+    fireEvent.click(await screen.findByText(/more context and controls/i))
+
     await waitFor(() => {
       expect(screen.getAllByRole('button', { name: /re-run evaluate/i }).length).toBeGreaterThan(0)
     })
@@ -1076,9 +1176,9 @@ describe('NowView', () => {
       expect(api.apiPost).toHaveBeenCalledWith('/v1/evaluate', {}, expect.any(Function))
     })
     await waitFor(() => {
-      expect(screen.getByText('Context refreshed.')).toBeInTheDocument()
+      expect(vi.mocked(api.apiGet).mock.calls.filter(([path]) => path === '/v1/now').length).toBeGreaterThan(1)
     })
-    expect(screen.getAllByText('Fresh').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Some inputs need a refresh/i)).not.toBeInTheDocument()
   })
 
   it('retries calendar sync directly from degraded freshness warnings', async () => {
@@ -1141,6 +1241,8 @@ describe('NowView', () => {
 
     render(<NowView />)
 
+    fireEvent.click(await screen.findByText(/more context and controls/i))
+
     await waitFor(() => {
       expect(screen.getAllByRole('button', { name: /sync calendar/i }).length).toBeGreaterThan(0)
     })
@@ -1151,7 +1253,7 @@ describe('NowView', () => {
       expect(api.apiPost).toHaveBeenCalledWith('/v1/sync/calendar', {}, expect.any(Function))
     })
     await waitFor(() => {
-      expect(screen.getByText('Calendar synced (3 signals).')).toBeInTheDocument()
+      expect(vi.mocked(api.apiGet).mock.calls.filter(([path]) => path === '/v1/now').length).toBeGreaterThan(1)
     })
   })
 
@@ -1209,6 +1311,7 @@ describe('NowView', () => {
       expect(screen.getAllByText('Meeting prep').length).toBeGreaterThan(0)
     })
 
+    fireEvent.click(screen.getByText(/more context and controls/i))
     fireEvent.click(screen.getByText(/show raw fields/i))
     expect(screen.getByText(/"signals_used": \[/i)).toBeInTheDocument()
     expect(screen.getByText(/"risk_used": \[/i)).toBeInTheDocument()
@@ -1406,5 +1509,136 @@ describe('NowView', () => {
       expect(screen.getByText(/handled here in now/i)).toBeInTheDocument()
     })
     expect(screen.getByText(/you are clear until the next meeting\./i)).toBeInTheDocument()
+  })
+
+  it('renders the bounded day plan in Now when the backend includes planner output', async () => {
+    render(<NowView />)
+
+    fireEvent.click(await screen.findByText(/more context and controls/i))
+
+    await waitFor(() => {
+      expect(screen.getByText(/today has a bounded plan/i)).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/2 scheduled/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 deferred/i)).toBeInTheDocument()
+    expect(screen.getByText(/inferred fallback/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/morning routine/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/still inferred from current context/i)).toBeInTheDocument()
+    expect(screen.getByText(/backlog cleanup is marked for local defer/i)).toBeInTheDocument()
+  })
+
+  it('surfaces planning-profile proposal continuity without turning Now into a planner', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            planning_profile_summary: {
+              pending_count: 1,
+              latest_pending: {
+                thread_id: 'thr_planning_profile_edit_1',
+                state: 'staged',
+                title: 'Add shutdown block',
+                summary: 'Add a protected shutdown block.',
+                outcome_summary: null,
+                updated_at: 1710000000,
+              },
+              latest_applied: {
+                thread_id: 'thr_planning_profile_edit_0',
+                state: 'applied',
+                title: 'Save morning focus window',
+                summary: 'Save a morning focus window.',
+                outcome_summary:
+                  'Planning-profile proposal applied through canonical mutation seam.',
+                updated_at: 1709990000,
+              },
+              latest_failed: null,
+            },
+          }),
+          meta: { request_id: 'req_now_planning_profile_summary' },
+        } as never
+      }
+      return {
+        ok: true,
+        data: null,
+        meta: { request_id: `req_${path.replaceAll('/', '_')}` },
+      } as never
+    })
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/routine edits stay review-gated/i)).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/1 pending/i)).toBeInTheDocument()
+    expect(screen.getByText(/Pending: Add shutdown block/i)).toBeInTheDocument()
+    expect(screen.getByText(/Last applied: Save morning focus window/i)).toBeInTheDocument()
+  })
+
+  it('surfaces same-day scheduling continuity without turning Now into a planner', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            commitment_scheduling_summary: {
+              pending_count: 1,
+              latest_pending: {
+                thread_id: 'thr_day_plan_apply_1',
+                state: 'staged',
+                title: 'Apply focus block shift',
+                summary: 'Move the focus block after the calendar anchor.',
+                outcome_summary: null,
+                updated_at: 1710000000,
+              },
+              latest_applied: {
+                thread_id: 'thr_reflow_edit_0',
+                state: 'applied',
+                title: 'Clear stale due time',
+                summary: 'Remove the stale due time from one commitment.',
+                outcome_summary:
+                  'Commitment scheduling proposal applied through canonical mutation seam.',
+                updated_at: 1709990000,
+              },
+              latest_failed: null,
+            },
+          }),
+          meta: { request_id: 'req_now_commitment_scheduling_summary' },
+        } as never
+      }
+      return {
+        ok: true,
+        data: null,
+        meta: { request_id: `req_${path.replaceAll('/', '_')}` },
+      } as never
+    })
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/schedule edits stay supervised/i)).toBeInTheDocument()
+    })
+
+    expect(screen.getByText(/1 pending/i)).toBeInTheDocument()
+    expect(screen.getByText(/Pending: Apply focus block shift/i)).toBeInTheDocument()
+    expect(screen.getByText(/Last applied: Clear stale due time/i)).toBeInTheDocument()
+  })
+
+  it('resurfaces only one resumable thread from ranked now action items', async () => {
+    const openThread = vi.fn()
+
+    render(<NowView onOpenThread={openThread} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/resume thread/i)).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: /open execution thread/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /open related threads/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /open execution thread/i }))
+    expect(openThread).toHaveBeenCalledWith('thr_exec_1')
   })
 })

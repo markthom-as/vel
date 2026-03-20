@@ -150,6 +150,7 @@ struct ContentView: View {
                     }
                 }
                 Section("Settings and docs") {
+                    planningProfileSummarySection
                     DocumentationListView()
                 }
             }
@@ -212,6 +213,51 @@ struct ContentView: View {
             labels.append("execute_repo_tasks")
         }
         return labels.isEmpty ? "none" : labels.joined(separator: ", ")
+    }
+
+    @ViewBuilder
+    private var planningProfileSummarySection: some View {
+        if let planningProfile = store.planningProfile {
+            let profile = planningProfile.profile
+            let activeBlocks = profile.routine_blocks.filter { $0.active }.count
+            let activeConstraints = profile.planning_constraints.filter { $0.active }.count
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Planning profile")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Routine blocks: \(activeBlocks) active of \(profile.routine_blocks.count)")
+                    .font(.caption)
+                Text("Constraints: \(activeConstraints) active of \(profile.planning_constraints.count)")
+                    .font(.caption)
+                if let firstBlock = profile.routine_blocks.first {
+                    Text("Next profile anchor: \(firstBlock.label) \(firstBlock.start_local_time)-\(firstBlock.end_local_time)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let proposalSummary = planningProfile.proposal_summary {
+                    Text("Proposal continuity: \(proposalSummary.pending_count) pending")
+                        .font(.caption)
+                    if let latestPending = proposalSummary.latest_pending {
+                        Text("Pending: \(latestPending.title)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let latestApplied = proposalSummary.latest_applied {
+                        Text("Last applied: \(latestApplied.title)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    } else if let latestFailed = proposalSummary.latest_failed {
+                        Text("Last failed: \(latestFailed.title)")
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+        } else {
+            Text("Planning profile loads from the same backend-owned routine and constraint profile used by day plan and reflow.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

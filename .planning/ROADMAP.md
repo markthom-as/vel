@@ -118,7 +118,7 @@ Residual work moved forward:
 ## Progress
 
 **Execution Order:**
-Remaining execution order: 16
+Remaining execution order: 22
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -145,7 +145,23 @@ Remaining execution order: 16
 | 20. Grounded assistant entry and daily-use usability closure | 4/4 | Complete | 2026-03-20 |
 | 21. Cross-surface voice assistant parity and desktop push-to-talk | 4/4 | Complete | 2026-03-20 |
 | 22. Assistant-supported daily loop, closeout, and thread resolution | 4/4 | Complete | 2026-03-20 |
-| 23. Safe assistant-mediated actions and supervised write lanes | 1/4 | In Progress | 2026-03-20 |
+| 23. Safe assistant-mediated actions and supervised write lanes | 4/4 | Complete | 2026-03-20 |
+| 24. Approved assistant action application and reversible write execution | 4/4 | Complete | 2026-03-20 |
+| 25. Local recall, semantic memory, and grounded assistant context | 4/4 | Complete | 2026-03-20 |
+| 26. Real day-plan reflow and schedule reconciliation | 4/4 | Complete | 2026-03-20 |
+| 27. Canonical scheduler facets and commitment rule normalization | 4/4 | Complete | 2026-03-20 |
+| 28. Routine blocks and commitment-aware day planning | 4/4 | Complete | 2026-03-20 |
+| 29. Durable routine blocks and operator-managed planning constraints | 4/4 | Complete | 2026-03-20 |
+| 30. Routine and planning-profile management surfaces | 4/4 | Complete | 2026-03-20 |
+| 31. Cross-surface planning-profile parity and assistant-managed routine edits | 4/4 | Complete | 2026-03-20 |
+| 32. Approved planning-profile edits and supervised routine application | 4/4 | Complete | 2026-03-20 |
+| 33. Approved day-plan and reflow application over commitment scheduling | 4/4 | Complete | 2026-03-20 |
+| 34. Now-view simplification, current-day truth, and Vel.csv acceptance | 0/4 | Defined | - |
+| 35. Sleep-relative day boundary and today-lane correctness | 0/4 | Defined | - |
+| 36. Shell hierarchy, settings, and continuity simplification | 0/4 | Defined | - |
+| 37. iPhone embedded Rust core and Apple FFI foundation | 0/4 | Defined | - |
+| 38. Local-first iPhone voice continuity and offline action lane | 0/4 | Defined | - |
+| 39. Vel.csv regression sweep and daily-use closeout | 0/4 | Defined | - |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -367,7 +383,7 @@ Plans:
 **Requirements**: CLOSEOUT-01, CLOSEOUT-02
 **Depends on:** Phase 17
 **Gap Closure:** Closes `MILESTONE-VERIFY-01` and `MILESTONE-REQS-01` from [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md)
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 **Closeout note:** This phase is intentionally bookkeeping-heavy but still product-critical. The milestone cannot be archived honestly until verification coverage and requirement status are backed by durable artifacts instead of summaries alone.
 
@@ -383,7 +399,7 @@ Plans:
 **Requirements**: CLOSEOUT-03, CLOSEOUT-04
 **Depends on:** Phase 18
 **Gap Closure:** Closes `MILESTONE-ROADMAP-01`, `MILESTONE-INTEGRATION-01`, and `MILESTONE-FLOW-01` from [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md)
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 **Closeout note:** This phase exists so the archive/release record is based on a passing milestone audit and coherent roadmap/requirements state, not on optimistic completion summaries.
 
@@ -512,7 +528,7 @@ Plans:
 **Goal:** Turn `reflow` into a real backend-owned day-repair lane that can recompute the remaining day, explain what changed, and reconcile stale schedule reality instead of only surfacing warnings.
 **Requirements**: REFLOW-REAL-01, REFLOW-REAL-02, SCHED-RECON-01, SCHED-RECON-02
 **Depends on:** Phase 25
-**Plans:** 3/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 26-01-PLAN.md — Publish the canonical reflow/reconciliation contract and scheduler-rule mapping seam
@@ -532,13 +548,13 @@ Plans:
 **Goal:** Normalize scheduling and tagging rules into canonical Vel-backed fields and facets so agents, recall, reflow, and future planning logic can reason over them without depending on raw provider labels or title syntax.
 **Requirements**: SCHED-FACET-01, SCHED-FACET-02, AGENT-SCHED-01, RECALL-SCHED-01
 **Depends on:** Phase 26
-**Plans:** 0/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 27-01-PLAN.md — Define canonical scheduler facet schema, storage shape, and ingest mapping rules
-- [ ] 27-02-PLAN.md — Persist normalized scheduler facets for commitments and expose them through backend/domain seams
-- [ ] 27-03-PLAN.md — Use normalized scheduler facets in agent, recall, and reflow paths instead of ad hoc raw-label parsing
-- [ ] 27-04-PLAN.md — Close Phase 27 with docs, examples, and verification for the canonical rule model
+- [x] 27-01-PLAN.md — Define canonical scheduler facet schema, storage shape, and ingest mapping rules
+- [x] 27-02-PLAN.md — Persist normalized scheduler facets for commitments and expose them through backend/domain seams
+- [x] 27-03-PLAN.md — Use normalized scheduler facets in agent, recall, and reflow paths instead of ad hoc raw-label parsing
+- [x] 27-04-PLAN.md — Close Phase 27 with docs, examples, and verification for the canonical rule model
 
 **Scope note:** This phase should make scheduling semantics trustworthy and agent-usable without turning into a broad planner rewrite:
 
@@ -546,3 +562,261 @@ Plans:
 - canonical fields/facets should intentionally capture the proven `codex-workspace` rule system
 - SQL-backed normalized scheduler semantics should improve explainability, filtering, and agent reasoning
 - do not widen into speculative multi-day optimization or broad external calendar mutation yet
+
+### Phase 28: Routine blocks and commitment-aware day planning
+
+**Goal:** Turn canonical scheduler rules plus real calendar reality into a bounded backend-owned day-planning lane that can shape the day before it drifts, not just recover after drift.
+**Requirements**: DAYPLAN-01, DAYPLAN-02, ROUTINE-01, ROUTINE-02
+**Depends on:** Phase 27
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 28-01-PLAN.md — Publish the canonical routine-block and day-plan contract over commitments, calendar anchors, and scheduler rules
+- [x] 28-02-PLAN.md — Implement backend-owned initial day-plan shaping with explicit scheduled, deferred, and did-not-fit outcomes
+- [x] 28-03-PLAN.md — Embody planned-day output in `Now`, `Threads`, and `Settings` without creating a shell-owned planner
+- [x] 28-04-PLAN.md — Close the phase with docs, examples, and verification for bounded day planning and routine handling
+
+**Scope note:** This phase should make the morning loop materially more useful without turning into a speculative autonomous planner:
+
+- canonical scheduler rules should shape the initial day plan before `reflow` is needed
+- routine blocks, calendar anchors, and open commitments should all remain backend-owned typed inputs
+- the planner should explain what was scheduled, what was deferred, and what did not fit
+- do not widen into multi-day optimization, automatic upstream calendar mutation, or opaque shell-local heuristics
+
+### Phase 29: Durable routine blocks and operator-managed planning constraints
+
+**Goal:** Replace bounded inferred routine inputs with durable backend-owned routine blocks and operator-managed planning constraints that can shape the day-plan substrate consistently across surfaces.
+**Requirements**: ROUTINE-03, ROUTINE-04, DAYPLAN-03, DAYPLAN-04
+**Depends on:** Phase 28
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 29-01-PLAN.md — Publish the durable routine-block and planning-constraint contract over the existing day-plan substrate
+- [x] 29-02-PLAN.md — Persist operator-declared routine blocks and bounded planning constraints in backend/storage seams
+- [x] 29-03-PLAN.md — Use durable routine blocks in day-plan shaping and expose summary-first management in shipped surfaces
+- [x] 29-04-PLAN.md — Close the phase with docs, examples, and verification for durable routine-backed day planning
+
+**Scope note:** This phase should strengthen same-day planning inputs without jumping to speculative planner autonomy:
+
+- routine blocks should become durable backend-owned records rather than only inferred context hints
+- operators should be able to manage bounded planning constraints without creating shell-owned planning logic
+- `day_plan` and `reflow` should continue to share one planning substrate
+- do not widen into multi-day optimization, automatic broad upstream mutation, or a full habit/routine product
+
+### Phase 30: Routine and planning-profile management surfaces
+
+**Goal:** Let operators inspect and manage durable routine blocks and bounded planning constraints through typed backend seams and thin shipped surfaces, without creating a second planner or shell-owned scheduling logic.
+**Requirements**: ROUTINE-05, ROUTINE-06, PLANPROFILE-01, PLANPROFILE-02
+**Depends on:** Phase 29
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 30-01-PLAN.md — Publish the typed planning-profile management contract and transport seam over the durable routine/planning substrate
+- [x] 30-02-PLAN.md — Implement backend/storage planning-profile mutation seams with validation and durable persistence
+- [x] 30-03-PLAN.md — Expose summary-first planning-profile management in shipped surfaces over the canonical backend-owned profile
+- [x] 30-04-PLAN.md — Close the phase with docs, examples, and verification for the operator-managed planning-profile model
+
+**Scope note:** This phase should make the durable planning substrate operable in daily use without widening its authority:
+
+- operators should be able to inspect, create, edit, and remove durable routine blocks through backend-owned typed seams
+- bounded planning constraints should become manageable from shipped surfaces, especially Settings, without shifting planning semantics into the client
+- `Now`, `Threads`, and `Settings` should stay summary-first and explainable over the same backend-owned planning profile
+- do not widen into broad calendar editing, multi-day planning, or a separate routine-management product
+
+### Phase 31: Cross-surface planning-profile parity and assistant-managed routine edits
+
+**Goal:** Extend the canonical planning-profile seam into CLI, Apple, and assistant/voice flows so routine and planning-constraint management works across real entry surfaces without creating a second planner.
+**Requirements**: PLANPROFILE-03, PLANPROFILE-04, ROUTINE-07, VOICE-04
+**Depends on:** Phase 30
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 31-01-PLAN.md — Publish the cross-surface planning-profile parity contract and assistant-edit transport seam
+- [x] 31-02-PLAN.md — Ship CLI and Apple planning-profile inspection/parity over the canonical backend seam
+- [x] 31-03-PLAN.md — Route assistant and voice-driven routine/profile edits through the typed mutation seam with confirmation and provenance
+- [x] 31-04-PLAN.md — Close the phase with docs, examples, and verification for the cross-surface planning-profile model
+
+**Scope note:** This phase should widen access to the already-shipped planning-profile model without widening its authority:
+
+- CLI and Apple should be able to inspect the same durable planning profile the web Settings surface now manages
+- assistant and voice entry should be able to stage bounded routine/profile edits through the typed planning-profile mutation seam
+- confirmation, provenance, and thread continuity should remain explicit for planning-profile edits just like other supervised assistant actions
+- do not widen into autonomous planner mutation, broad calendar editing, or a shell-specific planning system
+
+### Phase 32: Approved planning-profile edits and supervised routine application
+
+**Goal:** Let approved planning-profile edit proposals apply through the canonical backend-owned mutation seam with explicit review, thread continuity, and cross-surface follow-through, without creating a second planner or silent conversational writes.
+**Requirements**: PLANPROFILE-05, PLANPROFILE-06, ROUTINE-08, VOICE-05
+**Depends on:** Phase 31
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 32-01-PLAN.md — Publish the approved planning-profile application contract and proposal lifecycle transitions
+- [x] 32-02-PLAN.md — Implement backend approval/application of staged planning-profile proposals over the canonical mutation seam
+- [x] 32-03-PLAN.md — Expose proposal review and applied outcome continuity across shipped surfaces without turning them into planners
+- [x] 32-04-PLAN.md — Close the phase with docs, examples, and verification for supervised planning-profile application
+
+**Scope note:** This phase should make staged routine/planning edits resolvable in real use without widening planner authority:
+
+- approved planning-profile proposals should apply through the same backend-owned mutation seam that direct Settings edits already use
+- proposal state, approval, failure, and applied outcome should remain explicit in `Threads` continuity and operator-visible surfaces
+- Apple voice, assistant entry, web, CLI, and Apple read surfaces should all preserve the same supervised story about what was merely proposed versus what actually changed
+- do not widen into autonomous planner mutation, broad calendar editing, or a second planning model outside the canonical profile
+
+### Phase 33: Approved day-plan and reflow application over commitment scheduling
+
+**Goal:** Let bounded same-day `day_plan` and `reflow` outcomes move from explainable proposal state into supervised backend-owned commitment scheduling changes, without widening into broad autonomous calendar editing.
+**Requirements**: DAYPLAN-05, DAYPLAN-06, REFLOW-REAL-03, SCHED-APPLY-01
+**Depends on:** Phase 32
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 33-01-PLAN.md — Publish the approved day-plan/reflow application contract and lifecycle over commitment scheduling
+- [x] 33-02-PLAN.md — Implement backend application of bounded day-plan/reflow changes through canonical commitment mutation seams
+- [x] 33-03-PLAN.md — Expose pending and applied day-plan/reflow continuity across `Now`, `Threads`, CLI, and Apple without creating a second planner
+- [x] 33-04-PLAN.md — Close the phase with docs, examples, and verification for supervised same-day plan application
+
+**Scope note:** This phase should make same-day planning materially actionable while preserving trust and bounded authority:
+
+- `day_plan` and `reflow` changes should apply through backend-owned commitment scheduling seams, not shell-local heuristics
+- applied outcomes, failures, and pending review should remain explicit in `Threads` continuity and summary-first surfaces
+- the lane should stay bounded to same-day commitment scheduling and explicit operator approval where required
+- do not widen into autonomous multi-day optimization, broad upstream calendar mutation, or a second planner model
+
+### Phase 34: Now-view simplification, current-day truth, and Vel.csv acceptance
+
+**Goal:** Turn `Now` into a compact current-day control surface that orients the operator around what is happening now, what matters next, and one dominant ask/capture/talk affordance, while repairing broken calendar/Todoist rendering, duplicated UI, and low-value status clutter.
+**Requirements**: NOW-UX-02, NOW-UX-03, CAL-UX-01, TODO-UX-01, VELCSV-01
+**Depends on:** Phase 33
+**Plans:** 4/4 plans complete
+
+**Operator-input note:** This phase is anchored to explicit operator interview decisions, prior `Now` specs, and `~/Downloads/Vel.csv`. `Vel.csv` is a regression and acceptance input, not the primary product authority.
+**Layout note:** The shipped `Now` order should follow perception → action → execution: compact context bar, current status, dominant ask/capture/talk, next event, unified today lane, compressed attention strip.
+
+Plans:
+- [x] 34-01-PLAN.md — Publish the compact `Now` contract, ranking rules, and `Vel.csv`-anchored acceptance baseline before UI changes widen
+- [x] 34-02-PLAN.md — Repair current status, next-event truth, and aggressive calendar noise filtering over the current-day surface
+- [x] 34-03-PLAN.md — Rebuild the unified commitment-first today lane, primary quick actions, and low-noise attention strip
+- [x] 34-04-PLAN.md — Close duplicate/sloppy `Now` presentation issues, broken actions, and verification against `Vel.csv` pressure items
+
+**Scope note:** This phase should make `Now` materially trustworthy and low-noise:
+
+- `Now` should be a current-day control surface, not a dashboard or status dump
+- calendar events and tasks should render through one unified today lane, but commitments remain primary
+- duplicated data, verbose sync posture, and non-actionable status blocks should move out of the default surface
+- the dominant ask/capture/talk affordance should remain inline-first and thread-backed, not chat-first
+
+### Phase 35: Sleep-relative day boundary and today-lane correctness
+
+**Goal:** Make `Now`, `next event`, commitments, tasks, and thread resurfacing agree on one sleep-relative current-day model instead of a midnight-bound or surface-local interpretation of “today.”
+**Requirements**: DAYBOUND-01, DAYBOUND-02, NOW-ORDER-01, CONTEXT-01
+**Depends on:** Phase 34
+**Plans:** 4/4 plans complete
+
+**Behavior note:** The day should extend across midnight until the sleep boundary is crossed, so unfinished work, night events, and routine continuity still belong to the same operator day when appropriate.
+**Ranking note:** Commitment-first execution ordering should be backend-owned and shared across `Now`, thread resurfacing, and follow-through surfaces.
+
+Plans:
+- [x] 35-01-PLAN.md — Publish the sleep-relative day-boundary contract and current-day precedence rules before behavior widens
+- [x] 35-02-PLAN.md — Implement multi-signal day-boundary handling and current-day event filtering over backend-owned time/context seams
+- [x] 35-03-PLAN.md — Enforce commitment-first today-lane ordering, active-item precedence, and next-up semantics across `Now`
+- [x] 35-04-PLAN.md — Close resurfacing, recency, and correctness gaps so one current-day truth holds across web, Apple, and thread continuity
+
+**Scope note:** This phase should make “today” trustworthy:
+
+- active item precedence must remain calendar event > active commitment > routine block > inferred activity
+- next event should remain strictly calendar-driven while excluding routine/noise blocks
+- tasks should not rise above commitments unless promoted
+- if ranking confidence for contextual thread resurfacing is low, `Now` should show none rather than cluttering the surface
+
+### Phase 36: Shell hierarchy, settings, and continuity simplification
+
+**Goal:** Apply the corrected product hierarchy across `Now`, `Threads`, `Settings`, and the web shell so the daily-use experience is simpler, action-oriented, and less internally noisy without reintroducing shell-owned product logic.
+**Requirements**: SHELL-03, SETTINGS-UX-02, THREADS-03, SIDEBAR-01
+**Depends on:** Phase 35
+**Plans:** 4/4 plans complete
+
+**Hierarchy note:** `Now` remains the default action surface, `Threads` is continuity-first and should not become a chat inbox, `Settings` is advanced management, and the sidebar should become a thin icon rail instead of a required information column.
+**Vel.csv note:** `Vel.csv` pressure around simplification, richer context, continuity, and de-emphasizing sync clutter should be treated as acceptance pressure for this phase.
+
+Plans:
+- [x] 36-01-PLAN.md — Publish the simplified shell hierarchy, sidebar role, and zero-or-one thread resurfacing rules
+- [x] 36-02-PLAN.md — Restructure `Settings` into clearer subcategories with lower text clutter and summary-first defaults
+- [x] 36-03-PLAN.md — Tighten `Threads`, action affordances, icon usage, and button-vs-link behavior around continuity rather than clutter
+- [x] 36-04-PLAN.md — Verify the simplified shell against `Vel.csv` friction points and close daily-use slop across primary surfaces
+
+**Scope note:** This phase should remove slop without widening scope:
+
+- runtime/sync posture should compress into optional secondary affordances rather than dominating primary views
+- `Settings` should manage durable profile/integration concerns without becoming onboarding prose or a debug dump
+- sidebar context should be optional and ignorable, not mandatory for core operation
+- continuity should resurface contextually rather than by promoting thread-centric UI everywhere
+
+### Phase 37: iPhone embedded Rust core and Apple FFI foundation
+
+**Goal:** Introduce the real iPhone embedded-core / Apple FFI path behind explicit platform and feature gates so Apple can start consuming the same Rust-owned product logic locally where it materially improves responsiveness, offline behavior, and future distribution posture.
+**Requirements**: APPLE-EMBED-01, APPLE-EMBED-02, FFI-01, OFFLINE-01
+**Depends on:** Phase 36
+**Plans:** 4/4 plans complete
+
+**Topology note:** This phase should add the embedded-capable Apple path described in Phase 13 without pretending the daemon-backed HTTP model is gone. The embedded path should be additive and iPhone-first.
+**Boundary note:** Heavy recall, long-running jobs, integrations/sync, shared thread sync, and supervised apply/review lanes remain daemon-backed in this phase.
+
+Plans:
+- [x] 37-01-PLAN.md — Publish the iPhone embedded-core / FFI contract, feature-gating rules, and daemon-vs-embedded boundary map
+- [x] 37-02-PLAN.md — Stand up the first embedded Rust bridge and local authority seams for iPhone-safe read/write flows
+- [x] 37-03-PLAN.md — Route the highest-value iPhone local flows through the embedded seam without forking product logic from the canonical Rust core
+- [x] 37-04-PLAN.md — Close docs, examples, and verification for the new embedded-capable Apple topology while preserving daemon truth
+
+**Scope note:** This phase should create the real Apple FFI foundation without overreaching:
+
+- start on iPhone only; do not split effort across watch and Mac yet
+- preserve one Rust-owned domain and policy model across embedded and daemon-backed paths
+- prefer local responsiveness and offline capability for bounded high-frequency flows
+- do not widen into full local-reasoning parity or a second Apple-specific product brain
+
+### Phase 38: Local-first iPhone voice continuity and offline action lane
+
+**Goal:** Make iPhone voice capture and quick action flows feel local-first and dependable by using the new embedded seam for offline-capable voice continuity, cached `Now`, queued quick actions, and local thread draft follow-through.
+**Requirements**: APPLE-OFFLINE-01, APPLE-OFFLINE-02, VOICE-06, THREADS-04
+**Depends on:** Phase 37
+**Plans:** 4/4 plans complete
+
+**Magic-flow note:** The proving flow for this phase is smooth queued voice continuity on iPhone: speak, get instant acknowledgment, survive offline, and later see the result correctly merged into thread and `Now` continuity without duplicates or sync confusion.
+**Guardrail note:** This phase should not attempt full local heavy recall, local long-running job orchestration, or fully local review/apply parity.
+
+Plans:
+- [x] 38-01-PLAN.md — Publish the local-first iPhone voice continuity and offline action contract over embedded plus daemon-backed seams
+- [x] 38-02-PLAN.md — Implement local voice capture, queued continuity, and offline-safe quick actions on iPhone
+- [x] 38-03-PLAN.md — Align `Now`, thread drafts, and recovery flows so embedded/offline state merges cleanly back into canonical continuity
+- [x] 38-04-PLAN.md — Verify the “magical” iPhone voice/offline loop and document remaining daemon-backed limits honestly
+
+**Scope note:** This phase should prove local-first Apple value:
+
+- minimum acceptable offline behavior is cached `Now`, queued voice capture, local quick actions, and local thread draft continuation
+- voice/text continuity should remain one thread-backed model rather than separate offline and online interaction modes
+- daemon sync remains responsible for broader shared history, integrations, and heavier reasoning
+- the local lane should feel fast and trustworthy without claiming universal local parity
+
+### Phase 39: Vel.csv regression sweep and daily-use closeout
+
+**Goal:** Close the next milestone by sweeping the remaining `Vel.csv` usability pressure, verifying the corrected daily-use loop across web and Apple, and ensuring the operator can run a day from Vel without fighting the product.
+**Requirements**: VELCSV-02, DAILY-USE-01, DAILY-USE-02, APPLE-PARITY-01
+**Depends on:** Phase 38
+**Plans:** 4/4 plans complete
+
+**Acceptance note:** `Vel.csv` should be used here as an explicit regression and closeout checklist, subordinate to the product rules already locked through operator interview and prior specs.
+**Milestone note:** This phase should validate the whole arc: compact `Now`, trusted current-day truth, simplified shell hierarchy, and an iPhone local-first loop that complements rather than replaces daemon-backed continuity.
+
+Plans:
+- [x] 39-01-PLAN.md — Turn `Vel.csv` into a structured regression/acceptance matrix for the Phase 34-38 arc
+- [x] 39-02-PLAN.md — Close remaining daily-use friction across `Now`, continuity, richer context, and settings driven by the acceptance matrix
+- [x] 39-03-PLAN.md — Verify cross-surface web and Apple daily-use parity against the “good Vel day” acceptance spine
+- [x] 39-04-PLAN.md — Record milestone-level closeout truth for the new arc with docs, evidence, and remaining deferred items made explicit
+
+**Scope note:** This phase should close the loop on daily use:
+
+- web and Apple should both support the operator’s “good Vel day” flow without major friction
+- richer context should help action rather than add slop
+- `Vel.csv` should function as a regression guardrail and closeout check, not as an alternate source of product truth
+- unresolved items after this phase should be consciously deferred rather than left as silent UX drift

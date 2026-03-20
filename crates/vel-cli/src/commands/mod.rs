@@ -23,6 +23,7 @@ pub mod loops;
 pub mod morning;
 pub mod node;
 pub mod nudges;
+pub mod planning_profile;
 pub mod recent;
 pub mod review;
 pub mod risk;

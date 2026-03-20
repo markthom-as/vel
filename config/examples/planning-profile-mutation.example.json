@@ -1,0 +1,16 @@
+{
+  "mutation": {
+    "kind": "upsert_routine_block",
+    "data": {
+      "id": "routine_lunch",
+      "label": "Lunch reset",
+      "source": "operator_declared",
+      "local_timezone": "America/Denver",
+      "start_local_time": "12:00",
+      "end_local_time": "12:45",
+      "days_of_week": [1, 2, 3, 4, 5],
+      "protected": true,
+      "active": true
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/canonical-scheduler-rules.schema.json",
+  "title": "Vel Canonical Scheduler Rules",
+  "description": "Canonical Vel-owned scheduler semantics normalized from compatibility tags, labels, text tokens, and due metadata.",
+  "type": "object",
+  "properties": {
+    "block_target": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "duration_minutes": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "calendar_free": {
+      "type": "boolean"
+    },
+    "fixed_start": {
+      "type": "boolean"
+    },
+    "time_window": {
+      "type": ["string", "null"],
+      "enum": ["prenoon", "afternoon", "evening", "night", "day", null]
+    },
+    "local_urgency": {
+      "type": "boolean"
+    },
+    "local_defer": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "block_target",
+    "duration_minutes",
+    "calendar_free",
+    "fixed_start",
+    "time_window",
+    "local_urgency",
+    "local_defer"
+  ],
+  "additionalProperties": false
+}

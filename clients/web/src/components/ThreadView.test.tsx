@@ -72,10 +72,10 @@ describe('ThreadView realtime sync', () => {
     const thread = requireHtmlElement(container as HTMLElement | null)
 
     await waitFor(() => {
-      expect(within(thread).getByText(/no messages yet\./i)).toBeInTheDocument()
+      expect(within(thread).getByText(/nothing needs longer follow-up yet/i)).toBeInTheDocument()
     })
-    expect(within(thread).getByText('Continuity, history, and longer follow-up')).toBeInTheDocument()
-    expect(within(thread).getByText(/reflow edits and longer schedule disagreements belong here/i)).toBeInTheDocument()
+    expect(within(thread).getByText('Resume longer follow-through')).toBeInTheDocument()
+    expect(within(thread).getByText(/reflow edits, planning disagreements, and schedule shaping belong here/i)).toBeInTheDocument()
     expect(
       within(thread).getByPlaceholderText(/ask, capture, or talk to vel/i),
     ).toBeInTheDocument()
@@ -131,9 +131,9 @@ describe('ThreadView realtime sync', () => {
     const thread = requireHtmlElement(container as HTMLElement | null)
 
     await waitFor(() => {
-      expect(within(thread).getByText(/no messages yet\./i)).toBeInTheDocument()
+      expect(within(thread).getByText(/nothing needs longer follow-up yet/i)).toBeInTheDocument()
     })
-    expect(within(thread).getByText('Continuity, history, and longer follow-up')).toBeInTheDocument()
+    expect(within(thread).getByText('Resume longer follow-through')).toBeInTheDocument()
     expect(
       within(thread).getByPlaceholderText(/ask, capture, or talk to vel/i),
     ).toBeInTheDocument()
@@ -250,7 +250,7 @@ describe('ThreadView realtime sync', () => {
     const thread = requireHtmlElement(container as HTMLElement | null)
 
     await waitFor(() => {
-      expect(within(thread).getByText(/no messages yet\./i)).toBeInTheDocument()
+      expect(within(thread).getByText(/nothing needs longer follow-up yet/i)).toBeInTheDocument()
     })
 
     fireEvent.change(within(thread).getByPlaceholderText(/ask, capture, or talk to vel/i), { target: { value: 'Hi' } })
@@ -486,11 +486,11 @@ describe('ThreadView realtime sync', () => {
     const thread = requireHtmlElement(container as HTMLElement | null)
 
     await waitFor(() => {
-      expect(within(thread).getByPlaceholderText(/filter recent threads/i)).toBeInTheDocument()
+      expect(within(thread).getByPlaceholderText(/find recent follow-up/i)).toBeInTheDocument()
     })
 
-    expect(within(thread).getByText(/continuity only\. triage stays in inbox\./i)).toBeInTheDocument()
-    fireEvent.change(within(thread).getByPlaceholderText(/filter recent threads/i), {
+    expect(within(thread).getByText(/longer follow-through only\. triage stays in inbox\./i)).toBeInTheDocument()
+    fireEvent.change(within(thread).getByPlaceholderText(/find recent follow-up/i), {
       target: { value: 'weekly' },
     })
 

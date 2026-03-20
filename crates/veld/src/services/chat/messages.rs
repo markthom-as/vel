@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use vel_core::{
     ActionPermissionMode, ActionState, AssistantActionProposal, AssistantProposalState,
-    DailyLoopSurface,
+    DailyLoopSurface, PlanningProfileEditProposal, PlanningProfileSurface,
 };
 use vel_storage::MessageInsert;
 
@@ -69,6 +69,7 @@ pub(crate) struct AssistantEntryCreateResult {
     pub assistant_context: Option<vel_api_types::AssistantContextData>,
     pub conversation: Option<crate::services::chat::mapping::ConversationServiceData>,
     pub proposal: Option<AssistantActionProposal>,
+    pub planning_profile_proposal: Option<PlanningProfileEditProposal>,
     pub daily_loop_session: Option<vel_core::DailyLoopSession>,
     pub end_of_day: Option<crate::services::context_generation::EndOfDayContextData>,
 }
@@ -335,6 +336,10 @@ pub(crate) fn assistant_proposal_thread_id(message_id: &str) -> String {
     format!("thr_assistant_proposal_{message_id}")
 }
 
+pub(crate) fn planning_profile_proposal_thread_id(message_id: &str) -> String {
+    format!("thr_planning_profile_edit_{message_id}")
+}
+
 fn initial_reversal_metadata() -> serde_json::Value {
     serde_json::json!({
         "supported": false,
@@ -425,6 +430,51 @@ async fn ensure_assistant_proposal_thread(
         thread_type: Some("assistant_proposal".to_string()),
         project_id: proposal.project_id.clone(),
     })
+}
+
+pub(crate) async fn attach_planning_profile_proposal_thread(
+    state: &AppState,
+    user_message: &ChatMessage,
+    proposal: &mut PlanningProfileEditProposal,
+) -> Result<(), AppError> {
+    let thread_id = planning_profile_proposal_thread_id(&user_message.id);
+    if state.storage.get_thread_by_id(&thread_id).await?.is_none() {
+        let metadata = serde_json::json!({
+            "source": "planning_profile_proposal",
+            "source_message_id": user_message.id,
+            "conversation_id": user_message.conversation_id,
+            "proposal_state": proposal.state.to_string(),
+            "summary": proposal.summary,
+            "requires_confirmation": proposal.requires_confirmation,
+            "continuity": serde_json::to_value(proposal.continuity).unwrap_or_else(|_| serde_json::json!("thread")),
+            "outcome_summary": proposal.outcome_summary,
+            "mutation": serde_json::to_value(&proposal.mutation).unwrap_or_else(|_| serde_json::json!({})),
+            "lineage": {
+                "source_message_id": user_message.id,
+                "conversation_id": user_message.conversation_id,
+                "source_surface": serde_json::to_value(proposal.source_surface).unwrap_or_else(|_| serde_json::json!("assistant")),
+                "input_mode": user_message
+                    .content
+                    .get("input_mode")
+                    .and_then(serde_json::Value::as_str),
+            },
+        })
+        .to_string();
+        state
+            .storage
+            .insert_thread(
+                &thread_id,
+                "planning_profile_edit",
+                &proposal.summary,
+                "open",
+                &metadata,
+            )
+            .await?;
+    }
+
+    proposal.thread_id = Some(thread_id);
+    proposal.thread_type = Some("planning_profile_edit".to_string());
+    Ok(())
 }
 
 fn proposal_priority(kind: vel_core::ActionKind) -> i32 {
@@ -581,6 +631,16 @@ fn proposal_intervention_content(
         );
     }
     content
+}
+
+fn planning_profile_surface_for_entry(
+    voice: Option<&VoiceEntryProvenance>,
+) -> PlanningProfileSurface {
+    if voice.is_some() {
+        PlanningProfileSurface::Voice
+    } else {
+        PlanningProfileSurface::Assistant
+    }
 }
 
 pub(crate) fn voice_entry_provenance_json(provenance: &VoiceEntryProvenance) -> serde_json::Value {
@@ -796,7 +856,16 @@ pub(crate) async fn create_assistant_entry_response(
         return Err(AppError::bad_request("text must not be empty"));
     }
 
-    let route_target = assistant_entry_route_target(text, payload.conversation_id.as_deref());
+    let planning_profile_proposal_candidate =
+        crate::services::planning_profile::staged_edit_proposal_from_text(
+            text,
+            planning_profile_surface_for_entry(payload.voice.as_ref()),
+        );
+    let route_target = if planning_profile_proposal_candidate.is_some() {
+        AssistantEntryRouteTarget::Threads
+    } else {
+        assistant_entry_route_target(text, payload.conversation_id.as_deref())
+    };
     let conversation_id = if let Some(conversation_id) = payload
         .conversation_id
         .as_deref()
@@ -868,6 +937,7 @@ pub(crate) async fn create_assistant_entry_response(
             assistant_context: None,
             conversation,
             proposal: None,
+            planning_profile_proposal: None,
             daily_loop_session: Some(session),
             end_of_day: None,
         });
@@ -897,8 +967,48 @@ pub(crate) async fn create_assistant_entry_response(
             assistant_context: None,
             conversation,
             proposal: None,
+            planning_profile_proposal: None,
             daily_loop_session: None,
             end_of_day: Some(output.data),
+        });
+    }
+
+    if let Some(mut planning_profile_proposal) = planning_profile_proposal_candidate {
+        attach_planning_profile_proposal_thread(
+            state,
+            &user_message,
+            &mut planning_profile_proposal,
+        )
+        .await?;
+        emit_chat_event(
+            state,
+            "planning_profile.proposal.staged",
+            "message",
+            &user_message.id,
+            serde_json::json!({
+                "message_id": user_message.id,
+                "conversation_id": conversation_id,
+                "proposal": planning_profile_proposal,
+            }),
+        )
+        .await;
+        let conversation = state
+            .storage
+            .get_conversation(&conversation_id)
+            .await?
+            .map(crate::services::chat::mapping::conversation_record_to_data);
+
+        return Ok(AssistantEntryCreateResult {
+            route_target: AssistantEntryRouteTarget::Threads,
+            user_message,
+            assistant_message: None,
+            assistant_error: None,
+            assistant_context: None,
+            conversation,
+            proposal: None,
+            planning_profile_proposal: Some(planning_profile_proposal),
+            daily_loop_session: None,
+            end_of_day: None,
         });
     }
 
@@ -992,6 +1102,7 @@ pub(crate) async fn create_assistant_entry_response(
         assistant_context,
         conversation,
         proposal,
+        planning_profile_proposal: None,
         daily_loop_session: None,
         end_of_day: None,
     })

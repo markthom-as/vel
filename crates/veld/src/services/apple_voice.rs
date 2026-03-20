@@ -17,8 +17,8 @@ use crate::{
         chat::{
             conversations::{create_conversation, ConversationCreateInput},
             messages::{
-                create_user_message, voice_entry_provenance_json, ChatMessageCreateInput,
-                VoiceEntryProvenance,
+                attach_planning_profile_proposal_thread, create_user_message,
+                voice_entry_provenance_json, ChatMessageCreateInput, VoiceEntryProvenance,
             },
         },
         client_sync, daily_loop, now,
@@ -38,6 +38,13 @@ pub async fn apple_voice_turn(
     }
 
     let capture_id = persist_transcript_capture(state, &request, transcript).await?;
+    if request.operation == AppleRequestedOperation::Mutation {
+        if let Some(response) =
+            planning_profile_voice_response(state, &request, capture_id.clone(), transcript).await?
+        {
+            return Ok(response);
+        }
+    }
     let intent = request
         .intents
         .first()
@@ -92,6 +99,102 @@ pub async fn apple_voice_turn(
         }
         AppleVoiceIntent::Capture => Ok(capture_only_response(request.operation, capture_id, None)),
     }
+}
+
+async fn planning_profile_voice_response(
+    state: &AppState,
+    request: &AppleVoiceTurnRequest,
+    capture_id: vel_core::CaptureId,
+    transcript: &str,
+) -> Result<Option<AppleVoiceTurnResponse>, AppError> {
+    let Some(mut proposal) = crate::services::planning_profile::staged_edit_proposal_from_text(
+        transcript,
+        vel_core::PlanningProfileSurface::Voice,
+    ) else {
+        return Ok(None);
+    };
+
+    let voice_provenance = VoiceEntryProvenance {
+        surface: Some(surface_source_device(request.surface).to_string()),
+        source_device: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.source_device.clone())
+            .or_else(|| Some(surface_source_device(request.surface).to_string())),
+        locale: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.locale.clone()),
+        transcript_origin: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.transcript_origin.clone()),
+        recorded_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.recorded_at),
+        offline_captured_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.offline_captured_at),
+        queued_at: request
+            .provenance
+            .as_ref()
+            .and_then(|provenance| provenance.queued_at),
+    };
+
+    let conversation = create_conversation(
+        state,
+        ConversationCreateInput {
+            title: Some(format!("Planning profile: {}", proposal.summary)),
+            kind: "general".to_string(),
+        },
+    )
+    .await?;
+    let user_message = create_user_message(
+        state,
+        conversation.id.as_ref(),
+        &ChatMessageCreateInput {
+            role: "user".to_string(),
+            kind: "text".to_string(),
+            content: serde_json::json!({
+                "text": transcript,
+                "entry_route": "threads",
+                "input_mode": "voice",
+                "voice_provenance": voice_entry_provenance_json(&voice_provenance),
+                "surface": surface_source_device(request.surface),
+                "planning_profile_proposal": serde_json::to_value(&proposal).unwrap_or_else(|_| serde_json::json!({})),
+            }),
+        },
+    )
+    .await?;
+    attach_planning_profile_proposal_thread(state, &user_message, &mut proposal).await?;
+
+    Ok(Some(AppleVoiceTurnResponse {
+        operation: request.operation,
+        mode: AppleResponseMode::Confirmation,
+        summary: proposal.summary.clone(),
+        capture_id: Some(capture_id),
+        thread_id: proposal.thread_id.clone(),
+        reasons: vec![
+            "Planning-profile edits stay staged and require explicit confirmation.".to_string(),
+            "Longer follow-through continues through the shared Threads lane.".to_string(),
+        ],
+        evidence: vec![AppleResponseEvidence {
+            kind: "planning_profile_proposal".to_string(),
+            label: "Staged planning-profile edit".to_string(),
+            detail: proposal.summary.clone(),
+            source_id: proposal.thread_id.clone(),
+        }],
+        queued_mutation: Some(AppleVoiceTurnQueuedMutationSummary {
+            mutation_kind: "planning_profile_edit".to_string(),
+            queued: true,
+            summary: proposal.summary,
+            action_reference_id: proposal.thread_id,
+        }),
+        schedule: None,
+        behavior_summary: None,
+    }))
 }
 
 async fn daily_loop_voice_response(

@@ -1,0 +1,51 @@
+{
+  "routine_blocks": [
+    {
+      "id": "routine_morning",
+      "label": "Morning routine",
+      "source": "operator_declared",
+      "local_timezone": "America/Denver",
+      "start_local_time": "07:00",
+      "end_local_time": "08:30",
+      "days_of_week": [1, 2, 3, 4, 5],
+      "protected": true,
+      "active": true
+    },
+    {
+      "id": "routine_commute",
+      "label": "Commute",
+      "source": "operator_declared",
+      "local_timezone": "America/Denver",
+      "start_local_time": "08:30",
+      "end_local_time": "09:00",
+      "days_of_week": [1, 2, 3, 4, 5],
+      "protected": true,
+      "active": true
+    }
+  ],
+  "planning_constraints": [
+    {
+      "id": "constraint_buffer_before_calendar",
+      "label": "Leave prep before calendar anchors",
+      "kind": "reserve_buffer_before_calendar",
+      "detail": "Keep 15 minutes free before calendar events when possible.",
+      "minutes": 15,
+      "active": true
+    },
+    {
+      "id": "constraint_default_focus_window",
+      "label": "Prefer prenoon focus work",
+      "kind": "default_time_window",
+      "detail": "Use the prenoon window for focus work by default.",
+      "time_window": "prenoon",
+      "active": true
+    },
+    {
+      "id": "constraint_require_overflow_judgment",
+      "label": "Require judgment for overflow",
+      "kind": "require_judgment_for_overflow",
+      "detail": "Do not silently overflow work beyond bounded same-day planning.",
+      "active": true
+    }
+  ]
+}

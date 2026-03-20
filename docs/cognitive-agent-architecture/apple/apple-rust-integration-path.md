@@ -21,6 +21,7 @@ related_files:
   - clients/apple/VelAPI/Sources/VelAPI/VelClient.swift
   - docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md
   - docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md
+  - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
 summary: Current Apple integration truth and the future migration path from today's HTTP-first model to optional embedded Rust / FFI usage.
 ---
 
@@ -145,3 +146,4 @@ Bad:
 1. Current Apple HTTP-first truth is clearly documented.
 2. Future embedded/FFI use is allowed but bounded and conditional.
 3. Shell-vs-core ownership stays explicit even in the embedded future path.
+4. Phase 37 contract publication is discoverable through the embedded runtime contract plus checked-in schema/example assets.

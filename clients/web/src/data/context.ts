@@ -125,6 +125,17 @@ export function loadCommitments(limit: number): Promise<ApiResponse<CommitmentDa
   );
 }
 
+export function updateCommitment(
+  commitmentId: string,
+  patch: Record<string, unknown>,
+): Promise<ApiResponse<CommitmentData>> {
+  return apiPatch<ApiResponse<CommitmentData>>(
+    `/v1/commitments/${encodeURIComponent(commitmentId.trim())}`,
+    patch,
+    (value) => decodeApiResponse(value, decodeCommitmentData),
+  );
+}
+
 export function loadActiveDailyLoopSession(
   sessionDate: string,
   phase: DailyLoopPhaseData,

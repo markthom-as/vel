@@ -16,12 +16,14 @@ pub mod node_identity;
 pub mod operator_queue;
 pub mod ordering;
 pub mod people;
+pub mod planning;
 pub mod project;
 pub mod protocol;
 pub mod provenance;
 pub mod risk;
 pub mod run;
 pub mod sandbox;
+pub mod scheduler;
 pub mod semantic;
 pub mod time;
 pub mod types;
@@ -84,13 +86,21 @@ pub use operator_queue::{
     ActionScopeAffinity, ActionState, ActionSurface, ActionThreadRoute, ActionThreadRouteTarget,
     AssistantActionProposal, AssistantProposalState, CheckInCard, CheckInEscalation,
     CheckInEscalationTarget, CheckInSourceKind, CheckInSubmitTarget, CheckInSubmitTargetKind,
-    CheckInTransition, CheckInTransitionKind, CheckInTransitionTargetKind, ReflowAcceptMode,
-    ReflowCard, ReflowChange, ReflowChangeKind, ReflowEditTarget, ReflowProposal, ReflowSeverity,
-    ReflowTransition, ReflowTransitionKind, ReflowTransitionTargetKind, ReflowTriggerKind,
-    ReviewSnapshot, ScheduleRuleFacet, ScheduleRuleFacetKind,
+    CheckInTransition, CheckInTransitionKind, CheckInTransitionTargetKind,
+    CommitmentSchedulingContinuity, CommitmentSchedulingMutation, CommitmentSchedulingMutationKind,
+    CommitmentSchedulingProposal, CommitmentSchedulingSourceKind, DayPlanChange, DayPlanChangeKind,
+    DayPlanProposal, ReflowAcceptMode, ReflowCard, ReflowChange, ReflowChangeKind,
+    ReflowEditTarget, ReflowProposal, ReflowSeverity, ReflowTransition, ReflowTransitionKind,
+    ReflowTransitionTargetKind, ReflowTriggerKind, ReviewSnapshot, RoutineBlock,
+    RoutineBlockSourceKind, ScheduleRuleFacet, ScheduleRuleFacetKind,
 };
 pub use ordering::OrderingStamp;
 pub use people::{PersonAlias, PersonId, PersonLinkRef, PersonRecord};
+pub use planning::{
+    DurableRoutineBlock, PlanningConstraint, PlanningConstraintKind, PlanningProfileContinuity,
+    PlanningProfileEditProposal, PlanningProfileMutation, PlanningProfileMutationKind,
+    PlanningProfileRemoveTarget, PlanningProfileSurface, RoutinePlanningProfile,
+};
 pub use project::{
     ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus,
 };
@@ -108,6 +118,7 @@ pub use sandbox::{
     SandboxDecisionStatus, SandboxHostCall, SandboxHostCallEnvelope, SandboxPolicyMode,
     SandboxResourceLimits,
 };
+pub use scheduler::{CanonicalScheduleRules, ScheduleTimeWindow};
 pub use semantic::{
     HybridRetrievalPolicy, RecallContextHit, RecallContextPack, RecallContextSourceCount,
     RetrievalStrategy, SemanticHit, SemanticMemoryRecord, SemanticProvenance, SemanticQuery,
