@@ -2,61 +2,70 @@
 
 ## Problem
 
-The daily-use repair arc improved correctness and continuity, but the primary operator shell still feels harder to use than it should because hierarchy, actionability, and reliability are drifting together:
+Phase 40 is no longer a UI-first cleanup phase. It is the contract-and-architecture lock for milestone `v0.2`.
 
-- too many surfaces still narrate state instead of driving action
-- visual hierarchy is too flat for the operator to know what matters first
-- `Now`, `Threads`, `Settings`, and context panels still overlap in job and meaning
-- internal/runtime/debug concepts still leak into default views
-- some web and mobile affordances appear present but are broken, inert, or misrouted in practice
+The prior cycle drifted because scope, product behavior, and authority boundaries were not specified tightly enough before implementation widened. This phase must therefore produce a durable MVP specification for the fixed loop:
 
-This phase must therefore start with discovery, not implementation assumptions.
+`overview -> commitments -> reflow -> threads -> review`
+
+The research task is to turn the current milestone decisions into an implementation-ready boundary:
+
+- what the true MVP includes and excludes
+- which Rust-owned contracts must become canonical
+- where shell behavior stops and backend authority begins
+- how same-day reflow and threads interact without widening into a generic assistant product
+- what documents, examples, and validation artifacts are required so later phases stop guessing
 
 ## Inputs
 
-- operator-supplied Phase 40 UI/UX spec in [40-CONTEXT.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-CONTEXT.md)
-- repaired daily-use shell truth from Phases 34-39
-- current web surfaces in `clients/web/src/components`
-- Apple current-use shell in `clients/apple/Apps/VeliOS/ContentView.swift` and shared Apple transport/state layers
-- existing operator shell policy in `docs/product/operator-mode-policy.md`
+- milestone authority in `.planning/PROJECT.md`, `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md`, and `.planning/STATE.md`
+- locked Phase 40 decisions in [40-CONTEXT.md](/home/jove/code/vel/.planning/phases/40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces/40-CONTEXT.md)
+- durable repo rules in `AGENTS.md`
+- implementation truth in `docs/MASTER_PLAN.md`
+- current Rust seams in:
+  - `crates/veld/src/services/now.rs`
+  - `crates/veld/src/services/daily_loop.rs`
+  - `crates/veld/src/services/reflow.rs`
+  - `crates/veld/src/routes/threads.rs`
+  - `crates/vel-api-types/src/lib.rs`
 
 ## Constraints
 
-- preserve backend-owned product logic; this is shell/interaction work, not a new planner
-- one screen = one job:
-  - `Now` → act
-  - `Threads` → think
-  - `Settings` → configure
-- `Now` must stay execution-first and current-day oriented
-- broken interaction paths are in scope as product failures, not polish backlog
-- avoid widening this phase into a broad full visual redesign detached from behavior
+- do not widen beyond the fixed MVP loop
+- do not add local-calendar milestone work to `v0.2`
+- keep MVP logic Rust-owned and portable across web and Apple
+- treat threads as bounded continuation, not generic chat
+- write durable authority into `docs/`, not only `.planning/`
+- specify degraded and failure states, not just happy-path UI
 
 ## Architectural Direction
 
-- discovery first: write a cross-surface interaction audit before changing structure
-- separate:
-  - true functionality failures
-  - hierarchy/clarity failures
-  - debug leakage
-- make the top-level shell decision-first:
-  - one dominant action
-  - few next actions
-  - background/system info demoted
-- keep editing and decomposition inline where possible
-- move debug/raw model state behind explicit disclosure rather than deleting it from the product entirely
+- contract-first before implementation-first
+- one canonical overview/read-model seam that can express:
+  - dominant action
+  - compact timeline
+  - one visible top nudge
+  - optional additional context behind `Why + state` affordances
+  - 1-3 suggestions when no dominant action exists
+- one bounded commitment flow with explicit operator outcomes
+- one Rust-owned reflow model with proposal state, provenance, and degraded behavior
+- one thread-escalation rule for genuinely multi-step work
+- one review/closure seam that explains what changed and what remains unresolved
 
-## Key Planning Questions
+## Key Research Conclusions
 
-1. What replaces the primary action strip when there is no active commitment?
-2. Are primary CTA verbs universal across item types or commitment/task-specific?
-3. Is routine drag-edit required now, or should the phase stop at timeline visualization plus inline edit?
-4. Should Apple parity be immediate for the new `Threads` mental model, or follow after web proves the shell?
-5. Are right-panel `State / Why / Debug` tabs shell-global or surface-specific?
-6. How far should inline decomposition go in this phase?
+1. The largest risk is not missing implementation; it is boundary ambiguity.
+2. Phase 40 should publish canonical models, transitions, and failure states before any shell refresh or service migration work.
+3. Existing `now`, `daily_loop`, `reflow`, and thread seams should be reconciled into the MVP loop, not replaced wholesale.
+4. Durable docs must separate:
+   - MVP product behavior
+   - Rust/domain contracts
+   - transport and shell consumption rules
+5. Later phases need examples and acceptance checklists, not just prose, or drift will reappear.
 
 ## Recommended Execution Order
 
-1. cross-surface discovery and broken-interaction audit
-2. `Now` decision-first restructure and reliability repair
-3. `Settings`, `Threads`, and context-panel model cleanup
-4. cross-surface verification, docs truth, and explicit remaining limits
+1. define the strict MVP boundary and acceptance rules
+2. reconcile and publish canonical Rust-owned contracts and read models
+3. refine architecture and shell-boundary documentation around those contracts
+4. publish examples/templates/owner guidance and validation criteria before implementation widens

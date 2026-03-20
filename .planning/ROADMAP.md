@@ -8,7 +8,7 @@ The goal of `v0.2` is to establish the true MVP:
 
 - one strict daily operator loop
 - canonical Rust-owned types, logic, and docs for that loop
-- explainable same-day reflow with local-first input where possible
+- explainable same-day reflow over the existing current-day truth
 - threads as the bounded continuation path for tools, context, and data
 - minimal fresh web and Apple shells over the same Rust-owned core
 - explicit post-MVP roadmap work pushed out of scope
@@ -35,7 +35,7 @@ Do not widen this milestone into:
 
 - [ ] **Phase 40: MVP definition, canonical contracts, and architecture refinement** - Freeze the true MVP, define canonical Rust-owned types and business logic, and refine the MVP architecture/docs before UI or migration work widens
 - [ ] **Phase 41: Rust-owned overview, commitment flow, and orientation core** - Make `Now`, daily overview, commitment flow, and nudges/orientation fully backend-owned and decision-first
-- [ ] **Phase 42: Explainable same-day reflow and local-first calendar path** - Finish bounded reflow in Rust and add the narrow local-first calendar input path needed to support it
+- [ ] **Phase 42: Explainable same-day reflow** - Finish bounded reflow in Rust with clear proposal state, provenance, and degraded behavior
 - [ ] **Phase 43: Thread continuation, tools, context, and data** - Formalize threads as the bounded continuation substrate for tools, context, memory, and follow-through
 - [ ] **Phase 44: Minimal fresh web and Apple shells** - Rebuild the shipped web and Apple MVP surfaces as thin clients over the canonical Rust core
 - [ ] **Phase 45: Review, MVP verification, and post-MVP roadmap shaping** - Close the loop with review, end-to-end MVP verification, and explicit post-MVP roadmap/deferred scope
@@ -48,7 +48,7 @@ Do not widen this milestone into:
 |-------|--------------|--------|
 | 40. MVP definition, canonical contracts, and architecture refinement | MVP-04, MODEL-01, MODEL-02, MODEL-03, MODEL-04, CORE-01 | Planned |
 | 41. Rust-owned overview, commitment flow, and orientation core | MVP-01, MVP-02, ORIENT-01, ORIENT-02, ORIENT-03 | Planned |
-| 42. Explainable same-day reflow and local-first calendar path | REFLOW-01, REFLOW-02, REFLOW-03, REFLOW-04 | Planned |
+| 42. Explainable same-day reflow | REFLOW-01, REFLOW-02, REFLOW-03, REFLOW-04 | Planned |
 | 43. Thread continuation, tools, context, and data | THREAD-01, THREAD-02, THREAD-03 | Planned |
 | 44. Minimal fresh web and Apple shells | CORE-02, CORE-03, CLIENT-01, CLIENT-02, CLIENT-03 | Planned |
 | 45. Review, MVP verification, and post-MVP roadmap shaping | MVP-03, REVIEW-01, REVIEW-02, FUTURE-01, FUTURE-02 | Planned |
@@ -99,26 +99,26 @@ Plans:
 - [ ] 41-03-PLAN.md — Normalize nudges/orientation as explainable backend-owned outputs
 - [ ] 41-04-PLAN.md — Verify overview and commitment parity across transport surfaces
 
-### Phase 42: Explainable same-day reflow and local-first calendar path
+### Phase 42: Explainable same-day reflow
 
-**Goal:** Make same-day reflow real, explainable, and Rust-owned, while adding the narrow local-first calendar ingestion needed to support practical local execution where possible.
+**Goal:** Make same-day reflow real, explainable, and Rust-owned, with clear proposal state, provenance, and degraded behavior over the existing current-day truth.
 **Requirements:** REFLOW-01, REFLOW-02, REFLOW-03, REFLOW-04
 **Depends on:** Phase 41
 **Success Criteria:**
 1. Same-day reflow produces explicit scheduled, deferred, conflicted, and did-not-fit outcomes.
 2. Reflow policy and proposal/apply behavior live in Rust services rather than shell code.
 3. Thread escalation exists for ambiguous or review-gated reflow edits.
-4. Local-first calendar input is available through a narrow adapter path without creating Apple-local planner logic.
+4. Reflow degraded-state behavior is explicit, reviewable, and consistent across shells and thread escalation.
 **Non-goals:**
 - multi-day planning
 - broad calendar write-back
-- Apple-local planner behavior
+- new calendar ingestion work
 **Plans:** 4 plans
 
 Plans:
 - [ ] 42-01-PLAN.md — Tighten reflow contracts, proposal state, and provenance requirements
 - [ ] 42-02-PLAN.md — Implement the bounded Rust-owned same-day reflow engine
-- [ ] 42-03-PLAN.md — Add the local-first calendar input/export path for reflow
+- [ ] 42-03-PLAN.md — Add thread escalation and review-gated handling for ambiguous reflow cases
 - [ ] 42-04-PLAN.md — Verify explainability, supervision, and degraded-state behavior for reflow
 
 ### Phase 43: Thread continuation, tools, context, and data
@@ -158,10 +158,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 45-01-PLAN.md — Rework web MVP surfaces around the canonical overview/thread/review contracts
-- [ ] 45-02-PLAN.md — Rework Apple MVP surfaces around the same Rust-owned flows
-- [ ] 45-03-PLAN.md — Remove or deprecate remaining shell-owned MVP behavior
-- [ ] 45-04-PLAN.md — Verify cross-surface parity and minimal-client boundaries
+- [ ] 44-01-PLAN.md — Rework web MVP surfaces around the canonical overview/thread/review contracts
+- [ ] 44-02-PLAN.md — Rework Apple MVP surfaces around the same Rust-owned flows
+- [ ] 44-03-PLAN.md — Remove or deprecate remaining shell-owned MVP behavior
+- [ ] 44-04-PLAN.md — Verify cross-surface parity and minimal-client boundaries
 
 ### Phase 45: Review, MVP verification, and post-MVP roadmap shaping
 
@@ -179,9 +179,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 46-01-PLAN.md — Publish canonical review and closure contracts, then implement the review loop
-- [ ] 46-02-PLAN.md — Run milestone-level MVP verification and degraded-state evidence across the full loop
-- [ ] 46-03-PLAN.md — Document deferred work and the post-MVP roadmap explicitly
+- [ ] 45-01-PLAN.md — Publish canonical review and closure contracts, then implement the review loop
+- [ ] 45-02-PLAN.md — Run milestone-level MVP verification and degraded-state evidence across the full loop
+- [ ] 45-03-PLAN.md — Document deferred work and the post-MVP roadmap explicitly
 
 ---
 *Last updated: 2026-03-20 for milestone v0.2 true MVP planning*

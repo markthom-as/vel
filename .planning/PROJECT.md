@@ -14,7 +14,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 **Target features:**
 - strict daily overview and commitment flow over one canonical current-day truth
-- grounded suggestions, nudges, and same-day reflow with local-first input where possible
+- grounded suggestions, nudges, and explainable same-day reflow
 - threads, tools, context, and review over one Rust-owned continuation model
 - canonical MVP data types, business logic docs, and refined cross-surface architecture docs
 - explicit post-MVP roadmap and deferred-scope boundary
@@ -25,7 +25,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 **In scope for v0.2:**
 - current-day operator behavior only
 - Rust-owned contracts, business logic, and transport for the MVP loop
-- bounded same-day reflow with local-first calendar input where possible
+- bounded same-day reflow over existing current-day truth and persisted constraints
 - bounded thread continuation for tools, context, and data
 - minimal fresh web and Apple shells over the same Rust-owned loop
 - explicit architecture and contract documentation needed to keep shells thin
@@ -144,7 +144,7 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | Broken operator interactions belong in the UI rework lane, not in a separate polish backlog | If an action is surfaced but does not work reliably on web or mobile, that is a product failure and should be repaired alongside hierarchy cleanup | Accepted |
 | v0.2 should define the true MVP in depth before widening implementation again | Prevents fake-MVP scope and keeps future work explicit instead of leaking into the milestone | Accepted |
 | v0.2 should consolidate MVP behavior into one Rust-owned product-core lane rather than re-platforming the whole system | Preserves the existing architecture while removing shell policy drift where it matters | Accepted |
-| Local-first calendar support in v0.2 should mean Rust-owned reflow fed by narrow local calendar input, not Apple-local planner logic | Keeps same-day reflow portable, explainable, and bounded | Accepted |
+| v0.2 reflow should stay Rust-owned and explainable without adding milestone-local calendar ingestion work | Keeps the MVP loop narrow while preserving portable backend authority | Accepted |
 | Fresh web and Apple UI should follow contract lock and Rust-core consolidation rather than lead it | Prevents a second round of shell-owned product semantics | Accepted |
 | v0.2 must stay limited to the overview -> commitments -> reflow -> threads -> review loop | Keeps the milestone honest and blocks drift into adjacent but non-essential product work | Accepted |
 | Anything not directly serving the MVP loop should be deferred unless it is required to keep MVP logic Rust-owned or the clients thin | Prevents architecture and UI cleanup from becoming open-ended | Accepted |

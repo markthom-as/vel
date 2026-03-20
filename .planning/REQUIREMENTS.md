@@ -54,7 +54,7 @@ v0.2 is only complete if all of these are true:
 - [ ] **REFLOW-01**: Operator can run same-day calendar reflow against real commitments and remaining-day constraints
 - [ ] **REFLOW-02**: Reflow results show scheduled, deferred, conflicted, and did-not-fit outcomes clearly
 - [ ] **REFLOW-03**: Reflow behavior is backend-owned, typed, and consistent across web, Apple, and thread flows
-- [ ] **REFLOW-04**: When local execution is possible, calendar reflow prefers local-first data flow and Rust-owned computation over remote dependency
+- [ ] **REFLOW-04**: Reflow inputs, decisions, and degraded states are documented clearly enough that same-day behavior stays explainable without shell-local policy
 
 ### Threads, Tools, Context, Data
 
