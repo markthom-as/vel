@@ -1,193 +1,128 @@
-# Phase 40 Context
+# Phase 40: MVP definition, canonical contracts, and architecture refinement - Context
 
-## Phase
+**Gathered:** 2026-03-20
+**Status:** Ready for planning
 
-40 — Decision-first UI/UX rework across `Now`, `Settings`, `Threads`, and context surfaces
+<domain>
+## Phase Boundary
 
-## Why This Phase Exists
+Phase 40 is the contract-and-architecture lock for milestone `v0.2`. It defines the true MVP precisely enough that later phases can implement without re-deciding scope.
 
-The repaired daily-use arc made Vel materially more usable, but the operator still sees significant UI/UX problems:
+The fixed MVP loop is:
 
-- too much system state shown without clear action
-- weak hierarchy across cards and panels
-- conceptual overload from product and model vocabulary appearing at the same visual level
-- debug/internal runtime state leaking into user-facing surfaces
-- `Now`, `Threads`, and `Settings` still overlapping too much in perceived job and mental model
-- meaningful web and mobile functionality still appears broken or unreliable in normal use
+`overview -> commitments -> reflow -> threads -> review`
 
-This phase exists to tighten the product shell around one decision-first principle:
+This phase clarifies how that loop should work and how formally it should be specified. It does not widen the product beyond that loop, and it does not implement broad new capabilities.
 
-> every primary surface should help the operator decide and act, not narrate internal state
+</domain>
 
-It also requires an upfront discovery pass:
+<decisions>
+## Implementation Decisions
 
-- audit what currently works
-- audit what is visually present but broken/inert/misrouted
-- separate genuine functionality failures from hierarchy/copy/interaction-design problems
-- use that audit as the implementation baseline for the phase
+### Overview contract
+- **D-01:** The MVP overview should use an `action + timeline` shape rather than commitments-first or flat summary-first.
+- **D-02:** The overview should present one dominant current action plus a compact today timeline.
+- **D-03:** Only the single highest-priority nudge should be visible by default; additional nudges live behind context affordances.
+- **D-04:** Tappable icons should reveal `Why + state` context, not alternate actions or raw system detail.
+- **D-05:** When there is no obvious current action, the overview should show a decision prompt with 1-3 suggested items.
+- **D-06:** In the no-dominant-action case, the operator must be able to accept a suggestion, pick from the other suggestions, enter thread-based resolution, or close.
 
-## Operator-Supplied Design Spec
+### Loop boundaries
+- **D-07:** Threads are for multi-step work, not for ordinary overview/reflow interactions.
+- **D-08:** The lightweight MVP loop should keep `accept / defer / choose / close` inline.
+- **D-09:** A thread should be used only when the work becomes genuinely multi-step.
+- **D-10:** “Multi-step” means at least two of the following are true:
+  - it needs explanation
+  - it needs multiple decisions
+  - it needs tool/context work
 
-### Global problems to solve
+### Reflow scope and local-calendar boundary
+- **D-11:** `v0.2` should keep same-day reflow in scope, but local calendar work should be deferred from this milestone.
+- **D-12:** Phase 40 should still define reflow contracts and provenance over the existing Rust-owned calendar inputs.
+- **D-13:** Local calendar input/export, local apply behavior, and platform-specific local planning paths are out of scope for `v0.2`.
 
-1. State does not translate cleanly into action
-2. Visual hierarchy is too flat
-3. Too many concepts are shown at once
-4. Debug/runtime model state leaks into operator-facing UI
-5. Important interaction paths on web and mobile do not work reliably enough to trust
+### Contract and documentation rigor
+- **D-14:** Phase 40 should behave like a full spec phase, not a light pre-implementation cleanup.
+- **D-15:** Canonical durable authority should live in `docs/`, not only in `.planning/`.
+- **D-16:** `.planning/` should hold phase/milestone planning summaries, while durable specs belong in `docs/`.
+- **D-17:** Stable examples, templates, or boundary artifacts should live close to code where that helps downstream implementation stay honest.
+- **D-18:** Phase 40 must specify:
+  - canonical models
+  - user-visible behaviors
+  - state transitions
+  - failure and degraded-state behavior
 
-### Global corrections
+### the agent's Discretion
+- Exact spec document breakdown across `docs/` and code-adjacent examples/templates.
+- Exact naming of the canonical overview/read-model contract as long as it stays aligned to the MVP loop.
+- Exact presentation of icon affordances and compact timeline interaction details, as long as the action-first and `Why + state` rules are preserved.
 
-- Every card should answer:
-  - what should I do?
-  - what happens if I click this?
-- Strict hierarchy:
-  - Tier 1: current action
-  - Tier 2: next actions
-  - Tier 3: background/system info
-- Progressive disclosure by default
-- Debug/internal model output moved behind explicit affordances:
-  - debug mode
-  - or right-panel debug tab
-- Treat broken or unreliable operator interactions as part of the phase scope:
-  - missing/broken buttons
-  - inert affordances
-  - wrong routing
-  - mobile/web behavior drift
-  - shell interactions that describe state but fail to complete the intended action
+</decisions>
 
-## Screen Intent Contract
+<specifics>
+## Specific Ideas
 
-### `Now`
+- The overview should feel like a decision surface, not a dashboard.
+- Hidden depth should be behind tappable icons instead of dumped inline.
+- When no dominant action exists, the product should help the operator choose rather than pretending there is already one obvious answer.
+- Threads should remain bounded continuity, not become a generic chat product.
+- This milestone should be substantially more spec-driven than the previous drifting cycle.
 
-Job:
+</specifics>
 
-- run the current day
+<canonical_refs>
+## Canonical References
 
-Target structure:
+**Downstream agents MUST read these before planning or implementing.**
 
-1. primary action strip
-2. collapsible time context
-3. task stack
+### Milestone authority
+- `.planning/PROJECT.md` — v0.2 milestone goal, MVP loop, scope guardrails, and accepted decisions
+- `.planning/REQUIREMENTS.md` — v0.2 requirements, MVP acceptance checklist, and non-goals
+- `.planning/ROADMAP.md` — fixed phase boundary for Phase 40 and downstream phase sequencing
+- `.planning/STATE.md` — current milestone state and execution position
 
-Required direction:
+### Durable architecture and repo rules
+- `docs/MASTER_PLAN.md` — canonical implementation truth and historical lane context
+- `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md` — Rust-owned cross-surface boundary guidance
+- `README.md` — repo entrypoint and current product/runtime framing
 
-- one dominant current commitment/action
-- inline continue / break down / defer controls
-- next event connected to today execution, not a separate detached summary
-- voice input pinned and always available
-- routine card removed as its own primary surface concept
-- no duplicate current/current-status blocks
-- no dead empty states like “Nothing scheduled”
-- primary actions on web and mobile must actually work and resolve through the intended inline or continuity path
+</canonical_refs>
 
-### `Settings`
+<code_context>
+## Existing Code Insights
 
-Job:
+### Reusable Assets
+- `crates/veld/src/services/now.rs` and existing `Now` API/read-model seams: starting point for the canonical overview contract.
+- `crates/veld/src/services/daily_loop.rs`: existing commitment/session behavior that can inform the MVP loop contract.
+- `crates/veld/src/services/reflow.rs`: existing same-day reflow seam to formalize rather than replace wholesale.
+- `crates/veld/src/routes/threads.rs` and thread-backed flows in `chat_assistant_entry` tests: existing continuation substrate to narrow and formalize.
+- `crates/vel-core/src/context.rs`: existing reflow-status and current-context shape that may inform typed MVP state transitions.
+- `crates/vel-api-types/src/lib.rs`: existing transport DTO surface already contains `daily_loop`, `reflow`, `review_snapshot`, and thread-related data to reconcile or tighten.
 
-- configure the system
+### Established Patterns
+- The repo already prefers Rust-owned services and typed DTOs over shell-local policy.
+- Existing roadmap and project docs now enforce a strict MVP loop and explicit non-goals.
+- Phase 15/16 decisions already pushed `check_in` and `reflow` toward backend ownership.
+- The current architecture expects web and Apple to consume shared transport seams rather than invent behavior locally.
 
-Target structure:
+### Integration Points
+- Phase 40 planning should connect directly to `now`, `daily_loop`, `reflow`, `threads`, and review-related DTO/read-model seams.
+- Durable spec work should land in `docs/` with planning summaries in `.planning/`, then feed later contract and service changes.
+- Later client refresh work should depend on Phase 40 contracts instead of re-deriving screen behavior from existing UI.
 
-1. system profile
-2. planning model
-3. routines
-4. recovery model
+</code_context>
 
-Required direction:
+<deferred>
+## Deferred Ideas
 
-- no second-dashboard behavior
-- categories must become explicit and operator-meaningful
-- constraints vs preferences split clearly
-- routines should read visually like time blocks, not raw forms
-- “freshness / aging” and abstract planning/recovery summary cards should not dominate the primary settings surface
-- inline editable cards preferred over full-page forms
-- web/mobile configuration actions should be auditable and working, not just visually present
+- Local-first calendar input/export paths for Apple or other platforms
+- Local calendar apply behavior or narrow safe local apply rules
+- Broad UI polish outside the MVP loop screens
+- Generic chat/tool product expansion beyond bounded thread continuation
 
-### `Threads`
+</deferred>
 
-Job:
+---
 
-- think through open loops
-
-Mental model:
-
-- `Threads` = open loops that need deeper thought
-
-Required direction:
-
-- clearer why/status per thread
-- structured thread view with:
-  - timeline
-  - decisions made
-  - open questions
-  - next step
-- remove generic chat framing and empty-chat affordances
-- support:
-  - promote from `Now` to thread
-  - resolve thread back to action
-- thread affordances should complete real continuity work rather than behaving like dead-end shell navigation
-
-### Right panel / context surface
-
-Job:
-
-- provide human-readable context and explanation without leaking raw model state by default
-
-Required direction:
-
-- tab structure:
-  - `State`
-  - `Why`
-  - `Debug`
-- remove confidence percentages, risk scores, IDs, booleans, and similar raw internals from default display
-
-## Cross-Screen Product Rules
-
-1. One screen = one job
-   - `Now` → act
-   - `Threads` → think
-   - `Settings` → configure
-2. Max 3 actions rule
-3. Kill dead states
-4. Inline > navigation for decomposition, editing, and clarifying context
-5. System confidence should affect behavior, not become raw display copy
-
-## Visual Direction
-
-- one dominant card per screen
-- increased vertical spacing
-- grouping by function rather than raw data type
-- color reserved for:
-  - active
-  - blocked
-  - urgent
-
-## Litmus Test
-
-For every element:
-
-- if removed, does the operator lose the ability to act?
-- if not, remove or demote it
-
-## Risks / Open Design Questions
-
-These are the main questions to settle during Phase 40 planning:
-
-1. What should the top primary action strip show when there is no active commitment?
-2. Should `Continue / Break down / Defer` apply to every primary item type or only commitment/task rows?
-3. Is routine drag-edit in `Settings` in scope for this phase, or should this phase stop at timeline visualization plus inline edit controls?
-4. Should the new `Threads` mental model be web-first in this phase, or should Apple parity be included immediately?
-5. Should the right-panel `State / Why / Debug` tabs be global shell behavior or attached only to selected surfaces like `Now` and `Threads`?
-6. How far should inline decomposition go in this phase:
-   - lightweight checklist/subtask breakdown only
-   - or broader inline planning/editing
-
-## Recommended Planning Bias
-
-- begin with a discovery and interaction-audit slice before redesign/implementation slices
-- keep this phase focused on hierarchy, actionability, and mental-model repair
-- avoid turning it into a broad visual polish pass without structural change
-- treat drag-edit routines as a possible follow-on if it threatens to dominate implementation cost
-- include a focused broken-interactions audit for web and mobile so obviously non-working affordances are repaired inside the same phase
-- preserve backend-owned product logic; this phase is primarily shell/interaction redesign, not a new planner or shell-local policy system
+*Phase: 40-decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces*
+*Context gathered: 2026-03-20*
