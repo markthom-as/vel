@@ -7,6 +7,7 @@ Implemented same-day reflow/reconciliation over the shared bounded planning subs
 This document records the canonical backend-owned contract for day-plan `reflow` after Phase 26 slices `26-01` through `26-03`.
 
 For the proactive same-day planning contract that precedes recovery, see [day-plan-contract.md](./day-plan-contract.md).
+For the active `v0.2` MVP-loop authority that constrains how reflow appears in overview, escalation, and review, see [mvp-loop-contracts.md](./mvp-loop-contracts.md).
 
 ## Purpose
 
@@ -32,6 +33,7 @@ The backend now fills that proposal from the current day's persisted commitments
 - it attempts bounded same-day placement for movable work
 - it marks work as `unscheduled` when it no longer fits
 - it leaves fixed-time or missed-anchor situations in `needs_judgment`
+- it should escalate ambiguous or review-gated cases into `Threads` rather than widening into shell-local planner logic
 
 Current rule-facet vocabulary is:
 
@@ -70,6 +72,7 @@ Current embodiment rules:
 - `Now` renders the compact reflow summary, counts, change rows, and rule-facet chips
 - `Now` may also indicate whether the current day is using operator-managed routine blocks or inferred fallback
 - `Threads` is the place for longer disagreement or manual schedule shaping
+- ambiguous or review-gated reflow cases should move into thread continuation rather than staying as implicit shell state
 - `Settings` surfaces recovery posture and trust/freshness summary without becoming a second planner
 
 ## Current Limit
@@ -79,6 +82,7 @@ The shipped reflow lane is intentionally bounded.
 Current limits:
 
 - it is a same-day remaining-day repair path, not multi-day planning
+- it does not add local-calendar milestone work to `v0.2`
 - durable routine materialization is currently bounded to weekday/local-time templates rather than richer recurrence semantics
 - fixed-time handling is still conservative and remains operator-supervised
 - acceptance/editing continuity still relies on the existing supervised `reflow` / `Threads` path

@@ -144,6 +144,8 @@ Examples already present:
 - `DailyLoopSessionData`
 - `AgentInspectData`
 
+For the concrete `v0.2` MVP read-model authority, use [mvp-loop-contracts.md](./mvp-loop-contracts.md). That document defines the active loop-specific contracts `OverviewReadModel`, `CommitmentFlow`, `ReflowProposal`, `ThreadEscalation`, and `ReviewSnapshot`.
+
 Read models may be optimized for a shell family or workflow, but they should still be named by product meaning rather than one component tree.
 
 ## Transport DTOs
