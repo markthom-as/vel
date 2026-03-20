@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.1
+milestone: v0.2
 milestone_name: milestone
 current_phase: 40
-current_phase_name: decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces
-current_plan: "phase_execution"
-status: ready_for_phase_execution
-stopped_at: Planned Phase 40 with a discovery-first UI/UX rework stack; next logical step is 40-01 interaction audit
-last_updated: "2026-03-20T21:40:00Z"
+current_phase_name: mvp-definition-canonical-contracts-and-architecture-refinement
+current_plan: "milestone_roadmap"
+status: ready_for_phase_discussion
+stopped_at: Initialized milestone v0.2 planning; next logical step is Phase 40 discussion and plan creation
+last_updated: "2026-03-20T23:59:00Z"
 last_activity: 2026-03-20
 progress:
   total_phases: 40
@@ -24,20 +24,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Execute the discovery-first UI/UX rework across `Now`, `Settings`, `Threads`, and contextual panels
+**Current focus:** Define and ship the true MVP as one Rust-owned daily operator loop with minimal fresh web and Apple shells
 
-Status: Phase 40 is now planned; the next work is discovery and implementation of the decision-first UI/UX rework
+Status: Milestone v0.2 is initialized; the next work is Phase 40 MVP-definition and canonical-contract planning
 Current Phase: 40
-Current Phase Name: decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces
-Current Plan: phase_execution
+Current Phase Name: mvp-definition-canonical-contracts-and-architecture-refinement
+Current Plan: milestone_roadmap
 Total Plans in Phase: 4
 Progress: 94%
 Last Activity: 2026-03-20
-Last Activity Description: Planned Phase 40 into discovery, `Now`, `Settings`/`Threads`/context, and closeout verification slices
+Last Activity Description: Initialized milestone v0.2 around true MVP definition, Rust-core closure, and minimal fresh client shells
 
 ## Current Position
 
-Phase: 40 (decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces) — PLANNED
+Phase: 40 (mvp-definition-canonical-contracts-and-architecture-refinement) — PLANNED
 Plan: 40-01 next
 
 ## Performance Metrics

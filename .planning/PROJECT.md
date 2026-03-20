@@ -8,6 +8,37 @@ Vel is a local-first personal cognition runtime and autonomous agent orchestrati
 
 Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 
+## Current Milestone: v0.2 True MVP and Rust-Core Closure
+
+**Goal:** Establish the true MVP as one strict daily operator loop backed by platform-portable Rust core logic, with minimal fresh web and Apple shells over that core.
+
+**Target features:**
+- strict daily overview and commitment flow over one canonical current-day truth
+- grounded suggestions, nudges, and same-day reflow with local-first input where possible
+- threads, tools, context, and review over one Rust-owned continuation model
+- canonical MVP data types, business logic docs, and refined cross-surface architecture docs
+- explicit post-MVP roadmap and deferred-scope boundary
+
+**MVP loop:**
+`overview -> commitments -> reflow -> threads -> review`
+
+**In scope for v0.2:**
+- current-day operator behavior only
+- Rust-owned contracts, business logic, and transport for the MVP loop
+- bounded same-day reflow with local-first calendar input where possible
+- bounded thread continuation for tools, context, and data
+- minimal fresh web and Apple shells over the same Rust-owned loop
+- explicit architecture and contract documentation needed to keep shells thin
+
+**Out of scope for v0.2:**
+- multi-day or autonomous planning
+- broad UI polish outside the MVP loop screens
+- broad provider or platform expansion
+- shell-owned fallback logic, ranking logic, or planner logic
+- broad FFI migration or Apple-local planning logic
+- broad calendar write-back automation
+- generic chat-first product direction
+
 ## Requirements
 
 ### Validated
@@ -48,36 +79,15 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ### Active
 
-**Post-Phase-4 Product Direction:**
-- [ ] Phase 5 — `Now + Inbox` remain primary; projects land first as typed substrate plus project-family structure
-- [ ] Phase 6 — safe autonomous write-back for Todoist/notes/reminders/GitHub/email; lightweight people registry; upstream conflict prompts
-- [ ] Phase 7 — iOS/watch action loops first: voice capture, current schedule, and nudge response; lightweight behavior signals
-- [ ] Phase 8 — coding-first supervised execution with GSD-aware repo docs, token-budget awareness, and local-agent support
-- [ ] Phase 9 — backup/export trust surfaces and simple operator control, with recovery deferred behind core usability
-- [ ] Phase 10 — strict daily-loop MVP: morning overview, standup, 1-3 commitments, deferrals, and focus protection over existing `Now`/calendar/Todoist/voice seams
-- [ ] Phase 11 — agent grounding over real Vel data and bounded tool surfaces: current context, projects, people, commitments, review queues, and operator-visible trust controls
-- [ ] Phase 12 — shell, onboarding, and connector ergonomics: routes, docs/help surfaces, project detail UX, linking/discovery reliability, and settings polish
-- [ ] Phase 20 — grounded assistant entry and daily-use usability closure: make the grounded assistant the default text/capture/thread entry while tightening `Now`/`Inbox`/`Threads` and reducing setup friction
-- [ ] Phase 21 — cross-surface voice assistant parity and desktop push-to-talk: unify browser/desktop/Apple voice onto the same grounded assistant seam, preferring local STT where practical
-- [ ] Phase 22 — assistant-supported daily loop, closeout, and thread resolution: let morning, standup, end-of-day, and multi-step item resolution happen through the same backend-owned conversation/thread model
-- [ ] Phase 23 — safe assistant-mediated actions and supervised write lanes: let the assistant stage bounded actions through existing review/trust gates without bypassing operator control
-- [ ] Phase 24 — approved assistant action application and reversible write execution: let explicitly approved assistant proposals apply through existing confirmation, review, and writeback seams without weakening supervision
-- [ ] Phase 25 — local recall, semantic memory, and grounded assistant context: improve explainable local recall and backend-owned assistant context without widening into hosted memory infrastructure
-- [ ] Phase 26 — real day-plan reflow and schedule reconciliation: turn stale schedule recovery into a real backend-owned day-repair lane with explainable remaining-day recomputation
-- [ ] Phase 27 — canonical scheduler facets and commitment rule normalization: turn proven tag/rule semantics into first-class Vel-backed fields/facets for agents, recall, and reflow
-- [ ] Phase 28 — routine blocks and commitment-aware day planning: use canonical scheduler rules plus calendar anchors to shape a bounded backend-owned plan before day drift occurs
-- [ ] Phase 29 — durable routine blocks and operator-managed planning constraints: replace inferred-only routine inputs with persisted backend-owned routine blocks and bounded planning constraints over the same day-plan substrate
-- [ ] Phase 30 — routine and planning-profile management surfaces: let operators manage durable routine blocks and bounded planning constraints through typed backend seams and thin shipped surfaces
-- [ ] Phase 31 — cross-surface planning-profile parity and assistant-managed routine edits: extend the canonical planning-profile seam into CLI, Apple, and assistant/voice flows without creating a second planner
-- [ ] Phase 32 — approved planning-profile edits and supervised routine application: let staged assistant/voice planning-profile edits resolve through review and canonical backend mutation without silent conversational writes
-- [ ] Phase 33 — approved day-plan and reflow application over commitment scheduling: let bounded same-day planning outcomes apply through supervised backend scheduling seams without broad planner authority
-- [ ] Phase 34 — `Now` view simplification, current-day truth, and `Vel.csv` acceptance: turn `Now` into a compact current-day control surface while fixing calendar/Todoist truth, duplicated UI, and low-value status clutter
-- [ ] Phase 35 — sleep-relative day boundary and today-lane correctness: make `Now`, next-event truth, commitments, and thread resurfacing agree on one sleep-relative current-day model
-- [ ] Phase 36 — shell hierarchy, settings, and continuity simplification: reduce slop across `Now`, `Threads`, `Settings`, and sidebar behavior without reintroducing shell-owned product logic
-- [ ] Phase 37 — iPhone embedded Rust core and Apple FFI foundation: add the real iPhone embedded-capable Apple path behind feature/platform gates while preserving one canonical Rust-owned product model
-- [ ] Phase 38 — local-first iPhone voice continuity and offline action lane: make voice capture, cached `Now`, queued quick actions, and thread drafts feel local-first on iPhone
-- [ ] Phase 39 — `Vel.csv` regression sweep and daily-use closeout: sweep remaining `Vel.csv` usability pressure and verify that web and Apple can support a real daily-use loop cleanly
-- [ ] Phase 40 — decision-first UI/UX rework across `Now`, `Settings`, `Threads`, and context surfaces: reduce cognitive load, enforce one-screen-one-job hierarchy, make primary actions materially clearer, and repair obviously broken web/mobile interactions
+**Milestone v0.2 Active Scope:**
+- [ ] true MVP definition around one strict daily operator loop
+- [ ] canonical Rust-owned data types, business logic, and architecture docs for that loop
+- [ ] decision-first overview, bounded commitments, grounded nudges, and explainable same-day reflow
+- [ ] thread-based continuation for tools, context, data, and follow-through
+- [ ] lightweight review and closeout over the same Rust-owned loop
+- [ ] fresh minimal web and Apple MVP shells over shared transport contracts
+- [ ] explicit future roadmap for post-MVP work outside v0.2
+- [ ] strict non-goals that prevent unrelated product expansion during MVP closure
 
 ### Out of Scope
 
@@ -88,7 +98,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ## Context
 
-This is a mid-migration brownfield project. The codebase has been structurally decomposed (Phase 1 complete): layered Rust crates (`vel-core` → `vel-storage` → `vel-api-types` → `veld`), auth hardening, canonical schemas, and self-awareness contracts are all in place. Phase 3 is complete; Phases 2 and 4 shipped meaningful baselines but had unfinished original-scope work. That unfinished work has been explicitly re-scoped into Phases 5, 6, and 8 so no active roadmap work remains before Phase 5. The active planning lane is the product-shaping sequence centered on `Now + Inbox`, typed project substrate, safe write-back, Apple action loops, supervised execution, backup-first trust, a strict daily loop, stronger agent grounding, and a cleaner operator shell/onboarding path.
+This is a mid-migration brownfield project. The codebase already has the right broad technical foundation: layered Rust crates (`vel-core` → `vel-storage` → `vel-api-types` → `veld`), auth hardening, canonical schemas, and substantial product behavior shipped through milestone `v0.1`. The `v0.2` milestone is intentionally narrower than the breadth of what already exists. Its job is to define and ship the true MVP: one strict daily operator loop with Rust-owned authority, explainable same-day reflow, bounded thread continuation, lightweight review, and minimal fresh web and Apple shells that stop carrying local product policy.
 
 The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implementation specifications for the shipped architecture queue. For active future work, `.planning/ROADMAP.md` and subsequent phase plans are the requirements source starting at Phase 5. For non-phase future work that is not yet scheduled, use `.planning/BACKLOG.md`. For execution-ready small work items, use `.planning/todos/pending/`.
 
@@ -132,6 +142,29 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | Apple embedded-core / FFI should start on iPhone, with voice continuity as the proving flow | Maximizes local-first value and offline differentiation without splitting effort across watch and Mac too early | Accepted |
 | UI rework should be decision-first rather than dashboard-first | Reduces cognitive load by making each primary surface answer what to do next and hiding debug/runtime internals behind explicit disclosure | Accepted |
 | Broken operator interactions belong in the UI rework lane, not in a separate polish backlog | If an action is surfaced but does not work reliably on web or mobile, that is a product failure and should be repaired alongside hierarchy cleanup | Accepted |
+| v0.2 should define the true MVP in depth before widening implementation again | Prevents fake-MVP scope and keeps future work explicit instead of leaking into the milestone | Accepted |
+| v0.2 should consolidate MVP behavior into one Rust-owned product-core lane rather than re-platforming the whole system | Preserves the existing architecture while removing shell policy drift where it matters | Accepted |
+| Local-first calendar support in v0.2 should mean Rust-owned reflow fed by narrow local calendar input, not Apple-local planner logic | Keeps same-day reflow portable, explainable, and bounded | Accepted |
+| Fresh web and Apple UI should follow contract lock and Rust-core consolidation rather than lead it | Prevents a second round of shell-owned product semantics | Accepted |
+| v0.2 must stay limited to the overview -> commitments -> reflow -> threads -> review loop | Keeps the milestone honest and blocks drift into adjacent but non-essential product work | Accepted |
+| Anything not directly serving the MVP loop should be deferred unless it is required to keep MVP logic Rust-owned or the clients thin | Prevents architecture and UI cleanup from becoming open-ended | Accepted |
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition**:
+1. Requirements invalidated? Move them to out of scope with reason.
+2. Requirements validated? Move them to validated with phase reference.
+3. New requirements emerged? Add them to active scope.
+4. Decisions to log? Add them to the key decisions table.
+5. Product framing drifted? Update the project description and context.
+
+**After each milestone**:
+1. Review all sections for truthfulness.
+2. Re-check the core value and MVP boundary.
+3. Audit out-of-scope items and confirm they are still intentionally deferred.
+4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-20 after adding Phase 40 for a decision-first UI/UX rework across `Now`, `Settings`, `Threads`, and context surfaces*
+*Last updated: 2026-03-20 for milestone v0.2 true MVP planning*
