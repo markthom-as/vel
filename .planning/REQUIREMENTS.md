@@ -198,113 +198,124 @@ Note: Phase 12 also reinforced `DOCS-01` through contextual setup/help work, but
 
 - [x] **CLOSEOUT-01**: Milestone phases 2-17 have durable verification coverage sufficient to support milestone-level audit and archival claims
 - [x] **CLOSEOUT-02**: `REQUIREMENTS.md` traceability and checked-off state are reconciled against phase summaries and verification evidence before milestone archival
-- [ ] **CLOSEOUT-03**: `ROADMAP.md`, `STATE.md`, and milestone archive inputs are internally consistent and reflect the true shipped state before archival/tagging
-- [ ] **CLOSEOUT-04**: Milestone re-audit passes with explicit cross-phase integration and end-to-end closeout evidence before `gsd-complete-milestone`
+- [x] **CLOSEOUT-03**: `ROADMAP.md`, `STATE.md`, and milestone archive inputs are internally consistent and reflect the true shipped state before archival/tagging
+- [x] **CLOSEOUT-04**: Milestone re-audit passes with explicit cross-phase integration and end-to-end closeout evidence before `gsd-complete-milestone`
 
 ### Grounded Assistant Entry And Daily-Use Closure (Phase 20)
 
-- [ ] **USABLE-01**: The grounded assistant becomes a practical default operator entry instead of a side chat surface
-- [ ] **USABLE-02**: Daily-use friction across `Now`, `Inbox`, `Threads`, and setup is reduced enough for repeated operator use
-- [ ] **NOW-UX-01**: `Now` better balances urgent inline actions with subtle links into deeper surfaces
-- [ ] **INBOX-UX-01**: `Inbox` better supports explicit triage over the shared action model without turning into a second thread archive
-- [ ] **THREADS-UX-01**: `Threads` better support continuity, search, and assistant escalation over real product state
-- [ ] **ENTRY-01**: Capture, text conversation, and operator intent entry converge on one clearer assistant-first path
-- [ ] **SETTINGS-UX-01**: Default setup friction drops without expanding advanced/runtime complexity
-- [ ] **ASSIST-01**: One backend-owned grounded assistant seam powers the default text/capture entry path over real Vel data and bounded tools
-- [ ] **ASSIST-02**: Configured remote LLM routing, including localhost `openai_oauth`, remains optional, bounded, and compatible with the local-first core
-- [ ] **THREADS-02**: Assistant continuity and escalation preserve thread ownership and product boundaries instead of inventing a separate assistant archive model
+- [x] **USABLE-01**: The grounded assistant becomes a practical default operator entry instead of a side chat surface
+- [x] **USABLE-02**: Daily-use friction across `Now`, `Inbox`, `Threads`, and setup is reduced enough for repeated operator use
+- [x] **NOW-UX-01**: `Now` better balances urgent inline actions with subtle links into deeper surfaces
+- [x] **INBOX-UX-01**: `Inbox` better supports explicit triage over the shared action model without turning into a second thread archive
+- [x] **THREADS-UX-01**: `Threads` better support continuity, search, and assistant escalation over real product state
+- [x] **ENTRY-01**: Capture, text conversation, and operator intent entry converge on one clearer assistant-first path
+- [x] **SETTINGS-UX-01**: Default setup friction drops without expanding advanced/runtime complexity
+- [x] **ASSIST-01**: One backend-owned grounded assistant seam powers the default text/capture entry path over real Vel data and bounded tools
+- [x] **ASSIST-02**: Configured remote LLM routing, including localhost `openai_oauth`, remains optional, bounded, and compatible with the local-first core
+- [x] **THREADS-02**: Assistant continuity and escalation preserve thread ownership and product boundaries instead of inventing a separate assistant archive model
 
 ### Cross-Surface Voice Assistant Parity (Phase 21)
 
-- [ ] **VOICE-02**: Voice input across web/desktop and Apple reuses the same grounded assistant behavior as typed input
-- [ ] **VOICE-03**: Transcript provenance, intent routing, and fallback behavior remain explicit and inspectable across voice surfaces
-- [ ] **APPLE-VOICE-02**: Apple voice stops carrying shell-specific product logic that should live in the shared assistant/runtime seam
-- [ ] **DESKTOP-VOICE-01**: Desktop/browser push-to-talk remains fast and practical with local speech-to-text when available
-- [ ] **DESKTOP-VOICE-02**: Voice surfaces preserve thread continuity and do not fork into a second-class “voice-only” interaction model
+- [x] **VOICE-02**: Voice input across web/desktop and Apple reuses the same grounded assistant behavior as typed input
+- [x] **VOICE-03**: Transcript provenance, intent routing, and fallback behavior remain explicit and inspectable across voice surfaces
+- [x] **APPLE-VOICE-02**: Apple voice stops carrying shell-specific product logic that should live in the shared assistant/runtime seam
+- [x] **DESKTOP-VOICE-01**: Desktop/browser push-to-talk remains fast and practical with local speech-to-text when available
+- [x] **DESKTOP-VOICE-02**: Voice surfaces preserve thread continuity and do not fork into a second-class “voice-only” interaction model
 
 ### Assistant-Supported Daily Loop, Closeout, And Thread Resolution (Phase 22)
 
-- [ ] **DAILY-AI-01**: Morning overview and standup can be entered or resumed through the grounded assistant without bypassing the typed daily-loop authority
-- [ ] **DAILY-AI-02**: Assistant-capable daily-loop flows preserve durable prompts, responses, and session state across shells
-- [ ] **EOD-01**: End-of-day becomes a first-class assistant-capable closure flow over persisted Vel state
-- [ ] **EOD-02**: End-of-day summaries and follow-ups remain explainable from persisted records rather than shell-local synthesis
-- [ ] **THREAD-RES-01**: Longer check-in, reflow, and item-resolution work can escalate into durable threads cleanly
-- [ ] **THREAD-RES-02**: Thread-based resolution preserves why an item was resolved, deferred, edited, or left pending
+- [x] **DAILY-AI-01**: Morning overview and standup can be entered or resumed through the grounded assistant without bypassing the typed daily-loop authority
+- [x] **DAILY-AI-02**: Assistant-capable daily-loop flows preserve durable prompts, responses, and session state across shells
+- [x] **EOD-01**: End-of-day becomes a first-class assistant-capable closure flow over persisted Vel state
+- [x] **EOD-02**: End-of-day summaries and follow-ups remain explainable from persisted records rather than shell-local synthesis
+- [x] **THREAD-RES-01**: Longer check-in, reflow, and item-resolution work can escalate into durable threads cleanly
+- [x] **THREAD-RES-02**: Thread-based resolution preserves why an item was resolved, deferred, edited, or left pending
 
 ### Safe Assistant-Mediated Actions (Phase 23)
 
-- [ ] **ASSIST-ACT-01**: The assistant can stage bounded actions through the existing operator-action and review model without bypassing trust gates
-- [ ] **ASSIST-ACT-02**: Assistant-proposed mutations remain explicit, inspectable, and reversible where the existing product contract requires it
-- [ ] **REVIEW-02**: Review queues and approval surfaces can accept assistant-originated proposals without losing provenance or supervision
-- [ ] **TRUST-02**: SAFE MODE, writeback grants, and trust/readiness posture still fail closed when the assistant attempts a gated action
-- [ ] **ASSIST-APPLY-01**: Explicitly approved assistant proposals can advance from staged to applied through the canonical operator-action, execution-review, or writeback lanes instead of stopping at proposal state
+- [x] **ASSIST-ACT-01**: The assistant can stage bounded actions through the existing operator-action and review model without bypassing trust gates
+- [x] **ASSIST-ACT-02**: Assistant-proposed mutations remain explicit, inspectable, and reversible where the existing product contract requires it
+- [x] **REVIEW-02**: Review queues and approval surfaces can accept assistant-originated proposals without losing provenance or supervision
+- [x] **TRUST-02**: SAFE MODE, writeback grants, and trust/readiness posture still fail closed when the assistant attempts a gated action
+- [x] **ASSIST-APPLY-01**: Explicitly approved assistant proposals can advance from staged to applied through the canonical operator-action, execution-review, or writeback lanes instead of stopping at proposal state
 
 ### Routine Blocks And Commitment-Aware Day Planning (Phase 28)
 
-- [ ] **DAYPLAN-01**: Vel can shape an initial same-day plan from calendar anchors, open commitments, and canonical scheduler rules before schedule drift occurs
-- [ ] **DAYPLAN-02**: Planned-day output remains explainable with explicit scheduled, deferred, and did-not-fit outcomes instead of opaque planner state
-- [ ] **ROUTINE-01**: Routine blocks become typed backend-owned planning inputs rather than shell-only hints or raw labels
-- [ ] **ROUTINE-02**: Morning/day-plan surfaces consume one shared backend-owned plan contract across CLI, web, assistant, and Apple pathways
-- [ ] **ASSIST-APPLY-02**: Applied assistant outcomes preserve provenance, resulting state, and reversible follow-through where the existing product contract already supports reversal
-- [ ] **REVIEW-03**: Review and approval surfaces can complete assistant-originated proposals into applied outcomes without losing thread, handoff, or action lineage
-- [ ] **TRUST-03**: SAFE MODE, writeback grants, approval gates, and trust/readiness posture still fail closed during apply, retry, and reverse paths for assistant-mediated work
+- [x] **DAYPLAN-01**: Vel can shape an initial same-day plan from calendar anchors, open commitments, and canonical scheduler rules before schedule drift occurs
+- [x] **DAYPLAN-02**: Planned-day output remains explainable with explicit scheduled, deferred, and did-not-fit outcomes instead of opaque planner state
+- [x] **ROUTINE-01**: Routine blocks become typed backend-owned planning inputs rather than shell-only hints or raw labels
+- [x] **ROUTINE-02**: Morning/day-plan surfaces consume one shared backend-owned plan contract across CLI, web, assistant, and Apple pathways
+- [x] **ASSIST-APPLY-02**: Applied assistant outcomes preserve provenance, resulting state, and reversible follow-through where the existing product contract already supports reversal
+- [x] **REVIEW-03**: Review and approval surfaces can complete assistant-originated proposals into applied outcomes without losing thread, handoff, or action lineage
+- [x] **TRUST-03**: SAFE MODE, writeback grants, approval gates, and trust/readiness posture still fail closed during apply, retry, and reverse paths for assistant-mediated work
 
 ### Durable Routine Blocks And Operator-Managed Planning Constraints (Phase 29)
 
-- [ ] **ROUTINE-03**: Routine blocks can persist as durable backend-owned planning records rather than only inferred current-context hints
-- [ ] **ROUTINE-04**: Operators can manage bounded routine/planning constraints through typed backend-owned seams without creating shell-owned planning logic
-- [ ] **DAYPLAN-03**: Day shaping can consume durable routine blocks and constraints over the same backend-owned planning substrate as `reflow`
-- [ ] **DAYPLAN-04**: Shipped surfaces can summarize durable routine-backed planning posture without implying multi-day autonomy or a second planner
+- [x] **ROUTINE-03**: Routine blocks can persist as durable backend-owned planning records rather than only inferred current-context hints
+- [x] **ROUTINE-04**: Operators can manage bounded routine/planning constraints through typed backend-owned seams without creating shell-owned planning logic
+- [x] **DAYPLAN-03**: Day shaping can consume durable routine blocks and constraints over the same backend-owned planning substrate as `reflow`
+- [x] **DAYPLAN-04**: Shipped surfaces can summarize durable routine-backed planning posture without implying multi-day autonomy or a second planner
 
 ### Cross-Surface Planning-Profile Parity And Assistant-Managed Routine Edits (Phase 31)
 
-- [ ] **PLANPROFILE-03**: CLI, Apple, and assistant-capable entry points can inspect the same canonical planning profile instead of relying on shell-local routine state
-- [ ] **PLANPROFILE-04**: Assistant or voice-driven routine/profile edits route through the typed planning-profile mutation seam with explicit confirmation and provenance
-- [ ] **ROUTINE-07**: Durable routine and planning-constraint management remains one backend-owned substrate across web, CLI, Apple, and assistant flows
-- [ ] **VOICE-04**: Voice-capable planning-profile edits preserve the same bounded confirmation, thread continuity, and fail-closed behavior as typed assistant entry
+- [x] **PLANPROFILE-03**: CLI, Apple, and assistant-capable entry points can inspect the same canonical planning profile instead of relying on shell-local routine state
+- [x] **PLANPROFILE-04**: Assistant or voice-driven routine/profile edits route through the typed planning-profile mutation seam with explicit confirmation and provenance
+- [x] **ROUTINE-07**: Durable routine and planning-constraint management remains one backend-owned substrate across web, CLI, Apple, and assistant flows
+- [x] **VOICE-04**: Voice-capable planning-profile edits preserve the same bounded confirmation, thread continuity, and fail-closed behavior as typed assistant entry
 
 ### Now Simplification, Current-Day Truth, And Vel.csv Acceptance (Phase 34)
 
-- [ ] **NOW-UX-02**: `Now` becomes a compact execution-first current-day surface with a stable top-to-bottom order of context, current status, ask/capture/talk, next event, today lane, and compressed attention indicators
-- [ ] **NOW-UX-03**: The primary `Now` surface removes duplicated UI, verbose sync/runtime clutter, and non-actionable status blocks from default view
-- [ ] **CAL-UX-01**: Calendar rendering on `Now` defaults to aggressive relevance filtering and correct next-event truth for the current day
-- [ ] **TODO-UX-01**: The today lane renders commitment-first work and Todoist-backed tasks with cleaner structure, correct ordering, and meaningful quick actions over the broader task abstraction
-- [ ] **VELCSV-01**: The next UI cleanup lane uses `Vel.csv` as a regression and acceptance input while keeping operator interview decisions and prior specs as product authority
+- [x] **NOW-UX-02**: `Now` becomes a compact execution-first current-day surface with a stable top-to-bottom order of context, current status, ask/capture/talk, next event, today lane, and compressed attention indicators
+- [x] **NOW-UX-03**: The primary `Now` surface removes duplicated UI, verbose sync/runtime clutter, and non-actionable status blocks from default view
+- [x] **CAL-UX-01**: Calendar rendering on `Now` defaults to aggressive relevance filtering and correct next-event truth for the current day
+- [x] **TODO-UX-01**: The today lane renders commitment-first work and Todoist-backed tasks with cleaner structure, correct ordering, and meaningful quick actions over the broader task abstraction
+- [x] **VELCSV-01**: The next UI cleanup lane uses `Vel.csv` as a regression and acceptance input while keeping operator interview decisions and prior specs as product authority
 
 ### Sleep-Relative Day Boundary And Today-Lane Correctness (Phase 35)
 
-- [ ] **DAYBOUND-01**: `Now`, next-event truth, and today-lane membership use one sleep-relative day boundary instead of midnight-local heuristics
-- [ ] **DAYBOUND-02**: Late-night unfinished work, night events, and routine continuity remain in the same operator day until the sleep boundary is crossed
-- [ ] **NOW-ORDER-01**: The unified today lane stays commitment-first and execution-ordered, with tasks demoted unless explicitly promoted into commitments
-- [ ] **CONTEXT-01**: Current-status precedence remains calendar event > active commitment > routine block > inferred activity across surfaces and follow-through logic
+- [x] **DAYBOUND-01**: `Now`, next-event truth, and today-lane membership use one sleep-relative day boundary instead of midnight-local heuristics
+- [x] **DAYBOUND-02**: Late-night unfinished work, night events, and routine continuity remain in the same operator day until the sleep boundary is crossed
+- [x] **NOW-ORDER-01**: The unified today lane stays commitment-first and execution-ordered, with tasks demoted unless explicitly promoted into commitments
+- [x] **CONTEXT-01**: Current-status precedence remains calendar event > active commitment > routine block > inferred activity across surfaces and follow-through logic
 
 ### Shell Hierarchy, Settings, And Continuity Simplification (Phase 36)
 
-- [ ] **SHELL-03**: The daily-use shell hierarchy is simplified so `Now` stays primary, `Threads` stays continuity-first, `Settings` stays advanced, and shell noise drops materially
-- [ ] **SETTINGS-UX-02**: `Settings` becomes a clearer summary-first management surface with stronger categories, less top-level clutter, and less unnecessary save/sync friction
-- [ ] **THREADS-03**: `Now` resurfaces at most one highly relevant thread contextually, and `Threads` avoids becoming a default live queue or chat inbox
-- [ ] **SIDEBAR-01**: The web sidebar becomes an optional thin icon rail that keeps secondary sync/debug/context state available without dominating core use
+- [x] **SHELL-03**: The daily-use shell hierarchy is simplified so `Now` stays primary, `Threads` stays continuity-first, `Settings` stays advanced, and shell noise drops materially
+- [x] **SETTINGS-UX-02**: `Settings` becomes a clearer summary-first management surface with stronger categories, less top-level clutter, and less unnecessary save/sync friction
+- [x] **THREADS-03**: `Now` resurfaces at most one highly relevant thread contextually, and `Threads` avoids becoming a default live queue or chat inbox
+- [x] **SIDEBAR-01**: The web sidebar becomes an optional thin icon rail that keeps secondary sync/debug/context state available without dominating core use
 
 ### iPhone Embedded Rust Core And Apple FFI Foundation (Phase 37)
 
-- [ ] **APPLE-EMBED-01**: iPhone gains an explicit embedded-capable Rust path behind feature/platform gates while preserving the canonical daemon-backed model as current truth
-- [ ] **APPLE-EMBED-02**: Embedded and daemon-backed Apple flows reuse one Rust-owned domain/policy model rather than diverging into separate product logic
-- [ ] **FFI-01**: The first Apple FFI bridge and embedded boundary are documented, typed, and testable without claiming full local parity
-- [ ] **OFFLINE-01**: The embedded-capable iPhone path materially improves bounded offline/local behavior for high-frequency flows without widening to heavy local reasoning
+- [x] **APPLE-EMBED-01**: iPhone gains an explicit embedded-capable Rust path behind feature/platform gates while preserving the canonical daemon-backed model as current truth
+- [x] **APPLE-EMBED-02**: Embedded and daemon-backed Apple flows reuse one Rust-owned domain/policy model rather than diverging into separate product logic
+- [x] **FFI-01**: The first Apple FFI bridge and embedded boundary are documented, typed, and testable without claiming full local parity
+- [x] **OFFLINE-01**: The embedded-capable iPhone path materially improves bounded offline/local behavior for high-frequency flows without widening to heavy local reasoning
 
 ### Local-First iPhone Voice Continuity And Offline Action Lane (Phase 38)
 
-- [ ] **APPLE-OFFLINE-01**: iPhone can render cached `Now`, queue voice capture, and preserve local quick actions while offline over the embedded-capable path
-- [ ] **APPLE-OFFLINE-02**: Local thread draft continuation and later sync merge behave cleanly without duplicate, lost, or confusing continuity state
-- [ ] **VOICE-06**: iPhone voice capture becomes the first “magical” local-first Apple flow with fast acknowledgment, queued continuity, and clean eventual thread/`Now` integration
-- [ ] **THREADS-04**: Voice and text continuity remain one thread-backed model across offline and online transitions instead of forking into separate local modes
+- [x] **APPLE-OFFLINE-01**: iPhone can render cached `Now`, queue voice capture, and preserve local quick actions while offline over the embedded-capable path
+- [x] **APPLE-OFFLINE-02**: Local thread draft continuation and later sync merge behave cleanly without duplicate, lost, or confusing continuity state
+- [x] **VOICE-06**: iPhone voice capture becomes the first “magical” local-first Apple flow with fast acknowledgment, queued continuity, and clean eventual thread/`Now` integration
+- [x] **THREADS-04**: Voice and text continuity remain one thread-backed model across offline and online transitions instead of forking into separate local modes
 
 ### Vel.csv Regression Sweep And Daily-Use Closeout (Phase 39)
 
-- [ ] **VELCSV-02**: Remaining `Vel.csv` usability pressure is converted into a structured regression/acceptance sweep for the repaired daily-use loop
-- [ ] **DAILY-USE-01**: Web and Apple can support a real wake-up-to-closeout daily-use flow without major friction in `Now`, continuity, and quick actions
-- [ ] **DAILY-USE-02**: Richer context and follow-through surfaces help action rather than adding slop or status-heavy clutter
-- [ ] **APPLE-PARITY-01**: Apple local-first flows and daemon-backed continuity tell one coherent product story across web, Apple, and backend-owned state
+- [x] **VELCSV-02**: Remaining `Vel.csv` usability pressure is converted into a structured regression/acceptance sweep for the repaired daily-use loop
+- [x] **DAILY-USE-01**: Web and Apple can support a real wake-up-to-closeout daily-use flow without major friction in `Now`, continuity, and quick actions
+- [x] **DAILY-USE-02**: Richer context and follow-through surfaces help action rather than adding slop or status-heavy clutter
+- [x] **APPLE-PARITY-01**: Apple local-first flows and daemon-backed continuity tell one coherent product story across web, Apple, and backend-owned state
+
+### Decision-First UI/UX Rework (Phase 40)
+
+- [ ] **UI-AUDIT-01**: Phase 40 begins with a cross-surface interaction audit that distinguishes working behavior, broken/inert affordances, and hierarchy/clarity problems across web and mobile
+- [ ] **UI-ACT-01**: Primary surfaces present system state in terms of immediate operator action rather than passive narration
+- [ ] **UI-HIER-01**: Visual hierarchy is strict enough that one current action, at most a few next actions, and background/system details are clearly differentiated
+- [ ] **NOW-STACK-01**: `Now` is reworked into one dominant action strip, subordinate time context, and a decision-first task stack without duplicate current-state cards
+- [ ] **SETTINGS-MODEL-01**: `Settings` becomes a configuration surface organized around system profile, planning model, routines, and recovery model rather than dashboard-style summaries
+- [ ] **THREADS-THINK-01**: `Threads` clearly reads as open loops that need deeper thought, with structured reasoning state instead of generic chat framing
+- [ ] **CONTEXTPANEL-01**: The right/context panel defaults to human-readable state and explanation while moving raw model/debug internals behind explicit disclosure
+- [ ] **UI-RELIAB-01**: Surfaced web and mobile operator affordances that are visibly present but broken, inert, or misrouted are repaired as part of the rework instead of being deferred as separate polish debt
 
 ## v2 Requirements
 
@@ -448,97 +459,105 @@ Deferred beyond current milestone scope.
 | APPLE-SHELL-01 | Phase 17 | roadmap phase contract | Satisfied |
 | CLOSEOUT-01 | Phase 18 | milestone audit follow-up | Satisfied |
 | CLOSEOUT-02 | Phase 18 | milestone audit follow-up | Satisfied |
-| CLOSEOUT-03 | Phase 19 | milestone audit follow-up | Pending |
-| CLOSEOUT-04 | Phase 19 | milestone audit follow-up | Pending |
-| USABLE-01 | Phase 20 | roadmap phase contract | Pending |
-| USABLE-02 | Phase 20 | roadmap phase contract | Pending |
-| NOW-UX-01 | Phase 20 | roadmap phase contract | Pending |
-| INBOX-UX-01 | Phase 20 | roadmap phase contract | Pending |
-| THREADS-UX-01 | Phase 20 | roadmap phase contract | Pending |
-| ENTRY-01 | Phase 20 | roadmap phase contract | Pending |
-| SETTINGS-UX-01 | Phase 20 | roadmap phase contract | Pending |
-| ASSIST-01 | Phase 20 | roadmap phase contract | Pending |
-| ASSIST-02 | Phase 20 | roadmap phase contract | Pending |
-| THREADS-02 | Phase 20 | roadmap phase contract | Pending |
-| VOICE-02 | Phase 21 | roadmap phase contract | Pending |
-| VOICE-03 | Phase 21 | roadmap phase contract | Pending |
-| APPLE-VOICE-02 | Phase 21 | roadmap phase contract | Pending |
-| DESKTOP-VOICE-01 | Phase 21 | roadmap phase contract | Pending |
-| DESKTOP-VOICE-02 | Phase 21 | roadmap phase contract | Pending |
-| DAILY-AI-01 | Phase 22 | roadmap phase contract | Pending |
-| DAILY-AI-02 | Phase 22 | roadmap phase contract | Pending |
-| EOD-01 | Phase 22 | roadmap phase contract | Pending |
-| EOD-02 | Phase 22 | roadmap phase contract | Pending |
-| THREAD-RES-01 | Phase 22 | roadmap phase contract | Pending |
-| THREAD-RES-02 | Phase 22 | roadmap phase contract | Pending |
-| ASSIST-ACT-01 | Phase 23 | roadmap phase contract | Pending |
-| ASSIST-ACT-02 | Phase 23 | roadmap phase contract | Pending |
-| REVIEW-02 | Phase 23 | roadmap phase contract | Pending |
-| TRUST-02 | Phase 23 | roadmap phase contract | Pending |
-| ASSIST-APPLY-01 | Phase 24 | roadmap phase contract | Pending |
-| ASSIST-APPLY-02 | Phase 24 | roadmap phase contract | Pending |
-| REVIEW-03 | Phase 24 | roadmap phase contract | Pending |
-| TRUST-03 | Phase 24 | roadmap phase contract | Pending |
-| RECALL-01 | Phase 25 | roadmap phase contract | Pending |
-| RECALL-02 | Phase 25 | roadmap phase contract | Pending |
-| SEM-02 | Phase 25 | roadmap phase contract | Pending |
-| GROUND-CTX-01 | Phase 25 | roadmap phase contract | Pending |
-| GROUND-CTX-02 | Phase 25 | roadmap phase contract | Pending |
-| REFLOW-REAL-01 | Phase 26 | roadmap phase contract | Pending |
-| REFLOW-REAL-02 | Phase 26 | roadmap phase contract | Pending |
-| SCHED-RECON-01 | Phase 26 | roadmap phase contract | Pending |
-| SCHED-RECON-02 | Phase 26 | roadmap phase contract | Pending |
-| SCHED-FACET-01 | Phase 27 | roadmap phase contract | Pending |
-| SCHED-FACET-02 | Phase 27 | roadmap phase contract | Pending |
-| AGENT-SCHED-01 | Phase 27 | roadmap phase contract | Pending |
-| RECALL-SCHED-01 | Phase 27 | roadmap phase contract | Pending |
-| ROUTINE-05 | Phase 30 | roadmap phase contract | Pending |
-| ROUTINE-06 | Phase 30 | roadmap phase contract | Pending |
-| PLANPROFILE-01 | Phase 30 | roadmap phase contract | Pending |
-| PLANPROFILE-02 | Phase 30 | roadmap phase contract | Pending |
-| PLANPROFILE-03 | Phase 31 | roadmap phase contract | Pending |
-| PLANPROFILE-04 | Phase 31 | roadmap phase contract | Pending |
-| ROUTINE-07 | Phase 31 | roadmap phase contract | Pending |
-| VOICE-04 | Phase 31 | roadmap phase contract | Pending |
-| PLANPROFILE-05 | Phase 32 | roadmap phase contract | Pending |
-| PLANPROFILE-06 | Phase 32 | roadmap phase contract | Pending |
-| ROUTINE-08 | Phase 32 | roadmap phase contract | Pending |
-| VOICE-05 | Phase 32 | roadmap phase contract | Pending |
-| DAYPLAN-05 | Phase 33 | roadmap phase contract | Pending |
-| DAYPLAN-06 | Phase 33 | roadmap phase contract | Pending |
-| REFLOW-REAL-03 | Phase 33 | roadmap phase contract | Pending |
-| SCHED-APPLY-01 | Phase 33 | roadmap phase contract | Pending |
-| NOW-UX-02 | Phase 34 | roadmap phase contract | Pending |
-| NOW-UX-03 | Phase 34 | roadmap phase contract | Pending |
-| CAL-UX-01 | Phase 34 | roadmap phase contract | Pending |
-| TODO-UX-01 | Phase 34 | roadmap phase contract | Pending |
-| VELCSV-01 | Phase 34 | roadmap phase contract | Pending |
-| DAYBOUND-01 | Phase 35 | roadmap phase contract | Pending |
-| DAYBOUND-02 | Phase 35 | roadmap phase contract | Pending |
-| NOW-ORDER-01 | Phase 35 | roadmap phase contract | Pending |
-| CONTEXT-01 | Phase 35 | roadmap phase contract | Pending |
-| SHELL-03 | Phase 36 | roadmap phase contract | Pending |
-| SETTINGS-UX-02 | Phase 36 | roadmap phase contract | Pending |
-| THREADS-03 | Phase 36 | roadmap phase contract | Pending |
-| SIDEBAR-01 | Phase 36 | roadmap phase contract | Pending |
-| APPLE-EMBED-01 | Phase 37 | roadmap phase contract | Pending |
-| APPLE-EMBED-02 | Phase 37 | roadmap phase contract | Pending |
-| FFI-01 | Phase 37 | roadmap phase contract | Pending |
-| OFFLINE-01 | Phase 37 | roadmap phase contract | Pending |
-| APPLE-OFFLINE-01 | Phase 38 | roadmap phase contract | Pending |
-| APPLE-OFFLINE-02 | Phase 38 | roadmap phase contract | Pending |
-| VOICE-06 | Phase 38 | roadmap phase contract | Pending |
-| THREADS-04 | Phase 38 | roadmap phase contract | Pending |
-| VELCSV-02 | Phase 39 | roadmap phase contract | Pending |
-| DAILY-USE-01 | Phase 39 | roadmap phase contract | Pending |
-| DAILY-USE-02 | Phase 39 | roadmap phase contract | Pending |
-| APPLE-PARITY-01 | Phase 39 | roadmap phase contract | Pending |
+| CLOSEOUT-03 | Phase 19 | milestone audit follow-up | Satisfied |
+| CLOSEOUT-04 | Phase 19 | milestone audit follow-up | Satisfied |
+| USABLE-01 | Phase 20 | roadmap phase contract | Satisfied |
+| USABLE-02 | Phase 20 | roadmap phase contract | Satisfied |
+| NOW-UX-01 | Phase 20 | roadmap phase contract | Satisfied |
+| INBOX-UX-01 | Phase 20 | roadmap phase contract | Satisfied |
+| THREADS-UX-01 | Phase 20 | roadmap phase contract | Satisfied |
+| ENTRY-01 | Phase 20 | roadmap phase contract | Satisfied |
+| SETTINGS-UX-01 | Phase 20 | roadmap phase contract | Satisfied |
+| ASSIST-01 | Phase 20 | roadmap phase contract | Satisfied |
+| ASSIST-02 | Phase 20 | roadmap phase contract | Satisfied |
+| THREADS-02 | Phase 20 | roadmap phase contract | Satisfied |
+| VOICE-02 | Phase 21 | roadmap phase contract | Satisfied |
+| VOICE-03 | Phase 21 | roadmap phase contract | Satisfied |
+| APPLE-VOICE-02 | Phase 21 | roadmap phase contract | Satisfied |
+| DESKTOP-VOICE-01 | Phase 21 | roadmap phase contract | Satisfied |
+| DESKTOP-VOICE-02 | Phase 21 | roadmap phase contract | Satisfied |
+| DAILY-AI-01 | Phase 22 | roadmap phase contract | Satisfied |
+| DAILY-AI-02 | Phase 22 | roadmap phase contract | Satisfied |
+| EOD-01 | Phase 22 | roadmap phase contract | Satisfied |
+| EOD-02 | Phase 22 | roadmap phase contract | Satisfied |
+| THREAD-RES-01 | Phase 22 | roadmap phase contract | Satisfied |
+| THREAD-RES-02 | Phase 22 | roadmap phase contract | Satisfied |
+| ASSIST-ACT-01 | Phase 23 | roadmap phase contract | Satisfied |
+| ASSIST-ACT-02 | Phase 23 | roadmap phase contract | Satisfied |
+| REVIEW-02 | Phase 23 | roadmap phase contract | Satisfied |
+| TRUST-02 | Phase 23 | roadmap phase contract | Satisfied |
+| ASSIST-APPLY-01 | Phase 24 | roadmap phase contract | Satisfied |
+| ASSIST-APPLY-02 | Phase 24 | roadmap phase contract | Satisfied |
+| REVIEW-03 | Phase 24 | roadmap phase contract | Satisfied |
+| TRUST-03 | Phase 24 | roadmap phase contract | Satisfied |
+| RECALL-01 | Phase 25 | roadmap phase contract | Satisfied |
+| RECALL-02 | Phase 25 | roadmap phase contract | Satisfied |
+| SEM-02 | Phase 25 | roadmap phase contract | Satisfied |
+| GROUND-CTX-01 | Phase 25 | roadmap phase contract | Satisfied |
+| GROUND-CTX-02 | Phase 25 | roadmap phase contract | Satisfied |
+| REFLOW-REAL-01 | Phase 26 | roadmap phase contract | Satisfied |
+| REFLOW-REAL-02 | Phase 26 | roadmap phase contract | Satisfied |
+| SCHED-RECON-01 | Phase 26 | roadmap phase contract | Satisfied |
+| SCHED-RECON-02 | Phase 26 | roadmap phase contract | Satisfied |
+| SCHED-FACET-01 | Phase 27 | roadmap phase contract | Satisfied |
+| SCHED-FACET-02 | Phase 27 | roadmap phase contract | Satisfied |
+| AGENT-SCHED-01 | Phase 27 | roadmap phase contract | Satisfied |
+| RECALL-SCHED-01 | Phase 27 | roadmap phase contract | Satisfied |
+| ROUTINE-05 | Phase 30 | roadmap phase contract | Satisfied |
+| ROUTINE-06 | Phase 30 | roadmap phase contract | Satisfied |
+| PLANPROFILE-01 | Phase 30 | roadmap phase contract | Satisfied |
+| PLANPROFILE-02 | Phase 30 | roadmap phase contract | Satisfied |
+| PLANPROFILE-03 | Phase 31 | roadmap phase contract | Satisfied |
+| PLANPROFILE-04 | Phase 31 | roadmap phase contract | Satisfied |
+| ROUTINE-07 | Phase 31 | roadmap phase contract | Satisfied |
+| VOICE-04 | Phase 31 | roadmap phase contract | Satisfied |
+| PLANPROFILE-05 | Phase 32 | roadmap phase contract | Satisfied |
+| PLANPROFILE-06 | Phase 32 | roadmap phase contract | Satisfied |
+| ROUTINE-08 | Phase 32 | roadmap phase contract | Satisfied |
+| VOICE-05 | Phase 32 | roadmap phase contract | Satisfied |
+| DAYPLAN-05 | Phase 33 | roadmap phase contract | Satisfied |
+| DAYPLAN-06 | Phase 33 | roadmap phase contract | Satisfied |
+| REFLOW-REAL-03 | Phase 33 | roadmap phase contract | Satisfied |
+| SCHED-APPLY-01 | Phase 33 | roadmap phase contract | Satisfied |
+| NOW-UX-02 | Phase 34 | roadmap phase contract | Satisfied |
+| NOW-UX-03 | Phase 34 | roadmap phase contract | Satisfied |
+| CAL-UX-01 | Phase 34 | roadmap phase contract | Satisfied |
+| TODO-UX-01 | Phase 34 | roadmap phase contract | Satisfied |
+| VELCSV-01 | Phase 34 | roadmap phase contract | Satisfied |
+| DAYBOUND-01 | Phase 35 | roadmap phase contract | Satisfied |
+| DAYBOUND-02 | Phase 35 | roadmap phase contract | Satisfied |
+| NOW-ORDER-01 | Phase 35 | roadmap phase contract | Satisfied |
+| CONTEXT-01 | Phase 35 | roadmap phase contract | Satisfied |
+| SHELL-03 | Phase 36 | roadmap phase contract | Satisfied |
+| SETTINGS-UX-02 | Phase 36 | roadmap phase contract | Satisfied |
+| THREADS-03 | Phase 36 | roadmap phase contract | Satisfied |
+| SIDEBAR-01 | Phase 36 | roadmap phase contract | Satisfied |
+| APPLE-EMBED-01 | Phase 37 | roadmap phase contract | Satisfied |
+| APPLE-EMBED-02 | Phase 37 | roadmap phase contract | Satisfied |
+| FFI-01 | Phase 37 | roadmap phase contract | Satisfied |
+| OFFLINE-01 | Phase 37 | roadmap phase contract | Satisfied |
+| APPLE-OFFLINE-01 | Phase 38 | roadmap phase contract | Satisfied |
+| APPLE-OFFLINE-02 | Phase 38 | roadmap phase contract | Satisfied |
+| VOICE-06 | Phase 38 | roadmap phase contract | Satisfied |
+| THREADS-04 | Phase 38 | roadmap phase contract | Satisfied |
+| VELCSV-02 | Phase 39 | roadmap phase contract | Satisfied |
+| DAILY-USE-01 | Phase 39 | roadmap phase contract | Satisfied |
+| DAILY-USE-02 | Phase 39 | roadmap phase contract | Satisfied |
+| APPLE-PARITY-01 | Phase 39 | roadmap phase contract | Satisfied |
+| UI-AUDIT-01 | Phase 40 | roadmap phase contract | Pending |
+| UI-ACT-01 | Phase 40 | roadmap phase contract | Pending |
+| UI-HIER-01 | Phase 40 | roadmap phase contract | Pending |
+| NOW-STACK-01 | Phase 40 | roadmap phase contract | Pending |
+| SETTINGS-MODEL-01 | Phase 40 | roadmap phase contract | Pending |
+| THREADS-THINK-01 | Phase 40 | roadmap phase contract | Pending |
+| CONTEXTPANEL-01 | Phase 40 | roadmap phase contract | Pending |
+| UI-RELIAB-01 | Phase 40 | roadmap phase contract | Pending |
 
 **Coverage:**
-- v1 requirements: 187 total
-- Mapped to phases: 187
+- v1 requirements: 195 total
+- Mapped to phases: 195
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-18*
-*Last updated: 2026-03-20 — added Phase 34-39 requirements for `Now` repair, shell simplification, Apple embedded-core, and `Vel.csv`-driven closeout*
+*Last updated: 2026-03-20 — reconciled milestone closeout truth and added Phase 40 decision-first UI/UX plus discovery requirements*

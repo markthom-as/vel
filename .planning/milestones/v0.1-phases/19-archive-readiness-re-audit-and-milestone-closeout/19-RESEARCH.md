@@ -28,7 +28,7 @@ That means Phase 19 must explicitly repair roadmap/state/archive metadata instea
 
 ### The old audit should remain as the failing baseline
 
-[v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md) now contains a Phase 18 follow-up section, but it is still the original failing audit record. Phase 19 therefore needs:
+[v0.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.1-MILESTONE-AUDIT.md) now contains a Phase 18 follow-up section, but it is still the original failing audit record. Phase 19 therefore needs:
 
 - a rerun audit artifact
 - not just edits that overwrite the original failure record

@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v0.1
 milestone_name: milestone
-current_phase: 39
-current_phase_name: vel-csv-regression-sweep-and-daily-use-closeout
-current_plan: "milestone_closeout"
-status: ready_for_milestone_audit
-stopped_at: Closed Phase 39 with explicit daily-use arc truth, evidence, and deferrals; next logical step is milestone audit and closeout
-last_updated: "2026-03-20T20:10:08Z"
+current_phase: 40
+current_phase_name: decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces
+current_plan: "phase_execution"
+status: ready_for_phase_execution
+stopped_at: Planned Phase 40 with a discovery-first UI/UX rework stack; next logical step is 40-01 interaction audit
+last_updated: "2026-03-20T21:40:00Z"
 last_activity: 2026-03-20
 progress:
-  total_phases: 39
-  completed_phases: 39
-  total_plans: 169
-  completed_plans: 127
+  total_phases: 40
+  completed_phases: 40
+  total_plans: 173
+  completed_plans: 163
   percent: 94
 ---
 
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Turn `Vel.csv` into a regression guardrail and closeout matrix for the repaired daily-use arc across web and Apple
+**Current focus:** Execute the discovery-first UI/UX rework across `Now`, `Settings`, `Threads`, and contextual panels
 
-Status: Phase 19 deferred by operator choice; Phases 34, 35, 36, 37, 38, and 39 are complete and the milestone is ready for audit/closeout
-Current Phase: 39
-Current Phase Name: vel-csv-regression-sweep-and-daily-use-closeout
-Current Plan: milestone_closeout
+Status: Phase 40 is now planned; the next work is discovery and implementation of the decision-first UI/UX rework
+Current Phase: 40
+Current Phase Name: decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces
+Current Plan: phase_execution
 Total Plans in Phase: 4
 Progress: 94%
 Last Activity: 2026-03-20
-Last Activity Description: Closed the daily-use repair arc with explicit milestone-level evidence, doc truth, and deferred-item clarity
+Last Activity Description: Planned Phase 40 into discovery, `Now`, `Settings`/`Threads`/context, and closeout verification slices
 
 ## Current Position
 
-Phase: 39 (vel-csv-regression-sweep-and-daily-use-closeout) — COMPLETE
-Plan: milestone audit next
+Phase: 40 (decision-first-ui-ux-rework-across-now-settings-threads-and-context-surfaces) — PLANNED
+Plan: 40-01 next
 
 ## Performance Metrics
 
@@ -192,7 +192,7 @@ Recent decisions affecting current work:
 - Phase 17 execution advanced (2026-03-19): 17-02 completed by tightening web `Now` into a minimal urgent-first surface, keeping `Inbox` triage-first, and reframing `Threads` as continuity/history over the same typed backend-owned state
 - Phase 17 execution advanced (2026-03-19): 17-03 completed by reframing `Projects` as contextual drill-down, making `Settings` summary-first before runtime internals, and demoting `Stats`/`Suggestions` into passive detail surfaces
 - Phase 17 completed (2026-03-19): 17-04 aligned Apple and CLI wording, grouping, and docs to the same summary-first shell taxonomy, completing the embodiment lane without widening backend semantics
-- Milestone audit created (2026-03-19): v1.0 audit reported closeout gaps in verification coverage, requirements reconciliation, and roadmap/archive readiness; milestone archival is blocked pending gap planning
+- Milestone audit created (2026-03-19): v0.1 audit reported closeout gaps in verification coverage, requirements reconciliation, and roadmap/archive readiness; milestone archival is blocked pending gap planning
 - Milestone gap phases planned (2026-03-19): added Phase 18 for verification/requirements reconciliation and Phase 19 for archive readiness, re-audit, and milestone closeout
 - Phase 18 planning created (2026-03-19): 4-plan rollout covering closeout inventory/rules, historical verification backfill, shipped-phase verification backfill, and requirements reconciliation
 - Phase 18 execution started (2026-03-19): 18-01 created the stable closeout inventory and reconciliation rules, mapping milestone phases to summary/verification coverage and ledger posture before backfill begins

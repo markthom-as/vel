@@ -21,7 +21,7 @@ Observed facts:
 - `76` `*-SUMMARY.md` artifacts exist under `.planning/phases/`
 - `1` `*-VERIFICATION.md` artifact exists under `.planning/phases/`
 - The only existing verification artifact is [1.1-VERIFICATION.md](/home/jove/code/vel/.planning/phases/1.1-preflight-pre-phase-2-hardening/1.1-VERIFICATION.md)
-- [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md) reports the same gap shape: summary-heavy, verification-light, requirements ledger stale
+- [v0.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.1-MILESTONE-AUDIT.md) reports the same gap shape: summary-heavy, verification-light, requirements ledger stale
 - `roadmap analyze` still reports `missing_phase_details: ["1"]` and `roadmap_complete: false` for Phases `4` and `13-17`, which matches the milestone-audit claim that archive inputs still drift
 
 ## Verification Baseline

@@ -14,7 +14,7 @@ Phase 18 should be planned as a repo-truth and milestone-closeout phase, not a f
 
 - There are `76` `*-SUMMARY.md` files under `.planning/phases/`
 - There is only `1` `*-VERIFICATION.md` file: [1.1-VERIFICATION.md](/home/jove/code/vel/.planning/phases/1.1-preflight-pre-phase-2-hardening/1.1-VERIFICATION.md)
-- [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md) already identifies the exact blockers, so Phase 18 should consume that audit rather than rediscovering it
+- [v0.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.1-MILESTONE-AUDIT.md) already identifies the exact blockers, so Phase 18 should consume that audit rather than rediscovering it
 
 ### Summary files already contain most of the raw evidence
 
@@ -69,4 +69,3 @@ Phase 19 should be left to consume these outputs for:
 ## Recommendation
 
 Plan Phase 18 as a 4-slice closeout phase centered on verification inventory, backfill, and requirements truth. Do not include archive generation, git tagging, or final re-audit in this phase.
-

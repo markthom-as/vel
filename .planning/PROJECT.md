@@ -77,6 +77,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - [ ] Phase 37 — iPhone embedded Rust core and Apple FFI foundation: add the real iPhone embedded-capable Apple path behind feature/platform gates while preserving one canonical Rust-owned product model
 - [ ] Phase 38 — local-first iPhone voice continuity and offline action lane: make voice capture, cached `Now`, queued quick actions, and thread drafts feel local-first on iPhone
 - [ ] Phase 39 — `Vel.csv` regression sweep and daily-use closeout: sweep remaining `Vel.csv` usability pressure and verify that web and Apple can support a real daily-use loop cleanly
+- [ ] Phase 40 — decision-first UI/UX rework across `Now`, `Settings`, `Threads`, and context surfaces: reduce cognitive load, enforce one-screen-one-job hierarchy, make primary actions materially clearer, and repair obviously broken web/mobile interactions
 
 ### Out of Scope
 
@@ -129,6 +130,8 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | `Now` should be an execution-first current-day control surface rather than a dashboard | Keeps the primary operator surface centered on what is happening now, what matters next, and one dominant capture/ask/talk affordance | Accepted |
 | `Vel.csv` should validate and regress the next arc, not dictate product direction | Preserves operator interview decisions and prior specs as product authority while still using shipped feedback as an acceptance guardrail | Accepted |
 | Apple embedded-core / FFI should start on iPhone, with voice continuity as the proving flow | Maximizes local-first value and offline differentiation without splitting effort across watch and Mac too early | Accepted |
+| UI rework should be decision-first rather than dashboard-first | Reduces cognitive load by making each primary surface answer what to do next and hiding debug/runtime internals behind explicit disclosure | Accepted |
+| Broken operator interactions belong in the UI rework lane, not in a separate polish backlog | If an action is surfaced but does not work reliably on web or mobile, that is a product failure and should be repaired alongside hierarchy cleanup | Accepted |
 
 ---
-*Last updated: 2026-03-20 after defining Phases 34-39 for `Now` truth repair, shell simplification, and the mid-arc Apple embedded-core path*
+*Last updated: 2026-03-20 after adding Phase 40 for a decision-first UI/UX rework across `Now`, `Settings`, `Threads`, and context surfaces*

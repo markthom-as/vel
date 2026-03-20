@@ -9,7 +9,7 @@
   - baseline only / not full original scope
   - deferred to later roadmap phase
   - still pending closeout (`CLOSEOUT-03`, `CLOSEOUT-04`)
-- [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md) now contains a Phase 18 follow-up note explaining which blockers were repaired and which remain
+- [v0.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.1-MILESTONE-AUDIT.md) now contains a Phase 18 follow-up note explaining which blockers were repaired and which remain
 
 ## What Phase 19 Still Must Do
 

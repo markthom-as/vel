@@ -20,7 +20,7 @@ The milestone is still not archive-ready because the following closeout blockers
 
 ## Required Inputs
 
-- [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md)
+- [v0.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.1-MILESTONE-AUDIT.md)
 - [REQUIREMENTS.md](/home/jove/code/vel/.planning/REQUIREMENTS.md)
 - [ROADMAP.md](/home/jove/code/vel/.planning/ROADMAP.md)
 - [STATE.md](/home/jove/code/vel/.planning/STATE.md)

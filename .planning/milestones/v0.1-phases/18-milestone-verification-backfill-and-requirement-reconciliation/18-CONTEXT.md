@@ -50,7 +50,7 @@ Phase 18 closes the first half of the milestone-audit blockers. It backfills the
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Milestone closeout authority
-- `.planning/v1.0-MILESTONE-AUDIT.md` — authoritative list of the closeout blockers this phase must address
+- `.planning/v0.1-MILESTONE-AUDIT.md` — authoritative list of the closeout blockers this phase must address
 - `.planning/ROADMAP.md` — Phase 18 goal, dependency, and closeout scope boundary
 - `.planning/REQUIREMENTS.md` — current stale ledger that must be reconciled truthfully
 - `.planning/STATE.md` — current workflow position and closeout history
@@ -88,7 +88,7 @@ Phase 18 closes the first half of the milestone-audit blockers. It backfills the
 ## Deferred Ideas
 
 - Automating milestone archive generation more deeply than the current GSD workflow
-- Broad cleanup of historical planning metadata beyond what is required for a truthful v1.0 closeout
+- Broad cleanup of historical planning metadata beyond what is required for a truthful v0.1 closeout
 - Any new product, runtime, or shell capability work
 
 </deferred>

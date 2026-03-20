@@ -12,9 +12,9 @@ Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical base
 
 - [x] **Phase 1: Structural Foundation** - Layered crates, auth hardening, canonical schemas, self-awareness (COMPLETE)
 - [x] **Phase 1.1: Preflight — Pre-Phase 2 Hardening** (INSERTED) - Integration startup panic fixes, SQLite WAL mode, app.rs decomposition (COMPLETE)
-- **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Closed historical baseline; unfinished sync ordering, external connect transport, and guided node-linking work moved to Phases 5, 6, and 8
+- [x] **Phase 2: Distributed State, Offline Clients & System-of-Systems** - Closed historical baseline; unfinished sync ordering, external connect transport, and guided node-linking work moved to Phases 5, 6, and 8 (BASELINE CLOSED)
 - [x] **Phase 3: Deterministic Verification & Continuous Alignment** - Day-simulation harness, LLM-as-a-Judge eval, execution tracing, user documentation (COMPLETE)
-- **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Closed historical baseline; unfinished semantic graph expansion, direct WASM guest runtime, and external limb transport work moved to Phases 6 and 8
+- [x] **Phase 4: Autonomous Swarm, Graph RAG & Zero-Trust Execution** - Closed historical baseline; unfinished semantic graph expansion, direct WASM guest runtime, and external limb transport work moved to Phases 6 and 8 (BASELINE CLOSED)
 - [x] **Phase 5: Now + Inbox core and project substrate** - Keep `Now + Inbox` primary while adding durable project structure and shared workspace contracts (COMPLETE)
 - [x] **Phase 6: High-value write-back integrations and lightweight people graph** - Add notes, reminders, GitHub, email, transcripts, and minimal people identity with upstream write-back (COMPLETE)
 - [x] **Phase 7: Apple action loops and behavioral signal ingestion** - Prioritize fast iOS/watch actions and directly useful behavior signals (COMPLETE)
@@ -23,8 +23,44 @@ Phase 1 and Phase 3 are complete. Phase 2 and Phase 4 are closed historical base
 - [x] **Phase 10: Daily-loop morning overview and standup commitment engine** - Turn `Now`, calendar, Todoist, commitments, and voice into a bounded daily prioritization loop (completed 2026-03-19)
 - [x] **Phase 11: Agent grounding and operator-relevant data/tool awareness** - Make supervised agents aware of real Vel state, projects, people, commitments, and bounded tool surfaces (completed 2026-03-19)
 - [x] **Phase 12: Operator shell, onboarding, and connector ergonomics** - Make the daily loop and integration surfaces easier to adopt, navigate, and trust (completed 2026-03-19)
+- [x] **Phase 13: Cross-surface core architecture and adapter boundaries** - Lock the canonical Rust-owned product-core architecture and adapter boundaries across shells (completed 2026-03-19)
+- [x] **Phase 14: Product discovery, operator modes, and milestone shaping** - Define the real operator product shape, mode boundaries, and roadmap direction before wider UI growth (completed 2026-03-19)
+- [x] **Phase 15: Incremental core migration and canonical Rust service seams** - Move product logic toward canonical backend-owned services and shared transport seams (completed 2026-03-19)
+- [x] **Phase 16: Logic-first product closure on canonical core surfaces** - Close the next wave of operator behavior on Rust-owned commands, queries, and read models (completed 2026-03-19)
+- [x] **Phase 17: Shell embodiment, operator-mode application, and surface simplification** - Apply the product taxonomy consistently across web, Apple, and CLI shells (completed 2026-03-19)
+- [x] **Phase 18: Milestone verification backfill and requirement reconciliation** - Backfill durable verification evidence and restore a truthful milestone requirement ledger (completed 2026-03-20)
+- [x] **Phase 19: Archive readiness, re-audit, and milestone closeout** - Repair milestone metadata, add milestone-level integration/flow evidence, and rerun closeout audit (completed 2026-03-20)
+- [x] **Phase 20: Grounded assistant entry and daily-use usability closure** - Make the grounded assistant the practical default text/capture entry while tightening daily-use shells (completed 2026-03-20)
+- [x] **Phase 21: Cross-surface voice assistant parity and desktop push-to-talk** - Unify browser, desktop, and Apple voice onto the same assistant seam (completed 2026-03-20)
+- [x] **Phase 22: Assistant-supported daily loop, closeout, and thread resolution** - Extend the assistant seam into morning, standup, closeout, and multi-step thread resolution (completed 2026-03-20)
+- [x] **Phase 23: Safe assistant-mediated actions and supervised write lanes** - Let the assistant stage bounded actions through existing trust and review lanes (completed 2026-03-20)
+- [x] **Phase 24: Approved assistant action application and reversible write execution** - Turn approved assistant proposals into applied, inspectable outcomes (completed 2026-03-20)
+- [x] **Phase 25: Local recall, semantic memory, and grounded assistant context** - Improve explainable recall quality and backend-owned assistant context assembly (completed 2026-03-20)
+- [x] **Phase 26: Real day-plan reflow and schedule reconciliation** - Make same-day schedule recovery backend-owned, typed, and explainable (completed 2026-03-20)
+- [x] **Phase 27: Canonical scheduler facets and commitment rule normalization** - Normalize scheduling semantics into canonical Vel-backed fields and facets (completed 2026-03-20)
+- [x] **Phase 28: Routine blocks and commitment-aware day planning** - Add bounded backend-owned day planning over routines, commitments, and calendar anchors (completed 2026-03-20)
+- [x] **Phase 29: Durable routine blocks and operator-managed planning constraints** - Persist routine/planning inputs as durable backend-owned records (completed 2026-03-20)
+- [x] **Phase 30: Routine and planning-profile management surfaces** - Add thin shipped surfaces over the canonical planning-profile substrate (completed 2026-03-20)
+- [x] **Phase 31: Cross-surface planning-profile parity and assistant-managed routine edits** - Extend the planning-profile seam into CLI, Apple, and assistant flows (completed 2026-03-20)
+- [x] **Phase 32: Approved planning-profile edits and supervised routine application** - Let approved routine/profile proposals apply through canonical backend mutations (completed 2026-03-20)
+- [x] **Phase 33: Approved day-plan and reflow application over commitment scheduling** - Apply bounded same-day planning outcomes through supervised backend scheduling seams (completed 2026-03-20)
+- [x] **Phase 34: Now-view simplification, current-day truth, and Vel.csv acceptance** - Repair `Now` into a compact, current-day control surface and use `Vel.csv` as regression pressure (completed 2026-03-20)
+- [x] **Phase 35: Sleep-relative day boundary and today-lane correctness** - Make `Now`, next-event truth, and today-lane ordering share one sleep-relative day model (completed 2026-03-20)
+- [x] **Phase 36: Shell hierarchy, settings, and continuity simplification** - Reduce shell slop across `Now`, `Threads`, `Settings`, and sidebar behavior (completed 2026-03-20)
+- [x] **Phase 37: iPhone embedded Rust core and Apple FFI foundation** - Introduce the real embedded-capable iPhone Rust bridge without forking product logic (completed 2026-03-20)
+- [x] **Phase 38: Local-first iPhone voice continuity and offline action lane** - Make queued voice continuity and offline quick actions feel local-first on iPhone (completed 2026-03-20)
+- [x] **Phase 39: Vel.csv regression sweep and daily-use closeout** - Close the repaired daily-use arc with cross-surface regression evidence and explicit deferred limits (completed 2026-03-20)
 
 ## Phase Details
+
+### Phase 1: Structural Foundation
+
+**Goal**: Establish the canonical layered Rust architecture, auth-by-default exposure model, machine-readable contracts, and documentation truth needed for every later phase.
+**Depends on**: none
+**Status**: Complete historical foundation for the milestone
+**Plans**: historical pre-GSD implementation baseline
+
+**Foundation note:** Phase 1 predates the current phase-planning artifact pattern, so it does not have per-plan files in `.planning/phases/`. Its completion truth is preserved through shipped code, the validated requirement ledger in [PROJECT.md](/home/jove/code/vel/.planning/PROJECT.md), and the Phase 1 requirements in [REQUIREMENTS.md](/home/jove/code/vel/.planning/REQUIREMENTS.md).
 
 ### Phase 1.1: Preflight — Pre-Phase 2 Hardening (INSERTED)
 **Goal**: Eliminate crash-risk technical debt and close infrastructure gaps that will become more expensive once distributed complexity grows. This phase has no new feature surface — it is purely hardening. Must complete before Phase 2 execution begins.
@@ -118,7 +154,7 @@ Residual work moved forward:
 ## Progress
 
 **Execution Order:**
-Remaining execution order: 22
+Remaining execution order: 40
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -141,7 +177,7 @@ Remaining execution order: 22
 | 16. Logic-first product closure on canonical core surfaces | 5/5 | Complete | 2026-03-19 |
 | 17. Shell embodiment, operator-mode application, and surface simplification | 4/4 | Complete | 2026-03-19 |
 | 18. Milestone verification backfill and requirement reconciliation | 4/4 | Complete | 2026-03-20 |
-| 19. Archive readiness, re-audit, and milestone closeout | 0/4 | Deferred / Skipped | 2026-03-20 |
+| 19. Archive readiness, re-audit, and milestone closeout | 4/4 | Complete | 2026-03-20 |
 | 20. Grounded assistant entry and daily-use usability closure | 4/4 | Complete | 2026-03-20 |
 | 21. Cross-surface voice assistant parity and desktop push-to-talk | 4/4 | Complete | 2026-03-20 |
 | 22. Assistant-supported daily loop, closeout, and thread resolution | 4/4 | Complete | 2026-03-20 |
@@ -156,12 +192,13 @@ Remaining execution order: 22
 | 31. Cross-surface planning-profile parity and assistant-managed routine edits | 4/4 | Complete | 2026-03-20 |
 | 32. Approved planning-profile edits and supervised routine application | 4/4 | Complete | 2026-03-20 |
 | 33. Approved day-plan and reflow application over commitment scheduling | 4/4 | Complete | 2026-03-20 |
-| 34. Now-view simplification, current-day truth, and Vel.csv acceptance | 0/4 | Defined | - |
-| 35. Sleep-relative day boundary and today-lane correctness | 0/4 | Defined | - |
-| 36. Shell hierarchy, settings, and continuity simplification | 0/4 | Defined | - |
-| 37. iPhone embedded Rust core and Apple FFI foundation | 0/4 | Defined | - |
-| 38. Local-first iPhone voice continuity and offline action lane | 0/4 | Defined | - |
-| 39. Vel.csv regression sweep and daily-use closeout | 0/4 | Defined | - |
+| 34. Now-view simplification, current-day truth, and Vel.csv acceptance | 4/4 | Complete | 2026-03-20 |
+| 35. Sleep-relative day boundary and today-lane correctness | 4/4 | Complete | 2026-03-20 |
+| 36. Shell hierarchy, settings, and continuity simplification | 4/4 | Complete | 2026-03-20 |
+| 37. iPhone embedded Rust core and Apple FFI foundation | 4/4 | Complete | 2026-03-20 |
+| 38. Local-first iPhone voice continuity and offline action lane | 4/4 | Complete | 2026-03-20 |
+| 39. Vel.csv regression sweep and daily-use closeout | 4/4 | Complete | 2026-03-20 |
+| 40. Decision-first UI/UX rework across Now, Settings, Threads, and context surfaces | 0/4 | Planned | - |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -382,7 +419,7 @@ Plans:
 **Goal:** Close the milestone audit blockers by backfilling missing verification evidence across the shipped phases, reconciling `REQUIREMENTS.md` against completed summaries and verification outcomes, and restoring one truthful milestone ledger before archival.
 **Requirements**: CLOSEOUT-01, CLOSEOUT-02
 **Depends on:** Phase 17
-**Gap Closure:** Closes `MILESTONE-VERIFY-01` and `MILESTONE-REQS-01` from [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md)
+**Gap Closure:** Closes `MILESTONE-VERIFY-01` and `MILESTONE-REQS-01` from [v0.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.1-MILESTONE-AUDIT.md)
 **Plans:** 4/4 plans complete
 
 **Closeout note:** This phase is intentionally bookkeeping-heavy but still product-critical. The milestone cannot be archived honestly until verification coverage and requirement status are backed by durable artifacts instead of summaries alone.
@@ -398,24 +435,24 @@ Plans:
 **Goal:** Make the milestone archive inputs internally consistent, rerun the milestone audit against the repaired verification/requirements state, and complete archival/tag readiness without introducing new product work.
 **Requirements**: CLOSEOUT-03, CLOSEOUT-04
 **Depends on:** Phase 18
-**Gap Closure:** Closes `MILESTONE-ROADMAP-01`, `MILESTONE-INTEGRATION-01`, and `MILESTONE-FLOW-01` from [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md)
+**Gap Closure:** Closes `MILESTONE-ROADMAP-01`, `MILESTONE-INTEGRATION-01`, and `MILESTONE-FLOW-01` from [v0.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.1-MILESTONE-AUDIT.md)
 **Plans:** 4/4 plans complete
 
 **Closeout note:** This phase exists so the archive/release record is based on a passing milestone audit and coherent roadmap/requirements state, not on optimistic completion summaries.
 
 Plans:
-- [ ] 19-01-PLAN.md — Repair roadmap/state/archive metadata drift and establish the archive-readiness baseline
-- [ ] 19-02-PLAN.md — Write milestone-level integration verification tying backend, web, Apple, and CLI surfaces together
-- [ ] 19-03-PLAN.md — Write milestone-level end-to-end flow verification for closeout-critical operator flows
-- [ ] 19-04-PLAN.md — Rerun milestone audit, update closeout requirements, and leave the milestone ready for archival
+- [x] 19-01-PLAN.md — Repair roadmap/state/archive metadata drift and establish the archive-readiness baseline
+- [x] 19-02-PLAN.md — Write milestone-level integration verification tying backend, web, Apple, and CLI surfaces together
+- [x] 19-03-PLAN.md — Write milestone-level end-to-end flow verification for closeout-critical operator flows
+- [x] 19-04-PLAN.md — Rerun milestone audit, update closeout requirements, and leave the milestone ready for archival
 
-**Deferral note (2026-03-20):** Operator requested that milestone closeout bookkeeping be skipped for now in favor of returning to feature work that improves real daily usability. This phase remains deferred and the milestone intentionally remains unarchived until closeout work is resumed.
+**Completion note (2026-03-20):** Phase 19 was initially deferred so feature work could repair real daily-use usability first. The later daily-use arc completed, and the closeout work is now finished retroactively with repaired milestone metadata, milestone-level integration/flow evidence, and a rerun audit that leaves the milestone ready for archival.
 
 ### Phase 20: Grounded assistant entry and daily-use usability closure
 
 **Goal:** Make Vel materially more usable for repeated daily operation by turning the grounded Rust-owned assistant into the default operator entry for text, capture, and thread continuity, while tightening the `Now` / `Inbox` / `Threads` loop and reducing setup friction enough for real daily use.
 **Requirements**: USABLE-01, USABLE-02, NOW-UX-01, INBOX-UX-01, THREADS-UX-01, ENTRY-01, SETTINGS-UX-01, ASSIST-01, ASSIST-02, THREADS-02
-**Depends on:** Phase 17 shipped behavior; Phase 19 closeout explicitly deferred
+**Depends on:** Phase 17 shipped behavior; Phase 19 closeout was temporarily deferred during execution and later completed retroactively
 **Plans:** 4/4 plans complete
 
 Plans:
@@ -424,7 +461,7 @@ Plans:
 - [x] 20-03-PLAN.md — Embody assistant-first entry in `Now` and shared thread/composer web flows
 - [x] 20-04-PLAN.md — Close Inbox, Threads, and Settings daily-use friction without breaking surface boundaries
 
-**Priority note:** This phase is promoted ahead of milestone archival because the operator explicitly chose usability and repeated daily use over more closeout bookkeeping.
+**Priority note:** This phase was promoted ahead of milestone archival because the operator explicitly chose usability and repeated daily use over more closeout bookkeeping; the closeout lane was completed later without reopening product scope here.
 
 **Scope note:** This phase should stay focused on real operator usability:
 
@@ -820,3 +857,23 @@ Plans:
 - richer context should help action rather than add slop
 - `Vel.csv` should function as a regression guardrail and closeout check, not as an alternate source of product truth
 - unresolved items after this phase should be consciously deferred rather than left as silent UX drift
+
+### Phase 40: Decision-first UI/UX rework across Now, Settings, Threads, and context surfaces
+
+**Goal:** Rework the primary operator shell around decision-first, action-oriented UI so `Now`, `Threads`, `Settings`, and contextual panels each have one clear job, strict hierarchy, materially lower cognitive load, and fewer broken operator interactions on web and mobile.
+**Requirements**: UI-AUDIT-01, UI-ACT-01, UI-HIER-01, NOW-STACK-01, SETTINGS-MODEL-01, THREADS-THINK-01, CONTEXTPANEL-01, UI-RELIAB-01
+**Depends on:** Phase 39
+**Design note:** This phase is driven by an explicit operator-supplied UI/UX rework spec rather than incremental polish. The job is to reduce cognitive load, make primary actions obvious, and stop leaking internal/runtime model state into default views.
+**Reliability note:** This phase also includes a focused web/mobile interaction audit. If an affordance is visibly present but unreliable or non-working in daily use, it belongs in scope here.
+**Planning note:** Discovery is part of the phase, not pre-phase overhead. The first planning slice should produce an audit matrix of what works, what is broken, and what is merely confusing across web and mobile.
+**Product note:** One screen = one job:
+  - `Now` → act
+  - `Threads` → think
+  - `Settings` → configure
+**Plans:** 4 plans
+
+Plans:
+- [ ] 40-01-PLAN.md — Audit current web/mobile behavior and produce the discovery matrix of working vs broken vs confusing interactions
+- [ ] 40-02-PLAN.md — Rework `Now` into the decision-first execution surface and repair broken primary interactions
+- [ ] 40-03-PLAN.md — Rework `Settings`, `Threads`, and context panels around one clear job each while fixing discovered affordance failures
+- [ ] 40-04-PLAN.md — Close Phase 40 with cross-surface verification, docs truth, and explicit deferred interaction gaps

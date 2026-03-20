@@ -17,7 +17,7 @@ key-files:
     - .planning/phases/18-milestone-verification-backfill-and-requirement-reconciliation/18-PHASE19-HANDOFF.md
   modified:
     - .planning/REQUIREMENTS.md
-    - .planning/v1.0-MILESTONE-AUDIT.md
+    - .planning/v0.1-MILESTONE-AUDIT.md
     - .planning/ROADMAP.md
     - .planning/STATE.md
 
@@ -36,7 +36,7 @@ Reconciled the milestone requirements ledger against the new verification truth 
   - Phase `2` sync/connect and part of signal ingestion remain deferred or baseline-only
   - Phase `4` semantic/sandbox/SDK scope remains baseline-only where the original requirement semantics were not fully closed
 - Marked `CLOSEOUT-01` and `CLOSEOUT-02` satisfied.
-- Added a Phase 18 follow-up note to [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md) and created [18-PHASE19-HANDOFF.md](/home/jove/code/vel/.planning/phases/18-milestone-verification-backfill-and-requirement-reconciliation/18-PHASE19-HANDOFF.md) so Phase 19 starts from the repaired ledger instead of re-discovering it.
+- Added a Phase 18 follow-up note to [v0.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.1-MILESTONE-AUDIT.md) and created [18-PHASE19-HANDOFF.md](/home/jove/code/vel/.planning/milestones/v0.1-phases/18-milestone-verification-backfill-and-requirement-reconciliation/18-PHASE19-HANDOFF.md) so Phase 19 starts from the repaired ledger instead of re-discovering it.
 
 ## Verification
 
