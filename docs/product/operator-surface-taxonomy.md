@@ -2,6 +2,8 @@
 
 This document defines the canonical product-surface taxonomy for Vel.
 
+For milestone `v0.2`, read this together with [mvp-operator-loop.md](./mvp-operator-loop.md). Surface classification should reinforce the strict MVP loop rather than redefine it.
+
 It exists to answer four questions clearly:
 
 1. what belongs in the default daily-use experience
@@ -146,14 +148,16 @@ Rules:
 ### Primary
 
 - `Now`
-  Why: daily orientation, compact context pane, action pressure, daily loop, and primary action entry
+  Why: daily overview, inline commitments, reflow pressure, compact context pane, and primary action entry
 - `Inbox`
   Why: explicit triage, queued work, commitments, todos, and the main work surface
 
 ### Secondary / Support
 
 - `Threads`
-  Why: parallel work, history, searchable/filterable interaction streams, and long-running work context
+  Why: bounded multi-step continuation, history, searchable/filterable interaction streams, and long-running work context
+- review surfaces
+  Why: explicit loop closeout and explainable terminal state, not generic analytics
 - `Projects`
   Why: filtering, grouping, and context/configuration for work rather than the main day-to-day surface
 - `Suggestions`
@@ -227,7 +231,7 @@ Apple:
 
 - should remain summary-first
 - should not expose broad runtime or developer detail by default
-- should prioritize compact context, unified action entry, daily loop, nudges/advisories, and commitments/todos
+- should prioritize compact context, unified action entry, daily loop, overview, commitments, reflow cues, and reviewable thread continuity
 - should include Apple-specific onboarding during main onboarding when on an Apple platform
 - may surface bounded trust/setup cues, but deep control remains web/CLI-first unless a specific mobile use case justifies it
 - should eventually gain text chat and thread access, but those remain secondary to the summary-first default mobile flow
@@ -279,17 +283,17 @@ Current surfaces that should not remain top-level by default:
 These three surfaces should stay distinct even when they share data.
 
 - `Now`
-  Purpose: orientation, current-state summary, compact context, daily-loop pressure, nudges/advisories, and the primary action entry
+  Purpose: overview, inline commitments, compact context, same-day reflow pressure, nudges/advisories, and the primary action entry
 - `Inbox`
   Purpose: explicit triage and actionable queue management for captures, todos, commitments, and reviewable work
 - `Threads`
-  Purpose: parallel interactive work, conversational history, searchable/filterable streams, and running work context
+  Purpose: bounded multi-step continuation, conversational history, searchable/filterable streams, and running work context
 
 Working rule:
 
 - `Now` answers "what matters right now?"
 - `Inbox` answers "what needs explicit triage or action?"
-- `Threads` answers "what conversations, running jobs, or parallel workstreams exist?"
+- `Threads` answers "what conversations or workstreams need bounded multi-step follow-through?"
 
 Cross-surface overlap is acceptable, but ownership should stay clear:
 
@@ -301,8 +305,10 @@ Cross-surface overlap is acceptable, but ownership should stay clear:
 - `Inbox` should keep unresolved/actionable items primary and may demote recently handled items into a muted recent-history section instead of keeping one flat endless list
 - `Threads` should lean archive/search-first by default, and `Now` or `Inbox` may deep-link into specific thread messages or filtered thread views when attention is needed
 - `Threads` may surface captures or work artifacts, but it should not replace inbox triage or daily orientation
+- `Threads` should only take over when work becomes genuinely multi-step: it needs explanation, it needs multiple decisions, and/or it needs tool or context work
+- at least two of those conditions should be true before the loop escalates out of `Now`
 
-See [now-inbox-threads-boundaries.md](now-inbox-threads-boundaries.md) for the fuller boundary draft used by Phase 14 discovery.
+See [now-inbox-threads-boundaries.md](now-inbox-threads-boundaries.md) for the fuller durable boundary guidance.
 
 ## Action Taxonomy Note
 
@@ -320,7 +326,7 @@ That canonical model should capture:
 - target reference
 - short explainability summary plus inspectable detail
 
-See [operator-action-taxonomy.md](operator-action-taxonomy.md) for the current Phase 14 discovery draft.
+See [operator-action-taxonomy.md](operator-action-taxonomy.md) for the current action-model draft.
 
 ## Non-Goals
 

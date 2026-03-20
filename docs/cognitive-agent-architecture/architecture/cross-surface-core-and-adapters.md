@@ -22,6 +22,7 @@ related_files:
   - docs/api/runtime.md
   - docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md
   - docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md
+  - docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
   - clients/apple/README.md
   - clients/apple/VelAPI/Sources/VelAPI/VelClient.swift
@@ -42,8 +43,11 @@ This document is the authority for:
 - shell adapter boundaries
 - current-state to target-state ownership
 - the distinction between current implementation truth and future migration targets
+- cross-surface ownership of the active `v0.2` MVP loop
 
 It is intentionally aligned to the current codebase rather than a greenfield crate diagram.
+
+For the concrete active-loop behavior, read this together with [mvp-loop-contracts.md](./mvp-loop-contracts.md).
 
 # Problem
 
@@ -232,12 +236,14 @@ Shells should consume:
 - queries that return operator-facing read models
 - typed transport DTOs at the boundary
 - explicit capability summaries and review state where needed
+- the active `v0.2` contracts for overview, commitments, reflow, threads, and review
 
 ## What Shells Should Not Own
 
 Shells should not own:
 
 - business logic for daily prioritization
+- overview or commitment-selection policy
 - policy evaluation
 - durable review gating
 - capability decisions
@@ -270,6 +276,7 @@ Rust-owned concerns:
 
 - product logic
 - daily loops
+- overview, commitments, reflow, thread escalation, and review semantics
 - grounding logic
 - policy and review gates
 - durable state rules
@@ -294,6 +301,7 @@ Rust-owned concerns:
 
 - application logic
 - read-model generation
+- overview, commitments, reflow, thread escalation, and review semantics
 - policy and review logic
 
 ## CLI
@@ -358,12 +366,14 @@ The current repo already contains proof-oriented seams that later phases should 
 
 These should be treated as evidence that the cross-surface model is workable in the live codebase.
 
-# Relationship To Future Phases
+# Relationship To Active Phases
 
-- Phase 13 locks the cross-surface architecture and adapter boundaries.
-- Phase 14 defines the actual product layers, operator modes, and milestone shaping.
-- Phase 15 incrementally migrates the codebase so new logic lands in the right seams.
-- Phase 16 implements product behavior on those seams before broader UI expansion.
+- Phase 40 locks the MVP boundary, contracts, and architecture references.
+- Phase 41 implements Rust-owned overview, commitment flow, and orientation behavior on these seams.
+- Phase 42 implements explainable same-day reflow on the same seams.
+- Phase 43 uses the same authority model for bounded thread continuation.
+- Phase 44 rebuilds web and Apple as thin shells over those contracts.
+- Phase 45 closes the loop with review and milestone verification.
 
 This order is intentional. UI should not be allowed to define product truth by accident.
 
