@@ -7,6 +7,7 @@
 - canonical Rust-owned contracts exist for overview, commitments, reflow, threads, and review
 - those contracts describe user-visible behavior, state transitions, provenance, and degraded states
 - durable docs in `docs/` describe the MVP authority model and shell boundaries
+- the locked overview behavior is documented in durable docs: `action + timeline`, one dominant action, compact timeline, one visible nudge, `Why + state`, and 1-3 suggestions with `accept`, `choose`, `thread`, and `close`
 - `.planning/` artifacts summarize planning state without becoming the only source of truth
 - Phase 42 no longer depends on new local-calendar milestone work
 
@@ -17,8 +18,12 @@
   - `.planning/REQUIREMENTS.md`
   - `.planning/ROADMAP.md`
   - Phase 40 planning artifacts
-  - any new durable docs written under `docs/`
+  - `docs/product/mvp-operator-loop.md`
+  - `docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md`
+  - `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`
+  - `docs/templates/mvp-loop-contract-checklist.md`
 - targeted `rg` checks to confirm stale local-calendar or UI-only Phase 40 wording is removed from active artifacts
+- targeted `rg` checks to confirm the durable docs explicitly contain `action + timeline`, dominant action, compact timeline, single visible nudge, `Why + state`, 1-3 suggestions, and the `accept|choose|thread|close` fallback path
 - traceability check that Phase 40 outputs map to the requirements and downstream roadmap phases
 
 ## Acceptance Markers

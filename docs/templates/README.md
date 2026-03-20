@@ -33,6 +33,7 @@ That combination makes the files easier to find through:
 - [schema-template.md](schema-template.md) for machine-readable schema and manifest specs
 - [ticket-template.md](ticket-template.md) for execution tickets
 - [prompt-template.md](prompt-template.md) for reusable prompts, runbooks, and operator prompt assets
+- [mvp-loop-contract-checklist.md](mvp-loop-contract-checklist.md) for reviewing MVP-loop scope, contract, and shell-boundary changes against the locked `v0.2` rules
 
 ## Usage notes
 
