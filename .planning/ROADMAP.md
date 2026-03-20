@@ -33,7 +33,7 @@ Do not widen this milestone into:
 
 ## Phases
 
-- [ ] **Phase 40: MVP definition, canonical contracts, and architecture refinement** - Freeze the true MVP, define canonical Rust-owned types and business logic, and refine the MVP architecture/docs before UI or migration work widens
+- [x] **Phase 40: MVP definition, canonical contracts, and architecture refinement** - Freeze the true MVP, define canonical Rust-owned types and business logic, and refine the MVP architecture/docs before UI or migration work widens
 - [ ] **Phase 41: Rust-owned overview, commitment flow, and orientation core** - Make `Now`, daily overview, commitment flow, and nudges/orientation fully backend-owned and decision-first
 - [ ] **Phase 42: Explainable same-day reflow** - Finish bounded reflow in Rust with clear proposal state, provenance, and degraded behavior
 - [ ] **Phase 43: Thread continuation, tools, context, and data** - Formalize threads as the bounded continuation substrate for tools, context, memory, and follow-through
@@ -46,7 +46,7 @@ Do not widen this milestone into:
 
 | Phase | Requirements | Status |
 |-------|--------------|--------|
-| 40. MVP definition, canonical contracts, and architecture refinement | MVP-04, MODEL-01, MODEL-02, MODEL-03, MODEL-04, CORE-01 | Planned |
+| 40. MVP definition, canonical contracts, and architecture refinement | MVP-04, MODEL-01, MODEL-02, MODEL-03, MODEL-04, CORE-01 | Complete |
 | 41. Rust-owned overview, commitment flow, and orientation core | MVP-01, MVP-02, ORIENT-01, ORIENT-02, ORIENT-03 | Planned |
 | 42. Explainable same-day reflow | REFLOW-01, REFLOW-02, REFLOW-03, REFLOW-04 | Planned |
 | 43. Thread continuation, tools, context, and data | THREAD-01, THREAD-02, THREAD-03 | Planned |
