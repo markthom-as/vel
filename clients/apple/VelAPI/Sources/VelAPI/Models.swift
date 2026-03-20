@@ -305,6 +305,13 @@ public enum DailyLoopTurnStateData: String, Codable, Sendable {
     case completed
 }
 
+public enum DailyLoopCommitmentActionData: String, Codable, Sendable {
+    case accept
+    case defer
+    case choose
+    case close
+}
+
 public enum DailyLoopPromptKindData: String, Codable, Sendable {
     case intentQuestion = "intent_question"
     case commitmentReduction = "commitment_reduction"
@@ -446,6 +453,8 @@ public struct DailyLoopSessionData: Codable, Sendable, Identifiable {
     public let start: DailyLoopStartMetadataData
     public let turn_state: DailyLoopTurnStateData
     public let current_prompt: DailyLoopPromptData?
+    public let continuity_summary: String
+    public let allowed_actions: [DailyLoopCommitmentActionData]
     public let state: DailyLoopSessionStateData
     public let outcome: DailyLoopSessionOutcomeData?
 }

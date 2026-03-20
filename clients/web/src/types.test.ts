@@ -225,6 +225,9 @@ describe('transport decoders', () => {
               surface: 'web',
             },
             turn_state: 'waiting_for_input',
+            continuity_summary:
+              'Morning overview is waiting on question 1 of 3 with 0 captured signal(s).',
+            allowed_actions: ['accept', 'defer', 'choose', 'close'],
             current_prompt: {
               prompt_id: 'morning_prompt_1',
               kind: 'intent_question',
@@ -942,6 +945,9 @@ describe('transport decoders', () => {
         surface: 'web',
       },
       turn_state: 'completed',
+      continuity_summary:
+        'Morning overview continuity is available.',
+      allowed_actions: ['accept', 'choose', 'close'],
       current_prompt: null,
       state: {
         phase: 'morning_overview',
@@ -989,6 +995,9 @@ describe('transport decoders', () => {
         surface: 'web',
       },
       turn_state: 'completed',
+      continuity_summary:
+        'Standup continuity is available.',
+      allowed_actions: ['accept', 'choose', 'close'],
       current_prompt: null,
       state: {
         phase: 'standup',
@@ -1056,6 +1065,9 @@ describe('transport decoders', () => {
         surface: 'web',
       },
       turn_state: 'waiting_for_input',
+      continuity_summary:
+        'Morning overview is waiting on question 1 of 3 with 0 captured signal(s).',
+      allowed_actions: ['accept', 'defer', 'choose', 'close'],
       current_prompt: {
         prompt_id: 'prompt_pending_1',
         kind: 'intent_question',

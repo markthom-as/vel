@@ -89,6 +89,18 @@ fn print_session(session: &DailyLoopSessionData) {
     println!("session: {}", session.id);
     println!("phase: {:?}", session.phase);
     println!("status: {:?}", session.status);
+    println!("continuity: {}", session.continuity_summary);
+    if !session.allowed_actions.is_empty() {
+        println!(
+            "actions: {}",
+            session
+                .allowed_actions
+                .iter()
+                .map(|action| format!("{action:?}").to_ascii_lowercase())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
     match &session.state {
         DailyLoopSessionStateData::MorningOverview(state) => {
             println!("{}", state.snapshot);
@@ -149,6 +161,15 @@ mod tests {
                 ordinal: 1,
                 allow_skip: true,
             }),
+            continuity_summary:
+                "Standup is waiting on question 1 with 1 commitment draft(s) and 0 deferred item(s)."
+                    .to_string(),
+            allowed_actions: vec![
+                vel_api_types::DailyLoopCommitmentActionData::Accept,
+                vel_api_types::DailyLoopCommitmentActionData::Defer,
+                vel_api_types::DailyLoopCommitmentActionData::Choose,
+                vel_api_types::DailyLoopCommitmentActionData::Close,
+            ],
             state: DailyLoopSessionStateData::Standup(DailyStandupOutcomeData {
                 commitments: vec![DailyCommitmentDraftData {
                     title: "Ship Phase 10".to_string(),

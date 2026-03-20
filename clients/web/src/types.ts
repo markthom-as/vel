@@ -1514,6 +1514,7 @@ export type DailyLoopStartSourceData = 'manual' | 'automatic';
 export type DailyLoopSurfaceData = 'cli' | 'web' | 'apple_voice' | 'apple_text';
 export type DailyLoopTurnActionData = 'submit' | 'skip' | 'resume';
 export type DailyLoopTurnStateData = 'in_progress' | 'waiting_for_input' | 'completed';
+export type DailyLoopCommitmentActionData = 'accept' | 'defer' | 'choose' | 'close';
 export type DailyLoopPromptKindData =
   | 'intent_question'
   | 'commitment_reduction'
@@ -1618,6 +1619,8 @@ export interface DailyLoopSessionData {
   start: DailyLoopStartMetadataData;
   turn_state: DailyLoopTurnStateData;
   current_prompt: DailyLoopPromptData | null;
+  continuity_summary: string;
+  allowed_actions: DailyLoopCommitmentActionData[];
   state: DailyLoopSessionStateData;
   outcome: DailyLoopSessionOutcomeData | null;
 }
@@ -3701,6 +3704,17 @@ export function decodeDailyLoopPromptData(value: unknown): DailyLoopPromptData {
   };
 }
 
+export function decodeDailyLoopCommitmentActionData(
+  value: unknown,
+): DailyLoopCommitmentActionData {
+  return expectEnumString(value, 'daily loop commitment action', [
+    'accept',
+    'defer',
+    'choose',
+    'close',
+  ]);
+}
+
 export function decodeMorningFrictionCalloutData(value: unknown): MorningFrictionCalloutData {
   const record = expectRecord(value, 'morning friction callout');
   return {
@@ -3859,6 +3873,14 @@ export function decodeDailyLoopSessionData(value: unknown): DailyLoopSessionData
     start: decodeDailyLoopStartMetadataData(record.start),
     turn_state: decodeDailyLoopTurnStateData(record.turn_state),
     current_prompt: decodeNullable(record.current_prompt, decodeDailyLoopPromptData),
+    continuity_summary: expectString(
+      record.continuity_summary,
+      'daily loop session.continuity_summary',
+    ),
+    allowed_actions: decodeArray(
+      record.allowed_actions ?? [],
+      decodeDailyLoopCommitmentActionData,
+    ),
     state: decodeDailyLoopSessionStateData(record.state),
     outcome: decodeNullable(record.outcome, decodeDailyLoopSessionOutcomeData),
   };

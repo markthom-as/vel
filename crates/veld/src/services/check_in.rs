@@ -169,6 +169,18 @@ pub async fn persist_resolution_follow_through(
     Ok(())
 }
 
+pub fn commitment_action_labels_for_card(card: &CheckInCard) -> Vec<&'static str> {
+    let mut actions = vec!["accept"];
+    if card.allow_skip {
+        actions.push("defer");
+    }
+    if card.escalation.is_some() {
+        actions.push("choose");
+    }
+    actions.push("close");
+    actions
+}
+
 pub fn transitions_for_card(card: &CheckInCard) -> Vec<CheckInTransition> {
     let mut transitions = vec![CheckInTransition {
         kind: CheckInTransitionKind::Submit,
@@ -211,6 +223,7 @@ async fn card_from_daily_loop_session(
     storage: &Storage,
     session: DailyLoopSession,
 ) -> Result<Option<CheckInCard>, AppError> {
+    let continuity_summary = daily_loop::session_continuity_summary(&session);
     let DailyLoopSession {
         id,
         phase,
@@ -221,16 +234,14 @@ async fn card_from_daily_loop_session(
         return Ok(None);
     };
     let thread_id = ensure_follow_through_thread(storage, id.as_ref(), phase, &prompt).await?;
-    let (title, summary, suggested_action_label, suggested_response) = match phase {
+    let (title, suggested_action_label, suggested_response) = match phase {
         DailyLoopPhase::MorningOverview => (
             "Morning check-in".to_string(),
-            "Vel needs one short answer before the morning overview can continue.".to_string(),
             Some("Continue morning overview".to_string()),
             None,
         ),
         DailyLoopPhase::Standup => (
             "Standup check-in".to_string(),
-            "Vel needs one short answer before the standup can continue.".to_string(),
             Some("Continue standup".to_string()),
             None,
         ),
@@ -242,7 +253,7 @@ async fn card_from_daily_loop_session(
         phase,
         session_id: id.to_string(),
         title,
-        summary,
+        summary: continuity_summary,
         prompt_id: prompt.prompt_id,
         prompt_text: prompt.text,
         suggested_action_label,
@@ -312,7 +323,7 @@ mod tests {
 
         assert_eq!(card.phase, DailyLoopPhase::Standup);
         assert_eq!(card.submit_target.reference_id, "dls_test");
-        let escalation = card.escalation.expect("escalation");
+        let escalation = card.escalation.as_ref().expect("escalation");
         assert_eq!(escalation.label, "Continue in Threads");
         assert_eq!(
             escalation.thread_id.as_deref(),
@@ -327,6 +338,11 @@ mod tests {
             card.transitions[2].reference_id.as_deref(),
             Some("thr_check_in_dls_test_standup_prompt_1")
         );
+        assert_eq!(
+            commitment_action_labels_for_card(&card),
+            vec!["accept", "defer", "choose", "close"]
+        );
+        assert!(card.summary.contains("Standup is waiting on question 1"));
     }
 
     #[test]

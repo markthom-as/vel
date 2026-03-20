@@ -517,6 +517,15 @@ impl From<vel_core::DailyLoopTurnState> for DailyLoopTurnStateData {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DailyLoopCommitmentActionData {
+    Accept,
+    Defer,
+    Choose,
+    Close,
+}
+
 impl From<DailyLoopTurnStateData> for vel_core::DailyLoopTurnState {
     fn from(value: DailyLoopTurnStateData) -> Self {
         match value {
@@ -1062,6 +1071,9 @@ pub struct DailyLoopSessionData {
     pub turn_state: DailyLoopTurnStateData,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub current_prompt: Option<DailyLoopPromptData>,
+    pub continuity_summary: String,
+    #[serde(default)]
+    pub allowed_actions: Vec<DailyLoopCommitmentActionData>,
     pub state: DailyLoopSessionStateData,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outcome: Option<DailyLoopSessionOutcomeData>,
@@ -1069,6 +1081,8 @@ pub struct DailyLoopSessionData {
 
 impl From<vel_core::DailyLoopSession> for DailyLoopSessionData {
     fn from(value: vel_core::DailyLoopSession) -> Self {
+        let continuity_summary = daily_loop_session_continuity_summary(&value);
+        let allowed_actions = daily_loop_session_allowed_actions(&value);
         Self {
             id: value.id.to_string(),
             session_date: value.session_date,
@@ -1077,6 +1091,8 @@ impl From<vel_core::DailyLoopSession> for DailyLoopSessionData {
             start: value.start.into(),
             turn_state: value.turn_state.into(),
             current_prompt: value.current_prompt.map(Into::into),
+            continuity_summary,
+            allowed_actions,
             state: value.state.into(),
             outcome: value.outcome.map(Into::into),
         }
@@ -1095,6 +1111,54 @@ impl From<DailyLoopSessionData> for vel_core::DailyLoopSession {
             current_prompt: value.current_prompt.map(Into::into),
             state: value.state.into(),
             outcome: value.outcome.map(Into::into),
+        }
+    }
+}
+
+fn daily_loop_session_allowed_actions(
+    value: &vel_core::DailyLoopSession,
+) -> Vec<DailyLoopCommitmentActionData> {
+    let mut actions = vec![DailyLoopCommitmentActionData::Accept];
+    if value
+        .current_prompt
+        .as_ref()
+        .map(|prompt| prompt.allow_skip)
+        .unwrap_or(false)
+    {
+        actions.push(DailyLoopCommitmentActionData::Defer);
+    }
+    actions.push(DailyLoopCommitmentActionData::Choose);
+    actions.push(DailyLoopCommitmentActionData::Close);
+    actions
+}
+
+fn daily_loop_session_continuity_summary(value: &vel_core::DailyLoopSession) -> String {
+    match (&value.phase, &value.current_prompt, &value.state) {
+        (
+            vel_core::DailyLoopPhase::MorningOverview,
+            Some(prompt),
+            vel_core::DailyLoopSessionState::MorningOverview(state),
+        ) => format!(
+            "Morning overview is waiting on question {} of {} with {} captured signal(s).",
+            prompt.ordinal,
+            vel_core::DAILY_LOOP_MAX_QUESTIONS,
+            state.signals.len()
+        ),
+        (
+            vel_core::DailyLoopPhase::Standup,
+            Some(prompt),
+            vel_core::DailyLoopSessionState::Standup(state),
+        ) => format!(
+            "Standup is waiting on question {} with {} commitment draft(s) and {} deferred item(s).",
+            prompt.ordinal,
+            state.commitments.len(),
+            state.deferred_tasks.len()
+        ),
+        (vel_core::DailyLoopPhase::MorningOverview, _, _) => {
+            "Morning overview continuity is available.".to_string()
+        }
+        (vel_core::DailyLoopPhase::Standup, _, _) => {
+            "Standup continuity is available.".to_string()
         }
     }
 }
@@ -2587,11 +2651,14 @@ pub struct CheckInCardData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub escalation: Option<CheckInEscalationData>,
     #[serde(default)]
+    pub commitment_actions: Vec<DailyLoopCommitmentActionData>,
+    #[serde(default)]
     pub transitions: Vec<CheckInTransitionData>,
 }
 
 impl From<vel_core::CheckInCard> for CheckInCardData {
     fn from(value: vel_core::CheckInCard) -> Self {
+        let commitment_actions = check_in_commitment_actions(&value);
         Self {
             id: value.id,
             source_kind: value.source_kind.into(),
@@ -2607,9 +2674,24 @@ impl From<vel_core::CheckInCard> for CheckInCardData {
             blocking: value.blocking,
             submit_target: value.submit_target.into(),
             escalation: value.escalation.map(Into::into),
+            commitment_actions,
             transitions: value.transitions.into_iter().map(Into::into).collect(),
         }
     }
+}
+
+fn check_in_commitment_actions(
+    value: &vel_core::CheckInCard,
+) -> Vec<DailyLoopCommitmentActionData> {
+    let mut actions = vec![DailyLoopCommitmentActionData::Accept];
+    if value.allow_skip {
+        actions.push(DailyLoopCommitmentActionData::Defer);
+    }
+    if value.escalation.is_some() {
+        actions.push(DailyLoopCommitmentActionData::Choose);
+    }
+    actions.push(DailyLoopCommitmentActionData::Close);
+    actions
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -6814,6 +6896,7 @@ mod tests {
             needs_judgment_count: 0,
             changes: vec![vel_core::DayPlanChange {
                 kind: vel_core::DayPlanChangeKind::Scheduled,
+                commitment_id: None,
                 title: "Draft phase contract".to_string(),
                 detail: "Placed into the prenoon focus block.".to_string(),
                 project_label: Some("Vel".to_string()),
@@ -7260,6 +7343,12 @@ mod tests {
         assert_eq!(morning_json["phase"], "morning_overview");
         assert_eq!(morning_json["status"], "waiting_for_input");
         assert_eq!(morning_json["current_prompt"]["kind"], "intent_question");
+        assert_eq!(morning_json["allowed_actions"][0], "accept");
+        assert_eq!(morning_json["allowed_actions"][1], "defer");
+        assert_eq!(
+            morning_json["continuity_summary"],
+            "Morning overview is waiting on question 1 of 3 with 1 captured signal(s)."
+        );
         assert_eq!(morning_json["outcome"]["phase"], "morning_overview");
 
         let round_trip_morning: DailyLoopSession =
@@ -7269,6 +7358,12 @@ mod tests {
         let standup_json = serde_json::to_value(DailyLoopSessionData::from(standup_session))
             .expect("standup session should serialize");
         assert_eq!(standup_json["phase"], "standup");
+        assert_eq!(standup_json["allowed_actions"][0], "accept");
+        assert_eq!(standup_json["allowed_actions"][1], "choose");
+        assert_eq!(
+            standup_json["continuity_summary"],
+            "Standup is waiting on question 2 with 1 commitment draft(s) and 1 deferred item(s)."
+        );
         assert_eq!(standup_json["outcome"]["phase"], "standup");
         assert_eq!(standup_json["outcome"]["commitments"][0]["bucket"], "must");
     }

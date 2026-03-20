@@ -112,6 +112,62 @@ pub fn assistant_entry_summary(session: &DailyLoopSession) -> String {
     }
 }
 
+pub fn commitment_action_labels(session: &DailyLoopSession) -> Vec<&'static str> {
+    let mut actions = vec!["accept"];
+
+    if session
+        .current_prompt
+        .as_ref()
+        .map(|prompt| prompt.allow_skip)
+        .unwrap_or(false)
+    {
+        actions.push("defer");
+    }
+
+    actions.push("choose");
+    actions.push("close");
+    actions
+}
+
+pub fn session_continuity_summary(session: &DailyLoopSession) -> String {
+    match (&session.phase, &session.current_prompt, &session.state) {
+        (
+            DailyLoopPhase::MorningOverview,
+            Some(prompt),
+            DailyLoopSessionState::MorningOverview(state),
+        ) => format!(
+            "Morning overview is waiting on question {} of {} with {} captured signal(s).",
+            prompt.ordinal,
+            DAILY_LOOP_MAX_QUESTIONS,
+            state.signals.len()
+        ),
+        (DailyLoopPhase::MorningOverview, None, DailyLoopSessionState::MorningOverview(state)) => {
+            format!(
+                "Morning overview captured {} signal(s) for today's bounded orientation.",
+                state.signals.len()
+            )
+        }
+        (DailyLoopPhase::Standup, Some(prompt), DailyLoopSessionState::Standup(state)) => format!(
+            "Standup is waiting on question {} with {} commitment draft(s) and {} deferred item(s).",
+            prompt.ordinal,
+            state.commitments.len(),
+            state.deferred_tasks.len()
+        ),
+        (DailyLoopPhase::Standup, None, DailyLoopSessionState::Standup(state)) => format!(
+            "Standup currently holds {} commitment draft(s) and {} deferred item(s).",
+            state.commitments.len(),
+            state.deferred_tasks.len()
+        ),
+        (phase, _, _) => format!(
+            "{} session continuity is available.",
+            match phase {
+                DailyLoopPhase::MorningOverview => "Morning overview",
+                DailyLoopPhase::Standup => "Standup",
+            }
+        ),
+    }
+}
+
 pub async fn submit_turn(
     storage: &Storage,
     request: DailyLoopTurnRequest,
@@ -568,4 +624,98 @@ fn split_items(text: &str) -> Vec<String> {
         .filter(|part| !part.is_empty())
         .map(ToString::to_string)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{commitment_action_labels, session_continuity_summary};
+    use vel_core::{
+        DailyCommitmentDraft, DailyDeferredTask, DailyLoopPhase, DailyLoopPrompt,
+        DailyLoopPromptKind, DailyLoopSession, DailyLoopSessionState, DailyLoopStartMetadata,
+        DailyLoopStartSource, DailyLoopStatus, DailyLoopSurface, DailyLoopTurnState,
+        DailyStandupBucket, DailyStandupOutcome, MorningIntentSignal, MorningOverviewState,
+    };
+
+    #[test]
+    fn standup_session_helpers_expose_bounded_actions_and_continuity() {
+        let session = DailyLoopSession {
+            id: "dls_test".to_string().into(),
+            session_date: "2026-03-20".to_string(),
+            phase: DailyLoopPhase::Standup,
+            status: DailyLoopStatus::WaitingForInput,
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::Web,
+            },
+            turn_state: DailyLoopTurnState::WaitingForInput,
+            current_prompt: Some(DailyLoopPrompt {
+                prompt_id: "prompt_1".to_string(),
+                kind: DailyLoopPromptKind::CommitmentReduction,
+                text: "Reduce this to three commitments.".to_string(),
+                ordinal: 2,
+                allow_skip: true,
+            }),
+            state: DailyLoopSessionState::Standup(DailyStandupOutcome {
+                commitments: vec![DailyCommitmentDraft {
+                    title: "Ship contract slice".to_string(),
+                    bucket: DailyStandupBucket::Must,
+                    source_ref: None,
+                }],
+                deferred_tasks: vec![DailyDeferredTask {
+                    title: "Triage inbox".to_string(),
+                    source_ref: None,
+                    reason: "Not part of the top three".to_string(),
+                }],
+                confirmed_calendar: vec![],
+                focus_blocks: vec![],
+                check_in_history: vec![],
+            }),
+            outcome: None,
+        };
+
+        assert_eq!(
+            commitment_action_labels(&session),
+            vec!["accept", "defer", "choose", "close"]
+        );
+        assert_eq!(
+            session_continuity_summary(&session),
+            "Standup is waiting on question 2 with 1 commitment draft(s) and 1 deferred item(s)."
+        );
+    }
+
+    #[test]
+    fn morning_continuity_summary_mentions_question_budget() {
+        let session = DailyLoopSession {
+            id: "dls_morning".to_string().into(),
+            session_date: "2026-03-20".to_string(),
+            phase: DailyLoopPhase::MorningOverview,
+            status: DailyLoopStatus::WaitingForInput,
+            start: DailyLoopStartMetadata {
+                source: DailyLoopStartSource::Manual,
+                surface: DailyLoopSurface::Cli,
+            },
+            turn_state: DailyLoopTurnState::WaitingForInput,
+            current_prompt: Some(DailyLoopPrompt {
+                prompt_id: "prompt_morning_1".to_string(),
+                kind: DailyLoopPromptKind::IntentQuestion,
+                text: "What matters before noon?".to_string(),
+                ordinal: 1,
+                allow_skip: true,
+            }),
+            state: DailyLoopSessionState::MorningOverview(MorningOverviewState {
+                snapshot: "Two meetings before lunch.".to_string(),
+                friction_callouts: vec![],
+                signals: vec![MorningIntentSignal::FocusIntent {
+                    text: "Protect a block".to_string(),
+                }],
+                check_in_history: vec![],
+            }),
+            outcome: None,
+        };
+
+        assert_eq!(
+            session_continuity_summary(&session),
+            "Morning overview is waiting on question 1 of 3 with 1 captured signal(s)."
+        );
+    }
 }
