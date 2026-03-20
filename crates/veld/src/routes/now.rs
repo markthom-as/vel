@@ -4,10 +4,12 @@ use vel_api_types::{
     ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
     CommitmentSchedulingProposalSummaryItemData, CurrentContextReflowStatusData,
     DayPlanProposalData, NowAttentionData, NowData, NowDebugData, NowEventData, NowFreshnessData,
-    NowFreshnessEntryData, NowLabelData, NowRiskSummaryData, NowScheduleData,
-    NowSourceActivityData, NowSourcesData, NowSummaryData, NowTaskData, NowTasksData,
-    PlanningProfileProposalSummaryData, PlanningProfileProposalSummaryItemData, ReflowCardData,
-    TrustReadinessData, TrustReadinessFacetData, TrustReadinessReviewData,
+    NowFreshnessEntryData, NowLabelData, NowOverviewActionData, NowOverviewData,
+    NowOverviewNudgeData, NowOverviewSuggestionData, NowOverviewTimelineEntryData,
+    NowOverviewWhyStateData, NowRiskSummaryData, NowScheduleData, NowSourceActivityData,
+    NowSourcesData, NowSummaryData, NowTaskData, NowTasksData, PlanningProfileProposalSummaryData,
+    PlanningProfileProposalSummaryItemData, ReflowCardData, TrustReadinessData,
+    TrustReadinessFacetData, TrustReadinessReviewData,
 };
 
 use crate::{errors::AppError, routes::response, services, state::AppState};
@@ -24,6 +26,7 @@ impl From<services::now::NowOutput> for NowData {
         Self {
             computed_at: value.computed_at,
             timezone: value.timezone,
+            overview: value.overview.into(),
             summary: value.summary.into(),
             schedule: value.schedule.into(),
             tasks: value.tasks.into(),
@@ -66,6 +69,71 @@ impl From<services::now::NowOutput> for NowData {
                 .collect(),
             reasons: value.reasons,
             debug: value.debug.into(),
+        }
+    }
+}
+
+impl From<services::now::NowOverviewOutput> for NowOverviewData {
+    fn from(value: services::now::NowOverviewOutput) -> Self {
+        Self {
+            dominant_action: value.dominant_action.map(Into::into),
+            today_timeline: value.today_timeline.into_iter().map(Into::into).collect(),
+            visible_nudge: value.visible_nudge.map(Into::into),
+            why_state: value.why_state.into_iter().map(Into::into).collect(),
+            suggestions: value.suggestions.into_iter().map(Into::into).collect(),
+            decision_options: value.decision_options,
+        }
+    }
+}
+
+impl From<services::now::NowOverviewActionOutput> for NowOverviewActionData {
+    fn from(value: services::now::NowOverviewActionOutput) -> Self {
+        Self {
+            kind: value.kind,
+            title: value.title,
+            summary: value.summary,
+            reference_id: value.reference_id,
+        }
+    }
+}
+
+impl From<services::now::NowOverviewTimelineEntryOutput> for NowOverviewTimelineEntryData {
+    fn from(value: services::now::NowOverviewTimelineEntryOutput) -> Self {
+        Self {
+            kind: value.kind,
+            title: value.title,
+            timestamp: value.timestamp,
+            detail: value.detail,
+        }
+    }
+}
+
+impl From<services::now::NowOverviewNudgeOutput> for NowOverviewNudgeData {
+    fn from(value: services::now::NowOverviewNudgeOutput) -> Self {
+        Self {
+            kind: value.kind,
+            title: value.title,
+            summary: value.summary,
+        }
+    }
+}
+
+impl From<services::now::NowOverviewWhyStateOutput> for NowOverviewWhyStateData {
+    fn from(value: services::now::NowOverviewWhyStateOutput) -> Self {
+        Self {
+            label: value.label,
+            detail: value.detail,
+        }
+    }
+}
+
+impl From<services::now::NowOverviewSuggestionOutput> for NowOverviewSuggestionData {
+    fn from(value: services::now::NowOverviewSuggestionOutput) -> Self {
+        Self {
+            id: value.id,
+            kind: value.kind,
+            title: value.title,
+            summary: value.summary,
         }
     }
 }
@@ -318,6 +386,37 @@ mod tests {
         let service_output = services::now::NowOutput {
             computed_at: 1_700_000_100,
             timezone: "America/Denver".to_string(),
+            overview: services::now::NowOverviewOutput {
+                dominant_action: Some(services::now::NowOverviewActionOutput {
+                    kind: "check_in".to_string(),
+                    title: "Standup check-in".to_string(),
+                    summary: "Name the one to three commitments that matter most today."
+                        .to_string(),
+                    reference_id: Some("act_check_in_1".to_string()),
+                }),
+                today_timeline: vec![services::now::NowOverviewTimelineEntryOutput {
+                    kind: "calendar_event".to_string(),
+                    title: "Standup".to_string(),
+                    timestamp: 1_700_000_400,
+                    detail: Some("Desk".to_string()),
+                }],
+                visible_nudge: Some(services::now::NowOverviewNudgeOutput {
+                    kind: "freshness".to_string(),
+                    title: "Review operator queue".to_string(),
+                    summary: "One supervised review is still pending.".to_string(),
+                }),
+                why_state: vec![services::now::NowOverviewWhyStateOutput {
+                    label: "Phase".to_string(),
+                    detail: "Engaged".to_string(),
+                }],
+                suggestions: Vec::new(),
+                decision_options: vec![
+                    "accept".to_string(),
+                    "choose".to_string(),
+                    "thread".to_string(),
+                    "close".to_string(),
+                ],
+            },
             summary: services::now::NowSummaryOutput {
                 mode: services::now::NowLabelOutput {
                     key: "day_mode".to_string(),
@@ -704,6 +803,8 @@ mod tests {
         let json = serde_json::to_value(dto).unwrap();
 
         assert_eq!(json["timezone"], "America/Denver");
+        assert_eq!(json["overview"]["dominant_action"]["kind"], "check_in");
+        assert_eq!(json["overview"]["decision_options"][2], "thread");
         assert_eq!(json["summary"]["risk"]["label"], "low · 20%");
         assert_eq!(
             json["tasks"]["todoist"][0]["due_at"],

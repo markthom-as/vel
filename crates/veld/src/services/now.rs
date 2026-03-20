@@ -4,7 +4,7 @@ use vel_config::AppConfig;
 use vel_core::{
     normalize_risk_level, ActionItem, ActionKind, CheckInCard, Commitment, CommitmentStatus,
     ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, DayPlanProposal, ReflowCard,
-    ReviewSnapshot, WritebackOperationRecord,
+    ReflowSeverity, ReviewSnapshot, WritebackOperationRecord,
 };
 use vel_storage::{SignalRecord, Storage};
 
@@ -14,6 +14,7 @@ use crate::{errors::AppError, services::integrations};
 pub struct NowOutput {
     pub computed_at: i64,
     pub timezone: String,
+    pub overview: NowOverviewOutput,
     pub summary: NowSummaryOutput,
     pub schedule: NowScheduleOutput,
     pub tasks: NowTasksOutput,
@@ -49,6 +50,53 @@ pub struct NowRiskSummaryOutput {
     pub level: String,
     pub score: Option<f64>,
     pub label: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowOverviewOutput {
+    pub dominant_action: Option<NowOverviewActionOutput>,
+    pub today_timeline: Vec<NowOverviewTimelineEntryOutput>,
+    pub visible_nudge: Option<NowOverviewNudgeOutput>,
+    pub why_state: Vec<NowOverviewWhyStateOutput>,
+    pub suggestions: Vec<NowOverviewSuggestionOutput>,
+    pub decision_options: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowOverviewActionOutput {
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
+    pub reference_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowOverviewTimelineEntryOutput {
+    pub kind: String,
+    pub title: String,
+    pub timestamp: i64,
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowOverviewNudgeOutput {
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowOverviewWhyStateOutput {
+    pub label: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowOverviewSuggestionOutput {
+    pub id: String,
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
 }
 
 #[derive(Debug, Clone)]
@@ -335,10 +383,23 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         crate::services::day_plan::derive_current_day_plan(storage, &context, now_ts).await?;
     let reflow_status = crate::services::reflow::current_status_for_snapshot(&context).cloned();
     let reflow = crate::services::reflow::derive_current_reflow(storage, &context, now_ts).await?;
+    let overview = build_overview(
+        &context,
+        now_ts,
+        &schedule_empty_message,
+        next_event.as_ref(),
+        &task_buckets,
+        check_in.as_ref(),
+        reflow.as_ref(),
+        &action_queue.action_items,
+        &freshness,
+        &trust_readiness,
+    );
 
     Ok(NowOutput {
         computed_at,
         timezone: timezone.name,
+        overview,
         summary: NowSummaryOutput {
             mode: label_for_mode(context.mode.as_str()),
             phase: label_for_phase(context.morning_state.as_str()),
@@ -678,9 +739,18 @@ fn empty_now(
             guidance: None,
         }],
     };
+    let trust_readiness = build_trust_readiness_from_parts(
+        None,
+        &freshness,
+        &action_queue.review_snapshot,
+        action_queue.pending_writebacks.len() as u32,
+        action_queue.conflicts.len() as u32,
+        &action_queue.action_items,
+    );
     NowOutput {
         computed_at: now_ts,
         timezone: timezone.to_string(),
+        overview: empty_overview(&freshness, &trust_readiness),
         summary: NowSummaryOutput {
             mode: label("unknown", "Unknown"),
             phase: label("unknown", "Unknown"),
@@ -715,14 +785,7 @@ fn empty_now(
             assistant_message: None,
         },
         freshness: freshness.clone(),
-        trust_readiness: build_trust_readiness_from_parts(
-            None,
-            &freshness,
-            &action_queue.review_snapshot,
-            action_queue.pending_writebacks.len() as u32,
-            action_queue.conflicts.len() as u32,
-            &action_queue.action_items,
-        ),
+        trust_readiness,
         planning_profile_summary: (!planning_profile_summary.is_empty())
             .then_some(planning_profile_summary),
         commitment_scheduling_summary: (!commitment_scheduling_summary.is_empty())
@@ -748,6 +811,330 @@ fn empty_now(
             risk_used: Vec::new(),
         },
     }
+}
+
+fn build_overview(
+    context: &CurrentContextV1,
+    now_ts: i64,
+    schedule_empty_message: &Option<String>,
+    next_event: Option<&NowEventOutput>,
+    task_buckets: &NowTaskBuckets,
+    check_in: Option<&CheckInCard>,
+    reflow: Option<&ReflowCard>,
+    action_items: &[ActionItem],
+    freshness: &NowFreshnessOutput,
+    trust_readiness: &TrustReadinessOutput,
+) -> NowOverviewOutput {
+    let dominant_action =
+        build_dominant_action(check_in, reflow, action_items, task_buckets, next_event);
+    let visible_nudge = build_visible_nudge(context, action_items, dominant_action.as_ref());
+    let suggestions = if dominant_action.is_none() {
+        build_suggestions(
+            schedule_empty_message,
+            next_event,
+            task_buckets,
+            action_items,
+        )
+    } else {
+        Vec::new()
+    };
+
+    NowOverviewOutput {
+        dominant_action,
+        today_timeline: build_today_timeline(now_ts, next_event, task_buckets),
+        visible_nudge,
+        why_state: build_why_state(context, freshness, trust_readiness),
+        suggestions,
+        decision_options: vec![
+            "accept".to_string(),
+            "choose".to_string(),
+            "thread".to_string(),
+            "close".to_string(),
+        ],
+    }
+}
+
+fn empty_overview(
+    freshness: &NowFreshnessOutput,
+    trust_readiness: &TrustReadinessOutput,
+) -> NowOverviewOutput {
+    NowOverviewOutput {
+        dominant_action: None,
+        today_timeline: Vec::new(),
+        visible_nudge: None,
+        why_state: vec![
+            NowOverviewWhyStateOutput {
+                label: "Freshness".to_string(),
+                detail: match freshness.overall_status.as_str() {
+                    "stale" => {
+                        "Current context is stale; sync integrations or run evaluate.".to_string()
+                    }
+                    "missing" => {
+                        "Current context is missing; sync integrations or run evaluate.".to_string()
+                    }
+                    status => format!("Current context status is {status}."),
+                },
+            },
+            NowOverviewWhyStateOutput {
+                label: "Trust".to_string(),
+                detail: trust_readiness.summary.clone(),
+            },
+        ],
+        suggestions: vec![NowOverviewSuggestionOutput {
+            id: "sync_context".to_string(),
+            kind: "recovery".to_string(),
+            title: "Recover current context".to_string(),
+            summary:
+                "Sync integrations or run evaluate so Now can assemble the current-day overview."
+                    .to_string(),
+        }],
+        decision_options: vec![
+            "accept".to_string(),
+            "choose".to_string(),
+            "thread".to_string(),
+            "close".to_string(),
+        ],
+    }
+}
+
+fn build_dominant_action(
+    check_in: Option<&CheckInCard>,
+    reflow: Option<&ReflowCard>,
+    action_items: &[ActionItem],
+    task_buckets: &NowTaskBuckets,
+    next_event: Option<&NowEventOutput>,
+) -> Option<NowOverviewActionOutput> {
+    if let Some(check_in) = check_in.filter(|item| item.blocking) {
+        return Some(NowOverviewActionOutput {
+            kind: "check_in".to_string(),
+            title: check_in.title.clone(),
+            summary: check_in.summary.clone(),
+            reference_id: Some(check_in.id.to_string()),
+        });
+    }
+
+    if let Some(reflow) = reflow.filter(|item| {
+        item.severity == ReflowSeverity::Critical || item.severity == ReflowSeverity::High
+    }) {
+        return Some(NowOverviewActionOutput {
+            kind: "reflow".to_string(),
+            title: reflow.title.clone(),
+            summary: reflow.summary.clone(),
+            reference_id: Some(reflow.id.to_string()),
+        });
+    }
+
+    if let Some(item) = action_items.first() {
+        return Some(NowOverviewActionOutput {
+            kind: item.kind.to_string(),
+            title: item.title.clone(),
+            summary: item.summary.clone(),
+            reference_id: Some(item.id.to_string()),
+        });
+    }
+
+    if let Some(task) = task_buckets.next_commitment.as_ref() {
+        return Some(NowOverviewActionOutput {
+            kind: "commitment".to_string(),
+            title: task.text.clone(),
+            summary: task
+                .project
+                .as_ref()
+                .map(|project| format!("Next open commitment in {project}."))
+                .unwrap_or_else(|| "Next open commitment is ready for review.".to_string()),
+            reference_id: Some(task.id.clone()),
+        });
+    }
+
+    next_event.map(|event| NowOverviewActionOutput {
+        kind: "calendar_event".to_string(),
+        title: event.title.clone(),
+        summary: "Upcoming calendar event anchors the next part of the day.".to_string(),
+        reference_id: None,
+    })
+}
+
+fn build_visible_nudge(
+    context: &CurrentContextV1,
+    action_items: &[ActionItem],
+    dominant_action: Option<&NowOverviewActionOutput>,
+) -> Option<NowOverviewNudgeOutput> {
+    if let Some(item) = action_items.iter().find(|item| {
+        dominant_action.and_then(|current| current.reference_id.as_ref())
+            != Some(&item.id.to_string())
+    }) {
+        return Some(NowOverviewNudgeOutput {
+            kind: item.kind.to_string(),
+            title: item.title.clone(),
+            summary: item.summary.clone(),
+        });
+    }
+
+    if context.prep_window_active {
+        return Some(NowOverviewNudgeOutput {
+            kind: "prep_window".to_string(),
+            title: "Prep window is active".to_string(),
+            summary: "The current-day context says it is time to prepare for the next commitment."
+                .to_string(),
+        });
+    }
+
+    if context.commute_window_active {
+        return Some(NowOverviewNudgeOutput {
+            kind: "commute_window".to_string(),
+            title: "Commute window is active".to_string(),
+            summary: "Travel pressure is active and may change what is safe to start next."
+                .to_string(),
+        });
+    }
+
+    if context.meds_status == "pending" {
+        return Some(NowOverviewNudgeOutput {
+            kind: "meds".to_string(),
+            title: "Medication is still pending".to_string(),
+            summary: "The current context still marks medication follow-through as incomplete."
+                .to_string(),
+        });
+    }
+
+    None
+}
+
+fn build_suggestions(
+    schedule_empty_message: &Option<String>,
+    next_event: Option<&NowEventOutput>,
+    task_buckets: &NowTaskBuckets,
+    action_items: &[ActionItem],
+) -> Vec<NowOverviewSuggestionOutput> {
+    let mut suggestions = Vec::new();
+
+    if let Some(task) = task_buckets.next_commitment.as_ref() {
+        suggestions.push(NowOverviewSuggestionOutput {
+            id: task.id.clone(),
+            kind: "commitment".to_string(),
+            title: task.text.clone(),
+            summary: task
+                .project
+                .as_ref()
+                .map(|project| format!("Continue the next open commitment in {project}."))
+                .unwrap_or_else(|| "Continue the next open commitment.".to_string()),
+        });
+    }
+
+    if let Some(event) = next_event {
+        suggestions.push(NowOverviewSuggestionOutput {
+            id: format!("event:{}", event.start_ts),
+            kind: "calendar_event".to_string(),
+            title: event.title.clone(),
+            summary: "Review the next calendar anchor before committing new work.".to_string(),
+        });
+    }
+
+    if let Some(item) = action_items.first() {
+        suggestions.push(NowOverviewSuggestionOutput {
+            id: item.id.to_string(),
+            kind: item.kind.to_string(),
+            title: item.title.clone(),
+            summary: item.summary.clone(),
+        });
+    }
+
+    if suggestions.is_empty() {
+        suggestions.push(NowOverviewSuggestionOutput {
+            id: "overview_wait".to_string(),
+            kind: "review".to_string(),
+            title: "Review current-day state".to_string(),
+            summary: schedule_empty_message.clone().unwrap_or_else(|| {
+                "No dominant action is available yet; inspect current-day state before choosing."
+                    .to_string()
+            }),
+        });
+    }
+
+    suggestions.truncate(3);
+    suggestions
+}
+
+fn build_today_timeline(
+    now_ts: i64,
+    next_event: Option<&NowEventOutput>,
+    task_buckets: &NowTaskBuckets,
+) -> Vec<NowOverviewTimelineEntryOutput> {
+    let mut timeline = vec![NowOverviewTimelineEntryOutput {
+        kind: "now".to_string(),
+        title: "Current time".to_string(),
+        timestamp: now_ts,
+        detail: None,
+    }];
+
+    if let Some(event) = next_event {
+        timeline.push(NowOverviewTimelineEntryOutput {
+            kind: "calendar_event".to_string(),
+            title: event.title.clone(),
+            timestamp: event.start_ts,
+            detail: event.location.clone(),
+        });
+    }
+
+    if let Some(task) = task_buckets.next_commitment.as_ref() {
+        if let Some(due_at) = task.due_at {
+            timeline.push(NowOverviewTimelineEntryOutput {
+                kind: "commitment_due".to_string(),
+                title: "Next commitment due".to_string(),
+                timestamp: due_at.unix_timestamp(),
+                detail: Some(task.text.clone()),
+            });
+        }
+    }
+
+    timeline.truncate(3);
+    timeline
+}
+
+fn build_why_state(
+    context: &CurrentContextV1,
+    freshness: &NowFreshnessOutput,
+    trust_readiness: &TrustReadinessOutput,
+) -> Vec<NowOverviewWhyStateOutput> {
+    let mut why_state = vec![
+        NowOverviewWhyStateOutput {
+            label: "Mode".to_string(),
+            detail: label_for_mode(context.mode.as_str()).label,
+        },
+        NowOverviewWhyStateOutput {
+            label: "Phase".to_string(),
+            detail: label_for_phase(context.morning_state.as_str()).label,
+        },
+        NowOverviewWhyStateOutput {
+            label: "Attention".to_string(),
+            detail: label_for_attention(context.attention_state.as_str()).label,
+        },
+        NowOverviewWhyStateOutput {
+            label: "Freshness".to_string(),
+            detail: freshness.overall_status.clone(),
+        },
+        NowOverviewWhyStateOutput {
+            label: "Trust".to_string(),
+            detail: trust_readiness.headline.clone(),
+        },
+    ];
+
+    if context.prep_window_active {
+        why_state.push(NowOverviewWhyStateOutput {
+            label: "Prep".to_string(),
+            detail: "Prep window is active.".to_string(),
+        });
+    }
+
+    if context.commute_window_active {
+        why_state.push(NowOverviewWhyStateOutput {
+            label: "Commute".to_string(),
+            detail: "Commute window is active.".to_string(),
+        });
+    }
+
+    why_state.truncate(6);
+    why_state
 }
 
 fn schedule_empty_message(

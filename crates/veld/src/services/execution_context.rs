@@ -523,6 +523,19 @@ mod tests {
                 now: vel_api_types::NowData {
                     computed_at: 1_700_000_000,
                     timezone: "America/Denver".to_string(),
+                    overview: vel_api_types::NowOverviewData {
+                        dominant_action: None,
+                        today_timeline: Vec::new(),
+                        visible_nudge: None,
+                        why_state: Vec::new(),
+                        suggestions: Vec::new(),
+                        decision_options: vec![
+                            "accept".to_string(),
+                            "choose".to_string(),
+                            "thread".to_string(),
+                            "close".to_string(),
+                        ],
+                    },
                     summary: vel_api_types::NowSummaryData {
                         mode: vel_api_types::NowLabelData {
                             key: "focused".to_string(),

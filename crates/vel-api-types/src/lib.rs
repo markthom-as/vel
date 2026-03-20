@@ -6290,6 +6290,61 @@ pub struct NowRiskSummaryData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowOverviewActionData {
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowOverviewTimelineEntryData {
+    pub kind: String,
+    pub title: String,
+    pub timestamp: UnixSeconds,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowOverviewNudgeData {
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowOverviewWhyStateData {
+    pub label: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowOverviewSuggestionData {
+    pub id: String,
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowOverviewData {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dominant_action: Option<NowOverviewActionData>,
+    #[serde(default)]
+    pub today_timeline: Vec<NowOverviewTimelineEntryData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_nudge: Option<NowOverviewNudgeData>,
+    #[serde(default)]
+    pub why_state: Vec<NowOverviewWhyStateData>,
+    #[serde(default)]
+    pub suggestions: Vec<NowOverviewSuggestionData>,
+    #[serde(default)]
+    pub decision_options: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowSummaryData {
     pub mode: NowLabelData,
     pub phase: NowLabelData,
@@ -6416,6 +6471,7 @@ pub struct NowDebugData {
 pub struct NowData {
     pub computed_at: UnixSeconds,
     pub timezone: String,
+    pub overview: NowOverviewData,
     pub summary: NowSummaryData,
     pub schedule: NowScheduleData,
     pub tasks: NowTasksData,

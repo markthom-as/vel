@@ -446,6 +446,19 @@ mod tests {
         let now = NowData {
             computed_at: 0,
             timezone: "America/Denver".to_string(),
+            overview: vel_api_types::NowOverviewData {
+                dominant_action: None,
+                today_timeline: vec![],
+                visible_nudge: None,
+                why_state: vec![],
+                suggestions: vec![],
+                decision_options: vec![
+                    "accept".to_string(),
+                    "choose".to_string(),
+                    "thread".to_string(),
+                    "close".to_string(),
+                ],
+            },
             summary: NowSummaryData {
                 mode: NowLabelData {
                     key: "focus".to_string(),

@@ -724,6 +724,14 @@ describe('transport decoders', () => {
         now: {
           computed_at: 1710000000,
           timezone: 'America/Denver',
+          overview: {
+            dominant_action: null,
+            today_timeline: [],
+            visible_nudge: null,
+            why_state: [],
+            suggestions: [],
+            decision_options: ['accept', 'choose', 'thread', 'close'],
+          },
           summary: {
             mode: { key: 'focus', label: 'Focus' },
             phase: { key: 'engaged', label: 'Engaged' },
@@ -1485,6 +1493,39 @@ describe('transport decoders', () => {
       decodeNowData({
         computed_at: 1710000000,
         timezone: 'America/Denver',
+        overview: {
+          dominant_action: {
+            kind: 'check_in',
+            title: 'Standup check-in',
+            summary: 'Name the one to three commitments that matter most today.',
+            reference_id: 'act_check_in_1',
+          },
+          today_timeline: [
+            {
+              kind: 'now',
+              title: 'Current time',
+              timestamp: 1710000000,
+              detail: null,
+            },
+            {
+              kind: 'calendar_event',
+              title: 'Standup',
+              timestamp: 1710000300,
+              detail: 'Desk',
+            },
+          ],
+          visible_nudge: {
+            kind: 'freshness',
+            title: 'Review operator queue',
+            summary: 'One supervised review is still pending.',
+          },
+          why_state: [
+            { label: 'Mode', detail: 'Day' },
+            { label: 'Attention', detail: 'On task' },
+          ],
+          suggestions: [],
+          decision_options: ['accept', 'choose', 'thread', 'close'],
+        },
         summary: {
           mode: { key: 'day_mode', label: 'Day' },
           phase: { key: 'engaged', label: 'Engaged' },
@@ -1838,6 +1879,39 @@ describe('transport decoders', () => {
     ).toEqual({
       computed_at: 1710000000,
       timezone: 'America/Denver',
+      overview: {
+        dominant_action: {
+          kind: 'check_in',
+          title: 'Standup check-in',
+          summary: 'Name the one to three commitments that matter most today.',
+          reference_id: 'act_check_in_1',
+        },
+        today_timeline: [
+          {
+            kind: 'now',
+            title: 'Current time',
+            timestamp: 1710000000,
+            detail: null,
+          },
+          {
+            kind: 'calendar_event',
+            title: 'Standup',
+            timestamp: 1710000300,
+            detail: 'Desk',
+          },
+        ],
+        visible_nudge: {
+          kind: 'freshness',
+          title: 'Review operator queue',
+          summary: 'One supervised review is still pending.',
+        },
+        why_state: [
+          { label: 'Mode', detail: 'Day' },
+          { label: 'Attention', detail: 'On task' },
+        ],
+        suggestions: [],
+        decision_options: ['accept', 'choose', 'thread', 'close'],
+      },
       summary: {
         mode: { key: 'day_mode', label: 'Day' },
         phase: { key: 'engaged', label: 'Engaged' },

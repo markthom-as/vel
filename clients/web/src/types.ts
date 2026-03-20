@@ -1440,6 +1440,7 @@ export interface DayPlanProposalData {
 export interface NowData {
   computed_at: UnixSeconds;
   timezone: string;
+  overview: NowOverviewData;
   summary: NowSummaryData;
   schedule: NowScheduleData;
   tasks: NowTasksData;
@@ -1460,6 +1461,47 @@ export interface NowData {
   people: PersonRecordData[];
   reasons: string[];
   debug: NowDebugData;
+}
+
+export interface NowOverviewActionData {
+  kind: string;
+  title: string;
+  summary: string;
+  reference_id?: string | null;
+}
+
+export interface NowOverviewTimelineEntryData {
+  kind: string;
+  title: string;
+  timestamp: UnixSeconds;
+  detail?: string | null;
+}
+
+export interface NowOverviewNudgeData {
+  kind: string;
+  title: string;
+  summary: string;
+}
+
+export interface NowOverviewWhyStateData {
+  label: string;
+  detail: string;
+}
+
+export interface NowOverviewSuggestionData {
+  id: string;
+  kind: string;
+  title: string;
+  summary: string;
+}
+
+export interface NowOverviewData {
+  dominant_action: NowOverviewActionData | null;
+  today_timeline: NowOverviewTimelineEntryData[];
+  visible_nudge: NowOverviewNudgeData | null;
+  why_state: NowOverviewWhyStateData[];
+  suggestions: NowOverviewSuggestionData[];
+  decision_options: string[];
 }
 
 export type DailyLoopPhaseData = 'morning_overview' | 'standup';
@@ -3417,8 +3459,56 @@ function decodeNowSourceActivityData(value: unknown): NowSourceActivityData {
   };
 }
 
+function decodeNowOverviewActionData(value: unknown): NowOverviewActionData {
+  const record = expectRecord(value, 'now overview action');
+  return {
+    kind: expectString(record.kind, 'now overview action.kind'),
+    title: expectString(record.title, 'now overview action.title'),
+    summary: expectString(record.summary, 'now overview action.summary'),
+    reference_id: expectNullableString(record.reference_id, 'now overview action.reference_id'),
+  };
+}
+
+function decodeNowOverviewTimelineEntryData(value: unknown): NowOverviewTimelineEntryData {
+  const record = expectRecord(value, 'now overview timeline entry');
+  return {
+    kind: expectString(record.kind, 'now overview timeline entry.kind'),
+    title: expectString(record.title, 'now overview timeline entry.title'),
+    timestamp: expectUnixSeconds(record.timestamp, 'now overview timeline entry.timestamp'),
+    detail: expectNullableString(record.detail, 'now overview timeline entry.detail'),
+  };
+}
+
+function decodeNowOverviewNudgeData(value: unknown): NowOverviewNudgeData {
+  const record = expectRecord(value, 'now overview nudge');
+  return {
+    kind: expectString(record.kind, 'now overview nudge.kind'),
+    title: expectString(record.title, 'now overview nudge.title'),
+    summary: expectString(record.summary, 'now overview nudge.summary'),
+  };
+}
+
+function decodeNowOverviewWhyStateData(value: unknown): NowOverviewWhyStateData {
+  const record = expectRecord(value, 'now overview why_state');
+  return {
+    label: expectString(record.label, 'now overview why_state.label'),
+    detail: expectString(record.detail, 'now overview why_state.detail'),
+  };
+}
+
+function decodeNowOverviewSuggestionData(value: unknown): NowOverviewSuggestionData {
+  const record = expectRecord(value, 'now overview suggestion');
+  return {
+    id: expectString(record.id, 'now overview suggestion.id'),
+    kind: expectString(record.kind, 'now overview suggestion.kind'),
+    title: expectString(record.title, 'now overview suggestion.title'),
+    summary: expectString(record.summary, 'now overview suggestion.summary'),
+  };
+}
+
 export function decodeNowData(value: unknown): NowData {
   const record = expectRecord(value, 'now data');
+  const overview = expectRecord(record.overview, 'now data.overview');
   const summary = expectRecord(record.summary, 'now data.summary');
   const schedule = expectRecord(record.schedule, 'now data.schedule');
   const tasks = expectRecord(record.tasks, 'now data.tasks');
@@ -3429,6 +3519,29 @@ export function decodeNowData(value: unknown): NowData {
   return {
     computed_at: expectUnixSeconds(record.computed_at, 'now data.computed_at'),
     timezone: expectString(record.timezone, 'now data.timezone'),
+    overview: {
+      dominant_action: decodeNullable(
+        overview.dominant_action ?? null,
+        decodeNowOverviewActionData,
+      ),
+      today_timeline: decodeArray(
+        overview.today_timeline ?? [],
+        decodeNowOverviewTimelineEntryData,
+      ),
+      visible_nudge: decodeNullable(
+        overview.visible_nudge ?? null,
+        decodeNowOverviewNudgeData,
+      ),
+      why_state: decodeArray(overview.why_state ?? [], decodeNowOverviewWhyStateData),
+      suggestions: decodeArray(
+        overview.suggestions ?? [],
+        decodeNowOverviewSuggestionData,
+      ),
+      decision_options: decodeArray(
+        overview.decision_options ?? [],
+        (item) => expectString(item, 'now data.overview.decision_options'),
+      ),
+    },
     summary: {
       mode: decodeNowLabelData(summary.mode),
       phase: decodeNowLabelData(summary.phase),
