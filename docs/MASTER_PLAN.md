@@ -1,6 +1,6 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v1.0.6)
-**Last Updated**: 2026-03-19
+**Status**: Canonical Truth (v0.2 planning)
+**Last Updated**: 2026-03-20
 
 ---
 
@@ -8,15 +8,15 @@
 
 | Phase | Status | Focus |
 | :--- | :--- | :--- |
-| **v0: MVP** | **[75% - BLOCKED]** | Local core functionality and reliable capture. |
+| **v0.2: True MVP** | **[PLANNING]** | Lock the strict operator loop, Rust-owned contracts, and thin-shell architecture. |
 | **Phase 1** | **[COMPLETE]** | Monolith decomposition and structural foundations. |
 | **Phase 2** | **[CLOSED / RE-SCOPED]** | Distributed swarm baseline shipped; unfinished sync ordering, guided onboarding, and external connect work moved to Phases 5, 6, and 8. |
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
 
-Active future roadmap work begins at Phase 5 in `.planning/ROADMAP.md`. There is no remaining active roadmap work before Phase 5; unfinished original-scope work from historical Phase 2 and Phase 4 has been explicitly re-scoped into later phases.
+Active roadmap work now lives in milestone `v0.2` in `.planning/ROADMAP.md`, starting at Phase 40.
 
-The current post-Phase-12 architecture lane is Phase 13 in `.planning/ROADMAP.md`: cross-surface core architecture and adapter boundaries. Authority for that lane lives in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`.
+The active Phase 40 lane is MVP definition, canonical contracts, and architecture refinement. Durable product authority for that lane starts with `docs/product/mvp-operator-loop.md`, and durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`.
 
 ---
 
