@@ -138,8 +138,14 @@ Remaining execution order: 16
 | 13. Cross-surface core architecture and adapter boundaries | 4/4 | Complete | 2026-03-19 |
 | 14. Product discovery, operator modes, and milestone shaping | 4/4 | Complete | 2026-03-19 |
 | 15. Incremental core migration and canonical Rust service seams | 5/5 | Complete | 2026-03-19 |
-| 16. Logic-first product closure on canonical core surfaces | 1/5 | In Progress | - |
+| 16. Logic-first product closure on canonical core surfaces | 5/5 | Complete | 2026-03-19 |
 | 17. Shell embodiment, operator-mode application, and surface simplification | 4/4 | Complete | 2026-03-19 |
+| 18. Milestone verification backfill and requirement reconciliation | 4/4 | Complete | 2026-03-20 |
+| 19. Archive readiness, re-audit, and milestone closeout | 0/4 | Deferred / Skipped | 2026-03-20 |
+| 20. Grounded assistant entry and daily-use usability closure | 0/0 | Planned | - |
+| 21. Cross-surface voice assistant parity and desktop push-to-talk | 0/0 | Planned | - |
+| 22. Assistant-supported daily loop, closeout, and thread resolution | 0/0 | Planned | - |
+| 23. Safe assistant-mediated actions and supervised write lanes | 0/0 | Planned | - |
 
 ### Phase 5: Now + Inbox core and project substrate
 
@@ -180,7 +186,7 @@ Plans:
 **Goal:** Make Vel useful from iPhone/watch first through fast capture and response loops, while ingesting lightweight behavioral signals that improve daily orientation without making health or astrology core dependencies.
 **Requirements**: IOS-01, IOS-02, IOS-03, HEALTH-01, HEALTH-02, APPLE-01
 **Depends on:** Phase 6
-**Plans:** 1/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 07-01-PLAN.md — Publish typed Apple voice, schedule, and behavior-summary contracts before implementation widens
@@ -344,7 +350,7 @@ Plans:
 **Goal:** Apply the Phase 14 product taxonomy and Phase 15-16 backend ownership decisions across web, Apple, CLI, and future desktop-ready shells so the default operator experience is simpler, advanced/runtime concerns are progressively disclosed, and internal implementation categories stop leaking into everyday use.
 **Requirements**: SHELL-MODE-01, SHELL-MODE-02, TRUST-SUMMARY-01, APPLE-SHELL-01
 **Depends on:** Phase 16
-**Plans:** 4 plans
+**Plans:** 1/4 plans complete
 
 **Embodiment note:** This phase exists so UI/surface simplification does not get mixed into migration or backend logic closure. It should apply the approved product-mode policy and shell boundaries rather than invent new product semantics.
 **Phase 14 carry-forward:** Phase 17 should embody minimal `Now`, triage-first `Inbox`, archive/search-first `Threads`, secondary-but-real `Projects`, inline `check_in`, and heavier `reflow` treatment without reopening the taxonomy or action-model decisions.
@@ -354,3 +360,103 @@ Plans:
 - [x] 17-02-PLAN.md — Embody minimal `Now`, triage-first `Inbox`, and archive/search-first `Threads` in the web shell
 - [x] 17-03-PLAN.md — Apply progressive disclosure to `Projects`, `Settings`, trust/setup, and passive support surfaces
 - [x] 17-04-PLAN.md — Align Apple and CLI shells to the same taxonomy and disclosure rules without widening backend semantics
+
+### Phase 18: Milestone verification backfill and requirement reconciliation
+
+**Goal:** Close the milestone audit blockers by backfilling missing verification evidence across the shipped phases, reconciling `REQUIREMENTS.md` against completed summaries and verification outcomes, and restoring one truthful milestone ledger before archival.
+**Requirements**: CLOSEOUT-01, CLOSEOUT-02
+**Depends on:** Phase 17
+**Gap Closure:** Closes `MILESTONE-VERIFY-01` and `MILESTONE-REQS-01` from [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md)
+**Plans:** 4 plans
+
+**Closeout note:** This phase is intentionally bookkeeping-heavy but still product-critical. The milestone cannot be archived honestly until verification coverage and requirement status are backed by durable artifacts instead of summaries alone.
+
+Plans:
+- [x] 18-01-PLAN.md — Create the milestone closeout inventory and explicit reconciliation rules
+- [x] 18-02-PLAN.md — Backfill verification artifacts for historical/baseline phases 2-4 without rewriting the re-scope history
+- [x] 18-03-PLAN.md — Backfill verification artifacts for fully shipped product phases 5-17 using existing summary evidence
+- [x] 18-04-PLAN.md — Reconcile REQUIREMENTS.md against the new verification truth and prepare the Phase 19 handoff
+
+### Phase 19: Archive readiness, re-audit, and milestone closeout
+
+**Goal:** Make the milestone archive inputs internally consistent, rerun the milestone audit against the repaired verification/requirements state, and complete archival/tag readiness without introducing new product work.
+**Requirements**: CLOSEOUT-03, CLOSEOUT-04
+**Depends on:** Phase 18
+**Gap Closure:** Closes `MILESTONE-ROADMAP-01`, `MILESTONE-INTEGRATION-01`, and `MILESTONE-FLOW-01` from [v1.0-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v1.0-MILESTONE-AUDIT.md)
+**Plans:** 4 plans
+
+**Closeout note:** This phase exists so the archive/release record is based on a passing milestone audit and coherent roadmap/requirements state, not on optimistic completion summaries.
+
+Plans:
+- [ ] 19-01-PLAN.md — Repair roadmap/state/archive metadata drift and establish the archive-readiness baseline
+- [ ] 19-02-PLAN.md — Write milestone-level integration verification tying backend, web, Apple, and CLI surfaces together
+- [ ] 19-03-PLAN.md — Write milestone-level end-to-end flow verification for closeout-critical operator flows
+- [ ] 19-04-PLAN.md — Rerun milestone audit, update closeout requirements, and leave the milestone ready for archival
+
+**Deferral note (2026-03-20):** Operator requested that milestone closeout bookkeeping be skipped for now in favor of returning to feature work that improves real daily usability. This phase remains deferred and the milestone intentionally remains unarchived until closeout work is resumed.
+
+### Phase 20: Grounded assistant entry and daily-use usability closure
+
+**Goal:** Make Vel materially more usable for repeated daily operation by turning the grounded Rust-owned assistant into the default operator entry for text, capture, and thread continuity, while tightening the `Now` / `Inbox` / `Threads` loop and reducing setup friction enough for real daily use.
+**Requirements**: USABLE-01, USABLE-02, NOW-UX-01, INBOX-UX-01, THREADS-UX-01, ENTRY-01, SETTINGS-UX-01, ASSIST-01, ASSIST-02, THREADS-02
+**Depends on:** Phase 17 shipped behavior; Phase 19 closeout explicitly deferred
+**Plans:** 4 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — Stabilize the thread/composer contract and repair the known ThreadView placeholder drift
+- [ ] 20-02-PLAN.md — Add the backend-owned grounded assistant entry seam over the existing conversation/message stack
+- [ ] 20-03-PLAN.md — Embody assistant-first entry in `Now` and shared thread/composer web flows
+- [ ] 20-04-PLAN.md — Close Inbox, Threads, and Settings daily-use friction without breaking surface boundaries
+
+**Priority note:** This phase is promoted ahead of milestone archival because the operator explicitly chose usability and repeated daily use over more closeout bookkeeping.
+
+**Scope note:** This phase should stay focused on real operator usability:
+
+- `Now` as compact, urgent-first, contextual action surface
+- better `Inbox` and `Threads` ergonomics for triage versus continuity
+- a unified entry/capture/conversation path backed by one grounded assistant seam
+- bounded remote LLM routing through configured profiles, including localhost `openai_oauth`, without weakening local-first core behavior
+- reduction of settings/setup friction in the default experience
+
+It should not widen into broad new provider expansion or another architecture phase.
+
+### Phase 21: Cross-surface voice assistant parity and desktop push-to-talk
+
+**Goal:** Make voice a first-class path into the same grounded assistant/runtime authority across web, desktop, and Apple surfaces, preferring local speech-to-text where practical while keeping backend-owned product semantics and thread continuity.
+**Requirements**: VOICE-02, VOICE-03, APPLE-VOICE-02, DESKTOP-VOICE-01, DESKTOP-VOICE-02
+**Depends on:** Phase 20
+**Plans:** 0 plans
+
+**Scope note:** This phase should unify voice-facing behavior rather than growing a separate voice product:
+
+- browser/local desktop voice should feed the same grounded assistant path as typed input
+- Apple voice should stop carrying more product logic than the shared assistant seam
+- push-to-talk and transcript provenance should stay explicit and inspectable
+- local STT is preferred for desktop usability, with remote inference remaining optional and replaceable
+
+### Phase 22: Assistant-supported daily loop, closeout, and thread resolution
+
+**Goal:** Extend the grounded assistant seam so morning briefing, standup, end-of-day closeout, and multi-step resolution of action items can all happen through one backend-owned conversation/thread model instead of separate ad hoc flows.
+**Requirements**: DAILY-AI-01, DAILY-AI-02, EOD-01, EOD-02, THREAD-RES-01, THREAD-RES-02
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+**Scope note:** This phase should reuse the existing daily-loop and operator-action contracts rather than inventing a parallel assistant-only planning system:
+
+- morning and standup should be assistant-capable without abandoning the typed daily-loop authority
+- end-of-day should become a first-class assistant-capable closure flow
+- longer check-in, reflow, and item-resolution work should escalate into durable threads cleanly
+- thread history should preserve why an item was resolved, deferred, edited, or left pending
+
+### Phase 23: Safe assistant-mediated actions and supervised write lanes
+
+**Goal:** Open the next step beyond read-only grounding by letting the assistant propose or stage bounded actions through the existing review, trust, and writeback gates, so the assistant can help resolve real work without bypassing operator control.
+**Requirements**: ASSIST-ACT-01, ASSIST-ACT-02, REVIEW-02, TRUST-02
+**Depends on:** Phase 22
+**Plans:** 0 plans
+
+**Scope note:** This phase is intentionally later than the conversation and voice phases. The assistant should become deeply useful before it becomes mutation-capable:
+
+- assistant-proposed actions must reuse existing review and SAFE MODE lanes
+- no raw credential widening or silent background writes
+- thread-based resolution should be able to hand off into explicit approval or confirmation paths
