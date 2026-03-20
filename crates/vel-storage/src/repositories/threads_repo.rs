@@ -8,6 +8,7 @@ use crate::repositories::semantic_memory_repo;
 type ThreadRecord = (String, String, String, String, String, i64, i64);
 type ThreadListRecord = (String, String, String, String, i64, i64);
 type ThreadLinkRecord = (String, String, String, String);
+type ThreadIdRecord = (String,);
 
 pub(crate) async fn insert_thread(
     pool: &SqlitePool,
@@ -101,6 +102,34 @@ pub(crate) async fn update_thread_status(
     Ok(())
 }
 
+pub(crate) async fn update_thread_metadata(
+    pool: &SqlitePool,
+    id: &str,
+    metadata_json: &str,
+) -> Result<(), StorageError> {
+    let now = OffsetDateTime::now_utc().unix_timestamp();
+    sqlx::query(r#"UPDATE threads SET metadata_json = ?, updated_at = ? WHERE id = ?"#)
+        .bind(metadata_json)
+        .bind(now)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    if let Some((thread_id, thread_type, title, status, _, _, updated_at)) =
+        get_thread_by_id(pool, id).await?
+    {
+        semantic_memory_repo::upsert_thread_record(
+            pool,
+            &thread_id,
+            &thread_type,
+            &title,
+            &status,
+            updated_at,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 pub(crate) async fn insert_thread_link(
     pool: &SqlitePool,
     thread_id: &str,
@@ -135,4 +164,22 @@ pub(crate) async fn list_thread_links(
     .fetch_all(pool)
     .await
     .map_err(StorageError::from)
+}
+
+pub(crate) async fn list_threads_linking_entity(
+    pool: &SqlitePool,
+    entity_type: &str,
+    entity_id: &str,
+    relation_type: &str,
+) -> Result<Vec<String>, StorageError> {
+    let rows = sqlx::query_as::<Sqlite, ThreadIdRecord>(
+        r#"SELECT thread_id FROM thread_links WHERE entity_type = ? AND entity_id = ? AND relation_type = ? ORDER BY created_at ASC"#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(relation_type)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|(thread_id,)| thread_id).collect())
 }

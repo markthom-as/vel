@@ -172,11 +172,13 @@ Repo-local supervised workflow:
 - returns one typed grounding bundle over current `Now`, current context references, projects, people, open commitments, review pressure, and pending execution handoffs
 - capability groups are summarized server-side and fail closed with explicit blockers when SAFE MODE keeps writeback disabled, handoff review is still pending, or no approved repo-local write grant exists
 - this route does not widen `/api/chat` behavior or create a second persisted agent-state blob
+- assistant recall and grounding should build on this same backend-owned substrate: bounded recall context is assembled from persisted Vel records plus inspect/`Now` state, not from shell-local memory heuristics
 - typed human-to-agent and agent-to-agent handoff persistence for coding work
 - routing decisions keep task kind, agent profile, token budget, review gate, scopes, and explicit reasons first-class
 - launch preview reports whether review state still blocks execution
 - approvals and rejections update explicit review state; launch readiness does not rely on implicit side effects
 - pending handoffs are surfaced on operator `Now` and the General settings review queue
+- assistant proposal continuity can point into this same lane: repo-local proposal threads may move from `staged` to `approved` when handoff review succeeds, and their thread metadata preserves the launch-preview follow-through without creating a second execution state model
 
 ## Capture and journal
 
@@ -285,7 +287,10 @@ CLI fallback when the web shell is unavailable:
 - persisted current-context and operator-facing "what matters now" projections
 - `GET /v1/now` is the typed place to orient in Now: it returns ranked `action_items` plus the `review_snapshot` counts (`open_action_count`, `triage_count`, `projects_needing_review`)
 - Apple surfaces should treat `GET /v1/now` as the schedule and quick-loop authority instead of synthesizing schedule answers locally
+- the `reflow` portion of `GET /v1/now` now carries a backend-owned same-day recovery proposal with explicit `moved`, `unscheduled`, `needs_judgment`, and normalized scheduler `rule_facets`
+- shells should render that typed proposal directly; they should not compute schedule diffs or remaining-day placements locally
 - staged assistant proposals feed this same operator lane: trust/readiness follow-through and ranked action items may surface assistant-originated review work, but the runtime still uses the canonical operator queue and review state instead of a chat-only side channel
+- current recall limit: the shipped semantic layer is still a bounded local hybrid retrieval baseline over persisted Vel data. It returns explainable scores and provenance, but it is not yet a broad graph-memory or hosted RAG system.
 
 ## Apple quick loops
 
@@ -329,7 +334,10 @@ Phase 12 shell/help contract note:
 
 - thread graph inspection and mutation
 - thread detail may include typed metadata describing follow-through state for backend-owned `check_in`, `reflow`, intervention, and commitment resolution work
+- for reflow specifically, Threads is the longer-form continuity lane after `Now` has already surfaced the compact recovery summary; that metadata should be treated as the authority for what was edited, deferred, or left unresolved
 - assistant-mediated staged actions use the same thread continuity seam: dedicated `assistant_proposal` threads can carry typed confirmation, execution-handoff review, or gated follow-through metadata
+- once the operator resolves or dismisses the matching intervention, those same proposal threads can also carry typed `applied`, `failed`, or `reversed` lifecycle state
+- current limit: reversal metadata only records what Vel can honestly say about the assistant proposal lane. It does not imply that every upstream provider has a durable undo path.
 - shells should treat that metadata as the continuity truth for resolution history rather than deriving meaning only from thread titles or message text
 
 ### `GET /v1/signals`

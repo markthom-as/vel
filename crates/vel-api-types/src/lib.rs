@@ -2720,6 +2720,118 @@ impl From<vel_core::ReflowTransition> for ReflowTransitionData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowChangeKindData {
+    Moved,
+    Unscheduled,
+    NeedsJudgment,
+}
+
+impl From<vel_core::ReflowChangeKind> for ReflowChangeKindData {
+    fn from(value: vel_core::ReflowChangeKind) -> Self {
+        match value {
+            vel_core::ReflowChangeKind::Moved => Self::Moved,
+            vel_core::ReflowChangeKind::Unscheduled => Self::Unscheduled,
+            vel_core::ReflowChangeKind::NeedsJudgment => Self::NeedsJudgment,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScheduleRuleFacetKindData {
+    BlockTarget,
+    Duration,
+    CalendarFree,
+    FixedStart,
+    TimeWindow,
+    LocalUrgency,
+    LocalDefer,
+}
+
+impl From<vel_core::ScheduleRuleFacetKind> for ScheduleRuleFacetKindData {
+    fn from(value: vel_core::ScheduleRuleFacetKind) -> Self {
+        match value {
+            vel_core::ScheduleRuleFacetKind::BlockTarget => Self::BlockTarget,
+            vel_core::ScheduleRuleFacetKind::Duration => Self::Duration,
+            vel_core::ScheduleRuleFacetKind::CalendarFree => Self::CalendarFree,
+            vel_core::ScheduleRuleFacetKind::FixedStart => Self::FixedStart,
+            vel_core::ScheduleRuleFacetKind::TimeWindow => Self::TimeWindow,
+            vel_core::ScheduleRuleFacetKind::LocalUrgency => Self::LocalUrgency,
+            vel_core::ScheduleRuleFacetKind::LocalDefer => Self::LocalDefer,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduleRuleFacetData {
+    pub kind: ScheduleRuleFacetKindData,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+impl From<vel_core::ScheduleRuleFacet> for ScheduleRuleFacetData {
+    fn from(value: vel_core::ScheduleRuleFacet) -> Self {
+        Self {
+            kind: value.kind.into(),
+            label: value.label,
+            detail: value.detail,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflowChangeData {
+    pub kind: ReflowChangeKindData,
+    pub title: String,
+    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scheduled_start_ts: Option<UnixSeconds>,
+}
+
+impl From<vel_core::ReflowChange> for ReflowChangeData {
+    fn from(value: vel_core::ReflowChange) -> Self {
+        Self {
+            kind: value.kind.into(),
+            title: value.title,
+            detail: value.detail,
+            project_label: value.project_label,
+            scheduled_start_ts: value.scheduled_start_ts,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReflowProposalData {
+    pub headline: String,
+    pub summary: String,
+    pub moved_count: u32,
+    pub unscheduled_count: u32,
+    pub needs_judgment_count: u32,
+    #[serde(default)]
+    pub changes: Vec<ReflowChangeData>,
+    #[serde(default)]
+    pub rule_facets: Vec<ScheduleRuleFacetData>,
+}
+
+impl From<vel_core::ReflowProposal> for ReflowProposalData {
+    fn from(value: vel_core::ReflowProposal) -> Self {
+        Self {
+            headline: value.headline,
+            summary: value.summary,
+            moved_count: value.moved_count,
+            unscheduled_count: value.unscheduled_count,
+            needs_judgment_count: value.needs_judgment_count,
+            changes: value.changes.into_iter().map(Into::into).collect(),
+            rule_facets: value.rule_facets.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReflowEditTargetData {
     pub target: CheckInEscalationTargetData,
     pub label: String,
@@ -2746,6 +2858,8 @@ pub struct ReflowCardData {
     #[serde(default)]
     pub preview_lines: Vec<String>,
     pub edit_target: ReflowEditTargetData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposal: Option<ReflowProposalData>,
     #[serde(default)]
     pub transitions: Vec<ReflowTransitionData>,
 }
@@ -2762,6 +2876,7 @@ impl From<vel_core::ReflowCard> for ReflowCardData {
             suggested_action_label: value.suggested_action_label,
             preview_lines: value.preview_lines,
             edit_target: value.edit_target.into(),
+            proposal: value.proposal.map(Into::into),
             transitions: value.transitions.into_iter().map(Into::into).collect(),
         }
     }
@@ -4407,6 +4522,8 @@ pub struct CreateMessageResponse {
     pub assistant_message: Option<MessageData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assistant_error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_context: Option<AssistantContextData>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4460,6 +4577,8 @@ pub struct AssistantEntryResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assistant_error: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assistant_context: Option<AssistantContextData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conversation: Option<ConversationData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal: Option<AssistantActionProposalData>,
@@ -4467,6 +4586,78 @@ pub struct AssistantEntryResponse {
     pub daily_loop_session: Option<DailyLoopSessionData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end_of_day: Option<EndOfDayData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecallContextSourceCountData {
+    pub source_kind: vel_core::SemanticSourceKind,
+    pub count: u32,
+}
+
+impl From<vel_core::RecallContextSourceCount> for RecallContextSourceCountData {
+    fn from(value: vel_core::RecallContextSourceCount) -> Self {
+        Self {
+            source_kind: value.source_kind,
+            count: value.count,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecallContextHitData {
+    pub record_id: vel_core::SemanticRecordId,
+    pub source_kind: vel_core::SemanticSourceKind,
+    pub source_id: String,
+    pub snippet: String,
+    pub lexical_score: f32,
+    pub semantic_score: f32,
+    pub combined_score: f32,
+    pub provenance: vel_core::SemanticProvenance,
+}
+
+impl From<vel_core::RecallContextHit> for RecallContextHitData {
+    fn from(value: vel_core::RecallContextHit) -> Self {
+        Self {
+            record_id: value.record_id,
+            source_kind: value.source_kind,
+            source_id: value.source_id,
+            snippet: value.snippet,
+            lexical_score: value.lexical_score,
+            semantic_score: value.semantic_score,
+            combined_score: value.combined_score,
+            provenance: value.provenance,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecallContextData {
+    pub query_text: String,
+    pub hit_count: u32,
+    #[serde(default)]
+    pub source_counts: Vec<RecallContextSourceCountData>,
+    #[serde(default)]
+    pub hits: Vec<RecallContextHitData>,
+}
+
+impl From<vel_core::RecallContextPack> for RecallContextData {
+    fn from(value: vel_core::RecallContextPack) -> Self {
+        Self {
+            query_text: value.query_text,
+            hit_count: value.hit_count,
+            source_counts: value.source_counts.into_iter().map(Into::into).collect(),
+            hits: value.hits.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssistantContextData {
+    pub query_text: String,
+    pub summary: String,
+    #[serde(default)]
+    pub focus_lines: Vec<String>,
+    pub recall: RecallContextData,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -5604,8 +5795,8 @@ mod tests {
         AppleRequestedOperationData, AppleResponseEvidenceData, AppleResponseModeData,
         AppleScheduleEventData, AppleScheduleSnapshotData, AppleTurnProvenanceData,
         AppleVoiceIntentData, AppleVoiceTurnQueuedMutationSummaryData, AppleVoiceTurnRequestData,
-        AppleVoiceTurnResponseData, DailyCommitmentDraftData, DailyDeferredTaskData,
-        DailyFocusBlockProposalData, DailyLoopCheckInResolutionData,
+        AppleVoiceTurnResponseData, AssistantContextData, DailyCommitmentDraftData,
+        DailyDeferredTaskData, DailyFocusBlockProposalData, DailyLoopCheckInResolutionData,
         DailyLoopCheckInResolutionKindData, DailyLoopPhaseData, DailyLoopSessionData,
         DailyLoopSessionOutcomeData, DailyLoopStartMetadataData, DailyLoopStartRequestData,
         DailyLoopStartSourceData, DailyLoopSurfaceData, DailyLoopTurnActionData,
@@ -5613,7 +5804,8 @@ mod tests {
         ExecutionHandoffData, ExecutionHandoffReviewStateData, ExecutionReviewGateData,
         ExecutionTaskKindData, LocalRuntimeKindData, MorningIntentSignalData, NowTaskData,
         ProjectExecutionContextData, ProjectFamilyData, ProjectProvisionRequestData,
-        ProjectRecordData, ProjectRootRefData, ProjectStatusData, ReviewSnapshotData,
+        ProjectRecordData, ProjectRootRefData, ProjectStatusData, RecallContextData,
+        RecallContextHitData, RecallContextSourceCountData, ReviewSnapshotData,
         TokenBudgetClassData,
     };
     use std::collections::BTreeMap;
@@ -5668,6 +5860,81 @@ mod tests {
         assert_eq!(value["triage_count"], 0);
         assert_eq!(value["projects_needing_review"], 0);
         assert_eq!(value["pending_execution_reviews"], 0);
+    }
+
+    #[test]
+    fn recall_context_round_trips_named_counts_and_scores() {
+        let data = RecallContextData {
+            query_text: "accountant follow up".to_string(),
+            hit_count: 2,
+            source_counts: vec![RecallContextSourceCountData {
+                source_kind: vel_core::SemanticSourceKind::Note,
+                count: 2,
+            }],
+            hits: vec![RecallContextHitData {
+                record_id: vel_core::SemanticRecordId::new("sem_note_1"),
+                source_kind: vel_core::SemanticSourceKind::Note,
+                source_id: "projects/tax/accountant.md".to_string(),
+                snippet: "Need accountant follow up on quarterly estimate.".to_string(),
+                lexical_score: 0.4,
+                semantic_score: 0.9,
+                combined_score: 0.775,
+                provenance: vel_core::SemanticProvenance {
+                    note_path: Some("projects/tax/accountant.md".to_string()),
+                    ..Default::default()
+                },
+            }],
+        };
+
+        let value = serde_json::to_value(&data).expect("recall context should serialize");
+        assert_eq!(value["query_text"], "accountant follow up");
+        assert_eq!(value["hit_count"], 2);
+        assert_eq!(value["source_counts"][0]["source_kind"], "note");
+        assert_eq!(value["hits"][0]["combined_score"], 0.775);
+    }
+
+    #[test]
+    fn assistant_context_round_trips_summary_and_focus_lines() {
+        let data = AssistantContextData {
+            query_text: "accountant follow up".to_string(),
+            summary: "Found 1 relevant recalled item across note sources.".to_string(),
+            focus_lines: vec![
+                "note projects/tax/accountant.md: Need accountant follow up on quarterly estimate."
+                    .to_string(),
+            ],
+            recall: RecallContextData {
+                query_text: "accountant follow up".to_string(),
+                hit_count: 1,
+                source_counts: vec![RecallContextSourceCountData {
+                    source_kind: vel_core::SemanticSourceKind::Note,
+                    count: 1,
+                }],
+                hits: vec![RecallContextHitData {
+                    record_id: vel_core::SemanticRecordId::new("sem_note_1"),
+                    source_kind: vel_core::SemanticSourceKind::Note,
+                    source_id: "projects/tax/accountant.md".to_string(),
+                    snippet: "Need accountant follow up on quarterly estimate.".to_string(),
+                    lexical_score: 0.4,
+                    semantic_score: 0.9,
+                    combined_score: 0.775,
+                    provenance: vel_core::SemanticProvenance {
+                        note_path: Some("projects/tax/accountant.md".to_string()),
+                        ..Default::default()
+                    },
+                }],
+            },
+        };
+
+        let value = serde_json::to_value(&data).expect("assistant context should serialize");
+        assert_eq!(
+            value["summary"],
+            "Found 1 relevant recalled item across note sources."
+        );
+        assert_eq!(
+            value["focus_lines"][0],
+            "note projects/tax/accountant.md: Need accountant follow up on quarterly estimate."
+        );
+        assert_eq!(value["recall"]["source_counts"][0]["source_kind"], "note");
     }
 
     #[test]

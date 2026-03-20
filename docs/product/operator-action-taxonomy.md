@@ -330,6 +330,10 @@ These are the kinds most likely to deserve direct actionable UI in `Now` when ur
   - direct accept may be enough for lower-severity reflows
   - higher-severity reflows should show a clearer confirmation or diff before applying
   - backend planning should distinguish movable versus fixed constraints
+  Contract note:
+  - backend-owned `reflow` should expose explicit remaining-day proposal structure, not just warning text
+  - proposal output should be able to describe what moved, what no longer fits, and what still needs judgment
+  - scheduler semantics should stay normalized through canonical facets such as `block_target`, `duration`, `calendar_free`, `fixed_start`, `time_window`, `local_urgency`, and `local_defer` rather than raw provider tag syntax
 - `continue_current_focus`
   When: the system can confidently route back to the current task, routine block, or event
 - `capture`

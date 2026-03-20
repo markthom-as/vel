@@ -350,7 +350,7 @@ Plans:
 **Goal:** Apply the Phase 14 product taxonomy and Phase 15-16 backend ownership decisions across web, Apple, CLI, and future desktop-ready shells so the default operator experience is simpler, advanced/runtime concerns are progressively disclosed, and internal implementation categories stop leaking into everyday use.
 **Requirements**: SHELL-MODE-01, SHELL-MODE-02, TRUST-SUMMARY-01, APPLE-SHELL-01
 **Depends on:** Phase 16
-**Plans:** 3/4 plans complete
+**Plans:** 4/4 plans complete
 
 **Embodiment note:** This phase exists so UI/surface simplification does not get mixed into migration or backend logic closure. It should apply the approved product-mode policy and shell boundaries rather than invent new product semantics.
 **Phase 14 carry-forward:** Phase 17 should embody minimal `Now`, triage-first `Inbox`, archive/search-first `Threads`, secondary-but-real `Projects`, inline `check_in`, and heavier `reflow` treatment without reopening the taxonomy or action-model decisions.
@@ -472,13 +472,13 @@ Plans:
 **Goal:** Turn staged assistant proposals into explicitly approved, applied, and inspectable outcomes by reusing the existing confirmation, execution-review, and writeback seams instead of leaving assistant actions permanently stuck at staging.
 **Requirements**: ASSIST-APPLY-01, ASSIST-APPLY-02, REVIEW-03, TRUST-03
 **Depends on:** Phase 23
-**Plans:** 1/4 plans complete
+**Plans:** 4/4 plans complete
 
 Plans:
 - [x] 24-01-PLAN.md — Publish the approved-application contract and canonical proposal state transitions
-- [ ] 24-02-PLAN.md — Complete review-gated execution and writeback application for approved assistant proposals
-- [ ] 24-03-PLAN.md — Preserve applied outcome provenance, reversibility, and thread/Now follow-through
-- [ ] 24-04-PLAN.md — Close Phase 24 with shell/docs verification and honest shipped limits
+- [x] 24-02-PLAN.md — Complete review-gated execution and writeback application for approved assistant proposals
+- [x] 24-03-PLAN.md — Preserve applied outcome provenance, reversibility, and thread/Now follow-through
+- [x] 24-04-PLAN.md — Close Phase 24 with shell/docs verification and honest shipped limits
 
 **Scope note:** This phase should make approved assistant work real without weakening supervision:
 
@@ -486,3 +486,63 @@ Plans:
 - supervised write work should advance only after existing review gates are satisfied
 - applied assistant actions should remain inspectable, explainable, and reversible where the underlying product contract already requires it
 - no ambient widening of assistant authority, credentials, or background mutation behavior
+
+### Phase 25: Local recall, semantic memory, and grounded assistant context
+
+**Goal:** Improve local recall quality and assistant grounding by tightening semantic retrieval, recall-oriented context assembly, and explainable memory-backed answers over existing Vel data.
+**Requirements**: RECALL-01, RECALL-02, SEM-02, GROUND-CTX-01, GROUND-CTX-02
+**Depends on:** Phase 24
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 25-01-PLAN.md — Tighten the recall and grounding contract around canonical semantic retrieval and bounded assistant context inputs
+- [x] 25-02-PLAN.md — Improve local semantic retrieval quality, ranking, and durable provenance across core runtime entities
+- [x] 25-03-PLAN.md — Assemble stronger backend-owned assistant context from recall results instead of ad hoc tool responses
+- [x] 25-04-PLAN.md — Close Phase 25 with shell/docs verification and honest shipped recall limits
+
+**Scope note:** This phase should improve retrieval quality and assistant grounding without turning into a broad RAG platform rewrite:
+
+- local-first semantic recall should get better across captures, notes, projects, people, threads, and transcripts
+- retrieved context should stay explainable from persisted records, scores, and provenance
+- assistant grounding should prefer bounded recall/context packs over repeated raw storage-shaped tool calls
+- do not widen into new providers, hosted memory infrastructure, or speculative multi-agent memory systems
+
+### Phase 26: Real day-plan reflow and schedule reconciliation
+
+**Goal:** Turn `reflow` into a real backend-owned day-repair lane that can recompute the remaining day, explain what changed, and reconcile stale schedule reality instead of only surfacing warnings.
+**Requirements**: REFLOW-REAL-01, REFLOW-REAL-02, SCHED-RECON-01, SCHED-RECON-02
+**Depends on:** Phase 25
+**Plans:** 3/4 plans complete
+
+Plans:
+- [x] 26-01-PLAN.md — Publish the canonical reflow/reconciliation contract and scheduler-rule mapping seam
+- [x] 26-02-PLAN.md — Implement backend-owned remaining-day recomputation and explicit moved/unscheduled outcomes
+- [x] 26-03-PLAN.md — Embody reflow and recovery posture in `Now`, `Threads`, and `Settings`
+- [x] 26-04-PLAN.md — Close the phase with docs and verification for the real recovery story
+
+**Scope note:** This phase should make daily-use recovery materially more useful without turning into a speculative planner rewrite:
+
+- stale schedule, missed event, and slipped-block recovery should become one canonical backend-owned reflow path
+- reflow should be able to explain what moved, what no longer fits, and what still needs the operator
+- shell surfaces should stay thin and consume typed reflow output instead of re-deriving plan logic
+- do not widen into broad autonomous calendar mutation or multi-day planning yet
+
+### Phase 27: Canonical scheduler facets and commitment rule normalization
+
+**Goal:** Normalize scheduling and tagging rules into canonical Vel-backed fields and facets so agents, recall, reflow, and future planning logic can reason over them without depending on raw provider labels or title syntax.
+**Requirements**: SCHED-FACET-01, SCHED-FACET-02, AGENT-SCHED-01, RECALL-SCHED-01
+**Depends on:** Phase 26
+**Plans:** 0/4 plans complete
+
+Plans:
+- [ ] 27-01-PLAN.md — Define canonical scheduler facet schema, storage shape, and ingest mapping rules
+- [ ] 27-02-PLAN.md — Persist normalized scheduler facets for commitments and expose them through backend/domain seams
+- [ ] 27-03-PLAN.md — Use normalized scheduler facets in agent, recall, and reflow paths instead of ad hoc raw-label parsing
+- [ ] 27-04-PLAN.md — Close Phase 27 with docs, examples, and verification for the canonical rule model
+
+**Scope note:** This phase should make scheduling semantics trustworthy and agent-usable without turning into a broad planner rewrite:
+
+- raw upstream tags and freeform keywords remain compatibility/search inputs, not durable product truth
+- canonical fields/facets should intentionally capture the proven `codex-workspace` rule system
+- SQL-backed normalized scheduler semantics should improve explainability, filtering, and agent reasoning
+- do not widen into speculative multi-day optimization or broad external calendar mutation yet

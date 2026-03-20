@@ -1552,6 +1552,14 @@ impl Storage {
         threads_repo::update_thread_status(self.pool(), id, status).await
     }
 
+    pub async fn update_thread_metadata(
+        &self,
+        id: &str,
+        metadata_json: &str,
+    ) -> Result<(), StorageError> {
+        threads_repo::update_thread_metadata(self.pool(), id, metadata_json).await
+    }
+
     pub async fn insert_thread_link(
         &self,
         thread_id: &str,
@@ -1574,6 +1582,21 @@ impl Storage {
         thread_id: &str,
     ) -> Result<Vec<(String, String, String, String)>, StorageError> {
         threads_repo::list_thread_links(self.pool(), thread_id).await
+    }
+
+    pub async fn list_threads_linking_entity(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+        relation_type: &str,
+    ) -> Result<Vec<String>, StorageError> {
+        threads_repo::list_threads_linking_entity(
+            self.pool(),
+            entity_type,
+            entity_id,
+            relation_type,
+        )
+        .await
     }
 
     // --- Suggestions (steering loop) ---

@@ -252,6 +252,9 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
             <p className="mt-2 text-sm leading-6 text-zinc-400">
               Use Threads when `Now` or `Inbox` needs deeper context, longer back-and-forth, or searchable history.
             </p>
+            <p className="mt-2 text-xs leading-5 text-zinc-500">
+              Reflow edits and longer schedule disagreements belong here after `Now` has already surfaced the compact recovery summary.
+            </p>
             <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <label className="flex-1">
@@ -317,7 +320,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
         )}
       </div>
       <p className="shrink-0 px-4 py-1 text-zinc-600 text-xs max-w-2xl mx-auto">
-        To get assistant replies, configure a chat model in configs/models/routing.toml and run the model backend.
+        To get assistant replies, configure a chat model in configs/models/routing.toml and run the model backend. Recall stays bounded to persisted Vel data and backend-owned grounding.
       </p>
       <MessageComposer
         conversationId={resolvedConversationId}

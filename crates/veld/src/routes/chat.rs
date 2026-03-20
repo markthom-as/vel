@@ -134,6 +134,7 @@ fn map_create_message_response(data: ChatMessageCreateResult) -> CreateMessageRe
         user_message: map_chat_message_data(data.user_message),
         assistant_message: data.assistant_message.map(map_chat_message_data),
         assistant_error: data.assistant_error,
+        assistant_context: data.assistant_context,
     }
 }
 
@@ -147,6 +148,7 @@ fn map_assistant_entry_response(data: AssistantEntryCreateResult) -> AssistantEn
         user_message: map_chat_message_data(data.user_message),
         assistant_message: data.assistant_message.map(map_chat_message_data),
         assistant_error: data.assistant_error,
+        assistant_context: data.assistant_context,
         conversation: data.conversation.map(map_conversation_data),
         proposal: data.proposal.map(AssistantActionProposalData::from),
         daily_loop_session: data.daily_loop_session.map(Into::into),

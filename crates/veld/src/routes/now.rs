@@ -457,6 +457,30 @@ mod tests {
                     target: vel_core::CheckInEscalationTarget::Threads,
                     label: "Edit".to_string(),
                 },
+                proposal: Some(vel_core::ReflowProposal {
+                    headline: "Remaining day needs repair".to_string(),
+                    summary:
+                        "Vel can now carry a typed remaining-day recovery proposal over the reflow seam before full schedule recomputation lands."
+                            .to_string(),
+                    moved_count: 0,
+                    unscheduled_count: 0,
+                    needs_judgment_count: 1,
+                    changes: vec![vel_core::ReflowChange {
+                        kind: vel_core::ReflowChangeKind::NeedsJudgment,
+                        title: "Scheduled time already passed".to_string(),
+                        detail: "Next scheduled event started 20 minutes ago.".to_string(),
+                        project_label: None,
+                        scheduled_start_ts: Some(1_700_000_000),
+                    }],
+                    rule_facets: vec![vel_core::ScheduleRuleFacet {
+                        kind: vel_core::ScheduleRuleFacetKind::FixedStart,
+                        label: "Fixed start".to_string(),
+                        detail: Some(
+                            "A due datetime or schedule anchor should stay explicit in the recomputed day."
+                                .to_string(),
+                        ),
+                    }],
+                }),
                 transitions: vec![
                     vel_core::ReflowTransition {
                         kind: vel_core::ReflowTransitionKind::Accept,

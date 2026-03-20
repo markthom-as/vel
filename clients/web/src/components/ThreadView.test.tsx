@@ -75,6 +75,7 @@ describe('ThreadView realtime sync', () => {
       expect(within(thread).getByText(/no messages yet\./i)).toBeInTheDocument()
     })
     expect(within(thread).getByText('Continuity, history, and longer follow-up')).toBeInTheDocument()
+    expect(within(thread).getByText(/reflow edits and longer schedule disagreements belong here/i)).toBeInTheDocument()
     expect(
       within(thread).getByPlaceholderText(/ask, capture, or talk to vel/i),
     ).toBeInTheDocument()

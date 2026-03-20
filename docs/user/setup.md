@@ -64,7 +64,13 @@ Vel's assistant path uses the configured model routing under `configs/models/`.
 - `openai_oauth` profiles are only enabled when `VEL_ENABLE_OPENAI_OAUTH=1`
 - for safety, `openai_oauth` base URLs must point to `localhost` or `127.0.0.1`
 
-The assistant chat path can now use a bounded read-only Vel tool surface on top of the configured LLM profile. That means the model can answer from `Now`, projects, people, commitments, semantic memory, active daily-loop state, and filtered threads instead of only seeing bare conversation history.
+The assistant chat path can now use a bounded read-only Vel tool surface on top of the configured LLM profile. That means the model can answer from `Now`, projects, people, commitments, local semantic recall, active daily-loop state, and filtered threads instead of only seeing bare conversation history.
+
+Current recall limit:
+
+- this is still bounded local recall over persisted Vel data, not broad hosted memory
+- answers are only as good as the captures, notes, projects, people, threads, and transcripts already stored locally
+- the backend now returns typed assistant-context packs with summary, source breakdown, scores, and provenance so shells do not have to invent their own memory state
 
 ## Local integrations
 
@@ -187,6 +193,7 @@ When the web shell or Settings tells you something needs setup, use this path:
   answer it inline if the suggested action is correct; if the question needs more context, continue in Threads and then return to `Now`.
 - `Now` reflow suggestion:
   treat it as a day-plan recalculation prompt. Confirm it when the current schedule is stale, a key event was missed, or today no longer fits the remaining time.
+  `Now` now shows the compact same-day recovery proposal directly; use `Threads` only when the result needs longer shaping or disagreement.
 - linking or paired-node trust question:
   use the linking routes in Settings first, then `docs/api/runtime.md` for `/v1/linking/*` behavior and `docs/user/troubleshooting.md` for recovery.
 - Todoist token or sync question:
@@ -210,6 +217,7 @@ Examples:
 - writeback trust issue
 - linking problem
 - Apple local-source discovery failure
+- reflow/recovery posture when the current day plan is no longer trustworthy
 
 If you land directly in diagnostics, step back to the matching summary surface first unless the product is already in a clear recovery-only state.
 

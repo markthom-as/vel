@@ -43,6 +43,7 @@ pub(crate) struct ChatMessageCreateResult {
     pub user_message: ChatMessage,
     pub assistant_message: Option<ChatMessage>,
     pub assistant_error: Option<String>,
+    pub assistant_context: Option<vel_api_types::AssistantContextData>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +66,7 @@ pub(crate) struct AssistantEntryCreateResult {
     pub user_message: ChatMessage,
     pub assistant_message: Option<ChatMessage>,
     pub assistant_error: Option<String>,
+    pub assistant_context: Option<vel_api_types::AssistantContextData>,
     pub conversation: Option<crate::services::chat::mapping::ConversationServiceData>,
     pub proposal: Option<AssistantActionProposal>,
     pub daily_loop_session: Option<vel_core::DailyLoopSession>,
@@ -276,6 +278,14 @@ fn proposal_with_gate(
     proposal
 }
 
+fn proposal_with_state(
+    mut proposal: AssistantActionProposal,
+    state: AssistantProposalState,
+) -> AssistantActionProposal {
+    proposal.state = state;
+    proposal
+}
+
 fn assistant_confirmation_follow_through(proposal: &AssistantActionProposal) -> serde_json::Value {
     serde_json::json!({
         "kind": "action_confirmation",
@@ -296,11 +306,39 @@ fn execution_handoff_follow_through(handoff_id: &str) -> serde_json::Value {
     })
 }
 
+fn execution_handoff_ready_follow_through(handoff_id: &str) -> serde_json::Value {
+    serde_json::json!({
+        "kind": "execution_handoff_ready",
+        "handoff_id": handoff_id,
+        "review_state": "approved",
+        "launch_preview_path": format!("/v1/execution/handoffs/{handoff_id}/launch-preview"),
+    })
+}
+
+fn writeback_ready_follow_through(proposal: &AssistantActionProposal) -> serde_json::Value {
+    serde_json::json!({
+        "kind": "writeback_ready",
+        "permission_mode": proposal.permission_mode.to_string(),
+        "summary": proposal.summary,
+    })
+}
+
 fn blocked_follow_through(proposal: &AssistantActionProposal) -> serde_json::Value {
     serde_json::json!({
         "kind": "gated",
         "permission_mode": proposal.permission_mode.to_string(),
         "summary": proposal.summary,
+    })
+}
+
+pub(crate) fn assistant_proposal_thread_id(message_id: &str) -> String {
+    format!("thr_assistant_proposal_{message_id}")
+}
+
+fn initial_reversal_metadata() -> serde_json::Value {
+    serde_json::json!({
+        "supported": false,
+        "note": "Reversal is only available after a proposal is explicitly applied through an existing operator lane.",
     })
 }
 
@@ -310,7 +348,7 @@ async fn ensure_assistant_proposal_thread(
     proposal: &AssistantActionProposal,
     follow_through: &serde_json::Value,
 ) -> Result<vel_core::ActionThreadRoute, AppError> {
-    let thread_id = format!("thr_assistant_proposal_{}", user_message.id);
+    let thread_id = assistant_proposal_thread_id(&user_message.id);
     if state.storage.get_thread_by_id(&thread_id).await?.is_none() {
         let metadata = serde_json::json!({
             "source": "assistant_proposal",
@@ -325,6 +363,18 @@ async fn ensure_assistant_proposal_thread(
             "summary": proposal.summary,
             "project_id": proposal.project_id,
             "follow_through": follow_through,
+            "lineage": {
+                "source_message_id": user_message.id,
+                "conversation_id": user_message.conversation_id,
+                "action_item_id": proposal.action_item_id,
+                "project_id": proposal.project_id,
+                "initial_follow_through": follow_through,
+                "input_mode": user_message
+                    .content
+                    .get("input_mode")
+                    .and_then(serde_json::Value::as_str),
+            },
+            "reversal": initial_reversal_metadata(),
             "upstream_thread_route": proposal
                 .thread_route
                 .as_ref()
@@ -433,12 +483,13 @@ async fn staged_action_proposal_for_entry(
         )
         .await?;
 
-        let has_approved_write_scope = approved_handoffs
+        if let Some(handoff) = approved_handoffs
             .iter()
-            .any(|handoff| !handoff.routing.write_scopes.is_empty());
-        if has_approved_write_scope {
+            .find(|handoff| !handoff.routing.write_scopes.is_empty())
+        {
+            let proposal = proposal_with_state(proposal, AssistantProposalState::Approved);
             return Ok(Some(AssistantProposalStageResult {
-                follow_through: assistant_confirmation_follow_through(&proposal),
+                follow_through: execution_handoff_ready_follow_through(&handoff.id),
                 proposal,
             }));
         }
@@ -486,6 +537,14 @@ async fn staged_action_proposal_for_entry(
         );
         return Ok(Some(AssistantProposalStageResult {
             follow_through: blocked_follow_through(&proposal),
+            proposal,
+        }));
+    }
+
+    if looks_like_mutation_request(text) {
+        let proposal = proposal_with_state(proposal, AssistantProposalState::Approved);
+        return Ok(Some(AssistantProposalStageResult {
+            follow_through: writeback_ready_follow_through(&proposal),
             proposal,
         }));
     }
@@ -663,10 +722,24 @@ pub(crate) async fn create_message_response(
         (None, Some(chat_model_not_configured_error()))
     };
 
+    let assistant_context = if assistant_message.is_some() {
+        Some(
+            crate::services::chat::tools::build_assistant_context(
+                state,
+                &extract_text_query(&payload.content),
+                5,
+            )
+            .await?,
+        )
+    } else {
+        None
+    };
+
     Ok(ChatMessageCreateResult {
         user_message,
         assistant_message,
         assistant_error,
+        assistant_context,
     })
 }
 
@@ -792,6 +865,7 @@ pub(crate) async fn create_assistant_entry_response(
             user_message,
             assistant_message,
             assistant_error: None,
+            assistant_context: None,
             conversation,
             proposal: None,
             daily_loop_session: Some(session),
@@ -820,6 +894,7 @@ pub(crate) async fn create_assistant_entry_response(
             user_message,
             assistant_message,
             assistant_error: None,
+            assistant_context: None,
             conversation,
             proposal: None,
             daily_loop_session: None,
@@ -897,6 +972,12 @@ pub(crate) async fn create_assistant_entry_response(
         (None, None)
     };
 
+    let assistant_context = if assistant_message.is_some() {
+        Some(crate::services::chat::tools::build_assistant_context(state, text, 5).await?)
+    } else {
+        None
+    };
+
     let conversation = state
         .storage
         .get_conversation(&conversation_id)
@@ -908,9 +989,19 @@ pub(crate) async fn create_assistant_entry_response(
         user_message,
         assistant_message,
         assistant_error,
+        assistant_context,
         conversation,
         proposal,
         daily_loop_session: None,
         end_of_day: None,
     })
+}
+
+fn extract_text_query(content: &serde_json::Value) -> String {
+    content
+        .get("text")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_string()
 }

@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use vel_storage::InterventionInsert;
+use vel_storage::{InterventionInsert, InterventionRecord};
 
 use crate::{
     errors::AppError,
@@ -132,6 +132,179 @@ pub(crate) async fn create_intervention_for_message_if_needed(
     Ok(Some(data))
 }
 
+async fn sync_assistant_proposal_thread(
+    state: &AppState,
+    intervention: &InterventionRecord,
+    thread_status: &str,
+    transition: &str,
+    snoozed_until: Option<i64>,
+) -> Result<(), AppError> {
+    if intervention.kind != "assistant_proposal" {
+        return Ok(());
+    }
+
+    let thread_id = intervention
+        .source_json
+        .as_deref()
+        .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+        .and_then(|value| {
+            value
+                .get("proposal")
+                .and_then(|value| value.get("thread_route"))
+                .and_then(|value| value.get("thread_id"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| {
+            crate::services::chat::messages::assistant_proposal_thread_id(
+                intervention.message_id.as_ref(),
+            )
+        });
+
+    let Some((_, _, _, _, metadata_json, _, _)) =
+        state.storage.get_thread_by_id(&thread_id).await?
+    else {
+        return Ok(());
+    };
+    let mut metadata = serde_json::from_str::<serde_json::Value>(&metadata_json)
+        .unwrap_or_else(|_| serde_json::json!({}));
+    let Some(object) = metadata.as_object_mut() else {
+        return Ok(());
+    };
+
+    let now = time::OffsetDateTime::now_utc().unix_timestamp();
+    let previous_state = object
+        .get("proposal_state")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("staged")
+        .to_string();
+    let previous_follow_through = object
+        .get("follow_through")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    match transition {
+        "snoozed" => {
+            object.insert(
+                "follow_through".to_string(),
+                serde_json::json!({
+                    "kind": "snoozed",
+                    "previous_kind": previous_follow_through
+                        .get("kind")
+                        .and_then(serde_json::Value::as_str),
+                    "intervention_id": intervention.id.as_ref(),
+                    "snoozed_until": snoozed_until,
+                }),
+            );
+        }
+        "acknowledged" | "resolved" => {
+            object.insert(
+                "proposal_state".to_string(),
+                serde_json::Value::String("applied".to_string()),
+            );
+            object.insert("applied_at".to_string(), serde_json::json!(now));
+            object.insert(
+                "applied_via".to_string(),
+                serde_json::Value::String(format!("intervention_{transition}")),
+            );
+            object.insert(
+                "follow_through".to_string(),
+                serde_json::json!({
+                    "kind": "applied",
+                    "previous_kind": previous_follow_through
+                        .get("kind")
+                        .and_then(serde_json::Value::as_str),
+                    "intervention_id": intervention.id.as_ref(),
+                    "applied_at": now,
+                    "applied_via": format!("intervention_{transition}"),
+                }),
+            );
+            object.insert(
+                "reversal".to_string(),
+                serde_json::json!({
+                    "supported": true,
+                    "dismiss_path": format!("/api/interventions/{}/dismiss", intervention.id.as_ref()),
+                    "note": "Dismissal reverses Vel's assistant proposal state only. External systems keep their own reversal rules.",
+                }),
+            );
+        }
+        "dismissed" => {
+            let next_state = if previous_state == "applied" {
+                "reversed"
+            } else {
+                "failed"
+            };
+            object.insert(
+                "proposal_state".to_string(),
+                serde_json::Value::String(next_state.to_string()),
+            );
+            object.insert(
+                "follow_through".to_string(),
+                serde_json::json!({
+                    "kind": next_state,
+                    "previous_state": previous_state,
+                    "previous_kind": previous_follow_through
+                        .get("kind")
+                        .and_then(serde_json::Value::as_str),
+                    "intervention_id": intervention.id.as_ref(),
+                    "changed_at": now,
+                    "changed_via": "intervention_dismiss",
+                }),
+            );
+            if next_state == "reversed" {
+                object.insert("reversed_at".to_string(), serde_json::json!(now));
+                object.insert(
+                    "reversed_via".to_string(),
+                    serde_json::Value::String("intervention_dismiss".to_string()),
+                );
+                object.insert(
+                    "reversal".to_string(),
+                    serde_json::json!({
+                        "supported": false,
+                        "note": "Proposal reversal has already been recorded.",
+                    }),
+                );
+            } else {
+                object.insert("failed_at".to_string(), serde_json::json!(now));
+                object.insert(
+                    "failed_via".to_string(),
+                    serde_json::Value::String("intervention_dismiss".to_string()),
+                );
+            }
+        }
+        _ => {}
+    }
+
+    if let Some(lineage) = object
+        .entry("lineage".to_string())
+        .or_insert_with(|| serde_json::json!({}))
+        .as_object_mut()
+    {
+        lineage.insert(
+            "last_transition".to_string(),
+            serde_json::Value::String(transition.to_string()),
+        );
+        lineage.insert(
+            "intervention_id".to_string(),
+            serde_json::json!(intervention.id.as_ref()),
+        );
+        lineage.insert(
+            "intervention_state".to_string(),
+            serde_json::json!(intervention.state),
+        );
+    }
+
+    state
+        .storage
+        .update_thread_metadata(&thread_id, &metadata.to_string())
+        .await?;
+    state
+        .storage
+        .update_thread_status(&thread_id, thread_status)
+        .await?;
+    Ok(())
+}
+
 pub(crate) async fn snooze_intervention(
     state: &AppState,
     id: &str,
@@ -144,6 +317,12 @@ pub(crate) async fn snooze_intervention(
         .await?
         .ok_or_else(|| AppError::not_found("intervention not found"))?;
     state.storage.snooze_intervention(id, until_ts).await?;
+    let updated = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    sync_assistant_proposal_thread(state, &updated, "snoozed", "snoozed", Some(until_ts)).await?;
     emit_chat_event(
         state,
         "intervention.snoozed",
@@ -175,6 +354,12 @@ pub(crate) async fn acknowledge_intervention(
         .await?
         .ok_or_else(|| AppError::not_found("intervention not found"))?;
     state.storage.acknowledge_intervention(id).await?;
+    let updated = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    sync_assistant_proposal_thread(state, &updated, "resolved", "acknowledged", None).await?;
     emit_chat_event(
         state,
         "intervention.acknowledged",
@@ -206,6 +391,12 @@ pub(crate) async fn resolve_intervention(
         .await?
         .ok_or_else(|| AppError::not_found("intervention not found"))?;
     state.storage.resolve_intervention(id).await?;
+    let updated = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    sync_assistant_proposal_thread(state, &updated, "resolved", "resolved", None).await?;
     emit_chat_event(
         state,
         "intervention.resolved",
@@ -237,6 +428,12 @@ pub(crate) async fn dismiss_intervention(
         .await?
         .ok_or_else(|| AppError::not_found("intervention not found"))?;
     state.storage.dismiss_intervention(id).await?;
+    let updated = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    sync_assistant_proposal_thread(state, &updated, "dismissed", "dismissed", None).await?;
     emit_chat_event(
         state,
         "intervention.dismissed",

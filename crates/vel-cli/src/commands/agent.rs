@@ -64,7 +64,10 @@ fn format_agent_inspect(inspect: &AgentInspectData) -> String {
         grounding.review.pending_execution_handoffs.len()
     ));
     lines.push(
-        "- assistant proposals: staged only; supervised writes stay review-gated".to_string(),
+        "- local recall: bounded to persisted Vel captures, notes, projects, people, threads, and transcripts with explainable scores and provenance".to_string(),
+    );
+    lines.push(
+        "- assistant proposals: supervised writes stay review-gated; proposal threads may now show staged, approved, applied, failed, or reversed continuity".to_string(),
     );
 
     lines.push(String::new());

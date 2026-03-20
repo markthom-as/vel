@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 24
-current_phase_name: approved-assistant-action-application-and-reversible-write-execution
-current_plan: 2
+current_phase: 27
+current_phase_name: canonical-scheduler-facets-and-commitment-rule-normalization
+current_plan: 1
 status: in_progress
-stopped_at: Phase 24 24-01 complete; next logical step is 24-02 review-gated application
-last_updated: "2026-03-20T06:52:00Z"
+stopped_at: 27 planning complete; next logical step is 27-01 execution
+last_updated: "2026-03-20T14:18:00Z"
 last_activity: 2026-03-20
 progress:
-  total_phases: 24
-  completed_phases: 16
+  total_phases: 27
+  completed_phases: 17
   total_plans: 90
-  completed_plans: 87
-  percent: 70
+  completed_plans: 90
+  percent: 72
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 24 execution — approved assistant action application and reversible write execution
+**Current focus:** Phase 27 execution for canonical scheduler facets and commitment rule normalization
 
-Status: Phase 19 deferred by operator choice; Phase 24 execution is active and the next workflow lane is 24-02
-Current Phase: 24
-Current Phase Name: approved-assistant-action-application-and-reversible-write-execution
-Current Plan: 2
+Status: Phase 19 deferred by operator choice; Phase 26 is complete and Phase 27 is the active feature-planning lane
+Current Phase: 27
+Current Phase Name: canonical-scheduler-facets-and-commitment-rule-normalization
+Current Plan: 1
 Total Plans in Phase: 4
-Progress: 25%
+Progress: 0%
 Last Activity: 2026-03-20
-Last Activity Description: Completed 24-01 by publishing explicit assistant proposal lifecycle state and persisting staged state into thread metadata
+Last Activity Description: Planned Phase 27 into four execution slices covering canonical scheduler facets, persistence, shared backend consumption, and closeout docs
 
 ## Current Position
 
-Phase: 24 (approved-assistant-action-application-and-reversible-write-execution) — IN EXECUTION
-Plan: 2 of 4
+Phase: 27 (canonical-scheduler-facets-and-commitment-rule-normalization) — IN PROGRESS
+Plan: 1 of 4
 
 ## Performance Metrics
 
@@ -174,6 +174,13 @@ Recent decisions affecting current work:
 - Phase 15 completed (2026-03-19): 15-05 preserved project-scoped operator-action ownership through core, service, DTO, and shell seams and advanced the next lane to Phase 16 planning
 - Phase 16 discussion completed (2026-03-19): wrote `16-CONTEXT.md` to lock logic-first closure priorities, product rules, and code-context references ahead of planning
 - Phase 24 added (2026-03-20): approved assistant action application and reversible write execution became the next feature lane after staged assistant proposals landed in Phase 23
+- Phase 25 added (2026-03-20): local recall, semantic memory, and grounded assistant context became the next feature lane after approved assistant application landed in Phase 24
+- Phase 25 planning created (2026-03-20): 4-plan rollout covering recall/grounding contract tightening, semantic retrieval quality, backend-owned assistant context assembly, and shell/docs verification closure
+- Phase 25 execution started (2026-03-20): 25-01 completed by publishing a typed recall-context pack over canonical semantic retrieval and exposing it through the bounded assistant tool seam
+- Phase 25 execution advanced (2026-03-20): 25-02 completed by broadening lexical scoring beyond capture FTS, improving hybrid candidate selection, and verifying real lexical credit for non-capture entities
+- Phase 25 execution advanced (2026-03-20): 25-03 completed by assembling backend-owned assistant context packs, attaching them to assistant-capable chat responses, and normalizing conversational recall queries for safe capture FTS use
+- Phase 25 completed (2026-03-20): 25-04 aligned shell and docs wording so the shipped product now teaches one honest bounded-local-recall story across API, runtime, setup, daily use, web, and CLI
+- Phase 26 added (2026-03-20): real day-plan reflow and schedule reconciliation became the next feature lane after bounded local recall and grounded assistant context closed in Phase 25
 - Phase 16 planning created (2026-03-19): 5-plan rollout covering transition contracts, backend-owned `check_in`, backend-owned `reflow`, trust/readiness follow-through, and project-scoped action behavior
 - Phase 16 execution started (2026-03-19): 16-01 completed by publishing typed backend-owned `check_in` and `reflow` transitions and wiring them through the `Now`/web contract
 - Phase 16 execution advanced (2026-03-19): 16-02 completed by implementing backend-owned `check_in` submit/bypass validation, typed resolution history, and daily-loop persistence through API, web, and Apple boundaries

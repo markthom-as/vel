@@ -432,7 +432,7 @@ pub(crate) async fn semantic_query(
     let lexical_scores = match query.strategy {
         RetrievalStrategy::SemanticOnly => HashMap::new(),
         RetrievalStrategy::LexicalOnly | RetrievalStrategy::Hybrid => {
-            load_lexical_scores(pool, &query.query_text, query.top_k.max(5) * 4).await?
+            load_lexical_scores(pool, query, query.top_k.max(5) * 4).await?
         }
     };
 
@@ -457,7 +457,10 @@ pub(crate) async fn semantic_query(
     let mut candidate_ids = candidate_ids
         .into_iter()
         .map(|record_id| {
-            let preliminary = semantic_scores.get(&record_id).copied().unwrap_or_default();
+            let semantic_score = semantic_scores.get(&record_id).copied().unwrap_or_default();
+            let lexical_score = lexical_scores.get(&record_id).copied().unwrap_or_default();
+            let preliminary =
+                combine_scores(&query.strategy, &policy, lexical_score, semantic_score);
             (record_id, preliminary)
         })
         .collect::<Vec<_>>();
@@ -477,7 +480,7 @@ pub(crate) async fn semantic_query(
                 .copied()
                 .unwrap_or_default();
             let lexical_score = lexical_scores
-                .get(&row.source_id)
+                .get(&row.record_id)
                 .copied()
                 .unwrap_or_default();
             let combined_score =
@@ -604,9 +607,14 @@ async fn load_semantic_scores(
 
 async fn load_lexical_scores(
     pool: &SqlitePool,
-    query_text: &str,
+    query: &SemanticQuery,
     limit: u32,
 ) -> Result<HashMap<String, f32>, StorageError> {
+    let mut scores = load_semantic_record_lexical_scores(pool, query, limit).await?;
+    let Some(capture_fts_query) = capture_fts_query_text(&query.query_text) else {
+        return Ok(scores);
+    };
+
     let rows = sqlx::query(
         r#"
         SELECT c.capture_id, bm25(captures_fts) AS rank
@@ -617,18 +625,58 @@ async fn load_lexical_scores(
         LIMIT ?
         "#,
     )
-    .bind(query_text)
+    .bind(capture_fts_query)
     .bind(i64::from(limit.clamp(1, 100)))
     .fetch_all(pool)
     .await?;
 
-    let mut scores = HashMap::new();
     for row in rows {
         let capture_id = row.try_get::<String, _>("capture_id")?;
         let rank = row.try_get::<f64, _>("rank")? as f32;
-        scores.insert(capture_id, lexical_score(rank));
+        let record_id = format!("sem_cap_{capture_id}");
+        let score = lexical_score(rank);
+        scores
+            .entry(record_id)
+            .and_modify(|existing| *existing = existing.max(score))
+            .or_insert(score);
     }
     Ok(scores)
+}
+
+async fn load_semantic_record_lexical_scores(
+    pool: &SqlitePool,
+    query: &SemanticQuery,
+    limit: u32,
+) -> Result<HashMap<String, f32>, StorageError> {
+    let query_terms = tokenize(&query.query_text);
+    if query_terms.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let mut builder = QueryBuilder::<Sqlite>::new(
+        r#"
+        SELECT smr.record_id, smr.content_text, smr.source_id
+        FROM semantic_memory_records smr
+        WHERE 1 = 1
+        "#,
+    );
+    apply_filters(&mut builder, query);
+    let rows = builder.build().fetch_all(pool).await?;
+
+    let mut scored = rows
+        .into_iter()
+        .filter_map(|row| {
+            let record_id = row.try_get::<String, _>("record_id").ok()?;
+            let content_text = row.try_get::<String, _>("content_text").ok()?;
+            let source_id = row.try_get::<String, _>("source_id").ok()?;
+            let score = semantic_record_lexical_score(&query_terms, &content_text, &source_id);
+            (score > 0.0).then_some((record_id, score))
+        })
+        .collect::<Vec<_>>();
+
+    scored.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    scored.truncate(limit.clamp(1, 100) as usize);
+    Ok(scored.into_iter().collect())
 }
 
 async fn load_semantic_rows(
@@ -737,6 +785,33 @@ fn lexical_score(rank: f32) -> f32 {
     1.0 / (1.0 + rank.abs())
 }
 
+fn semantic_record_lexical_score(
+    query_terms: &[String],
+    content_text: &str,
+    source_id: &str,
+) -> f32 {
+    let haystack = format!(
+        "{} {}",
+        content_text.to_lowercase(),
+        source_id.to_lowercase()
+    );
+    let matched = query_terms
+        .iter()
+        .filter(|term| haystack.contains(term.as_str()))
+        .count();
+    if matched == 0 {
+        return 0.0;
+    }
+
+    let coverage = matched as f32 / query_terms.len().max(1) as f32;
+    let exact_phrase_bonus = if haystack.contains(&query_terms.join(" ")) {
+        0.15
+    } else {
+        0.0
+    };
+    (coverage + exact_phrase_bonus).min(1.0)
+}
+
 fn embed_text(text: &str) -> Vec<(String, f32)> {
     let mut counts = HashMap::<String, usize>::new();
     for token in tokenize(text) {
@@ -765,6 +840,11 @@ fn tokenize(input: &str) -> Vec<String> {
             }
         })
         .collect()
+}
+
+fn capture_fts_query_text(input: &str) -> Option<String> {
+    let tokens = tokenize(input);
+    (!tokens.is_empty()).then(|| tokens.join(" "))
 }
 
 fn stopwords() -> HashSet<&'static str> {
@@ -1198,6 +1278,93 @@ mod tests {
         assert!(hits[0].combined_score > 0.0);
         assert!(hits[0].snippet.to_lowercase().contains("tax"));
         assert!(hits[0].provenance.capture_id.is_some());
+    }
+
+    #[test]
+    fn capture_fts_query_text_strips_conversational_punctuation() {
+        assert_eq!(
+            capture_fts_query_text("What do I need to remember about the accountant?"),
+            Some("need remember accountant".to_string())
+        );
+        assert_eq!(
+            capture_fts_query_text("Help me close out today."),
+            Some("help close".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_query_assigns_lexical_score_to_non_capture_records() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = OffsetDateTime::now_utc();
+
+        storage
+            .create_project(ProjectRecord {
+                id: ProjectId::from("proj_tax_ops".to_string()),
+                slug: "tax-ops".to_string(),
+                name: "Tax Ops".to_string(),
+                family: ProjectFamily::Work,
+                status: ProjectStatus::Active,
+                primary_repo: ProjectRootRef {
+                    path: "/tmp/tax-ops".to_string(),
+                    label: "tax-ops".to_string(),
+                    kind: "repo".to_string(),
+                },
+                primary_notes_root: ProjectRootRef {
+                    path: "/tmp/notes/tax-ops".to_string(),
+                    label: "tax-ops".to_string(),
+                    kind: "notes_root".to_string(),
+                },
+                secondary_repos: vec![],
+                secondary_notes_roots: vec![],
+                upstream_ids: BTreeMap::new(),
+                pending_provision: ProjectProvisionRequest {
+                    create_repo: false,
+                    create_notes_root: false,
+                },
+                created_at: now,
+                updated_at: now,
+                archived_at: None,
+            })
+            .await
+            .unwrap();
+        storage
+            .upsert_note_semantic_record(
+                "projects/tax-ops/accountant.md",
+                "Accountant follow up",
+                "Need accountant follow up on quarterly estimate.",
+                "cap_note_tax_ops",
+                now.unix_timestamp(),
+            )
+            .await
+            .unwrap();
+
+        let hits = storage
+            .semantic_query(&SemanticQuery {
+                query_text: "accountant follow up tax ops".to_string(),
+                top_k: 5,
+                strategy: RetrievalStrategy::Hybrid,
+                include_provenance: true,
+                filters: SemanticQueryFilters {
+                    source_kinds: vec![SemanticSourceKind::Project, SemanticSourceKind::Note],
+                    ..Default::default()
+                },
+                policy: Some(HybridRetrievalPolicy {
+                    lexical_weight: 0.45,
+                    semantic_weight: 0.55,
+                    rerank_window: 16,
+                    min_combined_score: 0.01,
+                }),
+            })
+            .await
+            .unwrap();
+
+        assert!(hits
+            .iter()
+            .any(|hit| hit.source_kind == SemanticSourceKind::Project && hit.lexical_score > 0.0));
+        assert!(hits
+            .iter()
+            .any(|hit| hit.source_kind == SemanticSourceKind::Note && hit.lexical_score > 0.0));
     }
 
     #[tokio::test]

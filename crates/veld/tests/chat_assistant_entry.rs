@@ -521,6 +521,357 @@ async fn assistant_repo_write_proposal_links_thread_to_pending_execution_review(
 }
 
 #[tokio::test]
+async fn assistant_repo_write_proposal_becomes_approved_when_write_scope_is_already_approved() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+    let project_root = unique_dir("assistant_approved");
+    let project = test_project(
+        "proj_assistant_approved",
+        "assistant-approved",
+        &project_root,
+    );
+    storage.create_project(project.clone()).await.unwrap();
+    let (broadcast_tx, _) = broadcast::channel(8);
+    let state = veld::state::AppState::new(
+        storage.clone(),
+        AppConfig {
+            artifact_root: unique_dir("artifacts-approved")
+                .to_string_lossy()
+                .to_string(),
+            node_id: Some("vel-authority".to_string()),
+            node_display_name: Some("Vel Authority".to_string()),
+            ..Default::default()
+        },
+        veld::policy_config::PolicyConfig::default(),
+        broadcast_tx,
+        None,
+        None,
+    );
+    let app = veld::app::build_app_with_state(state);
+
+    let handoff_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/v1/execution/handoffs")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "project_id": project.id.as_ref(),
+                        "from_agent": "operator",
+                        "to_agent": "codex-local",
+                        "origin_kind": "human_to_agent",
+                        "objective": "Reply to the project update thread",
+                        "task_kind": "implementation",
+                        "read_scopes": [project.primary_repo.path, project.primary_notes_root.path],
+                        "write_scopes": [project.primary_repo.path],
+                        "allowed_tools": ["rg"],
+                        "expected_output_schema": { "artifacts": ["patch"] }
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let handoff_body = axum::body::to_bytes(handoff_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let handoff_json: serde_json::Value = serde_json::from_slice(&handoff_body).unwrap();
+    let handoff_id = handoff_json["data"]["id"].as_str().expect("handoff id");
+
+    let approve_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/v1/execution/handoffs/{handoff_id}/approve"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::json!({
+                        "reviewed_by": "operator",
+                        "decision_reason": "Scoped repo work is approved."
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(approve_response.status(), StatusCode::OK);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"text":"Can you edit the code and send the project update now?"}"#
+                        .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(json["data"]["proposal"]["state"], "approved");
+    assert_eq!(json["data"]["proposal"]["permission_mode"], "user_confirm");
+    let thread_id = json["data"]["proposal"]["thread_route"]["thread_id"]
+        .as_str()
+        .expect("thread id");
+    let thread_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/v1/threads/{thread_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let thread_body = axum::body::to_bytes(thread_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let thread_json: serde_json::Value = serde_json::from_slice(&thread_body).unwrap();
+    assert_eq!(
+        thread_json["data"]["metadata"]["proposal_state"],
+        "approved"
+    );
+    assert_eq!(
+        thread_json["data"]["metadata"]["follow_through"]["kind"],
+        "execution_handoff_ready"
+    );
+    assert_eq!(
+        thread_json["data"]["metadata"]["follow_through"]["handoff_id"],
+        handoff_id
+    );
+}
+
+#[tokio::test]
+async fn assistant_mutation_proposal_becomes_approved_when_writeback_is_enabled() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+    storage
+        .set_setting("writeback_enabled", &serde_json::json!(true))
+        .await
+        .unwrap();
+
+    let app = veld::app::build_app_with_state(test_state(storage.clone(), None, None));
+
+    let _ = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"text":"remember to send the project update"}"#.to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"text":"Can you send the project update now?"}"#.to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["data"]["proposal"]["state"], "approved");
+    assert_eq!(json["data"]["proposal"]["permission_mode"], "user_confirm");
+    let thread_id = json["data"]["proposal"]["thread_route"]["thread_id"]
+        .as_str()
+        .expect("thread id");
+    let thread_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/v1/threads/{thread_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let thread_body = axum::body::to_bytes(thread_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let thread_json: serde_json::Value = serde_json::from_slice(&thread_body).unwrap();
+    assert_eq!(
+        thread_json["data"]["metadata"]["proposal_state"],
+        "approved"
+    );
+    assert_eq!(
+        thread_json["data"]["metadata"]["follow_through"]["kind"],
+        "writeback_ready"
+    );
+}
+
+#[tokio::test]
+async fn assistant_proposal_thread_preserves_applied_and_reversed_follow_through() {
+    let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+    storage.migrate().await.unwrap();
+    storage
+        .set_setting("writeback_enabled", &serde_json::json!(true))
+        .await
+        .unwrap();
+
+    let app = veld::app::build_app_with_state(test_state(storage.clone(), None, None));
+
+    let _ = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"text":"remember to send the project update"}"#.to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/assistant/entry")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"text":"Can you send the project update now?"}"#.to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let thread_id = json["data"]["proposal"]["thread_route"]["thread_id"]
+        .as_str()
+        .expect("thread id")
+        .to_string();
+
+    let intervention_id = storage
+        .list_interventions_active(10)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|record| record.kind == "assistant_proposal")
+        .map(|record| record.id.to_string())
+        .expect("assistant proposal intervention");
+
+    let resolve_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/interventions/{intervention_id}/resolve"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resolve_response.status(), StatusCode::OK);
+
+    let thread_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/v1/threads/{thread_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let thread_body = axum::body::to_bytes(thread_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let thread_json: serde_json::Value = serde_json::from_slice(&thread_body).unwrap();
+    assert_eq!(thread_json["data"]["lifecycle_stage"], "applied");
+    assert_eq!(thread_json["data"]["metadata"]["proposal_state"], "applied");
+    assert_eq!(
+        thread_json["data"]["metadata"]["follow_through"]["kind"],
+        "applied"
+    );
+    assert_eq!(
+        thread_json["data"]["metadata"]["reversal"]["supported"],
+        true
+    );
+
+    let dismiss_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/interventions/{intervention_id}/dismiss"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(dismiss_response.status(), StatusCode::OK);
+
+    let thread_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/v1/threads/{thread_id}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let thread_body = axum::body::to_bytes(thread_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let thread_json: serde_json::Value = serde_json::from_slice(&thread_body).unwrap();
+    assert_eq!(thread_json["data"]["status"], "dismissed");
+    assert_eq!(thread_json["data"]["lifecycle_stage"], "reversed");
+    assert_eq!(
+        thread_json["data"]["metadata"]["proposal_state"],
+        "reversed"
+    );
+    assert_eq!(
+        thread_json["data"]["metadata"]["follow_through"]["kind"],
+        "reversed"
+    );
+}
+
+#[tokio::test]
 async fn existing_conversation_and_missing_model_still_persist_user_message_safely() {
     let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
     storage.migrate().await.unwrap();

@@ -445,6 +445,61 @@ pub struct ReflowTransition {
     pub confirm_required: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReflowChangeKind {
+    Moved,
+    Unscheduled,
+    NeedsJudgment,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScheduleRuleFacetKind {
+    BlockTarget,
+    Duration,
+    CalendarFree,
+    FixedStart,
+    TimeWindow,
+    LocalUrgency,
+    LocalDefer,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScheduleRuleFacet {
+    pub kind: ScheduleRuleFacetKind,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReflowChange {
+    pub kind: ReflowChangeKind,
+    pub title: String,
+    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scheduled_start_ts: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReflowProposal {
+    pub headline: String,
+    pub summary: String,
+    #[serde(default)]
+    pub moved_count: u32,
+    #[serde(default)]
+    pub unscheduled_count: u32,
+    #[serde(default)]
+    pub needs_judgment_count: u32,
+    #[serde(default)]
+    pub changes: Vec<ReflowChange>,
+    #[serde(default)]
+    pub rule_facets: Vec<ScheduleRuleFacet>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReflowCard {
     pub id: ActionItemId,
@@ -456,6 +511,8 @@ pub struct ReflowCard {
     pub suggested_action_label: String,
     pub preview_lines: Vec<String>,
     pub edit_target: ReflowEditTarget,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposal: Option<ReflowProposal>,
     #[serde(default)]
     pub transitions: Vec<ReflowTransition>,
 }
@@ -623,6 +680,28 @@ mod tests {
                 "target": "threads",
                 "label": "Edit"
             },
+            "proposal": {
+                "headline": "Remaining day needs repair",
+                "summary": "Vel can now carry a typed remaining-day recovery proposal instead of only warning about drift.",
+                "moved_count": 0,
+                "unscheduled_count": 0,
+                "needs_judgment_count": 1,
+                "changes": [
+                    {
+                        "kind": "needs_judgment",
+                        "title": "Scheduled time already passed",
+                        "detail": "Next scheduled event started 20 minutes ago.",
+                        "scheduled_start_ts": 1700000000
+                    }
+                ],
+                "rule_facets": [
+                    {
+                        "kind": "fixed_start",
+                        "label": "Fixed start",
+                        "detail": "A due datetime or scheduled event anchor is in play."
+                    }
+                ]
+            },
             "transitions": [
                 {
                     "kind": "accept",
@@ -645,5 +724,9 @@ mod tests {
         assert_eq!(card.transitions[0].kind, ReflowTransitionKind::Accept);
         assert_eq!(card.transitions[1].kind, ReflowTransitionKind::Edit);
         assert_eq!(card.edit_target.target, CheckInEscalationTarget::Threads);
+        let proposal = card.proposal.expect("proposal should parse");
+        assert_eq!(proposal.needs_judgment_count, 1);
+        assert_eq!(proposal.changes.len(), 1);
+        assert_eq!(proposal.rule_facets.len(), 1);
     }
 }

@@ -24,8 +24,9 @@ If you are using the web shell and need the fastest path to the right help:
 
 - `Now` is the primary surface for daily orientation, freshness warnings, and the current daily-loop entry path.
 - `Now` may also surface inline check-ins, summary trust warnings, and heavier reflow suggestions when the current plan is no longer trustworthy.
+- when reflow is active, `Now` now shows the compact remaining-day proposal directly: what moved, what no longer fits, and what still needs judgment.
 - `Inbox` is the explicit decision queue. Clear or snooze items there before you open longer conversation history.
-- `Settings` is the deeper surface for Todoist, linking, writeback trust, and Apple/local-source setup guidance.
+- `Settings` is the deeper surface for Todoist, linking, writeback trust, Apple/local-source setup guidance, and summary recovery posture.
 - `Threads` is the conversation/history surface with lightweight filtering over persisted conversations, not the setup authority or main triage queue.
 - if a shell card points you to setup or troubleshooting work, follow the matching guide in `docs/user/setup.md`, `docs/user/integrations/`, or `docs/user/troubleshooting.md` instead of guessing from stale UI state.
 
@@ -48,6 +49,8 @@ echo "snippet from terminal" | cargo run -p vel-cli -- capture -
 ```
 
 On desktop web, hold the microphone button to use local browser speech-to-text. Vel keeps the transcript local until you send it, then submits it through the same assistant route as typed text with explicit voice provenance. `Now` and `Threads` share that backend-owned entry seam. The backend decides whether what you said belongs inline, in `Inbox`, or in `Threads`; the shell should follow that returned route instead of guessing capture-versus-conversation locally.
+
+When Vel answers from recall, treat it as bounded local recall over persisted Vel data, not as ambient general memory. The backend now assembles a typed assistant-context pack with summary, focus lines, source breakdown, scores, and provenance so the same recall story can surface consistently across chat and assistant entry.
 
 If local speech-to-text is unavailable in the current browser, the web shell should say so clearly and fall back to typed input instead of trying to emulate a second voice path.
 
@@ -115,6 +118,13 @@ On macOS, if local source snapshots are already in `~/Library/Application Suppor
 
 If the day plan no longer looks trustworthy after a stale sync or missed event, treat that as a candidate `reflow`, not just a generic refresh problem.
 
+Current shipped behavior:
+
+- Vel can now do bounded same-day remaining-day recomputation from persisted commitments and calendar events
+- the proposal can explicitly show work that moved, work that did not fit, and work that still needs judgment
+- longer disagreement or manual shaping still belongs in `Threads`
+- this is not multi-day autonomous planning
+
 ## Backup and trust check
 
 Before risky local changes, confirm backup trust:
@@ -144,7 +154,15 @@ That rule also applies when the assistant proposes doing something on your behal
 
 - simple confirmation stays bounded and can point you into a dedicated follow-through thread,
 - repo-local or other supervised write work points at the existing execution review lane,
-- SAFE MODE or trust blockers keep the proposal staged-only and explicitly gated instead of silently mutating anything.
+- SAFE MODE or trust blockers keep the proposal explicitly gated instead of silently mutating anything,
+- once you resolve or dismiss the follow-through through the normal intervention/review path, the same proposal thread records whether the result became `applied`, `failed`, or `reversed`.
+
+Current limit:
+
+- assistant proposals still do not bypass review or writeback gates,
+- proposal-thread reversal only records Vel-side proposal continuity unless the underlying write lane already has a real undo/reversal story,
+- `Threads` is the place to inspect that continuity; it is not a second hidden execution system,
+- recall quality is still bounded by the current local hybrid retrieval baseline and the persisted records Vel has actually ingested.
 
 Good uses:
 

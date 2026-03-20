@@ -1,6 +1,9 @@
 use serde_json::{json, Value};
 use time::OffsetDateTime;
-use vel_api_types::{CommitmentData, NowData, PersonRecordData, ProjectRecordData};
+use vel_api_types::{
+    AssistantContextData, CommitmentData, NowData, PersonRecordData, ProjectRecordData,
+    RecallContextData,
+};
 use vel_core::{
     CommitmentStatus, DailyLoopPhase, RetrievalStrategy, SemanticQuery, SemanticQueryFilters,
 };
@@ -14,6 +17,7 @@ use crate::{
 
 const TOOL_GET_NOW: &str = "vel_get_now";
 const TOOL_SEARCH_MEMORY: &str = "vel_search_memory";
+const TOOL_GET_RECALL_CONTEXT: &str = "vel_get_recall_context";
 const TOOL_LIST_PROJECTS: &str = "vel_list_projects";
 const TOOL_LIST_PEOPLE: &str = "vel_list_people";
 const TOOL_LIST_OPEN_COMMITMENTS: &str = "vel_list_open_commitments";
@@ -53,6 +57,30 @@ pub(crate) fn chat_tool_specs() -> Vec<ToolSpec> {
                         "minimum": 1,
                         "maximum": 8,
                         "description": "Maximum number of hits to return."
+                    }
+                },
+                "additionalProperties": false,
+            }),
+        },
+        ToolSpec {
+            name: TOOL_GET_RECALL_CONTEXT.to_string(),
+            description:
+                "Build a bounded assistant context pack from Vel's local semantic memory with summary, focus lines, hit counts, source breakdown, scores, and provenance."
+                    .to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Natural-language recall query for Vel context assembly."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 8,
+                        "description": "Maximum number of recall hits to return."
                     }
                 },
                 "additionalProperties": false,
@@ -202,6 +230,22 @@ pub(crate) async fn execute_chat_tool(
                 "hits": hits,
             }))
         }
+        TOOL_GET_RECALL_CONTEXT => {
+            let query = arguments
+                .get("query")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .ok_or_else(|| {
+                    AppError::bad_request("vel_get_recall_context requires non-empty query")
+                })?;
+            let limit = parse_limit(arguments, 5, 8)?;
+            let assistant_context = build_assistant_context(state, query, limit).await?;
+            Ok(json!({
+                "assistant_context": assistant_context,
+                "recall": assistant_context.recall,
+            }))
+        }
         TOOL_LIST_PROJECTS => {
             let limit = parse_limit(arguments, 8, 20)?;
             let projects = projects::list_projects(state)
@@ -330,12 +374,92 @@ pub(crate) async fn build_chat_grounding_prompt(state: &AppState) -> Result<Stri
     Ok(format!(
         "You are Vel, a concise assistant for capture, recall, daily orientation, and supervised execution.\n\
          Use the provided Vel tool surface when the user asks about their current state, projects, people, commitments, or prior captured knowledge.\n\
+         Prefer the recall-context tool for memory-backed questions when you need a bounded pack of relevant context instead of a raw search list.\n\
          Daily-loop state, standup continuity, closeout briefs, and thread-based resolution should stay aligned with Vel's existing product lanes rather than invented ad hoc in chat.\n\
          Never invent access you do not have. If a write, mutation, or review-gated action is requested, explain the limit instead of pretending it happened.\n\
          Prefer direct, practical answers grounded in persisted Vel data.\n\n\
          Grounding snapshot (summary-first; call tools for fresher or deeper detail):\n\n{}",
         grounding
     ))
+}
+
+pub(crate) async fn build_assistant_context(
+    state: &AppState,
+    query: &str,
+    limit: usize,
+) -> Result<AssistantContextData, AppError> {
+    let hits = retrieval::semantic_query(
+        state,
+        &SemanticQuery {
+            query_text: query.to_string(),
+            top_k: limit as u32,
+            strategy: RetrievalStrategy::Hybrid,
+            include_provenance: true,
+            filters: SemanticQueryFilters {
+                source_kinds: retrieval::context_source_kinds(),
+                ..Default::default()
+            },
+            policy: None,
+        },
+    )
+    .await?;
+    let recall = RecallContextData::from(retrieval::build_recall_context_pack(query, hits));
+    let inspect = agent_grounding::build_agent_inspect(state).await?;
+    let grounding_hint = agent_grounding::assistant_grounding_hint(&inspect);
+    let summary = if recall.hit_count == 0 {
+        format!(
+            "No directly relevant recalled context was found. {}",
+            grounding_hint
+        )
+    } else {
+        format!(
+            "Found {} relevant recalled item{} across {}. {}",
+            recall.hit_count,
+            if recall.hit_count == 1 { "" } else { "s" },
+            describe_source_counts(&recall),
+            grounding_hint
+        )
+    };
+
+    Ok(AssistantContextData {
+        query_text: query.to_string(),
+        summary,
+        focus_lines: assistant_focus_lines(&recall),
+        recall,
+    })
+}
+
+fn describe_source_counts(recall: &RecallContextData) -> String {
+    if recall.source_counts.is_empty() {
+        return "no source groups".to_string();
+    }
+
+    recall
+        .source_counts
+        .iter()
+        .map(|entry| format!("{:?} ({})", entry.source_kind, entry.count).to_lowercase())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn assistant_focus_lines(recall: &RecallContextData) -> Vec<String> {
+    recall
+        .hits
+        .iter()
+        .take(3)
+        .map(|hit| {
+            let source_ref = hit
+                .provenance
+                .note_path
+                .clone()
+                .or_else(|| hit.provenance.project_id.clone())
+                .or_else(|| hit.provenance.person_id.clone())
+                .or_else(|| hit.provenance.thread_id.clone())
+                .or_else(|| hit.provenance.capture_id.clone())
+                .unwrap_or_else(|| hit.source_id.clone());
+            format!("{:?} {}: {}", hit.source_kind, source_ref, hit.snippet).to_lowercase()
+        })
+        .collect()
 }
 
 fn parse_limit(
@@ -453,6 +577,61 @@ mod tests {
         assert_eq!(value["threads"].as_array().unwrap().len(), 1);
         assert_eq!(value["threads"][0]["id"], "thr_reflow");
         assert_eq!(value["threads"][0]["thread_type"], "reflow_edit");
+    }
+
+    #[tokio::test]
+    async fn recall_context_tool_returns_typed_pack() {
+        let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .upsert_note_semantic_record(
+                "projects/tax/accountant.md",
+                "Accountant follow up",
+                "Need accountant follow up on quarterly estimate this week.",
+                "cap_note_recall",
+                now,
+            )
+            .await
+            .unwrap();
+
+        let state = test_state(storage);
+        let value = execute_chat_tool(
+            &state,
+            TOOL_GET_RECALL_CONTEXT,
+            &json!({
+                "query": "accountant follow up",
+                "limit": 5,
+            }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            value["assistant_context"]["query_text"],
+            "accountant follow up"
+        );
+        assert!(value["assistant_context"]["summary"]
+            .as_str()
+            .unwrap()
+            .contains("recalled"));
+        assert!(value["assistant_context"]["focus_lines"][0]
+            .as_str()
+            .unwrap()
+            .contains("accountant"));
+        assert_eq!(value["recall"]["query_text"], "accountant follow up");
+        assert_eq!(value["recall"]["hit_count"], 1);
+        assert_eq!(value["recall"]["source_counts"][0]["source_kind"], "note");
+        assert!(
+            value["recall"]["hits"][0]["combined_score"]
+                .as_f64()
+                .unwrap()
+                > 0.0
+        );
+        assert_eq!(
+            value["recall"]["hits"][0]["provenance"]["note_path"],
+            "projects/tax/accountant.md"
+        );
     }
 
     #[tokio::test]

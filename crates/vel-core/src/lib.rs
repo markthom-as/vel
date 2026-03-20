@@ -85,8 +85,9 @@ pub use operator_queue::{
     AssistantActionProposal, AssistantProposalState, CheckInCard, CheckInEscalation,
     CheckInEscalationTarget, CheckInSourceKind, CheckInSubmitTarget, CheckInSubmitTargetKind,
     CheckInTransition, CheckInTransitionKind, CheckInTransitionTargetKind, ReflowAcceptMode,
-    ReflowCard, ReflowEditTarget, ReflowSeverity, ReflowTransition, ReflowTransitionKind,
-    ReflowTransitionTargetKind, ReflowTriggerKind, ReviewSnapshot,
+    ReflowCard, ReflowChange, ReflowChangeKind, ReflowEditTarget, ReflowProposal, ReflowSeverity,
+    ReflowTransition, ReflowTransitionKind, ReflowTransitionTargetKind, ReflowTriggerKind,
+    ReviewSnapshot, ScheduleRuleFacet, ScheduleRuleFacetKind,
 };
 pub use ordering::OrderingStamp;
 pub use people::{PersonAlias, PersonId, PersonLinkRef, PersonRecord};
@@ -108,8 +109,9 @@ pub use sandbox::{
     SandboxResourceLimits,
 };
 pub use semantic::{
-    HybridRetrievalPolicy, RetrievalStrategy, SemanticHit, SemanticMemoryRecord,
-    SemanticProvenance, SemanticQuery, SemanticQueryFilters, SemanticRecordId, SemanticSourceKind,
+    HybridRetrievalPolicy, RecallContextHit, RecallContextPack, RecallContextSourceCount,
+    RetrievalStrategy, SemanticHit, SemanticMemoryRecord, SemanticProvenance, SemanticQuery,
+    SemanticQueryFilters, SemanticRecordId, SemanticSourceKind,
 };
 pub use time::{Clock, FixedClock, SystemClock};
 pub use types::{ConversationId, EventId, IntegrationConnectionId, InterventionId, MessageId};

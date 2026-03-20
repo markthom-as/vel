@@ -256,6 +256,17 @@ pub fn render_agent_grounding_markdown(inspect: &AgentInspectData) -> String {
     lines.join("\n")
 }
 
+pub fn assistant_grounding_hint(inspect: &AgentInspectData) -> String {
+    format!(
+        "Current grounding shows {} open actions, {} triage items, {} projects, {} people, and {} pending execution handoffs.",
+        inspect.grounding.review.review_snapshot.open_action_count,
+        inspect.grounding.review.review_snapshot.triage_count,
+        inspect.grounding.projects.len(),
+        inspect.grounding.people.len(),
+        inspect.grounding.review.pending_execution_handoffs.len()
+    )
+}
+
 fn integration_writeback_capability(writeback_enabled: bool) -> AgentCapabilityEntryData {
     AgentCapabilityEntryData {
         key: "integration_writeback".to_string(),

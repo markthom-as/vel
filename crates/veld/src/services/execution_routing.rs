@@ -411,7 +411,72 @@ async fn review_execution_handoff(
         .await?
         .ok_or_else(|| AppError::not_found("execution handoff not found"))?;
 
+    sync_assistant_proposal_threads_for_handoff(state, handoff_id.trim(), review_state).await?;
+
     hydrate_record(updated)
+}
+
+async fn sync_assistant_proposal_threads_for_handoff(
+    state: &AppState,
+    handoff_id: &str,
+    review_state: HandoffReviewState,
+) -> Result<(), AppError> {
+    let thread_ids = state
+        .storage
+        .list_threads_linking_entity("execution_handoff", handoff_id, "approves")
+        .await?;
+
+    for thread_id in thread_ids {
+        let Some((_, _, _, _, metadata_json, _, _)) =
+            state.storage.get_thread_by_id(&thread_id).await?
+        else {
+            continue;
+        };
+        let mut metadata = serde_json::from_str::<serde_json::Value>(&metadata_json)
+            .unwrap_or_else(|_| serde_json::json!({}));
+        let Some(object) = metadata.as_object_mut() else {
+            continue;
+        };
+        match review_state {
+            HandoffReviewState::Approved => {
+                object.insert(
+                    "proposal_state".to_string(),
+                    serde_json::Value::String("approved".to_string()),
+                );
+                object.insert(
+                    "follow_through".to_string(),
+                    serde_json::json!({
+                        "kind": "execution_handoff_ready",
+                        "handoff_id": handoff_id,
+                        "review_state": "approved",
+                        "launch_preview_path": format!("/v1/execution/handoffs/{handoff_id}/launch-preview"),
+                    }),
+                );
+            }
+            HandoffReviewState::Rejected => {
+                object.insert(
+                    "proposal_state".to_string(),
+                    serde_json::Value::String("failed".to_string()),
+                );
+                object.insert(
+                    "follow_through".to_string(),
+                    serde_json::json!({
+                        "kind": "gated",
+                        "permission_mode": "unavailable",
+                        "summary": "Execution handoff review was rejected.",
+                        "review_state": "rejected",
+                    }),
+                );
+            }
+            HandoffReviewState::PendingReview => {}
+        }
+        state
+            .storage
+            .update_thread_metadata(&thread_id, &metadata.to_string())
+            .await?;
+    }
+
+    Ok(())
 }
 
 fn validate_create_input(

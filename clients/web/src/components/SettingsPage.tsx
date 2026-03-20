@@ -167,6 +167,27 @@ function normalizeSettingsTab(tab: SettingsTab | LegacySettingsTab): SettingsTab
   return tab;
 }
 
+function labelRecoveryFreshness(status: string): string {
+  switch (status) {
+    case 'fresh':
+      return 'Fresh';
+    case 'aging':
+      return 'Aging';
+    case 'stale':
+      return 'Stale';
+    case 'error':
+      return 'Error';
+    case 'disconnected':
+      return 'Disconnected';
+    case 'missing':
+      return 'Missing';
+    case 'unchecked':
+      return 'Unchecked';
+    default:
+      return status;
+  }
+}
+
 interface LoopDraft {
   intervalSeconds: string;
 }
@@ -2161,6 +2182,7 @@ export function SettingsPage({
             <ul className="mt-4 space-y-2 text-sm text-zinc-300">
               <li>Web voice input uses local browser speech-to-text before the assistant route.</li>
               <li>Assistant replies need a configured model, but capture and triage still work without one.</li>
+              <li>Recall stays bounded to persisted Vel data with backend-owned scores and provenance, not broad ambient memory.</li>
               <li>Use the runtime tab only when you need deeper logs, components, or review controls.</li>
             </ul>
           </div>
@@ -2177,6 +2199,59 @@ export function SettingsPage({
                 summary-first
               </span>
             </div>
+          </div>
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h3 className="text-base font-medium text-zinc-100">Recovery posture</h3>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Freshness, trust, and day-plan repair stay summary-first here. Use `Now` for the compact reflow card and move into `Threads` only when the schedule needs longer shaping.
+                </p>
+              </div>
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
+                {nowData?.freshness?.overall_status ?? 'unknown'}
+              </span>
+            </div>
+            {nowData ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Reflow</p>
+                  <p className="mt-2 text-sm font-medium text-zinc-100">
+                    {nowData.reflow?.proposal
+                      ? `${nowData.reflow.proposal.moved_count} moved · ${nowData.reflow.proposal.unscheduled_count} unscheduled`
+                      : nowData.reflow_status?.headline ?? 'No active reflow'}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">
+                    {nowData.reflow?.proposal?.summary
+                      ?? nowData.reflow?.summary
+                      ?? nowData.reflow_status?.detail
+                      ?? 'The current schedule does not need repair right now.'}
+                  </p>
+                </div>
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Freshness</p>
+                  <p className="mt-2 text-sm font-medium text-zinc-100">
+                    {labelRecoveryFreshness(nowData.freshness?.overall_status ?? 'unknown')}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">
+                    {(nowData.freshness?.sources ?? []).filter((source) => source.status !== 'fresh').length} sources need attention before the day plan is fully trustworthy.
+                  </p>
+                </div>
+                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Follow-through</p>
+                  <p className="mt-2 text-sm font-medium text-zinc-100">
+                    {nowData.trust_readiness?.follow_through?.length ?? 0} queued recoveries
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">
+                    {nowData.trust_readiness?.summary ?? 'Trust and recovery follow-through appears here when the current Now snapshot includes readiness data.'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-zinc-500">
+                Recovery posture appears here once a current `Now` snapshot is available.
+              </p>
+            )}
           </div>
           <label className="flex items-center justify-between gap-4">
             <span className="text-zinc-300">Disable proactive interventions</span>

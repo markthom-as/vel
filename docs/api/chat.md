@@ -30,15 +30,17 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 - desktop/browser push-to-talk feeds this same route after local speech-to-text; transcript provenance stays explicit and the backend still owns routing into `Now`, `Inbox`, or `Threads`
 - may also return conversation continuity data, optional assistant reply/error state, and optional typed `daily_loop_session` data when assistant entry starts or resumes the canonical morning/standup flow
 - may also return typed `end_of_day` data when assistant entry starts the run-backed closeout flow inline
-- may also return a typed staged assistant proposal when the operator asks for a bounded action that still belongs in the supervised operator queue
+- may also return typed `assistant_context` data: a backend-owned bounded recall pack with summary, focus lines, hit counts, source breakdown, scores, and provenance for the current request
+- may also return a typed assistant proposal when the operator asks for a bounded action that still belongs in the supervised operator queue
 - morning and standup assistant entry must reuse the existing typed daily-loop session authority instead of inventing assistant-only planning state
 - end-of-day assistant entry must reuse the existing run-backed closeout/context pipeline so the returned summary remains explainable from persisted state and artifacts
 - when longer `check_in`, `reflow`, or action follow-through needs more than an inline reply, the backend escalates that work into durable thread continuity with typed resolution metadata instead of leaving meaning to shell history text alone
-- staged assistant proposals now use that same rule: the backend may create a dedicated `assistant_proposal` continuity thread with typed follow-through metadata instead of expecting shells to infer approval state from chat text
+- assistant proposals now use that same rule: the backend may create a dedicated `assistant_proposal` continuity thread with typed follow-through metadata instead of expecting shells to infer approval or applied state from chat text
 - proposal follow-through is explicit and fail-closed:
   - direct operator confirmation when the proposal only needs bounded confirmation
   - execution handoff review when repo-local or other supervised write work still requires approval
   - gated follow-through when SAFE MODE, missing writeback enablement, or another trust blocker keeps the proposal unavailable
+  - applied or reversed continuity stays on the same proposal thread once the operator uses the existing intervention/review lanes
 
 ### `GET /api/conversations/:id/messages`
 ### `POST /api/conversations/:id/messages`
@@ -46,13 +48,15 @@ For repo-wide implementation truth, see [`../MASTER_PLAN.md`](../MASTER_PLAN.md)
 - list and create messages in a conversation
 - message creation uses `MessageCreateRequest`
 - responses use `CreateMessageResponse`, including the persisted user message and optional assistant reply or assistant error
-- when an LLM profile is configured, assistant replies are grounded in the typed Vel inspect/`Now` state and may use a bounded read-only Vel tool surface for memory search, projects, people, commitments, active daily-loop state, and filtered threads
+- when an LLM profile is configured, assistant replies are grounded in the typed Vel inspect/`Now` state and may use a bounded read-only Vel tool surface for local recall over persisted captures, notes, projects, people, threads, transcripts, commitments, and daily-loop state
+- assistant-capable responses may include backend-owned `assistant_context` so shells can show or inspect the same bounded recall summary the backend used instead of inferring their own memory state
 - the assistant chat surface does not bypass existing write, review, or SAFE MODE rules; tool access is read-only and thread/daily-loop continuity stays aligned with the backend-owned product lanes
 - thread-local continuity still persists through conversation messages, but the web composer now reuses the shared assistant-entry contract rather than maintaining a separate shell-owned send path
 - Apple still uses the dedicated `/v1/apple/voice/turn` compatibility route for typed Apple quick-loop replies, but supported Apple voice turns now preserve the same shared thread continuity substrate instead of inventing a separate local conversation policy
 - for default daily use, treat `Threads` as continuity/search over persisted conversations, not as the primary triage queue
 - thread continuity now also carries durable resolution context for deferred, edited, resolved, or still-pending follow-through work so shells can deep-link into the right thread without inventing separate resolution policy
-- current limit: assistant proposals are still staged-only. The assistant can surface a typed proposal and continuity target, but it does not apply writeback or supervised execution directly from chat without the existing operator review lane completing first.
+- current limit: assistant proposals are not an ambient write lane. They can become `approved`, `applied`, `failed`, or `reversed`, but only through the existing intervention, execution-review, and writeback seams. Provider-level undo behavior is not invented just because proposal-thread reversal metadata exists.
+- current limit: local recall is only as good as persisted Vel data and the current hybrid retrieval baseline. The backend returns source counts, scores, and provenance, but it does not imply broad graph memory or internet-backed knowledge.
 
 ### `GET /api/conversations/:id/interventions`
 ### `GET /api/messages/:id/interventions`

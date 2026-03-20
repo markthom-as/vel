@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   decodeAgentInspectData,
+  decodeAssistantContextData,
   decodeAssistantEntryResponse,
   decodeActionItemData,
   decodeApiResponse,
@@ -24,6 +25,7 @@ import {
   decodeArray,
   decodePairingTokenData,
   decodeProjectRecordData,
+  decodeRecallContextData,
   decodeReviewSnapshotData,
   decodeRiskCardContent,
   decodeRunSummaryData,
@@ -102,6 +104,28 @@ describe('transport decoders', () => {
             updated_at: null,
           },
           assistant_error: null,
+          assistant_context: {
+            query_text: 'accountant follow up',
+            summary: 'Found 1 relevant recalled item across note sources.',
+            focus_lines: ['note projects/tax/accountant.md: Need accountant follow up.'],
+            recall: {
+              query_text: 'accountant follow up',
+              hit_count: 1,
+              source_counts: [{ source_kind: 'note', count: 1 }],
+              hits: [
+                {
+                  record_id: 'sem_note_1',
+                  source_kind: 'note',
+                  source_id: 'projects/tax/accountant.md',
+                  snippet: 'Need accountant follow up.',
+                  lexical_score: 0.4,
+                  semantic_score: 0.9,
+                  combined_score: 0.775,
+                  provenance: { note_path: 'projects/tax/accountant.md' },
+                },
+              ],
+            },
+          },
           conversation: {
             id: 'conv_1',
             title: 'Conversation',
@@ -179,6 +203,7 @@ describe('transport decoders', () => {
     expect(response.data?.route_target).toBe('inline')
     expect(response.data?.conversation.id).toBe('conv_1')
     expect(response.data?.assistant_message?.id).toBe('msg_assistant')
+    expect(response.data?.assistant_context?.focus_lines[0]).toContain('accountant')
     expect(response.data?.proposal?.action_item_id).toBe('act_intervention_intv_1')
     expect(response.data?.proposal?.state).toBe('staged')
     expect(response.data?.daily_loop_session?.phase).toBe('morning_overview')
@@ -206,6 +231,64 @@ describe('transport decoders', () => {
       inferred_activity: 'coding',
       git_activity_summary: 'commit on main',
     })
+  })
+
+  it('decodes recall-context packs with typed source counts and hits', () => {
+    const recall = decodeRecallContextData({
+      query_text: 'accountant follow up',
+      hit_count: 1,
+      source_counts: [{ source_kind: 'note', count: 1 }],
+      hits: [
+        {
+          record_id: 'sem_note_1',
+          source_kind: 'note',
+          source_id: 'projects/tax/accountant.md',
+          snippet: 'Need accountant follow up on quarterly estimate.',
+          lexical_score: 0.4,
+          semantic_score: 0.9,
+          combined_score: 0.775,
+          provenance: {
+            note_path: 'projects/tax/accountant.md',
+          },
+        },
+      ],
+    })
+
+    expect(recall.query_text).toBe('accountant follow up')
+    expect(recall.source_counts[0]).toEqual({ source_kind: 'note', count: 1 })
+    expect(recall.hits[0].combined_score).toBe(0.775)
+    expect(recall.hits[0].provenance).toEqual({
+      note_path: 'projects/tax/accountant.md',
+    })
+  })
+
+  it('decodes assistant-context packs with recall summary and nested recall', () => {
+    const context = decodeAssistantContextData({
+      query_text: 'accountant follow up',
+      summary: 'Found 1 relevant recalled item across note sources.',
+      focus_lines: ['note projects/tax/accountant.md: Need accountant follow up.'],
+      recall: {
+        query_text: 'accountant follow up',
+        hit_count: 1,
+        source_counts: [{ source_kind: 'note', count: 1 }],
+        hits: [
+          {
+            record_id: 'sem_note_1',
+            source_kind: 'note',
+            source_id: 'projects/tax/accountant.md',
+            snippet: 'Need accountant follow up.',
+            lexical_score: 0.4,
+            semantic_score: 0.9,
+            combined_score: 0.775,
+            provenance: { note_path: 'projects/tax/accountant.md' },
+          },
+        ],
+      },
+    })
+
+    expect(context.summary).toContain('recalled item')
+    expect(context.focus_lines[0]).toContain('accountant')
+    expect(context.recall.hits[0].combined_score).toBe(0.775)
   })
 
   it('decodes action items with typed thread routing hints', () => {
@@ -1424,6 +1507,31 @@ describe('transport decoders', () => {
             target: 'threads',
             label: 'Edit',
           },
+          proposal: {
+            headline: 'Remaining day needs repair',
+            summary:
+              'Vel can now carry a typed remaining-day recovery proposal over the reflow seam before full schedule recomputation lands.',
+            moved_count: 0,
+            unscheduled_count: 0,
+            needs_judgment_count: 1,
+            changes: [
+              {
+                kind: 'needs_judgment',
+                title: 'Scheduled time already passed',
+                detail: 'Next scheduled event started 20 minutes ago.',
+                project_label: null,
+                scheduled_start_ts: 1700000000,
+              },
+            ],
+            rule_facets: [
+              {
+                kind: 'fixed_start',
+                label: 'Fixed start',
+                detail:
+                  'A due datetime or schedule anchor should stay explicit in the recomputed day.',
+              },
+            ],
+          },
           transitions: [
             {
               kind: 'accept',
@@ -1730,6 +1838,31 @@ describe('transport decoders', () => {
         edit_target: {
           target: 'threads',
           label: 'Edit',
+        },
+        proposal: {
+          headline: 'Remaining day needs repair',
+          summary:
+            'Vel can now carry a typed remaining-day recovery proposal over the reflow seam before full schedule recomputation lands.',
+          moved_count: 0,
+          unscheduled_count: 0,
+          needs_judgment_count: 1,
+          changes: [
+            {
+              kind: 'needs_judgment',
+              title: 'Scheduled time already passed',
+              detail: 'Next scheduled event started 20 minutes ago.',
+              project_label: null,
+              scheduled_start_ts: 1700000000,
+            },
+          ],
+          rule_facets: [
+            {
+              kind: 'fixed_start',
+              label: 'Fixed start',
+              detail:
+                'A due datetime or schedule anchor should stay explicit in the recomputed day.',
+            },
+          ],
         },
         transitions: [
           {

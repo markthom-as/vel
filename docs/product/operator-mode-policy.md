@@ -97,6 +97,13 @@ Preferred first surface:
 - primary `Accept`
 - secondary `Edit`
 
+Current shipped baseline:
+
+- the backend now computes a bounded same-day remaining-day proposal from persisted commitments and calendar events
+- `Now` should render aggregate counts plus compact `moved`, `unscheduled`, and `needs_judgment` rows from that typed proposal
+- `Settings` may summarize the same recovery posture, but it should not become a second planner surface
+- `Threads` remains the escalation lane for longer shaping or disagreement
+
 `Edit` should open the `Threads` interface so the operator can give feedback and shape the recalculation.
 
 Severity rule:

@@ -176,10 +176,7 @@ async fn generate_with_profile(
 
             messages.push(LlmMessage {
                 role: "user".to_string(),
-                content: format!(
-                    "Vel tool results for the current request:\n{}\n\nUse these results to answer the user directly. If another lookup is required, call another Vel tool.",
-                    serde_json::to_string_pretty(&results).unwrap_or_else(|_| "[]".to_string())
-                ),
+                content: render_tool_results_for_llm(&results),
             });
             continue;
         }
@@ -233,4 +230,55 @@ async fn generate_with_profile(
     }
 
     Ok(None)
+}
+
+fn render_tool_results_for_llm(results: &[serde_json::Value]) -> String {
+    let mut sections = Vec::new();
+
+    for result in results {
+        if let Some(context) = result
+            .get("output")
+            .and_then(|output| output.get("assistant_context"))
+        {
+            let summary = context
+                .get("summary")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let focus_lines = context
+                .get("focus_lines")
+                .and_then(serde_json::Value::as_array)
+                .map(|lines| {
+                    lines
+                        .iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .map(|line| format!("- {line}"))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                })
+                .unwrap_or_default();
+            let recall_json = context
+                .get("recall")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
+
+            sections.push(format!(
+                "Vel assistant context for the current request:\nSummary: {}\n{}\n\nRecall detail:\n{}",
+                summary,
+                if focus_lines.is_empty() {
+                    String::new()
+                } else {
+                    format!("Focus lines:\n{focus_lines}")
+                },
+                serde_json::to_string_pretty(&recall_json).unwrap_or_else(|_| "{}".to_string())
+            ));
+        } else {
+            sections
+                .push(serde_json::to_string_pretty(result).unwrap_or_else(|_| "{}".to_string()));
+        }
+    }
+
+    format!(
+        "Vel tool results for the current request:\n{}\n\nUse these results to answer the user directly. If another lookup is required, call another Vel tool.",
+        sections.join("\n\n")
+    )
 }

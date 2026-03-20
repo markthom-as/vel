@@ -62,6 +62,9 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - [ ] Phase 22 — assistant-supported daily loop, closeout, and thread resolution: let morning, standup, end-of-day, and multi-step item resolution happen through the same backend-owned conversation/thread model
 - [ ] Phase 23 — safe assistant-mediated actions and supervised write lanes: let the assistant stage bounded actions through existing review/trust gates without bypassing operator control
 - [ ] Phase 24 — approved assistant action application and reversible write execution: let explicitly approved assistant proposals apply through existing confirmation, review, and writeback seams without weakening supervision
+- [ ] Phase 25 — local recall, semantic memory, and grounded assistant context: improve explainable local recall and backend-owned assistant context without widening into hosted memory infrastructure
+- [ ] Phase 26 — real day-plan reflow and schedule reconciliation: turn stale schedule recovery into a real backend-owned day-repair lane with explainable remaining-day recomputation
+- [ ] Phase 27 — canonical scheduler facets and commitment rule normalization: turn proven tag/rule semantics into first-class Vel-backed fields/facets for agents, recall, and reflow
 
 ### Out of Scope
 
@@ -106,6 +109,7 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | Agent awareness of Vel state is important enough to be committed roadmap work, not just backlog | The repo now has projects, people, `Now`, review data, execution context, and bounded tool surfaces; the missing work is productizing that grounding into a trustworthy agent path | Accepted |
 | Interface and shell fixes should be planned, while broader provider/platform expansion stays backlog-only until daily use is strong | Keeps roadmap effort focused on adoption and repeated use rather than diffuse expansion | Accepted |
 | One Rust-owned grounded assistant seam should power text, voice, daily-loop continuity, and thread escalation across shells | Prevents Apple/web/desktop from re-implementing assistant behavior and keeps future FFI/daemon/server topologies aligned | Accepted |
+| Scheduler and tagging semantics should become canonical Vel-backed fields/facets instead of staying raw provider labels | Preserves the proven `codex-workspace` rule system while making it explainable, SQL-queryable, and agent-usable without provider drift | Accepted |
 
 ---
-*Last updated: 2026-03-20 after extending the post-Phase-23 feature roadmap with approved assistant action application as the next active feature lane*
+*Last updated: 2026-03-20 after extending the roadmap with bounded local recall closure and a new day-plan reflow/reconciliation feature lane*

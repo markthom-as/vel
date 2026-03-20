@@ -54,6 +54,7 @@ export interface CreateMessageResponse {
   user_message: MessageData;
   assistant_message?: MessageData | null;
   assistant_error?: string | null;
+  assistant_context?: AssistantContextData | null;
 }
 
 export type AssistantEntryRouteTargetData = 'inbox' | 'threads' | 'inline';
@@ -79,6 +80,7 @@ export interface AssistantEntryResponse {
   user_message: MessageData;
   assistant_message?: MessageData | null;
   assistant_error?: string | null;
+  assistant_context?: AssistantContextData | null;
   conversation: ConversationData;
   proposal?: AssistantActionProposalData | null;
   daily_loop_session?: DailyLoopSessionData | null;
@@ -119,6 +121,81 @@ export interface EndOfDayData {
   what_was_done: ContextCapture[];
   what_remains_open: string[];
   what_may_matter_tomorrow: string[];
+}
+
+export type SemanticSourceKindData =
+  | 'capture'
+  | 'artifact'
+  | 'project'
+  | 'note'
+  | 'transcript_note'
+  | 'thread'
+  | 'message'
+  | 'person';
+
+export interface RecallContextSourceCountData {
+  source_kind: SemanticSourceKindData;
+  count: number;
+}
+
+export interface RecallContextHitData {
+  record_id: string;
+  source_kind: SemanticSourceKindData;
+  source_id: string;
+  snippet: string;
+  lexical_score: number;
+  semantic_score: number;
+  combined_score: number;
+  provenance: JsonObject;
+}
+
+export interface RecallContextData {
+  query_text: string;
+  hit_count: number;
+  source_counts: RecallContextSourceCountData[];
+  hits: RecallContextHitData[];
+}
+
+export type ReflowChangeKindData = 'moved' | 'unscheduled' | 'needs_judgment';
+
+export type ScheduleRuleFacetKindData =
+  | 'block_target'
+  | 'duration'
+  | 'calendar_free'
+  | 'fixed_start'
+  | 'time_window'
+  | 'local_urgency'
+  | 'local_defer';
+
+export interface ScheduleRuleFacetData {
+  kind: ScheduleRuleFacetKindData;
+  label: string;
+  detail?: string | null;
+}
+
+export interface ReflowChangeData {
+  kind: ReflowChangeKindData;
+  title: string;
+  detail: string;
+  project_label?: string | null;
+  scheduled_start_ts?: UnixSeconds | null;
+}
+
+export interface ReflowProposalData {
+  headline: string;
+  summary: string;
+  moved_count: number;
+  unscheduled_count: number;
+  needs_judgment_count: number;
+  changes: ReflowChangeData[];
+  rule_facets: ScheduleRuleFacetData[];
+}
+
+export interface AssistantContextData {
+  query_text: string;
+  summary: string;
+  focus_lines: string[];
+  recall: RecallContextData;
 }
 
 export interface InboxItemData {
@@ -816,6 +893,7 @@ export interface ReflowCardData {
   suggested_action_label: string;
   preview_lines: string[];
   edit_target: ReflowEditTargetData;
+  proposal?: ReflowProposalData | null;
   transitions: ReflowTransitionData[];
 }
 
@@ -1576,6 +1654,10 @@ export function decodeCreateMessageResponse(value: unknown): CreateMessageRespon
       record.assistant_error === undefined
         ? undefined
         : expectNullableString(record.assistant_error, 'create message response.assistant_error'),
+    assistant_context:
+      record.assistant_context === undefined
+        ? undefined
+        : decodeNullable(record.assistant_context, decodeAssistantContextData),
   };
 }
 
@@ -1596,6 +1678,10 @@ export function decodeAssistantEntryResponse(value: unknown): AssistantEntryResp
       record.assistant_error === undefined
         ? undefined
         : expectNullableString(record.assistant_error, 'assistant entry response.assistant_error'),
+    assistant_context:
+      record.assistant_context === undefined
+        ? undefined
+        : decodeNullable(record.assistant_context, decodeAssistantContextData),
     conversation: decodeConversationData(record.conversation),
     proposal:
       record.proposal === undefined
@@ -1671,6 +1757,63 @@ export function decodeEndOfDayData(value: unknown): EndOfDayData {
     what_may_matter_tomorrow: decodeArray(record.what_may_matter_tomorrow, (item) =>
       expectString(item, 'end-of-day data.what_may_matter_tomorrow[]'),
     ),
+  };
+}
+
+export function decodeSemanticSourceKindData(value: unknown): SemanticSourceKindData {
+  return expectEnumString(value, 'semantic source kind', [
+    'capture',
+    'artifact',
+    'project',
+    'note',
+    'transcript_note',
+    'thread',
+    'message',
+    'person',
+  ]);
+}
+
+export function decodeRecallContextSourceCountData(value: unknown): RecallContextSourceCountData {
+  const record = expectRecord(value, 'recall context source count');
+  return {
+    source_kind: decodeSemanticSourceKindData(record.source_kind),
+    count: expectNumber(record.count, 'recall context source count.count'),
+  };
+}
+
+export function decodeRecallContextHitData(value: unknown): RecallContextHitData {
+  const record = expectRecord(value, 'recall context hit');
+  return {
+    record_id: expectString(record.record_id, 'recall context hit.record_id'),
+    source_kind: decodeSemanticSourceKindData(record.source_kind),
+    source_id: expectString(record.source_id, 'recall context hit.source_id'),
+    snippet: expectString(record.snippet, 'recall context hit.snippet'),
+    lexical_score: expectNumber(record.lexical_score, 'recall context hit.lexical_score'),
+    semantic_score: expectNumber(record.semantic_score, 'recall context hit.semantic_score'),
+    combined_score: expectNumber(record.combined_score, 'recall context hit.combined_score'),
+    provenance: expectRecord(record.provenance, 'recall context hit.provenance'),
+  };
+}
+
+export function decodeRecallContextData(value: unknown): RecallContextData {
+  const record = expectRecord(value, 'recall context');
+  return {
+    query_text: expectString(record.query_text, 'recall context.query_text'),
+    hit_count: expectNumber(record.hit_count, 'recall context.hit_count'),
+    source_counts: decodeArray(record.source_counts, decodeRecallContextSourceCountData),
+    hits: decodeArray(record.hits, decodeRecallContextHitData),
+  };
+}
+
+export function decodeAssistantContextData(value: unknown): AssistantContextData {
+  const record = expectRecord(value, 'assistant context');
+  return {
+    query_text: expectString(record.query_text, 'assistant context.query_text'),
+    summary: expectString(record.summary, 'assistant context.summary'),
+    focus_lines: decodeArray(record.focus_lines, (item) =>
+      expectString(item, 'assistant context.focus_lines[]'),
+    ),
+    recall: decodeRecallContextData(record.recall),
   };
 }
 
@@ -2358,6 +2501,68 @@ export function decodeReflowEditTargetData(value: unknown): ReflowEditTargetData
   };
 }
 
+export function decodeReflowChangeKindData(value: unknown): ReflowChangeKindData {
+  return expectEnumString(value, 'reflow change kind', [
+    'moved',
+    'unscheduled',
+    'needs_judgment',
+  ]);
+}
+
+export function decodeScheduleRuleFacetKindData(value: unknown): ScheduleRuleFacetKindData {
+  return expectEnumString(value, 'schedule rule facet kind', [
+    'block_target',
+    'duration',
+    'calendar_free',
+    'fixed_start',
+    'time_window',
+    'local_urgency',
+    'local_defer',
+  ]);
+}
+
+export function decodeScheduleRuleFacetData(value: unknown): ScheduleRuleFacetData {
+  const record = expectRecord(value, 'schedule rule facet');
+  return {
+    kind: decodeScheduleRuleFacetKindData(record.kind),
+    label: expectString(record.label, 'schedule rule facet.label'),
+    detail: expectNullableString(record.detail ?? null, 'schedule rule facet.detail'),
+  };
+}
+
+export function decodeReflowChangeData(value: unknown): ReflowChangeData {
+  const record = expectRecord(value, 'reflow change');
+  return {
+    kind: decodeReflowChangeKindData(record.kind),
+    title: expectString(record.title, 'reflow change.title'),
+    detail: expectString(record.detail, 'reflow change.detail'),
+    project_label: expectNullableString(record.project_label ?? null, 'reflow change.project_label'),
+    scheduled_start_ts: expectNullableUnixSeconds(
+      record.scheduled_start_ts ?? null,
+      'reflow change.scheduled_start_ts',
+    ),
+  };
+}
+
+export function decodeReflowProposalData(value: unknown): ReflowProposalData {
+  const record = expectRecord(value, 'reflow proposal');
+  return {
+    headline: expectString(record.headline, 'reflow proposal.headline'),
+    summary: expectString(record.summary, 'reflow proposal.summary'),
+    moved_count: expectNumber(record.moved_count, 'reflow proposal.moved_count'),
+    unscheduled_count: expectNumber(
+      record.unscheduled_count,
+      'reflow proposal.unscheduled_count',
+    ),
+    needs_judgment_count: expectNumber(
+      record.needs_judgment_count,
+      'reflow proposal.needs_judgment_count',
+    ),
+    changes: decodeArray(record.changes ?? [], decodeReflowChangeData),
+    rule_facets: decodeArray(record.rule_facets ?? [], decodeScheduleRuleFacetData),
+  };
+}
+
 export function decodeReflowTransitionData(value: unknown): ReflowTransitionData {
   const record = expectRecord(value, 'reflow transition');
   return {
@@ -2388,6 +2593,7 @@ export function decodeReflowCardData(value: unknown): ReflowCardData {
       expectString(item, 'reflow card.preview_lines'),
     ),
     edit_target: decodeReflowEditTargetData(record.edit_target),
+    proposal: decodeNullable(record.proposal ?? null, decodeReflowProposalData),
     transitions: decodeArray(record.transitions ?? [], decodeReflowTransitionData),
   };
 }

@@ -33,6 +33,14 @@ fn planning_thread_fields(thread_type: &str, status: &str) -> (Option<String>, O
     (planning_kind, lifecycle_stage)
 }
 
+fn assistant_proposal_lifecycle_stage(metadata: &Option<Value>) -> Option<String> {
+    metadata
+        .as_ref()
+        .and_then(|value| value.get("proposal_state"))
+        .and_then(Value::as_str)
+        .map(ToString::to_string)
+}
+
 fn thread_data_from_summary(
     id: String,
     thread_type: String,
@@ -67,7 +75,12 @@ fn thread_data_from_row(
     links: Option<Vec<ThreadLinkData>>,
 ) -> ThreadData {
     let (id, thread_type, title, status, metadata_json, created_at, updated_at) = row;
-    let (planning_kind, lifecycle_stage) = planning_thread_fields(&thread_type, &status);
+    let metadata = parse_thread_metadata(&metadata_json);
+    let (planning_kind, lifecycle_stage) = if thread_type == "assistant_proposal" {
+        (None, assistant_proposal_lifecycle_stage(&metadata))
+    } else {
+        planning_thread_fields(&thread_type, &status)
+    };
     ThreadData {
         id,
         thread_type,
@@ -77,7 +90,7 @@ fn thread_data_from_row(
         lifecycle_stage,
         created_at,
         updated_at,
-        metadata: parse_thread_metadata(&metadata_json),
+        metadata,
         links,
     }
 }
@@ -253,6 +266,32 @@ mod tests {
             "deferred"
         );
         assert_eq!(data.metadata.as_ref().unwrap()["source"], "check_in");
+    }
+
+    #[test]
+    fn assistant_proposal_thread_row_uses_proposal_state_for_lifecycle_stage() {
+        let data = thread_data_from_row(
+            (
+                "thr_assistant_1".to_string(),
+                "assistant_proposal".to_string(),
+                "Send reply".to_string(),
+                "resolved".to_string(),
+                json!({
+                    "proposal_state": "applied",
+                    "applied_via": "intervention_resolve"
+                })
+                .to_string(),
+                1,
+                2,
+            ),
+            None,
+        );
+
+        assert_eq!(data.lifecycle_stage.as_deref(), Some("applied"));
+        assert_eq!(
+            data.metadata.as_ref().unwrap()["applied_via"],
+            "intervention_resolve"
+        );
     }
 }
 

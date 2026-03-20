@@ -970,6 +970,7 @@ function ReflowCardView({ reflow }: { reflow: NowData['reflow'] }) {
     return null;
   }
 
+  const proposal = reflow.proposal;
   return (
     <article className={`rounded-2xl border p-4 ${reflow.severity === 'critical' ? 'border-rose-700/50 bg-rose-950/20' : 'border-amber-700/40 bg-amber-950/20'}`}>
       <div className="flex flex-wrap items-center gap-2">
@@ -990,6 +991,54 @@ function ReflowCardView({ reflow }: { reflow: NowData['reflow'] }) {
             </li>
           ))}
         </ul>
+      ) : null}
+      {proposal ? (
+        <div className="mt-4 space-y-3 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3">
+          <div className="flex flex-wrap gap-2 text-xs text-zinc-300">
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+              {proposal.moved_count} moved
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+              {proposal.unscheduled_count} unscheduled
+            </span>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">
+              {proposal.needs_judgment_count} needs judgment
+            </span>
+          </div>
+          <p className="text-sm leading-6 text-zinc-300">{proposal.summary}</p>
+          {proposal.changes.length > 0 ? (
+            <div className="space-y-2">
+              {proposal.changes.slice(0, 3).map((change) => (
+                <div key={`${change.kind}-${change.title}-${change.detail}`} className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-zinc-100">{change.title}</p>
+                    <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[11px] uppercase tracking-[0.16em] text-zinc-400">
+                      {change.kind.replace('_', ' ')}
+                    </span>
+                    {change.project_label ? (
+                      <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[11px] text-zinc-400">
+                        {change.project_label}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">{change.detail}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {proposal.rule_facets.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {proposal.rule_facets.slice(0, 4).map((facet) => (
+                <span
+                  key={`${facet.kind}-${facet.label}`}
+                  className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] text-zinc-400"
+                >
+                  {facet.label}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : null}
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-300">
         <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1">

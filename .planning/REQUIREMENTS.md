@@ -415,10 +415,23 @@ Deferred beyond current milestone scope.
 | ASSIST-APPLY-02 | Phase 24 | roadmap phase contract | Pending |
 | REVIEW-03 | Phase 24 | roadmap phase contract | Pending |
 | TRUST-03 | Phase 24 | roadmap phase contract | Pending |
+| RECALL-01 | Phase 25 | roadmap phase contract | Pending |
+| RECALL-02 | Phase 25 | roadmap phase contract | Pending |
+| SEM-02 | Phase 25 | roadmap phase contract | Pending |
+| GROUND-CTX-01 | Phase 25 | roadmap phase contract | Pending |
+| GROUND-CTX-02 | Phase 25 | roadmap phase contract | Pending |
+| REFLOW-REAL-01 | Phase 26 | roadmap phase contract | Pending |
+| REFLOW-REAL-02 | Phase 26 | roadmap phase contract | Pending |
+| SCHED-RECON-01 | Phase 26 | roadmap phase contract | Pending |
+| SCHED-RECON-02 | Phase 26 | roadmap phase contract | Pending |
+| SCHED-FACET-01 | Phase 27 | roadmap phase contract | Pending |
+| SCHED-FACET-02 | Phase 27 | roadmap phase contract | Pending |
+| AGENT-SCHED-01 | Phase 27 | roadmap phase contract | Pending |
+| RECALL-SCHED-01 | Phase 27 | roadmap phase contract | Pending |
 
 **Coverage:**
-- v1 requirements: 145 total
-- Mapped to phases: 145
+- v1 requirements: 158 total
+- Mapped to phases: 158
 - Unmapped: 0 ✓
 
 ---

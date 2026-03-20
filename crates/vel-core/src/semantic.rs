@@ -113,6 +113,49 @@ pub struct SemanticHit {
     pub provenance: SemanticProvenance,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecallContextSourceCount {
+    pub source_kind: SemanticSourceKind,
+    pub count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RecallContextHit {
+    pub record_id: SemanticRecordId,
+    pub source_kind: SemanticSourceKind,
+    pub source_id: String,
+    pub snippet: String,
+    pub lexical_score: f32,
+    pub semantic_score: f32,
+    pub combined_score: f32,
+    pub provenance: SemanticProvenance,
+}
+
+impl From<SemanticHit> for RecallContextHit {
+    fn from(value: SemanticHit) -> Self {
+        Self {
+            record_id: value.record_id,
+            source_kind: value.source_kind,
+            source_id: value.source_id,
+            snippet: value.snippet,
+            lexical_score: value.lexical_score,
+            semantic_score: value.semantic_score,
+            combined_score: value.combined_score,
+            provenance: value.provenance,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RecallContextPack {
+    pub query_text: String,
+    pub hit_count: u32,
+    #[serde(default)]
+    pub source_counts: Vec<RecallContextSourceCount>,
+    #[serde(default)]
+    pub hits: Vec<RecallContextHit>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,6 +187,40 @@ mod tests {
         assert_eq!(
             record.provenance.capture_id.as_deref(),
             Some("cap_example_01")
+        );
+    }
+
+    #[test]
+    fn recall_context_pack_serializes_named_counts_and_hits() {
+        let value = serde_json::to_value(RecallContextPack {
+            query_text: "accountant follow up".to_string(),
+            hit_count: 1,
+            source_counts: vec![RecallContextSourceCount {
+                source_kind: SemanticSourceKind::Note,
+                count: 1,
+            }],
+            hits: vec![RecallContextHit {
+                record_id: SemanticRecordId::new("sem_note_1"),
+                source_kind: SemanticSourceKind::Note,
+                source_id: "projects/tax/accountant.md".to_string(),
+                snippet: "Need accountant follow up on quarterly estimate.".to_string(),
+                lexical_score: 0.4,
+                semantic_score: 0.9,
+                combined_score: 0.775,
+                provenance: SemanticProvenance {
+                    note_path: Some("projects/tax/accountant.md".to_string()),
+                    ..Default::default()
+                },
+            }],
+        })
+        .expect("recall context should serialize");
+
+        assert_eq!(value["query_text"], "accountant follow up");
+        assert_eq!(value["hit_count"], 1);
+        assert_eq!(value["source_counts"][0]["source_kind"], "note");
+        assert_eq!(
+            value["hits"][0]["provenance"]["note_path"],
+            "projects/tax/accountant.md"
         );
     }
 }

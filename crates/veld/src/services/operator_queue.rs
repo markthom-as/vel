@@ -747,6 +747,47 @@ fn parse_thread_route(value: Option<&serde_json::Value>) -> Option<vel_core::Act
         .and_then(|value| serde_json::from_value::<vel_core::ActionThreadRoute>(value).ok())
 }
 
+#[derive(Debug, Clone, Default)]
+struct AssistantProposalThreadSnapshot {
+    proposal_state: Option<String>,
+    follow_through_kind: Option<String>,
+    applied_at: Option<i64>,
+    reversed_at: Option<i64>,
+}
+
+async fn assistant_proposal_thread_snapshot(
+    storage: &Storage,
+    thread_id: Option<&str>,
+) -> Result<Option<AssistantProposalThreadSnapshot>, AppError> {
+    let Some(thread_id) = thread_id.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let Some((_, _, _, _, metadata_json, _, _)) = storage.get_thread_by_id(thread_id).await? else {
+        return Ok(None);
+    };
+    let metadata = serde_json::from_str::<serde_json::Value>(&metadata_json)
+        .unwrap_or_else(|_| serde_json::json!({}));
+    let Some(object) = metadata.as_object() else {
+        return Ok(None);
+    };
+
+    Ok(Some(AssistantProposalThreadSnapshot {
+        proposal_state: object
+            .get("proposal_state")
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        follow_through_kind: object
+            .get("follow_through")
+            .and_then(|value| value.get("kind"))
+            .and_then(serde_json::Value::as_str)
+            .map(ToString::to_string),
+        applied_at: object.get("applied_at").and_then(serde_json::Value::as_i64),
+        reversed_at: object
+            .get("reversed_at")
+            .and_then(serde_json::Value::as_i64),
+    }))
+}
+
 async fn build_intervention_items(
     storage: &Storage,
     interventions: Vec<InterventionRecord>,
@@ -811,6 +852,13 @@ async fn build_intervention_items(
             });
         let proposal_thread_route =
             parse_thread_route(proposal.and_then(|value| value.get("thread_route")));
+        let proposal_thread_snapshot = assistant_proposal_thread_snapshot(
+            storage,
+            proposal_thread_route
+                .as_ref()
+                .and_then(|route| route.thread_id.as_deref()),
+        )
+        .await?;
         let proposal_action_id = proposal
             .and_then(|value| value.get("action_item_id"))
             .and_then(serde_json::Value::as_str)
@@ -838,6 +886,56 @@ async fn build_intervention_items(
         )
         .await?;
 
+        let proposal_state = proposal_thread_snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.proposal_state.as_deref())
+            .unwrap_or("staged");
+        let follow_through_kind = proposal_thread_snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.follow_through_kind.as_deref())
+            .unwrap_or("action_confirmation");
+        let proposal_summary = proposal_summary.unwrap_or_else(|| {
+            if !is_assistant_proposal {
+                return summary.clone();
+            }
+            match (proposal_state, follow_through_kind) {
+                ("approved", "execution_handoff_ready") => format!(
+                    "{} Approved execution follow-through is ready for launch preview.",
+                    summary
+                ),
+                ("approved", "writeback_ready") => format!(
+                    "{} Approved writeback follow-through is ready for operator-confirmed application.",
+                    summary
+                ),
+                ("applied", _) => {
+                    let applied_at = proposal_thread_snapshot
+                        .as_ref()
+                        .and_then(|snapshot| snapshot.applied_at);
+                    match applied_at {
+                        Some(timestamp) => {
+                            format!("{summary} Applied at {timestamp} via assistant follow-through.")
+                        }
+                        None => format!("{summary} Applied via assistant follow-through."),
+                    }
+                }
+                ("reversed", _) => {
+                    let reversed_at = proposal_thread_snapshot
+                        .as_ref()
+                        .and_then(|snapshot| snapshot.reversed_at);
+                    match reversed_at {
+                        Some(timestamp) => {
+                            format!("{summary} Reversed at {timestamp} after assistant follow-through.")
+                        }
+                        None => format!("{summary} Reversed after assistant follow-through."),
+                    }
+                }
+                ("failed", _) => {
+                    format!("{summary} Assistant follow-through was dismissed or failed.")
+                }
+                _ => summary.clone(),
+            }
+        });
+
         items.push(ActionItem {
             id: ActionItemId::from(format!("act_intervention_{}", record.id.as_ref())),
             surface: ActionSurface::Inbox,
@@ -849,7 +947,7 @@ async fn build_intervention_items(
             permission_mode,
             scope_affinity,
             title: proposal_title.unwrap_or(title),
-            summary: proposal_summary.unwrap_or(summary),
+            summary: proposal_summary,
             project_id: proposal_project_id,
             project_label: proposal_project_label,
             project_family: proposal_project_family,
@@ -876,8 +974,8 @@ async fn build_intervention_items(
                     record.kind.clone()
                 },
                 detail: Some(format!(
-                    "message_id={} permission_mode={}",
-                    record.message_id, permission_mode
+                    "message_id={} permission_mode={} proposal_state={} follow_through={}",
+                    record.message_id, permission_mode, proposal_state, follow_through_kind
                 )),
             }],
             thread_route: proposal_thread_route.or(Some(thread_route)),

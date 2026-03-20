@@ -203,8 +203,9 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
     let check_in = crate::services::check_in::get_current_check_in(storage, &timezone).await?;
     let apple_behavior_summary =
         crate::services::apple_behavior::get_summary(storage, config).await?;
+    let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
     let Some((computed_at, context)) = storage.get_current_context().await? else {
-        return Ok(empty_now(now_ts, &timezone.name, check_in));
+        return Ok(empty_now(now_ts, &timezone.name, check_in, &action_queue));
     };
 
     let commitments = storage
@@ -314,14 +315,13 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         },
     };
     let freshness = build_freshness(now_ts, computed_at, &integrations, &calendar_selection);
-    let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
     let trust_readiness = build_trust_readiness(storage, &freshness, &action_queue).await?;
     let people = storage.list_people().await?;
     let schedule_empty_message = schedule_empty_message(&integrations, upcoming_events.is_empty());
     let attention_reasons = context.attention_reasons.clone();
     let reasons = build_reasons_typed(&context, &attention_reasons);
     let reflow_status = crate::services::reflow::current_status_for_snapshot(&context).cloned();
-    let reflow = crate::services::reflow::derive_reflow(&context, now_ts);
+    let reflow = crate::services::reflow::derive_current_reflow(storage, &context, now_ts).await?;
 
     Ok(NowOutput {
         computed_at,
@@ -404,7 +404,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         check_in,
         reflow,
         reflow_status,
-        action_items: action_queue.action_items.into_iter().take(5).collect(),
+        action_items: select_now_action_items(&action_queue.action_items, 5),
         review_snapshot: action_queue.review_snapshot,
         pending_writebacks: action_queue.pending_writebacks,
         conflicts: action_queue.conflicts,
@@ -603,6 +603,31 @@ fn trust_follow_through_items(action_items: &[ActionItem]) -> Vec<ActionItem> {
         .collect()
 }
 
+fn select_now_action_items(action_items: &[ActionItem], limit: usize) -> Vec<ActionItem> {
+    let mut selected = Vec::new();
+
+    for item in action_items {
+        if item.surface == vel_core::ActionSurface::Now {
+            selected.push(item.clone());
+            if selected.len() >= limit {
+                return selected;
+            }
+        }
+    }
+
+    for item in action_items {
+        if selected.iter().any(|existing| existing.id == item.id) {
+            continue;
+        }
+        selected.push(item.clone());
+        if selected.len() >= limit {
+            break;
+        }
+    }
+
+    selected
+}
+
 fn fold_levels<'a>(levels: impl IntoIterator<Item = &'a str>) -> &'a str {
     let mut current = "ok";
     for level in levels {
@@ -615,7 +640,12 @@ fn fold_levels<'a>(levels: impl IntoIterator<Item = &'a str>) -> &'a str {
     current
 }
 
-fn empty_now(now_ts: i64, timezone: &str, check_in: Option<CheckInCard>) -> NowOutput {
+fn empty_now(
+    now_ts: i64,
+    timezone: &str,
+    check_in: Option<CheckInCard>,
+    action_queue: &crate::services::operator_queue::ActionQueueSnapshot,
+) -> NowOutput {
     let freshness = NowFreshnessOutput {
         overall_status: "stale".to_string(),
         sources: vec![NowFreshnessEntryOutput {
@@ -667,20 +697,24 @@ fn empty_now(now_ts: i64, timezone: &str, check_in: Option<CheckInCard>) -> NowO
         trust_readiness: build_trust_readiness_from_parts(
             None,
             &freshness,
-            &ReviewSnapshot::default(),
-            0,
-            0,
-            &[],
+            &action_queue.review_snapshot,
+            action_queue.pending_writebacks.len() as u32,
+            action_queue.conflicts.len() as u32,
+            &action_queue.action_items,
         ),
         check_in,
         reflow: None,
         reflow_status: None,
-        action_items: Vec::new(),
-        review_snapshot: ReviewSnapshot::default(),
-        pending_writebacks: Vec::new(),
-        conflicts: Vec::new(),
+        action_items: select_now_action_items(&action_queue.action_items, 5),
+        review_snapshot: action_queue.review_snapshot.clone(),
+        pending_writebacks: action_queue.pending_writebacks.clone(),
+        conflicts: action_queue.conflicts.clone(),
         people: Vec::new(),
-        reasons: vec!["No current context yet. Sync integrations or run evaluate.".to_string()],
+        reasons: vec![
+            "No current context yet. Sync integrations or run evaluate.".to_string(),
+            "Operator follow-through still surfaces pending review, writeback, and recovery work."
+                .to_string(),
+        ],
         debug: NowDebugOutput {
             raw_context: json!({}),
             signals_used: Vec::new(),

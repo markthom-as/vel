@@ -1084,7 +1084,9 @@ describe('SettingsPage', () => {
     expect(within(root).getByRole('heading', { name: /settings/i })).toBeInTheDocument()
     expect(within(root).getByText(/advanced operator setup, trust summaries, and runtime detail live here/i)).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /assistant readiness/i })).toBeInTheDocument()
+    expect(within(root).getByRole('heading', { name: /recovery posture/i })).toBeInTheDocument()
     expect(within(root).getByText(/normal daily use should start in `Now`, continue through `Inbox`, and move into `Threads` only for continuity\./i)).toBeInTheDocument()
+    expect(within(root).getByText(/freshness, trust, and day-plan repair stay summary-first here/i)).toBeInTheDocument()
   })
 
   it('renders checkboxes for disable_proactive, toggle_risks, toggle_reminders', async () => {
@@ -1095,6 +1097,7 @@ describe('SettingsPage', () => {
     })
     const root = getSettingsRoot(container)
     expect(within(root).getByText(/assistant replies need a configured model, but capture and triage still work without one\./i)).toBeInTheDocument()
+    expect(within(root).getByText(/recall stays bounded to persisted vel data with backend-owned scores and provenance, not broad ambient memory\./i)).toBeInTheDocument()
     expect(within(root).getByText(/use the runtime tab only when you need deeper logs, components, or review controls\./i)).toBeInTheDocument()
     expect(within(root).getByRole('heading', { name: /advanced operator setup/i })).toBeInTheDocument()
     expect(within(root).getByText(/disable proactive/i)).toBeInTheDocument()

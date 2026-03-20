@@ -1,4 +1,7 @@
-use vel_core::{SemanticHit, SemanticQuery, SemanticSourceKind};
+use vel_core::{
+    RecallContextHit, RecallContextPack, RecallContextSourceCount, SemanticHit, SemanticQuery,
+    SemanticSourceKind,
+};
 
 use crate::{errors::AppError, state::AppState};
 
@@ -23,6 +26,33 @@ pub async fn semantic_query(
     query: &SemanticQuery,
 ) -> Result<Vec<SemanticHit>, AppError> {
     Ok(state.storage.semantic_query(query).await?)
+}
+
+pub fn build_recall_context_pack(query_text: &str, hits: Vec<SemanticHit>) -> RecallContextPack {
+    let mut source_counts: Vec<RecallContextSourceCount> = Vec::new();
+    let mut recall_hits = Vec::with_capacity(hits.len());
+
+    for hit in hits {
+        if let Some(existing) = source_counts
+            .iter_mut()
+            .find(|entry| entry.source_kind == hit.source_kind)
+        {
+            existing.count += 1;
+        } else {
+            source_counts.push(RecallContextSourceCount {
+                source_kind: hit.source_kind,
+                count: 1,
+            });
+        }
+        recall_hits.push(RecallContextHit::from(hit));
+    }
+
+    RecallContextPack {
+        query_text: query_text.to_string(),
+        hit_count: recall_hits.len() as u32,
+        source_counts,
+        hits: recall_hits,
+    }
 }
 
 #[cfg(test)]
@@ -198,5 +228,54 @@ mod tests {
                     | SemanticSourceKind::Person
             )
         }));
+    }
+
+    #[test]
+    fn recall_context_pack_groups_hits_by_source_kind() {
+        let pack = build_recall_context_pack(
+            "accountant follow up",
+            vec![
+                SemanticHit {
+                    record_id: vel_core::SemanticRecordId::new("sem_note_1"),
+                    source_kind: SemanticSourceKind::Note,
+                    source_id: "note_1".to_string(),
+                    snippet: "Need accountant follow up".to_string(),
+                    lexical_score: 0.4,
+                    semantic_score: 0.8,
+                    combined_score: 0.7,
+                    provenance: Default::default(),
+                },
+                SemanticHit {
+                    record_id: vel_core::SemanticRecordId::new("sem_note_2"),
+                    source_kind: SemanticSourceKind::Note,
+                    source_id: "note_2".to_string(),
+                    snippet: "Another accountant note".to_string(),
+                    lexical_score: 0.3,
+                    semantic_score: 0.7,
+                    combined_score: 0.6,
+                    provenance: Default::default(),
+                },
+                SemanticHit {
+                    record_id: vel_core::SemanticRecordId::new("sem_person_1"),
+                    source_kind: SemanticSourceKind::Person,
+                    source_id: "per_1".to_string(),
+                    snippet: "Annie Accountant".to_string(),
+                    lexical_score: 0.2,
+                    semantic_score: 0.9,
+                    combined_score: 0.725,
+                    provenance: Default::default(),
+                },
+            ],
+        );
+
+        assert_eq!(pack.hit_count, 3);
+        assert_eq!(pack.source_counts.len(), 2);
+        assert_eq!(pack.source_counts[0].source_kind, SemanticSourceKind::Note);
+        assert_eq!(pack.source_counts[0].count, 2);
+        assert_eq!(
+            pack.source_counts[1].source_kind,
+            SemanticSourceKind::Person
+        );
+        assert_eq!(pack.source_counts[1].count, 1);
     }
 }

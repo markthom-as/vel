@@ -1,8 +1,16 @@
 use tokio::sync::broadcast;
 use vel_config::AppConfig;
-use vel_core::{PrivacyClass, RunEventType};
+use vel_core::{
+    PrivacyClass, ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef,
+    ProjectStatus, RetrievalStrategy, RunEventType, SemanticQuery, SemanticQueryFilters,
+    SemanticSourceKind,
+};
 use vel_storage::{CaptureInsert, Storage};
-use veld::{policy_config::PolicyConfig, services::context_runs, state::AppState};
+use veld::{
+    policy_config::PolicyConfig,
+    services::{context_runs, retrieval},
+    state::AppState,
+};
 
 fn unique_artifact_root() -> String {
     std::env::temp_dir()
@@ -87,4 +95,77 @@ async fn context_run_records_semantic_search_provenance() {
             .as_str()
             .is_some()
     );
+}
+
+#[tokio::test]
+async fn retrieval_gives_non_capture_entities_real_lexical_credit() {
+    let state = test_state().await;
+    let now = time::OffsetDateTime::now_utc();
+
+    state
+        .storage
+        .create_project(ProjectRecord {
+            id: ProjectId::from("proj_tax_ops".to_string()),
+            slug: "tax-ops".to_string(),
+            name: "Tax Ops".to_string(),
+            family: ProjectFamily::Work,
+            status: ProjectStatus::Active,
+            primary_repo: ProjectRootRef {
+                path: "/tmp/tax-ops".to_string(),
+                label: "tax-ops".to_string(),
+                kind: "repo".to_string(),
+            },
+            primary_notes_root: ProjectRootRef {
+                path: "/tmp/notes/tax-ops".to_string(),
+                label: "tax-ops".to_string(),
+                kind: "notes_root".to_string(),
+            },
+            secondary_repos: vec![],
+            secondary_notes_roots: vec![],
+            upstream_ids: std::collections::BTreeMap::new(),
+            pending_provision: ProjectProvisionRequest {
+                create_repo: false,
+                create_notes_root: false,
+            },
+            created_at: now,
+            updated_at: now,
+            archived_at: None,
+        })
+        .await
+        .unwrap();
+    state
+        .storage
+        .upsert_note_semantic_record(
+            "projects/tax-ops/accountant.md",
+            "Accountant follow up",
+            "Need accountant follow up on quarterly estimate this week.",
+            "cap_note_tax_ops",
+            now.unix_timestamp(),
+        )
+        .await
+        .unwrap();
+
+    let hits = retrieval::semantic_query(
+        &state,
+        &SemanticQuery {
+            query_text: "accountant follow up tax ops".to_string(),
+            top_k: 5,
+            strategy: RetrievalStrategy::Hybrid,
+            include_provenance: true,
+            filters: SemanticQueryFilters {
+                source_kinds: vec![SemanticSourceKind::Project, SemanticSourceKind::Note],
+                ..Default::default()
+            },
+            policy: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    assert!(hits
+        .iter()
+        .any(|hit| hit.source_kind == SemanticSourceKind::Project && hit.lexical_score > 0.0));
+    assert!(hits
+        .iter()
+        .any(|hit| hit.source_kind == SemanticSourceKind::Note && hit.lexical_score > 0.0));
 }

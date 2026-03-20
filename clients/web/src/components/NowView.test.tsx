@@ -422,6 +422,33 @@ describe('NowView', () => {
                 target: 'threads',
                 label: 'Edit',
               },
+              proposal: {
+                headline: 'Remaining day recomputed',
+                summary: 'Vel recomputed the remaining day and found at least one item that still needs operator judgment.',
+                moved_count: 1,
+                unscheduled_count: 1,
+                needs_judgment_count: 1,
+                changes: [
+                  {
+                    kind: 'moved',
+                    title: 'Deep work',
+                    detail: 'Deep work can move to the next available slot in the remaining day.',
+                    project_label: 'Project Atlas',
+                    scheduled_start_ts: 1710003600,
+                  },
+                  {
+                    kind: 'unscheduled',
+                    title: 'Write proposal',
+                    detail: 'Write proposal no longer fits in the remaining day without operator intervention.',
+                    project_label: 'Project Atlas',
+                    scheduled_start_ts: null,
+                  },
+                ],
+                rule_facets: [
+                  { kind: 'block_target', label: 'block:focus', detail: 'Task prefers a named block target.' },
+                  { kind: 'calendar_free', label: 'cal:free', detail: 'Task prefers free calendar space.' },
+                ],
+              },
               transitions: [
                 {
                   kind: 'accept',
@@ -784,6 +811,10 @@ describe('NowView', () => {
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
     expect(screen.getByText('Immediate pressure')).toBeInTheDocument()
     expect(screen.getByText('Day changed')).toBeInTheDocument()
+    expect(screen.getByText('1 moved')).toBeInTheDocument()
+    expect(screen.getByText('1 unscheduled')).toBeInTheDocument()
+    expect(screen.getByText('Deep work')).toBeInTheDocument()
+    expect(screen.getByText('block:focus')).toBeInTheDocument()
     expect(screen.getByText('Standup check-in')).toBeInTheDocument()
     expect(screen.getByText('Trust and readiness')).toBeInTheDocument()
     expect(screen.getByText('Waiting elsewhere')).toBeInTheDocument()

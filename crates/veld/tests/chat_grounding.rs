@@ -119,7 +119,7 @@ impl LlmProvider for MockChatProvider {
                 assert!(req
                     .tools
                     .iter()
-                    .any(|tool| tool.name == "vel_search_memory"));
+                    .any(|tool| tool.name == "vel_get_recall_context"));
                 assert!(req
                     .tools
                     .iter()
@@ -129,7 +129,7 @@ impl LlmProvider for MockChatProvider {
                     text: None,
                     tool_calls: vec![ToolCall {
                         id: "call_1".to_string(),
-                        name: "vel_search_memory".to_string(),
+                        name: "vel_get_recall_context".to_string(),
                         arguments: serde_json::json!({
                             "query": "accountant follow up",
                             "limit": 3,
@@ -142,8 +142,13 @@ impl LlmProvider for MockChatProvider {
             }
             2 => {
                 let last_message = req.messages.last().expect("tool result message");
-                assert!(last_message.content.contains("Vel tool results"));
-                assert!(last_message.content.contains("accountant"));
+                assert!(last_message
+                    .content
+                    .contains("Vel assistant context for the current request"));
+                assert!(last_message
+                    .content
+                    .contains("Found 1 relevant recalled item"));
+                assert!(last_message.content.contains("need accountant follow up"));
                 Ok(LlmResponse {
                     text: Some(
                         "Vel shows a saved note about accountant follow up on the quarterly estimate."
@@ -253,10 +258,16 @@ async fn chat_assistant_uses_vel_tools_to_answer_from_persisted_data() {
         )
         .await
         .unwrap();
-    assert_eq!(message_resp.status(), StatusCode::OK);
+    let status = message_resp.status();
     let body = axum::body::to_bytes(message_resp.into_body(), usize::MAX)
         .await
         .unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "body: {}",
+        String::from_utf8_lossy(&body)
+    );
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(
@@ -329,10 +340,16 @@ async fn chat_assistant_can_ground_closeout_from_end_of_day_tool() {
         )
         .await
         .unwrap();
-    assert_eq!(message_resp.status(), StatusCode::OK);
+    let status = message_resp.status();
     let body = axum::body::to_bytes(message_resp.into_body(), usize::MAX)
         .await
         .unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "body: {}",
+        String::from_utf8_lossy(&body)
+    );
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(

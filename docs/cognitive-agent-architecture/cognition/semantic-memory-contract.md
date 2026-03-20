@@ -25,6 +25,7 @@ Semantic memory extends lexical search with embedding-backed retrieval while pre
 - `SemanticMemoryRecord`: persisted semantic chunk with explicit source linkage and embedding revision.
 - `SemanticQuery`: caller-supplied retrieval request with explicit strategy and optional hybrid policy.
 - `SemanticHit`: retrieval result carrying lexical, semantic, and combined scores plus provenance.
+- `RecallContextPack`: bounded recall-oriented context bundle built from semantic hits, explicit source counts, and provenance-bearing snippets for assistant/context assembly.
 
 ## Hard Rules
 
@@ -32,6 +33,7 @@ Semantic memory extends lexical search with embedding-backed retrieval while pre
 - embedding revision and model identity must be explicit so rebuilds are inspectable
 - hybrid retrieval policy must be configured explicitly rather than hidden in scorer code
 - retrieval output must remain explainable from lexical score, semantic score, and provenance
+- recall-oriented context assembly must reuse semantic hits and provenance instead of inventing assistant-only memory state
 
 ## Published Artifacts
 
