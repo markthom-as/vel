@@ -554,6 +554,119 @@ public struct NowLabelData: Codable, Sendable {
     public let label: String
 }
 
+public enum NowHeaderBucketKindData: String, Codable, Sendable {
+    case threads_by_type
+    case needs_input
+    case new_nudges
+    case search_filter
+    case snoozed
+    case review_apply
+    case reflow
+    case follow_up
+}
+
+public enum NowCountDisplayModeData: String, Codable, Sendable {
+    case always_show
+    case show_nonzero
+    case hidden_until_active
+}
+
+public struct NowThreadFilterTargetData: Codable, Sendable {
+    public let bucket: NowHeaderBucketKindData
+    public let thread_id: String?
+}
+
+public struct NowHeaderBucketData: Codable, Sendable, Identifiable {
+    public var id: String { kind.rawValue }
+    public let kind: NowHeaderBucketKindData
+    public let count: Int
+    public let count_display: NowCountDisplayModeData
+    public let urgent: Bool
+    public let route_target: NowThreadFilterTargetData
+}
+
+public struct NowHeaderData: Codable, Sendable {
+    public let title: String
+    public let buckets: [NowHeaderBucketData]
+}
+
+public struct NowStatusRowData: Codable, Sendable {
+    public let date_label: String
+    public let time_label: String
+    public let context_label: String
+    public let elapsed_label: String
+}
+
+public struct NowContextLineData: Codable, Sendable {
+    public let text: String
+    public let thread_id: String?
+    public let fallback_used: Bool
+}
+
+public enum NowNudgeBarKindData: String, Codable, Sendable {
+    case nudge
+    case needs_input
+    case review_request
+    case reflow_proposal
+    case thread_continuation
+    case trust_warning
+    case freshness_warning
+}
+
+public struct NowNudgeActionData: Codable, Sendable, Identifiable {
+    public var id: String { kind + ":" + label }
+    public let kind: String
+    public let label: String
+}
+
+public struct NowNudgeBarData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let kind: NowNudgeBarKindData
+    public let title: String
+    public let summary: String
+    public let urgent: Bool
+    public let primary_thread_id: String?
+    public let actions: [NowNudgeActionData]
+}
+
+public enum NowTaskKindData: String, Codable, Sendable {
+    case task
+    case commitment
+    case event
+}
+
+public struct NowTaskLaneItemData: Codable, Sendable, Identifiable {
+    public let id: String
+    public let task_kind: NowTaskKindData
+    public let text: String
+    public let state: String
+    public let project: String?
+    public let primary_thread_id: String?
+}
+
+public struct NowTaskLaneData: Codable, Sendable {
+    public let active: NowTaskLaneItemData?
+    public let pending: [NowTaskLaneItemData]
+    public let recent_completed: [NowTaskLaneItemData]
+    public let overflow_count: Int
+}
+
+public enum NowDockedInputIntentData: String, Codable, Sendable {
+    case task
+    case question
+    case note
+    case command
+    case continuation
+    case reflection
+    case scheduling
+}
+
+public struct NowDockedInputData: Codable, Sendable {
+    public let supported_intents: [NowDockedInputIntentData]
+    public let day_thread_id: String?
+    public let raw_capture_thread_id: String?
+}
+
 public struct NowRiskSummaryData: Codable, Sendable {
     public let level: String
     public let score: Double?
@@ -646,6 +759,12 @@ public struct NowDebugData: Codable, Sendable {
 public struct NowData: Codable, Sendable {
     public let computed_at: Int
     public let timezone: String
+    public let header: NowHeaderData?
+    public let status_row: NowStatusRowData?
+    public let context_line: NowContextLineData?
+    public let nudge_bars: [NowNudgeBarData]?
+    public let task_lane: NowTaskLaneData?
+    public let docked_input: NowDockedInputData?
     public let summary: NowSummaryData
     public let schedule: NowScheduleData
     public let tasks: NowTasksData

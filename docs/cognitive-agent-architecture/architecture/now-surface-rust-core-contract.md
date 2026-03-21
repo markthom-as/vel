@@ -71,6 +71,17 @@ Rust-owned contract must provide:
 - sync/offline summary
 - queued-write count
 
+The canonical v1 bucket vocabulary is:
+
+- `threads_by_type`
+- `needs_input`
+- `new_nudges`
+- `search_filter`
+- `snoozed`
+- `review_apply`
+- `reflow`
+- `follow_up`
+
 ## 2. Status-row contract
 
 Rust-owned contract must provide:
@@ -136,6 +147,16 @@ Rust-owned layers own:
 - associated thread linkage
 - optional multi-thread or multi-artifact linkage when that is the correct continuity model
 - inline versus thread versus inbox outcome
+
+The closed v1 public intent taxonomy is:
+
+- `task`
+- `question`
+- `note`
+- `command`
+- `continuation`
+- `reflection`
+- `scheduling`
 
 Voice and text parity rules belong in shared product logic even when microphone APIs are shell-owned.
 

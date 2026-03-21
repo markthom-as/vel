@@ -1455,6 +1455,12 @@ export interface DayPlanProposalData {
 export interface NowData {
   computed_at: UnixSeconds;
   timezone: string;
+  header?: NowHeaderData | null;
+  status_row?: NowStatusRowData | null;
+  context_line?: NowContextLineData | null;
+  nudge_bars: NowNudgeBarData[];
+  task_lane?: NowTaskLaneData | null;
+  docked_input?: NowDockedInputData | null;
   overview: NowOverviewData;
   summary: NowSummaryData;
   schedule: NowScheduleData;
@@ -1476,6 +1482,109 @@ export interface NowData {
   people: PersonRecordData[];
   reasons: string[];
   debug: NowDebugData;
+}
+
+export type NowHeaderBucketKindData =
+  | 'threads_by_type'
+  | 'needs_input'
+  | 'new_nudges'
+  | 'search_filter'
+  | 'snoozed'
+  | 'review_apply'
+  | 'reflow'
+  | 'follow_up';
+
+export type NowCountDisplayModeData =
+  | 'always_show'
+  | 'show_nonzero'
+  | 'hidden_until_active';
+
+export interface NowThreadFilterTargetData {
+  bucket: NowHeaderBucketKindData;
+  thread_id?: string | null;
+}
+
+export interface NowHeaderBucketData {
+  kind: NowHeaderBucketKindData;
+  count: number;
+  count_display: NowCountDisplayModeData;
+  urgent: boolean;
+  route_target: NowThreadFilterTargetData;
+}
+
+export interface NowHeaderData {
+  title: string;
+  buckets: NowHeaderBucketData[];
+}
+
+export interface NowStatusRowData {
+  date_label: string;
+  time_label: string;
+  context_label: string;
+  elapsed_label: string;
+}
+
+export interface NowContextLineData {
+  text: string;
+  thread_id?: string | null;
+  fallback_used: boolean;
+}
+
+export type NowNudgeBarKindData =
+  | 'nudge'
+  | 'needs_input'
+  | 'review_request'
+  | 'reflow_proposal'
+  | 'thread_continuation'
+  | 'trust_warning'
+  | 'freshness_warning';
+
+export interface NowNudgeActionData {
+  kind: string;
+  label: string;
+}
+
+export interface NowNudgeBarData {
+  id: string;
+  kind: NowNudgeBarKindData;
+  title: string;
+  summary: string;
+  urgent: boolean;
+  primary_thread_id?: string | null;
+  actions: NowNudgeActionData[];
+}
+
+export type NowTaskKindData = 'task' | 'commitment' | 'event';
+
+export interface NowTaskLaneItemData {
+  id: string;
+  task_kind: NowTaskKindData;
+  text: string;
+  state: string;
+  project?: string | null;
+  primary_thread_id?: string | null;
+}
+
+export interface NowTaskLaneData {
+  active: NowTaskLaneItemData | null;
+  pending: NowTaskLaneItemData[];
+  recent_completed: NowTaskLaneItemData[];
+  overflow_count: number;
+}
+
+export type NowDockedInputIntentData =
+  | 'task'
+  | 'question'
+  | 'note'
+  | 'command'
+  | 'continuation'
+  | 'reflection'
+  | 'scheduling';
+
+export interface NowDockedInputData {
+  supported_intents: NowDockedInputIntentData[];
+  day_thread_id?: string | null;
+  raw_capture_thread_id?: string | null;
 }
 
 export interface NowOverviewActionData {
@@ -3557,6 +3666,171 @@ function decodeNowOverviewSuggestionData(value: unknown): NowOverviewSuggestionD
   };
 }
 
+function decodeNowHeaderBucketKindData(value: unknown): NowHeaderBucketKindData {
+  return expectEnumString(value, 'now header bucket kind', [
+    'threads_by_type',
+    'needs_input',
+    'new_nudges',
+    'search_filter',
+    'snoozed',
+    'review_apply',
+    'reflow',
+    'follow_up',
+  ]);
+}
+
+function decodeNowCountDisplayModeData(value: unknown): NowCountDisplayModeData {
+  return expectEnumString(value, 'now count display mode', [
+    'always_show',
+    'show_nonzero',
+    'hidden_until_active',
+  ]);
+}
+
+function decodeNowThreadFilterTargetData(value: unknown): NowThreadFilterTargetData {
+  const record = expectRecord(value, 'now thread filter target');
+  return {
+    bucket: decodeNowHeaderBucketKindData(record.bucket),
+    thread_id: expectNullableString(record.thread_id ?? null, 'now thread filter target.thread_id'),
+  };
+}
+
+function decodeNowHeaderBucketData(value: unknown): NowHeaderBucketData {
+  const record = expectRecord(value, 'now header bucket');
+  return {
+    kind: decodeNowHeaderBucketKindData(record.kind),
+    count: expectNumber(record.count, 'now header bucket.count'),
+    count_display: decodeNowCountDisplayModeData(record.count_display),
+    urgent: expectBoolean(record.urgent, 'now header bucket.urgent'),
+    route_target: decodeNowThreadFilterTargetData(record.route_target),
+  };
+}
+
+function decodeNowHeaderData(value: unknown): NowHeaderData {
+  const record = expectRecord(value, 'now header');
+  return {
+    title: expectString(record.title, 'now header.title'),
+    buckets: decodeArray(record.buckets ?? [], decodeNowHeaderBucketData),
+  };
+}
+
+function decodeNowStatusRowData(value: unknown): NowStatusRowData {
+  const record = expectRecord(value, 'now status row');
+  return {
+    date_label: expectString(record.date_label, 'now status row.date_label'),
+    time_label: expectString(record.time_label, 'now status row.time_label'),
+    context_label: expectString(record.context_label, 'now status row.context_label'),
+    elapsed_label: expectString(record.elapsed_label, 'now status row.elapsed_label'),
+  };
+}
+
+function decodeNowContextLineData(value: unknown): NowContextLineData {
+  const record = expectRecord(value, 'now context line');
+  return {
+    text: expectString(record.text, 'now context line.text'),
+    thread_id: expectNullableString(record.thread_id ?? null, 'now context line.thread_id'),
+    fallback_used: expectBoolean(record.fallback_used, 'now context line.fallback_used'),
+  };
+}
+
+function decodeNowNudgeBarKindData(value: unknown): NowNudgeBarKindData {
+  return expectEnumString(value, 'now nudge bar kind', [
+    'nudge',
+    'needs_input',
+    'review_request',
+    'reflow_proposal',
+    'thread_continuation',
+    'trust_warning',
+    'freshness_warning',
+  ]);
+}
+
+function decodeNowNudgeActionData(value: unknown): NowNudgeActionData {
+  const record = expectRecord(value, 'now nudge action');
+  return {
+    kind: expectString(record.kind, 'now nudge action.kind'),
+    label: expectString(record.label, 'now nudge action.label'),
+  };
+}
+
+function decodeNowNudgeBarData(value: unknown): NowNudgeBarData {
+  const record = expectRecord(value, 'now nudge bar');
+  return {
+    id: expectString(record.id, 'now nudge bar.id'),
+    kind: decodeNowNudgeBarKindData(record.kind),
+    title: expectString(record.title, 'now nudge bar.title'),
+    summary: expectString(record.summary, 'now nudge bar.summary'),
+    urgent: expectBoolean(record.urgent, 'now nudge bar.urgent'),
+    primary_thread_id: expectNullableString(
+      record.primary_thread_id ?? null,
+      'now nudge bar.primary_thread_id',
+    ),
+    actions: decodeArray(record.actions ?? [], decodeNowNudgeActionData),
+  };
+}
+
+function decodeNowTaskKindData(value: unknown): NowTaskKindData {
+  return expectEnumString(value, 'now task kind', ['task', 'commitment', 'event']);
+}
+
+function decodeNowTaskLaneItemData(value: unknown): NowTaskLaneItemData {
+  const record = expectRecord(value, 'now task lane item');
+  return {
+    id: expectString(record.id, 'now task lane item.id'),
+    task_kind: decodeNowTaskKindData(record.task_kind),
+    text: expectString(record.text, 'now task lane item.text'),
+    state: expectString(record.state, 'now task lane item.state'),
+    project: expectNullableString(record.project ?? null, 'now task lane item.project'),
+    primary_thread_id: expectNullableString(
+      record.primary_thread_id ?? null,
+      'now task lane item.primary_thread_id',
+    ),
+  };
+}
+
+function decodeNowTaskLaneData(value: unknown): NowTaskLaneData {
+  const record = expectRecord(value, 'now task lane');
+  return {
+    active: decodeNullable(record.active ?? null, decodeNowTaskLaneItemData),
+    pending: decodeArray(record.pending ?? [], decodeNowTaskLaneItemData),
+    recent_completed: decodeArray(
+      record.recent_completed ?? [],
+      decodeNowTaskLaneItemData,
+    ),
+    overflow_count: expectNumber(record.overflow_count, 'now task lane.overflow_count'),
+  };
+}
+
+function decodeNowDockedInputIntentData(value: unknown): NowDockedInputIntentData {
+  return expectEnumString(value, 'now docked input intent', [
+    'task',
+    'question',
+    'note',
+    'command',
+    'continuation',
+    'reflection',
+    'scheduling',
+  ]);
+}
+
+function decodeNowDockedInputData(value: unknown): NowDockedInputData {
+  const record = expectRecord(value, 'now docked input');
+  return {
+    supported_intents: decodeArray(
+      record.supported_intents ?? [],
+      decodeNowDockedInputIntentData,
+    ),
+    day_thread_id: expectNullableString(
+      record.day_thread_id ?? null,
+      'now docked input.day_thread_id',
+    ),
+    raw_capture_thread_id: expectNullableString(
+      record.raw_capture_thread_id ?? null,
+      'now docked input.raw_capture_thread_id',
+    ),
+  };
+}
+
 export function decodeNowData(value: unknown): NowData {
   const record = expectRecord(value, 'now data');
   const overview = expectRecord(record.overview, 'now data.overview');
@@ -3570,6 +3844,27 @@ export function decodeNowData(value: unknown): NowData {
   return {
     computed_at: expectUnixSeconds(record.computed_at, 'now data.computed_at'),
     timezone: expectString(record.timezone, 'now data.timezone'),
+    header:
+      record.header === undefined
+        ? undefined
+        : decodeNullable(record.header, decodeNowHeaderData),
+    status_row:
+      record.status_row === undefined
+        ? undefined
+        : decodeNullable(record.status_row, decodeNowStatusRowData),
+    context_line:
+      record.context_line === undefined
+        ? undefined
+        : decodeNullable(record.context_line, decodeNowContextLineData),
+    nudge_bars: decodeArray(record.nudge_bars ?? [], decodeNowNudgeBarData),
+    task_lane:
+      record.task_lane === undefined
+        ? undefined
+        : decodeNullable(record.task_lane, decodeNowTaskLaneData),
+    docked_input:
+      record.docked_input === undefined
+        ? undefined
+        : decodeNullable(record.docked_input, decodeNowDockedInputData),
     overview: {
       dominant_action: decodeNullable(
         overview.dominant_action ?? null,

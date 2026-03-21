@@ -1529,6 +1529,96 @@ describe('transport decoders', () => {
     const now = decodeNowData({
         computed_at: 1710000000,
         timezone: 'America/Denver',
+        header: {
+          title: "Jove's Now",
+          buckets: [
+            {
+              kind: 'needs_input',
+              count: 2,
+              count_display: 'show_nonzero',
+              urgent: true,
+              route_target: {
+                bucket: 'needs_input',
+                thread_id: null,
+              },
+            },
+          ],
+        },
+        status_row: {
+          date_label: 'Thu Mar 20',
+          time_label: '9:15 AM',
+          context_label: 'Standup',
+          elapsed_label: '12m',
+        },
+        context_line: {
+          text: 'Standup is active and one supervised review is still pending.',
+          thread_id: 'thr_day_2026_03_20',
+          fallback_used: false,
+        },
+        nudge_bars: [
+          {
+            id: 'nudge_1',
+            kind: 'needs_input',
+            title: 'One answer is still needed',
+            summary: 'Standup is waiting on the next short answer.',
+            urgent: true,
+            primary_thread_id: 'thr_check_in_dls_1_standup_prompt_1',
+            actions: [
+              {
+                kind: 'accept',
+                label: 'Continue standup',
+              },
+              {
+                kind: 'snooze',
+                label: 'Snooze',
+              },
+            ],
+          },
+        ],
+        task_lane: {
+          active: {
+            id: 'task_active_1',
+            task_kind: 'commitment',
+            text: 'Standup check-in',
+            state: 'active',
+            project: 'Vel',
+            primary_thread_id: 'thr_day_2026_03_20',
+          },
+          pending: [
+            {
+              id: 'task_pending_1',
+              task_kind: 'task',
+              text: 'Review operator queue',
+              state: 'pending',
+              project: 'Vel',
+              primary_thread_id: null,
+            },
+          ],
+          recent_completed: [
+            {
+              id: 'task_done_1',
+              task_kind: 'task',
+              text: 'Check calendar drift',
+              state: 'completed',
+              project: null,
+              primary_thread_id: null,
+            },
+          ],
+          overflow_count: 3,
+        },
+        docked_input: {
+          supported_intents: [
+            'task',
+            'question',
+            'note',
+            'command',
+            'continuation',
+            'reflection',
+            'scheduling',
+          ],
+          day_thread_id: 'thr_day_2026_03_20',
+          raw_capture_thread_id: 'thr_capture_1',
+        },
         overview: {
           dominant_action: {
             kind: 'check_in',
@@ -1916,6 +2006,96 @@ describe('transport decoders', () => {
     expect(now).toEqual({
       computed_at: 1710000000,
       timezone: 'America/Denver',
+      header: {
+        title: "Jove's Now",
+        buckets: [
+          {
+            kind: 'needs_input',
+            count: 2,
+            count_display: 'show_nonzero',
+            urgent: true,
+            route_target: {
+              bucket: 'needs_input',
+              thread_id: null,
+            },
+          },
+        ],
+      },
+      status_row: {
+        date_label: 'Thu Mar 20',
+        time_label: '9:15 AM',
+        context_label: 'Standup',
+        elapsed_label: '12m',
+      },
+      context_line: {
+        text: 'Standup is active and one supervised review is still pending.',
+        thread_id: 'thr_day_2026_03_20',
+        fallback_used: false,
+      },
+      nudge_bars: [
+        {
+          id: 'nudge_1',
+          kind: 'needs_input',
+          title: 'One answer is still needed',
+          summary: 'Standup is waiting on the next short answer.',
+          urgent: true,
+          primary_thread_id: 'thr_check_in_dls_1_standup_prompt_1',
+          actions: [
+            {
+              kind: 'accept',
+              label: 'Continue standup',
+            },
+            {
+              kind: 'snooze',
+              label: 'Snooze',
+            },
+          ],
+        },
+      ],
+      task_lane: {
+        active: {
+          id: 'task_active_1',
+          task_kind: 'commitment',
+          text: 'Standup check-in',
+          state: 'active',
+          project: 'Vel',
+          primary_thread_id: 'thr_day_2026_03_20',
+        },
+        pending: [
+          {
+            id: 'task_pending_1',
+            task_kind: 'task',
+            text: 'Review operator queue',
+            state: 'pending',
+            project: 'Vel',
+            primary_thread_id: null,
+          },
+        ],
+        recent_completed: [
+          {
+            id: 'task_done_1',
+            task_kind: 'task',
+            text: 'Check calendar drift',
+            state: 'completed',
+            project: null,
+            primary_thread_id: null,
+          },
+        ],
+        overflow_count: 3,
+      },
+      docked_input: {
+        supported_intents: [
+          'task',
+          'question',
+          'note',
+          'command',
+          'continuation',
+          'reflection',
+          'scheduling',
+        ],
+        day_thread_id: 'thr_day_2026_03_20',
+        raw_capture_thread_id: 'thr_capture_1',
+      },
       overview: {
         dominant_action: {
           kind: 'check_in',

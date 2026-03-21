@@ -6421,6 +6421,150 @@ pub struct NowOverviewSuggestionData {
     pub summary: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NowHeaderBucketKindData {
+    ThreadsByType,
+    NeedsInput,
+    NewNudges,
+    SearchFilter,
+    Snoozed,
+    ReviewApply,
+    Reflow,
+    FollowUp,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NowCountDisplayModeData {
+    AlwaysShow,
+    ShowNonzero,
+    HiddenUntilActive,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowThreadFilterTargetData {
+    pub bucket: NowHeaderBucketKindData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowHeaderBucketData {
+    pub kind: NowHeaderBucketKindData,
+    pub count: u32,
+    pub count_display: NowCountDisplayModeData,
+    pub urgent: bool,
+    pub route_target: NowThreadFilterTargetData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowHeaderData {
+    pub title: String,
+    #[serde(default)]
+    pub buckets: Vec<NowHeaderBucketData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowStatusRowData {
+    pub date_label: String,
+    pub time_label: String,
+    pub context_label: String,
+    pub elapsed_label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowContextLineData {
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    pub fallback_used: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NowNudgeBarKindData {
+    Nudge,
+    NeedsInput,
+    ReviewRequest,
+    ReflowProposal,
+    ThreadContinuation,
+    TrustWarning,
+    FreshnessWarning,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowNudgeActionData {
+    pub kind: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowNudgeBarData {
+    pub id: String,
+    pub kind: NowNudgeBarKindData,
+    pub title: String,
+    pub summary: String,
+    pub urgent: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub primary_thread_id: Option<String>,
+    #[serde(default)]
+    pub actions: Vec<NowNudgeActionData>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NowTaskKindData {
+    Task,
+    Commitment,
+    Event,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowTaskLaneItemData {
+    pub id: String,
+    pub task_kind: NowTaskKindData,
+    pub text: String,
+    pub state: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub primary_thread_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowTaskLaneData {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active: Option<NowTaskLaneItemData>,
+    #[serde(default)]
+    pub pending: Vec<NowTaskLaneItemData>,
+    #[serde(default)]
+    pub recent_completed: Vec<NowTaskLaneItemData>,
+    pub overflow_count: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NowDockedInputIntentData {
+    Task,
+    Question,
+    Note,
+    Command,
+    Continuation,
+    Reflection,
+    Scheduling,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowDockedInputData {
+    #[serde(default)]
+    pub supported_intents: Vec<NowDockedInputIntentData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub day_thread_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_capture_thread_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowOverviewData {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6564,6 +6708,18 @@ pub struct NowDebugData {
 pub struct NowData {
     pub computed_at: UnixSeconds,
     pub timezone: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub header: Option<NowHeaderData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status_row: Option<NowStatusRowData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_line: Option<NowContextLineData>,
+    #[serde(default)]
+    pub nudge_bars: Vec<NowNudgeBarData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub task_lane: Option<NowTaskLaneData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docked_input: Option<NowDockedInputData>,
     pub overview: NowOverviewData,
     pub summary: NowSummaryData,
     pub schedule: NowScheduleData,
