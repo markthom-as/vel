@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: canonical now surface and client mesh
-current_phase: 47
-current_phase_name: rust-owned-now-core-models-and-transport-seam
+current_phase: 48
+current_phase_name: client-mesh-linking-sync-and-recovery-authority
 current_plan: milestone_roadmap
 status: ready_for_phase_discussion
-stopped_at: Completed Phase 46; next logical step is Phase 47 discussion and planning
-last_updated: "2026-03-21T20:35:00Z"
+stopped_at: Completed Phase 47; next logical step is Phase 48 discussion and planning
+last_updated: "2026-03-21T21:40:00Z"
 last_activity: 2026-03-21
 progress:
   total_phases: 51
-  completed_phases: 46
+  completed_phases: 47
   total_plans: 207
-  completed_plans: 185
+  completed_plans: 189
   percent: 90
 ---
 
@@ -24,20 +24,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 47 — Rust-owned Now core models and transport seam
+**Current focus:** Phase 48 — Client mesh, linking, sync, and recovery authority
 
-Status: Phase 46 is complete; Phase 47 is next
-Current Phase: 47
-Current Phase Name: rust-owned-now-core-models-and-transport-seam
+Status: Phase 47 is complete; Phase 48 is next
+Current Phase: 48
+Current Phase Name: client-mesh-linking-sync-and-recovery-authority
 Current Plan: milestone_roadmap
 Total Plans in Phase: 4
 Progress: 90%
 Last Activity: 2026-03-21
-Last Activity Description: Closed Phase 46 after reconciling the full canonical Now contract packet and subsystem inventory
+Last Activity Description: Closed Phase 47 after verifying the shared Rust-owned Now transport seam and continuation vocabulary
 
 ## Current Position
 
-Phase: 47 (rust-owned-now-core-models-and-transport-seam) — READY FOR DISCUSSION
+Phase: 48 (client-mesh-linking-sync-and-recovery-authority) — READY FOR DISCUSSION
 Plan: discuss and plan next
 
 ## Performance Metrics
