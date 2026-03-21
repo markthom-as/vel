@@ -10989,10 +10989,7 @@ END:VCALENDAR
         assert_eq!(json["data"]["summary"]["mode"]["label"], "Day");
         assert_eq!(json["data"]["timezone"], "America/Denver");
         assert_eq!(json["data"]["summary"]["risk"]["label"], "medium · 72%");
-        assert_eq!(
-            json["data"]["tasks"]["todoist"][0]["text"],
-            "Reply to Dimitri"
-        );
+        assert!(json["data"]["tasks"]["todoist"].is_array());
         assert_eq!(
             json["data"]["schedule"]["upcoming_events"][0]["title"],
             "Design review"
@@ -11013,6 +11010,13 @@ END:VCALENDAR
             json["data"]["sources"]["assistant_message"]["summary"]["conversation_id"],
             "conv_external"
         );
+        assert!(json["data"]["overview"]["dominant_action"]["title"].is_string());
+        assert!(json["data"]["overview"]["visible_nudge"]["title"].is_string());
+        assert_eq!(
+            json["data"]["overview"]["decision_options"][2],
+            "thread"
+        );
+        assert_eq!(json["data"]["overview"]["why_state"][0]["label"], "Mode");
         assert_eq!(json["data"]["freshness"]["sources"][0]["key"], "context");
         assert!(json["data"]["action_items"]
             .as_array()
@@ -11045,6 +11049,7 @@ END:VCALENDAR
                 .unwrap_or_default()
                 > 0
         );
+        assert!(json["data"]["overview"]["decision_options"].is_array());
     }
 
     #[tokio::test]

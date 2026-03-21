@@ -22,19 +22,21 @@ If a `check_in` turns into a longer clarification or a `reflow` needs editing, V
 
 If you are using the web shell and need the fastest path to the right help:
 
-- `Now` is the primary surface for current-day orientation. The default order is compact context bar, current status, ask/capture/talk, next event, the unified today lane, and a compressed attention strip.
+- `Now` is the primary surface for current-day orientation. It is action-first: the top overview shows one dominant action when the backend has enough evidence, one visible nudge, a compact timeline, and a `Why + state` disclosure lane.
 - that “current day” is now sleep-relative rather than midnight-bound. If you are still awake and inside the same work session after midnight, unfinished commitments, relevant night events, and routine continuity may still belong to the same operator day until the rollover boundary is crossed.
-- `Now` should stay commitment-first: active or chosen commitments remain primary, pullable tasks stay visually secondary, and routine blocks do not pollute the upcoming-event slot.
+- when there is no trustworthy dominant action, `Now` falls back to a bounded choice state instead of inventing local shell ranking. Expect one to three suggestions and a small explicit action vocabulary.
+- the bounded inline commitment vocabulary is `accept / defer / choose / close`. If the work becomes multi-step, needs tool/context work, or needs multiple decisions, continue it in `Threads` instead of stretching the inline loop.
+- `Now` should stay commitment-first after orientation: active or chosen commitments remain primary, pullable tasks stay visually secondary, and routine blocks do not pollute the upcoming-event slot.
 - `next event` should mean the next future relevant calendar event only. Routine blocks, all-day noise, free/transparent holds, declined events, and cancelled events should not win that slot.
-- freshness, sync, trust, debug, and other heavier control posture now live behind secondary controls instead of dominating the default `Now` view.
-- `Now` may still surface inline check-ins, summary trust warnings, and heavier reflow suggestions when the current plan is no longer trustworthy.
+- freshness, sync, trust, review pressure, and debug posture live behind secondary controls instead of dominating the default `Now` view.
+- `Now` may still surface inline `check_in` prompts, summary trust warnings, and same-day reflow proposals when the current plan is no longer trustworthy.
 - when backend planning has enough signal, `Now` may also show the compact bounded day plan directly: what is scheduled, what was intentionally deferred, what did not fit, and which routine blocks shaped the result
 - when durable routine blocks are configured, they now shape that compact day plan before inferred fallback logic runs; if no durable routine blocks exist yet, the shell may explicitly say that it is still using inferred fallback
 - when reflow is active, `Now` now shows the compact remaining-day proposal directly: what moved, what no longer fits, and what still needs judgment.
 - `Settings` is now the summary-first management surface for the durable routine/planning profile itself: inspect saved routine blocks, add or remove bounded planning constraints, then return to `Now` for the compact plan.
 - CLI and Apple now inspect that same backend-owned planning profile too. Treat them as parity readers over one profile, not as separate planning systems.
 - if assistant entry or Apple voice stages a routine/planning edit, treat that as a confirmation-first handoff into `Threads`, not as an already-saved profile change.
-- thread continuity on `Now` should stay sparse. A clearly relevant resumable thread may surface, but the main surface should not turn back into a thread inbox just because multiple follow-through threads exist elsewhere.
+- thread continuity on `Now` should stay sparse. Queue pressure and follow-through can appear in the compact context lane, but `Now` should not grow a second thread inbox or local thread-ranking surface.
 - `Threads` itself should read like a continuity surface, not a chat inbox: resume longer follow-through there, keep triage in `Inbox`, and keep `Now` focused on the current day.
 - `Inbox` is the explicit decision queue. Clear or snooze items there before you open longer conversation history.
 - the web sidebar should now behave like a thin rail, not a second information column. Use it to move between surfaces; ignore it once you are working.

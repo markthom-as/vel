@@ -25,6 +25,8 @@ final class DailyLoopTests: XCTestCase {
                       "surface": "apple_voice"
                     },
                     "turn_state": "waiting_for_input",
+                    "continuity_summary": "Morning overview is waiting on question 1 of 3 with 1 captured signal(s).",
+                    "allowed_actions": ["accept", "defer", "choose", "close"],
                     "current_prompt": {
                       "prompt_id": "morning_prompt_1",
                       "kind": "intent_question",
@@ -57,6 +59,8 @@ final class DailyLoopTests: XCTestCase {
 
         XCTAssertEqual(morning.data?.phase, .morningOverview)
         XCTAssertEqual(morning.data?.start.surface, .appleVoice)
+        XCTAssertEqual(morning.data?.continuity_summary, "Morning overview is waiting on question 1 of 3 with 1 captured signal(s).")
+        XCTAssertEqual(morning.data?.allowed_actions, [.accept, .defer, .choose, .close])
         XCTAssertEqual(morning.data?.state.snapshot, "Two meetings before noon.")
         XCTAssertEqual(morning.data?.current_prompt?.kind, .intentQuestion)
         XCTAssertEqual(morning.data?.outcome?.signals.first?.kind, "focus_intent")
@@ -77,6 +81,8 @@ final class DailyLoopTests: XCTestCase {
                       "surface": "web"
                     },
                     "turn_state": "completed",
+                    "continuity_summary": "Standup continuity is available.",
+                    "allowed_actions": ["accept", "choose", "close"],
                     "current_prompt": null,
                     "state": {
                       "phase": "standup",
@@ -115,6 +121,8 @@ final class DailyLoopTests: XCTestCase {
 
         XCTAssertEqual(standup.data?.phase, .standup)
         XCTAssertEqual(standup.data?.status, .completed)
+        XCTAssertEqual(standup.data?.continuity_summary, "Standup continuity is available.")
+        XCTAssertEqual(standup.data?.allowed_actions, [.accept, .choose, .close])
         XCTAssertEqual(standup.data?.state.commitments.first?.bucket, .must)
         XCTAssertEqual(standup.data?.outcome?.commitments.first?.title, "Ship Phase 10")
 
@@ -196,6 +204,8 @@ private func mockSessionObjectJSON(id: String, phase: String, status: String) ->
         "surface": "apple_voice"
       },
       "turn_state": "\(status == "completed" ? "completed" : "waiting_for_input")",
+      "continuity_summary": "\(phase == "standup" ? "Standup continuity is available." : "Morning overview continuity is available.")",
+      "allowed_actions": ["accept", "choose", "close"],
       "current_prompt": null,
       "state": {
         "phase": "\(phase)",

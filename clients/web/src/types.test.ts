@@ -978,6 +978,8 @@ describe('transport decoders', () => {
 
     expect(session.phase).toBe('morning_overview')
     expect(session.start.surface).toBe('web')
+    expect(session.continuity_summary).toBe('Morning overview continuity is available.')
+    expect(session.allowed_actions).toEqual(['accept', 'choose', 'close'])
     expect(session.state.phase).toBe('morning_overview')
     expect(session.state.snapshot).toContain('Todoist backlog')
     expect(session.outcome?.phase).toBe('morning_overview')
@@ -1046,6 +1048,8 @@ describe('transport decoders', () => {
     })
 
     expect(session.phase).toBe('standup')
+    expect(session.continuity_summary).toBe('Standup continuity is available.')
+    expect(session.allowed_actions).toEqual(['accept', 'choose', 'close'])
     expect(session.state.phase).toBe('standup')
     expect(session.state.commitments).toHaveLength(2)
     expect(session.state.commitments[0]?.bucket).toBe('must')
