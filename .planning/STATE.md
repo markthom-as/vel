@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: canonical now surface and client mesh
-current_phase: 50
-current_phase_name: apple-parity-and-reduced-watch-embodiment
+current_phase: 51
+current_phase_name: cross-platform-verification-and-closeout
 current_plan: milestone_roadmap
 status: ready_for_phase_execution
-stopped_at: Completed Phase 49 execution and verification; next logical step is discuss/plan Phase 50
-last_updated: "2026-03-22T01:58:00Z"
+stopped_at: Completed Phase 50 execution and verification; next logical step is discuss/plan Phase 51
+last_updated: "2026-03-22T02:08:00Z"
 last_activity: 2026-03-21
 progress:
   total_phases: 51
-  completed_phases: 49
+  completed_phases: 50
   total_plans: 207
-  completed_plans: 197
-  percent: 95
+  completed_plans: 201
+  percent: 97
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 50 — Apple parity and reduced watch embodiment
+**Current focus:** Phase 51 — Cross-platform verification and closeout
 
-Status: Phase 49 is complete; Phase 50 is next
-Current Phase: 50
-Current Phase Name: apple-parity-and-reduced-watch-embodiment
+Status: Phase 50 is complete; Phase 51 is next
+Current Phase: 51
+Current Phase Name: cross-platform-verification-and-closeout
 Current Plan: milestone_roadmap
-Total Plans in Phase: 4
-Progress: 95%
+Total Plans in Phase: 3
+Progress: 97%
 Last Activity: 2026-03-21
-Last Activity Description: Completed Phase 49 around the canonical compact web Now surface, thread-aware routing, and docked input continuity
+Last Activity Description: Completed Phase 50 around Apple and reduced-watch parity over the canonical compact Now contract
 
 ## Current Position
 
-Phase: 50 (apple-parity-and-reduced-watch-embodiment) — READY FOR EXECUTION
-Plan: discuss/plan/execute Apple and reduced-watch parity over the canonical web `Now` contract and shared Rust-owned seam
+Phase: 51 (cross-platform-verification-and-closeout) — READY FOR EXECUTION
+Plan: discuss/plan/execute final cross-platform verification, milestone reconciliation, and closeout over the canonical Rust-owned `Now` lane
 
 ## Performance Metrics
 
