@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.1
-milestone_name: milestone
-current_phase: 46
-current_phase_name: canonical-now-contract-boundaries-and-milestone-lock
-current_plan: 1
-status: Phase 46 is planned and ready for execution
-stopped_at: Completed 21-01; next logical step is 21-02 web/desktop push-to-talk polish over the shared assistant seam
-last_updated: "2026-03-21T06:48:57.968Z"
+milestone: v0.3
+milestone_name: canonical now surface and client mesh
+current_phase: 47
+current_phase_name: rust-owned-now-core-models-and-transport-seam
+current_plan: milestone_roadmap
+status: ready_for_phase_discussion
+stopped_at: Completed Phase 46; next logical step is Phase 47 discussion and planning
+last_updated: "2026-03-21T20:35:00Z"
 last_activity: 2026-03-21
 progress:
-  total_phases: 6
-  completed_phases: 0
-  total_plans: 4
-  completed_plans: 0
-  percent: 89
+  total_phases: 51
+  completed_phases: 46
+  total_plans: 207
+  completed_plans: 185
+  percent: 90
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 46 — canonical-now-contract-boundaries-and-milestone-lock
+**Current focus:** Phase 47 — Rust-owned Now core models and transport seam
 
-Status: Phase 46 is planned and ready for execution
-Current Phase: 46
-Current Phase Name: canonical-now-contract-boundaries-and-milestone-lock
-Current Plan: 1
+Status: Phase 46 is complete; Phase 47 is next
+Current Phase: 47
+Current Phase Name: rust-owned-now-core-models-and-transport-seam
+Current Plan: milestone_roadmap
 Total Plans in Phase: 4
-Progress: 89%
+Progress: 90%
 Last Activity: 2026-03-21
-Last Activity Description: Phase 46 execution started
+Last Activity Description: Closed Phase 46 after reconciling the full canonical Now contract packet and subsystem inventory
 
 ## Current Position
 
-Phase: 46 (canonical-now-contract-boundaries-and-milestone-lock) — EXECUTING
-Plan: 1 of 4
+Phase: 47 (rust-owned-now-core-models-and-transport-seam) — READY FOR DISCUSSION
+Plan: discuss and plan next
 
 ## Performance Metrics
 
