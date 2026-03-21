@@ -5,9 +5,9 @@ milestone_name: canonical now surface and client mesh
 current_phase: 48
 current_phase_name: client-mesh-linking-sync-and-recovery-authority
 current_plan: milestone_roadmap
-status: ready_for_phase_discussion
-stopped_at: Completed Phase 47; next logical step is Phase 48 discussion and planning
-last_updated: "2026-03-21T21:40:00Z"
+status: ready_for_phase_execution
+stopped_at: Completed Phase 48 discussion and planning; next logical step is execute plan 48-01
+last_updated: "2026-03-21T21:55:00Z"
 last_activity: 2026-03-21
 progress:
   total_phases: 51
@@ -33,12 +33,12 @@ Current Plan: milestone_roadmap
 Total Plans in Phase: 4
 Progress: 90%
 Last Activity: 2026-03-21
-Last Activity Description: Closed Phase 47 after verifying the shared Rust-owned Now transport seam and continuation vocabulary
+Last Activity Description: Planned Phase 48 around shared mesh authority, sync posture, repair routes, and governed Now config
 
 ## Current Position
 
-Phase: 48 (client-mesh-linking-sync-and-recovery-authority) — READY FOR DISCUSSION
-Plan: discuss and plan next
+Phase: 48 (client-mesh-linking-sync-and-recovery-authority) — READY FOR EXECUTION
+Plan: execute 48-01 through 48-04
 
 ## Performance Metrics
 
