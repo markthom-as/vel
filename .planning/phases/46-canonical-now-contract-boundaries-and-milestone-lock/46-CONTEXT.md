@@ -67,6 +67,32 @@ It does not implement the Rust DTO/service seam yet, and it does not do the actu
   - full thread browsing/search
 - **D-19:** When deeper follow-through is required, watch opens a reduced thread response screen that can hand off to phone or Mac.
 
+### Supporting subsystem rules
+- **D-20:** `day` is the canonical current-day container for `Now`.
+- **D-21:** carry-forward from the previous day happens automatically into the new `day` object, with confirmation and adjustment happening during day-start review rather than through a second carryover rule in `Now`.
+- **D-22:** `task` is the canonical work object feeding `Now`; `Now` consumes only a ranked subset of the day truth:
+  - current task
+  - next active tasks
+  - one recent completed task
+  - overflow count / expand path
+- **D-23:** `Inbox` remains the owner of the full actionable queue even when `Now` surfaces the urgent subset.
+- **D-24:** Nudge and action-bar production use one shared backend-owned priority ladder across all supported bar types.
+- **D-25:** Bar type affects rendering and allowed actions, but not the primary ordering lane.
+- **D-26:** The future score-based model must feed the same shared ordering ladder rather than creating separate type lanes.
+- **D-27:** Docked input always creates thread-backed continuity immediately.
+- **D-28:** The supporting thread subsystem must provide a canonical `day thread` and a canonical `raw capture` thread lane.
+- **D-29:** Thread views must be filterable by shared metadata including project, tags, and related routing facets.
+- **D-30:** Raw docked capture creates thread-backed continuity first and does not automatically create an inbox item.
+- **D-31:** Inbox ownership appears only when backend routing explicitly promotes the captured result into inbox-owned work.
+- **D-32:** Mesh/sync support must expose one shared authority summary for `Now` and reduced watch consumption:
+  - connected state
+  - stale / local_only / synced posture
+  - last sync
+  - queued-write count
+  - recovery route target
+- **D-33:** Governed config must own `Now` title/display policy, count-display policy, and watch-specific behavior knobs because the high-use interface is expected to evolve quickly and contextually.
+- **D-34:** `Now` and watch consume mesh/sync state and governed config as shared read-model inputs; deep editing and repair still belong to settings/support surfaces.
+
 ### the agent's Discretion
 - Exact doc wording and breakdown across product vs architecture references, as long as the authority chain stays explicit.
 - Exact naming of the Rust-owned DTO/read-model seams introduced in later phases.
@@ -81,6 +107,7 @@ It does not implement the Rust DTO/service seam yet, and it does not do the actu
 - Client-mesh state matters in `Now` only when it affects immediate trust or action.
 - Header buckets should feel like real operator slices, not technical taxonomy.
 - Watch should be capable of meaningful response, but should hand off early when work stops being lightweight.
+- The subsystem inventory must explicitly cover day, task, nudge ordering, docked input routing, thread lanes, metadata filters, mesh/sync summary, and governed config support before implementation starts.
 
 </specifics>
 
@@ -116,6 +143,8 @@ It does not implement the Rust DTO/service seam yet, and it does not do the actu
 - `clients/web/src/data/operatorSurfaces.ts` already defines the current shell taxonomy and can be tightened around the new `Now` center of gravity.
 - `clients/apple/Apps/VeliOS/ContentView.swift`, `clients/apple/Apps/VelMac/ContentView.swift`, and `clients/apple/Apps/VelWatch/ContentView.swift` already contain the current Apple shell splits and reduced watch posture.
 - `crates/vel-api-types/src/lib.rs` already carries linked-node, queued-write, sync-status, voice-queue, and `Now`-related DTO surfaces that can be tightened instead of replaced wholesale.
+- `crates/veld/src/services/daily_loop.rs`, `crates/veld/src/services/check_in.rs`, and `crates/veld/src/services/context_runs.rs` already contain day-start, commitment, and closeout seams that can anchor the canonical `day` object and automatic carry-forward review posture.
+- `crates/veld/src/services/chat/messages.rs`, `crates/veld/src/services/chat/thread_continuation.rs`, `crates/veld/src/routes/chat.rs`, and `crates/veld/src/routes/threads.rs` already provide thread-backed continuity seams that can be extended for `day thread`, `raw capture`, and shared metadata-filter routing instead of inventing a second thread model.
 - `crates/veld/src/services/linking.rs`, `crates/veld/src/services/client_sync.rs`, `crates/veld/src/services/tailscale.rs`, and related sync/linking routes already provide a starting substrate for the client-mesh lane.
 
 ### Established Patterns
@@ -126,6 +155,8 @@ It does not implement the Rust DTO/service seam yet, and it does not do the actu
 
 ### Integration Points
 - Phase 46 planning must connect the new `Now` product contract to the existing `Now`, `Threads`, linking, sync, and queued-action seams.
+- Phase 47 should define the canonical `day` object, task subset rules, one shared nudge ordering ladder, docked-input routing outcomes, `day thread`/`raw capture` thread lanes, and shared metadata filters as Rust-owned transport seams.
+- Phase 48 should define the shared authority summary, governed config for high-use `Now` evolution, and support-surface repair routes that feed `Now` and reduced watch consumption without moving deep management into the `Now` surface.
 - Later phases should reuse existing thread continuation metadata and linked-node/sync surfaces rather than introducing a second connection model.
 - Support/settings surfaces remain the place for deep endpoint management; `Now` only gets compact visibility and urgent warnings.
 
