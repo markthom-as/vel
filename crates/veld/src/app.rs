@@ -11053,6 +11053,90 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn now_endpoint_surfaces_same_day_reflow_outcomes() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        let commitment_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Deep work @30m".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "todo_reflow".to_string(),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: Some("Project Atlas".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({
+                    "labels": ["urgent", "block:focus"]
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now - 60,
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now - 60,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    global_risk_level: "high".to_string(),
+                    attention_state: "needs_reflow".to_string(),
+                    attention_reasons: vec!["Standup slipped past without a day update.".to_string()],
+                    next_event_start_ts: Some(now - (20 * 60)),
+                    leave_by_ts: Some(now - (10 * 60)),
+                    next_commitment_id: Some(commitment_id.as_ref().to_string()),
+                    ..CurrentContextV1::default()
+                }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let kinds = json["data"]["reflow"]["proposal"]["changes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|change| change["kind"].as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(json["data"]["overview"]["dominant_action"]["kind"], "reflow");
+        assert_eq!(json["data"]["reflow"]["trigger"], "missed_event");
+        assert_eq!(json["data"]["reflow"]["transitions"][0]["target"], "apply_suggestion");
+        assert_eq!(json["data"]["reflow"]["transitions"][0]["confirm_required"], true);
+        assert_eq!(json["data"]["reflow"]["proposal"]["moved_count"], 1);
+        assert_eq!(json["data"]["reflow"]["proposal"]["unscheduled_count"], 0);
+        assert_eq!(json["data"]["reflow"]["proposal"]["needs_judgment_count"], 1);
+        assert!(kinds.contains(&"moved"));
+        assert!(kinds.contains(&"needs_judgment"));
+    }
+
+    #[tokio::test]
     async fn now_endpoint_prioritizes_urgent_todoist_tasks() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
