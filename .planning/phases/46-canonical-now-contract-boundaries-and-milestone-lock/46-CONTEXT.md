@@ -108,6 +108,7 @@ It does not implement the Rust DTO/service seam yet, and it does not do the actu
 - Header buckets should feel like real operator slices, not technical taxonomy.
 - Watch should be capable of meaningful response, but should hand off early when work stops being lightweight.
 - The subsystem inventory must explicitly cover day, task, nudge ordering, docked input routing, thread lanes, metadata filters, mesh/sync summary, and governed config support before implementation starts.
+- Phase 46 execution must reconcile the full local source contract at `/home/jove/Downloads/vel-now-surface-contract-codex-final.md` against the checked-in authority docs so no source section stays implicit just because it was not re-discussed interactively.
 
 </specifics>
 
