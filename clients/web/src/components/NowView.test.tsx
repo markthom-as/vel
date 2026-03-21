@@ -14,6 +14,33 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
   return {
     computed_at: 1710000000,
     timezone: 'America/Denver',
+    overview: {
+      dominant_action: {
+        kind: 'check_in',
+        title: 'Standup check-in',
+        summary: 'Name the one to three commitments that matter most today.',
+        reference_id: 'act_check_in_1',
+      },
+      today_timeline: [
+        {
+          kind: 'now',
+          title: 'Current time',
+          timestamp: 1710000000,
+          detail: null,
+        },
+      ],
+      visible_nudge: {
+        kind: 'freshness',
+        title: 'Review operator queue',
+        summary: 'One supervised review is still pending.',
+      },
+      why_state: [
+        { label: 'Mode', detail: 'Day' },
+        { label: 'Attention', detail: 'On task' },
+      ],
+      suggestions: [],
+      decision_options: ['accept', 'choose', 'thread', 'close'],
+    },
     summary: {
       mode: { key: 'day_mode', label: 'Day' },
       phase: { key: 'engaged', label: 'Engaged' },
@@ -125,6 +152,40 @@ describe('NowView', () => {
           data: buildNowData({
             computed_at: 1710000000,
             timezone: 'America/Denver',
+            overview: {
+              dominant_action: {
+                kind: 'check_in',
+                title: 'Standup check-in',
+                summary: 'Standup is waiting on question 1 with 0 commitment draft(s) and 0 deferred item(s).',
+                reference_id: 'act_check_in_1',
+              },
+              today_timeline: [
+                {
+                  kind: 'now',
+                  title: 'Current time',
+                  timestamp: 1710000000,
+                  detail: null,
+                },
+                {
+                  kind: 'calendar_event',
+                  title: 'Design review',
+                  timestamp: 1710003600,
+                  detail: 'Room 4B',
+                },
+              ],
+              visible_nudge: {
+                kind: 'freshness',
+                title: 'Review execution handoff for runtime lane',
+                summary: 'The supervised coding handoff is waiting for explicit approval.',
+              },
+              why_state: [
+                { label: 'Mode', detail: 'Day' },
+                { label: 'Phase', detail: 'Engaged' },
+                { label: 'Attention', detail: 'On task' },
+              ],
+              suggestions: [],
+              decision_options: ['accept', 'choose', 'thread', 'close'],
+            },
             summary: {
               mode: { key: 'day_mode', label: 'Day' },
               phase: { key: 'engaged', label: 'Engaged' },
@@ -678,6 +739,9 @@ describe('NowView', () => {
               surface: 'web',
             },
             turn_state: 'waiting_for_input',
+            continuity_summary:
+              'Morning overview is waiting on question 1 of 3 with 0 captured signal(s).',
+            allowed_actions: ['accept', 'defer', 'choose', 'close'],
             current_prompt: {
               prompt_id: 'morning_prompt_1',
               kind: 'intent_question',
@@ -715,6 +779,9 @@ describe('NowView', () => {
             surface: 'web',
           },
           turn_state: 'waiting_for_input',
+          continuity_summary:
+            'Standup is waiting on question 1 with 0 commitment draft(s) and 0 deferred item(s).',
+          allowed_actions: ['accept', 'defer', 'choose', 'close'],
           current_prompt: {
             prompt_id: 'standup_prompt_1',
             kind: 'commitment_reduction',
@@ -762,6 +829,9 @@ describe('NowView', () => {
               ordinal: 2,
               allow_skip: true,
             },
+            continuity_summary:
+              'Morning overview is waiting on question 2 of 3 with 1 captured signal(s).',
+            allowed_actions: ['accept', 'defer', 'choose', 'close'],
           }
         } else {
           const completedMorning = {
@@ -769,6 +839,8 @@ describe('NowView', () => {
             status: 'completed',
             turn_state: 'completed',
             current_prompt: null,
+            continuity_summary: 'Morning overview continuity is available.',
+            allowed_actions: ['accept', 'choose', 'close'],
             state: {
               ...(morningSession?.state as Record<string, unknown>),
               signals: currentSignals,
@@ -808,6 +880,8 @@ describe('NowView', () => {
           status: 'completed',
           turn_state: 'completed',
           current_prompt: null,
+          continuity_summary: 'Standup continuity is available.',
+          allowed_actions: ['accept', 'choose', 'close'],
           state: {
             phase: 'standup',
             commitments,
@@ -855,11 +929,14 @@ describe('NowView', () => {
 
     expect(screen.getAllByText('Day').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Engaged').length).toBeGreaterThan(0)
-    expect(screen.getByText('Current status')).toBeInTheDocument()
+    expect(screen.getByText('Overview')).toBeInTheDocument()
     expect(screen.getByText('Today')).toBeInTheDocument()
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Reply to Dimitri').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
+    expect(screen.getByText('Visible nudge')).toBeInTheDocument()
+    expect(screen.getAllByText('Review execution handoff for runtime lane').length).toBeGreaterThan(0)
+    expect(screen.getByText('Why + state')).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/ask, capture, or talk to vel/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByText(/more context and controls/i))
@@ -870,7 +947,7 @@ describe('NowView', () => {
     expect(screen.getByText('1 unscheduled')).toBeInTheDocument()
     expect(screen.getByText('Deep work')).toBeInTheDocument()
     expect(screen.getByText('block:focus')).toBeInTheDocument()
-    expect(screen.getByText('Standup check-in')).toBeInTheDocument()
+    expect(screen.getAllByText('Standup check-in').length).toBeGreaterThan(0)
     expect(screen.getByText('Trust and readiness')).toBeInTheDocument()
     expect(screen.getByText('Waiting elsewhere')).toBeInTheDocument()
     expect(screen.getByText('1 waiting for Inbox triage')).toBeInTheDocument()
@@ -879,12 +956,67 @@ describe('NowView', () => {
     expect(screen.getAllByText('Review execution handoff for runtime lane').length).toBeGreaterThan(0)
     expect(screen.getByText('Continue in Threads')).toBeInTheDocument()
     expect(screen.getAllByText('Reflow moved to Threads').length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: /urgent/i })).toBeInTheDocument()
-    expect(screen.getByText(/current commitment: write weekly review\./i)).toBeInTheDocument()
     expect(screen.getByText('Next event')).toBeInTheDocument()
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
+    expect(screen.getByText('1 in play')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start morning/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start standup/i })).toBeInTheDocument()
+  })
+
+  it('shows backend-owned suggestion fallback when no dominant action exists', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            overview: {
+              dominant_action: null,
+              today_timeline: [
+                {
+                  kind: 'now',
+                  title: 'Current time',
+                  timestamp: 1710000000,
+                  detail: null,
+                },
+              ],
+              visible_nudge: null,
+              why_state: [{ label: 'Attention', detail: 'No strong pressure is active.' }],
+              suggestions: [
+                {
+                  id: 'suggest_1',
+                  kind: 'commitment',
+                  title: 'Write weekly review',
+                  summary: 'Continue the next open commitment.',
+                },
+                {
+                  id: 'suggest_2',
+                  kind: 'calendar_event',
+                  title: 'Design review',
+                  summary: 'Review the next calendar anchor before committing new work.',
+                },
+              ],
+              decision_options: ['accept', 'choose', 'thread', 'close'],
+            },
+          }),
+          meta: { request_id: 'req_now_suggestions' },
+        } as never
+      }
+      if (path.startsWith('/v1/daily-loop/sessions/active?')) {
+        return { ok: true, data: null, meta: { request_id: 'req_daily_loop_none' } } as never
+      }
+      throw new Error(`unexpected apiGet path: ${path}`)
+    })
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Choose the next bounded move')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Write weekly review')).toBeInTheDocument()
+    expect(screen.getAllByText('Continue the next open commitment.').length).toBeGreaterThan(0)
+    expect(screen.getByText('accept')).toBeInTheDocument()
+    expect(screen.getByText('thread')).toBeInTheDocument()
   })
 
   it('dedupes duplicate now action suggestions before rendering the compact context panel', async () => {
@@ -1626,19 +1758,17 @@ describe('NowView', () => {
     expect(screen.getByText(/Last applied: Clear stale due time/i)).toBeInTheDocument()
   })
 
-  it('resurfaces only one resumable thread from ranked now action items', async () => {
-    const openThread = vi.fn()
-
-    render(<NowView onOpenThread={openThread} />)
+  it('keeps ranked thread pressure in the compact context lane instead of resurfacing a separate panel', async () => {
+    render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByText(/resume thread/i)).toBeInTheDocument()
+      expect(screen.getByText(/waiting elsewhere/i)).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('button', { name: /open execution thread/i })).toBeInTheDocument()
+    expect(screen.queryByText(/resume thread/i)).not.toBeInTheDocument()
+    expect(screen.getAllByText('Review execution handoff for runtime lane').length).toBeGreaterThan(0)
+    expect(screen.getByText(/need continuity/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /open execution thread/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /open related threads/i })).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /open execution thread/i }))
-    expect(openThread).toHaveBeenCalledWith('thr_exec_1')
   })
 })

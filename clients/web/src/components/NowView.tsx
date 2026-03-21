@@ -37,14 +37,6 @@ interface NowViewProps {
   onOpenSettings?: (target: { tab: 'integrations'; integrationId: SettingsIntegrationTarget }) => void;
 }
 
-interface ResurfacedThreadCandidate {
-  threadId: string;
-  title: string;
-  summary: string;
-  label: string;
-  projectLabel?: string | null;
-}
-
 export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const currentContextKey = useMemo(() => contextQueryKeys.currentContext(), []);
@@ -351,6 +343,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
   const summarizedActionItems = actionItems.slice(0, 3);
   const threadAttentionCount = actionItems.filter((item) => item.thread_route !== null).length
     + (data.reflow_status?.thread_id ? 1 : 0);
+  const overview = data.overview;
   const nowTs = data.computed_at;
   const activeEvent = findActiveEvent(data.schedule.upcoming_events, nowTs);
   const nextScheduledEvent = findNextEvent(data.schedule.upcoming_events, nowTs);
@@ -368,15 +361,6 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     commitmentRows[0] ?? null,
     nextScheduledEvent,
   );
-  const attentionIndicators = buildAttentionIndicators(
-    data,
-    actionItems,
-    threadAttentionCount,
-    nextScheduledEvent,
-    nowTs,
-  );
-  const resurfacedThread = selectResurfacedThreadCandidate(actionItems, data.reflow_status);
-
   const completeCommitment = async (commitmentId: string) => {
     setPendingCommitments((current) => ({ ...current, [commitmentId]: true }));
     setCommitmentMessages((current) => {
@@ -461,21 +445,112 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
         </section>
 
         <Panel
-          title="Current status"
-          subtitle={currentStatus.subtitle}
+          title="Overview"
+          subtitle="Backend-owned orientation decides the primary action, one visible nudge, and the explanation lane."
         >
-          <div className="space-y-3">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
             <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
-                  {currentStatus.kind}
+                  {overview.dominant_action ? 'Dominant action' : 'Suggestions'}
                 </span>
                 <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-500">
                   Updated {formatTime(nowTs, data.timezone)}
                 </span>
               </div>
-              <h2 className="mt-3 text-xl font-medium text-zinc-100">{currentStatus.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">{currentStatus.summary}</p>
+              <h2 className="mt-3 text-xl font-medium text-zinc-100">
+                {overview.dominant_action?.title ?? 'Choose the next bounded move'}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">
+                {overview.dominant_action?.summary
+                  ?? overview.suggestions[0]?.summary
+                  ?? 'No dominant action is active right now.'}
+              </p>
+              {overview.dominant_action ? null : overview.suggestions.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  {overview.suggestions.map((suggestion) => (
+                    <div
+                      key={suggestion.id}
+                      className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3"
+                    >
+                      <p className="text-sm font-medium text-zinc-100">{suggestion.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-zinc-400">{suggestion.summary}</p>
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap gap-2">
+                    {overview.decision_options.map((option) => (
+                      <span
+                        key={option}
+                        className="rounded-full border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400"
+                      >
+                        {option}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {overview.today_timeline.length > 0 ? (
+                <div className="mt-4 border-t border-zinc-800 pt-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Timeline</p>
+                  <div className="mt-3 space-y-2">
+                    {overview.today_timeline.map((entry) => (
+                      <div
+                        key={`${entry.kind}-${entry.timestamp}-${entry.title}`}
+                        className="flex items-start justify-between gap-4 rounded-lg border border-zinc-900 bg-zinc-950/70 px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm text-zinc-100">{entry.title}</p>
+                          {entry.detail ? (
+                            <p className="mt-1 text-xs text-zinc-500">{entry.detail}</p>
+                          ) : null}
+                        </div>
+                        <span className="text-xs text-zinc-500">
+                          {formatTime(entry.timestamp, data.timezone)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-4">
+              {overview.visible_nudge ? (
+                <div className="rounded-xl border border-amber-900/50 bg-amber-950/20 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-amber-200/70">
+                    Visible nudge
+                  </p>
+                  <h3 className="mt-2 text-base font-medium text-amber-100">
+                    {overview.visible_nudge.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-amber-50/85">
+                    {overview.visible_nudge.summary}
+                  </p>
+                </div>
+              ) : null}
+
+              <details className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                <summary className="cursor-pointer list-none text-sm font-medium text-zinc-100">
+                  Why + state
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {overview.why_state.length > 0 ? (
+                    overview.why_state.map((item) => (
+                      <div
+                        key={`${item.label}-${item.detail}`}
+                        className="rounded-lg border border-zinc-900 bg-zinc-950/70 px-3 py-2"
+                      >
+                        <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                          {item.label}
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-200">{item.detail}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <SurfaceState message="No additional explanation is available yet." />
+                  )}
+                </div>
+              </details>
             </div>
           </div>
         </Panel>
@@ -609,56 +684,6 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
             </div>
           </Panel>
         </div>
-
-        {attentionIndicators.length > 0 ? (
-          <div className="mt-6 flex flex-wrap gap-2">
-            {attentionIndicators.map((indicator) => (
-              <button
-                key={indicator.label}
-                type="button"
-                onClick={indicator.onClick}
-                className="rounded-full border border-zinc-800 bg-zinc-900/70 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-600 hover:text-white"
-              >
-                {indicator.label} · {indicator.count}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
-        {resurfacedThread ? (
-          <div className="mt-6">
-            <Panel
-              title="Resume thread"
-              subtitle="Only one thread resurfaces here when it is clearly more relevant than keeping Now clean."
-            >
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
-                    Threads
-                  </span>
-                  {resurfacedThread.projectLabel ? (
-                    <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-emerald-300">
-                      {resurfacedThread.projectLabel}
-                    </span>
-                  ) : null}
-                </div>
-                <h3 className="mt-3 text-base font-medium text-zinc-100">{resurfacedThread.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-300">{resurfacedThread.summary}</p>
-                {onOpenThread ? (
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={() => onOpenThread(resurfacedThread.threadId)}
-                      className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800"
-                    >
-                      {resurfacedThread.label}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </Panel>
-          </div>
-        ) : null}
 
         <details className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
           <summary className="cursor-pointer list-none text-sm font-medium text-zinc-100">
@@ -2016,61 +2041,6 @@ function formatEventSummary(
     return `Now · started ${formatTime(event.start_ts, timezone)}`;
   }
   return formatTime(event.start_ts, timezone);
-}
-
-function buildAttentionIndicators(
-  data: NowData,
-  actionItems: ActionItemData[],
-  threadAttentionCount: number,
-  nextEvent: NowData['schedule']['upcoming_events'][number] | null,
-  nowTs: number,
-) {
-  const indicators: Array<{ label: string; count: number; onClick?: () => void }> = [];
-  if (actionItems.length > 0) {
-    indicators.push({ label: 'Urgent', count: actionItems.length });
-  }
-  if (nextEvent && nextEvent.start_ts - nowTs <= 2 * 60 * 60) {
-    indicators.push({ label: 'Due soon', count: 1 });
-  }
-  if (data.review_snapshot.triage_count > 0) {
-    indicators.push({ label: 'Waiting', count: data.review_snapshot.triage_count });
-  }
-  const staleCount = data.freshness.sources.filter((source) => isDegraded(source.status)).length;
-  if (staleCount > 0 || data.reflow_status) {
-    indicators.push({ label: 'Stale', count: staleCount + (data.reflow_status ? 1 : 0) });
-  }
-  if (threadAttentionCount > 0) {
-    indicators.push({ label: 'Threads', count: threadAttentionCount });
-  }
-  return indicators;
-}
-
-function selectResurfacedThreadCandidate(
-  actionItems: ActionItemData[],
-  reflowStatus: NowData['reflow_status'],
-): ResurfacedThreadCandidate | null {
-  const rankedActionThread = actionItems.find(
-    (item) => item.thread_route?.target === 'existing_thread' && item.thread_route.thread_id,
-  );
-  if (rankedActionThread?.thread_route?.thread_id) {
-    return {
-      threadId: rankedActionThread.thread_route.thread_id,
-      title: rankedActionThread.title,
-      summary: rankedActionThread.summary,
-      label: rankedActionThread.thread_route.label,
-      projectLabel: rankedActionThread.project_label,
-    };
-  }
-  if (reflowStatus?.thread_id) {
-    return {
-      threadId: reflowStatus.thread_id,
-      title: reflowStatus.headline,
-      summary: reflowStatus.detail,
-      label: 'Open reflow thread',
-      projectLabel: null,
-    };
-  }
-  return null;
 }
 
 function hasSourceActivity(data: NowData): boolean {

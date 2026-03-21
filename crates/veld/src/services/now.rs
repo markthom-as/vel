@@ -960,8 +960,9 @@ fn build_visible_nudge(
     dominant_action: Option<&NowOverviewActionOutput>,
 ) -> Option<NowOverviewNudgeOutput> {
     if let Some(item) = action_items.iter().find(|item| {
-        dominant_action.and_then(|current| current.reference_id.as_ref())
-            != Some(&item.id.to_string())
+        item.surface == vel_core::ActionSurface::Now
+            && dominant_action.and_then(|current| current.reference_id.as_ref())
+                != Some(&item.id.to_string())
     }) {
         return Some(NowOverviewNudgeOutput {
             kind: item.kind.to_string(),

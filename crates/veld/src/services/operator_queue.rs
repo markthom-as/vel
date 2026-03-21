@@ -526,7 +526,7 @@ fn build_freshness_items(
     if context_computed_at.is_none() {
         items.push(ActionItem {
             id: ActionItemId::from("act_freshness_context".to_string()),
-            surface: ActionSurface::Inbox,
+            surface: ActionSurface::Now,
             kind: ActionKind::Freshness,
             permission_mode: ActionPermissionMode::UserConfirm,
             scope_affinity: ActionScopeAffinity::Global,
@@ -643,7 +643,7 @@ fn push_integration_alert(
 
     items.push(ActionItem {
         id: ActionItemId::from(format!("act_freshness_{key}")),
-        surface: ActionSurface::Inbox,
+        surface: ActionSurface::Now,
         kind: ActionKind::Freshness,
         permission_mode: ActionPermissionMode::UserConfirm,
         scope_affinity: ActionScopeAffinity::Connector,
