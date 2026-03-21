@@ -6469,6 +6469,43 @@ pub struct NowHeaderData {
     pub buckets: Vec<NowHeaderBucketData>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NowMeshSyncStateData {
+    Synced,
+    Stale,
+    LocalOnly,
+    Offline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NowRepairRouteTargetData {
+    SettingsSync,
+    SettingsLinking,
+    SettingsRecovery,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowRepairRouteData {
+    pub target: NowRepairRouteTargetData,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NowMeshSummaryData {
+    pub authority_node_id: String,
+    pub authority_label: String,
+    pub sync_state: NowMeshSyncStateData,
+    pub linked_node_count: u32,
+    pub queued_write_count: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_sync_at: Option<UnixSeconds>,
+    pub urgent: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repair_route: Option<NowRepairRouteData>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NowStatusRowData {
     pub date_label: String,
@@ -6714,6 +6751,8 @@ pub struct NowData {
     pub timezone: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub header: Option<NowHeaderData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mesh_summary: Option<NowMeshSummaryData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status_row: Option<NowStatusRowData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -524,6 +524,7 @@ mod tests {
                     computed_at: 1_700_000_000,
                     timezone: "America/Denver".to_string(),
                     header: None,
+                    mesh_summary: None,
                     status_row: None,
                     context_line: None,
                     nudge_bars: Vec::new(),

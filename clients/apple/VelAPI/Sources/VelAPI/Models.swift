@@ -590,6 +590,35 @@ public struct NowHeaderData: Codable, Sendable {
     public let buckets: [NowHeaderBucketData]
 }
 
+public enum NowMeshSyncStateData: String, Codable, Sendable {
+    case synced
+    case stale
+    case local_only
+    case offline
+}
+
+public enum NowRepairRouteTargetData: String, Codable, Sendable {
+    case settings_sync
+    case settings_linking
+    case settings_recovery
+}
+
+public struct NowRepairRouteData: Codable, Sendable {
+    public let target: NowRepairRouteTargetData
+    public let summary: String
+}
+
+public struct NowMeshSummaryData: Codable, Sendable {
+    public let authority_node_id: String
+    public let authority_label: String
+    public let sync_state: NowMeshSyncStateData
+    public let linked_node_count: Int
+    public let queued_write_count: Int
+    public let last_sync_at: Int?
+    public let urgent: Bool
+    public let repair_route: NowRepairRouteData?
+}
+
 public struct NowStatusRowData: Codable, Sendable {
     public let date_label: String
     public let time_label: String
@@ -760,6 +789,7 @@ public struct NowData: Codable, Sendable {
     public let computed_at: Int
     public let timezone: String
     public let header: NowHeaderData?
+    public let mesh_summary: NowMeshSummaryData?
     public let status_row: NowStatusRowData?
     public let context_line: NowContextLineData?
     public let nudge_bars: [NowNudgeBarData]?

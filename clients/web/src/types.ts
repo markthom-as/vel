@@ -1460,6 +1460,7 @@ export interface NowData {
   computed_at: UnixSeconds;
   timezone: string;
   header?: NowHeaderData | null;
+  mesh_summary?: NowMeshSummaryData | null;
   status_row?: NowStatusRowData | null;
   context_line?: NowContextLineData | null;
   nudge_bars: NowNudgeBarData[];
@@ -1519,6 +1520,29 @@ export interface NowHeaderBucketData {
 export interface NowHeaderData {
   title: string;
   buckets: NowHeaderBucketData[];
+}
+
+export type NowMeshSyncStateData = 'synced' | 'stale' | 'local_only' | 'offline';
+
+export type NowRepairRouteTargetData =
+  | 'settings_sync'
+  | 'settings_linking'
+  | 'settings_recovery';
+
+export interface NowRepairRouteData {
+  target: NowRepairRouteTargetData;
+  summary: string;
+}
+
+export interface NowMeshSummaryData {
+  authority_node_id: string;
+  authority_label: string;
+  sync_state: NowMeshSyncStateData;
+  linked_node_count: number;
+  queued_write_count: number;
+  last_sync_at?: UnixSeconds | null;
+  urgent: boolean;
+  repair_route?: NowRepairRouteData | null;
 }
 
 export interface NowStatusRowData {
@@ -3728,6 +3752,54 @@ function decodeNowHeaderData(value: unknown): NowHeaderData {
   };
 }
 
+function decodeNowMeshSyncStateData(value: unknown): NowMeshSyncStateData {
+  return expectEnumString(value, 'now mesh sync state', [
+    'synced',
+    'stale',
+    'local_only',
+    'offline',
+  ]);
+}
+
+function decodeNowRepairRouteTargetData(value: unknown): NowRepairRouteTargetData {
+  return expectEnumString(value, 'now repair route target', [
+    'settings_sync',
+    'settings_linking',
+    'settings_recovery',
+  ]);
+}
+
+function decodeNowRepairRouteData(value: unknown): NowRepairRouteData {
+  const record = expectRecord(value, 'now repair route');
+  return {
+    target: decodeNowRepairRouteTargetData(record.target),
+    summary: expectString(record.summary, 'now repair route.summary'),
+  };
+}
+
+function decodeNowMeshSummaryData(value: unknown): NowMeshSummaryData {
+  const record = expectRecord(value, 'now mesh summary');
+  return {
+    authority_node_id: expectString(record.authority_node_id, 'now mesh summary.authority_node_id'),
+    authority_label: expectString(record.authority_label, 'now mesh summary.authority_label'),
+    sync_state: decodeNowMeshSyncStateData(record.sync_state),
+    linked_node_count: expectNumber(record.linked_node_count, 'now mesh summary.linked_node_count'),
+    queued_write_count: expectNumber(
+      record.queued_write_count,
+      'now mesh summary.queued_write_count',
+    ),
+    last_sync_at: expectNullableUnixSeconds(
+      record.last_sync_at ?? null,
+      'now mesh summary.last_sync_at',
+    ),
+    urgent: expectBoolean(record.urgent, 'now mesh summary.urgent'),
+    repair_route:
+      record.repair_route === undefined
+        ? undefined
+        : decodeNullable(record.repair_route, decodeNowRepairRouteData),
+  };
+}
+
 function decodeNowStatusRowData(value: unknown): NowStatusRowData {
   const record = expectRecord(value, 'now status row');
   return {
@@ -3862,6 +3934,10 @@ export function decodeNowData(value: unknown): NowData {
       record.header === undefined
         ? undefined
         : decodeNullable(record.header, decodeNowHeaderData),
+    mesh_summary:
+      record.mesh_summary === undefined
+        ? undefined
+        : decodeNullable(record.mesh_summary, decodeNowMeshSummaryData),
     status_row:
       record.status_row === undefined
         ? undefined

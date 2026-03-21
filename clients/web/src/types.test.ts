@@ -1553,6 +1553,20 @@ describe('transport decoders', () => {
             },
           ],
         },
+        mesh_summary: {
+          authority_node_id: 'vel-desktop',
+          authority_label: 'Vel Desktop',
+          sync_state: 'stale',
+          linked_node_count: 2,
+          queued_write_count: 1,
+          last_sync_at: 1710000000,
+          urgent: true,
+          repair_route: {
+            target: 'settings_recovery',
+            summary:
+              'Sync or queued-write posture needs review before trusting all cross-client state.',
+          },
+        },
         status_row: {
           date_label: 'Thu Mar 20',
           time_label: '9:15 AM',
@@ -2029,6 +2043,20 @@ describe('transport decoders', () => {
             },
           },
         ],
+      },
+      mesh_summary: {
+        authority_node_id: 'vel-desktop',
+        authority_label: 'Vel Desktop',
+        sync_state: 'stale',
+        linked_node_count: 2,
+        queued_write_count: 1,
+        last_sync_at: 1710000000,
+        urgent: true,
+        repair_route: {
+          target: 'settings_recovery',
+          summary:
+            'Sync or queued-write posture needs review before trusting all cross-client state.',
+        },
       },
       status_row: {
         date_label: 'Thu Mar 20',

@@ -11100,6 +11100,8 @@ END:VCALENDAR
         assert_eq!(json["data"]["timezone"], "America/Denver");
         assert_eq!(json["data"]["header"]["title"], "Now");
         assert!(json["data"]["header"]["buckets"].is_array());
+        assert!(json["data"]["mesh_summary"].is_object());
+        assert!(json["data"]["mesh_summary"]["sync_state"].is_string());
         assert!(json["data"]["status_row"]["context_label"].is_string());
         assert!(json["data"]["context_line"]["text"].is_string());
         assert!(json["data"]["nudge_bars"].is_array());

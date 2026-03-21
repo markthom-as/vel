@@ -9,13 +9,14 @@ use vel_core::{
 };
 use vel_storage::{SignalRecord, Storage};
 
-use crate::{errors::AppError, services::integrations};
+use crate::{errors::AppError, services::integrations, state::AppState};
 
 #[derive(Debug, Clone)]
 pub struct NowOutput {
     pub computed_at: i64,
     pub timezone: String,
     pub header: Option<NowHeaderOutput>,
+    pub mesh_summary: Option<NowMeshSummaryOutput>,
     pub status_row: Option<NowStatusRowOutput>,
     pub context_line: Option<NowContextLineOutput>,
     pub nudge_bars: Vec<NowNudgeBarOutput>,
@@ -63,6 +64,24 @@ pub struct NowRiskSummaryOutput {
 pub struct NowHeaderOutput {
     pub title: String,
     pub buckets: Vec<NowHeaderBucketOutput>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowMeshSummaryOutput {
+    pub authority_node_id: String,
+    pub authority_label: String,
+    pub sync_state: String,
+    pub linked_node_count: u32,
+    pub queued_write_count: u32,
+    pub last_sync_at: Option<i64>,
+    pub urgent: bool,
+    pub repair_route: Option<NowRepairRouteOutput>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowRepairRouteOutput {
+    pub target: String,
+    pub summary: String,
 }
 
 #[derive(Debug, Clone)]
@@ -340,6 +359,18 @@ struct NowTaskBuckets {
 }
 
 pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput, AppError> {
+    get_now_internal(storage, config, None).await
+}
+
+pub async fn get_now_with_state(state: &AppState) -> Result<NowOutput, AppError> {
+    get_now_internal(&state.storage, &state.config, Some(state)).await
+}
+
+async fn get_now_internal(
+    storage: &Storage,
+    config: &AppConfig,
+    state: Option<&AppState>,
+) -> Result<NowOutput, AppError> {
     let now = OffsetDateTime::now_utc();
     let now_ts = now.unix_timestamp();
     let timezone = crate::services::timezone::resolve_timezone(storage).await?;
@@ -348,6 +379,15 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
     let apple_behavior_summary =
         crate::services::apple_behavior::get_summary(storage, config).await?;
     let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
+    let mesh_summary = if let Some(state) = state {
+        Some(build_mesh_summary(
+            state,
+            action_queue.pending_writebacks.len() as u32,
+        )
+        .await?)
+    } else {
+        None
+    };
     let planning_profile_summary =
         crate::services::planning_profile::load_planning_profile_proposal_summary(storage).await?;
     let commitment_scheduling_summary =
@@ -361,6 +401,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
             &timezone.name,
             check_in,
             &action_queue,
+            mesh_summary,
             planning_profile_summary,
             commitment_scheduling_summary,
         ));
@@ -498,6 +539,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         check_in.as_ref(),
         reflow.as_ref(),
         &action_queue.action_items,
+        mesh_summary.as_ref(),
     );
     let task_lane = Some(build_task_lane(&task_buckets));
     let docked_input = Some(build_docked_input());
@@ -506,6 +548,7 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         computed_at,
         timezone: timezone.name,
         header,
+        mesh_summary,
         status_row,
         context_line,
         nudge_bars,
@@ -836,6 +879,7 @@ fn empty_now(
     timezone: &str,
     check_in: Option<CheckInCard>,
     action_queue: &crate::services::operator_queue::ActionQueueSnapshot,
+    mesh_summary: Option<NowMeshSummaryOutput>,
     planning_profile_summary: crate::services::planning_profile::PlanningProfileProposalSummary,
     commitment_scheduling_summary:
         crate::services::commitment_scheduling::CommitmentSchedulingProposalSummary,
@@ -870,13 +914,19 @@ fn empty_now(
             &planning_profile_summary,
             &commitment_scheduling_summary,
         )),
+        mesh_summary: mesh_summary.clone(),
         status_row: Some(empty_status_row(now_ts, timezone)),
         context_line: Some(NowContextLineOutput {
             text: "No active context yet. Sync integrations or run evaluate.".to_string(),
             thread_id: None,
             fallback_used: true,
         }),
-        nudge_bars: build_nudge_bars(check_in.as_ref(), None, &action_queue.action_items),
+        nudge_bars: build_nudge_bars(
+            check_in.as_ref(),
+            None,
+            &action_queue.action_items,
+            mesh_summary.as_ref(),
+        ),
         task_lane: Some(NowTaskLaneOutput {
             active: None,
             pending: Vec::new(),
@@ -1101,10 +1151,111 @@ fn build_context_line(
     }
 }
 
+async fn build_mesh_summary(
+    state: &AppState,
+    queued_write_count: u32,
+) -> Result<NowMeshSummaryOutput, AppError> {
+    let bootstrap = crate::services::client_sync::effective_cluster_bootstrap_data(state).await?;
+    let workers = crate::services::client_sync::cluster_workers_data(state).await?;
+
+    let authority_label = if bootstrap.active_authority_node_id == bootstrap.node_id {
+        bootstrap.node_display_name.clone()
+    } else {
+        bootstrap
+            .linked_nodes
+            .iter()
+            .find(|node| node.node_id == bootstrap.active_authority_node_id)
+            .map(|node| node.node_display_name.clone())
+            .unwrap_or_else(|| bootstrap.active_authority_node_id.clone())
+    };
+
+    let linked_node_count = bootstrap.linked_nodes.len() as u32;
+    let any_ready = workers
+        .workers
+        .iter()
+        .any(|worker| worker.status == "ready" || worker.sync_status == "ready");
+    let any_offline = workers
+        .workers
+        .iter()
+        .any(|worker| worker.status == "offline" || worker.sync_status == "offline");
+    let any_stale = workers.workers.iter().any(|worker| {
+        matches!(
+            worker.sync_status.as_str(),
+            "degraded" | "discovered_via_tailscale" | "discovered_via_lan" | "unknown"
+        ) || worker.last_sync_error.is_some()
+    });
+
+    let sync_state = if linked_node_count == 0 && workers.workers.is_empty() {
+        "local_only"
+    } else if any_ready {
+        "synced"
+    } else if any_offline {
+        "offline"
+    } else {
+        "stale"
+    };
+
+    let last_sync_at = workers
+        .workers
+        .iter()
+        .filter_map(|worker| worker.last_upstream_sync_at.max(worker.last_downstream_sync_at))
+        .max()
+        .or_else(|| {
+            bootstrap
+                .linked_nodes
+                .iter()
+                .filter_map(|node| node.last_seen_at.map(|value| value.unix_timestamp()))
+                .max()
+        });
+
+    let linking_needs_review = bootstrap.linked_nodes.iter().any(|node| {
+        !matches!(node.status, vel_core::LinkStatus::Linked)
+    }) || workers
+        .workers
+        .iter()
+        .any(|worker| worker.incoming_linking_prompt.is_some());
+
+    let repair_route = if linking_needs_review {
+        Some(NowRepairRouteOutput {
+            target: "settings_linking".to_string(),
+            summary: "Linking or paired-node trust needs review before relying on cross-client continuity."
+                .to_string(),
+        })
+    } else if sync_state == "offline" {
+        Some(NowRepairRouteOutput {
+            target: "settings_sync".to_string(),
+            summary: "This client is offline or disconnected from the shared authority runtime."
+                .to_string(),
+        })
+    } else if sync_state == "stale" || any_stale || queued_write_count > 0 {
+        Some(NowRepairRouteOutput {
+            target: "settings_recovery".to_string(),
+            summary: "Sync or queued-write posture needs review before trusting all cross-client state."
+                .to_string(),
+        })
+    } else {
+        None
+    };
+
+    let urgent = repair_route.is_some() && (sync_state != "local_only" || queued_write_count > 0);
+
+    Ok(NowMeshSummaryOutput {
+        authority_node_id: bootstrap.active_authority_node_id,
+        authority_label,
+        sync_state: sync_state.to_string(),
+        linked_node_count,
+        queued_write_count,
+        last_sync_at,
+        urgent,
+        repair_route,
+    })
+}
+
 fn build_nudge_bars(
     check_in: Option<&CheckInCard>,
     reflow: Option<&ReflowCard>,
     action_items: &[ActionItem],
+    mesh_summary: Option<&NowMeshSummaryOutput>,
 ) -> Vec<NowNudgeBarOutput> {
     let mut bars = Vec::new();
 
@@ -1146,6 +1297,28 @@ fn build_nudge_bars(
                     label: transition.label.clone(),
                 })
                 .collect(),
+        });
+    }
+
+    if let Some(mesh_summary) = mesh_summary.filter(|summary| summary.urgent) {
+        bars.push(NowNudgeBarOutput {
+            id: "mesh_summary_warning".to_string(),
+            kind: "trust_warning".to_string(),
+            title: format!("{} needs attention", mesh_summary.authority_label),
+            summary: mesh_summary
+                .repair_route
+                .as_ref()
+                .map(|route| route.summary.clone())
+                .unwrap_or_else(|| {
+                    "Cross-client trust posture needs review before relying on current state."
+                        .to_string()
+                }),
+            urgent: true,
+            primary_thread_id: None,
+            actions: vec![NowNudgeActionOutput {
+                kind: "open_settings".to_string(),
+                label: "Open settings".to_string(),
+            }],
         });
     }
 

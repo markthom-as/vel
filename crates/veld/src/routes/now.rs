@@ -6,10 +6,10 @@ use vel_api_types::{
     DayPlanProposalData, NowAttentionData, NowContextLineData, NowCountDisplayModeData, NowData,
     NowDebugData, NowDockedInputData, NowDockedInputIntentData, NowEventData, NowFreshnessData,
     NowFreshnessEntryData, NowHeaderBucketData, NowHeaderBucketKindData, NowHeaderData,
-    NowLabelData, NowNudgeActionData, NowNudgeBarData, NowNudgeBarKindData,
+    NowLabelData, NowMeshSummaryData, NowMeshSyncStateData, NowNudgeActionData, NowNudgeBarData, NowNudgeBarKindData,
     NowOverviewActionData, NowOverviewData, NowOverviewNudgeData, NowOverviewSuggestionData,
-    NowOverviewTimelineEntryData, NowOverviewWhyStateData, NowRiskSummaryData, NowScheduleData,
-    NowSourceActivityData, NowSourcesData, NowStatusRowData, NowSummaryData, NowTaskData,
+    NowOverviewTimelineEntryData, NowOverviewWhyStateData, NowRepairRouteData, NowRepairRouteTargetData,
+    NowRiskSummaryData, NowScheduleData, NowSourceActivityData, NowSourcesData, NowStatusRowData, NowSummaryData, NowTaskData,
     NowTaskKindData, NowTaskLaneData, NowTaskLaneItemData, NowTasksData, NowThreadFilterTargetData,
     PlanningProfileProposalSummaryData, PlanningProfileProposalSummaryItemData, ReflowCardData,
     TrustReadinessData, TrustReadinessFacetData, TrustReadinessReviewData,
@@ -20,7 +20,7 @@ use crate::{errors::AppError, routes::response, services, state::AppState};
 pub async fn get_now(
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<NowData>>, AppError> {
-    let data = services::now::get_now(&state.storage, &state.config).await?;
+    let data = services::now::get_now_with_state(&state).await?;
     Ok(response::success(data.into()))
 }
 
@@ -30,6 +30,7 @@ impl From<services::now::NowOutput> for NowData {
             computed_at: value.computed_at,
             timezone: value.timezone,
             header: value.header.map(Into::into),
+            mesh_summary: value.mesh_summary.map(Into::into),
             status_row: value.status_row.map(Into::into),
             context_line: value.context_line.map(Into::into),
             nudge_bars: value.nudge_bars.into_iter().map(Into::into).collect(),
@@ -78,6 +79,39 @@ impl From<services::now::NowOutput> for NowData {
                 .collect(),
             reasons: value.reasons,
             debug: value.debug.into(),
+        }
+    }
+}
+
+impl From<services::now::NowMeshSummaryOutput> for NowMeshSummaryData {
+    fn from(value: services::now::NowMeshSummaryOutput) -> Self {
+        Self {
+            authority_node_id: value.authority_node_id,
+            authority_label: value.authority_label,
+            sync_state: match value.sync_state.as_str() {
+                "synced" => NowMeshSyncStateData::Synced,
+                "offline" => NowMeshSyncStateData::Offline,
+                "local_only" => NowMeshSyncStateData::LocalOnly,
+                _ => NowMeshSyncStateData::Stale,
+            },
+            linked_node_count: value.linked_node_count,
+            queued_write_count: value.queued_write_count,
+            last_sync_at: value.last_sync_at,
+            urgent: value.urgent,
+            repair_route: value.repair_route.map(Into::into),
+        }
+    }
+}
+
+impl From<services::now::NowRepairRouteOutput> for NowRepairRouteData {
+    fn from(value: services::now::NowRepairRouteOutput) -> Self {
+        Self {
+            target: match value.target.as_str() {
+                "settings_sync" => NowRepairRouteTargetData::SettingsSync,
+                "settings_linking" => NowRepairRouteTargetData::SettingsLinking,
+                _ => NowRepairRouteTargetData::SettingsRecovery,
+            },
+            summary: value.summary,
         }
     }
 }
@@ -553,6 +587,20 @@ mod tests {
                     route_thread_id: Some("thr_check_in_1".to_string()),
                 }],
             }),
+            mesh_summary: Some(services::now::NowMeshSummaryOutput {
+                authority_node_id: "vel-desktop".to_string(),
+                authority_label: "Vel Desktop".to_string(),
+                sync_state: "stale".to_string(),
+                linked_node_count: 2,
+                queued_write_count: 1,
+                last_sync_at: Some(1_700_000_080),
+                urgent: true,
+                repair_route: Some(services::now::NowRepairRouteOutput {
+                    target: "settings_recovery".to_string(),
+                    summary: "Sync or queued-write posture needs review before trusting all cross-client state."
+                        .to_string(),
+                }),
+            }),
             status_row: Some(services::now::NowStatusRowOutput {
                 date_label: "2026-03-21".to_string(),
                 time_label: "09:15".to_string(),
@@ -1022,6 +1070,8 @@ mod tests {
         assert_eq!(json["timezone"], "America/Denver");
         assert_eq!(json["header"]["title"], "Now");
         assert_eq!(json["header"]["buckets"][0]["kind"], "needs_input");
+        assert_eq!(json["mesh_summary"]["sync_state"], "stale");
+        assert_eq!(json["mesh_summary"]["repair_route"]["target"], "settings_recovery");
         assert_eq!(json["status_row"]["context_label"], "Ship patch");
         assert_eq!(json["context_line"]["fallback_used"], true);
         assert_eq!(json["nudge_bars"][0]["kind"], "needs_input");
