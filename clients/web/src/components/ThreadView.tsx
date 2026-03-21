@@ -31,6 +31,10 @@ function capabilityStateLabel(state: string): string {
   return state.replaceAll('_', ' ');
 }
 
+function continuationTokenLabel(value: string): string {
+  return value.replaceAll('_', ' ');
+}
+
 function formatContextValue(value: JsonValue): string {
   if (typeof value === 'string') {
     return value;
@@ -343,11 +347,17 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                   <span className="rounded-full border border-emerald-900/80 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-emerald-200">
                     {capabilityStateLabel(selectedConversation.continuation.continuation.bounded_capability_state)}
                   </span>
+                  <span className="rounded-full border border-zinc-800 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
+                    {continuationTokenLabel(selectedConversation.continuation.continuation.continuation_category)}
+                  </span>
                   {selectedConversation.continuation.lifecycle_stage ? (
                     <span className="rounded-full border border-zinc-800 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
                       {selectedConversation.continuation.lifecycle_stage}
                     </span>
                   ) : null}
+                  <span className="rounded-full border border-zinc-800 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
+                    {continuationTokenLabel(selectedConversation.continuation.continuation.open_target)}
+                  </span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-zinc-300">
                   {selectedConversation.continuation.continuation.escalation_reason}

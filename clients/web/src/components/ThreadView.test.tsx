@@ -523,6 +523,8 @@ describe('ThreadView realtime sync', () => {
               continuation: {
                 escalation_reason:
                   'This assistant proposal became multi-step and remains in Threads for explicit follow-through.',
+                continuation_category: 'needs_input',
+                open_target: 'thread_detail',
                 continuation_context: {
                   source_message_id: 'msg_1',
                   action_item_id: 'act_1',
@@ -562,6 +564,8 @@ describe('ThreadView realtime sync', () => {
     expect(within(thread).getByText('source message id')).toBeInTheDocument()
     expect(within(thread).getByText('msg_1')).toBeInTheDocument()
     expect(within(thread).getByText(/operator confirmation is required/i)).toBeInTheDocument()
+    expect(within(thread).getByText('needs input')).toBeInTheDocument()
+    expect(within(thread).getByText('thread detail')).toBeInTheDocument()
     expect(within(thread).getByText('staged')).toBeInTheDocument()
   })
 })

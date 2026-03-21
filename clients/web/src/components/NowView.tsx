@@ -98,6 +98,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     message: string;
   } | null>(null);
   const [assistantInlineResponse, setAssistantInlineResponse] = useState<AssistantEntryResponse | null>(null);
+  const [assistantEntryThreadId, setAssistantEntryThreadId] = useState<string | null>(null);
   const [recentCompletedDailyLoop, setRecentCompletedDailyLoop] = useState<DailyLoopSessionData | null>(null);
   const [pendingCommitments, setPendingCommitments] = useState<Record<string, true>>({});
   const [commitmentMessages, setCommitmentMessages] = useState<
@@ -282,6 +283,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     invalidateQuery(inboxKey, { refetch: true });
     setAssistantEntryMessage(null);
     setAssistantInlineResponse(null);
+    setAssistantEntryThreadId(response.conversation.id);
 
     if (response.route_target === 'threads') {
       onOpenThread?.(response.conversation.id);
@@ -849,13 +851,26 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
               {assistantEntryMessage.message}
             </p>
           ) : null}
+          {assistantEntryThreadId ? (
+            <button
+              type="button"
+              onClick={() => onOpenThread?.(assistantEntryThreadId)}
+              className="self-start rounded-full border border-zinc-700 bg-zinc-950/80 px-3 py-1.5 text-xs uppercase tracking-[0.16em] text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-100"
+            >
+              Open thread
+            </button>
+          ) : null}
           {assistantInlineResponse?.assistant_message ? (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3 text-sm text-zinc-300">
+            <button
+              type="button"
+              onClick={() => onOpenThread?.(assistantInlineResponse.conversation.id)}
+              className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3 text-left text-sm text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100"
+            >
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Transcript / inline reply</p>
               <p className="mt-1">
                 {extractMessageText(assistantInlineResponse.assistant_message) ?? 'Vel responded inline.'}
               </p>
-            </div>
+            </button>
           ) : null}
           <MessageComposer
             onSent={(_, response) => {

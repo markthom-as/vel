@@ -1770,6 +1770,9 @@ describe('NowView', () => {
       expect(onOpenInbox).toHaveBeenCalledTimes(1)
     })
     expect(onOpenThread).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getAllByRole('button', { name: /open thread/i }).at(-1) as HTMLElement)
+    expect(onOpenThread).toHaveBeenCalledWith('conv_now_1')
   })
 
   it('renders inline assistant replies in Now when the backend returns inline handling', async () => {
@@ -1813,7 +1816,8 @@ describe('NowView', () => {
       meta: { request_id: 'req_now_entry_inline' },
     } as never)
 
-    render(<NowView />)
+    const onOpenThread = vi.fn()
+    render(<NowView onOpenThread={onOpenThread} />)
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/ask, capture, or talk to vel/i)).toBeInTheDocument()
@@ -1828,6 +1832,9 @@ describe('NowView', () => {
       expect(screen.getByText(/handled here in now/i)).toBeInTheDocument()
     })
     expect(screen.getByText(/you are clear until the next meeting\./i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /transcript \/ inline reply/i }))
+    expect(onOpenThread).toHaveBeenCalledWith('conv_now_2')
   })
 
   it('renders the bounded day plan in Now when the backend includes planner output', async () => {
