@@ -33,6 +33,7 @@ If you are using the web shell and need the fastest path to the right help:
 - when backend planning has enough signal, `Now` may also show the compact bounded day plan directly: what is scheduled, what was intentionally deferred, what did not fit, and which routine blocks shaped the result
 - when durable routine blocks are configured, they now shape that compact day plan before inferred fallback logic runs; if no durable routine blocks exist yet, the shell may explicitly say that it is still using inferred fallback
 - when reflow is active, `Now` now shows the compact remaining-day proposal directly: what moved, what no longer fits, and what still needs judgment.
+- when reflow is uncertain because the plan is stale, a fixed anchor slipped, or inputs are weak, Vel should say so explicitly through `needs judgment` or thread-backed continuity. It should not silently invent a repaired schedule.
 - `Settings` is now the summary-first management surface for the durable routine/planning profile itself: inspect saved routine blocks, add or remove bounded planning constraints, then return to `Now` for the compact plan.
 - CLI and Apple now inspect that same backend-owned planning profile too. Treat them as parity readers over one profile, not as separate planning systems.
 - if assistant entry or Apple voice stages a routine/planning edit, treat that as a confirmation-first handoff into `Threads`, not as an already-saved profile change.
@@ -152,6 +153,7 @@ Current shipped behavior:
 - Vel can now do bounded same-day remaining-day recomputation from persisted commitments and calendar events
 - those commitments carry canonical `scheduler_rules` persisted at ingest/update time instead of relying on raw-label parsing at reflow time
 - the proposal can explicitly show work that moved, work that did not fit, and work that still needs judgment
+- if the proposal stays bounded, `Now` can show it inline with review gating; if it becomes ambiguous or needs manual shaping, the backend moves that continuity into `Threads` and `Now` only shows the resulting reflow status
 - compact summary surfaces now also show same-day schedule proposal continuity: whether one bounded plan/reflow change is still pending review or what was last applied/failed
 - the durable routine/planning profile can now be inspected and edited from the web `Settings` surface through typed backend-owned profile mutations rather than hidden generic settings fields
 - longer disagreement or manual shaping still belongs in `Threads`

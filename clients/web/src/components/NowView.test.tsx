@@ -945,6 +945,7 @@ describe('NowView', () => {
     expect(screen.getByText('Day changed')).toBeInTheDocument()
     expect(screen.getByText('1 moved')).toBeInTheDocument()
     expect(screen.getByText('1 unscheduled')).toBeInTheDocument()
+    expect(screen.getByText('1 needs judgment')).toBeInTheDocument()
     expect(screen.getByText('Deep work')).toBeInTheDocument()
     expect(screen.getByText('block:focus')).toBeInTheDocument()
     expect(screen.getAllByText('Standup check-in').length).toBeGreaterThan(0)

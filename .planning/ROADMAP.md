@@ -35,7 +35,7 @@ Do not widen this milestone into:
 
 - [x] **Phase 40: MVP definition, canonical contracts, and architecture refinement** - Freeze the true MVP, define canonical Rust-owned types and business logic, and refine the MVP architecture/docs before UI or migration work widens
 - [x] **Phase 41: Rust-owned overview, commitment flow, and orientation core** - Make `Now`, daily overview, commitment flow, and nudges/orientation fully backend-owned and decision-first
-- [ ] **Phase 42: Explainable same-day reflow** - Finish bounded reflow in Rust with clear proposal state, provenance, and degraded behavior
+- [x] **Phase 42: Explainable same-day reflow** - Finish bounded reflow in Rust with clear proposal state, provenance, and degraded behavior
 - [ ] **Phase 43: Thread continuation, tools, context, and data** - Formalize threads as the bounded continuation substrate for tools, context, memory, and follow-through
 - [ ] **Phase 44: Minimal fresh web and Apple shells** - Rebuild the shipped web and Apple MVP surfaces as thin clients over the canonical Rust core
 - [ ] **Phase 45: Review, MVP verification, and post-MVP roadmap shaping** - Close the loop with review, end-to-end MVP verification, and explicit post-MVP roadmap/deferred scope
@@ -48,7 +48,7 @@ Do not widen this milestone into:
 |-------|--------------|--------|
 | 40. MVP definition, canonical contracts, and architecture refinement | MVP-04, MODEL-01, MODEL-02, MODEL-03, MODEL-04, CORE-01 | Complete |
 | 41. Rust-owned overview, commitment flow, and orientation core | MVP-01, MVP-02, ORIENT-01, ORIENT-02, ORIENT-03 | Complete |
-| 42. Explainable same-day reflow | REFLOW-01, REFLOW-02, REFLOW-03, REFLOW-04 | Planned |
+| 42. Explainable same-day reflow | REFLOW-01, REFLOW-02, REFLOW-03, REFLOW-04 | Complete |
 | 43. Thread continuation, tools, context, and data | THREAD-01, THREAD-02, THREAD-03 | Planned |
 | 44. Minimal fresh web and Apple shells | CORE-02, CORE-03, CLIENT-01, CLIENT-02, CLIENT-03 | Planned |
 | 45. Review, MVP verification, and post-MVP roadmap shaping | MVP-03, REVIEW-01, REVIEW-02, FUTURE-01, FUTURE-02 | Planned |
@@ -116,10 +116,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 42-01-PLAN.md — Tighten reflow contracts, proposal state, and provenance requirements
-- [ ] 42-02-PLAN.md — Implement the bounded Rust-owned same-day reflow engine
-- [ ] 42-03-PLAN.md — Add thread escalation and review-gated handling for ambiguous reflow cases
-- [ ] 42-04-PLAN.md — Verify explainability, supervision, and degraded-state behavior for reflow
+- [x] 42-01-PLAN.md — Tighten reflow contracts, proposal state, and provenance requirements
+- [x] 42-02-PLAN.md — Implement the bounded Rust-owned same-day reflow engine
+- [x] 42-03-PLAN.md — Add thread escalation and review-gated handling for ambiguous reflow cases
+- [x] 42-04-PLAN.md — Verify explainability, supervision, and degraded-state behavior for reflow
 
 ### Phase 43: Thread continuation, tools, context, and data
 

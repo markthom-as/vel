@@ -11213,6 +11213,65 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn now_endpoint_surfaces_degraded_reflow_state_explicitly() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now - (60 * 60),
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now - (60 * 60),
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    global_risk_level: "high".to_string(),
+                    attention_state: "stale".to_string(),
+                    attention_reasons: vec!["Current plan is stale and may no longer be trustworthy.".to_string()],
+                    ..CurrentContextV1::default()
+                }),
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["data"]["reflow"]["trigger"], "stale_schedule");
+        assert_eq!(json["data"]["reflow"]["severity"], "high");
+        assert_eq!(json["data"]["reflow"]["proposal"]["needs_judgment_count"], 1);
+        assert_eq!(
+            json["data"]["reflow"]["proposal"]["changes"][0]["kind"],
+            "needs_judgment"
+        );
+        assert!(json["data"]["reflow_status"].is_null());
+    }
+
+    #[tokio::test]
     async fn now_endpoint_prioritizes_urgent_todoist_tasks() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
