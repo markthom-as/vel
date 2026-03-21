@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var nudges: [VelAPI.NudgeData] = []
     @State private var commitments: [VelAPI.CommitmentData] = []
     @State private var context: VelAPI.CurrentContextData?
+    @State private var cachedNow: VelAPI.NowData?
     @State private var projects: [VelAPI.ProjectRecordData] = []
     @State private var linkedNodes: [VelAPI.LinkedNodeData] = []
     @State private var captureText = ""
@@ -17,38 +18,61 @@ struct ContentView: View {
         NavigationSplitView {
             List {
                 Section("Now") {
-                    Text("VelMac stays summary-first. Use this shell for the same MVP loop as web: `Now`, `Inbox`, `Threads`, secondary `Projects`, and support-only `Settings`.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Label(store.isReachable ? "Connected" : "Offline cache", systemImage: store.isReachable ? "checkmark.circle" : "wifi.slash")
-                    Text("Role: \(appEnvironment.featureCapabilities.roleLabel)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let authority = store.authorityLabel {
-                        Text("Authority: \(authority)")
+                    Text(cachedNow?.header?.title ?? "Vel Now")
+                    if let buckets = cachedNow?.header?.buckets, !buckets.isEmpty {
+                        Text(buckets.map { "\(macNowBucketLabel($0.kind)) \($0.count)" }.joined(separator: " · "))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    if let transport = store.activeTransport {
-                        Text("Transport: \(transport)")
+                    if let statusRow = cachedNow?.status_row {
+                        Text("\(statusRow.date_label) · \(statusRow.time_label)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(statusRow.context_label)
+                        Text(statusRow.elapsed_label)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    if let baseURL = store.activeBaseURL {
-                        Text(baseURL)
+                    if let contextLine = cachedNow?.context_line {
+                        Text(contextLine.text)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let meshSummary = cachedNow?.mesh_summary {
+                        Text("\(meshSummary.authority_label) · \(macNowMeshStateLabel(meshSummary.sync_state))")
+                            .font(.caption)
+                            .foregroundStyle(meshSummary.urgent ? .orange : .secondary)
+                        Text("\(meshSummary.linked_node_count) linked · \(meshSummary.queued_write_count) queued")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        if let repairRoute = meshSummary.repair_route {
+                            Text(repairRoute.summary)
+                                .font(.caption2)
+                                .foregroundStyle(meshSummary.urgent ? .orange : .secondary)
+                        }
+                    } else {
+                        Label(store.isReachable ? "Connected" : "Offline cache", systemImage: store.isReachable ? "checkmark.circle" : "wifi.slash")
+                    }
+                    if let firstBar = cachedNow?.nudge_bars?.first {
+                        Text(firstBar.title)
+                            .font(.caption)
+                        Text(firstBar.summary)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
-                    if store.pendingActionCount > 0 {
-                        Text("Pending actions: \(store.pendingActionCount)")
+                    if let activeTask = cachedNow?.task_lane?.active {
+                        Text("Active: \(activeTask.text)")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                        if let project = activeTask.project {
+                            Text(project)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     if let message = store.errorMessage, !message.isEmpty {
                         Text(message)
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
-                    }
-                    if let ctx = context?.context {
-                        if let mode = ctx.mode { Text("Mode: \(mode)") }
-                        if let state = ctx.morning_state { Text("Morning: \(state)") }
-                        if let meds = ctx.meds_status { Text("Meds: \(meds)") }
                     }
                     quickEntrySection
                 }
@@ -101,9 +125,14 @@ struct ContentView: View {
                     }
                 }
                 Section("Threads") {
-                    Text("Threads stay the continuity lane on Apple too. This shell only summarizes continuity state; it does not invent a second live queue or local product logic.")
+                    Text("Threads stay the continuity lane on Apple too. Mac should summarize shared continuation and trust state here without inventing separate product logic.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let firstBar = cachedNow?.nudge_bars?.first(where: { $0.primary_thread_id != nil }) {
+                        Text("Open target: \(firstBar.primary_thread_id ?? "thread-backed")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Text("Linked nodes: \(linkedNodes.count)")
                     if let firstLinkedNode = linkedNodes.first {
                         Text("First linked node: \(firstLinkedNode.node_display_name)")
@@ -167,17 +196,23 @@ struct ContentView: View {
             nudges = store.offlineStore.cachedNudgesApplyingPendingActions()
             commitments = store.offlineStore.cachedCommitmentsApplyingPendingActions()
             context = store.offlineStore.cachedContext()
+            cachedNow = store.offlineStore.cachedNow()
             projects = store.offlineStore.cachedProjects()
             linkedNodes = store.offlineStore.cachedLinkedNodes()
             store.pendingActionCount = store.offlineStore.pendingActionCount()
         }
         do {
             let bootstrap = try await store.client.syncBootstrap()
+            let now = try? await store.client.now()
             store.offlineStore.hydrate(from: bootstrap)
+            if let now {
+                store.offlineStore.saveCachedNow(now)
+            }
             await MainActor.run {
                 nudges = bootstrap.nudges
                 commitments = bootstrap.commitments
                 context = bootstrap.current_context
+                cachedNow = now ?? store.offlineStore.cachedNow()
                 projects = store.offlineStore.cachedProjects()
                 linkedNodes = store.offlineStore.cachedLinkedNodes()
                 store.pendingActionCount = store.offlineStore.pendingActionCount()
@@ -189,6 +224,7 @@ struct ContentView: View {
                 nudges = store.offlineStore.cachedNudgesApplyingPendingActions()
                 commitments = store.offlineStore.cachedCommitmentsApplyingPendingActions()
                 context = store.offlineStore.cachedContext()
+                cachedNow = store.offlineStore.cachedNow()
                 projects = store.offlineStore.cachedProjects()
                 linkedNodes = store.offlineStore.cachedLinkedNodes()
                 store.pendingActionCount = store.offlineStore.pendingActionCount()
@@ -274,6 +310,40 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+private func macNowBucketLabel(_ kind: VelAPI.NowHeaderBucketKindData) -> String {
+    switch kind {
+    case .threads_by_type:
+        return "Threads"
+    case .needs_input:
+        return "Needs input"
+    case .new_nudges:
+        return "Nudges"
+    case .search_filter:
+        return "Filter"
+    case .snoozed:
+        return "Snoozed"
+    case .review_apply:
+        return "Review"
+    case .reflow:
+        return "Reflow"
+    case .follow_up:
+        return "Follow up"
+    }
+}
+
+private func macNowMeshStateLabel(_ state: VelAPI.NowMeshSyncStateData) -> String {
+    switch state {
+    case .synced:
+        return "Synced"
+    case .stale:
+        return "Stale"
+    case .local_only:
+        return "Local only"
+    case .offline:
+        return "Offline"
     }
 }
 
