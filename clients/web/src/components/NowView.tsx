@@ -292,7 +292,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
         status: 'success',
         message: 'Saved to Inbox for follow-up.',
       });
-      onOpenInbox?.();
+        onOpenInbox?.();
       return;
     }
     setAssistantInlineResponse(response);
@@ -305,8 +305,8 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     }
     setAssistantEntryMessage({
       status: 'success',
-      message: 'Handled here in Now.',
-    });
+        message: 'Handled here in Now.',
+      });
   };
 
   if (loading) {
@@ -1010,7 +1010,7 @@ function DayPlanCardView({
           </span>
         ) : inferredRoutineCount > 0 ? (
           <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
-            inferred fallback
+            inferred routine blocks
           </span>
         ) : null}
       </div>
@@ -1033,7 +1033,7 @@ function DayPlanCardView({
           <p className="mt-1 text-xs leading-5 text-zinc-400">
             {operatorDeclaredRoutineCount > 0
               ? 'These operator-managed blocks are shaping today from the durable planning profile before any recovery logic runs.'
-              : 'These routine blocks are still inferred from current context and will be replaced once durable routines are configured in Settings.'}
+              : 'These routine blocks are backend-inferred from current context until durable routines are configured in Settings.'}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {dayPlan.routine_blocks.slice(0, 3).map((block) => (

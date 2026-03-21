@@ -31,7 +31,7 @@ If you are using the web shell and need the fastest path to the right help:
 - freshness, sync, trust, review pressure, and debug posture live behind secondary controls instead of dominating the default `Now` view.
 - `Now` may still surface inline `check_in` prompts, summary trust warnings, and same-day reflow proposals when the current plan is no longer trustworthy.
 - when backend planning has enough signal, `Now` may also show the compact bounded day plan directly: what is scheduled, what was intentionally deferred, what did not fit, and which routine blocks shaped the result
-- when durable routine blocks are configured, they now shape that compact day plan before inferred fallback logic runs; if no durable routine blocks exist yet, the shell may explicitly say that it is still using inferred fallback
+- when durable routine blocks are configured, they now shape that compact day plan before any recovery logic runs; if no durable routine blocks exist yet, `Now` should label the backend result as using inferred routine blocks rather than implying local planner fallback
 - when reflow is active, `Now` now shows the compact remaining-day proposal directly: what moved, what no longer fits, and what still needs judgment.
 - when reflow is uncertain because the plan is stale, a fixed anchor slipped, or inputs are weak, Vel should say so explicitly through `needs judgment` or thread-backed continuity. It should not silently invent a repaired schedule.
 - `Settings` is now the summary-first management surface for the durable routine/planning profile itself: inspect saved routine blocks, add or remove bounded planning constraints, then return to `Now` for the compact plan.
@@ -149,7 +149,7 @@ Current shipped behavior:
 - the backend-owned idea of “today” now extends past midnight until the sleep-relative rollover boundary is crossed, so current-day ordering should not fragment late-night work into a fake new day
 - the current day-plan output can explicitly show what was scheduled, deferred, did not fit, and still needs judgment
 - the proposal also carries the routine blocks the backend used while shaping the day
-- those routine blocks now come from durable operator-managed records when configured, with inferred fallback only when no durable blocks exist
+- those routine blocks now come from durable operator-managed records when configured, with backend-inferred routine blocks only when no durable blocks exist
 - bounded planning constraints can now influence default time-window preference, calendar buffers, and overflow handling
 - Vel can now do bounded same-day remaining-day recomputation from persisted commitments and calendar events
 - those commitments carry canonical `scheduler_rules` persisted at ingest/update time instead of relying on raw-label parsing at reflow time

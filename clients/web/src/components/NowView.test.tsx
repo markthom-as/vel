@@ -1697,9 +1697,9 @@ describe('NowView', () => {
 
     expect(screen.getByText(/2 scheduled/i)).toBeInTheDocument()
     expect(screen.getByText(/1 deferred/i)).toBeInTheDocument()
-    expect(screen.getByText(/inferred fallback/i)).toBeInTheDocument()
+    expect(screen.getByText(/inferred routine blocks/i)).toBeInTheDocument()
     expect(screen.getAllByText(/morning routine/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/still inferred from current context/i)).toBeInTheDocument()
+    expect(screen.getByText(/backend-inferred from current context/i)).toBeInTheDocument()
     expect(screen.getByText(/backlog cleanup is marked for local defer/i)).toBeInTheDocument()
   })
 
