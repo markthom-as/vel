@@ -403,6 +403,29 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     }
   };
 
+  const handleHeaderBucketRoute = (bucket: NonNullable<NowData['header']>['buckets'][number]) => {
+    if (bucket.route_target.thread_id) {
+      onOpenThread?.(bucket.route_target.thread_id);
+    }
+  };
+
+  const handleNowBarAction = (
+    bar: NowData['nudge_bars'][number],
+    action: NowData['nudge_bars'][number]['actions'][number],
+  ) => {
+    if ((action.kind === 'open_thread' || action.kind === 'expand') && bar.primary_thread_id) {
+      onOpenThread?.(bar.primary_thread_id);
+      return;
+    }
+    if (action.kind === 'open_settings') {
+      onOpenSettings?.({ tab: 'runtime' });
+      return;
+    }
+    if (action.kind === 'open_inbox') {
+      onOpenInbox?.();
+    }
+  };
+
   return (
     <div className="flex min-h-full flex-col bg-zinc-950">
       <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-32 sm:px-6">
@@ -421,11 +444,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
                   <button
                     key={bucket.kind}
                     type="button"
-                    onClick={() => {
-                      if (bucket.route_target.thread_id) {
-                        onOpenThread?.(bucket.route_target.thread_id);
-                      }
-                    }}
+                    onClick={() => handleHeaderBucketRoute(bucket)}
                     className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
                       bucket.urgent
                         ? 'border-amber-700/60 bg-amber-950/30 text-amber-100'
@@ -519,11 +538,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
                         <button
                           key={`${bar.id}-${action.kind}-${action.label}`}
                           type="button"
-                          onClick={() => {
-                            if ((action.kind === 'open_thread' || action.kind === 'expand') && bar.primary_thread_id) {
-                              onOpenThread?.(bar.primary_thread_id);
-                            }
-                          }}
+                          onClick={() => handleNowBarAction(bar, action)}
                           className="rounded-full border border-zinc-700 bg-zinc-950/80 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
                         >
                           {action.label}
@@ -554,6 +569,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
                     emphasis="active"
                     pending={Boolean(pendingCommitments[taskLane.active.id])}
                     feedback={commitmentMessages[taskLane.active.id]}
+                    onOpenThread={taskLane.active.primary_thread_id ? () => onOpenThread?.(taskLane.active!.primary_thread_id!) : undefined}
                     onComplete={
                       commitmentRows.some((task) => task.id === taskLane.active?.id)
                         ? () => void completeCommitment(taskLane.active!.id)
@@ -567,6 +583,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
                     item={item}
                     pending={Boolean(pendingCommitments[item.id])}
                     feedback={commitmentMessages[item.id]}
+                    onOpenThread={item.primary_thread_id ? () => onOpenThread?.(item.primary_thread_id!) : undefined}
                     onComplete={
                       commitmentRows.some((task) => task.id === item.id)
                         ? () => void completeCommitment(item.id)
@@ -575,7 +592,12 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
                   />
                 ))}
                 {taskLane.recent_completed.map((item) => (
-                  <CompactTaskLaneRow key={item.id} item={item} emphasis="completed" />
+                  <CompactTaskLaneRow
+                    key={item.id}
+                    item={item}
+                    emphasis="completed"
+                    onOpenThread={item.primary_thread_id ? () => onOpenThread?.(item.primary_thread_id!) : undefined}
+                  />
                 ))}
                 {!taskLane.active && taskLane.pending.length === 0 && taskLane.recent_completed.length === 0 ? (
                   <SurfaceState message="No current tasks are surfaced right now." />
@@ -1030,6 +1052,7 @@ function CompactTaskLaneRow({
   emphasis = 'default',
   pending = false,
   feedback,
+  onOpenThread,
   onComplete,
 }: {
   item: NonNullable<NowData['task_lane']>['active'] extends infer T
@@ -1038,6 +1061,7 @@ function CompactTaskLaneRow({
   emphasis?: 'active' | 'default' | 'completed';
   pending?: boolean;
   feedback?: { status: 'success' | 'error'; message: string };
+  onOpenThread?: () => void;
   onComplete?: () => void;
 }) {
   const completed = emphasis === 'completed' || item.state === 'completed';
@@ -1087,6 +1111,15 @@ function CompactTaskLaneRow({
             <p className={`mt-2 text-xs ${feedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
               {feedback.message}
             </p>
+          ) : null}
+          {onOpenThread ? (
+            <button
+              type="button"
+              onClick={onOpenThread}
+              className="mt-2 rounded-full border border-zinc-700 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-100"
+            >
+              Open thread
+            </button>
           ) : null}
         </div>
       </div>

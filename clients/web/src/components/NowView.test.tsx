@@ -1087,6 +1087,27 @@ describe('NowView', () => {
     expect(screen.getByRole('button', { name: /start standup/i })).toBeInTheDocument()
   })
 
+  it('routes compact header, nudge, and task actions through thread and settings handlers', async () => {
+    const onOpenThread = vi.fn()
+    const onOpenSettings = vi.fn()
+
+    render(<NowView onOpenThread={onOpenThread} onOpenSettings={onOpenSettings} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /needs input/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /needs input/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /continue in threads/i })[0] as HTMLElement)
+    fireEvent.click(screen.getByRole('button', { name: /open settings/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open thread/i }))
+
+    expect(onOpenThread).toHaveBeenNthCalledWith(1, 'thr_check_in_1')
+    expect(onOpenThread).toHaveBeenNthCalledWith(2, 'thr_check_in_1')
+    expect(onOpenSettings).toHaveBeenCalledWith({ tab: 'runtime' })
+    expect(onOpenThread).toHaveBeenLastCalledWith('thr_exec_1')
+  })
+
   it('renders compact thread-backed reflow status without resurfacing the reflow card', async () => {
     vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
       if (path === '/v1/now') {
