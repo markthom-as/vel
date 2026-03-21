@@ -33,6 +33,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - one canonical task, nudge, thread, and day model feeding `Now`
 - docked capture and voice entry with thread artifact continuity everywhere practical
 - client mesh, linking, sync/offline visibility, and connection recovery that help clients join the same runtime cleanly
+- governed `Now` config, deterministic ranking, and approval posture defined in the same Rust-owned product-core lane
 
 ## Requirements
 
@@ -81,6 +82,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - [ ] publish and enforce the canonical `Now` surface contract
 - [ ] move `Now` behavior into platform-portable Rust core and shared transport contracts
 - [ ] adopt one canonical task/day/thread model for `Now` and thread routing
+- [ ] define the supporting subsystem inventory for ranking, intent routing, approval policy, and governed config before implementation widens
 - [ ] ship cross-platform `Now` parity across web, iPhone, iPad, Mac, and reduced watch
 - [ ] make clients mesh and help operators connect/link clients to the same authority runtime
 - [ ] surface offline/sync state, queued writes, and connection recovery consistently across clients

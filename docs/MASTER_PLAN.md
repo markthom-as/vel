@@ -17,7 +17,7 @@
 
 Milestone `v0.2` is now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md). Active roadmap work now lives in milestone `v0.3` in [`.planning/ROADMAP.md`](/home/jove/code/vel/.planning/ROADMAP.md), starting at Phase 46.
 
-Durable product authority for the shipped MVP starts with `docs/product/mvp-operator-loop.md`, and durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`.
+Durable product authority for the shipped MVP starts with `docs/product/mvp-operator-loop.md`, while post-`v0.2` `Now` behavior is now governed by `docs/product/now-surface-canonical-contract.md`. Durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md` and `docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md`.
 
 ---
 

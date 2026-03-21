@@ -14,6 +14,7 @@ The goal of `v0.3` is to:
 - publish and enforce one cross-platform `Now` contract
 - move `Now` semantics into platform-portable Rust core and shared transport
 - converge on one canonical task, thread, day, and nudge model for `Now`
+- explicitly assign ranking, intent routing, approval policy, and governed config support lanes before implementation spreads
 - help clients connect to and recover connection with the same authority runtime
 - ship parity across web, iPhone, iPad, Mac, and reduced watch
 
@@ -68,6 +69,7 @@ Do not widen this milestone into:
 2. Surface-boundary docs now point to the canonical Now contract instead of stale MVP-only shell assumptions.
 3. The milestone scope is narrow enough to prevent shell-local drift and broad product widening.
 4. The supporting subsystems needed for the canonical `Now` behavior are explicitly inventoried and assigned to downstream phases before implementation starts.
+5. The checked-in contract packet is explicitly reconciled against the full local source contract in `/home/jove/Downloads/vel-now-surface-contract-codex-final.md`.
 **Plans:** 4 plans
 
 ### Phase 47: Rust-owned Now core models and transport seam
@@ -78,7 +80,7 @@ Do not widen this milestone into:
 **Success Criteria:**
 1. Shared Rust-owned DTOs and service outputs exist for header, status row, one-liner, nudge bars, task list, and docked input routing.
 2. Canonical task/day/thread/nudge semantics no longer depend on web or Apple local policy.
-3. Thread filter categories and `Now` escalation markers are shared transport, not shell invention.
+3. Thread filter categories, intent taxonomy, and `Now` escalation markers are shared transport, not shell invention.
 **Plans:** 4 plans
 
 ### Phase 48: Client mesh, linking, sync, and recovery authority
@@ -89,7 +91,7 @@ Do not widen this milestone into:
 **Success Criteria:**
 1. Clients can understand and present the same authority endpoint, sync state, and queued-write posture.
 2. Guided linking and recovery no longer rely on platform-specific guesswork.
-3. Governing config for `Now` title/display/count policies and mesh state is versioned and Rust-owned.
+3. Governing config for `Now` title/display/count policies, approval posture, and mesh state is versioned and Rust-owned.
 **Plans:** 4 plans
 
 ### Phase 49: Web canonical Now embodiment

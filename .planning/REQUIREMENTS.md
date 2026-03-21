@@ -15,6 +15,7 @@ v0.3 is only complete if all of these are true:
 - [ ] `Now` behaves as one canonical surface across web, iPhone, iPad, Mac, and reduced watch
 - [ ] all `Now` product semantics are backed by platform-portable Rust core and shared transport
 - [ ] client shells do not define their own task, nudge, thread, or day behavior for `Now`
+- [ ] ranking, intent routing, approval posture, and governed config are owned by shared subsystem contracts instead of shell-local policy
 - [ ] operators can understand and recover client connection state across surfaces
 - [ ] clients can link to the same authority runtime without platform-specific guesswork
 - [ ] offline/sync/queued-write behavior is visible and consistent across clients
