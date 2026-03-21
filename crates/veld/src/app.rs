@@ -7819,6 +7819,97 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn chat_list_conversations_surfaces_thread_continuation_metadata() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let conversation = storage
+            .create_conversation(vel_storage::ConversationInsert {
+                id: "conv_threaded".to_string(),
+                title: Some("Proposal thread".to_string()),
+                kind: "general".to_string(),
+                pinned: false,
+                archived: false,
+            })
+            .await
+            .unwrap();
+        storage
+            .insert_thread(
+                "thr_assistant_proposal_msg_1",
+                "assistant_proposal",
+                "Send the review reply",
+                "open",
+                &serde_json::json!({
+                    "source_message_id": "msg_1",
+                    "conversation_id": conversation.id.to_string(),
+                    "proposal_state": "staged",
+                    "permission_mode": "user_confirm",
+                    "lineage": {
+                        "source_message_id": "msg_1",
+                        "conversation_id": conversation.id.to_string(),
+                        "action_item_id": "act_1"
+                    }
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+        storage
+            .insert_thread_link(
+                "thr_assistant_proposal_msg_1",
+                "conversation",
+                conversation.id.as_ref(),
+                "continues",
+            )
+            .await
+            .unwrap();
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/conversations")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let conversations = json["data"].as_array().unwrap();
+        assert_eq!(conversations.len(), 1);
+        assert_eq!(
+            conversations[0]["continuation"]["thread_id"].as_str(),
+            Some("thr_assistant_proposal_msg_1")
+        );
+        assert_eq!(
+            conversations[0]["continuation"]["continuation"]["bounded_capability_state"]
+                .as_str(),
+            Some("proposal_review_gated")
+        );
+        assert_eq!(
+            conversations[0]["continuation"]["continuation"]["continuation_context"]
+                ["source_message_id"]
+                .as_str(),
+            Some("msg_1")
+        );
+        assert_eq!(
+            conversations[0]["continuation"]["continuation"]["review_requirements"][0]
+                .as_str(),
+            Some("Operator confirmation is required before the proposal can be applied.")
+        );
+    }
+
+    #[tokio::test]
     async fn chat_get_conversation_404() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

@@ -39,6 +39,7 @@ If you are using the web shell and need the fastest path to the right help:
 - if assistant entry or Apple voice stages a routine/planning edit, treat that as a confirmation-first handoff into `Threads`, not as an already-saved profile change.
 - thread continuity on `Now` should stay sparse. Queue pressure and follow-through can appear in the compact context lane, but `Now` should not grow a second thread inbox or local thread-ranking surface.
 - `Threads` itself should read like a continuity surface, not a chat inbox: resume longer follow-through there, keep triage in `Inbox`, and keep `Now` focused on the current day.
+- when a thread carries bounded continuation, expect the detail header to show why it escalated, a small context pack, the remaining review gate, and the bounded capability posture. That metadata comes from the backend; the shell should not invent or widen it.
 - `Inbox` is the explicit decision queue. Clear or snooze items there before you open longer conversation history.
 - the web sidebar should now behave like a thin rail, not a second information column. Use it to move between surfaces; ignore it once you are working.
 - `Settings` is the deeper surface for Todoist, linking, writeback trust, Apple/local-source setup guidance, and summary recovery posture.
@@ -199,6 +200,13 @@ Current limit:
 - proposal-thread reversal only records Vel-side proposal continuity unless the underlying write lane already has a real undo/reversal story,
 - `Threads` is the place to inspect that continuity; it is not a second hidden execution system,
 - recall quality is still bounded by the current local hybrid retrieval baseline and the persisted records Vel has actually ingested.
+
+In practice, treat `Threads` as the inspectable continuation record for bounded follow-through:
+
+- the escalation reason should explain why the work left `Now` or `Inbox`
+- the continuation context should stay compact and provenance-backed rather than becoming a second planner
+- review/apply requirements should stay explicit until the normal operator lane resolves them
+- bounded capability posture should make clear what Vel can still do in that thread without implying ambient access
 
 Good uses:
 
