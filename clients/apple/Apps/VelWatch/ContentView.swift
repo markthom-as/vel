@@ -12,7 +12,7 @@ struct ContentView: View {
 
         List {
             Section("Now") {
-                Text("Apple Watch stays summary-first. Show immediate context here; deeper setup stays on iPhone or Mac.")
+                Text("Apple Watch is the reduced `Now` lane: top status, top nudge, current task, quick capture, and compact thread handoff.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Text(store.message)
@@ -88,9 +88,34 @@ struct ContentView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+                if store.topActionTitle != nil || store.activeNudgeID != nil {
+                    Text("Continue deeper follow-through on iPhone or Mac.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
                 Button("Refresh") {
                     Task { await store.refresh() }
                 }
+            }
+            Section("Thread handoff") {
+                if let actionTitle = store.topActionTitle, !actionTitle.isEmpty {
+                    Text(actionTitle)
+                        .font(.caption)
+                        .lineLimit(3)
+                } else {
+                    Text("No thread-backed follow-through is active.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let lastActionStatus = store.lastActionStatus, !lastActionStatus.isEmpty {
+                    Text(lastActionStatus)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
+                Text("Use iPhone or Mac when the work stops being compact.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             Section("Advisories") {
                 if let headline = store.behaviorHeadline, !headline.isEmpty {
@@ -120,7 +145,7 @@ struct ContentView: View {
                 }
             }
 
-            Section("Quick entry") {
+            Section("Voice and capture") {
                 Button("Meds taken") {
                     Task {
                         await store.createCapture(
@@ -158,7 +183,7 @@ struct ContentView: View {
                 .disabled(captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
 
-            Section("Commitments") {
+            Section("Current task") {
                 TextField("Add task", text: $commitmentText)
 
                 Button("Add task") {

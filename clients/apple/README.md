@@ -18,7 +18,7 @@ Product-mode authority for summary-first disclosure:
 - **VelAPI** — Swift package (shared): HTTP client and models for the veld API.
 - **VelAppleModules** — shared Apple scaffold package for domain/application/infrastructure/platform/capability seams.
 - **VeliOS** — iPhone/iPad: compact canonical `Now`, triage-first `Inbox`, continuity-first `Threads`, secondary `Projects`, and advanced `Settings`, plus quick-entry capture + voice sheets, multimodal capture (photo + note + optional voice transcript), backend-owned Apple voice replies, offline cache + queued actions.
-- **VelWatch** — Apple Watch: summary-first `Now` lane from `/v1/now`, bounded advisories and inbox actions, quick capture/check-in/task entry, and cached fallback.
+- **VelWatch** — Apple Watch: reduced canonical `Now` lane from `/v1/now`, bounded advisories and inbox actions, quick capture/check-in/task entry, reduced thread response with handoff to phone/Mac, and cached fallback.
 - **VelMac** — macOS: summary-first `Now`, explicit `Inbox` triage, compact `Threads` continuity summary, secondary `Projects`, support-only `Settings`, quick entry as a shell-native wrapper over backend routes, offline cache + queued actions (sidebar layout), plus local activity/health/messages/reminders snapshot export into Vel’s Application Support tree.
 
 ## Product surface hierarchy
@@ -225,6 +225,7 @@ Cross-surface parity note:
 - Apple voice keeps its typed quick-loop route at `/v1/apple/voice/turn` for compatibility, but supported backend-handled turns now preserve the same shared thread continuity substrate
 - Apple `Settings` and Mac summary surfaces now read the same backend-owned planning profile that web `Settings` manages; that parity is inspect-only in this phase and should not be treated as a second planner
 - Apple `Now` and quick-loop surfaces should keep thread resurfacing equally bounded: one clearly relevant resumable thread is acceptable, but the main Apple surface should not become a thread inbox
+- watch follows the same rule in reduced form: show the top thread-backed follow-through cue, then hand the operator off to iPhone or Mac once the work stops being compact
 - in both cases, shells own permissions, push-to-talk, local STT/TTS, and offline presentation, while the backend owns transcript provenance, daily-loop authority, and continuity routing
 - current platform limit: browser voice depends on browser STT availability, and full Apple app-target validation still requires Xcode/macOS even though `make check-apple-swift` validates the shared Swift package on Linux
 - current closeout limit: Apple still inherits the compact `Now` contract rather than a paginated schedule browser or contextual-help system; deeper setup/help routing continues to live in docs and the daemon-backed setup surfaces
