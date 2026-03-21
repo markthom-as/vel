@@ -108,8 +108,21 @@ Header must surface:
 - sync/offline state
 - last sync timestamp when offline
 - queued local-write count when non-zero
+- compact recovery-route target when the current client is disconnected, mismatched, or otherwise not trustworthy
 
 Tapping the sync/offline indicator opens settings or sync details.
+
+`Now` only owns the compact trust signal.
+
+It does not own:
+
+- endpoint editing
+- linked-node management
+- pairing / unpairing flow
+- transport troubleshooting detail
+- detailed conflict resolution UI
+
+Those deeper flows belong to support surfaces, primarily `Settings`.
 
 # Top Status Row
 
@@ -439,6 +452,13 @@ Confirmation remains policy-based:
 - offline writes may include task create/complete, thread response, and supported local actions
 - queued writes are inspectable through the sync/offline affordance
 - failed actions are inspectable and retryable
+- urgent mesh or authority problems may surface as warning/action bars when they affect immediate trust or action
+
+Repair-route rule in v1:
+
+- `Now` may point to a typed repair route
+- `Now` does not embed the detailed repair workflow locally
+- support surfaces own the full recovery and linking flow
 
 Conflict policy in v1:
 
@@ -518,6 +538,13 @@ Config must be:
 - UI-editable
 - user-editable in structured form
 - versioned
+
+Governed `Now` config in v1 includes:
+
+- title/display policy
+- count-display policy
+- reduced-watch behavior knobs needed for fast iteration
+- repair and approval posture only where the shared contract already defines them
 
 The preferred operator mental model is governed state with version-control-like review and history.
 

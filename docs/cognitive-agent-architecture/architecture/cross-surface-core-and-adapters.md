@@ -242,6 +242,7 @@ Shells should consume:
 - explicit capability summaries and review state where needed
 - the active `v0.2` contracts for overview, commitments, reflow, threads, and review
 - the post-`v0.2` canonical `Now` contract for title, count-display, ranking, continuity, sync, and approval semantics
+- typed repair-route and mesh-summary inputs when setup or recovery posture affects the current-day surface
 
 ## What Shells Should Not Own
 
@@ -255,7 +256,27 @@ Shells should not own:
 - integration conflict rules
 - ad hoc parallel versions of the same read model semantics
 - local approval or config policies for `Now`
+- local connection, repair-route, or sync-trust policy for `Now`
 - shell-only watch behavior rules when the same contract can be consumed portably
+
+## Compact Now Versus Support Surfaces
+
+The post-`v0.2` canonical `Now` surface only owns compact trust and recovery visibility:
+
+- sync posture
+- queued-write pressure
+- compact recovery route targets
+- urgent mesh warnings that affect immediate action
+
+Support surfaces still own the deeper workflows:
+
+- endpoint selection
+- linked-node management
+- pairing and unpairing
+- transport troubleshooting
+- detailed recovery and conflict resolution
+
+That split is product-core policy and must stay in Rust-owned lanes even when different shells present it differently.
 
 # Apple, Web, CLI, And Future Desktop
 

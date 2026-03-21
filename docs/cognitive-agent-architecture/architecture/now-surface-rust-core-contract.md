@@ -179,11 +179,19 @@ Rust-owned layers own the authoritative state model for:
 - sync health
 - stale/local-only/synced distinctions
 - offline write queue summary
+- compact recovery-route target
+- authority mismatch or disconnected posture suitable for header and warning-bar rendering
 - inspectable failed actions and retry posture
 - merge/conflict posture when state returns from another client
 - latest-user-input versus merge rules for different state classes
 
 Shells may present transport diagnostics, but they do not define conflict rules.
+
+The compact `Now` contract is intentionally narrower than support surfaces:
+
+- `Now` consumes mesh state needed for immediate trust or action
+- support surfaces consume the deeper linking, endpoint, and recovery workflow state
+- the split between those two lanes is also Rust-owned policy, not shell convention
 
 ## 9. Ranking and approval contract
 
@@ -192,6 +200,7 @@ Rust-owned layers own:
 - the deterministic-enough ranking model that avoids UI thrash for the same effective input state
 - approval policy surfaces for task, metadata, nudge, and config mutation proposals
 - batch-confirmable versus per-action confirmation posture where product policy allows it
+- governed config for title/count/watch behavior and other fast-evolving `Now` knobs once the boundary is stable
 
 Shells may ask for confirmation, but they do not define the approval model locally.
 
@@ -231,6 +240,7 @@ That means Rust-owned layers must also provide the shared state and policy neede
 - client connection status
 - linking and recovery summaries
 - safe endpoint selection hints
+- typed repair-route targets that `Now` and support surfaces can both consume
 - multi-client continuity markers shown in `Now` or support surfaces
 - watch-safe consumption of the same mesh summary and governed config knobs
 
