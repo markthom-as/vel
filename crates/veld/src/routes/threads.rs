@@ -8,7 +8,7 @@ use axum::{
 use serde_json::Value;
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest,
+    ApiResponse, ThreadContinuationData, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest,
     ThreadUpdateRequest,
 };
 
@@ -59,6 +59,7 @@ fn thread_data_from_summary(
         lifecycle_stage,
         created_at,
         updated_at,
+        continuation: None,
         metadata: None,
         links: None,
     }
@@ -76,6 +77,7 @@ fn thread_data_from_row(
 ) -> ThreadData {
     let (id, thread_type, title, status, metadata_json, created_at, updated_at) = row;
     let metadata = parse_thread_metadata(&metadata_json);
+    let continuation = thread_continuation_data(&thread_type, &metadata);
     let (planning_kind, lifecycle_stage) = if thread_type == "assistant_proposal"
         || thread_type == "planning_profile_edit"
         || thread_type == "reflow_edit"
@@ -94,8 +96,113 @@ fn thread_data_from_row(
         lifecycle_stage,
         created_at,
         updated_at,
+        continuation,
         metadata,
         links,
+    }
+}
+
+fn string_field(metadata: &Value, key: &str) -> Option<String> {
+    metadata
+        .get(key)
+        .and_then(Value::as_str)
+        .map(ToString::to_string)
+}
+
+fn bool_field(metadata: &Value, key: &str) -> Option<bool> {
+    metadata.get(key).and_then(Value::as_bool)
+}
+
+fn thread_continuation_data(
+    thread_type: &str,
+    metadata: &Option<Value>,
+) -> Option<ThreadContinuationData> {
+    let metadata = metadata.as_ref()?;
+
+    match thread_type {
+        "assistant_proposal" => {
+            let mut review_requirements = Vec::new();
+            if string_field(metadata, "permission_mode").as_deref() == Some("user_confirm") {
+                review_requirements.push(
+                    "Operator confirmation is required before the proposal can be applied."
+                        .to_string(),
+                );
+            }
+            if matches!(
+                string_field(metadata, "proposal_state").as_deref(),
+                Some("staged" | "approved")
+            ) {
+                review_requirements.push(
+                    "The proposal stays review-gated until it is explicitly applied, dismissed, or reversed through an existing operator lane."
+                        .to_string(),
+                );
+            }
+            Some(ThreadContinuationData {
+                escalation_reason:
+                    "This assistant proposal became multi-step and remains in Threads for explicit follow-through."
+                        .to_string(),
+                continuation_context: metadata
+                    .get("lineage")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Object(Default::default())),
+                review_requirements,
+                bounded_capability_state: "proposal_review_gated".to_string(),
+            })
+        }
+        "planning_profile_edit" => {
+            let mut review_requirements = Vec::new();
+            if bool_field(metadata, "requires_confirmation").unwrap_or(false) {
+                review_requirements.push(
+                    "Planning-profile edits require explicit approval before the backend saves them."
+                        .to_string(),
+                );
+            }
+            Some(ThreadContinuationData {
+                escalation_reason:
+                    "This planning-profile change remains in Threads until the bounded edit is approved or rejected."
+                        .to_string(),
+                continuation_context: metadata
+                    .get("lineage")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Object(Default::default())),
+                review_requirements,
+                bounded_capability_state: "planning_profile_review_gated".to_string(),
+            })
+        }
+        "reflow_edit" | "day_plan_apply" => {
+            let mut review_requirements = Vec::new();
+            if matches!(
+                string_field(metadata, "proposal_state").as_deref(),
+                Some("staged" | "approved")
+            ) {
+                review_requirements.push(
+                    "Schedule changes remain review-gated until the bounded proposal is explicitly applied."
+                        .to_string(),
+                );
+            }
+            let mut continuation_context = serde_json::Map::new();
+            for key in ["source", "trigger", "severity", "summary", "context_computed_at"] {
+                if let Some(value) = metadata.get(key).cloned() {
+                    continuation_context.insert(key.to_string(), value);
+                }
+            }
+            if let Some(value) = metadata.get("preview_lines").cloned() {
+                continuation_context.insert("preview_lines".to_string(), value);
+            }
+            Some(ThreadContinuationData {
+                escalation_reason: if thread_type == "reflow_edit" {
+                    "This reflow needs bounded manual shaping or explicit review in Threads."
+                        .to_string()
+                } else {
+                    "This day-plan change remains in Threads until the bounded proposal is reviewed."
+                        .to_string()
+                },
+                continuation_context: Value::Object(continuation_context),
+                review_requirements,
+                bounded_capability_state: "schedule_review_gated".to_string(),
+            })
+        }
+        _ => None,
     }
 }
 
@@ -281,8 +388,15 @@ mod tests {
                 "Send reply".to_string(),
                 "resolved".to_string(),
                 json!({
+                    "source_message_id": "msg_1",
+                    "conversation_id": "conv_1",
                     "proposal_state": "applied",
-                    "applied_via": "intervention_resolve"
+                    "applied_via": "intervention_resolve",
+                    "lineage": {
+                        "source_message_id": "msg_1",
+                        "conversation_id": "conv_1",
+                        "action_item_id": "act_1"
+                    }
                 })
                 .to_string(),
                 1,
@@ -296,6 +410,20 @@ mod tests {
             data.metadata.as_ref().unwrap()["applied_via"],
             "intervention_resolve"
         );
+        assert_eq!(
+            data.continuation
+                .as_ref()
+                .expect("continuation")
+                .bounded_capability_state,
+            "proposal_review_gated"
+        );
+        assert_eq!(
+            data.continuation
+                .as_ref()
+                .and_then(|value| value.continuation_context.get("source_message_id"))
+                .and_then(Value::as_str),
+            Some("msg_1")
+        );
     }
 
     #[test]
@@ -307,8 +435,13 @@ mod tests {
                 "Add shutdown block".to_string(),
                 "resolved".to_string(),
                 json!({
-                    "proposal_state": "applied",
-                    "applied_via": "planning_profile_apply"
+                "proposal_state": "applied",
+                "applied_via": "planning_profile_apply",
+                "requires_confirmation": true,
+                "lineage": {
+                    "source_message_id": "msg_2",
+                    "source_surface": "assistant"
+                }
                 })
                 .to_string(),
                 1,
@@ -322,6 +455,13 @@ mod tests {
             data.metadata.as_ref().unwrap()["applied_via"],
             "planning_profile_apply"
         );
+        assert_eq!(
+            data.continuation
+                .as_ref()
+                .expect("continuation")
+                .review_requirements[0],
+            "Planning-profile edits require explicit approval before the backend saves them."
+        );
     }
 
     #[test]
@@ -333,6 +473,12 @@ mod tests {
                 "Reflow edit".to_string(),
                 "resolved".to_string(),
                 json!({
+                    "source": "reflow",
+                    "trigger": "missed_event",
+                    "severity": "critical",
+                    "summary": "A scheduled event appears to have slipped past without the plan being updated.",
+                    "context_computed_at": 123,
+                    "preview_lines": ["Next scheduled event started 20 minutes ago."],
                     "proposal_state": "applied",
                     "applied_via": "commitment_scheduling_apply"
                 })
@@ -347,6 +493,20 @@ mod tests {
         assert_eq!(
             data.metadata.as_ref().unwrap()["applied_via"],
             "commitment_scheduling_apply"
+        );
+        assert_eq!(
+            data.continuation
+                .as_ref()
+                .expect("continuation")
+                .escalation_reason,
+            "This reflow needs bounded manual shaping or explicit review in Threads."
+        );
+        assert_eq!(
+            data.continuation
+                .as_ref()
+                .and_then(|value| value.continuation_context.get("trigger"))
+                .and_then(Value::as_str),
+            Some("missed_event")
         );
     }
 }
@@ -410,6 +570,10 @@ pub async fn create_thread(
         now,
     );
     let data = ThreadData {
+        continuation: payload
+            .metadata_json
+            .as_ref()
+            .and_then(|metadata| thread_continuation_data(&data.thread_type, &Some(metadata.clone()))),
         metadata: payload.metadata_json,
         ..data
     };

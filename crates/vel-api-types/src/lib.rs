@@ -6609,9 +6609,20 @@ pub struct ThreadData {
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<ThreadContinuationData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<JsonValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Vec<ThreadLinkData>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ThreadContinuationData {
+    pub escalation_reason: String,
+    pub continuation_context: JsonValue,
+    #[serde(default)]
+    pub review_requirements: Vec<String>,
+    pub bounded_capability_state: String,
 }
 
 /// Thread link (entity linked to a thread).

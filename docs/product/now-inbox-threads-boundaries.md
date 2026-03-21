@@ -127,6 +127,7 @@ It should contain:
 - rich interaction records
 - search and filtering across conversation/work streams
 - entry into subordinate or related subfeeds when needed
+- explicit escalation reason, continuation context, and remaining review gate for bounded MVP follow-through
 
 Default posture:
 
@@ -145,6 +146,7 @@ Rule of thumb:
 - It should be powerful on desktop in particular.
 - `Now` and `Inbox` may deep-link into specific thread messages or filtered thread views when attention is needed, without making `Threads` itself the main triage surface.
 - Those deep links should come from typed backend routing hints where possible, especially for project-scoped actions.
+- thread detail should expose why the work escalated, what bounded context came with it, and what review/apply gate still exists, rather than forcing the shell to infer continuation semantics from raw message history alone.
 
 Escalation rule:
 

@@ -167,6 +167,7 @@ Reflow decisions should remain explainable from commitments, persisted context, 
 - `escalation_reason`
 - `continuation_context`
 - `review_requirements`
+- `bounded_capability_state`
 
 ## Rules
 
@@ -177,6 +178,13 @@ Escalation happens only when at least two of the following are true:
 - the work needs tool or context work
 
 Threads are not a second inbox and not a generic chat product.
+
+The transport detail for an escalated thread should preserve:
+
+- why the work moved into `Threads`
+- the bounded context pack that came with it
+- what review/apply gate still exists
+- the bounded capability posture instead of implying ambient access
 
 ## Degraded behavior
 
