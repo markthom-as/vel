@@ -2,6 +2,8 @@
 
 Vel is strongest when used as a repeated local loop, not as a one-shot assistant.
 
+The shipped MVP loop is one bounded path: `overview -> commitments -> reflow -> threads -> review`.
+
 For the architecture proof that this workflow is backend-owned across CLI, web, and Apple, see [cross-surface proof flows](../cognitive-agent-architecture/architecture/cross-surface-proof-flows.md).
 
 ## Morning
