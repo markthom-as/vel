@@ -284,18 +284,28 @@ impl LlmProvider for LlamaCppProvider {
             .as_deref()
             .unwrap_or(&[])
             .iter()
-            .filter_map(|tc| {
+            .map(|tc| {
                 let id = tc.id.clone().unwrap_or_default();
-                let name = tc.function.as_ref()?.name.clone().unwrap_or_default();
-                let args_str = tc.function.as_ref()?.arguments.clone().unwrap_or_default();
-                let arguments = serde_json::from_str(&args_str).unwrap_or(serde_json::Value::Null);
-                Some(ToolCall {
+                let func = tc.function.as_ref().ok_or_else(|| {
+                    LlmError::Provider(ProviderError::Protocol(
+                        "tool_call missing function field".into(),
+                    ))
+                })?;
+                let name = func.name.clone().unwrap_or_default();
+                let args_str = func.arguments.clone().unwrap_or_default();
+                let arguments = serde_json::from_str(&args_str).map_err(|e| {
+                    LlmError::Provider(ProviderError::Protocol(format!(
+                        "tool_call '{}' has invalid JSON arguments: {}",
+                        name, e
+                    )))
+                })?;
+                Ok(ToolCall {
                     id,
                     name,
                     arguments,
                 })
             })
-            .collect();
+            .collect::<Result<Vec<_>, LlmError>>()?;
 
         let usage = parsed
             .usage
@@ -390,6 +400,123 @@ mod tests {
     use super::*;
     use crate::LlmError;
     use crate::ProviderError;
+
+    use crate::types::{Message, ResponseFormat, ToolSpec};
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    async fn make_provider(base_url: &str) -> LlamaCppProvider {
+        LlamaCppProvider::new(LlamaCppConfig {
+            base_url: base_url.to_string(),
+            model_id: "test-model".to_string(),
+            supports_tools: true,
+            supports_json: true,
+            context_window: None,
+        })
+    }
+
+    fn minimal_request() -> LlmRequest {
+        LlmRequest {
+            system: String::new(),
+            messages: vec![Message {
+                role: "user".to_string(),
+                content: "hello".to_string(),
+            }],
+            tools: vec![],
+            response_format: ResponseFormat::Text,
+            model_profile: "test".to_string(),
+            temperature: 0.0,
+            max_output_tokens: 64,
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    fn chat_response_with_tool_call(tool_name: &str, args_json: &str) -> serde_json::Value {
+        serde_json::json!({
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": null,
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {
+                            "name": tool_name,
+                            "arguments": args_json
+                        }
+                    }]
+                },
+                "finish_reason": "tool_calls"
+            }],
+            "usage": { "prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15 }
+        })
+    }
+
+    #[tokio::test]
+    async fn tool_call_with_valid_json_arguments_is_parsed() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/chat/completions"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(chat_response_with_tool_call(
+                    "vel_get_now",
+                    r#"{"tz":"UTC"}"#,
+                )),
+            )
+            .mount(&server)
+            .await;
+
+        let provider = make_provider(&format!("{}/v1", server.uri())).await;
+        let mut req = minimal_request();
+        req.tools = vec![ToolSpec {
+            name: "vel_get_now".to_string(),
+            description: "Get now".to_string(),
+            schema: serde_json::json!({}),
+        }];
+
+        let resp = provider.generate(&req).await.unwrap();
+        assert_eq!(resp.tool_calls.len(), 1);
+        assert_eq!(resp.tool_calls[0].name, "vel_get_now");
+        assert_eq!(resp.tool_calls[0].arguments["tz"], "UTC");
+    }
+
+    #[tokio::test]
+    async fn tool_call_with_malformed_json_arguments_returns_protocol_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/chat/completions"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(chat_response_with_tool_call(
+                    "vel_search",
+                    r#"{"q": broken json"#,
+                )),
+            )
+            .mount(&server)
+            .await;
+
+        let provider = make_provider(&format!("{}/v1", server.uri())).await;
+        let mut req = minimal_request();
+        req.tools = vec![ToolSpec {
+            name: "vel_search".to_string(),
+            description: "Search".to_string(),
+            schema: serde_json::json!({}),
+        }];
+
+        let err = provider.generate(&req).await.unwrap_err();
+        match err {
+            LlmError::Provider(ProviderError::Protocol(msg)) => {
+                assert!(
+                    msg.contains("vel_search"),
+                    "expected tool name in error: {msg}"
+                );
+                assert!(
+                    msg.contains("invalid JSON"),
+                    "expected 'invalid JSON' in: {msg}"
+                );
+            }
+            other => panic!("expected Protocol error, got: {:?}", other),
+        }
+    }
 
     #[tokio::test]
     async fn health_returns_transport_error_when_server_unreachable() {
