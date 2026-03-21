@@ -52,8 +52,8 @@ Do not widen this milestone into:
 |-------|--------------|--------|
 | 46. Canonical Now contract, boundaries, and milestone lock | NOW-01 | Complete |
 | 47. Rust-owned Now core models and transport seam | NOW-02, NOW-04, CORE-01, CORE-02, CORE-03, TASK-01, THREAD-01 | Complete |
-| 48. Client mesh, linking, sync, and recovery authority | CORE-04, MESH-01, MESH-02, MESH-04, SYNC-01, SYNC-02 | Active |
-| 49. Web canonical Now embodiment | NOW-03, PARITY-01, TASK-02, THREAD-02 | Planned |
+| 48. Client mesh, linking, sync, and recovery authority | CORE-04, MESH-01, MESH-02, MESH-04, SYNC-01, SYNC-02 | Complete |
+| 49. Web canonical Now embodiment | NOW-03, PARITY-01, TASK-02, THREAD-02 | Active |
 | 50. Apple parity and reduced watch embodiment | MESH-03, PARITY-02, PARITY-03, PARITY-04, SYNC-03 | Planned |
 | 51. Cross-platform verification and closeout | milestone verification and reconciliation | Planned |
 
@@ -128,4 +128,4 @@ Do not widen this milestone into:
 **Plans:** 3 plans
 
 ---
-*Last updated: 2026-03-21 for milestone v0.3 canonical Now surface and client mesh planning*
+*Last updated: 2026-03-21 after Phase 48 closeout*

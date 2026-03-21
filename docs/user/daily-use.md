@@ -33,6 +33,7 @@ If you are using the web shell and need the fastest path to the right help:
 - `Now` should stay commitment-first after orientation: active or chosen commitments remain primary, pullable tasks stay visually secondary, and routine blocks do not pollute the upcoming-event slot.
 - `next event` should mean the next future relevant calendar event only. Routine blocks, all-day noise, free/transparent holds, declined events, and cancelled events should not win that slot.
 - freshness, sync, trust, review pressure, and debug posture live behind secondary controls instead of dominating the default `Now` view.
+- `Now` now also carries a compact shared mesh summary from the backend: authority label, sync posture, queued-write count, and an explicit repair route when cross-client trust needs help. Treat that as compact trust state only; use `Settings` for the actual repair workflow.
 - `Now` may still surface inline `check_in` prompts, summary trust warnings, and same-day reflow proposals when the current plan is no longer trustworthy.
 - when backend planning has enough signal, `Now` may also show the compact bounded day plan directly: what is scheduled, what was intentionally deferred, what did not fit, and which routine blocks shaped the result
 - when durable routine blocks are configured, they now shape that compact day plan before any recovery logic runs; if no durable routine blocks exist yet, `Now` should label the backend result as using inferred routine blocks rather than implying local planner fallback

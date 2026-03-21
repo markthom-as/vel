@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: canonical now surface and client mesh
-current_phase: 48
-current_phase_name: client-mesh-linking-sync-and-recovery-authority
+current_phase: 49
+current_phase_name: web-canonical-now-embodiment
 current_plan: milestone_roadmap
 status: ready_for_phase_execution
-stopped_at: Completed Phase 48 discussion and planning; next logical step is execute plan 48-01
-last_updated: "2026-03-21T21:55:00Z"
+stopped_at: Completed Phase 48 execution and verification; next logical step is discuss/plan Phase 49
+last_updated: "2026-03-22T00:10:00Z"
 last_activity: 2026-03-21
 progress:
   total_phases: 51
-  completed_phases: 47
+  completed_phases: 48
   total_plans: 207
-  completed_plans: 189
-  percent: 90
+  completed_plans: 193
+  percent: 93
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 48 — Client mesh, linking, sync, and recovery authority
+**Current focus:** Phase 49 — Web canonical Now embodiment
 
-Status: Phase 47 is complete; Phase 48 is next
-Current Phase: 48
-Current Phase Name: client-mesh-linking-sync-and-recovery-authority
+Status: Phase 48 is complete; Phase 49 is next
+Current Phase: 49
+Current Phase Name: web-canonical-now-embodiment
 Current Plan: milestone_roadmap
 Total Plans in Phase: 4
-Progress: 90%
+Progress: 93%
 Last Activity: 2026-03-21
-Last Activity Description: Planned Phase 48 around shared mesh authority, sync posture, repair routes, and governed Now config
+Last Activity Description: Completed Phase 48 around shared mesh authority, sync posture, repair routes, and governed Now config
 
 ## Current Position
 
-Phase: 48 (client-mesh-linking-sync-and-recovery-authority) — READY FOR EXECUTION
-Plan: execute 48-01 through 48-04
+Phase: 49 (web-canonical-now-embodiment) — READY FOR EXECUTION
+Plan: discuss/plan/execute the canonical web `Now` embodiment over the shared Rust-owned seam
 
 ## Performance Metrics
 
