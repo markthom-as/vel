@@ -47,6 +47,8 @@ The active MVP loop is:
 
 Web and Apple consume these contracts as thin shells. They do not redefine the loop locally.
 
+For post-`v0.2` `Now` work, these loop contracts must remain aligned with the stricter `Now` surface contract and its Rust-core ownership rule rather than acting as a second authority.
+
 Every contract below must remain:
 
 - current-day only
@@ -187,6 +189,7 @@ The transport detail for an escalated thread should preserve:
 - the bounded context pack that came with it
 - what review/apply gate still exists
 - the bounded capability posture instead of implying ambient access
+- the stable continuation category and metadata filters that let `Now` icon buckets and compact status chips route into the same filtered `Threads` views
 
 ## Degraded behavior
 
@@ -243,3 +246,4 @@ They may not:
 - move `Now` product semantics into shell-local fallback rules when those semantics are now covered by the canonical `Now` surface contract and its Rust-core implementation rule
 - invent shell-owned prioritization logic
 - widen degraded states into silent local heuristics
+- invent separate approval or config-mutation rules for `Now` behaviors already governed by the canonical `Now` contract

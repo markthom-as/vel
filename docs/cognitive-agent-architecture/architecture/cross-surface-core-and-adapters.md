@@ -202,6 +202,7 @@ That means:
 - CLI is a client shell
 - future desktop is a client shell
 - Rust owns durable product semantics, policy, and orchestration truth
+- governed `Now` config and approval posture stay in the same Rust-owned lane as the rest of the product semantics
 
 # Current-State To Target-State Mapping
 
@@ -240,6 +241,7 @@ Shells should consume:
 - typed transport DTOs at the boundary
 - explicit capability summaries and review state where needed
 - the active `v0.2` contracts for overview, commitments, reflow, threads, and review
+- the post-`v0.2` canonical `Now` contract for title, count-display, ranking, continuity, sync, and approval semantics
 
 ## What Shells Should Not Own
 
@@ -252,6 +254,8 @@ Shells should not own:
 - capability decisions
 - integration conflict rules
 - ad hoc parallel versions of the same read model semantics
+- local approval or config policies for `Now`
+- shell-only watch behavior rules when the same contract can be consumed portably
 
 # Apple, Web, CLI, And Future Desktop
 

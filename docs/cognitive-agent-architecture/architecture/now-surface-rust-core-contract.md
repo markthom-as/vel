@@ -41,6 +41,7 @@ That includes:
 
 - title and display metadata resolution
 - icon-bar bucket definitions and counts
+- count-display policy and urgency-trigger inputs
 - sync/offline status and queued-write counts
 - context resolution
 - context one-liner generation and deterministic fallback
@@ -48,7 +49,10 @@ That includes:
 - canonical task selection and ranking
 - thread open priority and thread filter categories
 - docked-input routing outcomes
+- docked-input intent taxonomy and multi-artifact linkage
 - day-object boundary logic
+- confirmation and approval boundaries where actions or config may mutate durable state
+- governed config for fast-evolving `Now` and watch behavior
 - offline merge and stale-state markers where they affect the `Now` contract
 
 Shells must not re-derive these semantics from raw state.
@@ -62,6 +66,7 @@ Rust-owned contract must provide:
 - resolved display title or the inputs needed to resolve it deterministically
 - icon-bar buckets
 - per-bucket counts
+- count-display mode
 - urgency markers
 - sync/offline summary
 - queued-write count
@@ -85,6 +90,7 @@ Rust-owned layers own:
 - deterministic fallback summarizer
 - update triggers
 - thread target selection priority
+- neutral fallback behavior when normal summary generation fails
 
 The fallback summarizer must not live only in a single shell.
 
@@ -98,6 +104,7 @@ Rust-owned layers own:
 - action set
 - snooze presets
 - lifecycle state
+- future-compatible ordering fields such as `priority_rank` or `display_rank`
 - resurface and escalation metadata
 
 Clients preserve order and render allowed actions; they do not invent local ranking.
@@ -114,6 +121,7 @@ Rust-owned layers must converge on one portable task model that supports:
 - project/container metadata
 - timing and overrun markers
 - reversible completion posture
+- provisional-state and conflict markers when exact and inferred activity disagree
 
 `Now` must stop depending on shell-local distinctions between commitments, tasks, and nearby work.
 
@@ -122,9 +130,11 @@ Rust-owned layers must converge on one portable task model that supports:
 Rust-owned layers own:
 
 - intent classification
+- the closed v1 public intent taxonomy and its extension posture
 - capture/request/routing result
 - required thread artifact creation
 - associated thread linkage
+- optional multi-thread or multi-artifact linkage when that is the correct continuity model
 - inline versus thread versus inbox outcome
 
 Voice and text parity rules belong in shared product logic even when microphone APIs are shell-owned.
@@ -135,7 +145,9 @@ Rust-owned layers own:
 
 - `day` identity and boundary rules
 - `primary_thread_id` linking
+- canonical `day thread` and `raw capture` continuity lanes
 - thread category filters
+- metadata filter surfaces used by `Threads` views
 - open-target priority
 - continuation status chips that remain visible on `Now`
 
@@ -146,9 +158,21 @@ Rust-owned layers own the authoritative state model for:
 - sync health
 - stale/local-only/synced distinctions
 - offline write queue summary
+- inspectable failed actions and retry posture
 - merge/conflict posture when state returns from another client
+- latest-user-input versus merge rules for different state classes
 
 Shells may present transport diagnostics, but they do not define conflict rules.
+
+## 9. Ranking and approval contract
+
+Rust-owned layers own:
+
+- the deterministic-enough ranking model that avoids UI thrash for the same effective input state
+- approval policy surfaces for task, metadata, nudge, and config mutation proposals
+- batch-confirmable versus per-action confirmation posture where product policy allows it
+
+Shells may ask for confirmation, but they do not define the approval model locally.
 
 # Platform-Portability Rule
 
@@ -162,6 +186,8 @@ If a `Now` behavior cannot be consumed by:
 
 through one shared Rust-owned contract, then it is not implemented at the correct layer yet.
 
+Reduced watch is part of that same rule. Watch density may differ, but it still consumes the same governed title, sync, nudge, task, thread, and approval semantics.
+
 # Anti-Patterns
 
 The following are explicitly disallowed:
@@ -171,6 +197,8 @@ The following are explicitly disallowed:
 - shell-only task ranking or current-task resolution
 - shell-specific snooze semantics
 - shell-specific day-boundary logic
+- shell-local confirmation or approval policies for durable `Now` actions
+- shell-local governed-config semantics for title/count/watch behavior
 - shell-local connection/linking rules that affect `Now` truth
 
 # Client Mesh Rule
@@ -183,5 +211,6 @@ That means Rust-owned layers must also provide the shared state and policy neede
 - linking and recovery summaries
 - safe endpoint selection hints
 - multi-client continuity markers shown in `Now` or support surfaces
+- watch-safe consumption of the same mesh summary and governed config knobs
 
 Client-mesh onboarding may have shell-native presentation, but the connection and continuity model must remain shared and portable.
