@@ -12,19 +12,19 @@ import UIKit
 #endif
 
 private enum VeliOSTab: Hashable {
-    case today
-    case nudges
-    case activity
+    case now
+    case inbox
+    case threads
     case projects
     case settings
 }
 
 private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
     case now
-    case planning
+    case inbox
+    case threads
     case projects
-    case chat
-    case capture
+    case quickEntry
     case settings
 
     var id: String { rawValue }
@@ -33,13 +33,13 @@ private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .now:
             return "Now"
-        case .planning:
+        case .inbox:
             return "Inbox"
+        case .threads:
+            return "Threads"
         case .projects:
             return "Projects"
-        case .chat:
-            return "Threads"
-        case .capture:
+        case .quickEntry:
             return "Quick entry"
         case .settings:
             return "Settings"
@@ -50,13 +50,13 @@ private enum VeliPadSection: String, CaseIterable, Hashable, Identifiable {
         switch self {
         case .now:
             return "sun.max"
-        case .planning:
+        case .inbox:
             return "calendar"
+        case .threads:
+            return "bubble.left.and.bubble.right"
         case .projects:
             return "square.grid.2x2"
-        case .chat:
-            return "bubble.left.and.bubble.right"
-        case .capture:
+        case .quickEntry:
             return "plus.circle"
         case .settings:
             return "gearshape"
@@ -86,7 +86,7 @@ private enum QuickEntrySurface: String, Identifiable {
 struct ContentView: View {
     let appEnvironment: VelAppEnvironment
     @EnvironmentObject var store: VelClientStore
-    @State private var selectedTab: VeliOSTab = .today
+    @State private var selectedTab: VeliOSTab = .now
     @State private var selectedPadSection: VeliPadSection = .now
     @StateObject private var voiceModel: VoiceCaptureModel
     @State private var captureSeed: CaptureDraftSeed?
@@ -121,7 +121,7 @@ struct ContentView: View {
                         onOpenVoice: { quickEntrySurface = .voice }
                     )
                 }
-                .tag(VeliOSTab.today)
+                .tag(VeliOSTab.now)
                 .tabItem {
                     Label("Now", systemImage: "sun.max")
                 }
@@ -129,7 +129,7 @@ struct ContentView: View {
                 iPhoneTab {
                     NudgesTab(store: store)
                 }
-                .tag(VeliOSTab.nudges)
+                .tag(VeliOSTab.inbox)
                 .tabItem {
                     Label("Inbox", systemImage: "tray.full")
                 }
@@ -137,7 +137,7 @@ struct ContentView: View {
                 iPhoneTab {
                     ActivityTab(store: store, voiceModel: voiceModel)
                 }
-                .tag(VeliOSTab.activity)
+                .tag(VeliOSTab.threads)
                 .tabItem {
                     Label("Threads", systemImage: "bubble.left.and.bubble.right")
                 }
@@ -170,7 +170,7 @@ struct ContentView: View {
                 voiceModel.reconcileRecoveryState(using: store)
             }
             .onChange(of: selectedTab) { tab in
-                if tab == .activity {
+                if tab == .threads {
                     Task { await store.refreshSignals() }
                 }
             }
@@ -241,7 +241,7 @@ struct ContentView: View {
                 voiceModel.reconcileRecoveryState(using: store)
             }
             .onChange(of: selectedPadSection) { section in
-                if section == .planning {
+                if section == .threads {
                     Task { await store.refreshSignals() }
                 }
             }
@@ -292,13 +292,13 @@ struct ContentView: View {
                 onOpenCapture: { quickEntrySurface = .capture },
                 onOpenVoice: { quickEntrySurface = .voice }
             )
-        case .planning:
+        case .inbox:
             NudgesTab(store: store)
+        case .threads:
+            ActivityTab(store: store, voiceModel: voiceModel)
         case .projects:
             ProjectsTab(store: store)
-        case .chat:
-            ActivityTab(store: store, voiceModel: voiceModel)
-        case .capture:
+        case .quickEntry:
             CaptureTab(
                 store: store,
                 voiceModel: voiceModel,
@@ -347,42 +347,6 @@ private struct ProjectsTab: View {
         }
         .velCompactListStyle()
         .refreshable { await store.refresh() }
-    }
-}
-
-private struct ChatScaffoldTab: View {
-    let capabilities: FeatureCapabilities
-
-    var body: some View {
-        List {
-            Section("Chat Scaffold") {
-                Text("Chat shell placeholder for \(capabilities.roleLabel).")
-                Text("TODO: wire shared chat use cases from VelApplication once service modules are extracted.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section("Capability Gate") {
-                CapabilityFlagRow(label: "supportsChat", isEnabled: capabilities.supportsChat)
-                CapabilityFlagRow(label: "supportsVoicePushToTalk", isEnabled: capabilities.supportsVoicePushToTalk)
-                CapabilityFlagRow(label: "supportsQuickCapture", isEnabled: capabilities.supportsQuickCapture)
-            }
-        }
-        .velCompactListStyle()
-    }
-}
-
-private struct CapabilityFlagRow: View {
-    let label: String
-    let isEnabled: Bool
-
-    var body: some View {
-        HStack {
-            Text(label)
-            Spacer()
-            Image(systemName: isEnabled ? "checkmark.circle.fill" : "xmark.circle")
-                .foregroundStyle(isEnabled ? .green : .secondary)
-        }
-        .font(.caption)
     }
 }
 

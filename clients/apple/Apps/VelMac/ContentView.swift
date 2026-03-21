@@ -17,7 +17,7 @@ struct ContentView: View {
         NavigationSplitView {
             List {
                 Section("Now") {
-                    Text("VelMac stays summary-first. Use this shell for current context, inbox pressure, quick entry, and project drill-down without turning macOS into a runtime console.")
+                    Text("VelMac stays summary-first. Use this shell for the same MVP loop as web: `Now`, `Inbox`, `Threads`, secondary `Projects`, and support-only `Settings`.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Label(store.isReachable ? "Connected" : "Offline cache", systemImage: store.isReachable ? "checkmark.circle" : "wifi.slash")
@@ -40,33 +40,20 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
-                    Text("Linked nodes: \(linkedNodes.count)")
-                    if let firstLinkedNode = linkedNodes.first {
-                        Text("First linked node: \(firstLinkedNode.node_display_name)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("Status: \(firstLinkedNode.status.rawValue)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("Scopes: \(scopeSummary(firstLinkedNode.scopes))")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
                     if let message = store.errorMessage, !message.isEmpty {
                         Text(message)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                }
-                Section("Current context") {
                     if let ctx = context?.context {
                         if let mode = ctx.mode { Text("Mode: \(mode)") }
                         if let state = ctx.morning_state { Text("Morning: \(state)") }
                         if let meds = ctx.meds_status { Text("Meds: \(meds)") }
                     }
+                    quickEntrySection
                 }
                 Section("Inbox") {
-                    Text("This is the Mac triage lane. Urgent nudges and open commitments stay here; longer history and archive live elsewhere.")
+                    Text("This is the Mac triage lane. Urgent nudges and open commitments stay here; longer follow-through should move into the backend-owned continuity lanes.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     ForEach(nudges.filter { $0.state == "active" || $0.state == "snoozed" }) { nudge in
@@ -88,8 +75,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                }
-                Section("Open commitments") {
                     HStack {
                         TextField("Add commitment", text: $commitmentText)
                         Button("Add") {
@@ -115,7 +100,29 @@ struct ContentView: View {
                         }
                     }
                 }
-                Section("Project context") {
+                Section("Threads") {
+                    Text("Threads stay the continuity lane on Apple too. This shell only summarizes continuity state; it does not invent a second live queue or local product logic.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Linked nodes: \(linkedNodes.count)")
+                    if let firstLinkedNode = linkedNodes.first {
+                        Text("First linked node: \(firstLinkedNode.node_display_name)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Status: \(firstLinkedNode.status.rawValue)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Scopes: \(scopeSummary(firstLinkedNode.scopes))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("No linked-node continuity is cached yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    planningProfileSummarySection
+                }
+                Section("Projects") {
                     Text("Projects are a secondary surface for durable roots and project-specific context.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -135,22 +142,10 @@ struct ContentView: View {
                         }
                     }
                 }
-                Section("Quick entry") {
-                    HStack {
-                        TextField("Quick capture", text: $captureText)
-                        Button("Save") {
-                            let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !text.isEmpty else { return }
-                            Task {
-                                await store.createCapture(text: text)
-                                await MainActor.run { captureText = "" }
-                                await load()
-                            }
-                        }
-                    }
-                }
-                Section("Settings and docs") {
-                    planningProfileSummarySection
+                Section("Settings") {
+                    Text("Settings is the support lane for trust, docs, and deeper setup. It should not compete with `Now`, `Inbox`, or `Threads` for first-contact attention.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     DocumentationListView()
                 }
             }
@@ -213,6 +208,27 @@ struct ContentView: View {
             labels.append("execute_repo_tasks")
         }
         return labels.isEmpty ? "none" : labels.joined(separator: ", ")
+    }
+
+    @ViewBuilder
+    private var quickEntrySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Quick entry stays a shell-native wrapper over backend-owned capture and commitment routes.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                TextField("Quick capture", text: $captureText)
+                Button("Save") {
+                    let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { return }
+                    Task {
+                        await store.createCapture(text: text)
+                        await MainActor.run { captureText = "" }
+                        await load()
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder

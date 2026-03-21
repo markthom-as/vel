@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-/// HTTP client for the Vel daemon (veld) API. All clients talk to the same core.
+/// HTTP client for the Vel daemon (veld) API. Apple shells stay thin over the same backend-owned core as web and CLI.
 /// Configure baseURL (default http://localhost:4130) before use.
 public final class VelClient {
     public var baseURL: URL
