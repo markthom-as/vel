@@ -2,47 +2,48 @@
 
 ## What This Is
 
-Vel is a local-first personal cognition runtime and autonomous agent orchestration platform. It runs as a daemon (`veld`) that captures, recalls, and aligns daily context, while providing a safe execution environment for autonomous agents operating as a distributed swarm. Operators interact via CLI (`vel`), a React web dashboard, and iOS/watchOS/macOS clients.
+Vel is a local-first personal cognition runtime centered on a strict daily operator loop. It runs as a daemon (`veld`) that captures, recalls, orients the operator, and supports supervised continuation through bounded thread flows. Operators interact through CLI (`vel`), the web client, and Apple clients over the same Rust-owned product core.
 
 ## Core Value
 
 Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 
-## Current Milestone: v0.2 True MVP and Rust-Core Closure
+## Current State
 
-**Goal:** Establish the true MVP as one strict daily operator loop backed by platform-portable Rust core logic, with minimal fresh web and Apple shells over that core.
+**Shipped version:** `v0.2`
 
-**Target features:**
-- strict daily overview and commitment flow over one canonical current-day truth
-- grounded suggestions, nudges, and explainable same-day reflow
-- threads, tools, context, and review over one Rust-owned continuation model
-- canonical MVP data types, business logic docs, and refined cross-surface architecture docs
-- explicit post-MVP roadmap and deferred-scope boundary
+`v0.2` established the true MVP as one strict daily operator loop:
 
-**MVP loop:**
 `overview -> commitments -> reflow -> threads -> review`
 
-**In scope for v0.2:**
-- current-day operator behavior only
-- Rust-owned contracts, business logic, and transport for the MVP loop
-- bounded same-day reflow over existing current-day truth and persisted constraints
-- bounded thread continuation for tools, context, and data
-- minimal fresh web and Apple shells over the same Rust-owned loop
-- explicit architecture and contract documentation needed to keep shells thin
+**Shipped truths:**
+- overview, commitments, reflow, thread continuation, and review are backed by Rust-owned contracts and services
+- web and Apple now act as thin MVP shells over the same backend-owned loop
+- same-day reflow remains bounded, explainable, and review-gated
+- threads remain a supervised continuation lane rather than a generic chat product
+- the MVP now has an explicit post-MVP roadmap instead of implied carryover scope
 
-**Out of scope for v0.2:**
-- multi-day or autonomous planning
-- broad UI polish outside the MVP loop screens
-- broad provider or platform expansion
-- shell-owned fallback logic, ranking logic, or planner logic
-- broad FFI migration or Apple-local planning logic
-- broad calendar write-back automation
-- generic chat-first product direction
+## Next Milestone Seed
+
+The next milestone is not defined yet. Start from:
+
+- [v0.2-POST-MVP-ROADMAP.md](/home/jove/code/vel/.planning/v0.2-POST-MVP-ROADMAP.md)
+- [v0.2-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.2-MILESTONE-AUDIT.md)
+
+Likely next work lanes:
+
+- deepen review and carry-forward behavior without turning it into analytics sprawl
+- extend planning carefully beyond same-day reflow
+- expand bounded thread continuation and tool/context grounding
+- complete Apple validation in a real Apple toolchain environment
 
 ## Requirements
 
 ### Validated
 
+- ✓ True MVP daily operator loop with Rust-owned overview, commitments, reflow, threads, and review — v0.2
+- ✓ Minimal fresh web and Apple shells over the shared MVP transport contracts — v0.2
+- ✓ Explicit post-MVP roadmap and deferred-scope boundary — v0.2
 - ✓ Storage Repository Pattern with transaction lifecycles — Phase 1 (ticket 001)
 - ✓ Pure Core & Typed Context via `vel-core` domain types — Phase 1 (ticket 002)
 - ✓ Service/DTO Boundary & standardized error handling — Phase 1 (ticket 003)
@@ -79,15 +80,11 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ### Active
 
-**Milestone v0.2 Active Scope:**
-- [ ] true MVP definition around one strict daily operator loop
-- [ ] canonical Rust-owned data types, business logic, and architecture docs for that loop
-- [ ] decision-first overview, bounded commitments, grounded nudges, and explainable same-day reflow
-- [ ] thread-based continuation for tools, context, data, and follow-through
-- [ ] lightweight review and closeout over the same Rust-owned loop
-- [ ] fresh minimal web and Apple MVP shells over shared transport contracts
-- [ ] explicit future roadmap for post-MVP work outside v0.2
-- [ ] strict non-goals that prevent unrelated product expansion during MVP closure
+**Next milestone has not been defined yet. Seed work comes from the v0.2 post-MVP roadmap:**
+- [ ] deepen review and carry-forward behavior after the compact MVP closeout
+- [ ] extend planning carefully beyond same-day reflow
+- [ ] expand bounded thread continuation and tool/context grounding
+- [ ] complete Apple validation in a real Apple toolchain environment
 
 ### Out of Scope
 
@@ -98,7 +95,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ## Context
 
-This is a mid-migration brownfield project. The codebase already has the right broad technical foundation: layered Rust crates (`vel-core` → `vel-storage` → `vel-api-types` → `veld`), auth hardening, canonical schemas, and substantial product behavior shipped through milestone `v0.1`. The `v0.2` milestone is intentionally narrower than the breadth of what already exists. Its job is to define and ship the true MVP: one strict daily operator loop with Rust-owned authority, explainable same-day reflow, bounded thread continuation, lightweight review, and minimal fresh web and Apple shells that stop carrying local product policy.
+This is a mid-migration brownfield project. The codebase already has the right broad technical foundation: layered Rust crates (`vel-core` → `vel-storage` → `vel-api-types` → `veld`), auth hardening, canonical schemas, and substantial product behavior shipped through milestones `v0.1` and `v0.2`. `v0.2` deliberately narrowed the product to a true MVP and closed it with a hard post-MVP boundary. Future work should grow from that verified loop instead of reopening shell-owned product semantics or widening scope implicitly.
 
 The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implementation specifications for the shipped architecture queue. For active future work, `.planning/ROADMAP.md` and subsequent phase plans are the requirements source starting at Phase 5. For non-phase future work that is not yet scheduled, use `.planning/BACKLOG.md`. For execution-ready small work items, use `.planning/todos/pending/`.
 
@@ -167,4 +164,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-20 for milestone v0.2 true MVP planning*
+*Last updated: 2026-03-21 after archiving milestone v0.2*

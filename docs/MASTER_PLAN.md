@@ -1,6 +1,6 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v0.2 planning)
-**Last Updated**: 2026-03-20
+**Status**: Canonical Truth (v0.2 shipped)
+**Last Updated**: 2026-03-21
 
 ---
 
@@ -8,15 +8,15 @@
 
 | Phase | Status | Focus |
 | :--- | :--- | :--- |
-| **v0.2: True MVP** | **[PLANNING]** | Lock the strict operator loop, Rust-owned contracts, and thin-shell architecture. |
+| **v0.2: True MVP** | **[SHIPPED]** | Closed the strict operator loop, Rust-owned contracts, and thin-shell architecture. |
 | **Phase 1** | **[COMPLETE]** | Monolith decomposition and structural foundations. |
 | **Phase 2** | **[CLOSED / RE-SCOPED]** | Distributed swarm baseline shipped; unfinished sync ordering, guided onboarding, and external connect work moved to Phases 5, 6, and 8. |
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
 
-Active roadmap work now lives in milestone `v0.2` in `.planning/ROADMAP.md`, starting at Phase 40.
+Milestone `v0.2` is now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md). There is no active next milestone definition yet; start from [`.planning/v0.2-POST-MVP-ROADMAP.md`](/home/jove/code/vel/.planning/v0.2-POST-MVP-ROADMAP.md) when planning resumes.
 
-The active Phase 40 lane is MVP definition, canonical contracts, and architecture refinement. Durable product authority for that lane starts with `docs/product/mvp-operator-loop.md`, and durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`.
+Durable product authority for the shipped MVP starts with `docs/product/mvp-operator-loop.md`, and durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`.
 
 ---
 
