@@ -23,6 +23,7 @@ related_files:
   - docs/cognitive-agent-architecture/00-overarching-architecture-and-concept-spec.md
   - docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md
   - docs/cognitive-agent-architecture/architecture/mvp-loop-contracts.md
+  - docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md
   - docs/cognitive-agent-architecture/apple/apple-embedded-runtime-contract.md
   - clients/apple/README.md
   - clients/apple/VelAPI/Sources/VelAPI/VelClient.swift
@@ -48,6 +49,8 @@ This document is the authority for:
 It is intentionally aligned to the current codebase rather than a greenfield crate diagram.
 
 For the concrete active-loop behavior, read this together with [mvp-loop-contracts.md](./mvp-loop-contracts.md).
+
+For the post-`v0.2` canonical `Now` rebuild, also read [now-surface-rust-core-contract.md](./now-surface-rust-core-contract.md).
 
 # Problem
 

@@ -4,6 +4,8 @@ This document defines the current durable boundary between the operator surfaces
 
 For milestone `v0.2`, it should be read under the authority of [v0.2 MVP Operator Loop](./mvp-operator-loop.md), not as an open discovery artifact.
 
+For post-`v0.2` `Now` implementation work, read this together with [Canonical Now Surface Contract](./now-surface-canonical-contract.md).
+
 ## Why This Exists
 
 Vel currently risks collapsing three different jobs into one vague "main surface":

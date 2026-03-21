@@ -23,19 +23,16 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - threads remain a supervised continuation lane rather than a generic chat product
 - the MVP now has an explicit post-MVP roadmap instead of implied carryover scope
 
-## Next Milestone Seed
+## Current Milestone: v0.3 Canonical Now Surface and Client Mesh
 
-The next milestone is not defined yet. Start from:
+**Goal:** Rebuild `Now` as one strict cross-platform control surface backed by platform-portable Rust core, while making clients mesh cleanly and helping operators connect clients to the same authority runtime.
 
-- [v0.2-POST-MVP-ROADMAP.md](/home/jove/code/vel/.planning/v0.2-POST-MVP-ROADMAP.md)
-- [v0.2-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.2-MILESTONE-AUDIT.md)
-
-Likely next work lanes:
-
-- deepen review and carry-forward behavior without turning it into analytics sprawl
-- extend planning carefully beyond same-day reflow
-- expand bounded thread continuation and tool/context grounding
-- complete Apple validation in a real Apple toolchain environment
+**Target features:**
+- canonical `Now` contract across web, iPhone, iPad, Mac, and reduced watch
+- all `Now` semantics owned by Rust core and shared transport contracts
+- one canonical task, nudge, thread, and day model feeding `Now`
+- docked capture and voice entry with thread artifact continuity everywhere practical
+- client mesh, linking, sync/offline visibility, and connection recovery that help clients join the same runtime cleanly
 
 ## Requirements
 
@@ -80,11 +77,13 @@ Likely next work lanes:
 
 ### Active
 
-**Next milestone has not been defined yet. Seed work comes from the v0.2 post-MVP roadmap:**
-- [ ] deepen review and carry-forward behavior after the compact MVP closeout
-- [ ] extend planning carefully beyond same-day reflow
-- [ ] expand bounded thread continuation and tool/context grounding
-- [ ] complete Apple validation in a real Apple toolchain environment
+**Milestone v0.3 Active Scope:**
+- [ ] publish and enforce the canonical `Now` surface contract
+- [ ] move `Now` behavior into platform-portable Rust core and shared transport contracts
+- [ ] adopt one canonical task/day/thread model for `Now` and thread routing
+- [ ] ship cross-platform `Now` parity across web, iPhone, iPad, Mac, and reduced watch
+- [ ] make clients mesh and help operators connect/link clients to the same authority runtime
+- [ ] surface offline/sync state, queued writes, and connection recovery consistently across clients
 
 ### Out of Scope
 
@@ -145,6 +144,8 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | Fresh web and Apple UI should follow contract lock and Rust-core consolidation rather than lead it | Prevents a second round of shell-owned product semantics | Accepted |
 | v0.2 must stay limited to the overview -> commitments -> reflow -> threads -> review loop | Keeps the milestone honest and blocks drift into adjacent but non-essential product work | Accepted |
 | Anything not directly serving the MVP loop should be deferred unless it is required to keep MVP logic Rust-owned or the clients thin | Prevents architecture and UI cleanup from becoming open-ended | Accepted |
+| The next milestone should treat the `Now` surface as one canonical cross-platform contract backed by platform-portable Rust core | Prevents web and Apple from drifting again and turns the new `Now` interaction model into product authority instead of shell-specific design | Accepted |
+| Cross-client mesh and client-linking help are part of the product, not setup debris | Operators need clients to discover, connect to, and recover connection to the same authority runtime without platform-specific guesswork | Accepted |
 
 ## Evolution
 
@@ -164,4 +165,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-21 after archiving milestone v0.2*
+*Last updated: 2026-03-21 for milestone v0.3 canonical Now surface and client mesh planning*

@@ -1,5 +1,5 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v0.2 shipped)
+**Status**: Canonical Truth (v0.3 planning)
 **Last Updated**: 2026-03-21
 
 ---
@@ -9,12 +9,13 @@
 | Phase | Status | Focus |
 | :--- | :--- | :--- |
 | **v0.2: True MVP** | **[SHIPPED]** | Closed the strict operator loop, Rust-owned contracts, and thin-shell architecture. |
+| **v0.3: Canonical Now Surface And Client Mesh** | **[PLANNING]** | Rebuild Now as one Rust-owned cross-platform control surface and make clients mesh cleanly. |
 | **Phase 1** | **[COMPLETE]** | Monolith decomposition and structural foundations. |
 | **Phase 2** | **[CLOSED / RE-SCOPED]** | Distributed swarm baseline shipped; unfinished sync ordering, guided onboarding, and external connect work moved to Phases 5, 6, and 8. |
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
 
-Milestone `v0.2` is now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md). There is no active next milestone definition yet; start from [`.planning/v0.2-POST-MVP-ROADMAP.md`](/home/jove/code/vel/.planning/v0.2-POST-MVP-ROADMAP.md) when planning resumes.
+Milestone `v0.2` is now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md). Active roadmap work now lives in milestone `v0.3` in [`.planning/ROADMAP.md`](/home/jove/code/vel/.planning/ROADMAP.md), starting at Phase 46.
 
 Durable product authority for the shipped MVP starts with `docs/product/mvp-operator-loop.md`, and durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md`.
 

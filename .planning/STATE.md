@@ -1,20 +1,20 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.2
-milestone_name: archived milestone
-current_phase: 45
-current_phase_name: review-mvp-verification-and-post-mvp-roadmap-shaping
-current_plan: "milestone_complete"
-status: milestone_complete
-stopped_at: Archived and tagged milestone v0.2; next logical step is defining the next milestone from the post-MVP roadmap
-last_updated: "2026-03-21T04:09:39Z"
+milestone: v0.3
+milestone_name: canonical now surface and client mesh
+current_phase: 46
+current_phase_name: canonical-now-contract-boundaries-and-milestone-lock
+current_plan: "milestone_roadmap"
+status: ready_for_phase_discussion
+stopped_at: Started milestone v0.3; next logical step is Phase 46 discussion and planning
+last_updated: "2026-03-21T18:35:00Z"
 last_activity: 2026-03-21
 progress:
-  total_phases: 45
+  total_phases: 51
   completed_phases: 45
-  total_plans: 181
+  total_plans: 203
   completed_plans: 181
-  percent: 100
+  percent: 89
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Start the next milestone from the shipped v0.2 truth and the explicit post-MVP roadmap
+**Current focus:** Lock the canonical Now contract and start the Rust-core cross-client implementation lane for v0.3
 
-Status: Milestone v0.2 is archived and shipped; the next work is to define the next milestone
-Current Phase: 45
-Current Phase Name: review-mvp-verification-and-post-mvp-roadmap-shaping
-Current Plan: milestone_complete
-Total Plans in Phase: 3
-Progress: 100%
+Status: Milestone v0.3 is defined; the next work is Phase 46 discussion and planning
+Current Phase: 46
+Current Phase Name: canonical-now-contract-boundaries-and-milestone-lock
+Current Plan: milestone_roadmap
+Total Plans in Phase: 0
+Progress: 89%
 Last Activity: 2026-03-21
-Last Activity Description: Archived and tagged milestone v0.2 after completing the true-MVP loop and writing the post-MVP roadmap
+Last Activity Description: Started milestone v0.3 for the canonical Now surface and client mesh, with Rust-core portability as a hard requirement
 
 ## Current Position
 
-Phase: 45 (review-mvp-verification-and-post-mvp-roadmap-shaping) — ARCHIVED
-Plan: define next milestone
+Phase: 46 (canonical-now-contract-boundaries-and-milestone-lock) — READY FOR DISCUSSION
+Plan: discuss and plan next
 
 ## Performance Metrics
 

@@ -21,6 +21,7 @@ index_terms:
 related_files:
   - docs/MASTER_PLAN.md
   - docs/product/now-inbox-threads-boundaries.md
+  - docs/product/now-surface-canonical-contract.md
   - docs/product/operator-surface-taxonomy.md
   - docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md
 summary: Durable product authority for the strict v0.2 MVP loop and its anti-drift boundaries.
@@ -183,3 +184,9 @@ They support the loop. They do not replace it.
 The MVP loop is product authority.
 
 Implementation work should map back to this loop before introducing new screens, flows, or contracts. If a proposed change cannot be explained as strengthening overview, commitments, reflow, threads, or review, it does not belong in `v0.2`.
+
+# Post-v0.2 Note
+
+Milestone `v0.2` shipped the bounded MVP loop and is archived.
+
+Post-`v0.2` work on `Now` should now follow the stricter surface contract in [now-surface-canonical-contract.md](./now-surface-canonical-contract.md), while preserving the loop and thread-escalation rules defined here.

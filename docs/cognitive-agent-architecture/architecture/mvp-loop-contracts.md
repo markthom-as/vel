@@ -20,6 +20,8 @@ index_terms:
   - review snapshot
 related_files:
   - docs/product/mvp-operator-loop.md
+  - docs/product/now-surface-canonical-contract.md
+  - docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md
   - docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md
   - docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md
   - docs/cognitive-agent-architecture/architecture/day-plan-reflow-contract.md
@@ -238,5 +240,6 @@ They may:
 They may not:
 
 - invent alternate MVP loop steps
+- move `Now` product semantics into shell-local fallback rules when those semantics are now covered by the canonical `Now` surface contract and its Rust-core implementation rule
 - invent shell-owned prioritization logic
 - widen degraded states into silent local heuristics
