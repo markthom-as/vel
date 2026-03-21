@@ -14,6 +14,125 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
   return {
     computed_at: 1710000000,
     timezone: 'America/Denver',
+    header: {
+      title: "Jove's Now",
+      buckets: [
+        {
+          kind: 'needs_input',
+          count: 1,
+          count_display: 'show_nonzero',
+          urgent: true,
+          route_target: {
+            bucket: 'needs_input',
+            thread_id: 'thr_check_in_1',
+          },
+        },
+        {
+          kind: 'new_nudges',
+          count: 2,
+          count_display: 'show_nonzero',
+          urgent: false,
+          route_target: {
+            bucket: 'new_nudges',
+            thread_id: null,
+          },
+        },
+        {
+          kind: 'snoozed',
+          count: 0,
+          count_display: 'show_nonzero',
+          urgent: false,
+          route_target: {
+            bucket: 'snoozed',
+            thread_id: null,
+          },
+        },
+      ],
+    },
+    mesh_summary: {
+      authority_node_id: 'vel-desktop',
+      authority_label: 'Vel Desktop',
+      sync_state: 'stale',
+      linked_node_count: 2,
+      queued_write_count: 1,
+      last_sync_at: 1710000000,
+      urgent: true,
+      repair_route: {
+        target: 'settings_recovery',
+        summary: 'Sync or queued-write posture needs review before trusting all cross-client state.',
+      },
+    },
+    status_row: {
+      date_label: 'Mar 9',
+      time_label: '4:00 PM',
+      context_label: 'Write weekly review',
+      elapsed_label: 'No active task',
+    },
+    context_line: {
+      text: 'Standup is waiting on question 1 with 0 commitment draft(s) and 0 deferred item(s).',
+      thread_id: null,
+      fallback_used: false,
+    },
+    nudge_bars: [
+      {
+        id: 'check_in_bar',
+        kind: 'needs_input',
+        title: 'Standup check-in',
+        summary: 'Vel needs one short answer before the standup can continue.',
+        urgent: true,
+        primary_thread_id: 'thr_check_in_1',
+        actions: [
+          { kind: 'expand', label: 'Continue in Threads' },
+        ],
+      },
+      {
+        id: 'mesh_summary_warning',
+        kind: 'trust_warning',
+        title: 'Vel Desktop needs attention',
+        summary: 'Sync or queued-write posture needs review before trusting all cross-client state.',
+        urgent: true,
+        primary_thread_id: null,
+        actions: [
+          { kind: 'open_settings', label: 'Open settings' },
+        ],
+      },
+    ],
+    task_lane: {
+      active: {
+        id: 'commit_local_1',
+        task_kind: 'commitment',
+        text: 'Write weekly review',
+        state: 'active',
+        project: null,
+        primary_thread_id: null,
+      },
+      pending: [
+        {
+          id: 'commit_todoist_1',
+          task_kind: 'task',
+          text: 'Reply to Dimitri',
+          state: 'pending',
+          project: 'Ops',
+          primary_thread_id: null,
+        },
+      ],
+      recent_completed: [
+        {
+          id: 'commit_done_1',
+          task_kind: 'commitment',
+          text: 'Confirm the design review agenda',
+          state: 'completed',
+          project: 'Ops',
+          primary_thread_id: 'thr_exec_1',
+        },
+      ],
+      overflow_count: 0,
+    },
+    docked_input: {
+      supported_intents: ['task', 'question', 'note', 'command', 'continuation', 'reflection', 'scheduling'],
+      day_thread_id: 'thr_day_1',
+      raw_capture_thread_id: 'thr_capture_1',
+    },
     overview: {
       dominant_action: {
         kind: 'check_in',
@@ -924,23 +1043,28 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByText('Run the current day')).toBeInTheDocument()
+      expect(screen.getByText("Jove's Now")).toBeInTheDocument()
     })
 
-    expect(screen.getAllByText('Day').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Engaged').length).toBeGreaterThan(0)
-    expect(screen.getByText('Overview')).toBeInTheDocument()
-    expect(screen.getByText('Today')).toBeInTheDocument()
+    expect(screen.getByText('Needs input')).toBeInTheDocument()
+    expect(screen.getByText('Nudges')).toBeInTheDocument()
+    expect(screen.getByText('Vel Desktop')).toBeInTheDocument()
+    expect(screen.getAllByText(/sync or queued-write posture needs review/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Standup check-in').length).toBeGreaterThan(0)
+    expect(screen.getByText('Tasks')).toBeInTheDocument()
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Reply to Dimitri').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
-    expect(screen.getByText('Visible nudge')).toBeInTheDocument()
     expect(screen.getAllByText('Review execution handoff for runtime lane').length).toBeGreaterThan(0)
-    expect(screen.getByText('Why + state')).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/ask, capture, or talk to vel/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByText(/more context and controls/i))
 
+    expect(screen.getByText('Overview')).toBeInTheDocument()
+    expect(screen.getByText('Today')).toBeInTheDocument()
+    expect(screen.getByText('Visible nudge')).toBeInTheDocument()
+    expect(screen.getByText('Why + state')).toBeInTheDocument()
     expect(screen.getByText(/today has a bounded plan/i)).toBeInTheDocument()
     expect(screen.getByText('Day changed')).toBeInTheDocument()
     expect(screen.getByText('1 moved')).toBeInTheDocument()
@@ -953,13 +1077,12 @@ describe('NowView', () => {
     expect(screen.getByText('Waiting elsewhere')).toBeInTheDocument()
     expect(screen.getByText('1 waiting for Inbox triage')).toBeInTheDocument()
     expect(screen.getByText('Backup is stale')).toBeInTheDocument()
-    expect(screen.getByText('Confirm the design review agenda')).toBeInTheDocument()
+    expect(screen.getAllByText('Confirm the design review agenda').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Review execution handoff for runtime lane').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Continue in Threads').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Reflow moved to Threads').length).toBeGreaterThan(0)
     expect(screen.getByText('Next event')).toBeInTheDocument()
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
-    expect(screen.getByText('1 in play')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start morning/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start standup/i })).toBeInTheDocument()
   })
@@ -994,13 +1117,13 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByText('Run the current day')).toBeInTheDocument()
+      expect(screen.getByText("Jove's Now")).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByText(/more context and controls/i))
 
     expect(screen.getByText('Reflow moved to Threads')).toBeInTheDocument()
-    expect(screen.getByText('Continue in Threads')).toBeInTheDocument()
+    expect(screen.getAllByText('Continue in Threads').length).toBeGreaterThan(0)
     expect(screen.getByText('Thread thr_reflow_1')).toBeInTheDocument()
     expect(screen.getByText('Next scheduled event started 20 minutes ago.')).toBeInTheDocument()
     expect(screen.queryByText('1 moved')).not.toBeInTheDocument()
@@ -1056,7 +1179,7 @@ describe('NowView', () => {
       expect(screen.getByText('Choose the next bounded move')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Write weekly review')).toBeInTheDocument()
+    expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Continue the next open commitment.').length).toBeGreaterThan(0)
     expect(screen.getByText('accept')).toBeInTheDocument()
     expect(screen.getByText('thread')).toBeInTheDocument()
@@ -1285,7 +1408,7 @@ describe('NowView', () => {
     expect(screen.getByRole('button', { name: /sync calendar/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sync todoist/i })).toBeInTheDocument()
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
-    expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()
+    expect(screen.getAllByText('Reply to Dimitri').length).toBeGreaterThan(0)
   })
 
   it('runs evaluate directly from degraded context warnings', async () => {
@@ -1451,9 +1574,9 @@ describe('NowView', () => {
       data: {
         ...initial.data,
         computed_at: 1710000300,
-        summary: {
-          ...initial.data.summary,
-          mode: { key: 'meeting_mode', label: 'Meeting prep' },
+        status_row: {
+          ...initial.data.status_row,
+          context_label: 'Meeting prep',
         },
       },
       meta: { request_id: 'req_now_2' },
@@ -1477,7 +1600,7 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getAllByText('Day').length).toBeGreaterThan(0)
+      expect(screen.getByText("Jove's Now")).toBeInTheDocument()
     })
 
     fireEvent(window, new Event('focus'))
@@ -1518,7 +1641,7 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getAllByText('Engaged').length).toBeGreaterThan(0)
+      expect(screen.getByText("Jove's Now")).toBeInTheDocument()
     })
     expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000)
     setIntervalSpy.mockRestore()

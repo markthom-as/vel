@@ -331,6 +331,12 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
       .filter((item) => item.surface === 'now')
       .sort((left, right) => left.rank - right.rank),
   );
+  const header = data.header;
+  const meshSummary = data.mesh_summary;
+  const statusRow = data.status_row;
+  const contextLine = data.context_line;
+  const nudgeBars = data.nudge_bars ?? [];
+  const taskLane = data.task_lane;
   const reviewSnapshot = data.review_snapshot ?? {
     open_action_count: 0,
     triage_count: 0,
@@ -398,298 +404,371 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-zinc-950">
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <header className="mb-8">
-          <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Now</p>
-          <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Run the current day</h1>
-          <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-            Orient first, then act. Keep this surface compact enough to trust at a glance.
-          </p>
-        </header>
+    <div className="flex min-h-full flex-col bg-zinc-950">
+      <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-32 sm:px-6">
+        <section className="rounded-[28px] border border-zinc-800 bg-zinc-900/70 shadow-[0_0_0_1px_rgba(24,24,27,0.45)]">
+          <header className="border-b border-zinc-800 px-5 py-5 sm:px-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Now</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-100">
+                  {header?.title ?? 'Now'}
+                </h1>
+              </div>
 
-        <section className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <ContextStripCard
-            label="Mode"
-            value={data.summary.mode.label}
-            detail={data.summary.phase.label}
-          />
-          <ContextStripCard
-            label="Current"
-            value={currentStatus.title}
-            detail={currentStatus.detail}
-          />
-          <ContextStripCard
-            label="Routine"
-            value={activeRoutineBlock?.label ?? 'No active block'}
-            detail={
-              activeRoutineBlock
-                ? `${activeRoutineBlock.source.replaceAll('_', ' ')}${activeRoutineBlock.protected ? ' · protected' : ''}`
-                : 'Routine only shows when it is active right now'
-            }
-          />
-          <ContextStripCard
-            label="Next"
-            value={nextScheduledEvent?.title ?? 'Nothing scheduled'}
-            detail={
-              nextScheduledEvent
-                ? formatEventSummary(nextScheduledEvent, data.timezone, nowTs)
-                : 'Free until something calendar-bound matters'
-            }
-          />
-          <ContextStripCard
-            label="Commitments"
-            value={commitmentRows.length > 0 ? `${commitmentRows.length} in play` : 'Nothing committed'}
-            detail={commitmentRows[0]?.text ?? 'Pull from tasks when needed'}
-          />
+              <div className="flex flex-wrap items-center gap-2 lg:max-w-[60%] lg:justify-end">
+                {(header?.buckets ?? []).map((bucket) => (
+                  <button
+                    key={bucket.kind}
+                    type="button"
+                    onClick={() => {
+                      if (bucket.route_target.thread_id) {
+                        onOpenThread?.(bucket.route_target.thread_id);
+                      }
+                    }}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
+                      bucket.urgent
+                        ? 'border-amber-700/60 bg-amber-950/30 text-amber-100'
+                        : 'border-zinc-700 bg-zinc-950/80 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100'
+                    }`}
+                  >
+                    <span>{formatNowHeaderBucketLabel(bucket.kind)}</span>
+                    {formatNowHeaderBucketCount(bucket) ? (
+                      <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[10px] leading-none">
+                        {formatNowHeaderBucketCount(bucket)}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+                {meshSummary ? (
+                  <div
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${
+                      meshSummary.urgent
+                        ? 'border-amber-700/60 bg-amber-950/30 text-amber-100'
+                        : 'border-zinc-700 bg-zinc-950/80 text-zinc-400'
+                    }`}
+                  >
+                    <span>{formatNowMeshSyncState(meshSummary.sync_state)}</span>
+                    {meshSummary.queued_write_count > 0 ? (
+                      <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[10px] leading-none">
+                        {meshSummary.queued_write_count} queued
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </header>
+
+          {statusRow ? (
+            <div className="grid gap-2 border-b border-zinc-800 px-5 py-3 text-sm text-zinc-400 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center sm:px-6">
+              <span className="truncate">{statusRow.date_label}</span>
+              <span className="truncate">{statusRow.time_label}</span>
+              <span className="truncate">{statusRow.context_label}</span>
+              <span className="truncate text-zinc-500">{statusRow.elapsed_label}</span>
+            </div>
+          ) : null}
+
+          {contextLine ? (
+            <div className="border-b border-zinc-800 px-5 py-3 sm:px-6">
+              <p className="text-sm text-zinc-500">{contextLine.text}</p>
+            </div>
+          ) : null}
+
+          {meshSummary ? (
+            <div className="border-b border-zinc-800 px-5 py-3 sm:px-6">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
+                <span>{meshSummary.authority_label}</span>
+                <span>{formatNowMeshSyncState(meshSummary.sync_state)}</span>
+                <span>{meshSummary.linked_node_count} linked</span>
+                {meshSummary.last_sync_at ? (
+                  <span>Last sync {formatTime(meshSummary.last_sync_at, data.timezone)}</span>
+                ) : null}
+                {meshSummary.repair_route ? (
+                  <span className={meshSummary.urgent ? 'text-amber-200' : 'text-zinc-500'}>
+                    {meshSummary.repair_route.summary}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {nudgeBars.length > 0 ? (
+            <div className="space-y-2 border-b border-zinc-800 px-5 py-4 sm:px-6">
+              {nudgeBars.map((bar) => (
+                <div
+                  key={bar.id}
+                  className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+                    bar.urgent
+                      ? 'border-amber-700/50 bg-amber-950/20'
+                      : 'border-zinc-800 bg-zinc-950/55'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-zinc-100">{bar.title}</span>
+                      <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                        {formatNowBarKind(bar.kind)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-zinc-400">{bar.summary}</p>
+                  </div>
+                  {bar.actions.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {bar.actions.map((action) => (
+                        <button
+                          key={`${bar.id}-${action.kind}-${action.label}`}
+                          type="button"
+                          onClick={() => {
+                            if ((action.kind === 'open_thread' || action.kind === 'expand') && bar.primary_thread_id) {
+                              onOpenThread?.(bar.primary_thread_id);
+                            }
+                          }}
+                          className="rounded-full border border-zinc-700 bg-zinc-950/80 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {taskLane ? (
+            <section className="px-5 py-4 sm:px-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">
+                  Tasks
+                </h2>
+                {taskLane.overflow_count > 0 ? (
+                  <span className="text-xs text-zinc-500">+{taskLane.overflow_count} more</span>
+                ) : null}
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {taskLane.active ? (
+                  <CompactTaskLaneRow
+                    item={taskLane.active}
+                    emphasis="active"
+                    pending={Boolean(pendingCommitments[taskLane.active.id])}
+                    feedback={commitmentMessages[taskLane.active.id]}
+                    onComplete={
+                      commitmentRows.some((task) => task.id === taskLane.active?.id)
+                        ? () => void completeCommitment(taskLane.active!.id)
+                        : undefined
+                    }
+                  />
+                ) : null}
+                {taskLane.pending.map((item) => (
+                  <CompactTaskLaneRow
+                    key={item.id}
+                    item={item}
+                    pending={Boolean(pendingCommitments[item.id])}
+                    feedback={commitmentMessages[item.id]}
+                    onComplete={
+                      commitmentRows.some((task) => task.id === item.id)
+                        ? () => void completeCommitment(item.id)
+                        : undefined
+                    }
+                  />
+                ))}
+                {taskLane.recent_completed.map((item) => (
+                  <CompactTaskLaneRow key={item.id} item={item} emphasis="completed" />
+                ))}
+                {!taskLane.active && taskLane.pending.length === 0 && taskLane.recent_completed.length === 0 ? (
+                  <SurfaceState message="No current tasks are surfaced right now." />
+                ) : null}
+              </div>
+            </section>
+          ) : null}
         </section>
 
-        <Panel
-          title="Overview"
-          subtitle="Backend-owned orientation decides the primary action, one visible nudge, and the explanation lane."
-        >
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
-                  {overview.dominant_action ? 'Dominant action' : 'Suggestions'}
-                </span>
-                <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-500">
-                  Updated {formatTime(nowTs, data.timezone)}
-                </span>
-              </div>
-              <h2 className="mt-3 text-xl font-medium text-zinc-100">
-                {overview.dominant_action?.title ?? 'Choose the next bounded move'}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-300">
-                {overview.dominant_action?.summary
-                  ?? overview.suggestions[0]?.summary
-                  ?? 'No dominant action is active right now.'}
-              </p>
-              {overview.dominant_action ? null : overview.suggestions.length > 0 ? (
-                <div className="mt-4 space-y-3">
-                  {overview.suggestions.map((suggestion) => (
-                    <div
-                      key={suggestion.id}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3"
-                    >
-                      <p className="text-sm font-medium text-zinc-100">{suggestion.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-zinc-400">{suggestion.summary}</p>
-                    </div>
-                  ))}
-                  <div className="flex flex-wrap gap-2">
-                    {overview.decision_options.map((option) => (
-                      <span
-                        key={option}
-                        className="rounded-full border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400"
-                      >
-                        {option}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {overview.today_timeline.length > 0 ? (
-                <div className="mt-4 border-t border-zinc-800 pt-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Timeline</p>
-                  <div className="mt-3 space-y-2">
-                    {overview.today_timeline.map((entry) => (
-                      <div
-                        key={`${entry.kind}-${entry.timestamp}-${entry.title}`}
-                        className="flex items-start justify-between gap-4 rounded-lg border border-zinc-900 bg-zinc-950/70 px-3 py-2"
-                      >
-                        <div>
-                          <p className="text-sm text-zinc-100">{entry.title}</p>
-                          {entry.detail ? (
-                            <p className="mt-1 text-xs text-zinc-500">{entry.detail}</p>
-                          ) : null}
-                        </div>
-                        <span className="text-xs text-zinc-500">
-                          {formatTime(entry.timestamp, data.timezone)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="space-y-4">
-              {overview.visible_nudge ? (
-                <div className="rounded-xl border border-amber-900/50 bg-amber-950/20 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-amber-200/70">
-                    Visible nudge
-                  </p>
-                  <h3 className="mt-2 text-base font-medium text-amber-100">
-                    {overview.visible_nudge.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-amber-50/85">
-                    {overview.visible_nudge.summary}
-                  </p>
-                </div>
-              ) : null}
-
-              <details className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-                <summary className="cursor-pointer list-none text-sm font-medium text-zinc-100">
-                  Why + state
-                </summary>
-                <div className="mt-3 space-y-2">
-                  {overview.why_state.length > 0 ? (
-                    overview.why_state.map((item) => (
-                      <div
-                        key={`${item.label}-${item.detail}`}
-                        className="rounded-lg border border-zinc-900 bg-zinc-950/70 px-3 py-2"
-                      >
-                        <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                          {item.label}
-                        </p>
-                        <p className="mt-1 text-sm text-zinc-200">{item.detail}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <SurfaceState message="No additional explanation is available yet." />
-                  )}
-                </div>
-              </details>
-            </div>
-          </div>
-        </Panel>
-
-        <div className="mt-8">
-          <Panel
-            title="Ask, capture, or talk"
-          subtitle="Start from Now. Type or hold the mic to talk locally, then let Vel decide whether it belongs inline, in Inbox, or in Threads."
-        >
-          <div className="space-y-4">
-            {assistantEntryMessage ? (
-              <p
-                className={`rounded-xl border px-4 py-3 text-sm ${
-                  assistantEntryMessage.status === 'error'
-                    ? 'border-red-900/70 bg-red-950/40 text-red-200'
-                    : 'border-emerald-900/60 bg-emerald-950/30 text-emerald-200'
-                }`}
-                role={assistantEntryMessage.status === 'error' ? 'alert' : 'status'}
-              >
-                {assistantEntryMessage.message}
-              </p>
-            ) : null}
-            {assistantInlineResponse?.assistant_message ? (
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Inline reply</p>
-                <p className="mt-2 text-sm leading-6 text-zinc-200">
-                  {extractMessageText(assistantInlineResponse.assistant_message) ?? 'Vel responded inline.'}
-                </p>
-              </div>
-            ) : null}
-            <MessageComposer
-              onSent={(_, response) => {
-                void handleAssistantEntry(response);
-              }}
-            />
-          </div>
-          </Panel>
-        </div>
-
-        <div className="mt-8">
-          <Panel
-            title="Next event"
-            subtitle="Calendar is authoritative here. Routine blocks and low-value schedule noise stay out of this slot."
-          >
-            {nextScheduledEvent ? (
-              <EventSummaryCard
-                event={nextScheduledEvent}
-                timezone={data.timezone}
-                nowTs={nowTs}
-                emphasis="next"
-              />
-            ) : (
-              <SurfaceState
-                message={currentStatus.fallbackEventMessage ?? 'No more calendar events are in play right now.'}
-              />
-            )}
-          </Panel>
-        </div>
-
-        <div className="mt-8">
-          <Panel
-            title="Today"
-            subtitle="Commitments stay primary. Pull from tasks only when today still has room."
-          >
-            <div className="space-y-4">
-              <TodayLaneCard
-                label="Active"
-                emptyMessage="Nothing is actively in motion right now."
-              >
-                {activeEvent ? (
-                  <TodayEventRow event={activeEvent} timezone={data.timezone} nowTs={nowTs} />
-                ) : commitmentRows.length > 0 ? (
-                  <TodayCommitmentRow
-                    task={commitmentRows[0]}
-                    timezone={data.timezone}
-                    pending={Boolean(pendingCommitments[commitmentRows[0].id])}
-                    feedback={commitmentMessages[commitmentRows[0].id]}
-                    onComplete={() => void completeCommitment(commitmentRows[0].id)}
-                  />
-                ) : (
-                  <SurfaceState message={currentStatus.summary} />
-                )}
-              </TodayLaneCard>
-
-              <TodayLaneCard
-                label="Next up"
-                emptyMessage="Nothing time-bound is coming up next."
-              >
-                {nextScheduledEvent ? (
-                  <TodayEventRow event={nextScheduledEvent} timezone={data.timezone} nowTs={nowTs} />
-                ) : commitmentRows.length > 1 ? (
-                  <TodayCommitmentRow
-                    task={commitmentRows[1]}
-                    timezone={data.timezone}
-                    pending={Boolean(pendingCommitments[commitmentRows[1].id])}
-                    feedback={commitmentMessages[commitmentRows[1].id]}
-                    onComplete={() => void completeCommitment(commitmentRows[1].id)}
-                  />
-                ) : (
-                  <SurfaceState message="No next-up item is selected yet." />
-                )}
-              </TodayLaneCard>
-
-              <TodayLaneGroup
-                title="Commitments"
-                subtitle="Chosen or already in play for this day."
-                emptyMessage="No commitments are in play yet."
-              >
-                {commitmentRows.map((task, index) => (
-                  <TodayCommitmentRow
-                    key={task.id}
-                    task={task}
-                    timezone={data.timezone}
-                    pending={Boolean(pendingCommitments[task.id])}
-                    feedback={commitmentMessages[task.id]}
-                    emphasis={index === 0 ? 'primary' : 'default'}
-                    onComplete={() => void completeCommitment(task.id)}
-                  />
-                ))}
-              </TodayLaneGroup>
-
-              <TodayLaneGroup
-                title="Pull from tasks"
-                subtitle="Available work that has not earned more attention than commitments."
-                emptyMessage="No pullable tasks are surfaced right now."
-              >
-                {pullableTasks.map((task) => (
-                  <TodayTaskRow key={task.id} task={task} timezone={data.timezone} />
-                ))}
-              </TodayLaneGroup>
-            </div>
-          </Panel>
-        </div>
-
-        <details className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+        <details className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
           <summary className="cursor-pointer list-none text-sm font-medium text-zinc-100">
             More context and controls
           </summary>
           <div className="mt-5 space-y-6">
+            <Panel
+              title="Overview"
+              subtitle="Backend-owned orientation decides the primary action, one visible nudge, and the explanation lane."
+            >
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400">
+                      {overview.dominant_action ? 'Dominant action' : 'Suggestions'}
+                    </span>
+                    <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-xs text-zinc-500">
+                      Updated {formatTime(nowTs, data.timezone)}
+                    </span>
+                  </div>
+                  <h2 className="mt-3 text-xl font-medium text-zinc-100">
+                    {overview.dominant_action?.title ?? 'Choose the next bounded move'}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">
+                    {overview.dominant_action?.summary
+                      ?? overview.suggestions[0]?.summary
+                      ?? 'No dominant action is active right now.'}
+                  </p>
+                  {overview.dominant_action ? null : overview.suggestions.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {overview.suggestions.map((suggestion) => (
+                        <div
+                          key={suggestion.id}
+                          className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3"
+                        >
+                          <p className="text-sm font-medium text-zinc-100">{suggestion.title}</p>
+                          <p className="mt-1 text-xs leading-5 text-zinc-400">{suggestion.summary}</p>
+                        </div>
+                      ))}
+                      <div className="flex flex-wrap gap-2">
+                        {overview.decision_options.map((option) => (
+                          <span
+                            key={option}
+                            className="rounded-full border border-zinc-800 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-400"
+                          >
+                            {option}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-4">
+                  {overview.visible_nudge ? (
+                    <div className="rounded-xl border border-amber-900/50 bg-amber-950/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-amber-200/70">
+                        Visible nudge
+                      </p>
+                      <h3 className="mt-2 text-base font-medium text-amber-100">
+                        {overview.visible_nudge.title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-amber-50/85">
+                        {overview.visible_nudge.summary}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <details className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                    <summary className="cursor-pointer list-none text-sm font-medium text-zinc-100">
+                      Why + state
+                    </summary>
+                    <div className="mt-3 space-y-2">
+                      {overview.why_state.length > 0 ? (
+                        overview.why_state.map((item) => (
+                          <div
+                            key={`${item.label}-${item.detail}`}
+                            className="rounded-lg border border-zinc-900 bg-zinc-950/70 px-3 py-2"
+                          >
+                            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                              {item.label}
+                            </p>
+                            <p className="mt-1 text-sm text-zinc-200">{item.detail}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <SurfaceState message="No additional explanation is available yet." />
+                      )}
+                    </div>
+                  </details>
+                </div>
+              </div>
+            </Panel>
+
+            <Panel
+              title="Next event"
+              subtitle="Calendar is authoritative here. Routine blocks and low-value schedule noise stay out of this slot."
+            >
+              {nextScheduledEvent ? (
+                <EventSummaryCard
+                  event={nextScheduledEvent}
+                  timezone={data.timezone}
+                  nowTs={nowTs}
+                  emphasis="next"
+                />
+              ) : (
+                <SurfaceState
+                  message={currentStatus.fallbackEventMessage ?? 'No more calendar events are in play right now.'}
+                />
+              )}
+            </Panel>
+
+            <Panel
+              title="Today"
+              subtitle="Commitments stay primary. Pull from tasks only when today still has room."
+            >
+              <div className="space-y-4">
+                <TodayLaneCard
+                  label="Active"
+                  emptyMessage="Nothing is actively in motion right now."
+                >
+                  {activeEvent ? (
+                    <TodayEventRow event={activeEvent} timezone={data.timezone} nowTs={nowTs} />
+                  ) : commitmentRows.length > 0 ? (
+                    <TodayCommitmentRow
+                      task={commitmentRows[0]}
+                      timezone={data.timezone}
+                      pending={Boolean(pendingCommitments[commitmentRows[0].id])}
+                      feedback={commitmentMessages[commitmentRows[0].id]}
+                      onComplete={() => void completeCommitment(commitmentRows[0].id)}
+                    />
+                  ) : (
+                    <SurfaceState message={currentStatus.summary} />
+                  )}
+                </TodayLaneCard>
+
+                <TodayLaneCard
+                  label="Next up"
+                  emptyMessage="Nothing time-bound is coming up next."
+                >
+                  {nextScheduledEvent ? (
+                    <TodayEventRow event={nextScheduledEvent} timezone={data.timezone} nowTs={nowTs} />
+                  ) : commitmentRows.length > 1 ? (
+                    <TodayCommitmentRow
+                      task={commitmentRows[1]}
+                      timezone={data.timezone}
+                      pending={Boolean(pendingCommitments[commitmentRows[1].id])}
+                      feedback={commitmentMessages[commitmentRows[1].id]}
+                      onComplete={() => void completeCommitment(commitmentRows[1].id)}
+                    />
+                  ) : (
+                    <SurfaceState message="No next-up item is selected yet." />
+                  )}
+                </TodayLaneCard>
+
+                <TodayLaneGroup
+                  title="Commitments"
+                  subtitle="Chosen or already in play for this day."
+                  emptyMessage="No commitments are in play yet."
+                >
+                  {commitmentRows.map((task, index) => (
+                    <TodayCommitmentRow
+                      key={task.id}
+                      task={task}
+                      timezone={data.timezone}
+                      pending={Boolean(pendingCommitments[task.id])}
+                      feedback={commitmentMessages[task.id]}
+                      emphasis={index === 0 ? 'primary' : 'default'}
+                      onComplete={() => void completeCommitment(task.id)}
+                    />
+                  ))}
+                </TodayLaneGroup>
+
+                <TodayLaneGroup
+                  title="Pull from tasks"
+                  subtitle="Available work that has not earned more attention than commitments."
+                  emptyMessage="No pullable tasks are surfaced right now."
+                >
+                  {pullableTasks.map((task) => (
+                    <TodayTaskRow key={task.id} task={task} timezone={data.timezone} />
+                  ))}
+                </TodayLaneGroup>
+              </div>
+            </Panel>
+
             <FreshnessBanner
               freshness={data.freshness}
               pendingActions={pendingActions}
@@ -729,6 +808,39 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
             <DebugStatePanel debug={data.debug} />
           </div>
         </details>
+      </div>
+
+      <div className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950/95 px-4 py-4 backdrop-blur sm:px-6">
+        <div className="mx-auto max-w-5xl space-y-3">
+          <p className="text-sm text-zinc-400">
+            Type or hold the mic to talk locally, then let Vel route it inline, to Inbox, or into Threads.
+          </p>
+          {assistantEntryMessage ? (
+            <p
+              className={`rounded-xl border px-4 py-3 text-sm ${
+                assistantEntryMessage.status === 'error'
+                  ? 'border-red-900/70 bg-red-950/40 text-red-200'
+                  : 'border-emerald-900/60 bg-emerald-950/30 text-emerald-200'
+              }`}
+              role={assistantEntryMessage.status === 'error' ? 'alert' : 'status'}
+            >
+              {assistantEntryMessage.message}
+            </p>
+          ) : null}
+          {assistantInlineResponse?.assistant_message ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3 text-sm text-zinc-300">
+              <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Transcript / inline reply</p>
+              <p className="mt-1">
+                {extractMessageText(assistantInlineResponse.assistant_message) ?? 'Vel responded inline.'}
+              </p>
+            </div>
+          ) : null}
+          <MessageComposer
+            onSent={(_, response) => {
+              void handleAssistantEntry(response);
+            }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -910,6 +1022,75 @@ function DailyLoopPanel({
         </p>
       ) : null}
     </Panel>
+  );
+}
+
+function CompactTaskLaneRow({
+  item,
+  emphasis = 'default',
+  pending = false,
+  feedback,
+  onComplete,
+}: {
+  item: NonNullable<NowData['task_lane']>['active'] extends infer T
+    ? Exclude<T, null>
+    : never;
+  emphasis?: 'active' | 'default' | 'completed';
+  pending?: boolean;
+  feedback?: { status: 'success' | 'error'; message: string };
+  onComplete?: () => void;
+}) {
+  const completed = emphasis === 'completed' || item.state === 'completed';
+  const canComplete = Boolean(onComplete) && !completed;
+
+  return (
+    <div
+      className={`rounded-xl border px-4 py-3 ${
+        emphasis === 'active'
+          ? 'border-emerald-700/40 bg-emerald-950/10'
+          : completed
+            ? 'border-zinc-800 bg-zinc-950/30'
+            : 'border-zinc-800 bg-zinc-950/55'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          disabled={!canComplete || pending}
+          onClick={onComplete}
+          aria-label={completed ? `${item.text} completed` : `Complete ${item.text}`}
+          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border text-[11px] ${
+            completed
+              ? 'border-emerald-600 bg-emerald-600 text-zinc-950'
+              : canComplete
+                ? 'border-zinc-600 bg-zinc-950 text-zinc-500'
+                : 'border-zinc-800 bg-zinc-900 text-zinc-700'
+          }`}
+        >
+          {completed ? '✓' : ''}
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={`text-sm font-medium ${completed ? 'text-zinc-500 line-through' : 'text-zinc-100'}`}>
+              {item.text}
+            </p>
+            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+              {item.task_kind}
+            </span>
+            {item.project ? (
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2 py-0.5 text-[10px] text-zinc-500">
+                {item.project}
+              </span>
+            ) : null}
+          </div>
+          {feedback ? (
+            <p className={`mt-2 text-xs ${feedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+              {feedback.message}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1849,6 +2030,57 @@ function Panel({
       {children}
     </section>
   );
+}
+
+function formatNowHeaderBucketLabel(kind: string): string {
+  switch (kind) {
+    case 'threads_by_type':
+      return 'Threads';
+    case 'needs_input':
+      return 'Needs input';
+    case 'new_nudges':
+      return 'Nudges';
+    case 'search_filter':
+      return 'Search';
+    case 'snoozed':
+      return 'Snoozed';
+    case 'review_apply':
+      return 'Review';
+    case 'reflow':
+      return 'Reflow';
+    default:
+      return 'Follow-up';
+  }
+}
+
+function formatNowHeaderBucketCount(bucket: NonNullable<NowData['header']>['buckets'][number]): string {
+  if (bucket.count_display === 'always_show') {
+    return String(bucket.count);
+  }
+  if (bucket.count_display === 'show_nonzero') {
+    return bucket.count > 0 ? String(bucket.count) : '';
+  }
+  if (bucket.count_display === 'hidden_until_active') {
+    return bucket.urgent || bucket.count > 0 ? String(bucket.count) : '';
+  }
+  return '';
+}
+
+function formatNowMeshSyncState(state: NonNullable<NowData['mesh_summary']>['sync_state']): string {
+  switch (state) {
+    case 'local_only':
+      return 'Local only';
+    case 'offline':
+      return 'Offline';
+    case 'stale':
+      return 'Stale';
+    default:
+      return 'Synced';
+  }
+}
+
+function formatNowBarKind(kind: string): string {
+  return kind.replaceAll('_', ' ');
 }
 
 function FocusCard({ label, value }: { label: string; value: string }) {
