@@ -3,8 +3,6 @@ import { NowView } from './NowView';
 import { ProjectsView } from './ProjectsView';
 import type { SettingsTab } from './SettingsPage';
 import { SettingsPage } from './SettingsPage';
-import { SuggestionsView } from './SuggestionsView';
-import { StatsView } from './StatsView';
 import { ThreadView } from './ThreadView';
 import { getSurfaceDefinition, type MainView } from '../data/operatorSurfaces';
 
@@ -55,13 +53,6 @@ export function MainPanel({
       </div>
     );
   }
-  if (mainView === 'suggestions') {
-    return (
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <SuggestionsView />
-      </div>
-    );
-  }
   if (mainView === 'threads') {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -88,18 +79,10 @@ export function MainPanel({
     );
   }
 
-  if (mainView === 'stats') {
-    return (
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <StatsView />
-      </div>
-    );
-  }
-
   return (
     <SurfacePlaceholder
       title={surface.label}
-      subtitle={`${surface.label} is still a detail surface.`}
+      subtitle={`${surface.label} is not part of the primary MVP shell.`}
       body={surface.blurb}
     />
   );

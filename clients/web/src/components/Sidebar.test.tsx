@@ -23,14 +23,13 @@ describe('Sidebar', () => {
 
     expect(screen.queryByRole('button', { name: /^Stats$/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /^Suggestions$/ })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /Projects/ }))
+    expect(screen.queryByRole('button', { name: /^Projects$/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Settings/ }))
 
-    expect(onSelectView).toHaveBeenCalledWith('projects')
     expect(onSelectView).toHaveBeenCalledWith('settings')
   })
 
-  it('keeps now and inbox first, with threads then projects demoted behind them', () => {
+  it('keeps now, inbox, and threads as the daily-use shell before support surfaces', () => {
     render(
       <Sidebar
         activeView="now"
@@ -48,11 +47,11 @@ describe('Sidebar', () => {
     const nowIndex = topLevelButtons.findIndex((label) => label.includes('Now'))
     const inboxIndex = topLevelButtons.findIndex((label) => label.includes('Inbox'))
     const threadsIndex = topLevelButtons.findIndex((label) => label.includes('Threads'))
-    const projectsIndex = topLevelButtons.findIndex((label) => label.includes('Projects'))
+    const settingsIndex = topLevelButtons.findIndex((label) => label.includes('Settings'))
 
     expect(nowIndex).toBeLessThan(inboxIndex)
     expect(inboxIndex).toBeLessThan(threadsIndex)
-    expect(threadsIndex).toBeLessThan(projectsIndex)
+    expect(threadsIndex).toBeLessThan(settingsIndex)
   })
 
   it('shows conversation list only while on the Threads surface', () => {
@@ -78,7 +77,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('Conversation list conv_1')).toBeInTheDocument()
   })
 
-  it('groups daily-use, support, then advanced surfaces', () => {
+  it('groups daily-use and support surfaces only', () => {
     render(
       <Sidebar
         activeView="now"
@@ -90,7 +89,7 @@ describe('Sidebar', () => {
 
     expect(screen.getAllByText('Daily Use').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Support').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Advanced').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Advanced')).toBeNull()
   })
 
   it('keeps thread controls contextual instead of surfacing them on every surface', () => {

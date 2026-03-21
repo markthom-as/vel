@@ -7,7 +7,7 @@ export type MainView =
   | 'suggestions'
   | 'stats';
 
-export type SurfaceDisclosure = 'primary' | 'secondary' | 'advanced' | 'detail';
+export type SurfaceDisclosure = 'primary' | 'support' | 'detail';
 
 export interface OperatorSurfaceDefinition {
   view: MainView;
@@ -39,23 +39,23 @@ export const operatorSurfaces: OperatorSurfaceDefinition[] = [
     view: 'threads',
     label: 'Threads',
     icon: '◌',
-    disclosure: 'secondary',
+    disclosure: 'primary',
     navVisible: true,
-    blurb: 'Parallel work, history, and search',
+    blurb: 'Bounded continuation, history, and search',
   },
   {
     view: 'projects',
     label: 'Projects',
     icon: '▣',
-    disclosure: 'secondary',
-    navVisible: true,
-    blurb: 'Project context and drill-down',
+    disclosure: 'detail',
+    navVisible: false,
+    blurb: 'Project context and drill-down when a daily-use surface points there',
   },
   {
     view: 'settings',
     label: 'Settings',
     icon: '◇',
-    disclosure: 'advanced',
+    disclosure: 'support',
     navVisible: true,
     blurb: 'Setup, trust, and runtime controls',
   },
@@ -78,11 +78,8 @@ export const operatorSurfaces: OperatorSurfaceDefinition[] = [
 ];
 
 export const primarySurfaces = operatorSurfaces.filter((surface) => surface.disclosure === 'primary');
-export const secondarySurfaces = operatorSurfaces.filter(
-  (surface) => surface.disclosure === 'secondary' && surface.navVisible,
-);
-export const advancedSurfaces = operatorSurfaces.filter(
-  (surface) => surface.disclosure === 'advanced' && surface.navVisible,
+export const supportSurfaces = operatorSurfaces.filter(
+  (surface) => surface.disclosure === 'support' && surface.navVisible,
 );
 export const detailSurfaces = operatorSurfaces.filter((surface) => surface.disclosure === 'detail');
 

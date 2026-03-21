@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ConversationList } from './ConversationList';
 import {
-  advancedSurfaces,
   primarySurfaces,
-  secondarySurfaces,
+  supportSurfaces,
   type MainView,
 } from '../data/operatorSurfaces';
 
@@ -63,30 +62,7 @@ export function Sidebar({
         </ul>
         <p className="pb-2 pt-4 text-center text-[10px] uppercase tracking-[0.22em] text-zinc-500">Support</p>
         <ul className="space-y-2">
-          {secondarySurfaces.map((item) => (
-            <li key={item.view}>
-              <button
-                type="button"
-                onClick={() => onSelectView(item.view)}
-                aria-label={item.label}
-                title={item.label}
-                className={`flex w-full flex-col items-center gap-1 rounded-xl px-2 py-2 text-center text-[11px] transition ${
-                  activeView === item.view
-                    ? 'bg-zinc-800 text-zinc-100'
-                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
-                }`}
-              >
-                <span aria-hidden="true" className="text-sm text-zinc-500">
-                  {item.icon}
-                </span>
-                <span>{item.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <p className="pb-2 pt-4 text-center text-[10px] uppercase tracking-[0.22em] text-zinc-500">Advanced</p>
-        <ul className="space-y-2">
-          {advancedSurfaces.map((item) => (
+          {supportSurfaces.map((item) => (
             <li key={item.view}>
               <button
                 type="button"

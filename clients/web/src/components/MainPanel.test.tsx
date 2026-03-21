@@ -5,7 +5,7 @@ import {
   detailSurfaces,
   operatorSurfaces,
   primarySurfaces,
-  secondarySurfaces,
+  supportSurfaces,
 } from '../data/operatorSurfaces'
 
 vi.mock('./NowView', () => ({
@@ -24,14 +24,6 @@ vi.mock('./ThreadView', () => ({
   ThreadView: ({ conversationId }: { conversationId: string | null }) => (
     <div>{conversationId ? `Thread ${conversationId}` : 'Thread empty'}</div>
   ),
-}))
-
-vi.mock('./SuggestionsView', () => ({
-  SuggestionsView: () => <div>Suggestions view</div>,
-}))
-
-vi.mock('./StatsView', () => ({
-  StatsView: () => <div>Stats view</div>,
 }))
 
 vi.mock('./SettingsPage', () => ({
@@ -70,19 +62,16 @@ describe('MainPanel', () => {
     expect(screen.getByText('Thread conv_1')).toBeInTheDocument()
   })
 
-  it('shows the Suggestions view when mainView is suggestions', () => {
-    renderMainPanel('suggestions')
-    expect(screen.getByText('Suggestions view')).toBeInTheDocument()
-  })
-
   it('shows the Projects view when mainView is projects', () => {
     renderMainPanel('projects')
     expect(screen.getByText('Projects view')).toBeInTheDocument()
   })
 
-  it('shows the Stats surface when mainView is stats', () => {
+  it('demotes hidden detail surfaces to placeholders instead of first-class routes', () => {
+    renderMainPanel('suggestions')
+    expect(screen.getByText('Suggestions is not part of the primary MVP shell.')).toBeInTheDocument()
     renderMainPanel('stats')
-    expect(screen.getByText('Stats view')).toBeInTheDocument()
+    expect(screen.getByText('Stats is not part of the primary MVP shell.')).toBeInTheDocument()
   })
 
   it('shows the Settings surface when mainView is settings', () => {
@@ -91,15 +80,15 @@ describe('MainPanel', () => {
   })
 
   it('uses the approved taxonomy as the first-class route set', () => {
-    expect(primarySurfaces.map((surface) => surface.view)).toEqual(['now', 'inbox'])
-    expect(secondarySurfaces.map((surface) => surface.view)).toEqual(['threads', 'projects'])
+    expect(primarySurfaces.map((surface) => surface.view)).toEqual(['now', 'inbox', 'threads'])
+    expect(supportSurfaces.map((surface) => surface.view)).toEqual(['settings'])
     expect(
       operatorSurfaces.filter((surface) => surface.navVisible).map((surface) => surface.view),
-    ).toEqual(['now', 'inbox', 'threads', 'projects', 'settings'])
+    ).toEqual(['now', 'inbox', 'threads', 'settings'])
   })
 
-  it('keeps suggestions and stats as detail surfaces instead of primary peers', () => {
-    expect(detailSurfaces.map((surface) => surface.view)).toEqual(['suggestions', 'stats'])
+  it('keeps projects, suggestions, and stats as hidden detail surfaces', () => {
+    expect(detailSurfaces.map((surface) => surface.view)).toEqual(['projects', 'suggestions', 'stats'])
     expect(detailSurfaces.every((surface) => surface.navVisible === false)).toBe(true)
   })
 })
