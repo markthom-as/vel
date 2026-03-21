@@ -79,7 +79,7 @@ describe('MainPanel', () => {
     expect(screen.getByText('Settings page general')).toBeInTheDocument()
   })
 
-  it('uses the approved taxonomy as the first-class route set', () => {
+  it('uses the approved shell parity taxonomy as the first-class route set', () => {
     expect(primarySurfaces.map((surface) => surface.view)).toEqual(['now', 'inbox', 'threads'])
     expect(supportSurfaces.map((surface) => surface.view)).toEqual(['settings'])
     expect(

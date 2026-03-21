@@ -29,7 +29,7 @@ describe('Sidebar', () => {
     expect(onSelectView).toHaveBeenCalledWith('settings')
   })
 
-  it('keeps now, inbox, and threads as the daily-use shell before support surfaces', () => {
+  it('keeps now, inbox, and threads as the daily-use shell before support surfaces in the parity model', () => {
     render(
       <Sidebar
         activeView="now"

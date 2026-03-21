@@ -37,7 +37,7 @@ Do not widen this milestone into:
 - [x] **Phase 41: Rust-owned overview, commitment flow, and orientation core** - Make `Now`, daily overview, commitment flow, and nudges/orientation fully backend-owned and decision-first
 - [x] **Phase 42: Explainable same-day reflow** - Finish bounded reflow in Rust with clear proposal state, provenance, and degraded behavior
 - [x] **Phase 43: Thread continuation, tools, context, and data** - Formalize threads as the bounded continuation substrate for tools, context, memory, and follow-through
-- [ ] **Phase 44: Minimal fresh web and Apple shells** - Rebuild the shipped web and Apple MVP surfaces as thin clients over the canonical Rust core
+- [x] **Phase 44: Minimal fresh web and Apple shells** - Rebuild the shipped web and Apple MVP surfaces as thin clients over the canonical Rust core
 - [ ] **Phase 45: Review, MVP verification, and post-MVP roadmap shaping** - Close the loop with review, end-to-end MVP verification, and explicit post-MVP roadmap/deferred scope
 
 ## Progress
@@ -50,7 +50,7 @@ Do not widen this milestone into:
 | 41. Rust-owned overview, commitment flow, and orientation core | MVP-01, MVP-02, ORIENT-01, ORIENT-02, ORIENT-03 | Complete |
 | 42. Explainable same-day reflow | REFLOW-01, REFLOW-02, REFLOW-03, REFLOW-04 | Complete |
 | 43. Thread continuation, tools, context, and data | THREAD-01, THREAD-02, THREAD-03 | Complete |
-| 44. Minimal fresh web and Apple shells | CORE-02, CORE-03, CLIENT-01, CLIENT-02, CLIENT-03 | Planned |
+| 44. Minimal fresh web and Apple shells | CORE-02, CORE-03, CLIENT-01, CLIENT-02, CLIENT-03 | Complete |
 | 45. Review, MVP verification, and post-MVP roadmap shaping | MVP-03, REVIEW-01, REVIEW-02, FUTURE-01, FUTURE-02 | Planned |
 
 ## Phase Details
@@ -158,10 +158,10 @@ Plans:
 **Plans:** 4 plans
 
 Plans:
-- [ ] 44-01-PLAN.md — Rework web MVP surfaces around the canonical overview/thread/review contracts
-- [ ] 44-02-PLAN.md — Rework Apple MVP surfaces around the same Rust-owned flows
-- [ ] 44-03-PLAN.md — Remove or deprecate remaining shell-owned MVP behavior
-- [ ] 44-04-PLAN.md — Verify cross-surface parity and minimal-client boundaries
+- [x] 44-01-PLAN.md — Rework web MVP surfaces around the canonical overview/thread/review contracts
+- [x] 44-02-PLAN.md — Rework Apple MVP surfaces around the same Rust-owned flows
+- [x] 44-03-PLAN.md — Remove or deprecate remaining shell-owned MVP behavior
+- [x] 44-04-PLAN.md — Verify cross-surface parity and minimal-client boundaries
 
 ### Phase 45: Review, MVP verification, and post-MVP roadmap shaping
 
@@ -184,4 +184,4 @@ Plans:
 - [ ] 45-03-PLAN.md — Document deferred work and the post-MVP roadmap explicitly
 
 ---
-*Last updated: 2026-03-20 for milestone v0.2 true MVP planning*
+*Last updated: 2026-03-21 after Phase 44 verification closeout*

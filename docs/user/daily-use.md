@@ -22,6 +22,7 @@ If a `check_in` turns into a longer clarification or a `reflow` needs editing, V
 
 If you are using the web shell and need the fastest path to the right help:
 
+- web and Apple now teach the same MVP shell hierarchy: `Now`, `Inbox`, and `Threads` are the primary daily-use lanes, `Settings` is support/setup, and `Projects` remains secondary context.
 - `Now` is the primary surface for current-day orientation. It is action-first: the top overview shows one dominant action when the backend has enough evidence, one visible nudge, a compact timeline, and a `Why + state` disclosure lane.
 - that “current day” is now sleep-relative rather than midnight-bound. If you are still awake and inside the same work session after midnight, unfinished commitments, relevant night events, and routine continuity may still belong to the same operator day until the rollover boundary is crossed.
 - when there is no trustworthy dominant action, `Now` falls back to a bounded choice state instead of inventing local shell ranking. Expect one to three suggestions and a small explicit action vocabulary.
