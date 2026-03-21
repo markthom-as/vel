@@ -184,6 +184,8 @@ cargo run -p vel-cli -- review today
 
 Assistant entry can now start that same closeout path inline. If you ask Vel to close out today or review today through `Now`, `Threads`, or voice entry, the backend runs the existing end-of-day context pipeline and returns a typed closeout summary instead of relying on shell-local heuristics.
 
+Treat that closeout as the explicit review step of the MVP loop: `Now` can show compact review pressure during the day, but the end-of-day summary is the authoritative place to see what changed, what remains open, and what carries into tomorrow.
+
 The same rule applies to thread resolution during closeout and daily use: longer action follow-through belongs in `Threads`, but the backend remains the authority for why the work is there and what state it is in.
 
 That rule also applies when the assistant proposes doing something on your behalf. Vel can stage a bounded proposal from chat or voice, but it still routes the work through the normal operator supervision lanes:

@@ -294,7 +294,10 @@ describe('transport decoders', () => {
     expect(response.data?.planning_profile_proposal?.state).toBe('staged')
     expect(response.data?.planning_profile_proposal?.thread_type).toBe('planning_profile_edit')
     expect(response.data?.daily_loop_session?.phase).toBe('morning_overview')
+    expect(response.data?.end_of_day?.date).toBe('2026-03-19')
+    expect(response.data?.end_of_day?.what_was_done[0]?.content_text).toBe('finished draft')
     expect(response.data?.end_of_day?.what_remains_open).toEqual(['follow up'])
+    expect(response.data?.end_of_day?.what_may_matter_tomorrow).toEqual(['budget review'])
   })
 
   it('decodes current-context responses with nullable data', () => {

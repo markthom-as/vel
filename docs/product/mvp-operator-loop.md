@@ -118,14 +118,23 @@ If those conditions are not met, the operator should stay in the inline loop.
 
 Review closes the loop.
 
+It is the backend-owned closeout lane over the same persisted state that drove overview, commitments, reflow, and thread continuation.
+
 It must let the operator see:
 
 - what commitments changed
 - what reflow decided
 - what was deferred or left unresolved
 - what thread-mediated work changed state
+- what still needs attention before tomorrow
 
 Review is not a generic analytics surface. It exists to preserve explainability and closeout.
+
+In `v0.2`, review should stay grounded in the existing closeout seams:
+
+- `review_snapshot` for compact current-day remaining attention
+- the run-backed end-of-day summary for what was done, what remains open, and what may matter tomorrow
+- the same thread continuity and reflow outcomes already visible earlier in the loop
 
 # Surface Implications
 

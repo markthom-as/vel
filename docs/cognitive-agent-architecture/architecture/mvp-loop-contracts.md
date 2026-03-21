@@ -214,6 +214,7 @@ Escalation reasons and thread context should remain inspectable from the trigger
 - review must explain what changed and what remains unresolved
 - terminal state matters more than dashboard accumulation
 - review remains part of the same MVP loop rather than a separate analytics product
+- compact review state may surface through `ReviewSnapshot`, but closeout detail should still reconcile against the run-backed end-of-day summary rather than shell-local synthesis
 
 ## Degraded behavior
 
@@ -222,7 +223,7 @@ Escalation reasons and thread context should remain inspectable from the trigger
 
 ## Provenance
 
-Review output should trace back to commitment transitions, reflow proposals or applications, and thread-mediated actions.
+Review output should trace back to commitment transitions, reflow proposals or applications, thread-mediated actions, and the same persisted closeout context returned by the run-backed end-of-day surface.
 
 # Shell Consumption Rule
 

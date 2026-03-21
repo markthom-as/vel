@@ -5053,6 +5053,17 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["ok"], true);
+        assert!(json["meta"]["request_id"].as_str().is_some());
+        assert!(json["data"]["date"].as_str().is_some());
+        assert!(json["data"]["what_was_done"].is_array());
+        assert!(json["data"]["what_remains_open"].is_array());
+        assert!(json["data"]["what_may_matter_tomorrow"].is_array());
     }
 
     #[tokio::test]
