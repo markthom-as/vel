@@ -1,3 +1,4 @@
+use chrono::{DateTime, Timelike, Utc};
 use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
 use vel_config::AppConfig;
@@ -14,6 +15,12 @@ use crate::{errors::AppError, services::integrations};
 pub struct NowOutput {
     pub computed_at: i64,
     pub timezone: String,
+    pub header: Option<NowHeaderOutput>,
+    pub status_row: Option<NowStatusRowOutput>,
+    pub context_line: Option<NowContextLineOutput>,
+    pub nudge_bars: Vec<NowNudgeBarOutput>,
+    pub task_lane: Option<NowTaskLaneOutput>,
+    pub docked_input: Option<NowDockedInputOutput>,
     pub overview: NowOverviewOutput,
     pub summary: NowSummaryOutput,
     pub schedule: NowScheduleOutput,
@@ -50,6 +57,78 @@ pub struct NowRiskSummaryOutput {
     pub level: String,
     pub score: Option<f64>,
     pub label: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowHeaderOutput {
+    pub title: String,
+    pub buckets: Vec<NowHeaderBucketOutput>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowHeaderBucketOutput {
+    pub kind: String,
+    pub count: u32,
+    pub count_display: String,
+    pub urgent: bool,
+    pub route_thread_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowStatusRowOutput {
+    pub date_label: String,
+    pub time_label: String,
+    pub context_label: String,
+    pub elapsed_label: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowContextLineOutput {
+    pub text: String,
+    pub thread_id: Option<String>,
+    pub fallback_used: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowNudgeBarOutput {
+    pub id: String,
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
+    pub urgent: bool,
+    pub primary_thread_id: Option<String>,
+    pub actions: Vec<NowNudgeActionOutput>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowNudgeActionOutput {
+    pub kind: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowTaskLaneOutput {
+    pub active: Option<NowTaskLaneItemOutput>,
+    pub pending: Vec<NowTaskLaneItemOutput>,
+    pub recent_completed: Vec<NowTaskLaneItemOutput>,
+    pub overflow_count: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowTaskLaneItemOutput {
+    pub id: String,
+    pub task_kind: String,
+    pub text: String,
+    pub state: String,
+    pub project: Option<String>,
+    pub primary_thread_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NowDockedInputOutput {
+    pub supported_intents: Vec<String>,
+    pub day_thread_id: Option<String>,
+    pub raw_capture_thread_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -395,10 +474,43 @@ pub async fn get_now(storage: &Storage, config: &AppConfig) -> Result<NowOutput,
         &freshness,
         &trust_readiness,
     );
+    let header = Some(build_header(
+        &action_queue.action_items,
+        check_in.as_ref(),
+        reflow.as_ref(),
+        reflow_status.as_ref(),
+        &planning_profile_summary,
+        &commitment_scheduling_summary,
+    ));
+    let status_row = Some(build_status_row(
+        now,
+        &timezone,
+        &task_buckets,
+        next_event.as_ref(),
+    ));
+    let context_line = Some(build_context_line(
+        &overview,
+        &task_buckets,
+        next_event.as_ref(),
+        &trust_readiness,
+    ));
+    let nudge_bars = build_nudge_bars(
+        check_in.as_ref(),
+        reflow.as_ref(),
+        &action_queue.action_items,
+    );
+    let task_lane = Some(build_task_lane(&task_buckets));
+    let docked_input = Some(build_docked_input());
 
     Ok(NowOutput {
         computed_at,
         timezone: timezone.name,
+        header,
+        status_row,
+        context_line,
+        nudge_bars,
+        task_lane,
+        docked_input,
         overview,
         summary: NowSummaryOutput {
             mode: label_for_mode(context.mode.as_str()),
@@ -750,6 +862,28 @@ fn empty_now(
     NowOutput {
         computed_at: now_ts,
         timezone: timezone.to_string(),
+        header: Some(build_header(
+            &action_queue.action_items,
+            check_in.as_ref(),
+            None,
+            None,
+            &planning_profile_summary,
+            &commitment_scheduling_summary,
+        )),
+        status_row: Some(empty_status_row(now_ts, timezone)),
+        context_line: Some(NowContextLineOutput {
+            text: "No active context yet. Sync integrations or run evaluate.".to_string(),
+            thread_id: None,
+            fallback_used: true,
+        }),
+        nudge_bars: build_nudge_bars(check_in.as_ref(), None, &action_queue.action_items),
+        task_lane: Some(NowTaskLaneOutput {
+            active: None,
+            pending: Vec::new(),
+            recent_completed: Vec::new(),
+            overflow_count: 0,
+        }),
+        docked_input: Some(build_docked_input()),
         overview: empty_overview(&freshness, &trust_readiness),
         summary: NowSummaryOutput {
             mode: label("unknown", "Unknown"),
@@ -811,6 +945,302 @@ fn empty_now(
             risk_used: Vec::new(),
         },
     }
+}
+
+fn build_header(
+    action_items: &[ActionItem],
+    check_in: Option<&CheckInCard>,
+    reflow: Option<&ReflowCard>,
+    reflow_status: Option<&CurrentContextReflowStatus>,
+    planning_profile_summary: &crate::services::planning_profile::PlanningProfileProposalSummary,
+    commitment_scheduling_summary: &crate::services::commitment_scheduling::CommitmentSchedulingProposalSummary,
+) -> NowHeaderOutput {
+    let now_items = action_items
+        .iter()
+        .filter(|item| item.surface == vel_core::ActionSurface::Now)
+        .count() as u32;
+    let snoozed_count = action_items
+        .iter()
+        .filter(|item| item.snoozed_until.is_some())
+        .count() as u32;
+    let review_apply_count = planning_profile_summary.pending_count
+        + commitment_scheduling_summary.pending_count
+        + action_items
+            .iter()
+            .filter(|item| matches!(item.kind, ActionKind::Review | ActionKind::Conflict))
+            .count() as u32;
+    let reflow_count = u32::from(reflow.is_some() || reflow_status.is_some());
+    let follow_up_count = action_items
+        .iter()
+        .filter(|item| item.thread_route.is_some())
+        .count() as u32;
+
+    NowHeaderOutput {
+        title: "Now".to_string(),
+        buckets: vec![
+            header_bucket("threads_by_type", now_items, now_items > 0, None),
+            header_bucket(
+                "needs_input",
+                u32::from(check_in.map(|card| card.blocking).unwrap_or(false)),
+                check_in.map(|card| card.blocking).unwrap_or(false),
+                check_in
+                    .and_then(|card| card.escalation.as_ref())
+                    .and_then(|escalation| escalation.thread_id.clone()),
+            ),
+            header_bucket("new_nudges", now_items, now_items > 0, None),
+            header_bucket("search_filter", 0, false, None),
+            header_bucket("snoozed", snoozed_count, false, None),
+            header_bucket(
+                "review_apply",
+                review_apply_count,
+                review_apply_count > 0,
+                planning_profile_summary
+                    .latest_pending
+                    .as_ref()
+                    .map(|item| item.thread_id.clone())
+                    .or_else(|| {
+                        commitment_scheduling_summary
+                            .latest_pending
+                            .as_ref()
+                            .map(|item| item.thread_id.clone())
+                    }),
+            ),
+            header_bucket(
+                "reflow",
+                reflow_count,
+                reflow_count > 0,
+                reflow_status.and_then(|status| status.thread_id.clone()),
+            ),
+            header_bucket("follow_up", follow_up_count, follow_up_count > 0, None),
+        ],
+    }
+}
+
+fn header_bucket(
+    kind: &str,
+    count: u32,
+    urgent: bool,
+    route_thread_id: Option<String>,
+) -> NowHeaderBucketOutput {
+    NowHeaderBucketOutput {
+        kind: kind.to_string(),
+        count,
+        count_display: "show_nonzero".to_string(),
+        urgent,
+        route_thread_id,
+    }
+}
+
+fn build_status_row(
+    now: OffsetDateTime,
+    timezone: &crate::services::timezone::ResolvedTimeZone,
+    task_buckets: &NowTaskBuckets,
+    next_event: Option<&NowEventOutput>,
+) -> NowStatusRowOutput {
+    let local = DateTime::<Utc>::from_timestamp(now.unix_timestamp(), now.nanosecond())
+        .expect("current time should convert")
+        .with_timezone(&timezone.tz());
+    let context_label = if let Some(task) = task_buckets.next_commitment.as_ref() {
+        task.text.clone()
+    } else if let Some(event) = next_event {
+        event.title.clone()
+    } else {
+        "No active context".to_string()
+    };
+    let elapsed_label = next_event
+        .filter(|event| event.start_ts <= now.unix_timestamp())
+        .map(|event| format_elapsed_minutes(now.unix_timestamp() - event.start_ts))
+        .unwrap_or_else(|| "No active task".to_string());
+
+    NowStatusRowOutput {
+        date_label: crate::services::timezone::local_date_string(timezone, now),
+        time_label: format!("{:02}:{:02}", local.hour(), local.minute()),
+        context_label,
+        elapsed_label,
+    }
+}
+
+fn empty_status_row(now_ts: i64, timezone: &str) -> NowStatusRowOutput {
+    let now = OffsetDateTime::from_unix_timestamp(now_ts).expect("timestamp should convert");
+    let timezone =
+        crate::services::timezone::ResolvedTimeZone::parse(timezone).unwrap_or_else(|_| {
+            crate::services::timezone::ResolvedTimeZone::utc()
+        });
+    build_status_row(
+        now,
+        &timezone,
+        &NowTaskBuckets {
+            next_commitment: None,
+            in_play: Vec::new(),
+            pullable: Vec::new(),
+        },
+        None,
+    )
+}
+
+fn build_context_line(
+    overview: &NowOverviewOutput,
+    task_buckets: &NowTaskBuckets,
+    next_event: Option<&NowEventOutput>,
+    trust_readiness: &TrustReadinessOutput,
+) -> NowContextLineOutput {
+    let text = if let Some(action) = overview.dominant_action.as_ref() {
+        action.summary.clone()
+    } else if let Some(task) = task_buckets.next_commitment.as_ref() {
+        format!("{} is the next ranked task for the current day.", task.text)
+    } else if let Some(event) = next_event {
+        format!("{} is the next calendar anchor for the day.", event.title)
+    } else {
+        trust_readiness.summary.clone()
+    };
+
+    NowContextLineOutput {
+        text,
+        thread_id: None,
+        fallback_used: true,
+    }
+}
+
+fn build_nudge_bars(
+    check_in: Option<&CheckInCard>,
+    reflow: Option<&ReflowCard>,
+    action_items: &[ActionItem],
+) -> Vec<NowNudgeBarOutput> {
+    let mut bars = Vec::new();
+
+    if let Some(card) = check_in {
+        bars.push(NowNudgeBarOutput {
+            id: card.id.to_string(),
+            kind: "needs_input".to_string(),
+            title: card.title.clone(),
+            summary: card.summary.clone(),
+            urgent: card.blocking,
+            primary_thread_id: card
+                .escalation
+                .as_ref()
+                .and_then(|escalation| escalation.thread_id.clone()),
+            actions: card
+                .transitions
+                .iter()
+                .map(|transition| NowNudgeActionOutput {
+                    kind: transition.kind.to_string(),
+                    label: transition.label.clone(),
+                })
+                .collect(),
+        });
+    }
+
+    if let Some(card) = reflow {
+        bars.push(NowNudgeBarOutput {
+            id: card.id.to_string(),
+            kind: "reflow_proposal".to_string(),
+            title: card.title.clone(),
+            summary: card.summary.clone(),
+            urgent: matches!(card.severity, ReflowSeverity::Critical | ReflowSeverity::High),
+            primary_thread_id: None,
+            actions: card
+                .transitions
+                .iter()
+                .map(|transition| NowNudgeActionOutput {
+                    kind: transition.kind.to_string(),
+                    label: transition.label.clone(),
+                })
+                .collect(),
+        });
+    }
+
+    for item in action_items
+        .iter()
+        .filter(|item| item.surface == vel_core::ActionSurface::Now)
+        .take(3)
+    {
+        bars.push(NowNudgeBarOutput {
+            id: item.id.to_string(),
+            kind: map_action_item_to_bar_kind(item.kind),
+            title: item.title.clone(),
+            summary: item.summary.clone(),
+            urgent: item.rank >= 80,
+            primary_thread_id: item.thread_route.as_ref().and_then(|route| route.thread_id.clone()),
+            actions: vec![NowNudgeActionOutput {
+                kind: "accept".to_string(),
+                label: item
+                    .thread_route
+                    .as_ref()
+                    .map(|route| route.label.clone())
+                    .unwrap_or_else(|| "Accept".to_string()),
+            }],
+        });
+    }
+
+    bars
+}
+
+fn map_action_item_to_bar_kind(kind: ActionKind) -> String {
+    match kind {
+        ActionKind::Review => "review_request",
+        ActionKind::Freshness => "freshness_warning",
+        ActionKind::Recovery | ActionKind::Conflict | ActionKind::Linking => "trust_warning",
+        _ => "nudge",
+    }
+    .to_string()
+}
+
+fn build_task_lane(task_buckets: &NowTaskBuckets) -> NowTaskLaneOutput {
+    let active = task_buckets
+        .next_commitment
+        .as_ref()
+        .map(task_output_to_lane_item)
+        .map(|mut item| {
+            item.state = "active".to_string();
+            item
+        });
+    let mut pending = task_buckets
+        .in_play
+        .iter()
+        .map(task_output_to_lane_item)
+        .collect::<Vec<_>>();
+    pending.extend(task_buckets.pullable.iter().map(task_output_to_lane_item));
+    let overflow_count = pending.len().saturating_sub(3) as u32;
+    pending.truncate(3);
+
+    NowTaskLaneOutput {
+        active,
+        pending,
+        recent_completed: Vec::new(),
+        overflow_count,
+    }
+}
+
+fn task_output_to_lane_item(task: &NowTaskOutput) -> NowTaskLaneItemOutput {
+    NowTaskLaneItemOutput {
+        id: task.id.clone(),
+        task_kind: "commitment".to_string(),
+        text: task.text.clone(),
+        state: "pending".to_string(),
+        project: task.project.clone(),
+        primary_thread_id: None,
+    }
+}
+
+fn build_docked_input() -> NowDockedInputOutput {
+    NowDockedInputOutput {
+        supported_intents: vec![
+            "task".to_string(),
+            "question".to_string(),
+            "note".to_string(),
+            "command".to_string(),
+            "continuation".to_string(),
+            "reflection".to_string(),
+            "scheduling".to_string(),
+        ],
+        day_thread_id: None,
+        raw_capture_thread_id: None,
+    }
+}
+
+fn format_elapsed_minutes(seconds: i64) -> String {
+    let minutes = (seconds.max(0) / 60).max(1);
+    format!("{minutes}m")
 }
 
 fn build_overview(

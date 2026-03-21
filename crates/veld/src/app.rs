@@ -11090,6 +11090,13 @@ END:VCALENDAR
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["data"]["summary"]["mode"]["label"], "Day");
         assert_eq!(json["data"]["timezone"], "America/Denver");
+        assert_eq!(json["data"]["header"]["title"], "Now");
+        assert!(json["data"]["header"]["buckets"].is_array());
+        assert!(json["data"]["status_row"]["context_label"].is_string());
+        assert!(json["data"]["context_line"]["text"].is_string());
+        assert!(json["data"]["nudge_bars"].is_array());
+        assert!(json["data"]["task_lane"].is_object());
+        assert!(json["data"]["docked_input"]["supported_intents"].is_array());
         assert_eq!(json["data"]["summary"]["risk"]["label"], "medium · 72%");
         assert!(json["data"]["tasks"]["todoist"].is_array());
         assert_eq!(

@@ -523,6 +523,12 @@ mod tests {
                 now: vel_api_types::NowData {
                     computed_at: 1_700_000_000,
                     timezone: "America/Denver".to_string(),
+                    header: None,
+                    status_row: None,
+                    context_line: None,
+                    nudge_bars: Vec::new(),
+                    task_lane: None,
+                    docked_input: None,
                     overview: vel_api_types::NowOverviewData {
                         dominant_action: None,
                         today_timeline: Vec::new(),

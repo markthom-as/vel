@@ -3,13 +3,16 @@ use axum::Json;
 use vel_api_types::{
     ActionItemData, ApiResponse, CheckInCardData, CommitmentSchedulingProposalSummaryData,
     CommitmentSchedulingProposalSummaryItemData, CurrentContextReflowStatusData,
-    DayPlanProposalData, NowAttentionData, NowData, NowDebugData, NowEventData, NowFreshnessData,
-    NowFreshnessEntryData, NowLabelData, NowOverviewActionData, NowOverviewData,
-    NowOverviewNudgeData, NowOverviewSuggestionData, NowOverviewTimelineEntryData,
-    NowOverviewWhyStateData, NowRiskSummaryData, NowScheduleData, NowSourceActivityData,
-    NowSourcesData, NowSummaryData, NowTaskData, NowTasksData, PlanningProfileProposalSummaryData,
-    PlanningProfileProposalSummaryItemData, ReflowCardData, TrustReadinessData,
-    TrustReadinessFacetData, TrustReadinessReviewData,
+    DayPlanProposalData, NowAttentionData, NowContextLineData, NowCountDisplayModeData, NowData,
+    NowDebugData, NowDockedInputData, NowDockedInputIntentData, NowEventData, NowFreshnessData,
+    NowFreshnessEntryData, NowHeaderBucketData, NowHeaderBucketKindData, NowHeaderData,
+    NowLabelData, NowNudgeActionData, NowNudgeBarData, NowNudgeBarKindData,
+    NowOverviewActionData, NowOverviewData, NowOverviewNudgeData, NowOverviewSuggestionData,
+    NowOverviewTimelineEntryData, NowOverviewWhyStateData, NowRiskSummaryData, NowScheduleData,
+    NowSourceActivityData, NowSourcesData, NowStatusRowData, NowSummaryData, NowTaskData,
+    NowTaskKindData, NowTaskLaneData, NowTaskLaneItemData, NowTasksData, NowThreadFilterTargetData,
+    PlanningProfileProposalSummaryData, PlanningProfileProposalSummaryItemData, ReflowCardData,
+    TrustReadinessData, TrustReadinessFacetData, TrustReadinessReviewData,
 };
 
 use crate::{errors::AppError, routes::response, services, state::AppState};
@@ -26,6 +29,12 @@ impl From<services::now::NowOutput> for NowData {
         Self {
             computed_at: value.computed_at,
             timezone: value.timezone,
+            header: value.header.map(Into::into),
+            status_row: value.status_row.map(Into::into),
+            context_line: value.context_line.map(Into::into),
+            nudge_bars: value.nudge_bars.into_iter().map(Into::into).collect(),
+            task_lane: value.task_lane.map(Into::into),
+            docked_input: value.docked_input.map(Into::into),
             overview: value.overview.into(),
             summary: value.summary.into(),
             schedule: value.schedule.into(),
@@ -69,6 +78,154 @@ impl From<services::now::NowOutput> for NowData {
                 .collect(),
             reasons: value.reasons,
             debug: value.debug.into(),
+        }
+    }
+}
+
+impl From<services::now::NowHeaderOutput> for NowHeaderData {
+    fn from(value: services::now::NowHeaderOutput) -> Self {
+        Self {
+            title: value.title,
+            buckets: value.buckets.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<services::now::NowHeaderBucketOutput> for NowHeaderBucketData {
+    fn from(value: services::now::NowHeaderBucketOutput) -> Self {
+        Self {
+            kind: match value.kind.as_str() {
+                "threads_by_type" => NowHeaderBucketKindData::ThreadsByType,
+                "needs_input" => NowHeaderBucketKindData::NeedsInput,
+                "new_nudges" => NowHeaderBucketKindData::NewNudges,
+                "search_filter" => NowHeaderBucketKindData::SearchFilter,
+                "snoozed" => NowHeaderBucketKindData::Snoozed,
+                "review_apply" => NowHeaderBucketKindData::ReviewApply,
+                "reflow" => NowHeaderBucketKindData::Reflow,
+                _ => NowHeaderBucketKindData::FollowUp,
+            },
+            count: value.count,
+            count_display: match value.count_display.as_str() {
+                "always_show" => NowCountDisplayModeData::AlwaysShow,
+                "hidden_until_active" => NowCountDisplayModeData::HiddenUntilActive,
+                _ => NowCountDisplayModeData::ShowNonzero,
+            },
+            urgent: value.urgent,
+            route_target: NowThreadFilterTargetData {
+                bucket: match value.kind.as_str() {
+                    "threads_by_type" => NowHeaderBucketKindData::ThreadsByType,
+                    "needs_input" => NowHeaderBucketKindData::NeedsInput,
+                    "new_nudges" => NowHeaderBucketKindData::NewNudges,
+                    "search_filter" => NowHeaderBucketKindData::SearchFilter,
+                    "snoozed" => NowHeaderBucketKindData::Snoozed,
+                    "review_apply" => NowHeaderBucketKindData::ReviewApply,
+                    "reflow" => NowHeaderBucketKindData::Reflow,
+                    _ => NowHeaderBucketKindData::FollowUp,
+                },
+                thread_id: value.route_thread_id,
+            },
+        }
+    }
+}
+
+impl From<services::now::NowStatusRowOutput> for NowStatusRowData {
+    fn from(value: services::now::NowStatusRowOutput) -> Self {
+        Self {
+            date_label: value.date_label,
+            time_label: value.time_label,
+            context_label: value.context_label,
+            elapsed_label: value.elapsed_label,
+        }
+    }
+}
+
+impl From<services::now::NowContextLineOutput> for NowContextLineData {
+    fn from(value: services::now::NowContextLineOutput) -> Self {
+        Self {
+            text: value.text,
+            thread_id: value.thread_id,
+            fallback_used: value.fallback_used,
+        }
+    }
+}
+
+impl From<services::now::NowNudgeBarOutput> for NowNudgeBarData {
+    fn from(value: services::now::NowNudgeBarOutput) -> Self {
+        Self {
+            id: value.id,
+            kind: match value.kind.as_str() {
+                "needs_input" => NowNudgeBarKindData::NeedsInput,
+                "review_request" => NowNudgeBarKindData::ReviewRequest,
+                "reflow_proposal" => NowNudgeBarKindData::ReflowProposal,
+                "thread_continuation" => NowNudgeBarKindData::ThreadContinuation,
+                "trust_warning" => NowNudgeBarKindData::TrustWarning,
+                "freshness_warning" => NowNudgeBarKindData::FreshnessWarning,
+                _ => NowNudgeBarKindData::Nudge,
+            },
+            title: value.title,
+            summary: value.summary,
+            urgent: value.urgent,
+            primary_thread_id: value.primary_thread_id,
+            actions: value.actions.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<services::now::NowNudgeActionOutput> for NowNudgeActionData {
+    fn from(value: services::now::NowNudgeActionOutput) -> Self {
+        Self {
+            kind: value.kind,
+            label: value.label,
+        }
+    }
+}
+
+impl From<services::now::NowTaskLaneOutput> for NowTaskLaneData {
+    fn from(value: services::now::NowTaskLaneOutput) -> Self {
+        Self {
+            active: value.active.map(Into::into),
+            pending: value.pending.into_iter().map(Into::into).collect(),
+            recent_completed: value.recent_completed.into_iter().map(Into::into).collect(),
+            overflow_count: value.overflow_count,
+        }
+    }
+}
+
+impl From<services::now::NowTaskLaneItemOutput> for NowTaskLaneItemData {
+    fn from(value: services::now::NowTaskLaneItemOutput) -> Self {
+        Self {
+            id: value.id,
+            task_kind: match value.task_kind.as_str() {
+                "task" => NowTaskKindData::Task,
+                "event" => NowTaskKindData::Event,
+                _ => NowTaskKindData::Commitment,
+            },
+            text: value.text,
+            state: value.state,
+            project: value.project,
+            primary_thread_id: value.primary_thread_id,
+        }
+    }
+}
+
+impl From<services::now::NowDockedInputOutput> for NowDockedInputData {
+    fn from(value: services::now::NowDockedInputOutput) -> Self {
+        Self {
+            supported_intents: value
+                .supported_intents
+                .into_iter()
+                .map(|intent| match intent.as_str() {
+                    "task" => NowDockedInputIntentData::Task,
+                    "question" => NowDockedInputIntentData::Question,
+                    "note" => NowDockedInputIntentData::Note,
+                    "command" => NowDockedInputIntentData::Command,
+                    "continuation" => NowDockedInputIntentData::Continuation,
+                    "reflection" => NowDockedInputIntentData::Reflection,
+                    _ => NowDockedInputIntentData::Scheduling,
+                })
+                .collect(),
+            day_thread_id: value.day_thread_id,
+            raw_capture_thread_id: value.raw_capture_thread_id,
         }
     }
 }
@@ -386,6 +543,66 @@ mod tests {
         let service_output = services::now::NowOutput {
             computed_at: 1_700_000_100,
             timezone: "America/Denver".to_string(),
+            header: Some(services::now::NowHeaderOutput {
+                title: "Now".to_string(),
+                buckets: vec![services::now::NowHeaderBucketOutput {
+                    kind: "needs_input".to_string(),
+                    count: 1,
+                    count_display: "show_nonzero".to_string(),
+                    urgent: true,
+                    route_thread_id: Some("thr_check_in_1".to_string()),
+                }],
+            }),
+            status_row: Some(services::now::NowStatusRowOutput {
+                date_label: "2026-03-21".to_string(),
+                time_label: "09:15".to_string(),
+                context_label: "Ship patch".to_string(),
+                elapsed_label: "No active task".to_string(),
+            }),
+            context_line: Some(services::now::NowContextLineOutput {
+                text: "Standup check-in is blocking the next part of the day.".to_string(),
+                thread_id: None,
+                fallback_used: true,
+            }),
+            nudge_bars: vec![services::now::NowNudgeBarOutput {
+                id: "act_check_in_1".to_string(),
+                kind: "needs_input".to_string(),
+                title: "Standup check-in".to_string(),
+                summary: "Vel needs one short answer before the standup can continue."
+                    .to_string(),
+                urgent: true,
+                primary_thread_id: Some("thr_check_in_1".to_string()),
+                actions: vec![services::now::NowNudgeActionOutput {
+                    kind: "submit".to_string(),
+                    label: "Continue standup".to_string(),
+                }],
+            }],
+            task_lane: Some(services::now::NowTaskLaneOutput {
+                active: Some(services::now::NowTaskLaneItemOutput {
+                    id: "com_1".to_string(),
+                    task_kind: "commitment".to_string(),
+                    text: "Ship patch".to_string(),
+                    state: "active".to_string(),
+                    project: Some("Vel".to_string()),
+                    primary_thread_id: None,
+                }),
+                pending: Vec::new(),
+                recent_completed: Vec::new(),
+                overflow_count: 0,
+            }),
+            docked_input: Some(services::now::NowDockedInputOutput {
+                supported_intents: vec![
+                    "task".to_string(),
+                    "question".to_string(),
+                    "note".to_string(),
+                    "command".to_string(),
+                    "continuation".to_string(),
+                    "reflection".to_string(),
+                    "scheduling".to_string(),
+                ],
+                day_thread_id: None,
+                raw_capture_thread_id: None,
+            }),
             overview: services::now::NowOverviewOutput {
                 dominant_action: Some(services::now::NowOverviewActionOutput {
                     kind: "check_in".to_string(),
@@ -803,6 +1020,13 @@ mod tests {
         let json = serde_json::to_value(dto).unwrap();
 
         assert_eq!(json["timezone"], "America/Denver");
+        assert_eq!(json["header"]["title"], "Now");
+        assert_eq!(json["header"]["buckets"][0]["kind"], "needs_input");
+        assert_eq!(json["status_row"]["context_label"], "Ship patch");
+        assert_eq!(json["context_line"]["fallback_used"], true);
+        assert_eq!(json["nudge_bars"][0]["kind"], "needs_input");
+        assert_eq!(json["task_lane"]["active"]["task_kind"], "commitment");
+        assert_eq!(json["docked_input"]["supported_intents"][3], "command");
         assert_eq!(json["overview"]["dominant_action"]["kind"], "check_in");
         assert_eq!(json["overview"]["decision_options"][2], "thread");
         assert_eq!(json["summary"]["risk"]["label"], "low · 20%");
