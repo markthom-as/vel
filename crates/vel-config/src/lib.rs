@@ -31,6 +31,59 @@ const DEFAULT_REMINDERS_SNAPSHOT_PATH: &str = "var/integrations/reminders/snapsh
 const DEFAULT_NOTES_PATH: &str = "var/integrations/notes";
 const DEFAULT_TRANSCRIPT_SNAPSHOT_PATH: &str = "var/integrations/transcripts/snapshot.json";
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NowTitleMode {
+    OperatorNamePossessive,
+    Literal,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum NowCountDisplayMode {
+    AlwaysShow,
+    ShowNonzero,
+    HiddenUntilActive,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NowWatchConfig {
+    pub show_status_row: bool,
+    pub show_top_nudge: bool,
+    pub show_current_task: bool,
+    pub allow_thread_handoff: bool,
+}
+
+impl Default for NowWatchConfig {
+    fn default() -> Self {
+        Self {
+            show_status_row: true,
+            show_top_nudge: true,
+            show_current_task: true,
+            allow_thread_handoff: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NowConfig {
+    pub title_mode: NowTitleMode,
+    pub title_literal: Option<String>,
+    pub bucket_count_display: NowCountDisplayMode,
+    pub watch: NowWatchConfig,
+}
+
+impl Default for NowConfig {
+    fn default() -> Self {
+        Self {
+            title_mode: NowTitleMode::OperatorNamePossessive,
+            title_literal: None,
+            bucket_count_display: NowCountDisplayMode::ShowNonzero,
+            watch: NowWatchConfig::default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AppConfig {
     pub bind_addr: String,
@@ -67,6 +120,8 @@ pub struct AppConfig {
     pub notes_path: Option<String>,
     /// Transcripts: path to assistant/chat transcript snapshot JSON.
     pub transcript_snapshot_path: Option<String>,
+    #[serde(default)]
+    pub now: NowConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -245,6 +300,7 @@ impl Default for AppConfig {
             reminders_snapshot_path: Some(DEFAULT_REMINDERS_SNAPSHOT_PATH.to_string()),
             notes_path: Some(DEFAULT_NOTES_PATH.to_string()),
             transcript_snapshot_path: Some(DEFAULT_TRANSCRIPT_SNAPSHOT_PATH.to_string()),
+            now: NowConfig::default(),
         }
     }
 }
@@ -302,6 +358,7 @@ struct FileConfig {
     reminders_snapshot_path: Option<String>,
     notes_path: Option<String>,
     transcript_snapshot_path: Option<String>,
+    now: Option<NowConfig>,
 }
 
 impl AppConfig {
@@ -428,6 +485,9 @@ impl AppConfig {
         }
         if file.transcript_snapshot_path.is_some() {
             self.transcript_snapshot_path = file.transcript_snapshot_path;
+        }
+        if let Some(value) = file.now {
+            self.now = value;
         }
     }
 
@@ -574,6 +634,12 @@ mod tests {
             config.transcript_snapshot_path.as_deref(),
             Some(DEFAULT_TRANSCRIPT_SNAPSHOT_PATH)
         );
+        assert_eq!(config.now.title_mode, NowTitleMode::OperatorNamePossessive);
+        assert_eq!(
+            config.now.bucket_count_display,
+            NowCountDisplayMode::ShowNonzero
+        );
+        assert!(config.now.watch.allow_thread_handoff);
     }
 
     #[test]
@@ -696,6 +762,13 @@ budgets:
             parsed.reminders_snapshot_path.as_deref(),
             Some("var/integrations/reminders/snapshot.json")
         );
+        let now = parsed.now.expect("template should declare governed now config");
+        assert_eq!(now.title_mode, NowTitleMode::OperatorNamePossessive);
+        assert_eq!(
+            now.bucket_count_display,
+            NowCountDisplayMode::ShowNonzero
+        );
+        assert!(now.watch.show_current_task);
     }
 
     #[test]
@@ -714,6 +787,13 @@ budgets:
             config.reminders_snapshot_path.as_deref(),
             Some("var/integrations/reminders/snapshot.json")
         );
+        assert_eq!(config.now.title_mode, NowTitleMode::Literal);
+        assert_eq!(config.now.title_literal.as_deref(), Some("Jove's Now"));
+        assert_eq!(
+            config.now.bucket_count_display,
+            NowCountDisplayMode::AlwaysShow
+        );
+        assert!(config.now.watch.show_top_nudge);
     }
 
     #[test]
@@ -723,6 +803,8 @@ budgets:
         assert!(schema.contains("\"reminders_snapshot_path\""));
         assert!(schema.contains("\"writeback_enabled\""));
         assert!(schema.contains("\"tailscale_preferred\""));
+        assert!(schema.contains("\"bucket_count_display\""));
+        assert!(schema.contains("\"allow_thread_handoff\""));
     }
 
     #[test]

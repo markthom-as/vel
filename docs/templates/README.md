@@ -42,6 +42,7 @@ That combination makes the files easier to find through:
 - Do not stuff keywords with every possible word. High-signal terms are better than noisy lists.
 - Keep `status` truthful. Do not mark planning docs as implemented.
 - For architecture docs and tickets, explicitly account for the cross-cutting system traits: modularity, accessibility, configurability, data logging, rewind/replay, and composability.
+- For runtime config-bearing surfaces, prefer extending `config/templates/vel.toml.template` plus matching example and schema instead of inventing one-off doc-only knobs.
 - If the document affects shipped behavior, reconcile it with [MASTER_PLAN.md](../MASTER_PLAN.md).
 - Use `docs/cognitive-agent-architecture/` for durable concept or architecture docs, `docs/tickets/phase-*/` for execution work, and the `docs/user/` or `docs/api/` trees for operator-facing documentation.
 - When adding a new ticket or changing queue shape, update both [tickets/README.md](../tickets/README.md) and [MASTER_PLAN.md](../MASTER_PLAN.md).

@@ -89,6 +89,7 @@ Use it to answer four questions quickly:
 ## Ownership Rules
 
 - `crates/vel-config` owns runtime config, agent specs, model profiles, and routing config.
+- `crates/vel-config::AppConfig.now` owns governed `Now` presentation policy such as title mode, count-display mode, and reduced-watch parity flags.
 - `crates/veld/src/policy_config.rs` owns policy config loading and runtime interpretation.
 - `docs/cognitive-agent-architecture/architecture/canonical-schemas-and-contracts.md` owns the contract map and schema-governance rules.
 - `docs/cognitive-agent-architecture/architecture/cross-surface-contract-vocabulary.md` owns the cross-surface command/query/read-model versus transport vocabulary used by Apple, web, CLI, and future desktop shells.
@@ -137,3 +138,5 @@ When a durable config or contract changes, update these together in one slice wh
 4. the machine-readable schema or manifest
 5. the governing architecture doc or ticket
 6. the verification that parses or checks the asset
+
+For `vel.toml`-backed `Now` policy, keep the `[now]` and `[now.watch]` sections aligned across `AppConfig`, `config/examples/app-config.example.toml`, `config/templates/vel.toml.template`, and `config/schemas/app-config.schema.json`.

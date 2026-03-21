@@ -18,3 +18,13 @@ messaging_snapshot_path = "var/integrations/messaging/snapshot.json"
 reminders_snapshot_path = "var/integrations/reminders/snapshot.json"
 notes_path = "var/integrations/notes"
 transcript_snapshot_path = "var/integrations/transcripts/snapshot.json"
+
+[now]
+title_mode = "operator_name_possessive"
+bucket_count_display = "show_nonzero"
+
+[now.watch]
+show_status_row = true
+show_top_nudge = true
+show_current_task = true
+allow_thread_handoff = true

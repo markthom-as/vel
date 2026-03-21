@@ -1,7 +1,7 @@
 use chrono::{DateTime, Timelike, Utc};
 use serde_json::{json, Value as JsonValue};
 use time::OffsetDateTime;
-use vel_config::AppConfig;
+use vel_config::{AppConfig, NowCountDisplayMode, NowTitleMode};
 use vel_core::{
     normalize_risk_level, ActionItem, ActionKind, CheckInCard, Commitment, CommitmentStatus,
     ConflictCaseRecord, CurrentContextReflowStatus, CurrentContextV1, DayPlanProposal, ReflowCard,
@@ -399,6 +399,7 @@ async fn get_now_internal(
         return Ok(empty_now(
             now_ts,
             &timezone.name,
+            config,
             check_in,
             &action_queue,
             mesh_summary,
@@ -516,6 +517,7 @@ async fn get_now_internal(
         &trust_readiness,
     );
     let header = Some(build_header(
+        config,
         &action_queue.action_items,
         check_in.as_ref(),
         reflow.as_ref(),
@@ -877,6 +879,7 @@ fn fold_levels<'a>(levels: impl IntoIterator<Item = &'a str>) -> &'a str {
 fn empty_now(
     now_ts: i64,
     timezone: &str,
+    config: &AppConfig,
     check_in: Option<CheckInCard>,
     action_queue: &crate::services::operator_queue::ActionQueueSnapshot,
     mesh_summary: Option<NowMeshSummaryOutput>,
@@ -907,6 +910,7 @@ fn empty_now(
         computed_at: now_ts,
         timezone: timezone.to_string(),
         header: Some(build_header(
+            config,
             &action_queue.action_items,
             check_in.as_ref(),
             None,
@@ -998,6 +1002,7 @@ fn empty_now(
 }
 
 fn build_header(
+    config: &AppConfig,
     action_items: &[ActionItem],
     check_in: Option<&CheckInCard>,
     reflow: Option<&ReflowCard>,
@@ -1026,10 +1031,11 @@ fn build_header(
         .count() as u32;
 
     NowHeaderOutput {
-        title: "Now".to_string(),
+        title: resolve_now_title(config),
         buckets: vec![
-            header_bucket("threads_by_type", now_items, now_items > 0, None),
+            header_bucket(config, "threads_by_type", now_items, now_items > 0, None),
             header_bucket(
+                config,
                 "needs_input",
                 u32::from(check_in.map(|card| card.blocking).unwrap_or(false)),
                 check_in.map(|card| card.blocking).unwrap_or(false),
@@ -1037,10 +1043,11 @@ fn build_header(
                     .and_then(|card| card.escalation.as_ref())
                     .and_then(|escalation| escalation.thread_id.clone()),
             ),
-            header_bucket("new_nudges", now_items, now_items > 0, None),
-            header_bucket("search_filter", 0, false, None),
-            header_bucket("snoozed", snoozed_count, false, None),
+            header_bucket(config, "new_nudges", now_items, now_items > 0, None),
+            header_bucket(config, "search_filter", 0, false, None),
+            header_bucket(config, "snoozed", snoozed_count, false, None),
             header_bucket(
+                config,
                 "review_apply",
                 review_apply_count,
                 review_apply_count > 0,
@@ -1056,17 +1063,19 @@ fn build_header(
                     }),
             ),
             header_bucket(
+                config,
                 "reflow",
                 reflow_count,
                 reflow_count > 0,
                 reflow_status.and_then(|status| status.thread_id.clone()),
             ),
-            header_bucket("follow_up", follow_up_count, follow_up_count > 0, None),
+            header_bucket(config, "follow_up", follow_up_count, follow_up_count > 0, None),
         ],
     }
 }
 
 fn header_bucket(
+    config: &AppConfig,
     kind: &str,
     count: u32,
     urgent: bool,
@@ -1075,10 +1084,37 @@ fn header_bucket(
     NowHeaderBucketOutput {
         kind: kind.to_string(),
         count,
-        count_display: "show_nonzero".to_string(),
+        count_display: now_count_display_mode(config),
         urgent,
         route_thread_id,
     }
+}
+
+fn resolve_now_title(config: &AppConfig) -> String {
+    match config.now.title_mode {
+        NowTitleMode::OperatorNamePossessive => config
+            .node_display_name
+            .as_ref()
+            .filter(|value| !value.trim().is_empty())
+            .map(|value| format!("{value}'s Now"))
+            .unwrap_or_else(|| "Now".to_string()),
+        NowTitleMode::Literal => config
+            .now
+            .title_literal
+            .as_ref()
+            .filter(|value| !value.trim().is_empty())
+            .cloned()
+            .unwrap_or_else(|| "Now".to_string()),
+    }
+}
+
+fn now_count_display_mode(config: &AppConfig) -> String {
+    match config.now.bucket_count_display {
+        NowCountDisplayMode::AlwaysShow => "always_show",
+        NowCountDisplayMode::ShowNonzero => "show_nonzero",
+        NowCountDisplayMode::HiddenUntilActive => "hidden_until_active",
+    }
+    .to_string()
 }
 
 fn build_status_row(

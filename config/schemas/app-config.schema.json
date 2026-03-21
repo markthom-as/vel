@@ -98,6 +98,42 @@
     "transcript_snapshot_path": {
       "type": "string",
       "minLength": 1
+    },
+    "now": {
+      "type": "object",
+      "properties": {
+        "title_mode": {
+          "type": "string",
+          "enum": ["operator_name_possessive", "literal"]
+        },
+        "title_literal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bucket_count_display": {
+          "type": "string",
+          "enum": ["always_show", "show_nonzero", "hidden_until_active"]
+        },
+        "watch": {
+          "type": "object",
+          "properties": {
+            "show_status_row": {
+              "type": "boolean"
+            },
+            "show_top_nudge": {
+              "type": "boolean"
+            },
+            "show_current_task": {
+              "type": "boolean"
+            },
+            "allow_thread_handoff": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false
