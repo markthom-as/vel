@@ -4890,6 +4890,10 @@ pub struct AssistantEntryRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantEntryResponse {
     pub route_target: AssistantEntryRouteTargetData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry_intent: Option<NowDockedInputIntentData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuation_category: Option<NowHeaderBucketKindData>,
     pub user_message: MessageData,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assistant_message: Option<MessageData>,
@@ -6790,6 +6794,8 @@ pub struct ThreadContinuationData {
     #[serde(default)]
     pub review_requirements: Vec<String>,
     pub bounded_capability_state: String,
+    pub continuation_category: NowHeaderBucketKindData,
+    pub open_target: String,
 }
 
 /// Thread link (entity linked to a thread).

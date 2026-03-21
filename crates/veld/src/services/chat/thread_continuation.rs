@@ -1,5 +1,5 @@
 use serde_json::Value;
-use vel_api_types::{ConversationContinuationData, ThreadContinuationData};
+use vel_api_types::{ConversationContinuationData, NowHeaderBucketKindData, ThreadContinuationData};
 
 use crate::errors::AppError;
 
@@ -69,6 +69,8 @@ pub(crate) fn thread_continuation_data(
                     .unwrap_or_else(|| Value::Object(Default::default())),
                 review_requirements,
                 bounded_capability_state: "proposal_review_gated".to_string(),
+                continuation_category: NowHeaderBucketKindData::ReviewApply,
+                open_target: thread_open_target(thread_type).to_string(),
             })
         }
         "planning_profile_edit" => {
@@ -89,6 +91,8 @@ pub(crate) fn thread_continuation_data(
                     .unwrap_or_else(|| Value::Object(Default::default())),
                 review_requirements,
                 bounded_capability_state: "planning_profile_review_gated".to_string(),
+                continuation_category: NowHeaderBucketKindData::ReviewApply,
+                open_target: thread_open_target(thread_type).to_string(),
             })
         }
         "reflow_edit" | "day_plan_apply" => {
@@ -122,9 +126,28 @@ pub(crate) fn thread_continuation_data(
                 continuation_context: Value::Object(continuation_context),
                 review_requirements,
                 bounded_capability_state: "schedule_review_gated".to_string(),
+                continuation_category: thread_category(thread_type),
+                open_target: thread_open_target(thread_type).to_string(),
             })
         }
         _ => None,
+    }
+}
+
+pub(crate) fn thread_category(thread_type: &str) -> NowHeaderBucketKindData {
+    match thread_type {
+        "assistant_proposal" | "planning_profile_edit" => NowHeaderBucketKindData::ReviewApply,
+        "reflow_edit" | "day_plan_apply" => NowHeaderBucketKindData::Reflow,
+        "raw_capture" | "day_thread" => NowHeaderBucketKindData::FollowUp,
+        _ => NowHeaderBucketKindData::FollowUp,
+    }
+}
+
+pub(crate) fn thread_open_target(thread_type: &str) -> &'static str {
+    match thread_type {
+        "raw_capture" => "raw_capture",
+        "day_thread" => "day_thread",
+        _ => "thread",
     }
 }
 

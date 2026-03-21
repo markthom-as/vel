@@ -83,6 +83,8 @@ describe('transport decoders', () => {
         ok: true,
         data: {
           route_target: 'inline',
+          entry_intent: 'question',
+          continuation_category: 'review_apply',
           user_message: {
             id: 'msg_user',
             conversation_id: 'conv_1',
@@ -187,6 +189,8 @@ describe('transport decoders', () => {
                   'Operator confirmation is required before the proposal can be applied.',
                 ],
                 bounded_capability_state: 'proposal_review_gated',
+                continuation_category: 'review_apply',
+                open_target: 'thread',
               },
             },
           },
@@ -282,8 +286,13 @@ describe('transport decoders', () => {
     )
 
     expect(response.data?.route_target).toBe('inline')
+    expect(response.data?.entry_intent).toBe('question')
+    expect(response.data?.continuation_category).toBe('review_apply')
     expect(response.data?.conversation.id).toBe('conv_1')
     expect(response.data?.conversation.continuation?.thread_type).toBe('assistant_proposal')
+    expect(
+      response.data?.conversation.continuation?.continuation.continuation_category,
+    ).toBe('review_apply')
     expect(response.data?.assistant_message?.id).toBe('msg_assistant')
     expect(response.data?.assistant_context?.focus_lines[0]).toContain('accountant')
     expect(response.data?.assistant_context?.commitments[0]?.scheduler_rules.block_target).toBe(

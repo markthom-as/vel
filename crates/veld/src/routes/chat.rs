@@ -171,6 +171,11 @@ fn map_assistant_entry_response(data: AssistantEntryCreateResult) -> AssistantEn
             AssistantEntryRouteTarget::Threads => AssistantEntryRouteTargetData::Threads,
             AssistantEntryRouteTarget::Inline => AssistantEntryRouteTargetData::Inline,
         },
+        entry_intent: data.entry_intent.as_deref().map(map_entry_intent),
+        continuation_category: data
+            .continuation_category
+            .as_deref()
+            .map(map_continuation_category),
         user_message: map_chat_message_data(data.user_message),
         assistant_message: data.assistant_message.map(map_chat_message_data),
         assistant_error: data.assistant_error,
@@ -184,6 +189,31 @@ fn map_assistant_entry_response(data: AssistantEntryCreateResult) -> AssistantEn
         end_of_day: data
             .end_of_day
             .map(crate::routes::context::map_end_of_day_data),
+    }
+}
+
+fn map_entry_intent(value: &str) -> vel_api_types::NowDockedInputIntentData {
+    match value {
+        "question" => vel_api_types::NowDockedInputIntentData::Question,
+        "note" => vel_api_types::NowDockedInputIntentData::Note,
+        "command" => vel_api_types::NowDockedInputIntentData::Command,
+        "continuation" => vel_api_types::NowDockedInputIntentData::Continuation,
+        "reflection" => vel_api_types::NowDockedInputIntentData::Reflection,
+        "scheduling" => vel_api_types::NowDockedInputIntentData::Scheduling,
+        _ => vel_api_types::NowDockedInputIntentData::Task,
+    }
+}
+
+fn map_continuation_category(value: &str) -> vel_api_types::NowHeaderBucketKindData {
+    match value {
+        "needs_input" => vel_api_types::NowHeaderBucketKindData::NeedsInput,
+        "new_nudges" => vel_api_types::NowHeaderBucketKindData::NewNudges,
+        "search_filter" => vel_api_types::NowHeaderBucketKindData::SearchFilter,
+        "snoozed" => vel_api_types::NowHeaderBucketKindData::Snoozed,
+        "review_apply" => vel_api_types::NowHeaderBucketKindData::ReviewApply,
+        "reflow" => vel_api_types::NowHeaderBucketKindData::Reflow,
+        "follow_up" => vel_api_types::NowHeaderBucketKindData::FollowUp,
+        _ => vel_api_types::NowHeaderBucketKindData::ThreadsByType,
     }
 }
 

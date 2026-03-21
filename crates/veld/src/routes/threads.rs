@@ -13,7 +13,8 @@ use vel_api_types::{
 use crate::{
     errors::AppError,
     services::chat::thread_continuation::{
-        parse_thread_metadata, proposal_thread_lifecycle_stage, thread_continuation_data,
+        parse_thread_metadata, proposal_thread_lifecycle_stage, thread_category,
+        thread_continuation_data,
     },
     state::AppState,
 };
@@ -24,6 +25,7 @@ pub struct ListThreadsQuery {
     pub limit: Option<u32>,
     pub thread_type: Option<String>,
     pub project_id: Option<String>,
+    pub continuation_category: Option<String>,
 }
 
 fn planning_thread_fields(thread_type: &str, status: &str) -> (Option<String>, Option<String>) {
@@ -104,7 +106,10 @@ pub async fn list_threads(
         .storage
         .list_threads(q.status.as_deref(), limit)
         .await?;
-    let data: Vec<ThreadData> = if q.thread_type.is_none() && q.project_id.is_none() {
+    let data: Vec<ThreadData> = if q.thread_type.is_none()
+        && q.project_id.is_none()
+        && q.continuation_category.is_none()
+    {
         rows.into_iter()
             .map(|(id, thread_type, title, status, created_at, updated_at)| {
                 thread_data_from_summary(id, thread_type, title, status, created_at, updated_at)
@@ -118,6 +123,11 @@ pub async fn list_threads(
             }
             if let Some(expected_thread_type) = q.thread_type.as_deref() {
                 if thread_type != expected_thread_type {
+                    continue;
+                }
+            }
+            if let Some(expected_category) = q.continuation_category.as_deref() {
+                if continuation_category_key(thread_category(&thread_type)) != expected_category {
                     continue;
                 }
             }
@@ -169,6 +179,19 @@ async fn matches_thread_filters(
     Ok(links
         .iter()
         .any(|(_, entity_type, entity_id, _)| entity_type == "project" && entity_id == project_id))
+}
+
+fn continuation_category_key(category: vel_api_types::NowHeaderBucketKindData) -> &'static str {
+    match category {
+        vel_api_types::NowHeaderBucketKindData::ThreadsByType => "threads_by_type",
+        vel_api_types::NowHeaderBucketKindData::NeedsInput => "needs_input",
+        vel_api_types::NowHeaderBucketKindData::NewNudges => "new_nudges",
+        vel_api_types::NowHeaderBucketKindData::SearchFilter => "search_filter",
+        vel_api_types::NowHeaderBucketKindData::Snoozed => "snoozed",
+        vel_api_types::NowHeaderBucketKindData::ReviewApply => "review_apply",
+        vel_api_types::NowHeaderBucketKindData::Reflow => "reflow",
+        vel_api_types::NowHeaderBucketKindData::FollowUp => "follow_up",
+    }
 }
 
 #[cfg(test)]
@@ -231,6 +254,7 @@ mod tests {
                 limit: Some(20),
                 thread_type: Some("project_review".to_string()),
                 project_id: Some("proj_vel".to_string()),
+                continuation_category: None,
             }),
         )
         .await
@@ -313,6 +337,56 @@ mod tests {
                 .and_then(serde_json::Value::as_str),
             Some("msg_1")
         );
+        assert_eq!(
+            data.continuation
+                .as_ref()
+                .map(|value| value.continuation_category),
+            Some(vel_api_types::NowHeaderBucketKindData::ReviewApply)
+        );
+    }
+
+    #[tokio::test]
+    async fn list_threads_filters_by_continuation_category() {
+        let storage = vel_storage::Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        storage
+            .insert_thread(
+                "thr_reflow_1",
+                "reflow_edit",
+                "Fix the day",
+                "open",
+                r#"{"proposal_state":"staged","summary":"Needs repair"}"#,
+            )
+            .await
+            .unwrap();
+        storage
+            .insert_thread(
+                "thr_capture_1",
+                "raw_capture",
+                "Captured note",
+                "open",
+                r#"{}"#,
+            )
+            .await
+            .unwrap();
+
+        let state = test_state(storage);
+        let Json(response) = list_threads(
+            State(state),
+            Query(ListThreadsQuery {
+                status: Some("open".to_string()),
+                limit: Some(20),
+                thread_type: None,
+                project_id: None,
+                continuation_category: Some("reflow".to_string()),
+            }),
+        )
+        .await
+        .unwrap();
+
+        let data = response.data.expect("thread data");
+        assert_eq!(data.len(), 1);
+        assert_eq!(data[0].id, "thr_reflow_1");
     }
 
     #[test]

@@ -7908,6 +7908,14 @@ mod tests {
             Some("proposal_review_gated")
         );
         assert_eq!(
+            conversations[0]["continuation"]["continuation"]["continuation_category"].as_str(),
+            Some("review_apply")
+        );
+        assert_eq!(
+            conversations[0]["continuation"]["continuation"]["open_target"].as_str(),
+            Some("thread")
+        );
+        assert_eq!(
             conversations[0]["continuation"]["continuation"]["continuation_context"]
                 ["source_message_id"]
                 .as_str(),

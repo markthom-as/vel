@@ -63,6 +63,8 @@ pub(crate) struct AssistantEntryCreateInput {
 #[derive(Debug, Clone)]
 pub(crate) struct AssistantEntryCreateResult {
     pub route_target: AssistantEntryRouteTarget,
+    pub entry_intent: Option<String>,
+    pub continuation_category: Option<String>,
     pub user_message: ChatMessage,
     pub assistant_message: Option<ChatMessage>,
     pub assistant_error: Option<String>,
@@ -165,6 +167,29 @@ fn assistant_entry_route_target(
     } else {
         AssistantEntryRouteTarget::Inbox
     }
+}
+
+fn assistant_entry_intent(text: &str, conversation_id: Option<&str>) -> &'static str {
+    let lowered = text.trim().to_ascii_lowercase();
+    if conversation_id.is_some() {
+        return "continuation";
+    }
+    if lowered.contains('?') || lowered.starts_with("who ") || lowered.starts_with("what ") {
+        return "question";
+    }
+    if lowered.starts_with("note ") || lowered.starts_with("remember ") {
+        return "note";
+    }
+    if lowered.starts_with("reflect ") || lowered.starts_with("journal ") {
+        return "reflection";
+    }
+    if lowered.contains("schedule") || lowered.contains("calendar") || lowered.contains("reflow") {
+        return "scheduling";
+    }
+    if looks_like_mutation_request(text) {
+        return "command";
+    }
+    "task"
 }
 
 fn assistant_entry_conversation_title(text: &str) -> String {
@@ -896,6 +921,7 @@ pub(crate) async fn create_assistant_entry_response(
             text,
             planning_profile_surface_for_entry(payload.voice.as_ref()),
         );
+    let entry_intent = assistant_entry_intent(text, payload.conversation_id.as_deref()).to_string();
     let route_target = if planning_profile_proposal_candidate.is_some() {
         AssistantEntryRouteTarget::Threads
     } else {
@@ -962,6 +988,8 @@ pub(crate) async fn create_assistant_entry_response(
 
         return Ok(AssistantEntryCreateResult {
             route_target: AssistantEntryRouteTarget::Inline,
+            entry_intent: Some(entry_intent.clone()),
+            continuation_category: Some("needs_input".to_string()),
             user_message,
             assistant_message,
             assistant_error: None,
@@ -988,6 +1016,8 @@ pub(crate) async fn create_assistant_entry_response(
 
         return Ok(AssistantEntryCreateResult {
             route_target: AssistantEntryRouteTarget::Inline,
+            entry_intent: Some(entry_intent.clone()),
+            continuation_category: Some("follow_up".to_string()),
             user_message,
             assistant_message,
             assistant_error: None,
@@ -1023,6 +1053,8 @@ pub(crate) async fn create_assistant_entry_response(
 
         return Ok(AssistantEntryCreateResult {
             route_target: AssistantEntryRouteTarget::Threads,
+            entry_intent: Some(entry_intent.clone()),
+            continuation_category: Some("review_apply".to_string()),
             user_message,
             assistant_message: None,
             assistant_error: None,
@@ -1115,6 +1147,17 @@ pub(crate) async fn create_assistant_entry_response(
 
     Ok(AssistantEntryCreateResult {
         route_target,
+        entry_intent: Some(entry_intent),
+        continuation_category: if proposal.is_some() {
+            Some("review_apply".to_string())
+        } else {
+            match route_target {
+                AssistantEntryRouteTarget::Inline => None,
+                AssistantEntryRouteTarget::Inbox | AssistantEntryRouteTarget::Threads => {
+                    Some("follow_up".to_string())
+                }
+            }
+        },
         user_message,
         assistant_message,
         assistant_error,

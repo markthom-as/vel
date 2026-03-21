@@ -33,6 +33,8 @@ export interface ThreadContinuationData {
   continuation_context: JsonValue;
   review_requirements: string[];
   bounded_capability_state: string;
+  continuation_category: NowHeaderBucketKindData;
+  open_target: string;
 }
 
 export interface ConversationContinuationData {
@@ -92,6 +94,8 @@ export interface AssistantEntryRequest {
 
 export interface AssistantEntryResponse {
   route_target: AssistantEntryRouteTargetData;
+  entry_intent?: NowDockedInputIntentData | null;
+  continuation_category?: NowHeaderBucketKindData | null;
   user_message: MessageData;
   assistant_message?: MessageData | null;
   assistant_error?: string | null;
@@ -1993,6 +1997,8 @@ export function decodeThreadContinuationData(value: unknown): ThreadContinuation
       record.bounded_capability_state,
       'thread continuation.bounded_capability_state',
     ),
+    continuation_category: decodeNowHeaderBucketKindData(record.continuation_category),
+    open_target: expectString(record.open_target, 'thread continuation.open_target'),
   };
 }
 
@@ -2038,6 +2044,14 @@ export function decodeAssistantEntryResponse(value: unknown): AssistantEntryResp
   const record = expectRecord(value, 'assistant entry response');
   return {
     route_target: decodeAssistantEntryRouteTargetData(record.route_target),
+    entry_intent:
+      record.entry_intent === undefined
+        ? undefined
+        : decodeNullable(record.entry_intent, decodeNowDockedInputIntentData),
+    continuation_category:
+      record.continuation_category === undefined
+        ? undefined
+        : decodeNullable(record.continuation_category, decodeNowHeaderBucketKindData),
     user_message: decodeMessageData(record.user_message),
     assistant_message:
       record.assistant_message === undefined
