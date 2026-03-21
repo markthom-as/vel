@@ -12,12 +12,12 @@ Requirements for the true-MVP milestone. This milestone absorbs the previously p
 
 v0.2 is only complete if all of these are true:
 
-- [ ] the shipped product has one clear loop: `overview -> commitments -> reflow -> threads -> review`
-- [ ] every step in that loop is backed by Rust-owned contracts and business logic
-- [ ] web and Apple are thin clients over the same MVP loop
-- [ ] same-day reflow stays bounded, explainable, and current-day only
-- [ ] thread/tool use stays bounded and supervised rather than turning into generic chat
-- [ ] all major non-MVP work is explicitly deferred instead of remaining implied in scope
+- [x] the shipped product has one clear loop: `overview -> commitments -> reflow -> threads -> review`
+- [x] every step in that loop is backed by Rust-owned contracts and business logic
+- [x] web and Apple are thin clients over the same MVP loop
+- [x] same-day reflow stays bounded, explainable, and current-day only
+- [x] thread/tool use stays bounded and supervised rather than turning into generic chat
+- [x] all major non-MVP work is explicitly deferred instead of remaining implied in scope
 
 ## Non-Goals
 
@@ -31,58 +31,58 @@ v0.2 is only complete if all of these are true:
 
 ### MVP Definition
 
-- [ ] **MVP-01**: Operator can start the day with a reliable daily overview over today’s real schedule, commitments, and active pressure
-- [ ] **MVP-02**: Operator can complete a bounded commitment flow that ends with a small explicit set of commitments for the day
-- [ ] **MVP-03**: Operator can review the current day later and see what changed, what slipped, and what still needs attention
-- [ ] **MVP-04**: MVP scope is defined explicitly enough that non-MVP future work is deferred instead of leaking into implementation
+- [x] **MVP-01**: Operator can start the day with a reliable daily overview over today’s real schedule, commitments, and active pressure
+- [x] **MVP-02**: Operator can complete a bounded commitment flow that ends with a small explicit set of commitments for the day
+- [x] **MVP-03**: Operator can review the current day later and see what changed, what slipped, and what still needs attention
+- [x] **MVP-04**: MVP scope is defined explicitly enough that non-MVP future work is deferred instead of leaking into implementation
 
 ### Canonical Types, Logic, And Docs
 
-- [ ] **MODEL-01**: MVP data types are explicitly defined as canonical Rust-owned domain and read-model contracts
-- [ ] **MODEL-02**: MVP business logic is documented clearly enough that shells, tests, and future phases share the same behavioral truth
-- [ ] **MODEL-03**: Architecture docs are refined to describe the real MVP seams, authority boundaries, and cross-surface contracts
-- [ ] **MODEL-04**: Stable MVP-facing contracts ship with close-by docs, examples, templates, or schemas where appropriate
+- [x] **MODEL-01**: MVP data types are explicitly defined as canonical Rust-owned domain and read-model contracts
+- [x] **MODEL-02**: MVP business logic is documented clearly enough that shells, tests, and future phases share the same behavioral truth
+- [x] **MODEL-03**: Architecture docs are refined to describe the real MVP seams, authority boundaries, and cross-surface contracts
+- [x] **MODEL-04**: Stable MVP-facing contracts ship with close-by docs, examples, templates, or schemas where appropriate
 
 ### Orientation, Suggestions, Nudges
 
-- [ ] **ORIENT-01**: Vel can orient the operator using grounded suggestions and nudges derived from persisted context, schedule state, commitments, and thread/history evidence
-- [ ] **ORIENT-02**: Suggestions and nudges are explainable from persisted inputs and Rust-owned rules rather than shell-local heuristics
-- [ ] **ORIENT-03**: Orientation surfaces emphasize decision-making and intervention pressure instead of dashboard clutter
+- [x] **ORIENT-01**: Vel can orient the operator using grounded suggestions and nudges derived from persisted context, schedule state, commitments, and thread/history evidence
+- [x] **ORIENT-02**: Suggestions and nudges are explainable from persisted inputs and Rust-owned rules rather than shell-local heuristics
+- [x] **ORIENT-03**: Orientation surfaces emphasize decision-making and intervention pressure instead of dashboard clutter
 
 ### Calendar Reflow
 
-- [ ] **REFLOW-01**: Operator can run same-day calendar reflow against real commitments and remaining-day constraints
-- [ ] **REFLOW-02**: Reflow results show scheduled, deferred, conflicted, and did-not-fit outcomes clearly
-- [ ] **REFLOW-03**: Reflow behavior is backend-owned, typed, and consistent across web, Apple, and thread flows
-- [ ] **REFLOW-04**: Reflow inputs, decisions, and degraded states are documented clearly enough that same-day behavior stays explainable without shell-local policy
+- [x] **REFLOW-01**: Operator can run same-day calendar reflow against real commitments and remaining-day constraints
+- [x] **REFLOW-02**: Reflow results show scheduled, deferred, conflicted, and did-not-fit outcomes clearly
+- [x] **REFLOW-03**: Reflow behavior is backend-owned, typed, and consistent across web, Apple, and thread flows
+- [x] **REFLOW-04**: Reflow inputs, decisions, and degraded states are documented clearly enough that same-day behavior stays explainable without shell-local policy
 
 ### Threads, Tools, Context, Data
 
-- [ ] **THREAD-01**: Threads are a first-class path for using tools, context, and project/data recall against the same Rust-owned runtime authority
-- [ ] **THREAD-02**: Thread actions preserve provenance, bounded tool use, and explicit review/apply semantics where required
-- [ ] **THREAD-03**: Thread flows can access current context, relevant memory, and bounded tools without inventing shell-owned behavior
+- [x] **THREAD-01**: Threads are a first-class path for using tools, context, and project/data recall against the same Rust-owned runtime authority
+- [x] **THREAD-02**: Thread actions preserve provenance, bounded tool use, and explicit review/apply semantics where required
+- [x] **THREAD-03**: Thread flows can access current context, relevant memory, and bounded tools without inventing shell-owned behavior
 
 ### Review
 
-- [ ] **REVIEW-01**: Operator can review commitments, suggestions, reflow outcomes, and thread-mediated actions in one coherent MVP loop
-- [ ] **REVIEW-02**: Review surfaces preserve explainability, provenance, and terminal state instead of summary-only claims
+- [x] **REVIEW-01**: Operator can review commitments, suggestions, reflow outcomes, and thread-mediated actions in one coherent MVP loop
+- [x] **REVIEW-02**: Review surfaces preserve explainability, provenance, and terminal state instead of summary-only claims
 
 ### Rust Core Portability
 
-- [ ] **CORE-01**: All MVP product logic lives in platform-portable Rust core and service layers rather than web- or Apple-local policy
-- [ ] **CORE-02**: Web and Apple consume shared Rust-owned commands, queries, read models, and transport contracts for MVP behavior
-- [ ] **CORE-03**: Remaining shell-owned MVP behavior is removed, migrated, or explicitly deprecated during this milestone
+- [x] **CORE-01**: All MVP product logic lives in platform-portable Rust core and service layers rather than web- or Apple-local policy
+- [x] **CORE-02**: Web and Apple consume shared Rust-owned commands, queries, read models, and transport contracts for MVP behavior
+- [x] **CORE-03**: Remaining shell-owned MVP behavior is removed, migrated, or explicitly deprecated during this milestone
 
 ### Minimal Fresh Clients
 
-- [ ] **CLIENT-01**: Web ships a fresh minimal MVP UI focused on action, orientation, threads, reflow, and review instead of legacy surface sprawl
-- [ ] **CLIENT-02**: Apple ships a fresh minimal MVP UI over the same Rust-owned MVP flows
-- [ ] **CLIENT-03**: Client surfaces keep one-screen-one-job boundaries and do not reintroduce local product authority
+- [x] **CLIENT-01**: Web ships a fresh minimal MVP UI focused on action, orientation, threads, reflow, and review instead of legacy surface sprawl
+- [x] **CLIENT-02**: Apple ships a fresh minimal MVP UI over the same Rust-owned MVP flows
+- [x] **CLIENT-03**: Client surfaces keep one-screen-one-job boundaries and do not reintroduce local product authority
 
 ### Future Work Boundary
 
-- [ ] **FUTURE-01**: The milestone produces an explicit future roadmap for post-MVP work that is out of scope for v0.2
-- [ ] **FUTURE-02**: Deferred work is documented clearly enough that v0.2 can stay minimal without ambiguity
+- [x] **FUTURE-01**: The milestone produces an explicit future roadmap for post-MVP work that is out of scope for v0.2
+- [x] **FUTURE-02**: Deferred work is documented clearly enough that v0.2 can stay minimal without ambiguity
 
 ## Future Requirements
 
@@ -141,4 +141,4 @@ v0.2 is only complete if all of these are true:
 | FUTURE-02 | Phase 45 |
 
 ---
-*Last updated: 2026-03-20 for milestone v0.2 true MVP planning*
+*Last updated: 2026-03-21 after Phase 45 verification and post-MVP roadmap closeout*

@@ -38,7 +38,7 @@ Do not widen this milestone into:
 - [x] **Phase 42: Explainable same-day reflow** - Finish bounded reflow in Rust with clear proposal state, provenance, and degraded behavior
 - [x] **Phase 43: Thread continuation, tools, context, and data** - Formalize threads as the bounded continuation substrate for tools, context, memory, and follow-through
 - [x] **Phase 44: Minimal fresh web and Apple shells** - Rebuild the shipped web and Apple MVP surfaces as thin clients over the canonical Rust core
-- [ ] **Phase 45: Review, MVP verification, and post-MVP roadmap shaping** - Close the loop with review, end-to-end MVP verification, and explicit post-MVP roadmap/deferred scope
+- [x] **Phase 45: Review, MVP verification, and post-MVP roadmap shaping** - Close the loop with review, end-to-end MVP verification, and explicit post-MVP roadmap/deferred scope
 
 ## Progress
 
@@ -51,7 +51,7 @@ Do not widen this milestone into:
 | 42. Explainable same-day reflow | REFLOW-01, REFLOW-02, REFLOW-03, REFLOW-04 | Complete |
 | 43. Thread continuation, tools, context, and data | THREAD-01, THREAD-02, THREAD-03 | Complete |
 | 44. Minimal fresh web and Apple shells | CORE-02, CORE-03, CLIENT-01, CLIENT-02, CLIENT-03 | Complete |
-| 45. Review, MVP verification, and post-MVP roadmap shaping | MVP-03, REVIEW-01, REVIEW-02, FUTURE-01, FUTURE-02 | Planned |
+| 45. Review, MVP verification, and post-MVP roadmap shaping | MVP-03, REVIEW-01, REVIEW-02, FUTURE-01, FUTURE-02 | Complete |
 
 ## Phase Details
 
@@ -179,9 +179,12 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 45-01-PLAN.md — Publish canonical review and closure contracts, then implement the review loop
-- [ ] 45-02-PLAN.md — Run milestone-level MVP verification and degraded-state evidence across the full loop
-- [ ] 45-03-PLAN.md — Document deferred work and the post-MVP roadmap explicitly
+- [x] 45-01-PLAN.md — Publish canonical review and closure contracts, then implement the review loop
+- [x] 45-02-PLAN.md — Run milestone-level MVP verification and degraded-state evidence across the full loop
+- [x] 45-03-PLAN.md — Document deferred work and the post-MVP roadmap explicitly
+
+Post-MVP handoff:
+- [v0.2-POST-MVP-ROADMAP.md](/home/jove/code/vel/.planning/v0.2-POST-MVP-ROADMAP.md) — Explicitly deferred work and next roadmap lanes after the shipped MVP
 
 ---
-*Last updated: 2026-03-21 after Phase 44 verification closeout*
+*Last updated: 2026-03-21 after Phase 45 closeout and post-MVP roadmap publication*
