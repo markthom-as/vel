@@ -1505,8 +1505,7 @@ describe('transport decoders', () => {
   })
 
   it('decodes consolidated now responses', () => {
-    expect(
-      decodeNowData({
+    const now = decodeNowData({
         computed_at: 1710000000,
         timezone: 'America/Denver',
         overview: {
@@ -1891,8 +1890,9 @@ describe('transport decoders', () => {
           commitments_used: ['commit_1'],
           risk_used: ['risk_1'],
         },
-      }),
-    ).toEqual({
+      })
+
+    expect(now).toEqual({
       computed_at: 1710000000,
       timezone: 'America/Denver',
       overview: {
@@ -2279,6 +2279,13 @@ describe('transport decoders', () => {
         risk_used: ['risk_1'],
       },
     })
+    expect(now.reflow?.proposal?.needs_judgment_count).toBe(1)
+    expect(now.reflow?.transitions.map((transition) => transition.target)).toEqual([
+      'apply_suggestion',
+      'threads',
+    ])
+    expect(now.reflow?.transitions[0]?.confirm_required).toBe(true)
+    expect(now.reflow_status?.thread_id).toBe('thr_reflow_1')
   })
 
   it('decodes expanded inbox items with conversation_id, available_actions, and evidence', () => {

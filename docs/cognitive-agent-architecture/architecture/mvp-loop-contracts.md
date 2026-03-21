@@ -133,16 +133,16 @@ Selections and prompts should remain explainable from persisted operator state, 
 
 - `trigger`
 - `severity`
-- `proposal_state`
 - `changes`
 - `outcome_counts`
 - `rule_facets`
 - `thread_escalation_available`
+- `review_gating`
 
 ## Rules
 
 - reflow is same-day only
-- proposal state must distinguish scheduled, deferred, conflicted, and did-not-fit outcomes
+- proposal state must distinguish `moved`, `unscheduled`, and `needs_judgment` outcomes, plus whether the bounded inline path is still review-gated or has escalated into `Threads`
 - ambiguous or review-gated cases escalate to threads
 - `ReflowProposal` does not add local-calendar milestone work to `v0.2`
 
@@ -153,7 +153,7 @@ Selections and prompts should remain explainable from persisted operator state, 
 
 ## Provenance
 
-Reflow decisions should remain explainable from commitments, persisted context, calendar signals already available to the runtime, and normalized rule facets.
+Reflow decisions should remain explainable from commitments, persisted context, calendar signals already available to the runtime, normalized rule facets, and the typed transition/status records that describe whether the operator accepted or escalated the proposal.
 
 # ThreadEscalation
 
@@ -231,4 +231,3 @@ They may not:
 - invent alternate MVP loop steps
 - invent shell-owned prioritization logic
 - widen degraded states into silent local heuristics
-
