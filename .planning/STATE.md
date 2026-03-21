@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v0.3
 milestone_name: canonical now surface and client mesh
-current_phase: 49
-current_phase_name: web-canonical-now-embodiment
+current_phase: 50
+current_phase_name: apple-parity-and-reduced-watch-embodiment
 current_plan: milestone_roadmap
 status: ready_for_phase_execution
-stopped_at: Completed Phase 48 execution and verification; next logical step is discuss/plan Phase 49
-last_updated: "2026-03-22T00:10:00Z"
+stopped_at: Completed Phase 49 execution and verification; next logical step is discuss/plan Phase 50
+last_updated: "2026-03-22T01:58:00Z"
 last_activity: 2026-03-21
 progress:
   total_phases: 51
-  completed_phases: 48
+  completed_phases: 49
   total_plans: 207
-  completed_plans: 193
-  percent: 93
+  completed_plans: 197
+  percent: 95
 ---
 
 # Project State
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Phase 49 — Web canonical Now embodiment
+**Current focus:** Phase 50 — Apple parity and reduced watch embodiment
 
-Status: Phase 48 is complete; Phase 49 is next
-Current Phase: 49
-Current Phase Name: web-canonical-now-embodiment
+Status: Phase 49 is complete; Phase 50 is next
+Current Phase: 50
+Current Phase Name: apple-parity-and-reduced-watch-embodiment
 Current Plan: milestone_roadmap
 Total Plans in Phase: 4
-Progress: 93%
+Progress: 95%
 Last Activity: 2026-03-21
-Last Activity Description: Completed Phase 48 around shared mesh authority, sync posture, repair routes, and governed Now config
+Last Activity Description: Completed Phase 49 around the canonical compact web Now surface, thread-aware routing, and docked input continuity
 
 ## Current Position
 
-Phase: 49 (web-canonical-now-embodiment) — READY FOR EXECUTION
-Plan: discuss/plan/execute the canonical web `Now` embodiment over the shared Rust-owned seam
+Phase: 50 (apple-parity-and-reduced-watch-embodiment) — READY FOR EXECUTION
+Plan: discuss/plan/execute Apple and reduced-watch parity over the canonical web `Now` contract and shared Rust-owned seam
 
 ## Performance Metrics
 

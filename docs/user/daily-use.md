@@ -25,8 +25,8 @@ If a `check_in` turns into a longer clarification or a `reflow` needs editing, V
 If you are using the web shell and need the fastest path to the right help:
 
 - web and Apple now teach the same MVP shell hierarchy: `Now`, `Inbox`, and `Threads` are the primary daily-use lanes, `Settings` is support/setup, and `Projects` remains secondary context.
-- the shared Rust-owned `Now` transport seam now exists across backend and typed client boundaries: `header`, `status_row`, `context_line`, `nudge_bars`, `task_lane`, and `docked_input` are real transport blocks, even though the final compact canonical embodiment still lands in later `v0.3` phases.
-- `Now` is the primary surface for current-day orientation. It is action-first: the top overview shows one dominant action when the backend has enough evidence, one visible nudge, a compact timeline, and a `Why + state` disclosure lane.
+- the shared Rust-owned `Now` transport seam now drives the compact web surface directly: `header`, `status_row`, `context_line`, `nudge_bars`, `task_lane`, and `docked_input` are all real transport blocks rendered without a separate local planner layer.
+- `Now` is the primary surface for current-day orientation. In web it is now compact and action-first: header buckets, a non-collapsing status row, the backend context one-liner, stacked nudge bars, a compact task lane, and the bottom-docked input shell all lead before deeper disclosure panels.
 - that “current day” is now sleep-relative rather than midnight-bound. If you are still awake and inside the same work session after midnight, unfinished commitments, relevant night events, and routine continuity may still belong to the same operator day until the rollover boundary is crossed.
 - when there is no trustworthy dominant action, `Now` falls back to a bounded choice state instead of inventing local shell ranking. Expect one to three suggestions and a small explicit action vocabulary.
 - the bounded inline commitment vocabulary is `accept / defer / choose / close`. If the work becomes multi-step, needs tool/context work, or needs multiple decisions, continue it in `Threads` instead of stretching the inline loop.
@@ -45,7 +45,7 @@ If you are using the web shell and need the fastest path to the right help:
 - thread continuity on `Now` should stay sparse. Queue pressure and follow-through can appear in the compact context lane, but `Now` should not grow a second thread inbox or local thread-ranking surface.
 - `Threads` itself should read like a continuity surface, not a chat inbox: resume longer follow-through there, keep triage in `Inbox`, and keep `Now` focused on the current day.
 - when a thread carries bounded continuation, expect the detail header to show why it escalated, a small context pack, the remaining review gate, and the bounded capability posture. That metadata comes from the backend; the shell should not invent or widen it.
-- assistant entry, thread detail, and conversation summaries now also share typed continuation hints for category and open-target routing, so clients do not need to invent their own thread-lane semantics before the full canonical `Now` UI lands.
+- assistant entry, thread detail, and conversation summaries now also share typed continuation hints for category and open-target routing, so clients do not need to invent their own thread-lane semantics as parity work widens beyond web.
 - `Inbox` is the explicit decision queue. Clear or snooze items there before you open longer conversation history.
 - the web sidebar should now behave like a thin rail, not a second information column. Use it to move between surfaces; ignore it once you are working.
 - `Settings` is the deeper surface for Todoist, linking, writeback trust, Apple/local-source setup guidance, and summary recovery posture.
