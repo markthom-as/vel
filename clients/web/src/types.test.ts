@@ -1011,9 +1011,15 @@ describe('transport decoders', () => {
     expect(session.continuity_summary).toBe('Morning overview continuity is available.')
     expect(session.allowed_actions).toEqual(['accept', 'choose', 'close'])
     expect(session.state.phase).toBe('morning_overview')
+    if (session.state.phase !== 'morning_overview') {
+      throw new Error('expected morning overview state')
+    }
     expect(session.state.snapshot).toContain('Todoist backlog')
     expect(session.outcome?.phase).toBe('morning_overview')
-    expect(session.outcome?.signals[0]?.kind).toBe('focus_intent')
+    if (!session.outcome || session.outcome.phase !== 'morning_overview') {
+      throw new Error('expected morning overview outcome')
+    }
+    expect(session.outcome.signals[0]?.kind).toBe('focus_intent')
   })
 
   it('decodes standup daily-loop sessions with commitment and focus-block outcomes', () => {
@@ -1081,11 +1087,17 @@ describe('transport decoders', () => {
     expect(session.continuity_summary).toBe('Standup continuity is available.')
     expect(session.allowed_actions).toEqual(['accept', 'choose', 'close'])
     expect(session.state.phase).toBe('standup')
+    if (session.state.phase !== 'standup') {
+      throw new Error('expected standup state')
+    }
     expect(session.state.commitments).toHaveLength(2)
     expect(session.state.commitments[0]?.bucket).toBe('must')
     expect(session.state.focus_blocks[0]?.label).toBe('Deep work')
     expect(session.outcome?.phase).toBe('standup')
-    expect(session.outcome?.commitments[0]?.title).toBe('Ship Phase 10')
+    if (!session.outcome || session.outcome.phase !== 'standup') {
+      throw new Error('expected standup outcome')
+    }
+    expect(session.outcome.commitments[0]?.title).toBe('Ship Phase 10')
   })
 
   it('treats omitted daily-loop outcome payloads as null', () => {
@@ -1258,6 +1270,31 @@ describe('transport decoders', () => {
         tailscale_base_url_auto_discovered: true,
         lan_base_url: 'http://192.168.1.50:4130',
         lan_base_url_auto_discovered: true,
+        llm: {
+          models_dir: 'configs/models',
+          default_chat_profile_id: 'oauth-openai',
+          fallback_chat_profile_id: 'local-qwen3-coder',
+          profiles: [
+            {
+              id: 'local-qwen3-coder',
+              provider: 'llama_cpp',
+              base_url: 'http://127.0.0.1:8012/v1',
+              model: 'qwen3-coder-30b-a3b',
+              context_window: 16384,
+              enabled: true,
+              editable: false,
+            },
+            {
+              id: 'oauth-openai',
+              provider: 'openai_oauth',
+              base_url: 'http://127.0.0.1:8014/v1',
+              model: 'gpt-5.4',
+              context_window: 32768,
+              enabled: true,
+              editable: true,
+            },
+          ],
+        },
         adaptive_policy_overrides: {
           commute_buffer_minutes: 30,
           default_prep_minutes: 45,
@@ -1317,6 +1354,31 @@ describe('transport decoders', () => {
       tailscale_base_url_auto_discovered: true,
       lan_base_url: 'http://192.168.1.50:4130',
       lan_base_url_auto_discovered: true,
+      llm: {
+        models_dir: 'configs/models',
+        default_chat_profile_id: 'oauth-openai',
+        fallback_chat_profile_id: 'local-qwen3-coder',
+        profiles: [
+          {
+            id: 'local-qwen3-coder',
+            provider: 'llama_cpp',
+            base_url: 'http://127.0.0.1:8012/v1',
+            model: 'qwen3-coder-30b-a3b',
+            context_window: 16384,
+            enabled: true,
+            editable: false,
+          },
+          {
+            id: 'oauth-openai',
+            provider: 'openai_oauth',
+            base_url: 'http://127.0.0.1:8014/v1',
+            model: 'gpt-5.4',
+            context_window: 32768,
+            enabled: true,
+            editable: true,
+          },
+        ],
+      },
       adaptive_policy_overrides: {
         commute_buffer_minutes: 30,
         default_prep_minutes: 45,

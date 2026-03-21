@@ -77,7 +77,7 @@ vel-cli           ← CLI binary (vel)
 ### Web Frontend
 
 - `clients/web/src/api/` — API client methods
-- `clients/web/src/components/` — React components
+- `clients/web/src/` — React app: `core/` (reusable UI), `shell/` (AppShell, Navbar, MainPanel), `views/` (feature screens); see `clients/web/src/README.md`
 - `clients/web/src/data/` — State management and queries
 - `clients/web/src/realtime/` — WebSocket sync
 - `clients/web/src/types.ts` — Comprehensive TypeScript types

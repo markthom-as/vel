@@ -398,6 +398,7 @@ export interface SettingsData {
   tailscale_base_url_auto_discovered?: boolean;
   lan_base_url?: string | null;
   lan_base_url_auto_discovered?: boolean;
+  llm?: LlmSettingsData;
   adaptive_policy_overrides?: {
     default_prep_minutes?: number | null;
     commute_buffer_minutes?: number | null;
@@ -409,6 +410,23 @@ export interface SettingsData {
     commute_buffer_source_accepted_at?: UnixSeconds | null;
   };
   backup?: BackupSettingsData;
+}
+
+export interface LlmProfileSettingsData {
+  id: string;
+  provider: string;
+  base_url: string;
+  model: string;
+  context_window: number | null;
+  enabled: boolean;
+  editable: boolean;
+}
+
+export interface LlmSettingsData {
+  models_dir: string;
+  default_chat_profile_id: string | null;
+  fallback_chat_profile_id: string | null;
+  profiles: LlmProfileSettingsData[];
 }
 
 export type BackupStatusStateData = 'ready' | 'stale' | 'missing' | 'degraded';
@@ -2202,7 +2220,7 @@ export function decodeRecallContextHitData(value: unknown): RecallContextHitData
     lexical_score: expectNumber(record.lexical_score, 'recall context hit.lexical_score'),
     semantic_score: expectNumber(record.semantic_score, 'recall context hit.semantic_score'),
     combined_score: expectNumber(record.combined_score, 'recall context hit.combined_score'),
-    provenance: expectRecord(record.provenance, 'recall context hit.provenance'),
+    provenance: decodeJsonValue(expectRecord(record.provenance, 'recall context hit.provenance')) as JsonObject,
   };
 }
 
@@ -2617,7 +2635,7 @@ export function decodeProjectCreateRequestData(value: unknown): ProjectCreateReq
             'active',
             'paused',
             'archived',
-          ]),
+          ] as const),
     primary_repo: decodeProjectRootRefData(record.primary_repo),
     primary_notes_root: decodeProjectRootRefData(record.primary_notes_root),
     secondary_repos: decodeArray(record.secondary_repos ?? [], decodeProjectRootRefData),
@@ -4506,6 +4524,38 @@ export function decodeBackupSettingsData(value: unknown): BackupSettingsData {
   };
 }
 
+export function decodeLlmProfileSettingsData(value: unknown): LlmProfileSettingsData {
+  const record = expectRecord(value, 'llm profile settings');
+  return {
+    id: expectString(record.id, 'llm profile settings.id'),
+    provider: expectString(record.provider, 'llm profile settings.provider'),
+    base_url: expectString(record.base_url, 'llm profile settings.base_url'),
+    model: expectString(record.model, 'llm profile settings.model'),
+    context_window:
+      record.context_window === undefined
+        ? null
+        : expectNullableNumber(record.context_window, 'llm profile settings.context_window'),
+    enabled: expectBoolean(record.enabled, 'llm profile settings.enabled'),
+    editable: expectBoolean(record.editable, 'llm profile settings.editable'),
+  };
+}
+
+export function decodeLlmSettingsData(value: unknown): LlmSettingsData {
+  const record = expectRecord(value, 'llm settings');
+  return {
+    models_dir: expectString(record.models_dir, 'llm settings.models_dir'),
+    default_chat_profile_id: expectNullableString(
+      record.default_chat_profile_id ?? null,
+      'llm settings.default_chat_profile_id',
+    ),
+    fallback_chat_profile_id: expectNullableString(
+      record.fallback_chat_profile_id ?? null,
+      'llm settings.fallback_chat_profile_id',
+    ),
+    profiles: decodeArray(record.profiles ?? [], decodeLlmProfileSettingsData),
+  };
+}
+
 export function decodeSettingsData(value: unknown): SettingsData {
   const record = expectRecord(value, 'settings');
   const adaptiveOverrides =
@@ -4565,6 +4615,10 @@ export function decodeSettingsData(value: unknown): SettingsData {
             record.lan_base_url_auto_discovered,
             'settings.lan_base_url_auto_discovered',
           ),
+    llm:
+      record.llm === undefined
+        ? undefined
+        : decodeLlmSettingsData(record.llm),
     adaptive_policy_overrides:
       adaptiveOverrides === undefined
         ? undefined

@@ -380,11 +380,7 @@ async fn get_now_internal(
         crate::services::apple_behavior::get_summary(storage, config).await?;
     let action_queue = crate::services::operator_queue::build_action_items(storage, config).await?;
     let mesh_summary = if let Some(state) = state {
-        Some(build_mesh_summary(
-            state,
-            action_queue.pending_writebacks.len() as u32,
-        )
-        .await?)
+        Some(build_mesh_summary(state, action_queue.pending_writebacks.len() as u32).await?)
     } else {
         None
     };
@@ -1069,7 +1065,13 @@ fn build_header(
                 reflow_count > 0,
                 reflow_status.and_then(|status| status.thread_id.clone()),
             ),
-            header_bucket(config, "follow_up", follow_up_count, follow_up_count > 0, None),
+            header_bucket(
+                config,
+                "follow_up",
+                follow_up_count,
+                follow_up_count > 0,
+                None,
+            ),
         ],
     }
 }
@@ -1148,10 +1150,8 @@ fn build_status_row(
 
 fn empty_status_row(now_ts: i64, timezone: &str) -> NowStatusRowOutput {
     let now = OffsetDateTime::from_unix_timestamp(now_ts).expect("timestamp should convert");
-    let timezone =
-        crate::services::timezone::ResolvedTimeZone::parse(timezone).unwrap_or_else(|_| {
-            crate::services::timezone::ResolvedTimeZone::utc()
-        });
+    let timezone = crate::services::timezone::ResolvedTimeZone::parse(timezone)
+        .unwrap_or_else(|_| crate::services::timezone::ResolvedTimeZone::utc());
     build_status_row(
         now,
         &timezone,
@@ -1234,7 +1234,11 @@ async fn build_mesh_summary(
     let last_sync_at = workers
         .workers
         .iter()
-        .filter_map(|worker| worker.last_upstream_sync_at.max(worker.last_downstream_sync_at))
+        .filter_map(|worker| {
+            worker
+                .last_upstream_sync_at
+                .max(worker.last_downstream_sync_at)
+        })
         .max()
         .or_else(|| {
             bootstrap
@@ -1244,12 +1248,14 @@ async fn build_mesh_summary(
                 .max()
         });
 
-    let linking_needs_review = bootstrap.linked_nodes.iter().any(|node| {
-        !matches!(node.status, vel_core::LinkStatus::Linked)
-    }) || workers
-        .workers
+    let linking_needs_review = bootstrap
+        .linked_nodes
         .iter()
-        .any(|worker| worker.incoming_linking_prompt.is_some());
+        .any(|node| !matches!(node.status, vel_core::LinkStatus::Linked))
+        || workers
+            .workers
+            .iter()
+            .any(|worker| worker.incoming_linking_prompt.is_some());
 
     let repair_route = if linking_needs_review {
         Some(NowRepairRouteOutput {
@@ -1266,8 +1272,9 @@ async fn build_mesh_summary(
     } else if sync_state == "stale" || any_stale || queued_write_count > 0 {
         Some(NowRepairRouteOutput {
             target: "settings_recovery".to_string(),
-            summary: "Sync or queued-write posture needs review before trusting all cross-client state."
-                .to_string(),
+            summary:
+                "Sync or queued-write posture needs review before trusting all cross-client state."
+                    .to_string(),
         })
     } else {
         None
@@ -1323,7 +1330,10 @@ fn build_nudge_bars(
             kind: "reflow_proposal".to_string(),
             title: card.title.clone(),
             summary: card.summary.clone(),
-            urgent: matches!(card.severity, ReflowSeverity::Critical | ReflowSeverity::High),
+            urgent: matches!(
+                card.severity,
+                ReflowSeverity::Critical | ReflowSeverity::High
+            ),
             primary_thread_id: None,
             actions: card
                 .transitions
@@ -1369,7 +1379,10 @@ fn build_nudge_bars(
             title: item.title.clone(),
             summary: item.summary.clone(),
             urgent: item.rank >= 80,
-            primary_thread_id: item.thread_route.as_ref().and_then(|route| route.thread_id.clone()),
+            primary_thread_id: item
+                .thread_route
+                .as_ref()
+                .and_then(|route| route.thread_id.clone()),
             actions: vec![NowNudgeActionOutput {
                 kind: "accept".to_string(),
                 label: item

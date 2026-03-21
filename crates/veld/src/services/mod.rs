@@ -38,6 +38,7 @@ pub(crate) mod integrations_todoist;
 pub mod journal;
 pub(crate) mod lan_discovery;
 pub mod linking;
+pub mod llm_settings;
 pub(crate) mod local_network;
 pub mod now;
 pub mod nudge_engine;

@@ -7903,8 +7903,7 @@ mod tests {
             Some("thr_assistant_proposal_msg_1")
         );
         assert_eq!(
-            conversations[0]["continuation"]["continuation"]["bounded_capability_state"]
-                .as_str(),
+            conversations[0]["continuation"]["continuation"]["bounded_capability_state"].as_str(),
             Some("proposal_review_gated")
         );
         assert_eq!(
@@ -7922,8 +7921,7 @@ mod tests {
             Some("msg_1")
         );
         assert_eq!(
-            conversations[0]["continuation"]["continuation"]["review_requirements"][0]
-                .as_str(),
+            conversations[0]["continuation"]["continuation"]["review_requirements"][0].as_str(),
             Some("Operator confirmation is required before the proposal can be applied.")
         );
     }
@@ -8020,7 +8018,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn chat_inbox_empty() {
+    async fn chat_inbox_surfaces_operator_queue_items() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
         let app = build_app(
@@ -8045,10 +8043,10 @@ mod tests {
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert!(json["ok"].as_bool().unwrap());
-        assert!(json["data"]
-            .as_array()
-            .map(|a| a.is_empty())
-            .unwrap_or(false));
+        let data = json["data"].as_array().unwrap();
+        assert!(!data.is_empty());
+        assert!(data.iter().all(|item| item["id"].is_string()));
+        assert!(data.iter().all(|item| item["title"].is_string()));
     }
 
     #[tokio::test]
@@ -11131,10 +11129,7 @@ END:VCALENDAR
         );
         assert!(json["data"]["overview"]["dominant_action"]["title"].is_string());
         assert!(json["data"]["overview"]["visible_nudge"]["title"].is_string());
-        assert_eq!(
-            json["data"]["overview"]["decision_options"][2],
-            "thread"
-        );
+        assert_eq!(json["data"]["overview"]["decision_options"][2], "thread");
         assert_eq!(json["data"]["overview"]["why_state"][0]["label"], "Mode");
         assert_eq!(json["data"]["freshness"]["sources"][0]["key"], "context");
         assert!(json["data"]["action_items"]
@@ -11205,7 +11200,9 @@ END:VCALENDAR
                     morning_state: "engaged".to_string(),
                     global_risk_level: "high".to_string(),
                     attention_state: "needs_reflow".to_string(),
-                    attention_reasons: vec!["Standup slipped past without a day update.".to_string()],
+                    attention_reasons: vec![
+                        "Standup slipped past without a day update.".to_string()
+                    ],
                     next_event_start_ts: Some(now - (20 * 60)),
                     leave_by_ts: Some(now - (10 * 60)),
                     next_commitment_id: Some(commitment_id.as_ref().to_string()),
@@ -11244,13 +11241,25 @@ END:VCALENDAR
             .filter_map(|change| change["kind"].as_str())
             .collect::<Vec<_>>();
 
-        assert_eq!(json["data"]["overview"]["dominant_action"]["kind"], "reflow");
+        assert_eq!(
+            json["data"]["overview"]["dominant_action"]["kind"],
+            "reflow"
+        );
         assert_eq!(json["data"]["reflow"]["trigger"], "missed_event");
-        assert_eq!(json["data"]["reflow"]["transitions"][0]["target"], "apply_suggestion");
-        assert_eq!(json["data"]["reflow"]["transitions"][0]["confirm_required"], true);
+        assert_eq!(
+            json["data"]["reflow"]["transitions"][0]["target"],
+            "apply_suggestion"
+        );
+        assert_eq!(
+            json["data"]["reflow"]["transitions"][0]["confirm_required"],
+            true
+        );
         assert_eq!(json["data"]["reflow"]["proposal"]["moved_count"], 1);
         assert_eq!(json["data"]["reflow"]["proposal"]["unscheduled_count"], 0);
-        assert_eq!(json["data"]["reflow"]["proposal"]["needs_judgment_count"], 1);
+        assert_eq!(
+            json["data"]["reflow"]["proposal"]["needs_judgment_count"],
+            1
+        );
         assert!(kinds.contains(&"moved"));
         assert!(kinds.contains(&"needs_judgment"));
     }
@@ -11289,7 +11298,9 @@ END:VCALENDAR
                     morning_state: "engaged".to_string(),
                     global_risk_level: "high".to_string(),
                     attention_state: "needs_reflow".to_string(),
-                    attention_reasons: vec!["Standup slipped past without a day update.".to_string()],
+                    attention_reasons: vec![
+                        "Standup slipped past without a day update.".to_string()
+                    ],
                     next_event_start_ts: Some(now - (20 * 60)),
                     leave_by_ts: Some(now - (10 * 60)),
                     next_commitment_id: Some(commitment_id.as_ref().to_string()),
@@ -11327,8 +11338,13 @@ END:VCALENDAR
 
         assert!(json["data"]["reflow"].is_null());
         assert_eq!(json["data"]["reflow_status"]["kind"], "editing");
-        assert_eq!(json["data"]["reflow_status"]["headline"], "Reflow moved to Threads");
-        assert!(json["data"]["reflow_status"]["thread_id"].as_str().is_some());
+        assert_eq!(
+            json["data"]["reflow_status"]["headline"],
+            "Reflow moved to Threads"
+        );
+        assert!(json["data"]["reflow_status"]["thread_id"]
+            .as_str()
+            .is_some());
     }
 
     #[tokio::test]
@@ -11350,7 +11366,9 @@ END:VCALENDAR
                     morning_state: "engaged".to_string(),
                     global_risk_level: "high".to_string(),
                     attention_state: "stale".to_string(),
-                    attention_reasons: vec!["Current plan is stale and may no longer be trustworthy.".to_string()],
+                    attention_reasons: vec![
+                        "Current plan is stale and may no longer be trustworthy.".to_string(),
+                    ],
                     ..CurrentContextV1::default()
                 }),
             )
@@ -11382,7 +11400,10 @@ END:VCALENDAR
 
         assert_eq!(json["data"]["reflow"]["trigger"], "stale_schedule");
         assert_eq!(json["data"]["reflow"]["severity"], "high");
-        assert_eq!(json["data"]["reflow"]["proposal"]["needs_judgment_count"], 1);
+        assert_eq!(
+            json["data"]["reflow"]["proposal"]["needs_judgment_count"],
+            1
+        );
         assert_eq!(
             json["data"]["reflow"]["proposal"]["changes"][0]["kind"],
             "needs_judgment"

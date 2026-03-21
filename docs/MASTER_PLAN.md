@@ -1,5 +1,5 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (v0.3 planning)
+**Status**: Canonical Truth (`0.3.0` shipped, `0.4.x` active)
 **Last Updated**: 2026-03-21
 
 ---
@@ -9,13 +9,20 @@
 | Phase | Status | Focus |
 | :--- | :--- | :--- |
 | **v0.2: True MVP** | **[SHIPPED]** | Closed the strict operator loop, Rust-owned contracts, and thin-shell architecture. |
-| **v0.3: Canonical Now Surface And Client Mesh** | **[PLANNING]** | Rebuild Now as one Rust-owned cross-platform control surface and make clients mesh cleanly. |
+| **v0.3: Canonical Now Surface And Client Mesh** | **[SHIPPED]** | Closed the canonical compact Now contract, Rust-owned transport/core lane, and cross-platform parity baseline. |
 | **Phase 1** | **[COMPLETE]** | Monolith decomposition and structural foundations. |
 | **Phase 2** | **[CLOSED / RE-SCOPED]** | Distributed swarm baseline shipped; unfinished sync ordering, guided onboarding, and external connect work moved to Phases 5, 6, and 8. |
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
 
-Milestone `v0.2` is now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md). Active roadmap work now lives in milestone `v0.3` in [`.planning/ROADMAP.md`](/home/jove/code/vel/.planning/ROADMAP.md), starting at Phase 46.
+Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). Live roadmap work is now tracked as the active `0.4.x` release line, which remains in force until the product is ready to open a real `0.5.0-beta`.
+
+Planning notation from this point forward:
+
+- shipped releases use semver, for example `0.3.0`
+- in-flight roadmap work stays inside a release line, for example `0.4.x`
+- execution slices may be referenced as `<major>.<minor>.<phase>.<plan>`, for example `0.4.54.1`
+- the existing integer phase directories remain valid historical identifiers and should not be renumbered retroactively
 
 Durable product authority for the shipped MVP starts with `docs/product/mvp-operator-loop.md`, while post-`v0.2` `Now` behavior is now governed by `docs/product/now-surface-canonical-contract.md`. Durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md` and `docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md`.
 

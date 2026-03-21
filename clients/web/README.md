@@ -2,6 +2,8 @@
 
 React + TypeScript + Vite + Tailwind. Vel's web operator surface for `Now`, `Inbox`, `Threads`, `Suggestions`, `Stats`, and `Settings`, with a truthful `Projects` placeholder until the project workspace API exists.
 
+The `Settings` runtime tab owns implementation-aware controls such as loop toggles, recent-run recovery, daemon-side LLM routing, and the global daemon restart action.
+
 ## Run
 
 ```bash

@@ -11,10 +11,9 @@ use uuid::Uuid;
 use vel_api_types::{
     ActionEvidenceRefData, ApiResponse, AssistantActionProposalData, AssistantEntryRequest,
     AssistantEntryResponse, AssistantEntryRouteTargetData, ConversationContinuationData,
-    ConversationCreateRequest,
-    ConversationData, ConversationUpdateRequest, CreateMessageResponse, InboxItemData,
-    InterventionActionData, MessageCreateRequest, MessageData, PlanningProfileEditProposalData,
-    ProvenanceData, ProvenanceEvent,
+    ConversationCreateRequest, ConversationData, ConversationUpdateRequest, CreateMessageResponse,
+    InboxItemData, InterventionActionData, MessageCreateRequest, MessageData,
+    PlanningProfileEditProposalData, ProvenanceData, ProvenanceEvent,
 };
 
 use crate::services::chat::{
@@ -59,12 +58,11 @@ async fn enrich_conversation_continuation(
     state: &AppState,
     data: &mut crate::services::chat::mapping::ConversationServiceData,
 ) -> Result<(), AppError> {
-    data.continuation =
-        crate::services::chat::thread_continuation::conversation_continuation_data(
-            &state.storage,
-            &data.id,
-        )
-        .await?;
+    data.continuation = crate::services::chat::thread_continuation::conversation_continuation_data(
+        &state.storage,
+        &data.id,
+    )
+    .await?;
     Ok(())
 }
 
@@ -237,7 +235,10 @@ pub async fn list_conversations(
                 &conversation.id,
             )
             .await?;
-        data.push(conversation_data_with_continuation(conversation, continuation));
+        data.push(conversation_data_with_continuation(
+            conversation,
+            continuation,
+        ));
     }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
@@ -470,6 +471,7 @@ pub struct SettingsUpdateRequest {
     pub tailscale_preferred: Option<bool>,
     pub tailscale_base_url: Option<String>,
     pub lan_base_url: Option<String>,
+    pub llm: Option<crate::services::llm_settings::LlmSettingsUpdateRequest>,
 }
 
 pub async fn patch_settings(
@@ -532,6 +534,9 @@ pub async fn patch_settings(
     }
     if let Some(value) = payload.lan_base_url {
         write_optional_url_setting(&state, "lan_base_url", &value).await?;
+    }
+    if let Some(request) = payload.llm.as_ref() {
+        crate::services::llm_settings::apply_llm_settings_update(request)?;
     }
     let data = settings_payload(&state).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());

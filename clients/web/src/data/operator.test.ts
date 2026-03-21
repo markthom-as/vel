@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import type { IntegrationsData } from '../types'
+import type { IntegrationsData, NowData } from '../types'
 import { buildBackupTrustProjection, buildOperatorReviewStatus, buildSettingsOnboardingGuide } from './operator'
 
 describe('buildOperatorReviewStatus', () => {
   it('derives writeback, handoff, conflict, and people review state from now plus settings', () => {
-    const status = buildOperatorReviewStatus(
-      {
+    const now = {
         computed_at: 1710000000,
         timezone: 'America/Denver',
         summary: {
@@ -49,9 +48,13 @@ describe('buildOperatorReviewStatus', () => {
             id: 'act_person',
             surface: 'now',
             kind: 'next_step',
+            permission_mode: 'user_confirm',
+            scope_affinity: 'project',
             title: 'Reply to Annie',
             summary: 'Draft review pending',
             project_id: null,
+            project_label: null,
+            project_family: null,
             state: 'active',
             rank: 72,
             surfaced_at: '2026-03-18T18:00:00Z',
@@ -64,12 +67,14 @@ describe('buildOperatorReviewStatus', () => {
                 detail: null,
               },
             ],
+            thread_route: null,
           },
         ],
         review_snapshot: {
           open_action_count: 1,
           triage_count: 0,
           projects_needing_review: 0,
+          pending_execution_reviews: 0,
         },
         pending_writebacks: [
           {
@@ -135,7 +140,10 @@ describe('buildOperatorReviewStatus', () => {
           commitments_used: [],
           risk_used: [],
         },
-      },
+      } as unknown as NowData
+
+    const status = buildOperatorReviewStatus(
+      now,
       { writeback_enabled: false },
       [
         {

@@ -533,7 +533,7 @@ export function applyPlanningProfileMutation(
 }
 
 export function updateSettings(
-  patch: Partial<SettingsData>,
+  patch: Record<string, unknown>,
 ): Promise<ApiResponse<SettingsData>> {
   return apiPatch<ApiResponse<SettingsData>>(
     '/api/settings',

@@ -66,5 +66,10 @@ pub(crate) async fn settings_payload(state: &AppState) -> Result<serde_json::Val
         })
         .map_err(|error| AppError::internal(error.to_string()))?,
     );
+    map.insert(
+        "llm".to_string(),
+        serde_json::to_value(crate::services::llm_settings::load_llm_settings()?)
+            .map_err(|error| AppError::internal(error.to_string()))?,
+    );
     Ok(serde_json::to_value(map).unwrap_or_else(|_| serde_json::json!({})))
 }

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::process::Command;
 use time::OffsetDateTime;
 use vel_config::AppConfig;
 use vel_storage::Storage;
@@ -342,6 +343,53 @@ async fn restart_evaluate(
     ))
 }
 
+fn daemon_component_spec() -> ComponentSpec {
+    ComponentSpec {
+        id: "daemon",
+        name: "Vel daemon",
+        description: "Re-exec the current veld process and reconnect the operator surface.",
+    }
+}
+
+fn spawn_daemon_reexec() -> Result<(), AppError> {
+    let current_exe = std::env::current_exe()
+        .map_err(|error| AppError::internal(format!("resolve current veld executable: {error}")))?;
+    let current_dir = std::env::current_dir().map_err(|error| {
+        AppError::internal(format!("resolve current working directory: {error}"))
+    })?;
+    let args = std::env::args_os().skip(1).collect::<Vec<_>>();
+
+    let mut command = Command::new("sh");
+    command
+        .arg("-lc")
+        .arg("sleep 1; exec \"$@\"")
+        .arg("sh")
+        .arg(&current_exe)
+        .args(args)
+        .current_dir(current_dir);
+    command.spawn().map_err(|error| {
+        AppError::internal(format!(
+            "spawn replacement veld process {}: {error}",
+            current_exe.display()
+        ))
+    })?;
+
+    #[cfg(not(test))]
+    {
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            std::process::exit(0);
+        });
+    }
+
+    Ok(())
+}
+
+async fn restart_daemon() -> Result<String, AppError> {
+    spawn_daemon_reexec()?;
+    Ok("Vel daemon restart requested. The web UI should reconnect automatically.".to_string())
+}
+
 async fn restart_component_by_id(
     storage: &Storage,
     config: &AppConfig,
@@ -349,6 +397,7 @@ async fn restart_component_by_id(
     component_id: &str,
 ) -> Result<String, AppError> {
     match component_id {
+        "daemon" => restart_daemon().await,
         "google-calendar" => restart_google(storage, config).await,
         "todoist" => restart_todoist(storage, config).await,
         "activity" => restart_activity(storage, config).await,
@@ -370,8 +419,13 @@ pub async fn restart_component(
     component_id: &str,
 ) -> Result<ComponentData, AppError> {
     let component_id = component_id.trim();
-    let spec =
-        component_spec(component_id).ok_or_else(|| AppError::not_found("component not found"))?;
+    let daemon_spec;
+    let spec = if component_id == "daemon" {
+        daemon_spec = daemon_component_spec();
+        &daemon_spec
+    } else {
+        component_spec(component_id).ok_or_else(|| AppError::not_found("component not found"))?
+    };
 
     let requested_at = now_ts();
     let mut state = load_component_state(storage, component_id).await?;

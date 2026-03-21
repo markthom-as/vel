@@ -11,6 +11,7 @@ use crate::{
     state::AppState,
 };
 use vel_core::{ActionEvidenceRef, ActionItem, ProjectId};
+use vel_api_types::AvailableActionData;
 
 #[derive(Debug, Clone)]
 pub(crate) struct InboxItem {
@@ -147,22 +148,68 @@ async fn intervention_action_index(
         .collect())
 }
 
+fn action_kind_label(item: &ActionItem) -> Result<String, AppError> {
+    serde_json::to_value(&item.kind)
+        .map_err(|error| AppError::internal(format!("failed to serialize action kind: {error}")))?
+        .as_str()
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| AppError::internal("action kind did not serialize to a string"))
+}
+
+fn action_state_label(item: &ActionItem) -> Result<String, AppError> {
+    serde_json::to_value(&item.state)
+        .map_err(|error| AppError::internal(format!("failed to serialize action state: {error}")))?
+        .as_str()
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| AppError::internal("action state did not serialize to a string"))
+}
+
+fn action_item_to_inbox_item(item: ActionItem) -> Result<InboxItem, AppError> {
+    let message_id = item
+        .evidence
+        .iter()
+        .find(|evidence| evidence.source_kind == "message")
+        .or_else(|| item.evidence.iter().find(|evidence| evidence.source_kind == "intervention"))
+        .map(|evidence| evidence.source_id.clone())
+        .unwrap_or_else(|| item.id.as_ref().to_string());
+    let conversation_id = item
+        .thread_route
+        .as_ref()
+        .and_then(|route| route.thread_id.clone());
+    let mut available_actions = Vec::new();
+    if conversation_id.is_some() {
+        available_actions.push(AvailableActionData::OpenThread);
+    }
+
+    Ok(InboxItem {
+        id: item.id.as_ref().to_string(),
+        message_id,
+        kind: action_kind_label(&item)?,
+        state: action_state_label(&item)?,
+        surfaced_at: item.surfaced_at.unix_timestamp(),
+        snoozed_until: item.snoozed_until.map(|value| value.unix_timestamp()),
+        confidence: None,
+        rank: item.rank,
+        conversation_id,
+        title: item.title,
+        summary: item.summary,
+        project_id: item.project_id,
+        project_label: item.project_label,
+        available_actions,
+        evidence: item.evidence,
+    })
+}
+
 pub(crate) async fn list_inbox_items(
     state: &AppState,
     limit: u32,
 ) -> Result<Vec<InboxItem>, AppError> {
-    let action_index = intervention_action_index(state).await?;
-    let list = state.storage.list_interventions_active(limit).await?;
-    let mut items = Vec::with_capacity(list.len());
-    for record in list {
-        items.push(
-            intervention_record_to_inbox_output(
-                state,
-                record.clone(),
-                action_index.get(record.id.as_ref()),
-            )
-            .await?,
-        );
+    let action_items = crate::services::operator_queue::build_action_items(&state.storage, &state.config)
+        .await?
+        .action_items;
+    let mut items = Vec::with_capacity(action_items.len());
+    for item in action_items {
+        items.push(action_item_to_inbox_item(item)?);
     }
     items.sort_by(|left, right| {
         right

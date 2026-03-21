@@ -1,108 +1,104 @@
 # Requirements: Vel
 
 **Defined:** 2026-03-21
-**Milestone:** v0.3
+**Milestone:** 0.4.x
 **Core Value:** Reliable, local-first capture and recall that a solo operator can trust.
 
-## v0.3 Requirements
+## 0.4.x Requirements
 
-Requirements for the cross-platform `Now` rebuild and client-mesh milestone. This milestone turns the checked-in `Now` surface contract into Rust-owned product behavior and ensures clients can connect cleanly to the same authority runtime.
+Requirements for the `Now/UI MVP Conformance Closure` release line. This line closes the remaining gap between the canonical `Now` contract, the operator's explicit correction memo, and the shipped web/client surfaces so the product feels compact, trustworthy, and usable in repeated daily use.
 
 ## Milestone Acceptance Checklist
 
-v0.3 is only complete if all of these are true:
+The `0.4.x` line is only complete if all of these are true:
 
-- [ ] `Now` behaves as one canonical surface across web, iPhone, iPad, Mac, and reduced watch
-- [ ] all `Now` product semantics are backed by platform-portable Rust core and shared transport
-- [ ] client shells do not define their own task, nudge, thread, or day behavior for `Now`
-- [ ] ranking, intent routing, approval posture, and governed config are owned by shared subsystem contracts instead of shell-local policy
-- [ ] operators can understand and recover client connection state across surfaces
-- [ ] clients can link to the same authority runtime without platform-specific guesswork
-- [ ] offline/sync/queued-write behavior is visible and consistent across clients
+- [x] the web `Now` surface matches the operator-corrected contract as the reference implementation
+- [x] the top area of `Now` is containerless, compact, and visually subordinate to the task container
+- [x] tasks are grouped by real current-day truth and are the only dominant visual container on `Now`
+- [x] nudges render as compact styled info boxes with icon, severity color, and project tag context
+- [x] the floating `Now` input is always visible, bottom-center, and inline-first with text and voice only
+- [x] shell navigation uses a compact top nav plus collapsible right sidebar instead of the current left-nav helper-heavy shell
+- [x] `Inbox` contains the same underlying actionable objects surfaced in `Now`
+- [x] `Threads` and `Settings` match the compact IA expected for MVP use instead of debug-leaning or prose-heavy layouts
+- [x] iOS/client parity work is defined against the same reference behavior rather than reinterpreting the product contract
 
 ## Non-Goals
 
-- broad new product-surface expansion outside `Now`, `Threads`, connection, and sync support
-- shell-specific redesign work not required for parity
-- speculative cloud-first architecture reset
-- generic chat-product widening
-- broad provider expansion unrelated to the canonical `Now` or client mesh
+- widening `Now` into a dashboard again
+- adding new planner/product surfaces not needed for MVP closure
+- broad provider/platform expansion unrelated to the conformance issues in this memo
+- reopening Rust-owned product semantics already settled in `0.3.0` unless a data-truth bug requires it
 
-### Canonical Now Surface
+### Now Surface Conformance
 
-- [ ] **NOW-01**: The canonical `Now` surface contract is published as durable repo authority for all supported shells
-- [ ] **NOW-02**: `Now` header, status row, context one-liner, nudge bars, task list, and docked capture/voice bar are implemented from one shared contract
-- [ ] **NOW-03**: `Now` remains execution-first and compact rather than re-expanding into a dashboard or second inbox
-- [ ] **NOW-04**: `Now` interactions escalate to `Threads` according to one shared routing model across shells
+- [x] **NOWUI-01**: `Now` top area is containerless and composed of compact stacked micro-rows for title, minimal timing/context, active description, and nudges
+- [x] **NOWUI-02**: the top area excludes elapsed-time and verbose metadata, truncates active description to a single line, and hides empty-state controls entirely
+- [x] **NOWUI-03**: nudges render as compact styled info boxes with icon, severity color, and project tag context; they live in their own row under timing/description
+- [x] **NOWUI-04**: tasks are the only dominant visual container and render grouped sections in strict order: `NOW`, `TODAY`, `AT RISK`, `NEXT`
+- [x] **NOWUI-05**: project reviews are removed from `Now` unless explicitly due today, and zero-task state keeps the task container with a terse neutral line
+- [x] **NOWUI-06**: `Now` uses a floating bottom-center input with text and voice only, no helper text, and inline-first escalation to threads
+- [x] **NOWUI-07**: `Now` removes helper prose, `More Context and Controls`, and other shell noise from the main surface
 
-### Rust Core Portability
+### Navigation And Shell
 
-- [ ] **CORE-01**: `Now` semantics live in platform-portable Rust core and service layers rather than shell-local policy
-- [ ] **CORE-02**: canonical task, thread, day, nudge, and sync/offline models are shared across web and Apple transport
-- [ ] **CORE-03**: deterministic fallback behavior for `Now` summaries and context resolution exists outside any single shell
-- [ ] **CORE-04**: governed config for `Now` title/display/count policies is Rust-owned and versioned
+- [x] **SHELL-01**: the app shell uses a compact top nav that includes sync/context indicators, `Now`, `Inbox`, `Threads`, `Settings`, and `Documentation`
+- [x] **SHELL-02**: the right sidebar is collapsible context/documentation, collapsed by default with an open affordance on desktop and promoted to a top-level info affordance on mobile
+- [x] **SHELL-03**: `Daily Use` and similar explanatory shell labels are removed from the primary navigation
+- [x] **SHELL-04**: iconography is more compact and semantically clearer across the shell
 
-### Client Mesh And Linking
+### Inbox, Threads, And Settings
 
-- [ ] **MESH-01**: Clients can discover or enter authority endpoints in a guided way instead of raw guesswork
-- [ ] **MESH-02**: Clients surface current connection status, last sync, and queued writes consistently
-- [ ] **MESH-03**: Operators can inspect and recover broken or stale client connections from supported shells
-- [ ] **MESH-04**: Multi-client continuity rules are explicit enough that state from one client remains understandable on another
+- [x] **INBOX-01**: `Inbox` remains the superset queue for the same underlying actionable objects shown in `Now`
+- [x] **INBOX-02**: empty `Inbox` while `Now` shows actionable items is prevented by the underlying data/query model, not papered over in UI
+- [x] **THREADS-01**: `Threads` uses global top nav plus a left thread list and main content panel
+- [x] **THREADS-02**: thread rows show title, truncated last message, unread indicator, unread count when applicable, and optional lower-priority tags
+- [x] **THREADS-03**: unread status has highest visual priority in constrained thread-list layouts
+- [x] **SETTINGS-01**: `Settings` is compact and organized by a left tab rail, not top tabs
+- [x] **SETTINGS-02**: `Settings` groups only `Profile / Onboarding`, `Device / Sync`, `Agent Grounding / State`, and `Backups`
+- [x] **SETTINGS-03**: documentation access is removed from `Settings` and promoted to top-level navigation
 
-### Cross-Platform Parity
+### Verification And Parity
 
-- [ ] **PARITY-01**: Web ships the canonical `Now` embodiment over shared contracts
-- [ ] **PARITY-02**: iPhone, iPad, and Mac ship the same `Now` information architecture and core actions over shared contracts
-- [ ] **PARITY-03**: Apple Watch ships the reduced `Now` subset without inventing divergent product behavior
-- [ ] **PARITY-04**: layout density may adapt by device, but behavior and routing remain contract-identical
-
-### Tasks, Threads, And Continuity
-
-- [ ] **TASK-01**: `task` is the canonical work object feeding `Now`, with commitments represented as a task subtype
-- [ ] **TASK-02**: task completion, undo posture, metadata, and overflow behavior are consistent across clients
-- [ ] **THREAD-01**: `Now` icon-bar buckets and escalation chips route into shared filtered `Threads` views
-- [ ] **THREAD-02**: every docked-bar input creates a thread artifact and can route to inline, inbox, or thread outcomes without shell-specific behavior
-
-### Offline And Trust
-
-- [ ] **SYNC-01**: `Now` and support surfaces distinguish `synced`, `local_only`, and `stale` states
-- [ ] **SYNC-02**: offline writes remain inspectable and retryable
-- [ ] **SYNC-03**: ambiguous multi-client conflicts surface explicit review instead of silent overwrite
+- [ ] **VERIFY-01**: manual conformance checklist exists and is the first gate for milestone acceptance
+- [ ] **VERIFY-02**: contract/DTO tests cover the corrected `Now` grouping, hidden-empty-state behavior, and inbox/now shared-object invariants
+- [ ] **VERIFY-03**: UI tests cover the reference web embodiment after the manual checklist passes
+- [x] **PARITY-01**: web is treated as the reference implementation for MVP closure
+- [x] **PARITY-02**: iOS/client parity work explicitly tracks the same behavior after the web reference is corrected
 
 ## Future Requirements
 
-- [ ] broader review analytics or journaling
-- [ ] multi-day planning beyond the current-day and day-object model
-- [ ] broad provider or platform expansion beyond client mesh needs
-- [ ] speculative cloud-first or hosted-first product reset
+- [ ] broader visual polish beyond the compact MVP closure needed for repeated daily use
+- [ ] additional Apple-specific refinements that are not required to preserve reference parity
+- [ ] further client-mesh expansion beyond the shell/nav/support corrections in this milestone
 
 ## Traceability
 
 | Requirement | Phase |
 |-------------|-------|
-| NOW-01 | Phase 46 |
-| NOW-02 | Phase 47 |
-| NOW-03 | Phase 49 |
-| NOW-04 | Phase 47 |
-| CORE-01 | Phase 47 |
-| CORE-02 | Phase 47 |
-| CORE-03 | Phase 47 |
-| CORE-04 | Phase 48 |
-| MESH-01 | Phase 48 |
-| MESH-02 | Phase 48 |
-| MESH-03 | Phase 50 |
-| MESH-04 | Phase 48 |
-| PARITY-01 | Phase 49 |
-| PARITY-02 | Phase 50 |
-| PARITY-03 | Phase 50 |
-| PARITY-04 | Phase 50 |
-| TASK-01 | Phase 47 |
-| TASK-02 | Phase 49 |
-| THREAD-01 | Phase 47 |
-| THREAD-02 | Phase 49 |
-| SYNC-01 | Phase 48 |
-| SYNC-02 | Phase 48 |
-| SYNC-03 | Phase 50 |
+| NOWUI-01 | Phase 52 |
+| NOWUI-02 | Phase 52 |
+| NOWUI-03 | Phase 52 |
+| NOWUI-04 | Phase 52 |
+| NOWUI-05 | Phase 52 |
+| NOWUI-06 | Phase 52 |
+| NOWUI-07 | Phase 52 |
+| SHELL-01 | Phase 52 |
+| SHELL-02 | Phase 52 |
+| SHELL-03 | Phase 52 |
+| SHELL-04 | Phase 52 |
+| INBOX-01 | Phase 52 |
+| INBOX-02 | Phase 52 |
+| THREADS-01 | Phase 52 |
+| THREADS-02 | Phase 52 |
+| THREADS-03 | Phase 52 |
+| SETTINGS-01 | Phase 52 |
+| SETTINGS-02 | Phase 52 |
+| SETTINGS-03 | Phase 52 |
+| VERIFY-01 | Phase 56 |
+| VERIFY-02 | Phase 56 |
+| VERIFY-03 | Phase 56 |
+| PARITY-01 | Phase 52 |
+| PARITY-02 | Phase 52 |
 
 ---
-*Last updated: 2026-03-21 for milestone v0.3 canonical Now surface and client mesh planning*
+*Last updated: 2026-03-21 for the active `0.4.x` release line*

@@ -9,7 +9,9 @@ Load via `vel_config::load_model_profiles("configs/models")` and `vel_config::lo
 
 ## Optional remote provider profile (`openai_oauth`)
 
-You can add an `openai_oauth` profile (example: `oauth-openai`) for optional overflow via a local OpenAI-compatible proxy. It is only registered when `VEL_ENABLE_OPENAI_OAUTH` is truthy (`1`, `true`, `yes`, `on`) and the profile `base_url` points to `localhost`/`127.0.0.1`.
+You can add an `openai_oauth` profile (example: `oauth-openai`) for optional overflow via a local OpenAI-compatible proxy. It is registered whenever the profile is enabled and the `base_url` points to `localhost`/`127.0.0.1`.
+
+The checked-in routing prefers `oauth-openai` for `chat` when that profile exists, then falls back to `local-qwen3-coder` if the OAuth profile is absent or fails.
 
 ## Local dev (make dev)
 

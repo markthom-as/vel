@@ -9,13 +9,13 @@ use vel_core::{
 };
 use vel_llm::ToolSpec;
 
+use crate::services::chat::thread_continuation::{
+    parse_thread_metadata, proposal_thread_lifecycle_stage, thread_continuation_data,
+};
 use crate::{
     errors::AppError,
     services::{agent_grounding, daily_loop, people, projects, retrieval, timezone},
     state::AppState,
-};
-use crate::services::chat::thread_continuation::{
-    parse_thread_metadata, proposal_thread_lifecycle_stage, thread_continuation_data,
 };
 
 const TOOL_GET_NOW: &str = "vel_get_now";
@@ -332,13 +332,9 @@ pub(crate) async fn execute_chat_tool(
                     thread_type.is_none_or(|expected| current_thread_type == expected)
                 })
             {
-                let metadata = state
-                    .storage
-                    .get_thread_by_id(&id)
-                    .await?
-                    .and_then(|(_, _, _, _, metadata_json, _, _)| {
-                        parse_thread_metadata(&metadata_json)
-                    });
+                let metadata = state.storage.get_thread_by_id(&id).await?.and_then(
+                    |(_, _, _, _, metadata_json, _, _)| parse_thread_metadata(&metadata_json),
+                );
                 threads.push(json!({
                     "id": id,
                     "thread_type": thread_type,

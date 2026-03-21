@@ -762,12 +762,11 @@ budgets:
             parsed.reminders_snapshot_path.as_deref(),
             Some("var/integrations/reminders/snapshot.json")
         );
-        let now = parsed.now.expect("template should declare governed now config");
+        let now = parsed
+            .now
+            .expect("template should declare governed now config");
         assert_eq!(now.title_mode, NowTitleMode::OperatorNamePossessive);
-        assert_eq!(
-            now.bucket_count_display,
-            NowCountDisplayMode::ShowNonzero
-        );
+        assert_eq!(now.bucket_count_display, NowCountDisplayMode::ShowNonzero);
         assert!(now.watch.show_current_task);
     }
 

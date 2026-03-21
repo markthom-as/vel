@@ -16,7 +16,6 @@ use vel_sim::{replay_day_scenario, DayScenarioFixture, ReplayReport, ScenarioKin
 pub const FIXTURE_SCHEMA_VERSION: &str = "veld_eval_fixture/v1";
 pub const REPORT_SCHEMA_VERSION: &str = "veld_eval_report/v1";
 const DEFAULT_MODELS_DIR: &str = "configs/models";
-const OPENAI_OAUTH_ENV: &str = "VEL_ENABLE_OPENAI_OAUTH";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvalFixtureSet {
@@ -548,7 +547,7 @@ fn build_registry(profiles: &[ModelProfile]) -> ProviderRegistry {
                 registry.register(profile.id.clone(), Arc::new(provider));
             }
             "openai_oauth" => {
-                if !openai_oauth_enabled() || !is_local_host(&profile.base_url) {
+                if !is_local_host(&profile.base_url) {
                     continue;
                 }
                 let provider = OpenAiOauthProvider::new(OpenAiOauthConfig {
@@ -572,16 +571,6 @@ fn is_local_host(base_url: &str) -> bool {
         Err(_) => None,
     };
     matches!(host.as_deref(), Some("localhost") | Some("127.0.0.1"))
-}
-
-fn openai_oauth_enabled() -> bool {
-    matches!(
-        std::env::var(OPENAI_OAUTH_ENV)
-            .ok()
-            .as_deref()
-            .map(|value| value.trim()),
-        Some("1") | Some("true") | Some("True") | Some("TRUE") | Some("yes") | Some("on")
-    )
 }
 
 #[cfg(test)]

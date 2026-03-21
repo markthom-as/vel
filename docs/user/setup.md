@@ -61,8 +61,18 @@ Vel's assistant path uses the configured model routing under `configs/models/`.
 
 - local models use `provider = "llama_cpp"`
 - localhost OAuth-backed OpenAI-compatible proxies use `provider = "openai_oauth"`
-- `openai_oauth` profiles are only enabled when `VEL_ENABLE_OPENAI_OAUTH=1`
-- for safety, `openai_oauth` base URLs must point to `localhost` or `127.0.0.1`
+- `openai_oauth` profiles are enabled from the checked-in model profile itself
+- for safety, `openai_oauth` base URLs must still point to `localhost` or `127.0.0.1`
+- the checked-in `chat` routing now prefers `oauth-openai` when that profile exists and falls back to `local-qwen3-coder` otherwise
+
+The web `Settings` `Runtime` tab now exposes the same daemon-owned LLM routing surface:
+
+- choose the default chat profile
+- choose the fallback chat profile
+- inspect checked-in model profiles
+- add, edit, disable, or remove localhost OpenAI-compatible profiles without hand-editing TOML
+
+Saving that form updates the daemon-side model profile files and `routing.toml`. The Settings UI only permits `openai_oauth` profiles that target localhost-style URLs; non-local OAuth proxy endpoints still fail closed in the backend.
 
 The assistant chat path can now use a bounded read-only Vel tool surface on top of the configured LLM profile. That means the model can answer from `Now`, projects, people, commitments, local semantic recall, active daily-loop state, and filtered threads instead of only seeing bare conversation history.
 
@@ -173,6 +183,8 @@ The web Settings page now also exposes the daemon-side sync metadata that cluste
 - `lan_base_url`
 
 Set `tailscale_base_url` to the stable tailnet address for the daemon you want every client to prefer. Apple clients should use the same URL for `vel_tailscale_url`.
+
+The same `Runtime` tab also includes a global `Restart daemon` control. Use it after changing daemon-owned runtime config when you want the current `veld` process to re-exec from the UI instead of dropping to the terminal.
 
 When Settings shows linking or Apple recovery friction, follow this order:
 

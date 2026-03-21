@@ -1,5 +1,7 @@
 use serde_json::Value;
-use vel_api_types::{ConversationContinuationData, NowHeaderBucketKindData, ThreadContinuationData};
+use vel_api_types::{
+    ConversationContinuationData, NowHeaderBucketKindData, ThreadContinuationData,
+};
 
 use crate::errors::AppError;
 
@@ -107,7 +109,13 @@ pub(crate) fn thread_continuation_data(
                 );
             }
             let mut continuation_context = serde_json::Map::new();
-            for key in ["source", "trigger", "severity", "summary", "context_computed_at"] {
+            for key in [
+                "source",
+                "trigger",
+                "severity",
+                "summary",
+                "context_computed_at",
+            ] {
                 if let Some(value) = metadata.get(key).cloned() {
                     continuation_context.insert(key.to_string(), value);
                 }

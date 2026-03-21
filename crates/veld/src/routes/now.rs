@@ -6,10 +6,11 @@ use vel_api_types::{
     DayPlanProposalData, NowAttentionData, NowContextLineData, NowCountDisplayModeData, NowData,
     NowDebugData, NowDockedInputData, NowDockedInputIntentData, NowEventData, NowFreshnessData,
     NowFreshnessEntryData, NowHeaderBucketData, NowHeaderBucketKindData, NowHeaderData,
-    NowLabelData, NowMeshSummaryData, NowMeshSyncStateData, NowNudgeActionData, NowNudgeBarData, NowNudgeBarKindData,
-    NowOverviewActionData, NowOverviewData, NowOverviewNudgeData, NowOverviewSuggestionData,
-    NowOverviewTimelineEntryData, NowOverviewWhyStateData, NowRepairRouteData, NowRepairRouteTargetData,
-    NowRiskSummaryData, NowScheduleData, NowSourceActivityData, NowSourcesData, NowStatusRowData, NowSummaryData, NowTaskData,
+    NowLabelData, NowMeshSummaryData, NowMeshSyncStateData, NowNudgeActionData, NowNudgeBarData,
+    NowNudgeBarKindData, NowOverviewActionData, NowOverviewData, NowOverviewNudgeData,
+    NowOverviewSuggestionData, NowOverviewTimelineEntryData, NowOverviewWhyStateData,
+    NowRepairRouteData, NowRepairRouteTargetData, NowRiskSummaryData, NowScheduleData,
+    NowSourceActivityData, NowSourcesData, NowStatusRowData, NowSummaryData, NowTaskData,
     NowTaskKindData, NowTaskLaneData, NowTaskLaneItemData, NowTasksData, NowThreadFilterTargetData,
     PlanningProfileProposalSummaryData, PlanningProfileProposalSummaryItemData, ReflowCardData,
     TrustReadinessData, TrustReadinessFacetData, TrustReadinessReviewData,
@@ -1071,7 +1072,10 @@ mod tests {
         assert_eq!(json["header"]["title"], "Now");
         assert_eq!(json["header"]["buckets"][0]["kind"], "needs_input");
         assert_eq!(json["mesh_summary"]["sync_state"], "stale");
-        assert_eq!(json["mesh_summary"]["repair_route"]["target"], "settings_recovery");
+        assert_eq!(
+            json["mesh_summary"]["repair_route"]["target"],
+            "settings_recovery"
+        );
         assert_eq!(json["status_row"]["context_label"], "Ship patch");
         assert_eq!(json["context_line"]["fallback_used"], true);
         assert_eq!(json["nudge_bars"][0]["kind"], "needs_input");

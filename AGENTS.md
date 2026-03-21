@@ -9,6 +9,7 @@ Vel is mid-migration. Some current code still carries debt that violates the tar
 - **Implementation truth** lives in `docs/MASTER_PLAN.md`.
 - **Workflow template** lives in `docs/templates/agent-implementation-protocol.md`.
 - **Repo entrypoint** lives in `README.md`.
+- **Web UI layout** (`core/`, `shell/`, `views/`) lives in `clients/web/src/README.md`.
 - **User-facing behavior docs** live under `docs/user/`.
 - `docs/README.md` is a navigation aid, not shipped-behavior authority. If it points to missing or stale files, defer to `docs/MASTER_PLAN.md` and the relevant phase ticket.
 - Tickets and specs describe the intended change target. If they conflict with current shipped behavior, treat `docs/MASTER_PLAN.md` as the source of truth for what is implemented and the active ticket as the source of truth for what should change next.

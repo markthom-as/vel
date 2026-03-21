@@ -10,7 +10,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ## Current State
 
-**Shipped version:** `v0.2`
+**Shipped version:** `0.3.0`
 
 `v0.2` established the true MVP as one strict daily operator loop:
 
@@ -23,17 +23,34 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - threads remain a supervised continuation lane rather than a generic chat product
 - the MVP now has an explicit post-MVP roadmap instead of implied carryover scope
 
-## Current Milestone: v0.3 Canonical Now Surface and Client Mesh
+## Latest Shipped Milestone: 0.3.0 Canonical Now Surface and Client Mesh
 
-**Goal:** Rebuild `Now` as one strict cross-platform control surface backed by platform-portable Rust core, while making clients mesh cleanly and helping operators connect clients to the same authority runtime.
+**Goal achieved:** `Now` is now one strict cross-platform control surface backed by platform-portable Rust core, and clients mesh more cleanly around the same authority runtime.
 
-**Target features:**
+**Shipped features:**
 - canonical `Now` contract across web, iPhone, iPad, Mac, and reduced watch
-- all `Now` semantics owned by Rust core and shared transport contracts
+- `Now` semantics owned by Rust core and shared transport contracts
 - one canonical task, nudge, thread, and day model feeding `Now`
-- docked capture and voice entry with thread artifact continuity everywhere practical
-- client mesh, linking, sync/offline visibility, and connection recovery that help clients join the same runtime cleanly
-- governed `Now` config, deterministic ranking, and approval posture defined in the same Rust-owned product-core lane
+- docked capture and voice entry with thread artifact continuity where practical
+- client mesh, linking, sync/offline visibility, and connection recovery as shared product behavior
+- governed `Now` config, deterministic ranking, and approval posture in the same Rust-owned product-core lane
+
+## Active Release Line: 0.4.x Now/UI MVP Conformance Closure
+
+**Goal:** make the shipped `Now` experience clean, compact, correct, and actually usable by closing the remaining UI, information architecture, and data-truth gaps against the canonical contract and the operator's explicit correction memo.
+
+**Versioning rule:**
+- shipped releases use semver, starting from the current `0.3.0` baseline
+- the active roadmap remains in the `0.4.x` line until the product is ready to open a real `0.5.0-beta`
+- in-flight planning slices use `<major>.<minor>.<phase>.<plan>` identifiers such as `0.4.54.1`, while the existing phase numbers remain the canonical directory and history keys
+
+**Milestone priorities:**
+- web is the reference implementation for conformance closure
+- the top area of `Now` must be containerless, compact, and operational rather than dashboard-like
+- tasks are the only dominant visual container on `Now`
+- inbox and now must reflect the same actionable objects, with inbox remaining the superset queue
+- threads, settings, and shell navigation must stop leaking helper prose and structural noise
+- iOS/client parity should follow the web reference instead of inventing a second behavior model
 
 ## Requirements
 
@@ -78,14 +95,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ### Active
 
-**Milestone v0.3 Active Scope:**
-- [ ] publish and enforce the canonical `Now` surface contract
-- [ ] move `Now` behavior into platform-portable Rust core and shared transport contracts
-- [ ] adopt one canonical task/day/thread model for `Now` and thread routing
-- [ ] define the supporting subsystem inventory for ranking, intent routing, approval policy, and governed config before implementation widens
-- [ ] ship cross-platform `Now` parity across web, iPhone, iPad, Mac, and reduced watch
-- [ ] make clients mesh and help operators connect/link clients to the same authority runtime
-- [ ] surface offline/sync state, queued writes, and connection recovery consistently across clients
+- `0.4.x` Now/UI MVP Conformance Closure — active roadmap starts at Phase 52 and currently executes inside the `0.4` release line
 
 ### Out of Scope
 
@@ -148,6 +158,10 @@ The existing ticket files in `docs/tickets/phase-{2,3,4}/` are historical implem
 | Anything not directly serving the MVP loop should be deferred unless it is required to keep MVP logic Rust-owned or the clients thin | Prevents architecture and UI cleanup from becoming open-ended | Accepted |
 | The next milestone should treat the `Now` surface as one canonical cross-platform contract backed by platform-portable Rust core | Prevents web and Apple from drifting again and turns the new `Now` interaction model into product authority instead of shell-specific design | Accepted |
 | Cross-client mesh and client-linking help are part of the product, not setup debris | Operators need clients to discover, connect to, and recover connection to the same authority runtime without platform-specific guesswork | Accepted |
+| Latest operator clarification overrides the Downloads contract where they differ | The new milestone exists to close concrete conformance gaps, so explicit operator corrections are the highest product authority for this lane | Accepted |
+| `Now` top-area content must be containerless micro-rows while tasks remain the only dominant container | Restores the execution-first operating-surface feel and removes dashboard drift from the primary daily-use entry point | Accepted |
+| Inbox and `Now` must share the same actionable objects, with Inbox as the superset queue | Treats empty-inbox-with-actionable-now as a product/data bug rather than a cosmetic UI inconsistency | Accepted |
+| Documentation should be top-level navigation, not buried inside Settings | Keeps Settings focused on profile, device/sync, state, and backups while reducing shell noise and route confusion | Accepted |
 
 ## Evolution
 
@@ -167,4 +181,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-21 for milestone v0.3 canonical Now surface and client mesh planning*
+*Last updated: 2026-03-21 for `0.4.x` release-line planning on top of the shipped `0.3.0` baseline*

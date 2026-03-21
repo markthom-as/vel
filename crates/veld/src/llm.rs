@@ -2,14 +2,13 @@
 
 use std::path::Path;
 use std::sync::Arc;
-use vel_config::{load_model_profiles, load_routing, RoutingConfig};
+use vel_config::{load_model_profiles, load_routing};
 use vel_llm::{
     LlamaCppConfig, LlamaCppProvider, OpenAiOauthConfig, OpenAiOauthProvider, ProviderRegistry,
     Router,
 };
 
 const DEFAULT_MODELS_DIR: &str = "configs/models";
-const OPENAI_OAUTH_ENV: &str = "VEL_ENABLE_OPENAI_OAUTH";
 
 fn is_local_host(base_url: &str) -> bool {
     let host = match reqwest::Url::parse(base_url) {
@@ -19,29 +18,18 @@ fn is_local_host(base_url: &str) -> bool {
     matches!(host.as_deref(), Some("localhost") | Some("127.0.0.1"))
 }
 
-fn openai_oauth_enabled() -> bool {
-    matches!(
-        std::env::var(OPENAI_OAUTH_ENV)
-            .ok()
-            .as_deref()
-            .map(|value| value.trim()),
-        Some("1") | Some("true") | Some("True") | Some("TRUE") | Some("yes") | Some("on")
-    )
-}
-
-/// Load routing config from configs/models/routing.toml.
-pub fn load_chat_routing() -> RoutingConfig {
-    let models_dir =
-        std::env::var("VEL_MODELS_DIR").unwrap_or_else(|_| DEFAULT_MODELS_DIR.to_string());
-    let path = Path::new(&models_dir).join("routing.toml");
-    load_routing(&path).unwrap_or_default()
-}
-
 /// Build a Router from configs/models and return (router, chat_profile_id).
 /// If no profiles or no "chat" task in routing, returns (None, None).
 pub fn build_chat_router() -> (Option<Router>, Option<String>, Option<String>) {
     let models_dir =
         std::env::var("VEL_MODELS_DIR").unwrap_or_else(|_| DEFAULT_MODELS_DIR.to_string());
+    build_chat_router_from_models_dir(Path::new(&models_dir))
+}
+
+fn build_chat_router_from_models_dir(
+    models_dir: &Path,
+) -> (Option<Router>, Option<String>, Option<String>) {
+    let models_dir = models_dir.to_string_lossy().to_string();
     let profiles = match load_model_profiles(&models_dir) {
         Ok(p) => p,
         Err(e) => {
@@ -49,7 +37,7 @@ pub fn build_chat_router() -> (Option<Router>, Option<String>, Option<String>) {
             return (None, None, None);
         }
     };
-    let routing = load_chat_routing();
+    let routing = load_routing(Path::new(&models_dir).join("routing.toml")).unwrap_or_default();
     let chat_profile_id = routing
         .profile_for_task("chat")
         .map(String::from)
@@ -83,13 +71,6 @@ pub fn build_chat_router() -> (Option<Router>, Option<String>, Option<String>) {
             continue;
         }
         if profile.provider == "openai_oauth" {
-            if !openai_oauth_enabled() {
-                tracing::debug!(
-                    profile_id = %profile.id,
-                    "openai_oauth profile skipped: VEL_ENABLE_OPENAI_OAUTH not set"
-                );
-                continue;
-            }
             if !is_local_host(&profile.base_url) {
                 tracing::warn!(
                     profile_id = %profile.id,
@@ -126,4 +107,67 @@ pub fn build_chat_router() -> (Option<Router>, Option<String>, Option<String>) {
         "chat LLM router ready"
     );
     (Some(router), chat_profile_id, fallback_profile_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_chat_router_from_models_dir;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn temp_models_dir(label: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time should be monotonic")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("vel_llm_router_{label}_{unique}"));
+        fs::create_dir_all(&dir).expect("temp dir should be created");
+        dir
+    }
+
+    fn write_models_fixture(dir: &Path, routing: &str, profile: &str) {
+        fs::write(dir.join("routing.toml"), routing).expect("routing fixture");
+        fs::write(dir.join("oauth-openai.toml"), profile).expect("profile fixture");
+    }
+
+    #[test]
+    fn build_chat_router_registers_local_openai_oauth_without_env_gate() {
+        let dir = temp_models_dir("oauth_localhost");
+        write_models_fixture(
+            &dir,
+            "[default]\nchat = \"oauth-openai\"\n",
+            "id = \"oauth-openai\"\nprovider = \"openai_oauth\"\nbase_url = \"http://127.0.0.1:8014/v1\"\nmodel = \"gpt-5.4\"\ncontext_window = 32768\nsupports_tools = true\nsupports_json = true\nenabled = true\n",
+        );
+
+        let (router, chat_profile_id, fallback_profile_id) =
+            build_chat_router_from_models_dir(&dir);
+        let profile_ids = router
+            .expect("router should be built")
+            .registry()
+            .profile_ids();
+
+        assert_eq!(chat_profile_id.as_deref(), Some("oauth-openai"));
+        assert_eq!(fallback_profile_id, None);
+        assert_eq!(profile_ids, vec!["oauth-openai".to_string()]);
+    }
+
+    #[test]
+    fn build_chat_router_still_rejects_non_local_openai_oauth_profiles() {
+        let dir = temp_models_dir("oauth_remote");
+        write_models_fixture(
+            &dir,
+            "[default]\nchat = \"oauth-openai\"\n",
+            "id = \"oauth-openai\"\nprovider = \"openai_oauth\"\nbase_url = \"https://api.openai.com/v1\"\nmodel = \"gpt-5.4\"\ncontext_window = 32768\nsupports_tools = true\nsupports_json = true\nenabled = true\n",
+        );
+
+        let (router, chat_profile_id, fallback_profile_id) =
+            build_chat_router_from_models_dir(&dir);
+
+        assert!(router.is_none());
+        assert_eq!(chat_profile_id, None);
+        assert_eq!(fallback_profile_id, None);
+    }
 }

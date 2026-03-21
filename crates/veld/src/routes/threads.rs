@@ -7,7 +7,8 @@ use axum::{
 };
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest, ThreadUpdateRequest,
+    ApiResponse, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest,
+    ThreadUpdateRequest,
 };
 
 use crate::{

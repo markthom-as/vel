@@ -4,128 +4,146 @@
 
 - `v0.1` archived phase packet: [v0.1-phases](/home/jove/code/vel/.planning/milestones/v0.1-phases)
 - `v0.2` shipped true-MVP archive: [v0.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md)
+- `v0.3` shipped canonical `Now` + client mesh archive: [v0.3-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md)
 
 ## Active Milestone
 
-Milestone `v0.3` starts at Phase 46 and turns the canonical `Now` surface plus client mesh into one Rust-owned product-core lane.
+Milestone `0.4.x` starts at Phase 52 and closes `Now/UI` MVP conformance gaps that remain after shipped `0.3.0`.
 
-The goal of `v0.3` is to:
+The goal of the `0.4.x` line is to:
 
-- publish and enforce one cross-platform `Now` contract
-- move `Now` semantics into platform-portable Rust core and shared transport
-- converge on one canonical task, thread, day, and nudge model for `Now`
-- explicitly assign ranking, intent routing, approval policy, and governed config support lanes before implementation spreads
-- help clients connect to and recover connection with the same authority runtime
-- ship parity across web, iPhone, iPad, Mac, and reduced watch
+- make `Now` feel like a compact operating surface rather than a dashboard
+- make the shipped web shell conform to the operator-corrected `Now` contract exactly
+- remove shell/helper noise from the primary navigation and core surfaces
+- restore data truth between `Now` and `Inbox`
+- rebuild `Threads` and `Settings` into compact MVP-usable layouts
+- preserve iOS/client parity against the corrected web reference
 
 ## Scope Guardrails
 
-`v0.3` is only about the canonical `Now` surface and client mesh:
+`0.4.x` is only about `Now/UI MVP Conformance Closure`:
 
-- compact execution-first `Now`
-- shared Rust-owned product semantics
-- client-linking, sync/offline visibility, and connection recovery
-- cross-platform parity for the same interaction contract
+- `Now` structure, grouping, input, and nudge presentation
+- shell navigation, documentation access, and right-sidebar behavior
+- inbox shared-object correctness
+- threads layout and row priority
+- settings information architecture simplification
+- parity closure against the corrected web reference
 
 Do not widen this milestone into:
 
-- generic chat product expansion
-- broad provider/platform expansion beyond connection needs
-- speculative cloud reset
-- broad review analytics
-- multi-day planning beyond the day-object and current `Now` needs
+- new planner/product surfaces
+- broad provider or integration expansion
+- speculative visual redesign beyond compact MVP conformance
+- reopening product semantics already locked unless data truth requires it
+
+## Versioning Policy
+
+Vel now uses semver language for product lines and shipped releases:
+
+- `0.3.0` is the latest shipped release baseline in the repo
+- `0.4.x` is the active release line for current roadmap work
+- `0.5.0-beta` is reserved for the first beta line after the `0.4.x` closure criteria are met
+
+For roadmap execution inside a release line, use a four-part lineage identifier:
+
+- format: `<major>.<minor>.<phase>.<plan>`
+- example: `0.4.54.1` means release line `0.4.x`, Phase `54`, Plan `01`
+- phase numbers remain in place for historical continuity with the existing planning system
+- shipped artifacts and tags should continue to use normal semver, not the four-part planning identifier
 
 ## Phases
 
-- [x] **Phase 46: Canonical Now contract, boundaries, and milestone lock** - Publish the durable Now surface contract and align product/architecture boundaries before implementation widens
-- [x] **Phase 47: Rust-owned Now core models and transport seam** - Build the shared Rust-owned task, day, thread, nudge, and context contracts that feed Now
-- [x] **Phase 48: Client mesh, linking, sync, and recovery authority** - Make cross-client connection, offline state, queued writes, and recovery visible and shared
-- [x] **Phase 49: Web canonical Now embodiment** - Rebuild the web Now surface to match the canonical execution-first contract over shared Rust-owned seams
-- [x] **Phase 50: Apple parity and reduced watch embodiment** - Align iPhone, iPad, Mac, and reduced watch to the same canonical Now contract and mesh behavior
-- [x] **Phase 51: Cross-platform verification and closeout** - Verify parity, mesh continuity, and Rust-core ownership across all shipped shells
+- [x] **Phase 52: Full Now/UI conformance implementation chunk** - Implemented the correction memo across `Now`, shell/nav, `Inbox`, `Threads`, `Settings`, and shared parity-sensitive seams with no requested implementation item deferred
+- [x] **Phase 53: Operator UI feedback capture and conformance review** - Captured the operator review as a bounded polish authority covering nav, sidebar, Now, Threads, composer, and Settings without reopening milestone scope
+- [ ] **Phase 54: Final UI cleanup and polish pass** - Apply the approved post-review cleanup set across the affected surfaces so the milestone lands with compact, operator-trusted finish quality rather than raw conformance alone
+- [ ] **Phase 55: Outmoded UI path cleanup and seam hardening** - Remove superseded UI code paths, stale helper shells, and migration leftovers that would blur the Rust-core/UI contract or create a second behavior lane after the conformance pass
+- [ ] **Phase 56: Conformance verification and milestone closeout** - Run the manual checklist first, then boundary/contract verification, then UI coverage, and close the milestone honestly against the corrected memo plus final operator-approved polish
+
+Lineage mapping:
+
+- `0.4.52.x` - full conformance implementation
+- `0.4.53.x` - operator feedback capture
+- `0.4.54.x` - final UI cleanup and polish
+- `0.4.55.x` - outmoded UI path cleanup and seam hardening
+- `0.4.56.x` - conformance verification and closeout
 
 ## Progress
 
-**Execution Order:** 46 -> 47 -> 48 -> 49 -> 50 -> 51
+**Execution Order:** 52 -> 53 -> 54 -> 55 -> 56
 
 | Phase | Requirements | Status |
 |-------|--------------|--------|
-| 46. Canonical Now contract, boundaries, and milestone lock | NOW-01 | Complete |
-| 47. Rust-owned Now core models and transport seam | NOW-02, NOW-04, CORE-01, CORE-02, CORE-03, TASK-01, THREAD-01 | Complete |
-| 48. Client mesh, linking, sync, and recovery authority | CORE-04, MESH-01, MESH-02, MESH-04, SYNC-01, SYNC-02 | Complete |
-| 49. Web canonical Now embodiment | NOW-03, PARITY-01, TASK-02, THREAD-02 | Complete |
-| 50. Apple parity and reduced watch embodiment | MESH-03, PARITY-02, PARITY-03, PARITY-04, SYNC-03 | Complete |
-| 51. Cross-platform verification and closeout | milestone verification and reconciliation | Complete |
+| 52. Full Now/UI conformance implementation chunk | NOWUI-01, NOWUI-02, NOWUI-03, NOWUI-04, NOWUI-05, NOWUI-06, NOWUI-07, SHELL-01, SHELL-02, SHELL-03, SHELL-04, INBOX-01, INBOX-02, THREADS-01, THREADS-02, THREADS-03, SETTINGS-01, SETTINGS-02, SETTINGS-03, PARITY-01, PARITY-02 | Complete |
+| 53. Operator UI feedback capture and conformance review | FEEDBACK-01, FEEDBACK-02, FEEDBACK-03, FEEDBACK-04 | Complete |
+| 54. Final UI cleanup and polish pass | POLISH-01, POLISH-02, POLISH-03, POLISH-04 | Planned |
+| 55. Outmoded UI path cleanup and seam hardening | CLEANUP-01, CLEANUP-02, CLEANUP-03, CLEANUP-04 | Planned |
+| 56. Conformance verification and milestone closeout | VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, milestone verification and reconciliation | Planned |
 
 ## Phase Details
 
-### Phase 46: Canonical Now contract, boundaries, and milestone lock
+### Phase 52: Full Now/UI conformance implementation chunk
 
-**Goal:** Publish the durable Now surface contract, tie it to Rust-core authority, and lock product boundaries before implementation starts.
-**Requirements:** NOW-01
-**Depends on:** archived milestone v0.2 truth
+**Goal:** implement the full operator correction memo in a single execution chunk so none of the requested surface, IA, or data-truth changes are deferred behind later implementation phases.
+**Requirements:** NOWUI-01, NOWUI-02, NOWUI-03, NOWUI-04, NOWUI-05, NOWUI-06, NOWUI-07, SHELL-01, SHELL-02, SHELL-03, SHELL-04, INBOX-01, INBOX-02, THREADS-01, THREADS-02, THREADS-03, SETTINGS-01, SETTINGS-02, SETTINGS-03, PARITY-01, PARITY-02
+**Depends on:** shipped milestone v0.3
 **Success Criteria:**
-1. Durable Now product and Rust-core architecture contracts are checked in and linked from the existing authority docs.
-2. Surface-boundary docs now point to the canonical Now contract instead of stale MVP-only shell assumptions.
-3. The milestone scope is narrow enough to prevent shell-local drift and broad product widening.
-4. The supporting subsystems needed for the canonical `Now` behavior are explicitly inventoried and assigned to downstream phases before implementation starts.
-5. The checked-in contract packet is explicitly reconciled against the full local source contract in `/home/jove/Downloads/vel-now-surface-contract-codex-final.md`.
-**Plans:** 4 plans
+1. `Now` top area is containerless micro-rows, with minimal timing, single-line description, styled nudge boxes, hidden empty-state controls, and a floating bottom-center text/voice input.
+2. Tasks are the only dominant visual container and are grouped strictly as `NOW`, `TODAY`, `AT RISK`, and `NEXT`, using real current-day truth and excluding irrelevant project-review noise.
+3. The shell uses a compact top nav with `Documentation` promoted to top-level access, and the right sidebar handles moved context/control content without helper prose.
+4. `Inbox` is corrected at the data/query level so it contains the same actionable objects surfaced in `Now`.
+5. `Threads` and `Settings` are both restructured into compact MVP-usable layouts that match the operator memo instead of the current verbose/debug-leaning shells.
+6. No requested item from the operator correction memo is left for a later implementation phase; parity-sensitive client behavior is updated against the corrected web reference in this same chunk.
+**Plans:** 1 plan
 
-### Phase 47: Rust-owned Now core models and transport seam
+### Phase 53: Operator UI feedback capture and conformance review
 
-**Goal:** Build the portable Rust-owned core contracts and transport seam that define `Now` across clients.
-**Requirements:** NOW-02, NOW-04, CORE-01, CORE-02, CORE-03, TASK-01, THREAD-01
-**Depends on:** Phase 46
+**Goal:** gather operator feedback against the implemented conformance slice, separate true change requests from noise, and define the smallest final UI cleanup set needed before closeout.
+**Requirements:** FEEDBACK-01, FEEDBACK-02, FEEDBACK-03, FEEDBACK-04
+**Depends on:** Phase 52
 **Success Criteria:**
-1. Shared Rust-owned DTOs and service outputs exist for header, status row, one-liner, nudge bars, task list, and docked input routing.
-2. Canonical task/day/thread/nudge semantics no longer depend on web or Apple local policy.
-3. Thread filter categories, intent taxonomy, and `Now` escalation markers are shared transport, not shell invention.
-**Plans:** 4 plans
+1. The updated `Now`, shell, `Inbox`, `Threads`, and `Settings` surfaces are walked with the operator using a single structured review pass.
+2. Feedback is captured as concrete UI deltas tied to the corrected surfaces, with clear separation between must-fix polish, optional follow-up, and out-of-scope ideas.
+3. Any accepted changes preserve the `0.4.x` scope guardrails and do not reopen locked product semantics unless the operator explicitly identifies a conformance miss.
+4. The resulting cleanup set is small enough to execute in one final polish phase and is recorded as the authority for the remaining UI work.
+**Plans:** 1 plan-equivalent review packet
 
-### Phase 48: Client mesh, linking, sync, and recovery authority
+### Phase 54: Final UI cleanup and polish pass
 
-**Goal:** Make client connection, sync state, queued writes, and recovery part of the shared product-core model.
-**Requirements:** CORE-04, MESH-01, MESH-02, MESH-04, SYNC-01, SYNC-02
-**Depends on:** Phase 47
+**Goal:** execute the operator-approved cleanup set so the corrected surfaces land with final polish, tighter ergonomics, and no unresolved high-signal UI rough edges.
+**Requirements:** POLISH-01, POLISH-02, POLISH-03, POLISH-04
+**Depends on:** Phase 53
 **Success Criteria:**
-1. Clients can understand and present the same authority endpoint, sync state, and queued-write posture.
-2. Guided linking and recovery no longer rely on platform-specific guesswork.
-3. Governing config for `Now` title/display/count policies, approval posture, and mesh state is versioned and Rust-owned.
-**Plans:** 4 plans
+1. All accepted review findings from Phase 53 are implemented across the relevant surfaces without widening milestone scope.
+2. Shared visual affordances, spacing, empty states, and compact-shell behaviors feel intentional and consistent across `Now`, `Inbox`, `Threads`, `Settings`, and navigation.
+3. Any polish changes that affect parity-sensitive behavior are reflected in the web reference and captured for client follow-through before verification.
+4. Remaining UI imperfections, if any, are explicitly documented as non-blocking and deferred rather than silently carried into closeout.
+**Plans:** 0 plans
 
-### Phase 49: Web canonical Now embodiment
+### Phase 55: Outmoded UI path cleanup and seam hardening
 
-**Goal:** Rebuild the web `Now` surface around the canonical compact contract and thread-backed continuity model.
-**Requirements:** NOW-03, PARITY-01, TASK-02, THREAD-02
-**Depends on:** Phase 48
+**Goal:** remove stale or superseded UI code and contract-adapter drift left behind by the conformance work so the repo keeps one clear multiplatform Rust-core lane instead of parallel legacy behavior paths.
+**Requirements:** CLEANUP-01, CLEANUP-02, CLEANUP-03, CLEANUP-04
+**Depends on:** Phase 54
 **Success Criteria:**
-1. Web `Now` matches the canonical execution-first structure instead of the current card-heavy summary layout.
-2. Docked input, live transcript bubble, nudge bars, and task list work from shared contracts.
-3. Web no longer relies on shell-authored fallback product semantics for `Now`.
-**Plans:** 4 plans
+1. Superseded view components, helper copy paths, obsolete shell layouts, and dead styling/code branches displaced by Phases 52-54 are removed rather than left dormant.
+2. Cleanup is limited to code made outmoded by the `0.4.x` UI correction work; it does not widen into unrelated modernization or speculative refactors.
+3. Any transport adapters, selectors, or client-side shaping that duplicate Rust-owned semantics are either removed or reduced to thin boundary mapping.
+4. The remaining seam between Rust core, transport DTOs, and client rendering is simpler to reason about after cleanup than before it.
+**Plans:** 0 plans
 
-### Phase 50: Apple parity and reduced watch embodiment
+### Phase 56: Conformance verification and milestone closeout
 
-**Goal:** Align Apple shells to the same `Now` contract and client-mesh behavior, with reduced watch density rather than divergent behavior.
-**Requirements:** MESH-03, PARITY-02, PARITY-03, PARITY-04, SYNC-03
-**Depends on:** Phase 49
+**Goal:** prove the corrected, cleaned, and polished surfaces match the operator memo plus accepted final review deltas, then close the milestone with real evidence.
+**Requirements:** VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, milestone verification and reconciliation
+**Depends on:** Phase 55
 **Success Criteria:**
-1. iPhone, iPad, and Mac embody the same `Now` structure and routing semantics as web.
-2. Watch ships the reduced but contract-faithful subset.
-3. Sync/offline/conflict recovery remains understandable across Apple surfaces.
-**Plans:** 4 plans
-
-### Phase 51: Cross-platform verification and closeout
-
-**Goal:** Verify parity, client mesh continuity, and Rust-core ownership across the milestone, then close the milestone honestly.
-**Requirements:** milestone verification and reconciliation
-**Depends on:** Phase 50
-**Success Criteria:**
-1. Cross-platform verification proves the same `Now` behavior and thread routing across shipped shells.
-2. Mesh/linking and offline behavior are evidenced, not just described.
-3. The milestone can close without hidden shell-specific carryover.
+1. The manual conformance checklist is executed first and recorded against the corrected memo.
+2. Contract/DTO tests prove grouping, hidden-empty-state behavior, and inbox/now shared-object invariants.
+3. A boundary verification section explicitly confirms that the multiplatform Rust core owns product semantics, clients consume stable transport contracts, and no client keeps a shadow behavior model that should live in Rust.
+4. UI tests cover the corrected reference embodiment after manual verification passes, including accepted Phase 53 cleanup items implemented in Phase 54 and seam cleanup from Phase 55.
+5. Remaining parity limits, if any, are explicit and do not hide unimplemented memo items, deferred polish decisions, or unresolved Rust-core/client boundary drift.
 **Plans:** 3 plans
 
 ---
-*Last updated: 2026-03-21 after Phase 48 closeout*
+*Last updated: 2026-03-21 after adopting `0.4.x` release-line planning and Phase 53 operator review intake*
