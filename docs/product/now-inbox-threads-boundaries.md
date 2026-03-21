@@ -2,9 +2,9 @@
 
 This document defines the current durable boundary between the operator surfaces with the highest overlap risk.
 
-For milestone `v0.2`, it should be read under the authority of [v0.2 MVP Operator Loop](./mvp-operator-loop.md), not as an open discovery artifact.
+Milestone `v0.2` shipped the bounded MVP loop, but this boundary doc is now read primarily under the authority of [Canonical Now Surface Contract](./now-surface-canonical-contract.md) for post-`v0.2` `Now` work.
 
-For post-`v0.2` `Now` implementation work, read this together with [Canonical Now Surface Contract](./now-surface-canonical-contract.md).
+The MVP loop in [v0.2 MVP Operator Loop](./mvp-operator-loop.md) still governs escalation discipline and loop shape, but the stricter `Now` surface contract now owns the detailed product behavior.
 
 ## Why This Exists
 
@@ -16,15 +16,15 @@ Vel currently risks collapsing three different jobs into one vague "main surface
 
 That would make the product feel busy without actually making it clearer.
 
-The current split is:
+The current split for `v0.3` planning is:
 
-- `Now` for overview, commitments, and immediate pressure
-- `Inbox` for explicit triage
-- `Threads` for bounded multi-step continuation and history
+- `Now` for compressed execution state, top operational pressure, and lightweight actions
+- `Inbox` for explicit queue ownership, including daily tasks and previous-day carry-forward tasks
+- `Threads` for continuity, explanation, filterable history, and multi-step follow-through
 
 ## `Now`
 
-`Now` is the operator's first-glance MVP surface.
+`Now` is the operator's first-glance execution surface.
 
 It should answer:
 
@@ -36,25 +36,23 @@ It should answer:
 
 It should contain:
 
-- the compact context pane
-- the daily-loop overview and commitment entry
-- summary-level trust or onboarding blockers
-- the unified action entry
-- a compact rendering of today's commitments, timeline, and reflow pressure when helpful
+- the compact status and context lane
+- top operational pressure and nudge/action bars
+- the compact task subset for the current day
+- compact trust, sync, or client-mesh blockers when they affect immediate action
+- the docked capture or voice entry
 
 Contextual rendering rule:
 
-- when something needs immediate action, `Now` may show actionable cards or controls directly
-- when no immediate action exists, `Now` should show 1-3 suggestions with inline choices or a route into `Threads`
-- examples include reflow pressure, nudges needing triage, and commitment decisions
-- once an item is acted on, it can leave the active `Now` area and fall into a muted `Now` history section near the bottom of the scroll for lightweight review
-- check-ins should normally appear here as inline cards with a suggested next action and an option to continue in `Threads` when the question cannot be resolved inline
-- actions shown in `Now` still need an importance/urgency distinction; `reflow` should generally render heavier and notify more aggressively than a normal `check_in` or routine nudge
+- when something needs immediate action, `Now` may show lightweight actions directly
+- when deeper continuity is required, `Now` keeps only compact status chips or bars and routes the deeper work into `Threads`
+- examples include reflow pressure, needs-input nudges, raw-capture follow-through, and trust or mesh warnings
+- recently handled items may remain as compact, muted continuity markers, but `Now` must not grow back into a broad dashboard or second inbox
 
 Mobile note:
 
-- mobile `Now` should work as a scrollable summary/action surface
-- a floating microphone button is a strong fit for voice-first capture or conversation entry on mobile
+- mobile `Now` should keep the same contract with reduced density where needed
+- voice and docked capture remain part of the same continuity model rather than a second product lane
 
 It should not become:
 
@@ -64,10 +62,10 @@ It should not become:
 
 Rule of thumb:
 
-- `Now` summarizes, routes, and owns the inline MVP loop.
+- `Now` compresses current execution truth, routes lightweight actions, and preserves continuity markers.
 - It may briefly host immediate-action UI when context warrants it.
-- It does not own the full long-tail interaction model.
-- A lightweight, greyed-out `Now` history section is acceptable for recently handled items, as long as it stays secondary to the active surface.
+- It does not own the full queue or long-tail interaction model.
+- It should never require the shell to invent alternate task, thread, or sync policy.
 
 ## `Inbox`
 
@@ -82,9 +80,11 @@ It should answer:
 
 It should contain:
 
-- captures
 - todos
 - commitments
+- daily tasks
+- previous-day carry-forward tasks
+- captures or promoted items once backend routing makes them inbox-owned work
 - reviewable suggestions when they need triage
 - project-linked items when they are still actionable queue items
 
@@ -110,6 +110,7 @@ Rule of thumb:
 - `Inbox` is where the operator decides what to do with incoming or pending work.
 - It is the main work surface, but not the whole product.
 - It should mirror `Now` by keeping active items prominent and recently handled items visible but visually demoted.
+- Surfacing an inbox-owned item in `Now` does not transfer ownership away from `Inbox`.
 
 ## `Threads`
 
@@ -128,6 +129,7 @@ It should contain:
 - running or recent workstreams
 - rich interaction records
 - search and filtering across conversation/work streams
+- filterable thread views over shared metadata such as projects, tags, and continuation categories
 - entry into subordinate or related subfeeds when needed
 - explicit escalation reason, continuation context, and remaining review gate for bounded MVP follow-through
 
@@ -149,6 +151,7 @@ Rule of thumb:
 - `Now` and `Inbox` may deep-link into specific thread messages or filtered thread views when attention is needed, without making `Threads` itself the main triage surface.
 - Those deep links should come from typed backend routing hints where possible, especially for project-scoped actions.
 - thread detail should expose why the work escalated, what bounded context came with it, and what review/apply gate still exists, rather than forcing the shell to infer continuation semantics from raw message history alone.
+- `Threads` also owns canonical `day thread` and `raw capture` continuity lanes once the backend defines them.
 
 Escalation rule:
 
@@ -178,7 +181,7 @@ Recommended behavior:
 
 Examples:
 
-- quick capture lands in `Inbox`
+- raw capture creates thread-backed continuity first and only becomes inbox-owned when backend routing explicitly promotes it there
 - interactive exchange creates or joins a `Thread`
 - daily-loop action returns to `Now`
 
@@ -211,11 +214,11 @@ If forced to choose top-level destinations today, the cleanest set remains:
 
 See [operator-mode-policy.md](operator-mode-policy.md) for the disclosure rules that sit on top of these boundaries.
 
-## Open Questions
+## Closed For Phase 46
 
-These remain intentionally open for later Phase 14 discovery:
+These boundary questions are no longer open for `v0.3` planning:
 
-- how much inbox summary should appear on `Now` before it starts feeling like a second inbox
-- whether `Threads` should expose lightweight "running work" cards outside the main thread surface, even if its default posture remains archive/search-oriented
-- how much project context should appear inline inside `Inbox`
-- whether desktop gets richer thread visibility than mobile by default
+- `Inbox` owns daily tasks and previous-day carry-forward tasks
+- `Now` may surface only the highest-priority inbox-owned subset when it becomes current operational pressure
+- raw docked capture is thread-first, not inbox-first
+- urgent client-mesh or sync problems may surface in `Now`, but deep diagnosis and repair stay in support surfaces

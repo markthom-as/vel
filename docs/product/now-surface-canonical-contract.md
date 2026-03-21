@@ -94,8 +94,12 @@ The backing principles are:
 
 - tapping a bucket opens `Threads` filtered to that bucket
 - opening a bucket must not mutate read/open state
-- counts show only when `count > 0` by default
-- urgency uses subtle visual signal for new urgent items or escalations
+- counts default to `show_nonzero`
+- supported count-display modes are:
+  - `always_show`
+  - `show_nonzero`
+  - `hidden_until_active`
+- urgency uses a subtle pulse or glow signal for new urgent items or escalations
 
 ### Sync / offline indicator
 
@@ -166,6 +170,14 @@ Tap opens a thread using this priority:
 
 `Now` should not normally render a blank one-liner.
 
+Blank is only acceptable when:
+
+- the shell has no local state
+- the backend is unavailable
+- the fallback generator fails
+
+Normal operation must still render a neutral fallback line.
+
 # Thread Model
 
 `Thread` is a first-class object with:
@@ -179,6 +191,8 @@ Tap opens a thread using this priority:
 - optional embedded human-chat snippets
 
 Objects such as `task`, `day`, and `event` may nominate a `primary_thread_id`.
+
+Actions and artifacts may link to multiple threads when needed, but that is not the common case.
 
 When opening from `Now`, use this priority:
 
@@ -205,6 +219,9 @@ When opening from `Now`, use this priority:
 
 - backend-defined only in v1
 - clients preserve order
+- future-compatible fields may include:
+  - `priority_rank`
+  - `display_rank`
 
 ## Allowed inline actions
 
@@ -246,6 +263,10 @@ Nudge lifecycle states:
 - `snoozed`
 - `expired`
 
+Nudges may escalate automatically and may reappear after close or dismissal when their resurface conditions say they should.
+
+Bars may use selective color coding by type and severity.
+
 # Task Model
 
 ## Canonical rule
@@ -284,6 +305,15 @@ If inferred active-state conflict persists for 2-5 minutes:
 - keep provisional-state markers
 - avoid destructive automation
 
+## Overrun posture
+
+If active work exceeds its expected duration:
+
+- show an advisory signal
+- allow correction or metadata update
+
+External completion signals may arrive from integrations, agents, or other trusted completion sources, but reversibility still applies where possible.
+
 # Task List
 
 The default structure is:
@@ -309,12 +339,16 @@ The default structure is:
 - deep input or editing: `Threads`
 - completion is optimistic and reversible with visible undo
 - completed items render crossed out, faded, and compact
+- overflow stays compact by default and may expand or route to deeper detail without changing the default row density
+- urgent or high-priority completion chips may briefly persist when the backend says they still matter to current context
 
 ## Empty state
 
 When there are no tasks, `Now` prompts:
 
 - `What are you working on?`
+- `What's going on right now?`
+- `Do you want to start something?`
 
 Offer:
 
@@ -349,6 +383,8 @@ Rules:
 
 Every input creates a thread artifact.
 
+One input may create multiple artifacts or link to multiple threads when the backend determines that is the correct continuity model.
+
 ## Closed v1 intent taxonomy
 
 - `task`
@@ -358,6 +394,8 @@ Every input creates a thread artifact.
 - `continuation`
 - `reflection`
 - `scheduling`
+
+The enum is closed in v1 but must remain extensible. Internal systems may assign multiple intent labels even when the public contract stays closed.
 
 # Thread Routing Categories
 
@@ -382,6 +420,16 @@ Allowed direct actions from `Now`:
 
 Deep work still belongs in `Threads`.
 
+# Agent Authority And Confirmation
+
+Agents may propose supported actions, including task start/complete, task reordering, nudge snooze, and metadata updates.
+
+Confirmation remains policy-based:
+
+- some actions require per-action confirmation
+- some low-risk actions may be batch-confirmable
+- higher-risk or lower-confidence actions must not auto-apply silently
+
 # Offline / Sync Model
 
 `Now` must preserve local-first behavior:
@@ -396,6 +444,12 @@ Conflict policy in v1:
 
 - simple atomic state: latest user input generally wins
 - text/content edits: simple merge plus explicit conflict UI when ambiguous
+
+CRDT or OT behavior is not required in v1.
+
+# Ranking And Prioritization
+
+Ranking uses a hybrid scoring model, but it should remain deterministic enough that the same effective input state generally yields the same ordering and avoids UI thrash.
 
 # Day Object
 
@@ -439,6 +493,8 @@ Minimum watch support:
 
 Mac and iPad may use denser layouts and hotkeys, but interaction contract must still match.
 
+They may also expose larger metadata surfaces as long as the underlying contract stays the same.
+
 # Visual Direction
 
 The visual direction is:
@@ -462,6 +518,8 @@ Config must be:
 - UI-editable
 - user-editable in structured form
 - versioned
+
+The preferred operator mental model is governed state with version-control-like review and history.
 
 Agents may propose config mutations, but user approval is required before apply in v1.
 

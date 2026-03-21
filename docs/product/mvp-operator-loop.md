@@ -190,3 +190,10 @@ Implementation work should map back to this loop before introducing new screens,
 Milestone `v0.2` shipped the bounded MVP loop and is archived.
 
 Post-`v0.2` work on `Now` should now follow the stricter surface contract in [now-surface-canonical-contract.md](./now-surface-canonical-contract.md), while preserving the loop and thread-escalation rules defined here.
+
+That stricter contract now also owns:
+
+- automatic day carry-forward with day-start review
+- thread-first docked capture continuity
+- canonical `day` and `task` substrate expectations
+- compact client-mesh warnings and reduced-watch parity rules

@@ -1,19 +1,19 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.3
-milestone_name: canonical now surface and client mesh
+milestone: v0.1
+milestone_name: milestone
 current_phase: 46
 current_phase_name: canonical-now-contract-boundaries-and-milestone-lock
-current_plan: "46-01"
-status: ready_for_phase_execution
-stopped_at: Planned Phase 46; next logical step is execute 46-01
-last_updated: "2026-03-21T19:20:00Z"
+current_plan: 1
+status: Phase 46 is planned and ready for execution
+stopped_at: Completed 21-01; next logical step is 21-02 web/desktop push-to-talk polish over the shared assistant seam
+last_updated: "2026-03-21T06:48:57.968Z"
 last_activity: 2026-03-21
 progress:
-  total_phases: 51
-  completed_phases: 45
-  total_plans: 203
-  completed_plans: 181
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 0
   percent: 89
 ---
 
@@ -24,21 +24,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-19)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** Lock the canonical Now contract and start the Rust-core cross-client implementation lane for v0.3
+**Current focus:** Phase 46 — canonical-now-contract-boundaries-and-milestone-lock
 
 Status: Phase 46 is planned and ready for execution
 Current Phase: 46
 Current Phase Name: canonical-now-contract-boundaries-and-milestone-lock
-Current Plan: 46-01
+Current Plan: 1
 Total Plans in Phase: 4
 Progress: 89%
 Last Activity: 2026-03-21
-Last Activity Description: Planned Phase 46 around the canonical Now contract, Rust-core ownership, and client-mesh boundary lock
+Last Activity Description: Phase 46 execution started
 
 ## Current Position
 
-Phase: 46 (canonical-now-contract-boundaries-and-milestone-lock) — READY FOR EXECUTION
-Plan: execute 46-01 through 46-04
+Phase: 46 (canonical-now-contract-boundaries-and-milestone-lock) — EXECUTING
+Plan: 1 of 4
 
 ## Performance Metrics
 
