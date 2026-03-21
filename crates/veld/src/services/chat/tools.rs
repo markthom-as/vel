@@ -14,6 +14,9 @@ use crate::{
     services::{agent_grounding, daily_loop, people, projects, retrieval, timezone},
     state::AppState,
 };
+use crate::services::chat::thread_continuation::{
+    parse_thread_metadata, proposal_thread_lifecycle_stage, thread_continuation_data,
+};
 
 const TOOL_GET_NOW: &str = "vel_get_now";
 const TOOL_SEARCH_MEMORY: &str = "vel_search_memory";
@@ -319,7 +322,8 @@ pub(crate) async fn execute_chat_tool(
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .filter(|value| !value.is_empty());
-            let threads = state
+            let mut threads = Vec::new();
+            for (id, thread_type, title, status, created_at, updated_at) in state
                 .storage
                 .list_threads(status, limit as u32)
                 .await?
@@ -327,17 +331,25 @@ pub(crate) async fn execute_chat_tool(
                 .filter(|(_, current_thread_type, _, _, _, _)| {
                     thread_type.is_none_or(|expected| current_thread_type == expected)
                 })
-                .map(|(id, thread_type, title, status, created_at, updated_at)| {
-                    json!({
-                        "id": id,
-                        "thread_type": thread_type,
-                        "title": title,
-                        "status": status,
-                        "created_at": created_at,
-                        "updated_at": updated_at,
-                    })
-                })
-                .collect::<Vec<_>>();
+            {
+                let metadata = state
+                    .storage
+                    .get_thread_by_id(&id)
+                    .await?
+                    .and_then(|(_, _, _, _, metadata_json, _, _)| {
+                        parse_thread_metadata(&metadata_json)
+                    });
+                threads.push(json!({
+                    "id": id,
+                    "thread_type": thread_type,
+                    "title": title,
+                    "status": status,
+                    "lifecycle_stage": proposal_thread_lifecycle_stage(&thread_type, metadata.as_ref()),
+                    "continuation": thread_continuation_data(&thread_type, metadata.as_ref()),
+                    "created_at": created_at,
+                    "updated_at": updated_at,
+                }));
+            }
             Ok(json!({ "threads": threads }))
         }
         TOOL_GET_CONTEXT_BRIEF => {
@@ -607,6 +619,21 @@ mod tests {
             .insert_thread("thr_reflow", "reflow_edit", "Reflow edit", "open", "{}")
             .await
             .unwrap();
+        storage
+            .update_thread_metadata(
+                "thr_reflow",
+                &json!({
+                    "source": "reflow",
+                    "trigger": "missed_event",
+                    "severity": "critical",
+                    "summary": "Missed event needs bounded manual shaping.",
+                    "proposal_state": "staged",
+                    "preview_lines": ["Missed: focus block at 10:00."]
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
 
         let state = test_state(storage);
         let value = execute_chat_tool(
@@ -624,6 +651,11 @@ mod tests {
         assert_eq!(value["threads"].as_array().unwrap().len(), 1);
         assert_eq!(value["threads"][0]["id"], "thr_reflow");
         assert_eq!(value["threads"][0]["thread_type"], "reflow_edit");
+        assert_eq!(value["threads"][0]["lifecycle_stage"], "staged");
+        assert_eq!(
+            value["threads"][0]["continuation"]["bounded_capability_state"],
+            "schedule_review_gated"
+        );
     }
 
     #[tokio::test]

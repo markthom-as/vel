@@ -1,5 +1,5 @@
 use crate::errors::AppError;
-use vel_api_types::AvailableActionData;
+use vel_api_types::{AvailableActionData, ConversationContinuationData};
 use vel_core::{ActionEvidenceRef, ProjectId};
 
 #[derive(Debug, Clone)]
@@ -11,6 +11,7 @@ pub(crate) struct ConversationServiceData {
     pub archived: bool,
     pub created_at: i64,
     pub updated_at: i64,
+    pub continuation: Option<ConversationContinuationData>,
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +57,7 @@ pub(crate) fn conversation_record_to_data(
         archived: r.archived,
         created_at: r.created_at,
         updated_at: r.updated_at,
+        continuation: None,
     }
 }
 

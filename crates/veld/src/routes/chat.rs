@@ -10,7 +10,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 use vel_api_types::{
     ActionEvidenceRefData, ApiResponse, AssistantActionProposalData, AssistantEntryRequest,
-    AssistantEntryResponse, AssistantEntryRouteTargetData, ConversationCreateRequest,
+    AssistantEntryResponse, AssistantEntryRouteTargetData, ConversationContinuationData,
+    ConversationCreateRequest,
     ConversationData, ConversationUpdateRequest, CreateMessageResponse, InboxItemData,
     InterventionActionData, MessageCreateRequest, MessageData, PlanningProfileEditProposalData,
     ProvenanceData, ProvenanceEvent,
@@ -50,6 +51,30 @@ fn map_conversation_data(
         archived: data.archived,
         created_at: data.created_at,
         updated_at: data.updated_at,
+        continuation: data.continuation,
+    }
+}
+
+async fn enrich_conversation_continuation(
+    state: &AppState,
+    data: &mut crate::services::chat::mapping::ConversationServiceData,
+) -> Result<(), AppError> {
+    data.continuation =
+        crate::services::chat::thread_continuation::conversation_continuation_data(
+            &state.storage,
+            &data.id,
+        )
+        .await?;
+    Ok(())
+}
+
+fn conversation_data_with_continuation(
+    data: crate::services::chat::mapping::ConversationServiceData,
+    continuation: Option<ConversationContinuationData>,
+) -> ConversationData {
+    ConversationData {
+        continuation,
+        ..map_conversation_data(data)
     }
 }
 
@@ -170,11 +195,20 @@ pub async fn list_conversations(
 ) -> Result<Json<ApiResponse<Vec<ConversationData>>>, AppError> {
     let limit = q.limit.unwrap_or(100).min(500);
     let list = state.storage.list_conversations(q.archived, limit).await?;
-    let data: Vec<ConversationData> = list
+    let mut data = Vec::with_capacity(list.len());
+    for conversation in list
         .into_iter()
         .map(conversation_record_to_data)
-        .map(map_conversation_data)
-        .collect();
+        .collect::<Vec<_>>()
+    {
+        let continuation =
+            crate::services::chat::thread_continuation::conversation_continuation_data(
+                &state.storage,
+                &conversation.id,
+            )
+            .await?;
+        data.push(conversation_data_with_continuation(conversation, continuation));
+    }
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -197,9 +231,11 @@ pub async fn create_conversation(
         },
     )
     .await?;
+    let mut conv = conversation_record_to_data(conv);
+    enrich_conversation_continuation(&state, &mut conv).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        map_conversation_data(conversation_record_to_data(conv)),
+        map_conversation_data(conv),
         request_id,
     )))
 }
@@ -213,9 +249,11 @@ pub async fn get_conversation(
         .get_conversation(id.trim())
         .await?
         .ok_or_else(|| AppError::not_found("conversation not found"))?;
+    let mut conv = conversation_record_to_data(conv);
+    enrich_conversation_continuation(&state, &mut conv).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        map_conversation_data(conversation_record_to_data(conv)),
+        map_conversation_data(conv),
         request_id,
     )))
 }
@@ -235,9 +273,11 @@ pub async fn update_conversation(
         },
     )
     .await?;
+    let mut conv = conversation_record_to_data(conv);
+    enrich_conversation_continuation(&state, &mut conv).await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(
-        map_conversation_data(conversation_record_to_data(conv)),
+        map_conversation_data(conv),
         request_id,
     )))
 }

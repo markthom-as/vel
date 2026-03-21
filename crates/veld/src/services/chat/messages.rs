@@ -347,6 +347,23 @@ fn initial_reversal_metadata() -> serde_json::Value {
     })
 }
 
+async fn load_conversation_with_continuation(
+    state: &AppState,
+    conversation_id: &str,
+) -> Result<Option<crate::services::chat::mapping::ConversationServiceData>, AppError> {
+    let Some(record) = state.storage.get_conversation(conversation_id).await? else {
+        return Ok(None);
+    };
+    let mut conversation = crate::services::chat::mapping::conversation_record_to_data(record);
+    conversation.continuation =
+        crate::services::chat::thread_continuation::conversation_continuation_data(
+            &state.storage,
+            &conversation.id,
+        )
+        .await?;
+    Ok(Some(conversation))
+}
+
 async fn ensure_assistant_proposal_thread(
     state: &AppState,
     user_message: &ChatMessage,
@@ -402,6 +419,15 @@ async fn ensure_assistant_proposal_thread(
                 .insert_thread_link(&thread_id, "project", project_id.as_ref(), "about")
                 .await?;
         }
+        let _ = state
+            .storage
+            .insert_thread_link(
+                &thread_id,
+                "conversation",
+                &user_message.conversation_id,
+                "continues",
+            )
+            .await?;
         if let Some(handoff_id) = follow_through
             .get("handoff_id")
             .and_then(serde_json::Value::as_str)
@@ -468,6 +494,15 @@ pub(crate) async fn attach_planning_profile_proposal_thread(
                 &proposal.summary,
                 "open",
                 &metadata,
+            )
+            .await?;
+        let _ = state
+            .storage
+            .insert_thread_link(
+                &thread_id,
+                "conversation",
+                &user_message.conversation_id,
+                "continues",
             )
             .await?;
     }
@@ -923,11 +958,7 @@ pub(crate) async fn create_assistant_entry_response(
             )
             .await?,
         );
-        let conversation = state
-            .storage
-            .get_conversation(&conversation_id)
-            .await?
-            .map(crate::services::chat::mapping::conversation_record_to_data);
+        let conversation = load_conversation_with_continuation(state, &conversation_id).await?;
 
         return Ok(AssistantEntryCreateResult {
             route_target: AssistantEntryRouteTarget::Inline,
@@ -953,11 +984,7 @@ pub(crate) async fn create_assistant_entry_response(
             )
             .await?,
         );
-        let conversation = state
-            .storage
-            .get_conversation(&conversation_id)
-            .await?
-            .map(crate::services::chat::mapping::conversation_record_to_data);
+        let conversation = load_conversation_with_continuation(state, &conversation_id).await?;
 
         return Ok(AssistantEntryCreateResult {
             route_target: AssistantEntryRouteTarget::Inline,
@@ -992,11 +1019,7 @@ pub(crate) async fn create_assistant_entry_response(
             }),
         )
         .await;
-        let conversation = state
-            .storage
-            .get_conversation(&conversation_id)
-            .await?
-            .map(crate::services::chat::mapping::conversation_record_to_data);
+        let conversation = load_conversation_with_continuation(state, &conversation_id).await?;
 
         return Ok(AssistantEntryCreateResult {
             route_target: AssistantEntryRouteTarget::Threads,
@@ -1088,11 +1111,7 @@ pub(crate) async fn create_assistant_entry_response(
         None
     };
 
-    let conversation = state
-        .storage
-        .get_conversation(&conversation_id)
-        .await?
-        .map(crate::services::chat::mapping::conversation_record_to_data);
+    let conversation = load_conversation_with_continuation(state, &conversation_id).await?;
 
     Ok(AssistantEntryCreateResult {
         route_target,

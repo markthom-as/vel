@@ -172,6 +172,23 @@ describe('transport decoders', () => {
             archived: false,
             created_at: 0,
             updated_at: 2,
+            continuation: {
+              thread_id: 'thr_assistant_proposal_msg_user',
+              thread_type: 'assistant_proposal',
+              lifecycle_stage: 'staged',
+              continuation: {
+                escalation_reason:
+                  'This assistant proposal became multi-step and remains in Threads for explicit follow-through.',
+                continuation_context: {
+                  source_message_id: 'msg_user',
+                  action_item_id: 'act_intervention_intv_1',
+                },
+                review_requirements: [
+                  'Operator confirmation is required before the proposal can be applied.',
+                ],
+                bounded_capability_state: 'proposal_review_gated',
+              },
+            },
           },
           proposal: {
             action_item_id: 'act_intervention_intv_1',
@@ -266,6 +283,7 @@ describe('transport decoders', () => {
 
     expect(response.data?.route_target).toBe('inline')
     expect(response.data?.conversation.id).toBe('conv_1')
+    expect(response.data?.conversation.continuation?.thread_type).toBe('assistant_proposal')
     expect(response.data?.assistant_message?.id).toBe('msg_assistant')
     expect(response.data?.assistant_context?.focus_lines[0]).toContain('accountant')
     expect(response.data?.assistant_context?.commitments[0]?.scheduler_rules.block_target).toBe(

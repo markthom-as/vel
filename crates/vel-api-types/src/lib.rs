@@ -4790,6 +4790,17 @@ pub struct ConversationData {
     pub archived: bool,
     pub created_at: UnixSeconds,
     pub updated_at: UnixSeconds,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<ConversationContinuationData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationContinuationData {
+    pub thread_id: String,
+    pub thread_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lifecycle_stage: Option<String>,
+    pub continuation: ThreadContinuationData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

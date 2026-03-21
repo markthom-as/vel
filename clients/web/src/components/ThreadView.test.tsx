@@ -36,7 +36,12 @@ describe('ThreadView realtime sync', () => {
     vi.mocked(api.apiPost).mockReset()
   })
 
-  function conversationRecord(id: string, title: string, updatedAt = 10) {
+  function conversationRecord(
+    id: string,
+    title: string,
+    updatedAt = 10,
+    continuation: Record<string, unknown> | null = null,
+  ) {
     return {
       id,
       title,
@@ -45,6 +50,7 @@ describe('ThreadView realtime sync', () => {
       archived: false,
       created_at: 1,
       updated_at: updatedAt,
+      continuation,
     }
   }
 
@@ -500,5 +506,62 @@ describe('ThreadView realtime sync', () => {
 
     fireEvent.click(within(thread).getByRole('button', { name: 'Weekly planning' }))
     expect(onSelectConversation).toHaveBeenCalledWith('conv_2')
+  })
+
+  it('renders backend-owned continuation metadata for the selected thread', async () => {
+    subscribeWs.mockImplementation(() => () => {})
+
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/api/conversations') {
+        return {
+          ok: true,
+          data: [
+            conversationRecord('conv_1', 'Proposal thread', 20, {
+              thread_id: 'thr_assistant_proposal_msg_1',
+              thread_type: 'assistant_proposal',
+              lifecycle_stage: 'staged',
+              continuation: {
+                escalation_reason:
+                  'This assistant proposal became multi-step and remains in Threads for explicit follow-through.',
+                continuation_context: {
+                  source_message_id: 'msg_1',
+                  action_item_id: 'act_1',
+                  input_mode: 'voice',
+                },
+                review_requirements: [
+                  'Operator confirmation is required before the proposal can be applied.',
+                ],
+                bounded_capability_state: 'proposal_review_gated',
+              },
+            }),
+          ],
+          meta: { request_id: 'req_conversations' },
+        }
+      }
+      if (path === '/api/conversations/conv_1/messages') {
+        return { ok: true, data: [], meta: { request_id: 'req_messages' } }
+      }
+      if (path === '/api/conversations/conv_1/interventions') {
+        return { ok: true, data: [], meta: { request_id: 'req_interventions' } }
+      }
+      throw new Error(`Unexpected GET ${path}`)
+    })
+
+    const { container } = render(<ThreadView conversationId="conv_1" />)
+    const thread = requireHtmlElement(container as HTMLElement | null)
+
+    await waitFor(() => {
+      expect(within(thread).getByText(/proposal review gated/i)).toBeInTheDocument()
+    })
+
+    expect(
+      within(thread).getByText(
+        'This assistant proposal became multi-step and remains in Threads for explicit follow-through.',
+      ),
+    ).toBeInTheDocument()
+    expect(within(thread).getByText('source message id')).toBeInTheDocument()
+    expect(within(thread).getByText('msg_1')).toBeInTheDocument()
+    expect(within(thread).getByText(/operator confirmation is required/i)).toBeInTheDocument()
+    expect(within(thread).getByText('staged')).toBeInTheDocument()
   })
 })

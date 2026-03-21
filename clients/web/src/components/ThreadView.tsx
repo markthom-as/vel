@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { InboxItemData, MessageData } from '../types';
+import type { ConversationData, InboxItemData, JsonValue, MessageData } from '../types';
 import {
   chatQueryKeys,
   loadConversationList,
@@ -27,6 +27,42 @@ interface ThreadViewProps {
   onSelectConversation?: (conversationId: string) => void;
 }
 
+function capabilityStateLabel(state: string): string {
+  return state.replaceAll('_', ' ');
+}
+
+function formatContextValue(value: JsonValue): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (value === null) {
+    return 'unknown';
+  }
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+      .join(' • ');
+  }
+  return JSON.stringify(value);
+}
+
+function continuationContextRows(conversation: ConversationData): Array<{ label: string; value: string }> {
+  const context = conversation.continuation?.continuation.continuation_context;
+  if (!context || typeof context !== 'object' || Array.isArray(context)) {
+    return [];
+  }
+  return Object.entries(context)
+    .filter(([, value]) => value !== null && value !== '')
+    .slice(0, 3)
+    .map(([label, value]) => ({
+      label: label.replaceAll('_', ' '),
+      value: formatContextValue(value),
+    }));
+}
+
 export function ThreadView({ conversationId, onSelectConversation }: ThreadViewProps) {
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
   const [threadFilter, setThreadFilter] = useState('');
@@ -46,6 +82,10 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     return [...conversations]
       .sort((left, right) => right.updated_at - left.updated_at)[0]?.id ?? null;
   }, [conversationId, conversations]);
+  const selectedConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === (conversationId ?? fallbackConversationId)) ?? null,
+    [conversationId, conversations, fallbackConversationId],
+  );
   const filteredConversations = useMemo(() => {
     const query = threadFilter.trim().toLowerCase();
     const sorted = [...conversations].sort((left, right) => right.updated_at - left.updated_at);
@@ -296,6 +336,44 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                 <p className="mt-3 text-sm text-zinc-500">No recent threads match that filter.</p>
               )}
             </div>
+            {selectedConversation?.continuation ? (
+              <div className="mt-4 rounded-xl border border-emerald-900/70 bg-emerald-950/20 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs uppercase tracking-[0.18em] text-emerald-300">Continuation</p>
+                  <span className="rounded-full border border-emerald-900/80 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-emerald-200">
+                    {capabilityStateLabel(selectedConversation.continuation.continuation.bounded_capability_state)}
+                  </span>
+                  {selectedConversation.continuation.lifecycle_stage ? (
+                    <span className="rounded-full border border-zinc-800 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
+                      {selectedConversation.continuation.lifecycle_stage}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-3 text-sm leading-6 text-zinc-300">
+                  {selectedConversation.continuation.continuation.escalation_reason}
+                </p>
+                {continuationContextRows(selectedConversation).length > 0 ? (
+                  <dl className="mt-3 grid gap-2 text-xs text-zinc-400">
+                    {continuationContextRows(selectedConversation).map((entry) => (
+                      <div key={entry.label} className="grid gap-1 rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-3 py-2">
+                        <dt className="uppercase tracking-[0.16em] text-zinc-500">{entry.label}</dt>
+                        <dd className="text-sm leading-5 text-zinc-300">{entry.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                {selectedConversation.continuation.continuation.review_requirements.length > 0 ? (
+                  <div className="mt-3 rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-3 py-2">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">Review gate</p>
+                    <ul className="mt-2 space-y-2 text-sm leading-5 text-zinc-300">
+                      {selectedConversation.continuation.continuation.review_requirements.map((requirement) => (
+                        <li key={requirement}>{requirement}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </header>
           {messages.length === 0 && (
             <SurfaceState message="Nothing needs longer follow-up yet. Start here when `Now` or `Inbox` needs continuity." />

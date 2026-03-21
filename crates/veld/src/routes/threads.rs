@@ -5,14 +5,18 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
-use serde_json::Value;
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, ThreadContinuationData, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest,
-    ThreadUpdateRequest,
+    ApiResponse, ThreadCreateRequest, ThreadData, ThreadLinkData, ThreadLinkRequest, ThreadUpdateRequest,
 };
 
-use crate::{errors::AppError, state::AppState};
+use crate::{
+    errors::AppError,
+    services::chat::thread_continuation::{
+        parse_thread_metadata, proposal_thread_lifecycle_stage, thread_continuation_data,
+    },
+    state::AppState,
+};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct ListThreadsQuery {
@@ -31,14 +35,6 @@ fn planning_thread_fields(thread_type: &str, status: &str) -> (Option<String>, O
     };
     let lifecycle_stage = planning_kind.as_ref().map(|_| status.to_string());
     (planning_kind, lifecycle_stage)
-}
-
-fn assistant_proposal_lifecycle_stage(metadata: &Option<Value>) -> Option<String> {
-    metadata
-        .as_ref()
-        .and_then(|value| value.get("proposal_state"))
-        .and_then(Value::as_str)
-        .map(ToString::to_string)
 }
 
 fn thread_data_from_summary(
@@ -65,25 +61,22 @@ fn thread_data_from_summary(
     }
 }
 
-fn parse_thread_metadata(metadata_json: &str) -> Option<Value> {
-    serde_json::from_str::<Value>(metadata_json)
-        .ok()
-        .filter(|value| value.is_object())
-}
-
 fn thread_data_from_row(
     row: (String, String, String, String, String, i64, i64),
     links: Option<Vec<ThreadLinkData>>,
 ) -> ThreadData {
     let (id, thread_type, title, status, metadata_json, created_at, updated_at) = row;
     let metadata = parse_thread_metadata(&metadata_json);
-    let continuation = thread_continuation_data(&thread_type, &metadata);
+    let continuation = thread_continuation_data(&thread_type, metadata.as_ref());
     let (planning_kind, lifecycle_stage) = if thread_type == "assistant_proposal"
         || thread_type == "planning_profile_edit"
         || thread_type == "reflow_edit"
         || thread_type == "day_plan_apply"
     {
-        (None, assistant_proposal_lifecycle_stage(&metadata))
+        (
+            None,
+            proposal_thread_lifecycle_stage(&thread_type, metadata.as_ref()),
+        )
     } else {
         planning_thread_fields(&thread_type, &status)
     };
@@ -99,110 +92,6 @@ fn thread_data_from_row(
         continuation,
         metadata,
         links,
-    }
-}
-
-fn string_field(metadata: &Value, key: &str) -> Option<String> {
-    metadata
-        .get(key)
-        .and_then(Value::as_str)
-        .map(ToString::to_string)
-}
-
-fn bool_field(metadata: &Value, key: &str) -> Option<bool> {
-    metadata.get(key).and_then(Value::as_bool)
-}
-
-fn thread_continuation_data(
-    thread_type: &str,
-    metadata: &Option<Value>,
-) -> Option<ThreadContinuationData> {
-    let metadata = metadata.as_ref()?;
-
-    match thread_type {
-        "assistant_proposal" => {
-            let mut review_requirements = Vec::new();
-            if string_field(metadata, "permission_mode").as_deref() == Some("user_confirm") {
-                review_requirements.push(
-                    "Operator confirmation is required before the proposal can be applied."
-                        .to_string(),
-                );
-            }
-            if matches!(
-                string_field(metadata, "proposal_state").as_deref(),
-                Some("staged" | "approved")
-            ) {
-                review_requirements.push(
-                    "The proposal stays review-gated until it is explicitly applied, dismissed, or reversed through an existing operator lane."
-                        .to_string(),
-                );
-            }
-            Some(ThreadContinuationData {
-                escalation_reason:
-                    "This assistant proposal became multi-step and remains in Threads for explicit follow-through."
-                        .to_string(),
-                continuation_context: metadata
-                    .get("lineage")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Object(Default::default())),
-                review_requirements,
-                bounded_capability_state: "proposal_review_gated".to_string(),
-            })
-        }
-        "planning_profile_edit" => {
-            let mut review_requirements = Vec::new();
-            if bool_field(metadata, "requires_confirmation").unwrap_or(false) {
-                review_requirements.push(
-                    "Planning-profile edits require explicit approval before the backend saves them."
-                        .to_string(),
-                );
-            }
-            Some(ThreadContinuationData {
-                escalation_reason:
-                    "This planning-profile change remains in Threads until the bounded edit is approved or rejected."
-                        .to_string(),
-                continuation_context: metadata
-                    .get("lineage")
-                    .cloned()
-                    .unwrap_or_else(|| Value::Object(Default::default())),
-                review_requirements,
-                bounded_capability_state: "planning_profile_review_gated".to_string(),
-            })
-        }
-        "reflow_edit" | "day_plan_apply" => {
-            let mut review_requirements = Vec::new();
-            if matches!(
-                string_field(metadata, "proposal_state").as_deref(),
-                Some("staged" | "approved")
-            ) {
-                review_requirements.push(
-                    "Schedule changes remain review-gated until the bounded proposal is explicitly applied."
-                        .to_string(),
-                );
-            }
-            let mut continuation_context = serde_json::Map::new();
-            for key in ["source", "trigger", "severity", "summary", "context_computed_at"] {
-                if let Some(value) = metadata.get(key).cloned() {
-                    continuation_context.insert(key.to_string(), value);
-                }
-            }
-            if let Some(value) = metadata.get("preview_lines").cloned() {
-                continuation_context.insert("preview_lines".to_string(), value);
-            }
-            Some(ThreadContinuationData {
-                escalation_reason: if thread_type == "reflow_edit" {
-                    "This reflow needs bounded manual shaping or explicit review in Threads."
-                        .to_string()
-                } else {
-                    "This day-plan change remains in Threads until the bounded proposal is reviewed."
-                        .to_string()
-                },
-                continuation_context: Value::Object(continuation_context),
-                review_requirements,
-                bounded_capability_state: "schedule_review_gated".to_string(),
-            })
-        }
-        _ => None,
     }
 }
 
@@ -421,7 +310,7 @@ mod tests {
             data.continuation
                 .as_ref()
                 .and_then(|value| value.continuation_context.get("source_message_id"))
-                .and_then(Value::as_str),
+                .and_then(serde_json::Value::as_str),
             Some("msg_1")
         );
     }
@@ -505,7 +394,7 @@ mod tests {
             data.continuation
                 .as_ref()
                 .and_then(|value| value.continuation_context.get("trigger"))
-                .and_then(Value::as_str),
+                .and_then(serde_json::Value::as_str),
             Some("missed_event")
         );
     }
@@ -573,7 +462,7 @@ pub async fn create_thread(
         continuation: payload
             .metadata_json
             .as_ref()
-            .and_then(|metadata| thread_continuation_data(&data.thread_type, &Some(metadata.clone()))),
+            .and_then(|metadata| thread_continuation_data(&data.thread_type, Some(metadata))),
         metadata: payload.metadata_json,
         ..data
     };

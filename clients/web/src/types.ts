@@ -28,6 +28,20 @@ export type JsonObject = { [key: string]: JsonValue };
 export type UnixSeconds = number;
 export type Rfc3339Timestamp = string;
 
+export interface ThreadContinuationData {
+  escalation_reason: string;
+  continuation_context: JsonValue;
+  review_requirements: string[];
+  bounded_capability_state: string;
+}
+
+export interface ConversationContinuationData {
+  thread_id: string;
+  thread_type: string;
+  lifecycle_stage: string | null;
+  continuation: ThreadContinuationData;
+}
+
 export interface ConversationData {
   id: string;
   title: string | null;
@@ -36,6 +50,7 @@ export interface ConversationData {
   archived: boolean;
   created_at: UnixSeconds;
   updated_at: UnixSeconds;
+  continuation: ConversationContinuationData | null;
 }
 
 export interface MessageData {
@@ -1836,6 +1851,39 @@ export function decodeConversationData(value: unknown): ConversationData {
     archived: expectBoolean(record.archived, 'conversation.archived'),
     created_at: expectUnixSeconds(record.created_at, 'conversation.created_at'),
     updated_at: expectUnixSeconds(record.updated_at, 'conversation.updated_at'),
+    continuation:
+      record.continuation === undefined
+        ? null
+        : decodeNullable(record.continuation, decodeConversationContinuationData),
+  };
+}
+
+export function decodeConversationContinuationData(value: unknown): ConversationContinuationData {
+  const record = expectRecord(value, 'conversation continuation');
+  return {
+    thread_id: expectString(record.thread_id, 'conversation continuation.thread_id'),
+    thread_type: expectString(record.thread_type, 'conversation continuation.thread_type'),
+    lifecycle_stage: expectNullableString(
+      record.lifecycle_stage,
+      'conversation continuation.lifecycle_stage',
+    ),
+    continuation: decodeThreadContinuationData(record.continuation),
+  };
+}
+
+export function decodeThreadContinuationData(value: unknown): ThreadContinuationData {
+  const record = expectRecord(value, 'thread continuation');
+  return {
+    escalation_reason: expectString(record.escalation_reason, 'thread continuation.escalation_reason'),
+    continuation_context: decodeJsonValue(record.continuation_context),
+    review_requirements: decodeArray(
+      record.review_requirements ?? [],
+      (item) => expectString(item, 'thread continuation.review_requirements[]'),
+    ),
+    bounded_capability_state: expectString(
+      record.bounded_capability_state,
+      'thread continuation.bounded_capability_state',
+    ),
   };
 }
 

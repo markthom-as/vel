@@ -7,4 +7,5 @@ pub mod messages;
 pub mod provenance;
 pub mod reads;
 pub mod settings;
+pub mod thread_continuation;
 pub mod tools;
