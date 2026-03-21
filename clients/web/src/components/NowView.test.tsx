@@ -954,13 +954,55 @@ describe('NowView', () => {
     expect(screen.getByText('Backup is stale')).toBeInTheDocument()
     expect(screen.getByText('Confirm the design review agenda')).toBeInTheDocument()
     expect(screen.getAllByText('Review execution handoff for runtime lane').length).toBeGreaterThan(0)
-    expect(screen.getByText('Continue in Threads')).toBeInTheDocument()
+    expect(screen.getAllByText('Continue in Threads').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Reflow moved to Threads').length).toBeGreaterThan(0)
     expect(screen.getByText('Next event')).toBeInTheDocument()
     expect(screen.getAllByText('Design review').length).toBeGreaterThan(0)
     expect(screen.getByText('1 in play')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start morning/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /start standup/i })).toBeInTheDocument()
+  })
+
+  it('renders compact thread-backed reflow status without resurfacing the reflow card', async () => {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return {
+          ok: true,
+          data: buildNowData({
+            reflow: null,
+            reflow_status: {
+              kind: 'editing',
+              trigger: 'missed_event',
+              severity: 'critical',
+              headline: 'Reflow moved to Threads',
+              detail: 'Vel opened a thread-backed reflow follow-up so the day plan can be shaped before anything else changes.',
+              recorded_at: 1710000150,
+              preview_lines: ['Next scheduled event started 20 minutes ago.'],
+              thread_id: 'thr_reflow_1',
+            },
+          }),
+          meta: { request_id: 'req_now_reflow_status' },
+        } as never
+      }
+      if (path.startsWith('/v1/daily-loop/sessions/active?')) {
+        return { ok: true, data: null, meta: { request_id: 'req_daily_loop_none' } } as never
+      }
+      throw new Error(`unexpected apiGet path: ${path}`)
+    })
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Run the current day')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText(/more context and controls/i))
+
+    expect(screen.getByText('Reflow moved to Threads')).toBeInTheDocument()
+    expect(screen.getByText('Continue in Threads')).toBeInTheDocument()
+    expect(screen.getByText('Thread thr_reflow_1')).toBeInTheDocument()
+    expect(screen.getByText('Next scheduled event started 20 minutes ago.')).toBeInTheDocument()
+    expect(screen.queryByText('1 moved')).not.toBeInTheDocument()
   })
 
   it('shows backend-owned suggestion fallback when no dominant action exists', async () => {

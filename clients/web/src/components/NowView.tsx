@@ -1279,8 +1279,25 @@ function ReflowStatusView({
       </div>
       <h3 className="mt-3 text-base font-medium text-zinc-100">{status.headline}</h3>
       <p className="mt-2 text-sm leading-6 text-zinc-300">{status.detail}</p>
+      {status.preview_lines.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {status.preview_lines.map((line) => (
+            <li
+              key={line}
+              className="rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-100"
+            >
+              {line}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
         <span>Recorded {formatTimestamp(status.recorded_at, timezone)}</span>
+        {status.thread_id ? (
+          <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-zinc-300">
+            Continue in Threads
+          </span>
+        ) : null}
         {status.thread_id ? <span>Thread {status.thread_id}</span> : null}
       </div>
     </article>

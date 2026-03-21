@@ -11137,6 +11137,82 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn now_endpoint_surfaces_thread_backed_reflow_status_after_escalation() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        let commitment_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Deep work @30m".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "todo_reflow_thread".to_string(),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: Some("Project Atlas".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({
+                    "labels": ["urgent", "block:focus"]
+                })),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now - 60,
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now - 60,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    global_risk_level: "high".to_string(),
+                    attention_state: "needs_reflow".to_string(),
+                    attention_reasons: vec!["Standup slipped past without a day update.".to_string()],
+                    next_event_start_ts: Some(now - (20 * 60)),
+                    leave_by_ts: Some(now - (10 * 60)),
+                    next_commitment_id: Some(commitment_id.as_ref().to_string()),
+                    ..CurrentContextV1::default()
+                }),
+            )
+            .await
+            .unwrap();
+        crate::services::reflow::apply_current_reflow(&storage, now, true)
+            .await
+            .expect("confirm-required reflow should escalate");
+
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/now")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert!(json["data"]["reflow"].is_null());
+        assert_eq!(json["data"]["reflow_status"]["kind"], "editing");
+        assert_eq!(json["data"]["reflow_status"]["headline"], "Reflow moved to Threads");
+        assert!(json["data"]["reflow_status"]["thread_id"].as_str().is_some());
+    }
+
+    #[tokio::test]
     async fn now_endpoint_prioritizes_urgent_todoist_tasks() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();

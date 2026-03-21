@@ -91,6 +91,9 @@ pub async fn apply_current_reflow(
     if card.accept_mode == ReflowAcceptMode::ConfirmRequired && !confirmed {
         return Err(AppError::bad_request("reflow confirmation required"));
     }
+    if requires_thread_continuation(&card) {
+        return edit_current_reflow(storage, now_ts).await;
+    }
 
     let staged_proposal = match card.proposal.as_ref() {
         Some(proposal) => crate::services::commitment_scheduling::staged_commitment_scheduling_proposal_from_reflow(
@@ -250,6 +253,15 @@ pub fn transitions_for_card(card: &ReflowCard) -> Vec<ReflowTransition> {
             confirm_required: false,
         },
     ]
+}
+
+fn requires_thread_continuation(card: &ReflowCard) -> bool {
+    card.accept_mode == ReflowAcceptMode::ConfirmRequired
+        || card
+            .proposal
+            .as_ref()
+            .map(|proposal| proposal.needs_judgment_count > 0)
+            .unwrap_or(false)
 }
 
 fn derive_candidate(context: &CurrentContextV1, now_ts: i64) -> Option<ReflowCandidate> {
@@ -1207,6 +1219,54 @@ mod tests {
             .expect("list commitments");
         assert_eq!(commitments.len(), 1);
         assert!(commitments[0].due_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn apply_current_reflow_escalates_confirm_required_cases_to_threads() {
+        let storage = test_storage().await;
+        let now_ts = day_start_ts(1_700_000_000) + (8 * 60 * 60);
+        seed_context(
+            &storage,
+            CurrentContextV1 {
+                computed_at: now_ts - 60,
+                next_event_start_ts: Some(now_ts - (20 * 60)),
+                leave_by_ts: Some(now_ts - (10 * 60)),
+                attention_reasons: vec!["Standup slipped".to_string()],
+                ..CurrentContextV1::default()
+            },
+        )
+        .await;
+        seed_commitment(
+            &storage,
+            "Deep work @30m",
+            None,
+            Some("Project Atlas"),
+            json!({ "labels": ["urgent", "block:focus"] }),
+        )
+        .await;
+        seed_calendar_event(&storage, now_ts, now_ts + (30 * 60), "Standup").await;
+
+        let status = apply_current_reflow(&storage, now_ts, true)
+            .await
+            .expect("confirm-required reflow should escalate");
+
+        assert_eq!(status.kind, CurrentContextReflowStatusKind::Editing);
+        let thread_id = status.thread_id.as_ref().expect("thread id");
+        let thread = storage
+            .get_thread_by_id(thread_id)
+            .await
+            .unwrap()
+            .expect("thread exists");
+        let metadata: serde_json::Value =
+            serde_json::from_str(&thread.4).expect("thread metadata should parse");
+        assert_eq!(thread.1, "reflow_edit");
+        assert_eq!(metadata["proposal_state"], "staged");
+        let commitments = storage
+            .list_commitments(Some(CommitmentStatus::Open), None, None, 8)
+            .await
+            .expect("list commitments");
+        assert_eq!(commitments.len(), 1);
+        assert!(commitments[0].due_at.is_none());
     }
 
     #[tokio::test]
