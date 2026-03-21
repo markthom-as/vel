@@ -42,7 +42,7 @@ Do not widen this milestone into:
 - [x] **Phase 48: Client mesh, linking, sync, and recovery authority** - Make cross-client connection, offline state, queued writes, and recovery visible and shared
 - [x] **Phase 49: Web canonical Now embodiment** - Rebuild the web Now surface to match the canonical execution-first contract over shared Rust-owned seams
 - [x] **Phase 50: Apple parity and reduced watch embodiment** - Align iPhone, iPad, Mac, and reduced watch to the same canonical Now contract and mesh behavior
-- [ ] **Phase 51: Cross-platform verification and closeout** - Verify parity, mesh continuity, and Rust-core ownership across all shipped shells
+- [x] **Phase 51: Cross-platform verification and closeout** - Verify parity, mesh continuity, and Rust-core ownership across all shipped shells
 
 ## Progress
 
@@ -55,7 +55,7 @@ Do not widen this milestone into:
 | 48. Client mesh, linking, sync, and recovery authority | CORE-04, MESH-01, MESH-02, MESH-04, SYNC-01, SYNC-02 | Complete |
 | 49. Web canonical Now embodiment | NOW-03, PARITY-01, TASK-02, THREAD-02 | Complete |
 | 50. Apple parity and reduced watch embodiment | MESH-03, PARITY-02, PARITY-03, PARITY-04, SYNC-03 | Complete |
-| 51. Cross-platform verification and closeout | milestone verification and reconciliation | Active |
+| 51. Cross-platform verification and closeout | milestone verification and reconciliation | Complete |
 
 ## Phase Details
 
