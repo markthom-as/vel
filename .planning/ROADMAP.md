@@ -67,6 +67,7 @@ Do not widen this milestone into:
 1. Durable Now product and Rust-core architecture contracts are checked in and linked from the existing authority docs.
 2. Surface-boundary docs now point to the canonical Now contract instead of stale MVP-only shell assumptions.
 3. The milestone scope is narrow enough to prevent shell-local drift and broad product widening.
+4. The supporting subsystems needed for the canonical `Now` behavior are explicitly inventoried and assigned to downstream phases before implementation starts.
 **Plans:** 4 plans
 
 ### Phase 47: Rust-owned Now core models and transport seam

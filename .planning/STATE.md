@@ -4,10 +4,10 @@ milestone: v0.3
 milestone_name: canonical now surface and client mesh
 current_phase: 46
 current_phase_name: canonical-now-contract-boundaries-and-milestone-lock
-current_plan: "milestone_roadmap"
-status: ready_for_phase_discussion
-stopped_at: Started milestone v0.3; next logical step is Phase 46 discussion and planning
-last_updated: "2026-03-21T18:35:00Z"
+current_plan: "46-01"
+status: ready_for_phase_execution
+stopped_at: Planned Phase 46; next logical step is execute 46-01
+last_updated: "2026-03-21T19:20:00Z"
 last_activity: 2026-03-21
 progress:
   total_phases: 51
@@ -26,19 +26,19 @@ See: .planning/PROJECT.md (updated 2026-03-19)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** Lock the canonical Now contract and start the Rust-core cross-client implementation lane for v0.3
 
-Status: Milestone v0.3 is defined; the next work is Phase 46 discussion and planning
+Status: Phase 46 is planned and ready for execution
 Current Phase: 46
 Current Phase Name: canonical-now-contract-boundaries-and-milestone-lock
-Current Plan: milestone_roadmap
-Total Plans in Phase: 0
+Current Plan: 46-01
+Total Plans in Phase: 4
 Progress: 89%
 Last Activity: 2026-03-21
-Last Activity Description: Started milestone v0.3 for the canonical Now surface and client mesh, with Rust-core portability as a hard requirement
+Last Activity Description: Planned Phase 46 around the canonical Now contract, Rust-core ownership, and client-mesh boundary lock
 
 ## Current Position
 
-Phase: 46 (canonical-now-contract-boundaries-and-milestone-lock) — READY FOR DISCUSSION
-Plan: discuss and plan next
+Phase: 46 (canonical-now-contract-boundaries-and-milestone-lock) — READY FOR EXECUTION
+Plan: execute 46-01 through 46-04
 
 ## Performance Metrics
 
