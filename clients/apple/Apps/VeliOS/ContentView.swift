@@ -368,178 +368,147 @@ private struct TodayTab: View {
             .sorted { $0.rank < $1.rank }
     }
 
+    private var cachedNow: NowData? {
+        store.offlineStore.cachedNow()
+    }
+
+    private var visibleNudgeBars: [NowNudgeBarData] {
+        Array((cachedNow?.nudge_bars ?? []).prefix(4))
+    }
+
+    private var taskLane: NowTaskLaneData? {
+        cachedNow?.task_lane
+    }
+
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 todayHeader
 
-                if let voiceSummary = voiceModel.continuitySummary(using: store) {
-                    todaySection("Voice continuity") {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(voiceSummary.headline)
-                            if let detail = voiceSummary.detail {
-                                Text(detail)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                if let statusRow = cachedNow?.status_row {
+                    compactNowStatusRow(statusRow)
+                }
+
+                if let contextLine = cachedNow?.context_line {
+                    SurfaceSectionCard("Context") {
+                        Text(contextLine.text)
+                            .font(.caption)
+                            .foregroundStyle(contextLine.fallback_used ? .secondary : .primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                if let meshSummary = cachedNow?.mesh_summary {
+                    compactNowMeshSummary(meshSummary)
+                }
+
+                if !visibleNudgeBars.isEmpty {
+                    SurfaceSectionCard("Nudges") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(visibleNudgeBars) { bar in
+                                compactNowBar(bar)
                             }
                         }
                     }
                 }
 
-                todaySection("Next action") {
-                    if let action = actionItems.first {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(action.title)
-                            if let projectLabel = projectLabel(for: action.project_id) {
-                                Text(projectLabel)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Text(action.summary)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text("No backend-ranked action is cached yet.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                if let taskLane {
+                    compactTaskLane(taskLane)
                 }
 
-                todaySection("Current context") {
-                    if let ctx = store.context?.context {
-                        ContextValueRow(label: "Mode", value: ctx.mode)
-                        ContextValueRow(label: "Morning state", value: ctx.morning_state)
-                        ContextValueRow(label: "Meds", value: ctx.meds_status)
-                        ContextValueRow(label: "Attention", value: ctx.attention_state)
-                        ContextValueRow(label: "Drift", value: ctx.drift_type)
+                compactDockedInputShell
 
-                        if let prep = ctx.prep_window_active {
-                            BoolStatusRow(label: "Prep window", value: prep)
-                        }
-                        if let commute = ctx.commute_window_active {
-                            BoolStatusRow(label: "Commute window", value: commute)
-                        }
-                        if let leaveBy = ctx.leave_by_ts {
-                            ContextValueRow(label: "Leave by", value: formatUnix(leaveBy))
-                        }
-                        if let nextEvent = ctx.next_event_start_ts {
-                            ContextValueRow(label: "Next event", value: formatUnix(nextEvent))
-                        }
-                        if let waitingCount = ctx.message_waiting_on_me_count {
-                            ContextValueRow(label: "Waiting on me", value: "\(waitingCount)")
-                        }
-                        if let urgentThreads = ctx.message_urgent_thread_count {
-                            ContextValueRow(label: "Urgent threads", value: "\(urgentThreads)")
-                        }
-                    } else {
-                        Text("No context yet. Run evaluate/sync on daemon or refresh once connected.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                todaySection("Project context") {
-                    if cachedProjects.isEmpty {
-                        Text("No cached projects.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(projectGroups(from: cachedProjects)) { group in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(group.title)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                ForEach(group.projects) { project in
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(project.name)
-                                        Text(project.primary_repo.path)
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
+                DisclosureGroup("More context and controls") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if let voiceSummary = voiceModel.continuitySummary(using: store) {
+                            todaySection("Voice continuity") {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(voiceSummary.headline)
+                                    if let detail = voiceSummary.detail {
+                                        Text(detail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
                                     }
-                                    .padding(.vertical, 2)
                                 }
                             }
                         }
-                    }
-                }
 
-                todaySection("Open commitments") {
-                    let openCommitments = store.commitments
-                        .filter { $0.status == "open" }
-                        .prefix(8)
-                    if openCommitments.isEmpty {
-                        Text("No open commitments.")
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(Array(openCommitments), id: \.id) { commitment in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(commitment.text)
-                                if let dueAt = commitment.due_at {
-                                    Text("Due \(formatUnix(dueAt))")
+                        todaySection("Next action") {
+                            if let action = actionItems.first {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(action.title)
+                                    if let projectLabel = projectLabel(for: action.project_id) {
+                                        Text(projectLabel)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Text(action.summary)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
+                            } else {
+                                Text("No backend-ranked action is cached yet.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
-                            Spacer()
-                            Button("Done") {
-                                Task {
-                                    await store.markCommitmentDone(id: commitment.id)
+                        }
+
+                        todaySection("Current context") {
+                            if let ctx = store.context?.context {
+                                ContextValueRow(label: "Mode", value: ctx.mode)
+                                ContextValueRow(label: "Morning state", value: ctx.morning_state)
+                                ContextValueRow(label: "Meds", value: ctx.meds_status)
+                                ContextValueRow(label: "Attention", value: ctx.attention_state)
+                                ContextValueRow(label: "Drift", value: ctx.drift_type)
+
+                                if let prep = ctx.prep_window_active {
+                                    BoolStatusRow(label: "Prep window", value: prep)
+                                }
+                                if let commute = ctx.commute_window_active {
+                                    BoolStatusRow(label: "Commute window", value: commute)
+                                }
+                                if let leaveBy = ctx.leave_by_ts {
+                                    ContextValueRow(label: "Leave by", value: formatUnix(leaveBy))
+                                }
+                                if let nextEvent = ctx.next_event_start_ts {
+                                    ContextValueRow(label: "Next event", value: formatUnix(nextEvent))
+                                }
+                                if let waitingCount = ctx.message_waiting_on_me_count {
+                                    ContextValueRow(label: "Waiting on me", value: "\(waitingCount)")
+                                }
+                                if let urgentThreads = ctx.message_urgent_thread_count {
+                                    ContextValueRow(label: "Urgent threads", value: "\(urgentThreads)")
+                                }
+                            } else {
+                                Text("No context yet. Run evaluate/sync on daemon or refresh once connected.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        todaySection("Project context") {
+                            if cachedProjects.isEmpty {
+                                Text("No cached projects.")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                ForEach(projectGroups(from: cachedProjects)) { group in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(group.title)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        ForEach(group.projects) { project in
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(project.name)
+                                                Text(project.primary_repo.path)
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.tertiary)
+                                            }
+                                            .padding(.vertical, 2)
+                                        }
+                                    }
                                 }
                             }
-                            .velActionButtonStyle()
                         }
-                    }
-                }
-
-                todaySection("Quick entry") {
-                    Text("Use one compact lane for quick commitment capture or note capture.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    HStack {
-                        Button("Open capture") {
-                            onOpenCapture()
-                        }
-                        .velActionButtonStyle()
-
-                        Button("Open voice") {
-                            onOpenVoice()
-                        }
-                        .velActionButtonStyle()
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        TextField("New commitment", text: $commitmentText)
-                            .textInputAutocapitalization(.sentences)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Create commitment") {
-                            let text = commitmentText.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !text.isEmpty else { return }
-                            Task {
-                                await store.createCommitment(text: text)
-                                commitmentText = ""
-                            }
-                        }
-                        .velProminentActionButtonStyle()
-                    }
-
-                    Divider()
-                        .padding(.vertical, 2)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        TextField("Quick capture", text: $captureText)
-                            .textInputAutocapitalization(.sentences)
-                            .textFieldStyle(.roundedBorder)
-                        Button("Save capture") {
-                            let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
-                            guard !text.isEmpty else { return }
-                            Task {
-                                await store.createCapture(text: text)
-                                captureText = ""
-                            }
-                        }
-                        .velActionButtonStyle()
                     }
                 }
             }
@@ -557,9 +526,9 @@ private struct TodayTab: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Vel Now")
+                    Text(cachedNow?.header?.title ?? "Vel Now")
                         .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                    Text(Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
+                    Text(cachedNow?.status_row?.date_label ?? Date.now.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -597,6 +566,30 @@ private struct TodayTab: View {
                 }
             }
 
+            if let buckets = cachedNow?.header?.buckets, !buckets.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(buckets) { bucket in
+                            HStack(spacing: 6) {
+                                Text(nowHeaderBucketLabel(bucket.kind))
+                                if showNowBucketCount(bucket) {
+                                    Text("\(bucket.count)")
+                                        .font(.caption2)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.white.opacity(0.08), in: Capsule())
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(bucket.urgent ? Color.orange : .secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.04), in: Capsule())
+                        }
+                    }
+                }
+            }
+
             ConnectionSummaryRow(store: store)
         }
         .padding(14)
@@ -630,6 +623,264 @@ private struct TodayTab: View {
     private func projectLabel(for projectID: String?) -> String? {
         guard let projectID else { return nil }
         return store.offlineStore.cachedProjects().first(where: { $0.id == projectID })?.name
+    }
+
+    @ViewBuilder
+    private func compactNowStatusRow(_ statusRow: NowStatusRowData) -> some View {
+        SurfaceSectionCard("Status") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(statusRow.date_label)
+                    Spacer()
+                    Text(statusRow.time_label)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Text(statusRow.context_label)
+                    .font(.headline)
+
+                Text(statusRow.elapsed_label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func compactNowMeshSummary(_ meshSummary: NowMeshSummaryData) -> some View {
+        SurfaceSectionCard("Trust") {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(meshSummary.authority_label)
+                    Spacer()
+                    Text(nowMeshStateLabel(meshSummary.sync_state))
+                        .foregroundStyle(meshSummary.urgent ? Color.orange : .secondary)
+                }
+                .font(.caption)
+
+                Text("\(meshSummary.linked_node_count) linked · \(meshSummary.queued_write_count) queued")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                if let repairRoute = meshSummary.repair_route {
+                    Text(repairRoute.summary)
+                        .font(.caption2)
+                        .foregroundStyle(meshSummary.urgent ? Color.orange : .secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func compactNowBar(_ bar: NowNudgeBarData) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(bar.title)
+                    Text(bar.summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(nowBarKindLabel(bar.kind))
+                    .font(.caption2)
+                    .foregroundStyle(bar.urgent ? Color.orange : .secondary)
+            }
+
+            if !bar.actions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(bar.actions) { action in
+                            Text(action.label)
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(Color.white.opacity(0.05), in: Capsule())
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(bar.urgent ? Color.orange.opacity(0.10) : Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func compactTaskLane(_ taskLane: NowTaskLaneData) -> some View {
+        SurfaceSectionCard("Tasks") {
+            VStack(alignment: .leading, spacing: 8) {
+                if let active = taskLane.active {
+                    compactTaskRow(active, emphasis: "Active")
+                }
+                ForEach(taskLane.pending) { item in
+                    compactTaskRow(item, emphasis: nil)
+                }
+                ForEach(taskLane.recent_completed) { item in
+                    compactTaskRow(item, emphasis: "Done")
+                }
+                if taskLane.overflow_count > 0 {
+                    Text("+\(taskLane.overflow_count) more")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if taskLane.active == nil && taskLane.pending.isEmpty && taskLane.recent_completed.isEmpty {
+                    Text("No current tasks are surfaced right now.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func compactTaskRow(_ item: NowTaskLaneItemData, emphasis: String?) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: item.state == "completed" ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(item.state == "completed" ? Color.green : .secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    if let emphasis {
+                        Text(emphasis)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(item.task_kind.rawValue)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Text(item.text)
+                    .strikethrough(item.state == "completed")
+                if let project = item.project {
+                    Text(project)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private var compactDockedInputShell: some View {
+        SurfaceSectionCard("Input") {
+            VStack(alignment: .leading, spacing: 10) {
+                if let dockedInput = cachedNow?.docked_input {
+                    Text("Quick entry and voice stay shell wrappers over backend-owned routing.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(dockedInput.supported_intents.map(\.rawValue).joined(separator: " · "))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    Button("Open capture") {
+                        onOpenCapture()
+                    }
+                    .velActionButtonStyle()
+
+                    Button("Open voice") {
+                        onOpenVoice()
+                    }
+                    .velActionButtonStyle()
+                }
+
+                TextField("New commitment", text: $commitmentText)
+                    .textInputAutocapitalization(.sentences)
+                    .textFieldStyle(.roundedBorder)
+                Button("Create commitment") {
+                    let text = commitmentText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { return }
+                    Task {
+                        await store.createCommitment(text: text)
+                        commitmentText = ""
+                    }
+                }
+                .velProminentActionButtonStyle()
+
+                TextField("Quick capture", text: $captureText)
+                    .textInputAutocapitalization(.sentences)
+                    .textFieldStyle(.roundedBorder)
+                Button("Save capture") {
+                    let text = captureText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { return }
+                    Task {
+                        await store.createCapture(text: text)
+                        captureText = ""
+                    }
+                }
+                .velActionButtonStyle()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private func showNowBucketCount(_ bucket: NowHeaderBucketData) -> Bool {
+    switch bucket.count_display {
+    case .always_show:
+        return true
+    case .show_nonzero, .hidden_until_active:
+        return bucket.count > 0
+    }
+}
+
+private func nowHeaderBucketLabel(_ kind: NowHeaderBucketKindData) -> String {
+    switch kind {
+    case .threads_by_type:
+        return "Threads"
+    case .needs_input:
+        return "Needs input"
+    case .new_nudges:
+        return "Nudges"
+    case .search_filter:
+        return "Filter"
+    case .snoozed:
+        return "Snoozed"
+    case .review_apply:
+        return "Review"
+    case .reflow:
+        return "Reflow"
+    case .follow_up:
+        return "Follow up"
+    }
+}
+
+private func nowMeshStateLabel(_ state: NowMeshSyncStateData) -> String {
+    switch state {
+    case .synced:
+        return "Synced"
+    case .stale:
+        return "Stale"
+    case .local_only:
+        return "Local only"
+    case .offline:
+        return "Offline"
+    }
+}
+
+private func nowBarKindLabel(_ kind: NowNudgeBarKindData) -> String {
+    switch kind {
+    case .nudge:
+        return "Nudge"
+    case .needs_input:
+        return "Needs input"
+    case .review_request:
+        return "Review"
+    case .reflow_proposal:
+        return "Reflow"
+    case .thread_continuation:
+        return "Thread"
+    case .trust_warning:
+        return "Trust"
+    case .freshness_warning:
+        return "Freshness"
     }
 }
 
