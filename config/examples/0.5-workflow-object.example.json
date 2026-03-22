@@ -1,0 +1,30 @@
+{
+  "id": "workflow_01seededcoredailybrief",
+  "origin": "seeded",
+  "source_module_id": "module.core.orientation",
+  "manifest_ref": "modules/core/orientation/workflows/daily-brief.yaml",
+  "mutability": "forkable",
+  "forked_from_workflow_id": null,
+  "version": "1.2.0",
+  "definition": {
+    "display_name": "Daily Brief",
+    "step_types": [
+      "action",
+      "skill",
+      "approval",
+      "sync",
+      "condition"
+    ],
+    "grant_envelope": {
+      "default_confirmation_mode": "ask",
+      "requested_actions": [
+        "object.query",
+        "object.explain"
+      ]
+    }
+  },
+  "policy_ref": "policy.workflow.daily-brief",
+  "status": "active",
+  "seed_version": "2026.03.22",
+  "reconciliation_state": "unchanged"
+}

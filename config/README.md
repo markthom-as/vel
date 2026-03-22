@@ -57,6 +57,8 @@ Use it to answer four questions quickly:
 - `schemas/0.5-canonical-object-envelope.schema.json`
 - `schemas/0.5-sync-link.schema.json`
 - `schemas/0.5-write-intent.schema.json`
+- `schemas/0.5-module-registry-object.schema.json`
+- `schemas/0.5-workflow-object.schema.json`
 - Examples and manifests:
   - `examples/app-config.example.toml`
   - `examples/agent-specs.example.yaml`
@@ -89,6 +91,7 @@ Use it to answer four questions quickly:
   - `examples/backup-manifest.example.json`
   - `examples/0.5-sync-link.example.json`
   - `examples/0.5-write-intent.example.json`
+  - `examples/0.5-workflow-object.example.json`
   - `contracts-manifest.json`
 
 ## Ownership Rules
@@ -116,6 +119,8 @@ Use it to answer four questions quickly:
 - `docs/cognitive-agent-architecture/architecture/0.5-canonical-relations-and-linkage.md` owns the `0.5` relation, `IntegrationAccount`, and `SyncLink` linkage vocabulary.
 - `docs/cognitive-agent-architecture/architecture/0.5-action-membrane-and-policy.md` owns the `0.5` generic action namespace, policy layers, confirmation vocabulary, and explainability requirements.
 - `docs/cognitive-agent-architecture/architecture/0.5-ownership-conflict-and-write-intent.md` owns the `0.5` ownership, conflict, tombstone, and `WriteIntent` lifecycle vocabulary.
+- `docs/cognitive-agent-architecture/architecture/0.5-module-skill-tool-and-workflow-registry.md` owns the `0.5` `Module` / `Skill` / `Tool` registry-object identity, manifest-backed registry semantics, and deterministic bootstrap vocabulary.
+- `docs/cognitive-agent-architecture/architecture/0.5-workflow-runtime-primitives.md` owns the `0.5` canonical workflow object, seeded-versus-user-authored provenance, mutability, and grant-envelope vocabulary.
 
 ## Scientific Substrate vs Symbolic Layer
 

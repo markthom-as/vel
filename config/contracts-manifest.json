@@ -210,6 +210,24 @@
       "schema": "config/schemas/0.5-write-intent.schema.json"
     },
     {
+      "id": "v0_5_module_registry_object_schema",
+      "path": "config/schemas/0.5-module-registry-object.schema.json",
+      "kind": "module_registry_object",
+      "schema": "config/schemas/0.5-module-registry-object.schema.json"
+    },
+    {
+      "id": "v0_5_workflow_object_schema",
+      "path": "config/schemas/0.5-workflow-object.schema.json",
+      "kind": "workflow_object",
+      "schema": "config/schemas/0.5-workflow-object.schema.json"
+    },
+    {
+      "id": "v0_5_workflow_object_example",
+      "path": "config/examples/0.5-workflow-object.example.json",
+      "kind": "workflow_object",
+      "schema": "config/schemas/0.5-workflow-object.schema.json"
+    },
+    {
       "id": "backup_manifest_example",
       "path": "config/examples/backup-manifest.example.json",
       "kind": "backup_manifest",

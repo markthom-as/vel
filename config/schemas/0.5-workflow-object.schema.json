@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/0.5-workflow-object.schema.json",
+  "title": "0.5 Workflow Object",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "origin",
+    "mutability",
+    "version",
+    "definition",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^workflow_"
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "system",
+        "seeded",
+        "user-authored",
+        "imported"
+      ]
+    },
+    "source_module_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^module\\."
+    },
+    "manifest_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mutability": {
+      "type": "string",
+      "enum": [
+        "immutable",
+        "forkable",
+        "editable"
+      ]
+    },
+    "forked_from_workflow_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^workflow_"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "definition": {
+      "type": "object"
+    },
+    "policy_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "deprecated",
+        "disabled"
+      ]
+    },
+    "seed_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reconciliation_state": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "new",
+        "unchanged",
+        "updated",
+        "drifted",
+        "forked_local",
+        "superseded",
+        "disabled",
+        "invalid",
+        null
+      ]
+    }
+  }
+}
