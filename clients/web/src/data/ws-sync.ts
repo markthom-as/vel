@@ -8,7 +8,7 @@ import type {
   WsEvent,
 } from '../types';
 import { subscribeWs } from '../realtime/ws';
-import { chatQueryKeys } from './chat';
+import { chatQueryKeys, invalidateInboxQueries } from './chat';
 import { contextQueryKeys } from './context';
 import { operatorQueryKeys } from './operator';
 import {
@@ -113,7 +113,7 @@ function applyMessageEvent(message: MessageData) {
 function applyInterventionCreated(inboxItem: InboxItemData) {
   invalidatePhase05Queries();
   const pendingActions = pendingInterventionActions();
-  setQueryData<InboxItemData[]>(chatQueryKeys.inbox(), (current = []) =>
+  setQueryData<InboxItemData[]>(chatQueryKeys.inbox('queue'), (current = []) =>
     upsertInboxItem(current, inboxItem, pendingActions),
   );
 
@@ -141,7 +141,7 @@ function applyInterventionUpdated(id: string, state: string) {
     chatQueryKeys.pendingInterventionActions(),
     (current = {}) => markPendingInterventionActionConfirmed(current, id, state),
   );
-  invalidateQuery(chatQueryKeys.inbox(), { refetch: true });
+  invalidateInboxQueries();
   for (const key of listLoadedQueryKeys()) {
     if (isConversationInterventionsKey(key)) {
       invalidateQuery(key, { refetch: true });

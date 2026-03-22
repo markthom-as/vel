@@ -22,6 +22,17 @@ import {
   operatorQueryKeys,
 } from '../../data/operator';
 import { useQuery } from '../../data/query';
+import {
+  PanelCallout,
+  PanelDenseRow,
+  PanelPageSection,
+  PanelSectionHeader,
+  PanelStatTile,
+  PanelStatusChip,
+  componentHealthTone,
+  syncStatusTone,
+} from '../../core/PanelChrome';
+import { IntegrationBrandIcon, statsRowKeyToBrand } from '../../core/Icons';
 import { SurfaceState } from '../../core/SurfaceState';
 
 const RUN_LIMIT = 20;
@@ -108,7 +119,7 @@ export function StatsView() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-zinc-950">
-      <div className="mx-auto max-w-6xl px-6 py-8 space-y-8">
+      <div className="mx-auto max-w-6xl space-y-8 px-6 py-8">
         <header>
           <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Stats</p>
           <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Passive detail and observability</h1>
@@ -119,131 +130,143 @@ export function StatsView() {
         </header>
 
         {errors.length > 0 ? (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-            Partial data: {errors.join(' | ')}
-          </div>
+          <PanelCallout tone="warning">Partial data: {errors.join(' | ')}</PanelCallout>
         ) : null}
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <StatCard
+          <PanelStatTile
             label="Context mode"
             value={contextExplain?.mode ?? 'unknown'}
             detail={`Updated ${formatUnixTimestamp(contextExplain?.computed_at ?? null)}`}
           />
-          <StatCard
+          <PanelStatTile
             label="Morning state"
             value={contextExplain?.morning_state ?? 'unknown'}
             detail={`Current context ${formatUnixTimestamp(currentContext?.computed_at ?? null)}`}
           />
-          <StatCard
+          <PanelStatTile
             label="Attention"
             value={driftExplain?.attention_state ?? 'unknown'}
             detail={`Drift ${driftExplain?.drift_type ?? 'none'}`}
           />
-          <StatCard
+          <PanelStatTile
             label="Confidence"
             value={driftExplain?.confidence == null ? 'n/a' : `${Math.round(driftExplain.confidence * 100)}%`}
             detail={`Severity ${driftExplain?.drift_severity ?? 'n/a'}`}
           />
         </section>
 
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-          <h2 className="text-lg font-medium text-zinc-100">Source health</h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            Integration state and last observed sync health by source.
-          </p>
+        <PanelPageSection>
+          <PanelSectionHeader
+            title="Source health"
+            description="Integration state and last observed sync health by source."
+          />
           {integrations ? (
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {integrationRows(integrations).map((row) => (
-                <div key={row.key} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-zinc-100">{row.label}</p>
-                      <p className="text-xs text-zinc-500">{row.status}</p>
+              {integrationRows(integrations).map((row) => {
+                const brand = statsRowKeyToBrand(row.key);
+                return (
+                  <PanelDenseRow key={row.key}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-start gap-2">
+                        {brand ? (
+                          <span className="mt-0.5 shrink-0 text-zinc-300 [&_svg]:block">
+                            <IntegrationBrandIcon brand={brand} size={20} />
+                          </span>
+                        ) : null}
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-zinc-100">{row.label}</p>
+                          <p className="text-xs text-zinc-500">{row.status}</p>
+                        </div>
+                      </div>
+                      <PanelStatusChip tone={syncStatusTone(row.lastSyncStatus)}>
+                        {row.lastSyncStatus ?? 'never'}
+                      </PanelStatusChip>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-[11px] ${statusClass(row.lastSyncStatus)}`}>
-                      {row.lastSyncStatus ?? 'never'}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-zinc-400">
-                    Last sync: {formatUnixTimestamp(row.lastSyncAt)}
-                    {row.lastItemCount != null ? ` · ${row.lastItemCount} items` : ''}
-                  </p>
-                  {row.lastError ? (
-                    <p className="mt-2 text-xs text-rose-300">Error: {row.lastError}</p>
-                  ) : null}
-                </div>
-              ))}
+                    <p className="mt-2 text-xs text-zinc-400">
+                      Last sync: {formatUnixTimestamp(row.lastSyncAt)}
+                      {row.lastItemCount != null ? ` · ${row.lastItemCount} items` : ''}
+                    </p>
+                    {row.lastError ? (
+                      <p className="mt-2 text-xs text-rose-300">Error: {row.lastError}</p>
+                    ) : null}
+                  </PanelDenseRow>
+                );
+              })}
             </div>
           ) : (
             <SurfaceState message="Integrations data unavailable." />
           )}
-        </section>
+        </PanelPageSection>
 
         <section className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-            <h2 className="text-lg font-medium text-zinc-100">Runtime loops</h2>
-            <p className="mt-1 text-sm text-zinc-400">Scheduler loop state, cadence, and recent results.</p>
+          <PanelPageSection>
+            <PanelSectionHeader
+              title="Runtime loops"
+              description="Scheduler loop state, cadence, and recent results."
+            />
             {loops.length === 0 ? (
               <SurfaceState message="No loops reported." />
             ) : (
               <div className="mt-4 space-y-2">
                 {loops.map((loop) => (
-                  <div key={loop.kind} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                  <PanelDenseRow key={loop.kind}>
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-zinc-100">{loop.kind}</p>
-                      <span className={`rounded-full px-2 py-1 text-[11px] ${loop.enabled ? 'bg-emerald-500/20 text-emerald-200' : 'bg-zinc-700/40 text-zinc-300'}`}>
+                      <PanelStatusChip tone={loop.enabled ? 'ok' : 'neutral'}>
                         {loop.enabled ? 'enabled' : 'disabled'}
-                      </span>
+                      </PanelStatusChip>
                     </div>
                     <p className="mt-2 text-xs text-zinc-400">
-                      every {loop.interval_seconds}s · status {loop.last_status ?? 'unknown'} · next {formatUnixTimestamp(loop.next_due_at)}
+                      every {loop.interval_seconds}s · status {loop.last_status ?? 'unknown'} · next{' '}
+                      {formatUnixTimestamp(loop.next_due_at)}
                     </p>
                     {loop.last_error ? (
                       <p className="mt-2 text-xs text-rose-300">Error: {loop.last_error}</p>
                     ) : null}
-                  </div>
+                  </PanelDenseRow>
                 ))}
               </div>
             )}
-          </div>
+          </PanelPageSection>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-            <h2 className="text-lg font-medium text-zinc-100">Components</h2>
-            <p className="mt-1 text-sm text-zinc-400">Backend component health and restart history.</p>
+          <PanelPageSection>
+            <PanelSectionHeader
+              title="Components"
+              description="Backend component health and restart history."
+            />
             {components.length === 0 ? (
               <SurfaceState message="No components reported." />
             ) : (
               <div className="mt-4 space-y-2">
                 {components.map((component) => (
-                  <div key={component.id} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-3">
+                  <PanelDenseRow key={component.id}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-zinc-100">{component.name}</p>
                         <p className="text-xs text-zinc-500">{component.description}</p>
                       </div>
-                      <span className={`rounded-full px-2 py-1 text-[11px] ${componentStatusClass(component.status)}`}>
-                        {component.status}
-                      </span>
+                      <PanelStatusChip tone={componentHealthTone(component.status)}>{component.status}</PanelStatusChip>
                     </div>
                     <p className="mt-2 text-xs text-zinc-400">
-                      Restarts: {component.restart_count} · Last restart {formatUnixTimestamp(component.last_restarted_at)}
+                      Restarts: {component.restart_count} · Last restart{' '}
+                      {formatUnixTimestamp(component.last_restarted_at)}
                     </p>
                     {component.last_error ? (
                       <p className="mt-2 text-xs text-rose-300">Error: {component.last_error}</p>
                     ) : null}
-                  </div>
+                  </PanelDenseRow>
                 ))}
               </div>
             )}
-          </div>
+          </PanelPageSection>
         </section>
 
-        <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-          <h2 className="text-lg font-medium text-zinc-100">Recent runs</h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            Latest run lifecycle outcomes and retry posture.
-          </p>
+        <PanelPageSection>
+          <PanelSectionHeader
+            title="Recent runs"
+            description="Latest run lifecycle outcomes and retry posture."
+          />
           {runs.length === 0 ? (
             <SurfaceState message="No runs yet." />
           ) : (
@@ -275,18 +298,8 @@ export function StatsView() {
               </table>
             </div>
           )}
-        </section>
+        </PanelPageSection>
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, detail }: { label: string; value: string; detail: string }) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3">
-      <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className="mt-1 text-xl font-medium text-zinc-100">{value}</p>
-      <p className="mt-1 text-xs text-zinc-400">{detail}</p>
     </div>
   );
 }
@@ -338,32 +351,6 @@ function localIntegrationRow(key: string, label: string, integration: Integratio
     lastItemCount: integration.last_item_count,
     lastError: integration.last_error,
   };
-}
-
-function componentStatusClass(status: string): string {
-  if (status === 'healthy' || status === 'running') {
-    return 'bg-emerald-500/20 text-emerald-200';
-  }
-  if (status === 'degraded') {
-    return 'bg-amber-500/20 text-amber-200';
-  }
-  if (status === 'failed' || status === 'error') {
-    return 'bg-rose-500/20 text-rose-200';
-  }
-  return 'bg-zinc-700/40 text-zinc-300';
-}
-
-function statusClass(status: string | null): string {
-  if (status === 'ok' || status === 'success') {
-    return 'bg-emerald-500/20 text-emerald-200';
-  }
-  if (status === 'error' || status === 'failed') {
-    return 'bg-rose-500/20 text-rose-200';
-  }
-  if (status === 'stale' || status === 'warning') {
-    return 'bg-amber-500/20 text-amber-200';
-  }
-  return 'bg-zinc-700/40 text-zinc-300';
 }
 
 function formatDuration(durationMs: number | null): string {

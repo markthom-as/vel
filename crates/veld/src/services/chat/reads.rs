@@ -177,6 +177,15 @@ fn action_item_to_inbox_item(item: ActionItem) -> Result<InboxItem, AppError> {
         .as_ref()
         .and_then(|route| route.thread_id.clone());
     let mut available_actions = Vec::new();
+    let is_intervention_backed = item.evidence.iter().any(|evidence| {
+        evidence.source_kind == "intervention" || evidence.source_kind == "assistant_proposal"
+    });
+    if is_intervention_backed {
+        available_actions.push(AvailableActionData::Acknowledge);
+        available_actions.push(AvailableActionData::Snooze);
+        available_actions.push(AvailableActionData::Resolve);
+        available_actions.push(AvailableActionData::Dismiss);
+    }
     if conversation_id.is_some() {
         available_actions.push(AvailableActionData::OpenThread);
     }
@@ -218,6 +227,26 @@ pub(crate) async fn list_inbox_items(
             .then_with(|| right.surfaced_at.cmp(&left.surfaced_at))
     });
     items.truncate(limit as usize);
+    Ok(items)
+}
+
+pub(crate) async fn list_inbox_archived_items(
+    state: &AppState,
+    limit: u32,
+) -> Result<Vec<InboxItem>, AppError> {
+    let action_index = intervention_action_index(state).await?;
+    let list = state.storage.list_interventions_archived(limit).await?;
+    let mut items = Vec::with_capacity(list.len());
+    for record in list {
+        let action_item = action_index.get(record.id.as_ref());
+        items.push(intervention_record_to_inbox_output(state, record, action_item).await?);
+    }
+    items.sort_by(|left, right| {
+        right
+            .rank
+            .cmp(&left.rank)
+            .then_with(|| right.surfaced_at.cmp(&left.surfaced_at))
+    });
     Ok(items)
 }
 

@@ -26,6 +26,10 @@ vi.mock('../../views/threads', () => ({
   ),
 }))
 
+vi.mock('../../views/threads/useResolvedThreadConversationId', () => ({
+  useResolvedThreadConversationId: (conversationId: string | null) => conversationId,
+}))
+
 vi.mock('../../views/settings', () => ({
   SettingsPage: ({ initialTab }: { initialTab: string }) => <div>Settings page {initialTab}</div>,
 }))

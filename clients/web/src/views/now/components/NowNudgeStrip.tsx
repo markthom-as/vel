@@ -1,9 +1,16 @@
 import type { ActionItemData, NowData } from '../../../types';
-import { OpenThreadIcon, SparkIcon, TagIcon } from '../../../core/Icons';
-import { SurfaceActionChip, SurfaceTagChip } from '../../../core/SurfaceChips';
-import { uiTheme } from '../../../core/Theme';
-import { findBarProjectTags, formatNowBarKind, formatRelativeMinutes } from '../nowModel';
-import { nudgeBadgeTone, nudgeIcon } from '../nowNudgePresentation';
+import { FilterDenseTag, FilterPillButton } from '../../../core/FilterToggleTag';
+import { TagIcon } from '../../../core/Icons';
+import { NowItemRowShell } from '../../../core/NowItemRow';
+import { findBarProjectTags, formatNowBarKind, formatRelativeMinutes, nudgeKindTagClasses, projectTagClasses } from '../nowModel';
+import {
+  NudgeActionIcon,
+  nudgeActionAriaLabel,
+  nudgeActionButtonLabel,
+  NudgeLeadOrb,
+  nudgeKindTagIcon,
+  surfaceActionChipNudgeClass,
+} from '../nowNudgePresentation';
 
 export function NowNudgeStrip({
   bars,
@@ -25,61 +32,71 @@ export function NowNudgeStrip({
 
   return (
     <div className="space-y-2">
-      {bars.map((bar, index) => (
-        <div
+      {bars.map((bar) => {
+        const warmUrgent = bar.urgent || bar.kind === 'trust_warning' || bar.kind === 'freshness_warning';
+        /** Outside the rounded card; `compact` shell uses `overflow-hidden` unless overridden. */
+        const isPrimary = bars[0]?.id === bar.id || bar.urgent;
+
+        return (
+        <NowItemRowShell
           key={bar.id}
-          className={`relative rounded-[20px] border px-4 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.2)] ${
-            index === 0
-              ? `${uiTheme.brandBorder} bg-zinc-900/95 ${uiTheme.brandShadow}`
-              : bar.urgent
-                ? 'border-amber-700/50 bg-amber-950/18'
-                : 'border-zinc-800 bg-zinc-900/55'
-          }`}
+          surface={warmUrgent ? 'warm' : 'brand'}
+          shell="compact"
+          className="!overflow-visible"
         >
-          <div className="pointer-events-none absolute -left-7 top-1/2 -translate-y-1/2 text-zinc-400">
-            <span
-              className={`flex items-center justify-center ${index === 0 || bar.urgent ? 'scale-125 animate-pulse' : 'scale-110'} ${uiTheme.brandGlow} ${nudgeBadgeTone(bar.kind, bar.urgent)}`}
-            >
-              {nudgeIcon(bar.kind)}
-            </span>
+          <div
+            className="pointer-events-none absolute -left-11 top-1/2 z-10 -translate-y-1/2"
+            aria-hidden
+          >
+            <NudgeLeadOrb kind={bar.kind} urgent={bar.urgent} warmSurface={warmUrgent} isPrimary={isPrimary} />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">{formatRelativeMinutes(nowTs)}</span>
-                <p className="truncate text-[11px] text-zinc-400">{bar.summary}</p>
+          <div className="relative z-10 flex min-w-0 flex-row items-stretch gap-2">
+            <div className="min-w-0 flex-1 flex flex-col justify-center gap-1">
+              <div className="min-w-0 overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex min-w-0 flex-nowrap items-center justify-start gap-x-1.5">
+                  <p className="min-w-0 max-w-[min(100%,15rem)] shrink truncate text-sm font-medium leading-none tracking-tight text-white sm:max-w-[min(100%,20rem)]">
+                    {bar.title}
+                  </p>
+                  <FilterDenseTag className="!shrink-0 border-transparent bg-transparent text-zinc-600">
+                    {formatRelativeMinutes(nowTs)}
+                  </FilterDenseTag>
+                  <span className="shrink-0">
+                    <FilterDenseTag className={nudgeKindTagClasses(bar.kind, bar.urgent)}>
+                      <span aria-hidden className="inline-flex shrink-0 items-center">
+                        {nudgeKindTagIcon(bar.kind)}
+                      </span>
+                      {formatNowBarKind(bar.kind)}
+                    </FilterDenseTag>
+                  </span>
+                  {findBarProjectTags(bar, actionItems).map((tag) => (
+                    <FilterDenseTag key={`${bar.id}-${tag}`} className={projectTagClasses(tag)}>
+                      <span aria-hidden className="inline-flex shrink-0 items-center opacity-80">
+                        <TagIcon size={10} />
+                      </span>
+                      {tag}
+                    </FilterDenseTag>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-zinc-100">{bar.title}</p>
-                <SurfaceTagChip tone={bar.kind === 'trust_warning' ? 'warning' : 'accent'} square>
-                  {formatNowBarKind(bar.kind)}
-                </SurfaceTagChip>
-                {findBarProjectTags(bar, actionItems).map((tag) => (
-                  <SurfaceTagChip key={`${bar.id}-${tag}`} tone="project" square>
-                    <TagIcon size={11} />
-                    {tag}
-                  </SurfaceTagChip>
-                ))}
-              </div>
+              <p className="line-clamp-2 text-xs leading-snug text-zinc-500">{bar.summary}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {bar.actions.map((action) => (
-                <SurfaceActionChip
-                  key={`${bar.id}-${action.kind}-${action.label}`}
+            <div className="flex shrink-0 flex-col items-end justify-center gap-1.5 self-stretch">
+              {bar.actions.map((action, actionIndex) => (
+                <FilterPillButton
+                  key={`${bar.id}-${actionIndex}-${action.kind}-${action.label}`}
+                  className={surfaceActionChipNudgeClass}
                   onClick={() => onBarAction(bar, action)}
+                  aria-label={nudgeActionAriaLabel(bar, action, actionIndex, bar.actions.length)}
                 >
-                  {action.kind === 'open_thread' || action.kind === 'expand' ? (
-                    <OpenThreadIcon size={13} />
-                  ) : (
-                    <SparkIcon size={13} />
-                  )}
-                  {action.label}
-                </SurfaceActionChip>
+                  <NudgeActionIcon kind={action.kind} size={16} className="shrink-0" aria-hidden />
+                  <span className="capitalize">{nudgeActionButtonLabel(action, bar)}</span>
+                </FilterPillButton>
               ))}
             </div>
           </div>
-        </div>
-      ))}
+        </NowItemRowShell>
+        );
+      })}
     </div>
   );
 }

@@ -4,6 +4,9 @@ import {
   acknowledgeInboxItem,
   dismissInboxItem,
   getInboxThreadPath,
+  getInterventionApiId,
+  reactivateInboxItem,
+  resolveInboxItem,
   snoozeInboxItem,
 } from './chat'
 import type { InboxItemData } from '../types'
@@ -67,6 +70,73 @@ describe('chat data helpers', () => {
       expect.any(Function),
     )
     expect(response.data?.state).toBe('dismissed')
+  })
+
+  it('posts resolve and reactivate inbox mutations', async () => {
+    vi.mocked(client.apiPost).mockResolvedValue({
+      ok: true,
+      data: { id: 'intv_4', state: 'resolved' },
+      meta: { request_id: 'req_res' },
+    } as never)
+
+    await resolveInboxItem('intv_4')
+    expect(client.apiPost).toHaveBeenCalledWith(
+      '/api/interventions/intv_4/resolve',
+      {},
+      expect.any(Function),
+    )
+
+    vi.mocked(client.apiPost).mockResolvedValue({
+      ok: true,
+      data: { id: 'intv_4', state: 'active' },
+      meta: { request_id: 'req_react' },
+    } as never)
+
+    await reactivateInboxItem('intv_4')
+    expect(client.apiPost).toHaveBeenCalledWith(
+      '/api/interventions/intv_4/reactivate',
+      {},
+      expect.any(Function),
+    )
+  })
+
+  it('derives intervention API id from synthetic action ids and evidence', () => {
+    expect(
+      getInterventionApiId({
+        id: 'intv_9',
+        message_id: 'm',
+        kind: 'k',
+        state: 'active',
+        surfaced_at: 1,
+        snoozed_until: null,
+        confidence: null,
+        conversation_id: null,
+        title: '',
+        summary: '',
+        project_id: null,
+        project_label: null,
+        available_actions: [],
+        evidence: [],
+      }),
+    ).toBe('intv_9')
+    expect(
+      getInterventionApiId({
+        id: 'act_intervention_abc123',
+        message_id: 'm',
+        kind: 'k',
+        state: 'active',
+        surfaced_at: 1,
+        snoozed_until: null,
+        confidence: null,
+        conversation_id: null,
+        title: '',
+        summary: '',
+        project_id: null,
+        project_label: null,
+        available_actions: [],
+        evidence: [],
+      }),
+    ).toBe('abc123')
   })
 
   it('reuses /api/conversations/:id only when open_thread is available', () => {

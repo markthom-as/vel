@@ -1,4 +1,27 @@
-import type { ActionItemData, NowData, NowTaskData, RoutineBlockData } from '../../types';
+import { brandTagPalette, uiTheme } from '../../core/Theme';
+import type { SettingsSectionKey } from '../../views/settings';
+import type {
+  ActionItemData,
+  ClusterBootstrapData,
+  NowData,
+  NowTaskData,
+  RoutineBlockData,
+  WorkerPresenceData,
+} from '../../types';
+
+/** Maps synthetic nudge bar ids to Settings deep links for `open_settings` actions. */
+export function nudgeOpenSettingsTarget(bar: { id: string }): {
+  tab: 'general' | 'integrations' | 'runtime';
+  section?: SettingsSectionKey;
+} {
+  if (bar.id === 'backup_trust_warning') {
+    return { tab: 'runtime', section: 'backups' };
+  }
+  if (bar.id === 'mesh_summary_warning') {
+    return { tab: 'general', section: 'clients-sync' };
+  }
+  return { tab: 'runtime' };
+}
 
 export function dedupeTasks(tasks: Array<NowTaskData | null | undefined>): NowTaskData[] {
   const seen = new Set<string>();
@@ -127,6 +150,9 @@ export function scoreNudge(bar: { urgent: boolean; kind: string }): number {
 }
 
 export function formatNowBarKind(kind: string): string {
+  if (kind === 'trust_warning') {
+    return 'VEL CONFIG';
+  }
   return kind.replaceAll('_', ' ');
 }
 
@@ -136,16 +162,85 @@ export function findBarProjectTags(bar: NowData['nudge_bars'][number], items: Ac
   return [...new Set(labels)];
 }
 
-export function projectTagTone(label: string): string {
-  const tones = [
-    'bg-sky-950/40 text-sky-200',
-    'bg-emerald-950/40 text-emerald-200',
-    'bg-fuchsia-950/40 text-fuchsia-200',
-    'bg-cyan-950/40 text-cyan-200',
-    'bg-indigo-950/40 text-indigo-200',
-  ];
-  const seed = Array.from(label).reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return tones[seed % tones.length];
+/** Stable hash for assigning a tag string to a palette slot (case-insensitive). */
+export function projectTagHash(label: string): number {
+  const normalized = label.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return 0;
+  }
+  return Array.from(normalized).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+}
+
+/** Border + background + text classes for a project/tag label; stable per label string. */
+export function projectTagClasses(label: string): string {
+  return brandTagPalette[projectTagHash(label) % brandTagPalette.length];
+}
+
+/** Color-coded nudge kind tag (pairs with `nudgeKindTagIcon` in presentation). */
+export function nudgeKindTagClasses(kind: string, urgent: boolean): string {
+  if (urgent) {
+    return 'border-amber-600/45 bg-amber-950/70 text-amber-100';
+  }
+  if (kind === 'trust_warning' || kind === 'freshness_warning') {
+    return 'border-amber-600/45 bg-amber-950/70 text-amber-100';
+  }
+  return uiTheme.brandNudgeKindTag;
+}
+
+/** Same primary line the nav previously showed: active task, else context line, else a placeholder. */
+export function nowNavContextSummary(data: NowData): string {
+  return data.task_lane?.active?.text ?? data.context_line?.text ?? 'No active task';
+}
+
+export function nowLocationLabel(
+  data: NowData,
+  activeEvent: NowData['schedule']['upcoming_events'][number] | null,
+): string {
+  const loc = activeEvent?.location?.trim();
+  if (loc) {
+    return loc;
+  }
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: data.timezone,
+      timeZoneName: 'long',
+    }).formatToParts(new Date(data.computed_at * 1000));
+    return parts.find((part) => part.type === 'timeZoneName')?.value ?? data.timezone;
+  } catch {
+    return data.timezone;
+  }
+}
+
+export function shortClientKindLabel(clientKind: string | null | undefined): string | null {
+  if (!clientKind) {
+    return null;
+  }
+  const normalized = clientKind.trim().toLowerCase();
+  if (normalized.includes('web')) {
+    return 'Web';
+  }
+  if (normalized.includes('mac')) {
+    return 'macOS';
+  }
+  if (normalized.includes('ios') || normalized.includes('iphone') || normalized.includes('ipad')) {
+    return 'iOS';
+  }
+  if (normalized.includes('watch')) {
+    return 'watchOS';
+  }
+  if (normalized.includes('veld') || normalized.includes('daemon') || normalized.includes('server')) {
+    return 'Authority';
+  }
+  return clientKind;
+}
+
+export function formatNowClientCaption(
+  bootstrap: ClusterBootstrapData | null | undefined,
+  localWorker: WorkerPresenceData | null | undefined,
+): string {
+  const name = bootstrap?.node_display_name?.trim() || 'Unknown host';
+  const kind = shortClientKindLabel(localWorker?.client_kind);
+  return kind ? `${name} · ${kind}` : name;
 }
 
 export function buildCurrentStatus(

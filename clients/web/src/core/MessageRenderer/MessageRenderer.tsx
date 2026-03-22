@@ -14,7 +14,16 @@ import {
   SummaryCardView,
 } from '../Cards';
 import { MarkdownMessage } from '../MarkdownMessage';
+import { cn } from '../cn';
+import { FilterDenseTag, FilterPillButton } from '../FilterToggleTag';
+import { filterPillActionIdle, filterPillFrame } from '../FilterToggleTag/filterPillClasses';
+import { ChatBubbleChrome } from '../MessageBubble';
+import { ItemRowTitleMetaBand, NowItemRowLayout } from '../NowItemRow';
 import { useState } from 'react';
+
+/** Matches nudge / inbox action chip sizing without importing `views/now`. */
+const messageActionPillClass =
+  '!gap-2 !px-3 !py-1.5 !text-[11px] !font-medium !normal-case leading-tight tracking-normal [&_svg]:!h-4 [&_svg]:!w-4';
 
 interface MessageRendererProps {
   message: MessageData;
@@ -23,6 +32,19 @@ interface MessageRendererProps {
   onResolve?: (interventionId: string) => void;
   onDismiss?: (interventionId: string) => void;
   onShowWhy?: (messageId: string) => void;
+}
+
+function formatMessageTime(createdAt: number): string {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(createdAt * 1000));
+  } catch {
+    return '';
+  }
 }
 
 export function MessageRenderer({
@@ -49,6 +71,11 @@ export function MessageRenderer({
   const hasInterventionActions =
     interventionId && (onSnooze || onResolve || onDismiss || onShowWhy);
 
+  const tagFrame = isUser
+    ? 'border-emerald-800/60 bg-emerald-900/45 text-emerald-200'
+    : 'border-[#ff6b00]/40 bg-[#2d1608]/90 text-[#ffd4b8]';
+  const metaTimeClass = isUser ? 'text-emerald-600/90' : 'text-[#c9a082]';
+
   async function handleCopyAction(label: string, value: string) {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
       return;
@@ -64,7 +91,7 @@ export function MessageRenderer({
     }
 
     return (
-      <div className="flex flex-wrap gap-2 mt-3">
+      <div className="mt-2 flex flex-wrap gap-1.5">
         {actions.map((action, index) => {
           const key = `${action.action_type}-${action.label}-${index}`;
           if (action.action_type === 'open_url' && action.url) {
@@ -74,7 +101,7 @@ export function MessageRenderer({
                 href={action.url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-100"
+                className={cn(filterPillFrame, filterPillActionIdle, 'text-[11px] font-medium', messageActionPillClass)}
               >
                 {action.label}
               </a>
@@ -84,27 +111,25 @@ export function MessageRenderer({
           if (action.action_type === 'copy_text' && action.value) {
             const label = copiedAction === action.label ? 'Copied' : action.label;
             return (
-              <button
+              <FilterPillButton
                 key={key}
-                type="button"
+                className={messageActionPillClass}
                 onClick={() => void handleCopyAction(action.label, action.value!)}
-                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-100"
               >
                 {label}
-              </button>
+              </FilterPillButton>
             );
           }
 
           if (action.action_type === 'show_why' && onShowWhy) {
             return (
-              <button
+              <FilterPillButton
                 key={key}
-                type="button"
+                className={messageActionPillClass}
                 onClick={() => onShowWhy(message.id)}
-                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-100"
               >
                 {action.label}
-              </button>
+              </FilterPillButton>
             );
           }
 
@@ -113,6 +138,35 @@ export function MessageRenderer({
       </div>
     );
   }
+
+  const interventionHeaderActions =
+    hasInterventionActions && interventionId ? (
+      <>
+        {onSnooze && (
+          <FilterPillButton className={messageActionPillClass} onClick={() => onSnooze(interventionId)}>
+            Snooze
+          </FilterPillButton>
+        )}
+        {onResolve && (
+          <FilterPillButton
+            className={cn(messageActionPillClass, 'border-emerald-800/80 bg-emerald-950/50 text-emerald-200 hover:border-emerald-600')}
+            onClick={() => onResolve(interventionId)}
+          >
+            Resolve
+          </FilterPillButton>
+        )}
+        {onDismiss && (
+          <FilterPillButton className={messageActionPillClass} onClick={() => onDismiss(interventionId)}>
+            Dismiss
+          </FilterPillButton>
+        )}
+        {onShowWhy && (
+          <FilterPillButton className={messageActionPillClass} onClick={() => onShowWhy(message.id)}>
+            Show why
+          </FilterPillButton>
+        )}
+      </>
+    ) : null;
 
   const cardContent = (
     <>
@@ -146,46 +200,24 @@ export function MessageRenderer({
           {JSON.stringify(message.content, null, 2)}
         </pre>
       )}
-      {hasInterventionActions && interventionId && (
-        <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-zinc-700">
-          {onSnooze && (
-            <button
-              type="button"
-              onClick={() => onSnooze(interventionId)}
-              className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200"
-            >
-              Snooze
-            </button>
-          )}
-          {onResolve && (
-            <button
-              type="button"
-              onClick={() => onResolve(interventionId)}
-              className="text-xs px-2 py-1 rounded bg-emerald-800 hover:bg-emerald-700 text-emerald-100"
-            >
-              Resolve
-            </button>
-          )}
-          {onDismiss && (
-            <button
-              type="button"
-              onClick={() => onDismiss(interventionId)}
-              className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200"
-            >
-              Dismiss
-            </button>
-          )}
-          {onShowWhy && (
-            <button
-              type="button"
-              onClick={() => onShowWhy(message.id)}
-              className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-200"
-            >
-              Show why
-            </button>
-          )}
-        </div>
-      )}
+    </>
+  );
+
+  const titleClass = isUser ? 'text-emerald-50' : 'text-zinc-100';
+
+  const metaCluster = (
+    <>
+      <FilterDenseTag
+        className={cn('!shrink-0 !normal-case !tracking-normal border-transparent bg-transparent', metaTimeClass)}
+      >
+        {formatMessageTime(message.created_at)}
+      </FilterDenseTag>
+      <FilterDenseTag className={cn(tagFrame, '!normal-case !tracking-normal')}>
+        {message.role} · {message.kind.replace(/_/g, ' ')}
+      </FilterDenseTag>
+      {message.status === 'sending' ? (
+        <FilterDenseTag className={cn(tagFrame, '!normal-case !tracking-normal')}>Sending…</FilterDenseTag>
+      ) : null}
     </>
   );
 
@@ -194,16 +226,16 @@ export function MessageRenderer({
       className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}
       data-message-id={message.id}
     >
-      <div
-        className={`max-w-[85%] rounded-lg px-3 py-2 ${
-          isUser ? 'bg-emerald-900/50 text-emerald-100' : 'bg-zinc-800 text-zinc-200'
-        }`}
-      >
-        <div className="text-xs text-zinc-500 mb-1">
-          {message.role} · {message.kind.replace(/_/g, ' ')}
-        </div>
-        {cardContent}
-      </div>
+      <ChatBubbleChrome variant={isUser ? 'user' : 'assistant'}>
+        <NowItemRowLayout actions={interventionHeaderActions} actionsLayout="inline">
+          <ItemRowTitleMetaBand
+            title={isUser ? 'You' : 'Assistant'}
+            titleClassName={titleClass}
+            meta={metaCluster}
+          />
+          <div className="mt-2 min-w-0 space-y-2">{cardContent}</div>
+        </NowItemRowLayout>
+      </ChatBubbleChrome>
     </div>
   );
 }

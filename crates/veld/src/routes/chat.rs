@@ -24,7 +24,9 @@ use crate::services::chat::{
     },
     interventions::acknowledge_intervention,
     interventions::InterventionAction,
-    interventions::{dismiss_intervention, resolve_intervention, snooze_intervention},
+    interventions::{
+        dismiss_intervention, reactivate_intervention, resolve_intervention, snooze_intervention,
+    },
     mapping::{conversation_record_to_data, message_record_to_data},
     messages::{
         create_assistant_entry_response, create_message_response, AssistantEntryCreateInput,
@@ -32,8 +34,9 @@ use crate::services::chat::{
         ChatMessageCreateResult, VoiceEntryProvenance,
     },
     reads::{
-        build_message_provenance_data, list_conversation_intervention_items, list_inbox_items,
-        list_message_intervention_items, MessageProvenance, ProvenanceMessageEvent,
+        build_message_provenance_data, list_conversation_intervention_items,
+        list_inbox_archived_items, list_inbox_items, list_message_intervention_items, MessageProvenance,
+        ProvenanceMessageEvent,
     },
     settings::settings_payload,
 };
@@ -395,11 +398,11 @@ pub async fn get_inbox(
     Query(q): Query<InboxQuery>,
 ) -> Result<Json<ApiResponse<Vec<InboxItemData>>>, AppError> {
     let limit = q.limit.unwrap_or(100).min(500);
-    let data = list_inbox_items(&state, limit)
-        .await?
-        .into_iter()
-        .map(map_inbox_item_data)
-        .collect();
+    let items = match q.scope.as_deref() {
+        Some("archive") => list_inbox_archived_items(&state, limit).await?,
+        _ => list_inbox_items(&state, limit).await?,
+    };
+    let data = items.into_iter().map(map_inbox_item_data).collect();
     let request_id = format!("req_{}", Uuid::new_v4().simple());
     Ok(Json(ApiResponse::success(data, request_id)))
 }
@@ -407,6 +410,8 @@ pub async fn get_inbox(
 #[derive(Debug, Deserialize)]
 pub struct InboxQuery {
     pub limit: Option<u32>,
+    /// `archive` returns resolved/dismissed interventions; default is the operator queue.
+    pub scope: Option<String>,
 }
 
 // --- Message interventions (for inline actions) ---
@@ -637,6 +642,18 @@ pub async fn intervention_resolve(
     )))
 }
 
+pub async fn intervention_reactivate(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<ApiResponse<InterventionActionData>>, AppError> {
+    let res = reactivate_intervention(&state, id.trim()).await?;
+    let request_id = format!("req_{}", Uuid::new_v4().simple());
+    Ok(Json(ApiResponse::success(
+        map_intervention_action(res),
+        request_id,
+    )))
+}
+
 pub async fn intervention_dismiss(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -681,6 +698,7 @@ pub fn chat_routes() -> Router<AppState> {
         )
         .route("/api/interventions/:id/snooze", post(intervention_snooze))
         .route("/api/interventions/:id/resolve", post(intervention_resolve))
+        .route("/api/interventions/:id/reactivate", post(intervention_reactivate))
         .route("/api/interventions/:id/dismiss", post(intervention_dismiss))
 }
 

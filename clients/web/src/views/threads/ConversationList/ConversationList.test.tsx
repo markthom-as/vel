@@ -13,11 +13,11 @@ function requireWsListener(listener: ((event: WsEnvelope) => void) | null): (eve
   return listener as (event: WsEnvelope) => void
 }
 
-vi.mock('../api/client', () => ({
+vi.mock('../../../api/client', () => ({
   apiGet: vi.fn(),
 }))
 
-vi.mock('../realtime/ws', () => ({
+vi.mock('../../../realtime/ws', () => ({
   subscribeWs: (listener: (event: WsEnvelope) => void) => subscribeWs(listener),
 }))
 

@@ -2110,6 +2110,13 @@ impl Storage {
         chat_repo::list_interventions_active(self.pool(), limit).await
     }
 
+    pub async fn list_interventions_archived(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<InterventionRecord>, StorageError> {
+        chat_repo::list_interventions_archived(self.pool(), limit).await
+    }
+
     pub async fn get_interventions_by_message(
         &self,
         message_id: &str,
@@ -2149,6 +2156,10 @@ impl Storage {
 
     pub async fn dismiss_intervention(&self, id: &str) -> Result<(), StorageError> {
         chat_repo::dismiss_intervention(self.pool(), id).await
+    }
+
+    pub async fn reactivate_intervention(&self, id: &str) -> Result<(), StorageError> {
+        chat_repo::reactivate_intervention(self.pool(), id).await
     }
 
     pub async fn append_event(&self, input: EventLogInsert) -> Result<EventId, StorageError> {

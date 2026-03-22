@@ -9,6 +9,16 @@ import {
   updateSuggestion,
 } from '../../data/context';
 import { invalidateQuery, useQuery } from '../../data/query';
+import { Button } from '../../core/Button';
+import {
+  PanelCallout,
+  PanelDenseRow,
+  PanelDetailShell,
+  PanelInsetCard,
+  PanelJsonPre,
+  PanelSelectableListButton,
+} from '../../core/PanelChrome';
+import { PanelItemTitle, PanelMetaPill } from '../../core/PanelItem';
 import { SurfaceState } from '../../core/SurfaceState';
 
 export function SuggestionsView() {
@@ -147,18 +157,14 @@ export function SuggestionsView() {
                     </div>
                     <div className="space-y-3">
                       {suggestions.map((suggestion) => (
-                        <button
+                        <PanelSelectableListButton
                           key={suggestion.id}
-                          type="button"
+                          selected={activeSuggestionId === suggestion.id}
+                          selectionAccent="emerald"
                           onClick={() => {
                             setSelectedSuggestionId(suggestion.id);
                             setSelectedUncertaintyId(null);
                           }}
-                          className={`w-full rounded-2xl border p-4 text-left transition ${
-                            activeSuggestionId === suggestion.id
-                              ? 'border-emerald-500 bg-emerald-500/10'
-                              : 'border-zinc-800 bg-zinc-900/70 hover:border-zinc-700'
-                          }`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -169,16 +175,14 @@ export function SuggestionsView() {
                                 {suggestion.summary ?? suggestion.suggestion_type}
                               </p>
                             </div>
-                            <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] uppercase tracking-wide text-zinc-300">
-                              p{suggestion.priority}
-                            </span>
+                            <PanelMetaPill tone="state">p{suggestion.priority}</PanelMetaPill>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-400">
                             <span>{suggestion.suggestion_type}</span>
                             <span>{suggestion.confidence ?? 'unscored'} confidence</span>
                             <span>{suggestion.evidence_count} evidence</span>
                           </div>
-                        </button>
+                        </PanelSelectableListButton>
                       ))}
                     </div>
                   </section>
@@ -194,18 +198,14 @@ export function SuggestionsView() {
                     </div>
                     <div className="space-y-3">
                       {uncertainty.map((record) => (
-                        <button
+                        <PanelSelectableListButton
                           key={record.id}
-                          type="button"
+                          selected={activeUncertainty?.id === record.id}
+                          selectionAccent="amber"
                           onClick={() => {
                             setSelectedUncertaintyId(record.id);
                             setSelectedSuggestionId(null);
                           }}
-                          className={`w-full rounded-2xl border p-4 text-left transition ${
-                            activeUncertainty?.id === record.id
-                              ? 'border-amber-500 bg-amber-500/10'
-                              : 'border-zinc-800 bg-zinc-900/70 hover:border-zinc-700'
-                          }`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -216,15 +216,13 @@ export function SuggestionsView() {
                                 {record.subject_id ?? record.subject_type}
                               </p>
                             </div>
-                            <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] uppercase tracking-wide text-zinc-300">
-                              {record.confidence_band}
-                            </span>
+                            <PanelMetaPill tone="state">{record.confidence_band}</PanelMetaPill>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-400">
                             <span>{record.resolution_mode.replace(/_/g, ' ')}</span>
                             <span>{record.status}</span>
                           </div>
-                        </button>
+                        </PanelSelectableListButton>
                       ))}
                     </div>
                   </section>
@@ -238,9 +236,9 @@ export function SuggestionsView() {
 
         <section className="overflow-y-auto px-6 py-5">
           {actionError ? (
-            <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            <PanelCallout tone="danger" className="mb-4">
               {actionError}
-            </div>
+            </PanelCallout>
           ) : null}
           {!activeSuggestionId ? (
             activeUncertainty ? (
@@ -280,7 +278,7 @@ function UncertaintyDetailCard({
   onResolve: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+    <PanelDetailShell>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
@@ -300,39 +298,34 @@ function UncertaintyDetailCard({
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2 text-xs text-zinc-400">
-        <span className="rounded-full border border-zinc-700 px-2 py-1">
-          {record.status}
-        </span>
+        <PanelMetaPill tone="state">{record.status}</PanelMetaPill>
         {record.confidence_score != null ? (
-          <span className="rounded-full border border-zinc-700 px-2 py-1">
-            score {record.confidence_score.toFixed(2)}
-          </span>
+          <PanelMetaPill tone="state">score {record.confidence_score.toFixed(2)}</PanelMetaPill>
         ) : null}
       </div>
 
       <section className="mt-6">
-        <h3 className="text-sm font-medium text-zinc-100">Reasons</h3>
+        <PanelItemTitle as="h3" size="sm">
+          Reasons
+        </PanelItemTitle>
         <JsonBlock value={record.reasons} />
       </section>
 
       {record.missing_evidence ? (
         <section className="mt-6">
-          <h3 className="text-sm font-medium text-zinc-100">Missing evidence</h3>
+          <PanelItemTitle as="h3" size="sm">
+            Missing evidence
+          </PanelItemTitle>
           <JsonBlock value={record.missing_evidence} />
         </section>
       ) : null}
 
       <div className="mt-6 flex gap-3">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={onResolve}
-          className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button variant="secondary" size="md" disabled={pending} loading={pending} onClick={onResolve}>
           {pending ? 'Resolving…' : 'Mark resolved'}
-        </button>
+        </Button>
       </div>
-    </div>
+    </PanelDetailShell>
   );
 }
 
@@ -348,7 +341,7 @@ function SuggestionDetailCard({
   onReject: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+    <PanelDetailShell>
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">
@@ -368,32 +361,34 @@ function SuggestionDetailCard({
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2 text-xs text-zinc-400">
-        <span className="rounded-full border border-zinc-700 px-2 py-1">
-          {suggestion.evidence_count} evidence
-        </span>
+        <PanelMetaPill tone="state">{suggestion.evidence_count} evidence</PanelMetaPill>
         {suggestion.decision_context_summary ? (
-          <span className="rounded-full border border-zinc-700 px-2 py-1">
-            {suggestion.decision_context_summary}
-          </span>
+          <PanelMetaPill tone="state">{suggestion.decision_context_summary}</PanelMetaPill>
         ) : null}
       </div>
 
       <section className="mt-6">
-        <h3 className="text-sm font-medium text-zinc-100">Payload</h3>
+        <PanelItemTitle as="h3" size="sm">
+          Payload
+        </PanelItemTitle>
         <JsonBlock value={suggestion.payload} />
       </section>
 
       {suggestion.decision_context ? (
         <section className="mt-6">
-          <h3 className="text-sm font-medium text-zinc-100">Decision context</h3>
+          <PanelItemTitle as="h3" size="sm">
+            Decision context
+          </PanelItemTitle>
           <JsonBlock value={suggestion.decision_context} />
         </section>
       ) : null}
 
       {suggestion.adaptive_policy ? (
         <section className="mt-6">
-          <h3 className="text-sm font-medium text-zinc-100">Adaptive policy provenance</h3>
-          <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3 text-sm text-zinc-200">
+          <PanelItemTitle as="h3" size="sm">
+            Adaptive policy provenance
+          </PanelItemTitle>
+          <PanelInsetCard className="mt-3 text-sm text-zinc-200">
             <p>Policy: {suggestion.adaptive_policy.policy_key}</p>
             <p>Suggested minutes: {suggestion.adaptive_policy.suggested_minutes}</p>
             {suggestion.adaptive_policy.current_minutes != null ? (
@@ -417,19 +412,18 @@ function SuggestionDetailCard({
             ) : (
               <p>No active override is currently applied for this policy.</p>
             )}
-          </div>
+          </PanelInsetCard>
         </section>
       ) : null}
 
       <section className="mt-6">
-        <h3 className="text-sm font-medium text-zinc-100">Evidence</h3>
+        <PanelItemTitle as="h3" size="sm">
+          Evidence
+        </PanelItemTitle>
         {suggestion.evidence && suggestion.evidence.length > 0 ? (
           <div className="mt-3 space-y-3">
             {suggestion.evidence.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3"
-              >
+              <PanelDenseRow key={item.id}>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm text-zinc-100">
                     {item.evidence_type} · {item.ref_id}
@@ -439,7 +433,7 @@ function SuggestionDetailCard({
                   </p>
                 </div>
                 {item.evidence ? <JsonBlock value={item.evidence} compact /> : null}
-              </div>
+              </PanelDenseRow>
             ))}
           </div>
         ) : (
@@ -448,35 +442,19 @@ function SuggestionDetailCard({
       </section>
 
       <div className="mt-6 flex gap-3">
-        <button
-          type="button"
-          disabled={pending}
-          onClick={onAccept}
-          className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <Button variant="primary" size="md" disabled={pending} loading={pending} onClick={onAccept}>
           {pending ? 'Applying…' : 'Accept'}
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={onReject}
-          className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        </Button>
+        <Button variant="outline" size="md" disabled={pending} onClick={onReject}>
           Reject
-        </button>
+        </Button>
       </div>
-    </div>
+    </PanelDetailShell>
   );
 }
 
 function JsonBlock({ value, compact = false }: { value: JsonValue; compact?: boolean }) {
   return (
-    <pre
-      className={`mt-3 overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/80 px-4 py-3 text-xs text-zinc-300 ${
-        compact ? '' : 'whitespace-pre-wrap'
-      }`}
-    >
-      {JSON.stringify(value, null, 2)}
-    </pre>
+    <PanelJsonPre compact={compact}>{JSON.stringify(value, null, 2)}</PanelJsonPre>
   );
 }

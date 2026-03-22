@@ -10,6 +10,73 @@ vi.mock('../../api/client', () => ({
   apiPatch: vi.fn(),
 }))
 
+function buildClusterBootstrapFixture() {
+  return {
+    node_id: 'vel-desktop',
+    node_display_name: 'Vel Desktop',
+    active_authority_node_id: 'vel-desktop',
+    active_authority_epoch: 1,
+    sync_base_url: 'http://127.0.0.1:4130',
+    sync_transport: 'localhost',
+    tailscale_base_url: null,
+    lan_base_url: null,
+    localhost_base_url: 'http://127.0.0.1:4130',
+    capabilities: [] as string[],
+    linked_nodes: [],
+    projects: [],
+    action_items: [],
+  }
+}
+
+function buildClusterWorkersFixture() {
+  return {
+    active_authority_node_id: 'vel-desktop',
+    active_authority_epoch: 1,
+    generated_at: 1710000000,
+    workers: [
+      {
+        worker_id: 'vel-desktop',
+        node_id: 'vel-desktop',
+        node_display_name: 'Vel Desktop',
+        client_kind: 'vel_web',
+        client_version: '0.1.0',
+        protocol_version: '1',
+        build_id: 'build_local',
+        worker_classes: ['sync'],
+        capabilities: ['sync_bootstrap'],
+        status: 'ok',
+        queue_depth: 0,
+        reachability: 'reachable',
+        latency_class: 'low',
+        compute_class: 'standard',
+        power_class: 'ac_or_unknown',
+        recent_failure_rate: 0,
+        tailscale_preferred: false,
+        last_heartbeat_at: 1710000000,
+        started_at: 1709999900,
+        sync_base_url: 'http://127.0.0.1:4130',
+        sync_transport: 'localhost',
+        tailscale_base_url: null,
+        preferred_tailnet_endpoint: null,
+        tailscale_reachable: false,
+        lan_base_url: null,
+        localhost_base_url: 'http://127.0.0.1:4130',
+        ping_ms: null,
+        sync_status: 'ready',
+        last_upstream_sync_at: null,
+        last_downstream_sync_at: null,
+        last_sync_error: null,
+        incoming_linking_prompt: null,
+        capacity: {
+          max_concurrency: 2,
+          current_load: 0,
+          available_concurrency: 2,
+        },
+      },
+    ],
+  }
+}
+
 function buildNowData(overrides: Record<string, unknown> = {}) {
   return {
     computed_at: 1710000000,
@@ -135,20 +202,30 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
 }
 
 describe('NowView', () => {
+  function setupApiMocks(nowPayload: ReturnType<typeof buildNowData>) {
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return { ok: true, data: nowPayload, meta: { request_id: 'req_now' } } as never
+      }
+      if (path === '/v1/cluster/bootstrap') {
+        return { ok: true, data: buildClusterBootstrapFixture(), meta: { request_id: 'req_boot' } } as never
+      }
+      if (path === '/v1/cluster/workers') {
+        return { ok: true, data: buildClusterWorkersFixture(), meta: { request_id: 'req_workers' } } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+  }
+
   beforeEach(() => {
     clearQueryCache()
     vi.mocked(api.apiGet).mockReset()
     vi.mocked(api.apiPost).mockReset()
     vi.mocked(api.apiPatch).mockReset()
+    setupApiMocks(buildNowData())
   })
 
   it('renders the compact containerless top area and grouped task container', async () => {
-    vi.mocked(api.apiGet).mockResolvedValue({
-      ok: true,
-      data: buildNowData(),
-      meta: { request_id: 'req_now' },
-    } as never)
-
     render(<NowView />)
 
     await waitFor(() => {
@@ -167,20 +244,29 @@ describe('NowView', () => {
     const onOpenThread = vi.fn()
     const onOpenSettings = vi.fn()
 
-    vi.mocked(api.apiGet).mockResolvedValue({
-      ok: true,
-      data: buildNowData(),
-      meta: { request_id: 'req_now' },
-    } as never)
+    setupApiMocks(buildNowData())
 
     render(<NowView onOpenThread={onOpenThread} onOpenSettings={onOpenSettings} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Continue in Threads/i })).toBeInTheDocument()
+      const threadButtons = screen.getAllByRole('button', {
+        name: /Open thread \(Standup check-in\) · check_in_bar/i,
+      })
+      expect(threadButtons.length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Continue in Threads/i }).at(-1) as HTMLElement)
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /Open thread \(Standup check-in\) · check_in_bar/i }).at(-1) as HTMLElement,
+    )
     expect(onOpenThread).toHaveBeenCalledWith('conv_1')
-    expect(screen.getAllByRole('button', { name: /Open settings/i }).length).toBeGreaterThan(0)
+
+    fireEvent.click(
+      screen
+        .getAllByRole('button', {
+          name: /Sync & clients \(Vel Desktop needs attention\) · mesh_summary_warning/i,
+        })
+        .at(-1) as HTMLElement,
+    )
+    expect(onOpenSettings).toHaveBeenCalledWith({ tab: 'general', section: 'clients-sync' })
   })
 })

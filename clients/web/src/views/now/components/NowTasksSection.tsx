@@ -1,8 +1,12 @@
 import type { ActionItemData, NowData, NowTaskData } from '../../../types';
-import { CheckCircleIcon, ClipboardCheckIcon, LayersIcon } from '../../../core/Icons';
+import {
+  PanelSectionHeaderBand,
+  PanelSectionHeaderLead,
+  PanelSectionHeaderTrail,
+} from '../../../core/PanelChrome';
 import { ActionRow } from './ActionRow';
 import { CompactTaskLaneRow } from './CompactTaskLaneRow';
-import { StatPill } from './StatPill';
+import { NowTasksMetricStrip } from './NowTasksMetricStrip';
 import { TaskGroup } from './TaskGroup';
 
 type LaneItem = NonNullable<NowData['task_lane']>['active'] extends infer T ? Exclude<T, null> : never;
@@ -42,21 +46,20 @@ export function NowTasksSection({
 
   return (
     <section className="space-y-4 pt-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-medium text-zinc-100">Tasks</h2>
-          <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-zinc-500">Today&apos;s operating queue</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 text-right">
-          <StatPill
-            label="Completed"
-            value={`${completedCount}/${Math.max(1, completedCount + remainingCount)}`}
-            detail={`${Math.round((completedCount / Math.max(1, completedCount + remainingCount)) * 100)}%`}
-            icon={<CheckCircleIcon size={12} />}
-          />
-          <StatPill label="Remaining" value={String(remainingCount)} icon={<ClipboardCheckIcon size={12} />} />
-          <StatPill label="Backlog" value={String(backlogCount)} icon={<LayersIcon size={12} />} />
-        </div>
+      <div className="space-y-2">
+        <PanelSectionHeaderBand mode="section-header">
+          <PanelSectionHeaderLead>
+            <h2 className="text-lg font-medium text-zinc-100">Tasks</h2>
+          </PanelSectionHeaderLead>
+          <PanelSectionHeaderTrail>
+            <NowTasksMetricStrip
+              completedCount={completedCount}
+              remainingCount={remainingCount}
+              backlogCount={backlogCount}
+            />
+          </PanelSectionHeaderTrail>
+        </PanelSectionHeaderBand>
+        <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">Today&apos;s operating queue</p>
       </div>
 
       <div className="mt-4 space-y-4">
@@ -85,6 +88,7 @@ export function NowTasksSection({
             <CompactTaskLaneRow
               key={item.id}
               item={item}
+              flat
               metadata={allTaskMetadata.find((task) => task.id === item.id) ?? null}
               pending={Boolean(pendingCommitments[item.id])}
               feedback={commitmentMessages[item.id]}
@@ -105,7 +109,21 @@ export function NowTasksSection({
             <CompactTaskLaneRow
               key={item.id}
               item={item}
+              flat
               metadata={allTaskMetadata.find((task) => task.id === item.id) ?? null}
+            />
+          ))}
+        </TaskGroup>
+
+        <TaskGroup title="COMPLETED" visible={(taskLane?.recent_completed.length ?? 0) > 0}>
+          {taskLane?.recent_completed.map((item) => (
+            <CompactTaskLaneRow
+              key={item.id}
+              item={item}
+              flat
+              emphasis="completed"
+              metadata={allTaskMetadata.find((task) => task.id === item.id) ?? null}
+              onOpenThread={item.primary_thread_id ? () => onOpenThread?.(item.primary_thread_id!) : undefined}
             />
           ))}
         </TaskGroup>

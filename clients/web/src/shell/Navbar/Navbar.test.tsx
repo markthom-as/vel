@@ -7,7 +7,10 @@ afterEach(() => {
 })
 
 describe('Navbar', () => {
-  function renderNavbar(activeView: 'now' | 'inbox' | 'threads' | 'settings' = 'now') {
+  function renderNavbar(
+    activeView: 'now' | 'inbox' | 'threads' | 'settings' = 'now',
+    infoPanelOpen = false,
+  ) {
     const onSelectView = vi.fn()
     const onOpenDocumentation = vi.fn()
 
@@ -16,7 +19,7 @@ describe('Navbar', () => {
         activeView={activeView}
         onSelectView={onSelectView}
         onOpenDocumentation={onOpenDocumentation}
-        infoPanelOpen={false}
+        infoPanelOpen={infoPanelOpen}
       />,
     )
 
@@ -54,6 +57,11 @@ describe('Navbar', () => {
   it('uses the top-level info button as the documentation affordance', () => {
     renderNavbar()
     expect(screen.getByRole('button', { name: 'Open info' })).toBeInTheDocument()
+  })
+
+  it('labels the info button Close when the panel is open', () => {
+    renderNavbar('now', true)
+    expect(screen.getByRole('button', { name: 'Close info' })).toBeInTheDocument()
   })
 
   it('shows the top-level info affordance by default', () => {

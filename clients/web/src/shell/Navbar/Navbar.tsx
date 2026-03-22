@@ -3,12 +3,12 @@ import { contextQueryKeys, loadNow } from '../../data/context';
 import { useQuery } from '../../data/query';
 import type { MainView } from '../../data/operatorSurfaces';
 import type { NowData } from '../../types';
+import { nowNavContextSummary } from '../../views/now/nowModel';
 import { formatNavbarDateTime } from './formatNavbarDateTime';
 import { NAVBAR_HEADER_CLASSNAME } from './navbarChrome';
 import { NavbarBrand } from './NavbarBrand';
 import { NavbarInfoButton } from './NavbarInfoButton';
 import { NavbarNavLinks } from './NavbarNavLinks';
-import { NavbarStatus } from './NavbarStatus';
 
 export interface NavbarProps {
   activeView: MainView;
@@ -39,9 +39,7 @@ export function Navbar({
 
   const computedAt = data?.computed_at ?? null;
   const timezone = data?.timezone ?? 'UTC';
-  const currentTaskSummary = data?.task_lane?.active?.text
-    ?? data?.context_line?.text
-    ?? 'No active task';
+  const currentTaskSummary = data ? nowNavContextSummary(data) : 'No active task';
   const titleDateTime = computedAt ? formatNavbarDateTime(computedAt, timezone) : null;
   const titleNotifications = ((data?.nudge_bars ?? []).length)
     + (((data?.action_items ?? []).filter((item) => item.thread_route !== null).length) + (data?.reflow_status?.thread_id ? 1 : 0))
@@ -65,13 +63,7 @@ export function Navbar({
     <header className={NAVBAR_HEADER_CLASSNAME} role="banner">
       <div className="flex min-w-0 items-center justify-between gap-4 whitespace-nowrap">
         <div className="min-w-0 shrink-0">
-          <div className="flex min-w-0 items-end gap-3">
-            <NavbarBrand onSelectNow={() => onSelectView('now')} />
-            <NavbarStatus
-              dateTimeLabel={titleDateTime ?? 'No clock context'}
-              contextLine={currentTaskSummary}
-            />
-          </div>
+          <NavbarBrand onSelectNow={() => onSelectView('now')} />
         </div>
 
         <div className="ml-auto flex min-w-0 items-center gap-5 pr-1 sm:gap-6 sm:pr-5">

@@ -9,6 +9,8 @@ import {
   CircleCheck,
   ClipboardCheck,
   Clock,
+  Folder,
+  LayoutGrid,
   Info,
   Inbox,
   Layers,
@@ -110,6 +112,14 @@ export function ClipboardCheckIcon({ size = defaults.size, strokeWidth = default
 
 export function LayersIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
   return <Layers aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function LayoutGridIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <LayoutGrid aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function FolderIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Folder aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
 }
 
 export function DotIcon({ size = defaults.size, className, ...props }: IconProps) {

@@ -15,7 +15,7 @@ export function TaskGroup({
 
   return (
     <section className="space-y-2">
-      <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{title}</p>
+      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">{title}</p>
       <div className="space-y-2">{children}</div>
     </section>
   );

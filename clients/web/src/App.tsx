@@ -6,14 +6,18 @@ import { ContextPanel } from './views/context';
 import { DocumentationPanel } from './views/context';
 import { MainPanel } from './shell/MainPanel';
 import { Navbar } from './shell/Navbar';
-import { ChevronLeftIcon, ChevronRightIcon } from './core/Icons';
+import { IconButton } from './core/Button';
+import { PanelEyebrow } from './core/PanelChrome';
+import { ChevronRightIcon } from './core/Icons';
 import { chatQueryKeys } from './data/chat';
 import { getSurfaceDefinition, type MainView } from './data/operatorSurfaces';
 import { invalidateQuery } from './data/query';
+import type { SettingsSectionKey } from './views/settings';
 
 export type SettingsNavigationTarget = {
   tab: 'general' | 'integrations' | 'runtime';
   integrationId?: 'google' | 'todoist' | 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
+  section?: SettingsSectionKey;
 };
 
 function App() {
@@ -48,8 +52,8 @@ function App() {
     setMainView('inbox');
   }
 
-  function openDocumentationPanel() {
-    setInfoPanelOpen(true);
+  function toggleDocumentationPanel() {
+    setInfoPanelOpen((open) => !open);
   }
 
   return (
@@ -58,7 +62,7 @@ function App() {
         <Navbar
           activeView={mainView}
           onSelectView={setMainView}
-          onOpenDocumentation={openDocumentationPanel}
+          onOpenDocumentation={toggleDocumentationPanel}
           infoPanelOpen={infoPanelOpen}
         />
       )}
@@ -76,35 +80,22 @@ function App() {
       infoPanel={(
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-3">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-zinc-500">Info</p>
-            <button
-              type="button"
-              onClick={() => setInfoPanelOpen((current) => !current)}
-              aria-label={infoPanelOpen ? 'Collapse info panel' : 'Open info panel'}
-              className="rounded-full px-2 py-1 text-lg leading-none text-zinc-400 transition hover:bg-zinc-900 hover:text-zinc-100"
+            <PanelEyebrow tracking="wide">Info</PanelEyebrow>
+            <IconButton
+              variant="ghost"
+              onClick={() => setInfoPanelOpen(false)}
+              aria-label="Collapse info panel"
+              className="rounded-full text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
             >
-              {infoPanelOpen ? <ChevronRightIcon size={18} /> : <ChevronLeftIcon size={18} />}
-            </button>
+              <ChevronRightIcon size={18} />
+            </IconButton>
           </div>
-          {infoPanelOpen ? (
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="border-b border-zinc-900">
-                <ContextPanel />
-              </div>
-              <DocumentationPanel currentView={getSurfaceDefinition(mainView).label} />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="border-b border-zinc-900">
+              <ContextPanel />
             </div>
-          ) : (
-            <div className="flex h-full items-start justify-center px-2 py-3">
-              <button
-                type="button"
-                onClick={() => setInfoPanelOpen(true)}
-                aria-label="Open info panel"
-                className="rounded-full px-1 py-2 text-lg leading-none text-zinc-400 transition hover:text-zinc-100"
-              >
-                <ChevronLeftIcon size={18} />
-              </button>
-            </div>
-          )}
+            <DocumentationPanel currentView={getSurfaceDefinition(mainView).label} />
+          </div>
         </div>
       )}
       infoPanelOpen={infoPanelOpen}

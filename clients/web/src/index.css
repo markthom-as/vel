@@ -1,11 +1,48 @@
 @import "tailwindcss";
 
-:root {
-  font-family: Inter, "IBM Plex Sans", "Segoe UI", sans-serif;
-  color-scheme: dark;
-  font-synthesis: none;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/**
+ * Self-hosted via Fontsource (bundled woff2, same origin as the app — avoids Google Fonts FOUT).
+ * Variable faces use *Variable family names from @fontsource-variable/*.
+ * Use `font-sans` / `font-serif` / `font-mono` / `font-display` utilities or `uiFonts` in Theme.
+ */
+@theme {
+  --font-sans:
+    "Inter Variable", "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-serif: "IBM Plex Serif", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  --font-display: "Space Grotesk Variable", "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  /** Softer geometric display for secondary heroes / marketing-style subheads (Outfit). */
+  --font-display-alt: "Outfit Variable", "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /**
+     * Static brand shimmer: painted **over** base fills (assistant bubble brown, mic, wordmark, etc.).
+     * Lower `--vel-brand-shimmer-opacity` to soften the overlay; stops share one alpha.
+     */
+    --vel-brand-shimmer-opacity: 0.62;
+    --vel-brand-shimmer-gradient: linear-gradient(
+      128deg,
+      rgb(194 65 12 / var(--vel-brand-shimmer-opacity)) 0%,
+      rgb(255 201 154 / var(--vel-brand-shimmer-opacity)) 38%,
+      rgb(255 107 0 / var(--vel-brand-shimmer-opacity)) 58%,
+      rgb(254 215 170 / var(--vel-brand-shimmer-opacity)) 100%
+    );
+    --vel-brand-shimmer-size: 260% 260%;
+    --vel-brand-shimmer-pos: 48% 52%;
+  }
+
+  body {
+    font-family: var(--font-sans);
+  }
 }
 
 * {
@@ -34,4 +71,236 @@ select {
 
 a {
   color: inherit;
+}
+
+/* Minimal scrollbars — match zinc / Vel shell (thin track, soft thumb) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(82 82 91 / 0.5) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(63 63 70 / 0.45);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(82 82 91 / 0.65);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Now nudge lead orbs: gradient ring shimmer + glow + icon glint (see `NudgeLeadOrb`). */
+@keyframes vel-nudge-orb-brand {
+  0%,
+  100% {
+    background-position: 14% 22%;
+    box-shadow:
+      0 0 10px rgba(255, 107, 0, 0.22),
+      0 0 22px rgba(255, 107, 0, 0.09);
+  }
+  50% {
+    background-position: 86% 78%;
+    box-shadow:
+      0 0 22px rgba(255, 107, 0, 0.48),
+      0 0 42px rgba(255, 107, 0, 0.14);
+  }
+}
+
+@keyframes vel-nudge-orb-warm {
+  0%,
+  100% {
+    background-position: 18% 18%;
+    box-shadow:
+      0 0 10px rgba(245, 158, 11, 0.24),
+      0 0 22px rgba(245, 158, 11, 0.1);
+  }
+  50% {
+    background-position: 82% 82%;
+    box-shadow:
+      0 0 22px rgba(245, 158, 11, 0.44),
+      0 0 40px rgba(245, 158, 11, 0.14);
+  }
+}
+
+@keyframes vel-nudge-orb-icon-glint {
+  0%,
+  100% {
+    opacity: 0.88;
+    filter: brightness(0.96);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.1);
+  }
+}
+
+.vel-nudge-orb-ring--brand {
+  background-image: linear-gradient(
+    128deg,
+    rgba(255, 107, 0, 0.12) 0%,
+    rgba(255, 178, 122, 0.98) 36%,
+    rgba(255, 120, 55, 0.62) 58%,
+    rgba(255, 107, 0, 0.18) 100%
+  );
+  background-size: 260% 260%;
+  animation: vel-nudge-orb-brand 3.2s ease-in-out infinite;
+}
+
+.vel-nudge-orb-ring--warm {
+  background-image: linear-gradient(
+    128deg,
+    rgba(217, 119, 6, 0.14) 0%,
+    rgba(252, 211, 77, 0.95) 38%,
+    rgba(251, 191, 36, 0.65) 58%,
+    rgba(245, 158, 11, 0.2) 100%
+  );
+  background-size: 260% 260%;
+  animation: vel-nudge-orb-warm 3.2s ease-in-out infinite;
+}
+
+.vel-nudge-orb-icon {
+  animation: vel-nudge-orb-icon-glint 3.2s ease-in-out infinite;
+}
+
+/* Floating message composer: same gradient vocabulary as nudge orbs — static until focus (no glow until active). */
+.vel-composer-gradient-border {
+  background-image: linear-gradient(
+    128deg,
+    rgba(255, 107, 0, 0.14) 0%,
+    rgba(255, 178, 122, 0.92) 38%,
+    rgba(255, 120, 55, 0.62) 58%,
+    rgba(255, 107, 0, 0.2) 100%
+  );
+  background-size: 260% 260%;
+  background-position: 48% 52%;
+  box-shadow: none;
+}
+
+.group:focus-within > .vel-composer-gradient-border,
+.vel-composer-mic-shell.vel-composer-gradient-border:focus-within:not(.vel-composer-mic--recording),
+.vel-composer-mic-shell.vel-composer-gradient-border.vel-composer-mic--recording {
+  box-shadow:
+    0 0 12px rgba(255, 107, 0, 0.2),
+    0 0 26px rgba(255, 107, 0, 0.07);
+}
+
+/* Applyable brand shimmer (128°) — shared with `.vel-brand-wordmark-shimmer` (text clip added below). */
+.vel-brand-shimmer-surface,
+.vel-brand-wordmark-shimmer {
+  background-image: var(--vel-brand-shimmer-gradient);
+  background-size: var(--vel-brand-shimmer-size);
+  background-position: var(--vel-brand-shimmer-pos);
+}
+
+/* Assistant text bubble: Vel brown base + same shimmer over fill (border from shell). */
+.vel-chat-assistant-bubble-fill {
+  background-image: var(--vel-brand-shimmer-gradient), linear-gradient(rgb(45 36 18), rgb(45 36 18));
+  background-size: var(--vel-brand-shimmer-size), 100% 100%;
+  background-position: var(--vel-brand-shimmer-pos), 0 0;
+}
+
+/* Vel wordmark: text clip + transparent fill (gradient from block above). Glow: parent `.vel-brand-wordmark-glow`. */
+.vel-brand-wordmark-shimmer {
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Mic: composer-only; no shadow on idle; animates with ring when mic is active. Pair with `.vel-brand-shimmer-surface`. */
+.vel-composer-mic-fill {
+  box-shadow: none;
+}
+
+.vel-composer-mic-shell.vel-composer-gradient-border:focus-within:not(.vel-composer-mic--recording) .vel-composer-mic-fill {
+  animation: vel-nudge-orb-brand 3.2s ease-in-out infinite;
+}
+
+.vel-brand-wordmark-glow {
+  filter: drop-shadow(0 0 3px rgba(255, 107, 0, 0.4)) drop-shadow(0 0 8px rgba(255, 107, 0, 0.12));
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .vel-brand-wordmark-shimmer {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: #ff6b00;
+  }
+
+  .vel-brand-wordmark-glow {
+    filter: none;
+    text-shadow: 0 0 3px rgba(255, 107, 0, 0.35), 0 0 8px rgba(255, 107, 0, 0.12);
+  }
+}
+
+.group:focus-within > .vel-composer-gradient-border {
+  animation: vel-nudge-orb-brand 3.2s ease-in-out infinite;
+}
+
+.vel-composer-mic-shell.vel-composer-gradient-border:focus-within:not(.vel-composer-mic--recording) {
+  animation: vel-nudge-orb-brand 3.2s ease-in-out infinite;
+}
+
+.vel-composer-mic-shell.vel-composer-gradient-border.vel-composer-mic--recording {
+  background-image: linear-gradient(
+    128deg,
+    rgba(248, 113, 113, 0.22) 0%,
+    rgba(254, 202, 202, 0.88) 42%,
+    rgba(248, 113, 113, 0.45) 100%
+  );
+  animation: vel-nudge-orb-brand 3.2s ease-in-out infinite;
+}
+
+/* Floating composer textarea: soft vertical zinc gradient (dimmed); placeholder stays solid. */
+.vel-composer-floating-textarea {
+  background-image: linear-gradient(
+    180deg,
+    rgb(228 228 231 / 0.92) 0%,
+    rgb(161 161 170 / 0.78) 48%,
+    rgb(113 113 122 / 0.68) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  caret-color: rgb(212 212 216);
+}
+
+.vel-composer-floating-textarea::placeholder {
+  color: rgb(113 113 122 / 0.65);
+  -webkit-text-fill-color: rgb(113 113 122 / 0.65);
+  background: none;
+}
+
+.vel-composer-floating-textarea:focus {
+  background-image: linear-gradient(
+    180deg,
+    rgb(244 244 245 / 0.98) 0%,
+    rgb(180 180 186 / 0.9) 45%,
+    rgb(142 142 153 / 0.78) 100%
+  );
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .vel-composer-floating-textarea {
+    color: rgb(161 161 170 / 0.95);
+    background-image: none;
+  }
+
+  .vel-composer-floating-textarea:focus {
+    color: rgb(228 228 231 / 0.98);
+  }
 }

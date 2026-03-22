@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ConversationData, InboxItemData, JsonValue, MessageData } from '../../types';
 import {
   chatQueryKeys,
+  invalidateInboxQueries,
   loadConversationList,
   loadConversationInterventions,
   loadConversationMessages,
@@ -9,17 +10,22 @@ import {
 } from '../../data/chat';
 import { getQueryData, invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import {
-  appendUniqueMessages,
   prunePendingInterventionActions,
-  reconcileConfirmedSend,
   removeInterventionById,
   setPendingInterventionAction,
   type PendingInterventionAction,
 } from '../../data/chat-state';
 import { subscribeWsQuerySync } from '../../data/ws-sync';
+import { cn } from '../../core/cn';
+import { FilterDenseTag, FilterToggleTag } from '../../core/FilterToggleTag';
+import { LayersIcon, OpenThreadIcon, ThreadsIcon } from '../../core/Icons';
+import { itemPillCard, itemPillRowSelected } from '../../core/itemPill';
+import { NowItemRowLayout } from '../../core/NowItemRow';
+import { PanelEyebrow, PanelKeyValueRow, PanelMutedInset } from '../../core/PanelChrome';
+import { PanelMetaPill } from '../../core/PanelItem';
 import { MessageRenderer } from '../../core/MessageRenderer';
-import { MessageComposer } from '../../core/MessageComposer';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
+import { useResolvedThreadConversationId } from './useResolvedThreadConversationId';
 import { SurfaceState } from '../../core/SurfaceState';
 
 interface ThreadViewProps {
@@ -80,17 +86,18 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
       return response.ok && response.data ? response.data : [];
     },
   );
-  const fallbackConversationId = useMemo(() => {
-    if (conversationId || conversations.length === 0) {
-      return null;
-    }
-    return [...conversations]
-      .sort((left, right) => right.updated_at - left.updated_at)[0]?.id ?? null;
-  }, [conversationId, conversations]);
+  const resolvedConversationId = useResolvedThreadConversationId(conversationId);
   const selectedConversation = useMemo(
-    () => conversations.find((conversation) => conversation.id === (conversationId ?? fallbackConversationId)) ?? null,
-    [conversationId, conversations, fallbackConversationId],
+    () => conversations.find((conversation) => conversation.id === resolvedConversationId) ?? null,
+    [conversations, resolvedConversationId],
   );
+  const threadModeCounts = useMemo(() => {
+    const all = conversations.length;
+    const unread = conversations.filter((c) => Boolean(c.continuation)).length;
+    const active = resolvedConversationId ? 1 : 0;
+    return { all, unread, active };
+  }, [conversations, resolvedConversationId]);
+
   const filteredConversations = useMemo(() => {
     const query = threadFilter.trim().toLowerCase();
     const sorted = [...conversations].sort((left, right) => right.updated_at - left.updated_at);
@@ -100,7 +107,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
           return Boolean(conversation.continuation);
         }
         if (filterMode === 'active') {
-          return conversation.id === (conversationId ?? fallbackConversationId);
+          return conversation.id === resolvedConversationId;
         }
         return true;
       })
@@ -113,8 +120,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
         return haystacks.some((value) => value.toLowerCase().includes(query));
       })
       .slice(0, 8);
-  }, [conversationId, conversations, fallbackConversationId, filterMode, threadFilter]);
-  const resolvedConversationId = conversationId ?? fallbackConversationId;
+  }, [conversations, resolvedConversationId, filterMode, threadFilter]);
   const messagesKey = useMemo(
     () => chatQueryKeys.conversationMessages(resolvedConversationId),
     [resolvedConversationId],
@@ -123,7 +129,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     () => chatQueryKeys.conversationInterventions(resolvedConversationId),
     [resolvedConversationId],
   );
-  const inboxKey = useMemo(() => chatQueryKeys.inbox(), []);
+  const inboxKey = useMemo(() => chatQueryKeys.inbox('queue'), []);
   const pendingInterventionActionsKey = useMemo(
     () => chatQueryKeys.pendingInterventionActions(),
     [],
@@ -133,7 +139,6 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     data: messages = [],
     loading: messagesLoading,
     error: messagesError,
-    refetch: refetchMessages,
   } = useQuery<MessageData[]>(
     messagesKey,
     async () => {
@@ -241,8 +246,8 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     try {
       await mutateIntervention(interventionId, 'snooze', { minutes: 15 });
       invalidateQuery(interventionsKey, { refetch: true });
-      invalidateQuery(inboxKey, { refetch: true });
-    } catch (_) {
+      invalidateInboxQueries();
+    } catch {
       restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
     }
   }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
@@ -255,8 +260,8 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     try {
       await mutateIntervention(interventionId, 'resolve', {});
       invalidateQuery(interventionsKey, { refetch: true });
-      invalidateQuery(inboxKey, { refetch: true });
-    } catch (_) {
+      invalidateInboxQueries();
+    } catch {
       restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
     }
   }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
@@ -269,8 +274,8 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     try {
       await mutateIntervention(interventionId, 'dismiss', {});
       invalidateQuery(interventionsKey, { refetch: true });
-      invalidateQuery(inboxKey, { refetch: true });
-    } catch (_) {
+      invalidateInboxQueries();
+    } catch {
       restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
     }
   }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
@@ -299,20 +304,43 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
         <aside className="flex w-full max-w-sm shrink-0 flex-col border-r border-zinc-900 bg-zinc-950/60">
           <div className="border-b border-zinc-900 px-4 py-4">
             <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Threads</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {(['all', 'unread', 'active'] as const).map((mode) => (
-                <button
+            <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Thread list filter">
+              {(
+                [
+                  {
+                    mode: 'all' as const,
+                    label: 'All',
+                    count: threadModeCounts.all,
+                    icon: (sel: boolean) => (
+                      <LayersIcon size={12} className={sel ? 'text-amber-200/90' : 'text-zinc-500'} />
+                    ),
+                  },
+                  {
+                    mode: 'unread' as const,
+                    label: 'Unread',
+                    count: threadModeCounts.unread,
+                    icon: (sel: boolean) => (
+                      <ThreadsIcon size={12} className={sel ? 'text-amber-200/90' : 'text-zinc-500'} />
+                    ),
+                  },
+                  {
+                    mode: 'active' as const,
+                    label: 'Active',
+                    count: threadModeCounts.active,
+                    icon: (sel: boolean) => (
+                      <OpenThreadIcon size={12} className={sel ? 'text-amber-200/90' : 'text-zinc-500'} />
+                    ),
+                  },
+                ] as const
+              ).map(({ mode, label, count, icon }) => (
+                <FilterToggleTag
                   key={mode}
-                  type="button"
+                  label={label}
+                  count={count}
+                  selected={filterMode === mode}
                   onClick={() => setFilterMode(mode)}
-                  className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] ${
-                    filterMode === mode
-                      ? 'border-amber-300/60 text-amber-200'
-                      : 'border-zinc-800 text-zinc-500'
-                  }`}
-                >
-                  {mode}
-                </button>
+                  icon={icon(filterMode === mode)}
+                />
               ))}
             </div>
             <label className="mt-3 block relative">
@@ -327,7 +355,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
               <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-zinc-500">⌕</span>
             </label>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
             {filteredConversations.length === 0 ? (
               <p className="px-2 py-3 text-sm text-zinc-500">No threads match that filter.</p>
             ) : (
@@ -355,48 +383,43 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
               <header className="mb-5 border-b border-zinc-900 pb-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Thread</p>
+                    <PanelEyebrow className="tracking-[0.22em]">Thread</PanelEyebrow>
                     <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight text-zinc-100">
                       {threadTitle(selectedConversation)}
                     </h1>
                   </div>
                   {selectedConversation?.continuation ? (
                     <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full border border-zinc-800 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-zinc-300">
+                      <PanelMetaPill tone="state">
                         {continuationTokenLabel(selectedConversation.continuation.continuation.continuation_category)}
-                      </span>
+                      </PanelMetaPill>
                       {selectedConversation.continuation.lifecycle_stage ? (
-                        <span className="rounded-full border border-zinc-800 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-zinc-300">
-                          {selectedConversation.continuation.lifecycle_stage}
-                        </span>
+                        <PanelMetaPill tone="state">{selectedConversation.continuation.lifecycle_stage}</PanelMetaPill>
                       ) : null}
                     </div>
                   ) : null}
                 </div>
                 {selectedConversation?.continuation ? (
-                  <div className="mt-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-3">
+                  <PanelMutedInset className="mt-3">
                     <p className="text-sm leading-6 text-zinc-300">
                       {selectedConversation.continuation.continuation.escalation_reason}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-zinc-800 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
+                      <PanelMetaPill tone="state">
                         {capabilityStateLabel(selectedConversation.continuation.continuation.bounded_capability_state)}
-                      </span>
-                      <span className="rounded-full border border-zinc-800 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-zinc-300">
+                      </PanelMetaPill>
+                      <PanelMetaPill tone="state">
                         {continuationTokenLabel(selectedConversation.continuation.continuation.open_target)}
-                      </span>
+                      </PanelMetaPill>
                     </div>
                     {continuationContextRows(selectedConversation).length > 0 ? (
-                      <dl className="mt-3 grid gap-2 text-xs text-zinc-400">
+                      <div className="mt-3 grid gap-2 text-xs text-zinc-400">
                         {continuationContextRows(selectedConversation).map((entry) => (
-                          <div key={entry.label} className="grid gap-1 rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-3 py-2">
-                            <dt className="uppercase tracking-[0.16em] text-zinc-500">{entry.label}</dt>
-                            <dd className="text-sm leading-5 text-zinc-300">{entry.value}</dd>
-                          </div>
+                          <PanelKeyValueRow key={entry.label} label={entry.label} value={entry.value} />
                         ))}
-                      </dl>
+                      </div>
                     ) : null}
-                  </div>
+                  </PanelMutedInset>
                 ) : null}
               </header>
               {messages.length === 0 && (
@@ -421,53 +444,6 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
               onClose={() => setProvenanceMessageId(null)}
             />
           )}
-          <div className="border-t border-zinc-900 px-4 py-3">
-            <div className="mx-auto max-w-3xl">
-              <MessageComposer
-                conversationId={resolvedConversationId}
-                compact
-                hideHelperText
-                onOptimisticSend={(text) => {
-                  const clientMessageId = `tmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-                  const optimisticMessage: MessageData = {
-                    id: clientMessageId,
-                    conversation_id: resolvedConversationId,
-                    role: 'user',
-                    kind: 'text',
-                    content: { text },
-                    status: 'sending',
-                    importance: null,
-                    created_at: Math.floor(Date.now() / 1000),
-                    updated_at: null,
-                  };
-                  setQueryData<MessageData[]>(messagesKey, (prev = []) =>
-                    appendUniqueMessages(prev, [optimisticMessage]),
-                  );
-                  return clientMessageId;
-                }}
-                onSent={(clientMessageId, response) => {
-                  setQueryData<MessageData[]>(messagesKey, (prev = []) =>
-                    reconcileConfirmedSend(
-                      prev,
-                      clientMessageId,
-                      response.user_message,
-                      response.assistant_message ? [response.assistant_message] : [],
-                    ),
-                  );
-                  invalidateQuery(conversationsKey, { refetch: true });
-                  void refetchMessages();
-                }}
-                onSendFailed={(clientMessageId) => {
-                  if (!clientMessageId) {
-                    return;
-                  }
-                  setQueryData<MessageData[]>(messagesKey, (prev = []) =>
-                    prev.filter((message) => message.id !== clientMessageId),
-                  );
-                }}
-              />
-            </div>
-          </div>
         </section>
       </div>
     </>
@@ -530,53 +506,80 @@ function ThreadListRow({
     { enabled: true },
   );
   const unreadCount = conversation.continuation ? 1 : 0;
+  const tagFrame = active
+    ? 'border-zinc-300/90 bg-white/90 text-zinc-800'
+    : 'border-zinc-800/90 bg-zinc-900/92 text-zinc-400';
+  const metaMuted = active ? 'text-zinc-600' : 'text-zinc-600';
 
   return (
     <button
       type="button"
       onClick={() => onSelect?.(conversation.id)}
       disabled={disabled}
-      className={`w-full rounded-2xl border p-3 text-left transition ${
+      className={cn(
         active
-          ? 'border-zinc-100 bg-zinc-100 text-zinc-950'
-          : 'border-zinc-800 bg-zinc-900/70 text-zinc-100 hover:border-zinc-700'
-      } disabled:cursor-default`}
+          ? itemPillRowSelected
+          : cn(itemPillCard('muted', 'laneRow'), 'text-zinc-100 hover:border-zinc-700'),
+        'w-full text-left transition disabled:cursor-default disabled:opacity-60',
+      )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{threadTitle(conversation)}</p>
-          <p className={`mt-1 truncate text-xs ${active ? 'text-zinc-700' : 'text-zinc-400'}`}>
-            {previewText(conversation, messages)}
+      <NowItemRowLayout
+        leading={
+          unreadCount > 0 ? (
+            <span
+              className="mt-1 flex h-2 w-2 shrink-0 items-center justify-center"
+              role="img"
+              aria-label="Unread continuation"
+            >
+              <span className="h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-emerald-500/25" />
+            </span>
+          ) : (
+            <span className="mt-1 w-2 shrink-0" aria-hidden />
+          )
+        }
+        actionsLayout="inline"
+        actions={
+          unreadCount > 0 ? (
+            <FilterDenseTag
+              className={cn(
+                active ? 'border-emerald-600/40 bg-emerald-50 text-emerald-900' : 'border-emerald-700/50 bg-emerald-950/50 text-emerald-200',
+              )}
+            >
+              {unreadCount}
+            </FilterDenseTag>
+          ) : null
+        }
+      >
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <p
+            className={cn(
+              'min-w-0 flex-1 truncate text-sm font-medium leading-tight tracking-tight',
+              active ? 'text-zinc-950' : 'text-zinc-100',
+            )}
+          >
+            {threadTitle(conversation)}
           </p>
-          <p className={`mt-2 text-[10px] uppercase tracking-[0.16em] ${active ? 'text-zinc-600' : 'text-zinc-500'}`}>
-            {formatThreadDate(conversation.created_at)} · last {formatThreadDate(latestThreadTimestamp(conversation, messages))}
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {unreadCount > 0 ? (
-            <>
-              <span className={`h-2.5 w-2.5 rounded-full ${active ? 'bg-zinc-950' : 'bg-emerald-400'}`} />
-              <span className={`text-[11px] font-medium ${active ? 'text-zinc-800' : 'text-zinc-300'}`}>
-                {unreadCount}
+          <div className="flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-x-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <FilterDenseTag className={tagFrame}>
+              <span aria-hidden className="inline-flex shrink-0 items-center opacity-80">
+                <ThreadsIcon size={10} />
               </span>
-            </>
-          ) : null}
+              {conversation.kind.replaceAll('_', ' ')}
+            </FilterDenseTag>
+            {conversation.continuation ? (
+              <FilterDenseTag className={tagFrame}>
+                {continuationTokenLabel(conversation.continuation.continuation.continuation_category)}
+              </FilterDenseTag>
+            ) : null}
+            <FilterDenseTag className={cn('!shrink-0 border-transparent bg-transparent', metaMuted)}>
+              {formatThreadDate(conversation.created_at)} · last {formatThreadDate(latestThreadTimestamp(conversation, messages))}
+            </FilterDenseTag>
+          </div>
         </div>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${
-          active ? 'border-zinc-300 text-zinc-800' : 'border-zinc-700 text-zinc-400'
-        }`}>
-          {conversation.kind.replaceAll('_', ' ')}
-        </span>
-        {conversation.continuation ? (
-          <span className={`rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.16em] ${
-            active ? 'border-zinc-300 text-zinc-800' : 'border-zinc-700 text-zinc-400'
-          }`}>
-            {continuationTokenLabel(conversation.continuation.continuation.continuation_category)}
-          </span>
-        ) : null}
-      </div>
+        <p className={cn('line-clamp-2 text-xs leading-snug', active ? 'text-zinc-700' : 'text-zinc-500')}>
+          {previewText(conversation, messages)}
+        </p>
+      </NowItemRowLayout>
     </button>
   );
 }

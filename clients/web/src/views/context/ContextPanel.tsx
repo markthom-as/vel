@@ -2,6 +2,17 @@ import { useMemo, useState } from 'react';
 import type { ContextExplainData, DriftExplainData, JsonObject, JsonValue, SignalExplainSummary } from '../../types';
 import { contextQueryKeys, loadContextExplain, loadDriftExplain } from '../../data/context';
 import { useQuery } from '../../data/query';
+import { Button } from '../../core/Button';
+import {
+  PanelDebugBlock,
+  PanelDenseRow,
+  PanelKeyValueRow,
+  PanelListBullet,
+  PanelListBulletMuted,
+  PanelMutedInset,
+  PanelStatTile,
+} from '../../core/PanelChrome';
+import { PanelItemSectionLabel } from '../../core/PanelItem';
 import { SurfaceState } from '../../core/SurfaceState';
 
 type ContextMode = 'state' | 'why' | 'debug';
@@ -49,10 +60,10 @@ export function ContextPanel() {
   }
 
   return (
-    <div className="p-4 text-sm overflow-y-auto space-y-4">
+    <div className="space-y-4 overflow-y-auto p-4 text-sm">
       <div className="space-y-3">
         <div>
-          <h3 className="font-medium text-zinc-400 mb-2">Context</h3>
+          <h3 className="mb-2 font-medium text-zinc-400">Context</h3>
           <p className="text-xs text-zinc-500">
             computed at {new Date(context.computed_at * 1000).toLocaleString()}
           </p>
@@ -80,37 +91,34 @@ export function ContextPanel() {
         <>
           <section className="grid gap-3">
             <div className="grid grid-cols-2 gap-3">
-              <StatCard label="Mode" value={context.mode ?? 'unknown'} />
-              <StatCard label="Morning state" value={context.morning_state ?? 'unknown'} />
+              <PanelStatTile density="compact" label="Mode" value={context.mode ?? 'unknown'} />
+              <PanelStatTile density="compact" label="Morning state" value={context.morning_state ?? 'unknown'} />
             </div>
             {drift && hasDriftData(drift) && (
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-3">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">Attention</p>
+              <PanelMutedInset>
+                <PanelItemSectionLabel>Attention</PanelItemSectionLabel>
                 <div className="mt-2 grid grid-cols-2 gap-3">
-                  <StatCard label="State" value={drift.attention_state ?? 'unknown'} compact />
-                  <StatCard label="Drift" value={drift.drift_type ?? 'none'} compact />
-                  <StatCard label="Severity" value={drift.drift_severity ?? 'n/a'} compact />
-                  <StatCard
+                  <PanelStatTile density="compact" label="State" value={drift.attention_state ?? 'unknown'} />
+                  <PanelStatTile density="compact" label="Drift" value={drift.drift_type ?? 'none'} />
+                  <PanelStatTile density="compact" label="Severity" value={drift.drift_severity ?? 'n/a'} />
+                  <PanelStatTile
+                    density="compact"
                     label="Confidence"
                     value={drift.confidence == null ? 'n/a' : `${Math.round(drift.confidence * 100)}%`}
-                    compact
                   />
                 </div>
-              </div>
+              </PanelMutedInset>
             )}
           </section>
 
           {stateEntries.length > 0 ? (
             <section>
               <SectionHeading title="Current state" />
-              <dl className="mt-2 space-y-2">
+              <div className="mt-2 space-y-2">
                 {stateEntries.map(([label, value]) => (
-                  <div key={label} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
-                    <dt className="text-zinc-500 text-xs">{label}</dt>
-                    <dd className="mt-1 text-zinc-200 break-words">{value}</dd>
-                  </div>
+                  <PanelKeyValueRow key={label} label={label} value={value} />
                 ))}
-              </dl>
+              </div>
             </section>
           ) : null}
         </>
@@ -121,16 +129,12 @@ export function ContextPanel() {
           {(context.reasons.length > 0 || (drift?.reasons.length ?? 0) > 0) ? (
             <section>
               <SectionHeading title="Why this context" />
-              <ul className="mt-2 space-y-2">
+              <ul className="mt-2 list-none space-y-2 p-0">
                 {context.reasons.map((reason) => (
-                  <li key={reason} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-zinc-200">
-                    {reason}
-                  </li>
+                  <PanelListBullet key={reason}>{reason}</PanelListBullet>
                 ))}
                 {drift?.reasons.map((reason) => (
-                  <li key={`drift-${reason}`} className="rounded-md border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-zinc-300">
-                    {reason}
-                  </li>
+                  <PanelListBulletMuted key={`drift-${reason}`}>{reason}</PanelListBulletMuted>
                 ))}
               </ul>
             </section>
@@ -141,17 +145,17 @@ export function ContextPanel() {
               <SectionHeading title="Source summaries" />
               <div className="mt-2 space-y-2">
                 {sourceSummaries.map((source) => (
-                  <div key={source.label} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                  <PanelDenseRow key={source.label}>
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-zinc-100">{source.label}</p>
                       <p className="text-xs text-zinc-500">
                         {new Date(source.timestamp * 1000).toLocaleString()}
                       </p>
                     </div>
-                    <p className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap break-words">
+                    <p className="mt-2 whitespace-pre-wrap break-words text-xs text-zinc-300">
                       {formatSummary(source.summary)}
                     </p>
-                  </div>
+                  </PanelDenseRow>
                 ))}
               </div>
             </section>
@@ -162,21 +166,18 @@ export function ContextPanel() {
               <SectionHeading title="Adaptive policy overrides" />
               <div className="mt-2 space-y-2">
                 {context.adaptive_policy_overrides.map((override) => (
-                  <div
-                    key={override.policy_key}
-                    className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2"
-                  >
+                  <PanelDenseRow key={override.policy_key}>
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-zinc-100">{override.policy_key}</p>
                       <p className="text-xs text-zinc-500">{override.value_minutes} min</p>
                     </div>
                     {override.source_title || override.source_suggestion_id ? (
-                      <p className="mt-2 text-zinc-300 text-xs">
+                      <p className="mt-2 text-xs text-zinc-300">
                         Source:{' '}
                         {override.source_title ?? override.source_suggestion_id}
                       </p>
                     ) : null}
-                  </div>
+                  </PanelDenseRow>
                 ))}
               </div>
             </section>
@@ -187,7 +188,7 @@ export function ContextPanel() {
               <SectionHeading title="Signals used" />
               <div className="mt-2 space-y-2">
                 {signalSummaries.map((signal) => (
-                  <div key={signal.signal_id} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-3 py-2">
+                  <PanelDenseRow key={signal.signal_id}>
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-zinc-100">{signal.signal_type}</p>
@@ -197,10 +198,10 @@ export function ContextPanel() {
                         {new Date(signal.timestamp * 1000).toLocaleString()}
                       </p>
                     </div>
-                    <p className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap break-words">
+                    <p className="mt-2 whitespace-pre-wrap break-words text-xs text-zinc-300">
                       {formatSummary(signal.summary)}
                     </p>
-                  </div>
+                  </PanelDenseRow>
                 ))}
               </div>
             </section>
@@ -234,43 +235,30 @@ function ModeButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant={active ? 'secondary' : 'outline'}
+      size="sm"
       onClick={onClick}
-      className={`rounded-md border px-2 py-1 text-xs transition ${
-        active
-          ? 'border-zinc-600 bg-zinc-800 text-zinc-100'
-          : 'border-zinc-800 bg-zinc-900/70 text-zinc-400 hover:text-zinc-200'
-      }`}
       aria-pressed={active}
+      className={active ? '' : 'border-zinc-800 bg-zinc-900/55 text-zinc-400 hover:text-zinc-200'}
     >
       {label}
-    </button>
+    </Button>
   );
 }
 
 function DebugBlock({ title, value }: { title: string; value: unknown }) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-900/60 p-3">
-      <p className="text-zinc-400 text-xs mb-2">{title}</p>
-      <pre className="text-xs text-zinc-200 whitespace-pre-wrap break-words">
+    <PanelDebugBlock title={title}>
+      <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs text-zinc-200">
         {JSON.stringify(value, null, 2)}
       </pre>
-    </div>
+    </PanelDebugBlock>
   );
 }
 
 function SectionHeading({ title }: { title: string }) {
   return <h4 className="font-medium text-zinc-400">{title}</h4>;
-}
-
-function StatCard({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
-  return (
-    <div className={`rounded-lg border border-zinc-800 bg-zinc-900/70 ${compact ? 'p-2' : 'p-3'}`}>
-      <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className="mt-1 text-zinc-100">{value}</p>
-    </div>
-  );
 }
 
 function hasDriftData(drift: DriftExplainData): boolean {

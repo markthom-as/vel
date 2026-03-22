@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiPost } from '../../api/client';
+import { Button, settingsFormActionsClass } from '../../core/Button';
+import {
+  PanelCallout,
+  PanelEyebrow,
+  PanelInsetCard,
+  PanelMutedInset,
+  PanelPageSection,
+  PanelSectionHeader,
+} from '../../core/PanelChrome';
+import { uiTheme } from '../../core/Theme';
+import { IntegrationBrandIcon, OpenAiBrandIcon, type BrandIntegrationKey } from '../../core/Icons';
+import { InfoStat, IntegrationStatCard } from './settingsCards';
 import {
   CORE_DOCUMENTATION_ENTRIES,
   USER_DOCUMENTATION_ENTRIES,
@@ -77,6 +89,8 @@ interface SettingsPageProps {
   onBack: () => void;
   initialTab?: SettingsTab | LegacySettingsTab;
   initialIntegrationId?: IntegrationSectionKey;
+  /** When set, opens this section (tab is derived from the section). */
+  initialSection?: SettingsSectionKey;
 }
 
 interface RetryDraft {
@@ -175,7 +189,7 @@ type HostPlatform = 'apple' | 'linux' | 'windows' | 'unknown';
 
 type LegacySettingsTab = 'components' | 'runs' | 'loops';
 export type SettingsTab = 'general' | 'integrations' | 'runtime';
-type SettingsSectionKey =
+export type SettingsSectionKey =
   | 'profile'
   | 'clients-sync'
   | 'integrations'
@@ -886,9 +900,12 @@ export function SettingsPage({
   onBack,
   initialTab = 'general',
   initialIntegrationId,
+  initialSection,
 }: SettingsPageProps) {
   const currentHostPlatform = useMemo(() => detectCurrentHostPlatform(), []);
-  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(settingsSectionForTab(initialTab));
+  const [activeSection, setActiveSection] = useState<SettingsSectionKey>(
+    () => initialSection ?? settingsSectionForTab(initialTab),
+  );
   const [saving, setSaving] = useState(false);
   const [pendingIntegrationActions, setPendingIntegrationActions] = useState<Record<string, true>>({});
   const [pendingComponentActions, setPendingComponentActions] = useState<Record<string, true>>({});
@@ -1151,8 +1168,8 @@ export function SettingsPage({
   }, []);
 
   useEffect(() => {
-    setActiveSection(settingsSectionForTab(initialTab));
-  }, [initialTab]);
+    setActiveSection(initialSection ?? settingsSectionForTab(initialTab));
+  }, [initialTab, initialSection]);
 
   useEffect(() => {
     setTimezoneDraft(settings.timezone ?? '');
@@ -2522,34 +2539,39 @@ export function SettingsPage({
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden bg-zinc-950">
       <aside className="flex w-52 shrink-0 flex-col border-r border-zinc-900 px-3 py-5">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Back"
-          className="mb-4 self-start text-lg text-zinc-400 transition hover:text-zinc-100"
-        >
-          ←
-        </button>
-        <p className="text-[11px] uppercase tracking-[0.24em] text-zinc-500">Settings</p>
-        <div className="mt-4 space-y-1">
+        <div className="mb-4 flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            aria-label="Back"
+            className="shrink-0 px-0 text-lg leading-none text-zinc-400 hover:bg-transparent hover:text-zinc-100"
+          >
+            ←
+          </Button>
+          <p className="text-[11px] uppercase leading-none tracking-[0.24em] text-zinc-500">Settings</p>
+        </div>
+        <div className="space-y-1">
           {SETTINGS_SECTIONS.map(({ key, label }) => (
-            <button
+            <Button
               key={key}
-              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setActiveSection(key)}
-              className={`w-full border-b px-2 py-2 text-center text-[9px] uppercase tracking-[0.2em] transition ${
+              className={`w-full justify-center rounded-none border-b px-2 py-2 text-center text-xs font-medium normal-case tracking-normal transition ${
                 activeSection === key
-                  ? 'border-amber-300 text-amber-200'
-                  : 'border-zinc-900 text-zinc-500 hover:text-zinc-100'
+                  ? `${uiTheme.brandText} ${uiTheme.brandBorder} bg-[#ff6b00]/10 hover:bg-[#ff6b00]/16 hover:text-[#ffb27a]`
+                  : 'border-zinc-900 text-zinc-500 hover:bg-zinc-900/50 hover:text-zinc-100'
               }`}
             >
               {label}
-            </button>
+            </Button>
           ))}
         </div>
       </aside>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 pb-36">
         <div className="mx-auto max-w-4xl space-y-4">
           <header className="flex items-end justify-between gap-4 border-b border-zinc-900 pb-4">
             <h2 className="text-2xl font-semibold text-zinc-100">Settings</h2>
@@ -2558,17 +2580,19 @@ export function SettingsPage({
 
           {activeSection === 'profile' ? (
             <>
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Profile</p>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <InfoStat label="Vel name" value={nodeDisplayNameDraft || settings.node_display_name || 'Unnamed'} />
-                  <InfoStat label="Timezone" value={timezoneDraft || settings.timezone || 'Unknown'} />
-                  <InfoStat label="Current mode" value={agentInspect?.grounding.current_context?.mode ?? 'Not grounded'} />
-                  <InfoStat label="Planning profile" value={planningProfile ? `${planningProfile.routine_blocks.length} routines · ${planningProfile.planning_constraints.length} constraints` : 'Not loaded'} />
-                </div>
+              <PanelPageSection className="!p-4">
+                <PanelSectionHeader title="Profile" />
+                <PanelInsetCard className="mt-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <InfoStat label="Vel name" value={nodeDisplayNameDraft || settings.node_display_name || 'Unnamed'} />
+                    <InfoStat label="Timezone" value={timezoneDraft || settings.timezone || 'Unknown'} />
+                    <InfoStat label="Current mode" value={agentInspect?.grounding.current_context?.mode ?? 'Not grounded'} />
+                    <InfoStat label="Planning profile" value={planningProfile ? `${planningProfile.routine_blocks.length} routines · ${planningProfile.planning_constraints.length} constraints` : 'Not loaded'} />
+                  </div>
+                </PanelInsetCard>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <label className="grid gap-2 text-sm text-zinc-300">
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Vel name</span>
+                    <PanelEyebrow as="span">Vel name</PanelEyebrow>
                     <input
                       value={nodeDisplayNameDraft}
                       onChange={(event) => setNodeDisplayNameDraft(event.target.value)}
@@ -2577,7 +2601,7 @@ export function SettingsPage({
                     />
                   </label>
                   <label className="grid gap-2 text-sm text-zinc-300">
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Timezone</span>
+                    <PanelEyebrow as="span">Timezone</PanelEyebrow>
                     <input
                       value={timezoneDraft}
                       onChange={(event) => setTimezoneDraft(event.target.value)}
@@ -2586,14 +2610,17 @@ export function SettingsPage({
                     />
                   </label>
                 </div>
-              </section>
+              </PanelPageSection>
             </>
           ) : null}
 
           {activeSection === 'clients-sync' ? (
             <>
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Clients & Sync</p>
+              <PanelPageSection className="!p-4">
+                <PanelSectionHeader
+                  title="Clients & Sync"
+                  description="Linked nodes, sync transport, and network endpoints for this authority."
+                />
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <InfoStat label="Linked clients" value={`${linkedNodes.length}`} />
                   <InfoStat label="Authority node" value={clusterBootstrap?.active_authority_node_id || 'Unknown'} />
@@ -2602,7 +2629,7 @@ export function SettingsPage({
                   <InfoStat label="Current client" value={clusterBootstrap?.node_display_name || settings.node_display_name || 'Unknown'} />
                   <InfoStat label="Node ID" value={clusterBootstrap?.node_id || 'Unknown'} />
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                   <label className="inline-flex items-center gap-2 text-sm text-zinc-300">
                     <input
                       type="checkbox"
@@ -2611,17 +2638,13 @@ export function SettingsPage({
                     />
                     Writeback enabled
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => void saveSyncNetworkSettings()}
-                    className="rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
-                  >
+                  <Button variant="primary" size="sm" onClick={() => void saveSyncNetworkSettings()}>
                     Save sync
-                  </button>
+                  </Button>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <label className="grid gap-2 text-sm text-zinc-300">
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Tailscale base URL</span>
+                    <PanelEyebrow as="span">Tailscale base URL</PanelEyebrow>
                     <input
                       value={tailscaleBaseUrlDraft}
                       onChange={(event) => setTailscaleBaseUrlDraft(event.target.value)}
@@ -2629,7 +2652,7 @@ export function SettingsPage({
                     />
                   </label>
                   <label className="grid gap-2 text-sm text-zinc-300">
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">LAN base URL</span>
+                    <PanelEyebrow as="span">LAN base URL</PanelEyebrow>
                     <input
                       value={lanBaseUrlDraft}
                       onChange={(event) => setLanBaseUrlDraft(event.target.value)}
@@ -2638,34 +2661,56 @@ export function SettingsPage({
                   </label>
                 </div>
                 {syncNetworkFeedback ? (
-                  <p className={`mt-3 text-sm ${syncNetworkFeedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
+                  <PanelCallout
+                    tone={syncNetworkFeedback.status === 'error' ? 'danger' : 'success'}
+                    className="mt-3"
+                  >
                     {syncNetworkFeedback.message}
-                  </p>
+                  </PanelCallout>
                 ) : null}
-              </section>
+              </PanelPageSection>
             </>
           ) : null}
 
           {activeSection === 'integrations' ? (
             <>
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Integrations</p>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <InfoStat label="Google Calendar" value={integrations.google_calendar.connected ? 'Connected' : 'Disconnected'} />
-                  <InfoStat label="Todoist" value={integrations.todoist.connected ? 'Connected' : 'Disconnected'} />
-                  <InfoStat label="Local sources" value={`${visibleLocalIntegrationSpecs.length}`} />
-                  <InfoStat label="Host platform" value={currentHostPlatform} />
-                </div>
-              </section>
+              <PanelPageSection className="!p-4">
+                <PanelSectionHeader
+                  title="Integration summary"
+                  description="High-level connection state before you open credentials."
+                />
+                <PanelInsetCard className="mt-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <InfoStat label="Google Calendar" value={integrations.google_calendar.connected ? 'Connected' : 'Disconnected'} />
+                    <InfoStat label="Todoist" value={integrations.todoist.connected ? 'Connected' : 'Disconnected'} />
+                    <InfoStat label="Local sources" value={`${visibleLocalIntegrationSpecs.length}`} />
+                    <InfoStat label="Host platform" value={currentHostPlatform} />
+                  </div>
+                </PanelInsetCard>
+              </PanelPageSection>
 
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Integrations</p>
+              <PanelPageSection className="!p-4">
+                <PanelSectionHeader
+                  title="Integrations"
+                  description="Per-provider status, local sources, and API tokens."
+                />
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  <IntegrationStatCard title="Google Calendar" status={integrations.google_calendar.status} detail={integrations.google_calendar.connected ? 'Connected' : 'Disconnected'} />
-                  <IntegrationStatCard title="Todoist" status={integrations.todoist.status} detail={integrations.todoist.connected ? 'Connected' : 'Disconnected'} />
+                  <IntegrationStatCard
+                    brand="google"
+                    title="Google Calendar"
+                    status={integrations.google_calendar.status}
+                    detail={integrations.google_calendar.connected ? 'Connected' : 'Disconnected'}
+                  />
+                  <IntegrationStatCard
+                    brand="todoist"
+                    title="Todoist"
+                    status={integrations.todoist.status}
+                    detail={integrations.todoist.connected ? 'Connected' : 'Disconnected'}
+                  />
                   {visibleLocalIntegrationSpecs.map((spec) => (
                     <IntegrationStatCard
                       key={spec.key}
+                      brand={spec.key}
                       title={spec.label}
                       status={integrations[spec.key].status}
                       detail={integrations[spec.key].source_path ?? 'No source path'}
@@ -2673,33 +2718,25 @@ export function SettingsPage({
                   ))}
                 </div>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Todoist</p>
+                  <PanelMutedInset>
+                    <PanelEyebrow>Todoist</PanelEyebrow>
                     <input
                       value={todoistToken}
                       onChange={(event) => setTodoistToken(event.target.value)}
                       placeholder="API token"
                       className="mt-3 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                     />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void saveTodoistToken()}
-                        className="rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-zinc-300"
-                      >
+                    <div className={`mt-3 ${settingsFormActionsClass}`}>
+                      <Button variant="primary" size="sm" onClick={() => void saveTodoistToken()}>
                         Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void disconnectTodoist()}
-                        className="rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-zinc-300"
-                      >
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => void disconnectTodoist()}>
                         Disconnect
-                      </button>
+                      </Button>
                     </div>
-                  </div>
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Google Calendar</p>
+                  </PanelMutedInset>
+                  <PanelMutedInset>
+                    <PanelEyebrow>Google Calendar</PanelEyebrow>
                     <input
                       value={googleClientId}
                       onChange={(event) => setGoogleClientId(event.target.value)}
@@ -2712,38 +2749,32 @@ export function SettingsPage({
                       placeholder="Client secret"
                       className="mt-3 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                     />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void saveGoogleCredentials()}
-                        className="rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-zinc-300"
-                      >
+                    <div className={`mt-3 ${settingsFormActionsClass}`}>
+                      <Button variant="primary" size="sm" onClick={() => void saveGoogleCredentials()}>
                         Save
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void startGoogleAuth()}
-                        className="rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-zinc-300"
-                      >
+                      </Button>
+                      <Button variant="primary" size="sm" onClick={() => void startGoogleAuth()}>
                         Authorize
-                      </button>
+                      </Button>
                     </div>
-                  </div>
+                  </PanelMutedInset>
                 </div>
                 {integrationsLoadError ? (
-                  <p className="mt-3 text-sm text-rose-300">{integrationsLoadError}</p>
+                  <PanelCallout tone="danger" className="mt-3">
+                    {integrationsLoadError}
+                  </PanelCallout>
                 ) : null}
-              </section>
+              </PanelPageSection>
             </>
           ) : null}
 
           {activeSection === 'configuration' ? (
             <>
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <PanelPageSection className="!p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Configuration</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <label className="grid gap-2 text-sm text-zinc-300">
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Default chat profile</span>
+                    <PanelEyebrow as="span">Default chat profile</PanelEyebrow>
                     <input
                       value={defaultChatProfileDraft}
                       onChange={(event) => setDefaultChatProfileDraft(event.target.value)}
@@ -2751,7 +2782,7 @@ export function SettingsPage({
                     />
                   </label>
                   <label className="grid gap-2 text-sm text-zinc-300">
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Fallback profile</span>
+                    <PanelEyebrow as="span">Fallback profile</PanelEyebrow>
                     <input
                       value={fallbackChatProfileDraft}
                       onChange={(event) => setFallbackChatProfileDraft(event.target.value)}
@@ -2759,22 +2790,18 @@ export function SettingsPage({
                     />
                   </label>
                 </div>
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => void saveLlmSettings()}
-                    className="rounded-full border border-zinc-700 px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-zinc-300"
-                  >
+                <div className={`mt-4 ${settingsFormActionsClass}`}>
+                  <Button variant="primary" size="sm" onClick={() => void saveLlmSettings()}>
                     Save configuration
-                  </button>
+                  </Button>
                 </div>
-              </section>
+              </PanelPageSection>
             </>
           ) : null}
 
           {activeSection === 'backups' ? (
             <>
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <PanelPageSection className="!p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Backups</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <InfoStat label="Trust" value={settings.backup?.trust?.level ?? 'Unknown'} />
@@ -2782,9 +2809,9 @@ export function SettingsPage({
                   <InfoStat label="Output root" value={settings.backup?.default_output_root ?? 'Unset'} />
                   <InfoStat label="Warnings" value={`${settings.backup?.trust?.status?.warnings?.length ?? 0}`} />
                 </div>
-              </section>
+              </PanelPageSection>
 
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <PanelPageSection className="!p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Recovery state</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <InfoStat label="Status" value={settings.backup?.trust?.status?.state ?? 'Unknown'} />
@@ -2792,13 +2819,13 @@ export function SettingsPage({
                   <InfoStat label="Recent runs" value={`${runs.length}`} />
                   <InfoStat label="Projection" value={backupTrust?.statusLabel ?? 'Unknown'} />
                 </div>
-              </section>
+              </PanelPageSection>
             </>
           ) : null}
 
           {activeSection === 'permissions-policies' ? (
             <>
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <PanelPageSection className="!p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Permissions & Policies</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <InfoStat label="Capability groups" value={`${agentInspect?.capabilities?.groups?.length ?? 0}`} />
@@ -2809,13 +2836,13 @@ export function SettingsPage({
                 <p className="mt-4 text-sm text-zinc-400">
                   Pairing scopes, continuity policies, and execution review controls live here as this surface expands.
                 </p>
-              </section>
+              </PanelPageSection>
             </>
           ) : null}
 
           {activeSection === 'templates' ? (
             <>
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <PanelPageSection className="!p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Templates</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <InfoStat label="Routine blocks" value={`${planningProfile?.routine_blocks.length ?? 0}`} />
@@ -2826,13 +2853,13 @@ export function SettingsPage({
                 <p className="mt-4 text-sm text-zinc-400">
                   Reusable planning defaults and starter layouts will expand here without mixing into day-to-day controls.
                 </p>
-              </section>
+              </PanelPageSection>
             </>
           ) : null}
 
           {activeSection === 'projects' ? (
             <>
-              <section className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <PanelPageSection className="!p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Projects</p>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <InfoStat label="Projects" value={`${agentInspect?.grounding.projects?.length ?? 0}`} />
@@ -2843,7 +2870,7 @@ export function SettingsPage({
                 <p className="mt-4 text-sm text-zinc-400">
                   Project-level preferences, overrides, and review defaults will consolidate here.
                 </p>
-              </section>
+              </PanelPageSection>
             </>
           ) : null}
         </div>
@@ -2852,14 +2879,10 @@ export function SettingsPage({
   );
 
   return (
-    <div className="flex-1 overflow-y-auto p-8 max-w-4xl">
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-zinc-500 hover:text-zinc-300 text-sm mb-6"
-      >
+    <div className="flex-1 overflow-y-auto p-8 pb-36 max-w-4xl">
+      <Button variant="ghost" onClick={onBack} className="mb-6 px-0 text-sm text-zinc-500 hover:bg-transparent hover:text-zinc-300">
         ← Back
-      </button>
+      </Button>
       <div className="mb-6">
         <h2 className="text-xl font-medium text-zinc-200">Settings</h2>
         <p className="mt-2 text-sm text-zinc-500">
@@ -2869,18 +2892,15 @@ export function SettingsPage({
       </div>
       <div className="mb-8 flex gap-2 border-b border-zinc-800 pb-3">
         {(['general', 'integrations', 'runtime'] as const).map((tab) => (
-          <button
+          <Button
             key={tab}
-            type="button"
+            variant={activeTab === tab ? 'secondary' : 'ghost'}
+            size="sm"
             onClick={() => setActiveTab(tab)}
-            className={`rounded-md px-3 py-1.5 text-sm capitalize ${
-              activeTab === tab
-                ? 'bg-zinc-800 text-white'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
+            className={`capitalize ${activeTab === tab ? '' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             {tab}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -3062,14 +3082,14 @@ export function SettingsPage({
                                   Days {block.days_of_week.join(', ') || 'all'} · {block.protected ? 'protected' : 'flexible'} · {block.active ? 'active' : 'inactive'}
                                 </p>
                               </div>
-                              <button
-                                type="button"
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => void removeRoutineBlock(block.id)}
                                 disabled={planningProfilePending}
-                                className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 Remove
-                              </button>
+                              </Button>
                             </div>
                           </article>
                         ))}
@@ -3096,14 +3116,14 @@ export function SettingsPage({
                                   <p className="mt-1 text-xs text-zinc-500">{constraint.detail}</p>
                                 ) : null}
                               </div>
-                              <button
-                                type="button"
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => void removePlanningConstraint(constraint.id)}
                                 disabled={planningProfilePending}
-                                className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-50"
                               >
                                 Remove
-                              </button>
+                              </Button>
                             </div>
                           </article>
                         ))}
@@ -3211,27 +3231,25 @@ export function SettingsPage({
                         />
                       </label>
                     </div>
-                    <div className="mt-3 flex items-center gap-3">
-                      <button
-                        type="button"
+                    <div className={`mt-3 ${settingsFormActionsClass}`}>
+                      <Button
+                        variant="primary"
                         onClick={() => void saveRoutineBlockDraft()}
                         disabled={
                           planningProfilePending
                           || routineBlockDraft.label.trim().length === 0
                           || routineBlockDraft.local_timezone.trim().length === 0
                         }
-                        className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
                       >
                         Save routine block
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="outline"
                         onClick={() => setRoutineBlockDraft(defaultRoutineBlockDraft(settings.timezone ?? 'America/Denver'))}
                         disabled={planningProfilePending}
-                        className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Reset
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
@@ -3342,23 +3360,21 @@ export function SettingsPage({
                         />
                       </label>
                     </div>
-                    <div className="mt-3 flex items-center gap-3">
-                      <button
-                        type="button"
+                    <div className={`mt-3 ${settingsFormActionsClass}`}>
+                      <Button
+                        variant="primary"
                         onClick={() => void savePlanningConstraintDraft()}
                         disabled={planningProfilePending || planningConstraintDraft.label.trim().length === 0}
-                        className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
                       >
                         Save constraint
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="outline"
                         onClick={() => setPlanningConstraintDraft(defaultPlanningConstraintDraft())}
                         disabled={planningProfilePending}
-                        className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Reset
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -3415,7 +3431,7 @@ export function SettingsPage({
           </label>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <label className="flex-1 space-y-1">
+              <label className="min-w-0 flex-1 space-y-1">
                 <span className="text-zinc-300">Timezone</span>
                 <p className="text-sm text-zinc-500">
                   IANA timezone used for local day boundaries and Now timestamps.
@@ -3429,14 +3445,15 @@ export function SettingsPage({
                   className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
                 />
               </label>
-              <button
-                type="button"
-                onClick={() => update('timezone', timezoneDraft.trim())}
-                disabled={saving || timezoneDraft.trim() === (settings.timezone ?? '')}
-                className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
-              >
-                Save timezone
-              </button>
+              <div className="flex w-full shrink-0 justify-end md:w-auto">
+                <Button
+                  variant="primary"
+                  onClick={() => update('timezone', timezoneDraft.trim())}
+                  disabled={saving || timezoneDraft.trim() === (settings.timezone ?? '')}
+                >
+                  Save timezone
+                </Button>
+              </div>
             </div>
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
@@ -3560,30 +3577,31 @@ export function SettingsPage({
                   ) : null}
                 </label>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void saveSyncNetworkSettings()}
-                  disabled={
-                    saving
-                    || (
-                      nodeDisplayNameDraft.trim() === (settings.node_display_name ?? '')
-                      && writebackEnabledDraft === (settings.writeback_enabled === true)
-                      && tailscalePreferredDraft === (settings.tailscale_preferred !== false)
-                      && (
-                        tailscaleBaseUrlLocked
-                          || tailscaleBaseUrlDraft.trim() === (settings.tailscale_base_url ?? '')
-                      )
-                      && (lanBaseUrlLocked || lanBaseUrlDraft.trim() === (settings.lan_base_url ?? ''))
-                    )
-                  }
-                  className="rounded-md bg-emerald-700 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-zinc-700"
-                >
-                  Save sync settings
-                </button>
+              <div className="mt-4 space-y-2">
                 <p className="text-sm text-zinc-500">
                   Apple clients should set `vel_tailscale_url` to the same Tailscale URL shown here.
                 </p>
+                <div className={settingsFormActionsClass}>
+                  <Button
+                    variant="primary"
+                    onClick={() => void saveSyncNetworkSettings()}
+                    disabled={
+                      saving
+                      || (
+                        nodeDisplayNameDraft.trim() === (settings.node_display_name ?? '')
+                        && writebackEnabledDraft === (settings.writeback_enabled === true)
+                        && tailscalePreferredDraft === (settings.tailscale_preferred !== false)
+                        && (
+                          tailscaleBaseUrlLocked
+                            || tailscaleBaseUrlDraft.trim() === (settings.tailscale_base_url ?? '')
+                        )
+                        && (lanBaseUrlLocked || lanBaseUrlDraft.trim() === (settings.lan_base_url ?? ''))
+                      )
+                    }
+                  >
+                    Save sync settings
+                  </Button>
+                </div>
               </div>
               {clusterBootstrap ? (
                 <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2">
@@ -3823,22 +3841,20 @@ export function SettingsPage({
                               </div>
                             </div>
                             <div className="flex shrink-0 flex-col gap-2 lg:w-40">
-                              <button
-                                type="button"
+                              <Button
+                                variant="primary"
                                 onClick={() => void runExecutionHandoffReview(handoff.id, 'approve')}
                                 disabled={pendingAction != null}
-                                className="rounded-md border border-emerald-700/60 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 transition hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {pendingAction === 'approve' ? 'Approving…' : 'Approve'}
-                              </button>
-                              <button
-                                type="button"
+                              </Button>
+                              <Button
+                                variant="danger"
                                 onClick={() => void runExecutionHandoffReview(handoff.id, 'reject')}
                                 disabled={pendingAction != null}
-                                className="rounded-md border border-rose-700/60 bg-rose-950/20 px-3 py-2 text-sm text-rose-100 transition hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {pendingAction === 'reject' ? 'Rejecting…' : 'Reject'}
-                              </button>
+                              </Button>
                               <p className="text-xs text-zinc-500">
                                 Requested by {handoff.requested_by}
                               </p>
@@ -3939,7 +3955,7 @@ export function SettingsPage({
                           type="button"
                           onClick={() => setSelectedDiscoveredNodeId(worker.node_id)}
                           aria-pressed={selected}
-                          className={`rounded-lg border p-4 text-left transition ${
+                          className={`rounded-lg border p-4 text-left text-sm font-medium normal-case transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/45 ${
                             selected
                               ? 'border-emerald-500 bg-emerald-500/10'
                               : 'border-zinc-800 bg-zinc-950/60 hover:border-zinc-700'
@@ -3998,18 +4014,20 @@ export function SettingsPage({
                   </p>
                 ) : null}
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => void handleIssuePairingToken()}
-                  disabled={issuingPairingToken || !clusterBootstrap}
-                  className="min-h-[44px] rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
-                >
-                  {issuingPairingToken ? 'Pairing…' : 'Pair nodes'}
-                </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-zinc-500">
                   CLI fallback: `vel node link issue --scope-read-context --scope-write-safe-actions`
                 </p>
+                <div className={settingsFormActionsClass}>
+                  <Button
+                    variant="primary"
+                    className="min-h-11"
+                    onClick={() => void handleIssuePairingToken()}
+                    disabled={issuingPairingToken || !clusterBootstrap}
+                  >
+                    {issuingPairingToken ? 'Pairing…' : 'Pair nodes'}
+                  </Button>
+                </div>
               </div>
               {localIncomingLinkingPrompt ? (
                 <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-4">
@@ -4030,14 +4048,14 @@ export function SettingsPage({
                       spellCheck={false}
                       className="min-h-[44px] flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
                     />
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      className="min-h-11"
                       onClick={() => void handleRedeemPairingToken()}
                       disabled={redeemingPairingToken}
-                      className="min-h-[44px] rounded-md bg-sky-500 px-3 py-2 text-sm font-medium text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
                     >
                       {redeemingPairingToken ? 'Redeeming…' : 'Enter token'}
-                    </button>
+                    </Button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {scopeSummaryEntries(localIncomingLinkingPrompt.scopes).map((scope) => (
@@ -4236,45 +4254,49 @@ export function SettingsPage({
                                 <span className="text-sm text-zinc-300">Execute repo tasks</span>
                               </label>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => void handleRenegotiateLinkedNodePermissions(node)}
-                              disabled={issuingPairingToken || node.status !== 'linked' || !targetBaseUrl}
-                              className="min-h-[44px] rounded-md bg-sky-500 px-3 py-2 text-sm font-medium text-zinc-950 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
-                            >
-                              {issuingPairingToken ? 'Issuing…' : 'Request updated access'}
-                            </button>
+                            <div className={settingsFormActionsClass}>
+                              <Button
+                                variant="secondary"
+                                className="min-h-11"
+                                onClick={() => void handleRenegotiateLinkedNodePermissions(node)}
+                                disabled={issuingPairingToken || node.status !== 'linked' || !targetBaseUrl}
+                              >
+                                {issuingPairingToken ? 'Issuing…' : 'Request updated access'}
+                              </Button>
+                            </div>
                             {confirmUnpair ? (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                  type="button"
+                              <div className={settingsFormActionsClass}>
+                                <Button
+                                  variant="danger"
+                                  className="min-h-11"
                                   onClick={() => void handleUnpairLinkedNode(node)}
                                   disabled={isUnpairing}
-                                  className="min-h-[44px] rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-zinc-50 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
                                 >
                                   {isUnpairing ? 'Unpairing…' : 'Confirm unpair'}
-                                </button>
-                                <button
-                                  type="button"
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  className="min-h-11"
                                   onClick={() => setConfirmUnpairNodeId(null)}
                                   disabled={isUnpairing}
-                                  className="min-h-[44px] rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-300 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
                                 >
                                   Cancel
-                                </button>
+                                </Button>
                               </div>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setConfirmUnpairNodeId(node.node_id);
-                                  setLinkedNodeActionFeedback(null);
-                                }}
-                                disabled={isUnpairing}
-                                className="min-h-[44px] rounded-md border border-rose-700/60 bg-rose-950/20 px-3 py-2 text-sm font-medium text-rose-100 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-500"
-                              >
-                                Unpair
-                              </button>
+                              <div className={settingsFormActionsClass}>
+                                <Button
+                                  variant="danger"
+                                  className="min-h-11"
+                                  onClick={() => {
+                                    setConfirmUnpairNodeId(node.node_id);
+                                    setLinkedNodeActionFeedback(null);
+                                  }}
+                                  disabled={isUnpairing}
+                                >
+                                  Unpair
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </article>
@@ -4511,46 +4533,42 @@ export function SettingsPage({
                 />
               </label>
             </div>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
+            <div className={`mt-4 ${settingsFormActionsClass}`}>
+              <Button
+                variant="outline"
+                size="md"
                 onClick={() => void saveGoogleCredentials()}
                 disabled={Boolean(pendingIntegrationActions['google-save'])}
-                className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
               >
                 {pendingIntegrationActions['google-save'] ? 'Saving…' : 'Save credentials'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
                 onClick={() => void startGoogleAuth()}
                 disabled={Boolean(pendingIntegrationActions['google-auth']) || !integrations.google_calendar.configured}
-                className="rounded-md border border-emerald-800 px-3 py-1.5 text-sm text-emerald-200 transition hover:border-emerald-600 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
               >
                 {pendingIntegrationActions['google-auth'] ? 'Connecting…' : 'Connect Google'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => void syncSource('calendar')}
                 disabled={Boolean(pendingIntegrationActions['google-sync']) || !integrations.google_calendar.connected}
-                className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
               >
                 {pendingIntegrationActions['google-sync'] ? 'Syncing…' : 'Sync now'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="danger"
+                size="md"
                 onClick={() => void disconnectGoogle()}
                 disabled={Boolean(pendingIntegrationActions['google-disconnect']) || !integrations.google_calendar.connected}
-                className="rounded-md border border-rose-900 px-3 py-1.5 text-sm text-rose-200 transition hover:border-rose-700 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
               >
                 {pendingIntegrationActions['google-disconnect'] ? 'Disconnecting…' : 'Disconnect'}
-              </button>
-              <button
-                type="button"
-                onClick={() => updateIntegrationLogsVisibility('google-calendar', !expandedIntegrationLogs['google-calendar'])}
-                className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
-              >
+              </Button>
+              <Button variant="outline" size="md" onClick={() => updateIntegrationLogsVisibility('google-calendar', !expandedIntegrationLogs['google-calendar'])}>
                 {expandedIntegrationLogs['google-calendar'] ? 'Hide history' : 'Show history'}
-              </button>
+              </Button>
             </div>
             <IntegrationMeta
               lastSyncAt={integrations.google_calendar.last_sync_at}
@@ -4651,38 +4669,34 @@ export function SettingsPage({
                 className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none"
               />
             </label>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
+            <div className={`mt-4 ${settingsFormActionsClass}`}>
+              <Button
+                variant="outline"
+                size="md"
                 onClick={() => void saveTodoistToken()}
                 disabled={Boolean(pendingIntegrationActions['todoist-save'])}
-                className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
               >
                 {pendingIntegrationActions['todoist-save'] ? 'Saving…' : 'Save token'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
                 onClick={() => void syncSource('todoist')}
                 disabled={Boolean(pendingIntegrationActions['todoist-sync']) || !integrations.todoist.connected}
-                className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
               >
                 {pendingIntegrationActions['todoist-sync'] ? 'Syncing…' : 'Sync now'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="danger"
+                size="md"
                 onClick={() => void disconnectTodoist()}
                 disabled={Boolean(pendingIntegrationActions['todoist-disconnect']) || !integrations.todoist.connected}
-                className="rounded-md border border-rose-900 px-3 py-1.5 text-sm text-rose-200 transition hover:border-rose-700 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
               >
                 {pendingIntegrationActions['todoist-disconnect'] ? 'Disconnecting…' : 'Disconnect'}
-              </button>
-              <button
-                type="button"
-                onClick={() => updateIntegrationLogsVisibility('todoist', !expandedIntegrationLogs.todoist)}
-                className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
-              >
+              </Button>
+              <Button variant="outline" size="md" onClick={() => updateIntegrationLogsVisibility('todoist', !expandedIntegrationLogs.todoist)}>
                 {expandedIntegrationLogs.todoist ? 'Hide history' : 'Show history'}
-              </button>
+              </Button>
             </div>
             <IntegrationMeta
               lastSyncAt={integrations.todoist.last_sync_at}
@@ -4873,7 +4887,7 @@ export function SettingsPage({
                               onClick={() => {
                                 toggleSuggestedPathSelection(spec.key, path);
                               }}
-                              className={`rounded-md border px-3 py-2 text-left transition ${
+                              className={`rounded-md border px-3 py-2 text-left text-sm font-medium normal-case transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/45 ${
                                 selectedPaths.includes(path)
                                   ? 'border-zinc-500 bg-zinc-800/70 text-white'
                                   : 'border-zinc-700 bg-zinc-950/40 text-zinc-300 hover:border-zinc-500 hover:text-white'
@@ -4964,7 +4978,7 @@ export function SettingsPage({
                                   onClick={() => {
                                     toggleSuggestedPathSelection(spec.key, path);
                                   }}
-                                  className={`rounded-md border px-3 py-2 text-left transition ${
+                                  className={`rounded-md border px-3 py-2 text-left text-sm font-medium normal-case transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/45 ${
                                     selectedPaths.includes(path)
                                       ? 'border-zinc-500 bg-zinc-800/70 text-white'
                                       : 'border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-white'
@@ -4992,29 +5006,30 @@ export function SettingsPage({
                     Vel reads the vault from disk after Obsidian Sync lands the files locally. This keeps note sync local-first while the daemon ingests the same markdown across clients.
                   </p>
                 ) : null}
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
+                <div className={`mt-4 ${settingsFormActionsClass}`}>
+                  <Button
+                    variant="outline"
+                    size="md"
                     onClick={() => void chooseLocalPath(spec.key)}
                     disabled={Boolean(pendingIntegrationActions[saveActionKey])}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
                     {spec.key === 'notes' ? 'Choose vault on this host…' : 'Choose path on this host…'}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="md"
                     onClick={() => void saveLocalSourcePath(spec.key)}
                     disabled={Boolean(pendingIntegrationActions[saveActionKey])}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
                     {pendingIntegrationActions[saveActionKey]
                       ? 'Saving…'
                       : spec.key === 'git'
                         ? 'Save repo selection'
                         : 'Save path'}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
                     onClick={() => {
                       setSelectedHostPaths((current) => ({
                         ...current,
@@ -5034,25 +5049,24 @@ export function SettingsPage({
                           : !integration.source_path
                       )
                     }
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
                     {spec.key === 'git' ? 'Clear selection' : 'Clear path'}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
                     onClick={() => void syncSource(spec.key)}
                     disabled={Boolean(pendingIntegrationActions[syncActionKey])}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
                     {pendingIntegrationActions[syncActionKey] ? 'Syncing…' : 'Sync now'}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="md"
                     onClick={() => updateIntegrationLogsVisibility(spec.key, !expandedIntegrationLogs[spec.key])}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
                   >
                     {expandedIntegrationLogs[spec.key] ? 'Hide history' : 'Show history'}
-                  </button>
+                  </Button>
                 </div>
                 <IntegrationMeta
                   sourcePath={integration.source_path}
@@ -5102,8 +5116,11 @@ export function SettingsPage({
         </div>
         <section>
           <div className="mb-3">
-            <h3 className="text-lg font-medium text-zinc-200">LLM routing</h3>
-            <p className="text-sm text-zinc-500">
+            <div className="flex items-center gap-2">
+              <OpenAiBrandIcon size={22} className="text-zinc-300" />
+              <h3 className="text-lg font-medium text-zinc-200">LLM routing</h3>
+            </div>
+            <p className="mt-1 text-sm text-zinc-500">
               Pick the default chat profile and manage localhost OpenAI-compatible model endpoints from Settings.
             </p>
           </div>
@@ -5157,17 +5174,20 @@ export function SettingsPage({
 
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-zinc-200">OpenAI-compatible localhost profiles</p>
-                <button
-                  type="button"
+                <div className="flex min-w-0 items-center gap-2">
+                  <OpenAiBrandIcon size={18} className="shrink-0 text-zinc-400" />
+                  <p className="text-sm font-medium text-zinc-200">OpenAI-compatible localhost profiles</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="md"
                   onClick={() => setOpenAiProfilesDraft((current) => [
                     ...current,
                     { id: '', base_url: 'http://127.0.0.1:8014/v1', model: '', context_window: '', enabled: true },
                   ])}
-                  className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
                 >
                   Add profile
-                </button>
+                </Button>
               </div>
               {openAiProfilesDraft.length === 0 ? (
                 <p className="text-sm text-zinc-500">No editable OpenAI-compatible profiles configured yet.</p>
@@ -5234,30 +5254,23 @@ export function SettingsPage({
                       />
                       Profile active
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setOpenAiProfilesDraft((current) => current.filter((_, entryIndex) => entryIndex !== index))}
-                      className="rounded-md border border-rose-900 px-3 py-1.5 text-sm text-rose-200 transition hover:border-rose-700 hover:text-white"
-                    >
+                    <Button variant="danger" size="md" onClick={() => setOpenAiProfilesDraft((current) => current.filter((_, entryIndex) => entryIndex !== index))}>
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => void saveLlmSettings()}
-                disabled={saving}
-                className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
-              >
-                {saving ? 'Saving…' : 'Save LLM settings'}
-              </button>
-              <span className="text-xs text-zinc-500">
+            <div className="space-y-2">
+              <div className={settingsFormActionsClass}>
+                <Button variant="primary" onClick={() => void saveLlmSettings()} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save LLM settings'}
+                </Button>
+              </div>
+              <p className="text-xs text-zinc-500">
                 OpenAI-compatible endpoints must stay on localhost.
-              </span>
+              </p>
             </div>
             {llmActionState ? (
               <p className={`text-sm ${llmActionState.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -5274,26 +5287,27 @@ export function SettingsPage({
             </p>
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => void restartComponentAction({
-                  id: 'daemon',
-                  name: 'Vel daemon',
-                  description: 'Re-exec veld',
-                  status: 'ok',
-                  last_restarted_at: null,
-                  last_error: null,
-                  restart_count: 0,
-                })}
-                disabled={daemonRestartPending}
-                className="rounded-md border border-emerald-900 px-3 py-2 text-sm text-emerald-200 transition hover:border-emerald-700 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
-              >
-                {daemonRestartPending ? 'Restarting daemon…' : 'Restart daemon'}
-              </button>
-              <span className="text-xs text-zinc-500">
+            <div className="space-y-2">
+              <div className={settingsFormActionsClass}>
+                <Button
+                  variant="secondary"
+                  onClick={() => void restartComponentAction({
+                    id: 'daemon',
+                    name: 'Vel daemon',
+                    description: 'Re-exec veld',
+                    status: 'ok',
+                    last_restarted_at: null,
+                    last_error: null,
+                    restart_count: 0,
+                  })}
+                  disabled={daemonRestartPending}
+                >
+                  {daemonRestartPending ? 'Restarting daemon…' : 'Restart daemon'}
+                </Button>
+              </div>
+              <p className="text-xs text-zinc-500">
                 The page should reconnect automatically after the replacement process starts.
-              </span>
+              </p>
             </div>
             {daemonRestartAction ? (
               <p className={`mt-3 text-sm ${daemonRestartAction.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -5476,22 +5490,20 @@ export function SettingsPage({
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-col gap-2 lg:w-40">
-                          <button
-                            type="button"
+                          <Button
+                            variant="primary"
                             onClick={() => void runExecutionHandoffReview(handoff.id, 'approve')}
                             disabled={pendingAction != null}
-                            className="rounded-md border border-emerald-700/60 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 transition hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {pendingAction === 'approve' ? 'Approving…' : 'Approve'}
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button
+                            variant="danger"
                             onClick={() => void runExecutionHandoffReview(handoff.id, 'reject')}
                             disabled={pendingAction != null}
-                            className="rounded-md border border-rose-700/60 bg-rose-950/20 px-3 py-2 text-sm text-rose-100 transition hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {pendingAction === 'reject' ? 'Rejecting…' : 'Reject'}
-                          </button>
+                          </Button>
                           <p className="text-xs text-zinc-500">
                             Requested by {handoff.requested_by}
                           </p>
@@ -5547,8 +5559,8 @@ export function SettingsPage({
                       Enabled
                     </label>
                   </div>
-                  <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
-                    <label className="flex-1 space-y-1">
+                  <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                    <label className="min-w-0 flex-1 space-y-1">
                       <span className="text-xs uppercase tracking-wide text-zinc-500">Interval seconds</span>
                       <input
                         type="number"
@@ -5568,14 +5580,15 @@ export function SettingsPage({
                         className="w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                       />
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => void saveLoop(loop, loop.enabled)}
-                      disabled={Boolean(actingLoops[loop.kind])}
-                      className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
-                    >
-                      {actingLoops[loop.kind] ? 'Saving…' : 'Save'}
-                    </button>
+                    <div className="flex w-full shrink-0 justify-end md:w-auto">
+                      <Button
+                        variant="primary"
+                        onClick={() => void saveLoop(loop, loop.enabled)}
+                        disabled={Boolean(actingLoops[loop.kind])}
+                      >
+                        {actingLoops[loop.kind] ? 'Saving…' : 'Save'}
+                      </Button>
+                    </div>
                   </div>
                   {loopActionState[loop.kind] ? (
                     <p
@@ -5717,23 +5730,23 @@ export function SettingsPage({
                     />
                   </label>
                 </div>
-                <div className="mt-4 flex items-center gap-3">
-                  <button
-                    type="button"
+                <div className={`mt-4 ${settingsFormActionsClass}`}>
+                  <Button
+                    variant="primary"
+                    size="md"
                     onClick={() => void beginScheduleRetry(run)}
                     disabled={!canScheduleRetry(run) || Boolean(actingRuns[run.id])}
-                    className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
                     {actingRuns[run.id] ? 'Working…' : 'Schedule retry'}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="md"
                     onClick={() => void blockRun(run)}
                     disabled={!canControlRun(run) || Boolean(actingRuns[run.id])}
-                    className="rounded-md border border-rose-900 px-3 py-1.5 text-sm text-rose-200 transition hover:border-rose-700 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                   >
                     {actingRuns[run.id] ? 'Working…' : 'Block run'}
-                  </button>
+                  </Button>
                   {!run.automatic_retry_supported ? (
                     <span className="text-xs text-amber-300">Requires override</span>
                   ) : null}
@@ -5744,23 +5757,23 @@ export function SettingsPage({
                       Automatic retry is unsupported for {run.kind}. Confirm the manual override to
                       schedule this retry anyway.
                     </p>
-                    <div className="mt-3 flex items-center gap-3">
-                      <button
-                        type="button"
+                    <div className={`mt-3 ${settingsFormActionsClass}`}>
+                      <Button
+                        variant="primary"
+                        size="md"
                         onClick={() => void scheduleRetry(run, true)}
                         disabled={Boolean(actingRuns[run.id])}
-                        className="rounded-md border border-amber-700 px-3 py-1.5 text-sm text-amber-100 transition hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                       >
                         {actingRuns[run.id] ? 'Working…' : 'Confirm override retry'}
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="md"
                         onClick={() => setPendingOverrideRunId((current) => (current === run.id ? null : current))}
                         disabled={Boolean(actingRuns[run.id])}
-                        className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition hover:border-zinc-500 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
                       >
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : null}
@@ -5839,37 +5852,6 @@ function formatTimestampMs(value: number): string {
   return date.toLocaleString();
 }
 
-function InfoStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">{label}</p>
-      <p className="mt-2 text-sm text-zinc-100">{value}</p>
-    </div>
-  );
-}
-
-function IntegrationStatCard({
-  title,
-  status,
-  detail,
-}: {
-  title: string;
-  status: string;
-  detail: string;
-}) {
-  return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-zinc-100">{title}</p>
-        <span className="rounded-full border border-zinc-800 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-zinc-400">
-          {status}
-        </span>
-      </div>
-      <p className="mt-2 text-xs text-zinc-400">{detail}</p>
-    </div>
-  );
-}
-
 function ComponentCard({
   component,
   action,
@@ -5920,22 +5902,13 @@ function ComponentCard({
         </p>
         {component.last_error ? <p className="text-rose-400">Last error: {component.last_error}</p> : null}
       </div>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => void onRestart()}
-          disabled={isRestarting}
-          className="rounded-md border border-emerald-900 px-3 py-1.5 text-sm text-emerald-200 transition hover:border-emerald-700 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:text-zinc-600"
-        >
+      <div className={`mt-4 ${settingsFormActionsClass}`}>
+        <Button variant="secondary" size="md" onClick={() => void onRestart()} disabled={isRestarting}>
           {isRestarting ? 'Restarting…' : 'Restart now'}
-        </button>
-        <button
-          type="button"
-          onClick={() => void onToggleLogs()}
-          className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
-        >
+        </Button>
+        <Button variant="outline" size="md" onClick={() => void onToggleLogs()}>
           {isExpanded ? 'Hide logs' : 'Show logs'}
-        </button>
+        </Button>
       </div>
       {action ? (
         <p className={`mt-3 text-sm ${action.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -6111,75 +6084,75 @@ function IntegrationBadge({
 }
 
 function IntegrationProductMark({ product }: { product: IntegrationProductKey }) {
-  const { label, glyph, tone } = integrationProductMarkMeta(product);
+  const { label, brand, tone } = integrationProductMarkMeta(product);
   return (
     <span
       aria-label={`${label} product mark`}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border text-xs font-semibold uppercase tracking-[0.18em] ${tone}`}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border ${tone}`}
     >
-      {glyph}
+      <IntegrationBrandIcon brand={brand} normalizeHeight />
     </span>
   );
 }
 
 function integrationProductMarkMeta(product: IntegrationProductKey): {
   label: string;
-  glyph: string;
+  brand: BrandIntegrationKey;
   tone: string;
 } {
   switch (product) {
     case 'google':
       return {
         label: 'Google Calendar',
-        glyph: 'GC',
+        brand: 'google',
         tone: 'border-sky-800/70 bg-sky-950/40 text-sky-200',
       };
     case 'todoist':
       return {
         label: 'Todoist',
-        glyph: 'TD',
+        brand: 'todoist',
         tone: 'border-rose-800/70 bg-rose-950/40 text-rose-200',
       };
     case 'activity':
       return {
         label: 'Computer Activity',
-        glyph: 'AC',
+        brand: 'activity',
         tone: 'border-violet-800/70 bg-violet-950/40 text-violet-200',
       };
     case 'health':
       return {
         label: 'Health',
-        glyph: 'HL',
+        brand: 'health',
         tone: 'border-emerald-800/70 bg-emerald-950/40 text-emerald-200',
       };
     case 'git':
       return {
         label: 'Git Activity',
-        glyph: 'GT',
+        brand: 'git',
         tone: 'border-amber-800/70 bg-amber-950/40 text-amber-200',
       };
     case 'messaging':
       return {
         label: 'Messaging',
-        glyph: 'MS',
+        brand: 'messaging',
         tone: 'border-fuchsia-800/70 bg-fuchsia-950/40 text-fuchsia-200',
       };
     case 'reminders':
       return {
         label: 'Apple Reminders',
-        glyph: 'AR',
+        brand: 'reminders',
         tone: 'border-cyan-800/70 bg-cyan-950/40 text-cyan-200',
       };
     case 'notes':
       return {
         label: 'Obsidian Vault',
-        glyph: 'OB',
+        brand: 'notes',
         tone: 'border-indigo-800/70 bg-indigo-950/40 text-indigo-200',
       };
     case 'transcripts':
       return {
         label: 'Transcripts',
-        glyph: 'TR',
+        brand: 'transcripts',
         tone: 'border-zinc-700 bg-zinc-900/80 text-zinc-200',
       };
   }
@@ -6217,17 +6190,18 @@ function IntegrationMeta({
             Recommended action: {guidance.action}
           </p>
           {guidanceActions.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className={`mt-3 ${settingsFormActionsClass}`}>
               {guidanceActions.map((action) => (
-                <button
+                <Button
                   key={action.label}
-                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={action.onClick}
                   disabled={action.disabled}
-                  className="rounded-md border border-amber-700/70 px-3 py-1.5 text-xs font-medium text-amber-100 transition hover:border-amber-500 hover:text-white disabled:cursor-not-allowed disabled:border-amber-900/40 disabled:text-amber-300/50"
+                  className="border-amber-700/50 text-amber-100 hover:border-amber-500 hover:bg-amber-950/30"
                 >
                   {action.label}
-                </button>
+                </Button>
               ))}
             </div>
           ) : null}

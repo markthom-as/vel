@@ -240,6 +240,26 @@ pub(crate) async fn list_interventions_active(
         .collect::<Result<Vec<_>, _>>()
 }
 
+pub(crate) async fn list_interventions_archived(
+    pool: &SqlitePool,
+    limit: u32,
+) -> Result<Vec<InterventionRecord>, StorageError> {
+    let limit = limit.min(500) as i64;
+    let rows = sqlx::query(
+        r#"SELECT id, message_id, kind, state, surfaced_at, resolved_at, snoozed_until, confidence, source_json, provenance_json
+           FROM interventions
+           WHERE state IN ('resolved', 'dismissed')
+           ORDER BY COALESCE(resolved_at, surfaced_at) DESC
+           LIMIT ?"#,
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+    rows.into_iter()
+        .map(|row| map_intervention_row(&row))
+        .collect::<Result<Vec<_>, _>>()
+}
+
 pub(crate) async fn get_interventions_by_message(
     pool: &SqlitePool,
     message_id: &str,
@@ -335,6 +355,17 @@ pub(crate) async fn dismiss_intervention(pool: &SqlitePool, id: &str) -> Result<
         r#"UPDATE interventions SET state = 'dismissed', resolved_at = ?, snoozed_until = NULL WHERE id = ?"#,
     )
     .bind(now)
+    .bind(id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Return intervention to the active queue (operator "mark unread").
+pub(crate) async fn reactivate_intervention(pool: &SqlitePool, id: &str) -> Result<(), StorageError> {
+    sqlx::query(
+        r#"UPDATE interventions SET state = 'active', resolved_at = NULL, snoozed_until = NULL WHERE id = ?"#,
+    )
     .bind(id)
     .execute(pool)
     .await?;

@@ -47,6 +47,30 @@ describe('MessageComposer', () => {
     expect(within(composer).getByRole('button', { name: /send/i })).toBeInTheDocument()
   })
 
+  it('floating mode shows elapsed timer and max cap while recording', () => {
+    vi.mocked(speech.useSpeechRecognition).mockReturnValue({
+      isSupported: true,
+      isListening: true,
+      error: null,
+      start: vi.fn(),
+      stop: vi.fn(),
+      interimTranscript: '',
+    })
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    expect(container.textContent).toMatch(/0:00/)
+    expect(container.textContent).toMatch(/2:00/)
+    expect(container.querySelector('svg[aria-hidden="true"]')).toBeTruthy()
+  })
+
+  it('hides Send in floating mode until there is text to send', () => {
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    expect(within(container).queryByRole('button', { name: /send/i })).not.toBeInTheDocument()
+    const textarea = requireHtmlElement(container.querySelector('textarea'))
+    fireEvent.change(textarea, { target: { value: 'Hi' } })
+    expect(within(container).getByRole('button', { name: /send/i })).toBeInTheDocument()
+  })
+
   it('disables Send when text is empty', () => {
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
@@ -183,11 +207,11 @@ describe('MessageComposer', () => {
 
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
-    const voiceButton = within(composer).getByRole('button', { name: /hold to talk locally/i })
+    const voiceButton = within(composer).getByRole('button', { name: 'Hold to talk locally' })
     const sendBtn = within(composer).getByRole('button', { name: /send/i })
 
-    fireEvent.mouseDown(voiceButton)
-    fireEvent.mouseUp(voiceButton)
+    fireEvent.pointerDown(voiceButton)
+    fireEvent.pointerUp(voiceButton)
 
     await waitFor(() => {
       expect(requireHtmlElement(composer.querySelector('textarea'))).toHaveValue('voice drafted note')
@@ -251,10 +275,10 @@ describe('MessageComposer', () => {
 
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
-    const voiceButton = within(composer).getByRole('button', { name: /hold to talk locally/i })
+    const voiceButton = within(composer).getByRole('button', { name: 'Hold to talk locally' })
 
-    fireEvent.mouseDown(voiceButton)
-    fireEvent.mouseUp(voiceButton)
+    fireEvent.pointerDown(voiceButton)
+    fireEvent.pointerUp(voiceButton)
 
     expect(start).toHaveBeenCalledTimes(1)
     expect(stop).toHaveBeenCalledTimes(1)

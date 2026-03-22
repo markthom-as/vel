@@ -1,21 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { contextQueryKeys, loadNow, updateCommitment } from '../../data/context';
 import { invalidateQuery, useQuery } from '../../data/query';
-import type { AssistantEntryResponse, NowData } from '../../types';
-import { chatQueryKeys } from '../../data/chat';
-import { MessageComposer } from '../../core/MessageComposer';
+import type { NowData } from '../../types';
+import {
+  PanelSectionHeaderBand,
+  PanelSectionHeaderLead,
+  PanelSectionHeaderTrail,
+} from '../../core/PanelChrome';
 import { SurfaceState } from '../../core/SurfaceState';
-import { AssistantEntryFeedback } from './components/AssistantEntryFeedback';
 import { NowMetricStrip } from './components/NowMetricStrip';
 import { NowNudgeStrip } from './components/NowNudgeStrip';
 import { NowTasksSection } from './components/NowTasksSection';
+import type { SettingsSectionKey } from '../../views/settings';
+import { surfaceShell } from '../../core/Theme';
+import { formatNavbarDateTime } from '../../shell/Navbar/formatNavbarDateTime';
 import {
-  buildCurrentStatus,
   dedupeActionItems,
   dedupeTasks,
   findActiveEvent,
-  findActiveRoutineBlock,
-  findNextEvent,
+  nowLocationLabel,
+  nowNavContextSummary,
+  nudgeOpenSettingsTarget,
   scoreNudge,
 } from './nowModel';
 
@@ -34,14 +39,13 @@ interface NowViewProps {
   onOpenSettings?: (target: {
     tab: 'general' | 'integrations' | 'runtime';
     integrationId?: SettingsIntegrationTarget;
+    section?: SettingsSectionKey;
   }) => void;
 }
 
 export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const commitmentsKey = useMemo(() => contextQueryKeys.commitments(25), []);
-  const inboxKey = useMemo(() => chatQueryKeys.inbox(), []);
-  const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data, loading, error, refetch } = useQuery<NowData | null>(
     nowKey,
     async () => {
@@ -50,12 +54,6 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     },
   );
 
-  const [assistantEntryMessage, setAssistantEntryMessage] = useState<{
-    status: 'success' | 'error';
-    message: string;
-  } | null>(null);
-  const [assistantInlineResponse, setAssistantInlineResponse] = useState<AssistantEntryResponse | null>(null);
-  const [assistantEntryThreadId, setAssistantEntryThreadId] = useState<string | null>(null);
   const [pendingCommitments, setPendingCommitments] = useState<Record<string, true>>({});
   const [commitmentMessages, setCommitmentMessages] = useState<
     Record<string, { status: 'success' | 'error'; message: string }>
@@ -83,38 +81,42 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     };
   }, [refetch]);
 
-  const handleAssistantEntry = async (response: AssistantEntryResponse) => {
-    invalidateQuery(conversationsKey, { refetch: true });
-    invalidateQuery(inboxKey, { refetch: true });
-    setAssistantEntryMessage(null);
-    setAssistantInlineResponse(null);
-    setAssistantEntryThreadId(response.conversation.id);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [bottomFadeVisible, setBottomFadeVisible] = useState(false);
 
-    if (response.route_target === 'threads') {
-      onOpenThread?.(response.conversation.id);
-      return;
+  const updateBottomFade = useCallback(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+    const threshold = 12;
+    const canScrollMore = scrollHeight > clientHeight + 2;
+    const atBottom = scrollTop + clientHeight >= scrollHeight - threshold;
+    setBottomFadeVisible(canScrollMore && !atBottom);
+  }, []);
+
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    const contentEl = contentRef.current;
+    if (!scrollEl) return;
+
+    updateBottomFade();
+    scrollEl.addEventListener('scroll', updateBottomFade, { passive: true });
+    window.addEventListener('resize', updateBottomFade);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => updateBottomFade());
+      ro.observe(scrollEl);
+      if (contentEl) ro.observe(contentEl);
     }
-    if (response.route_target === 'inbox') {
-      setAssistantEntryMessage({
-        status: 'success',
-        message: 'Saved to Inbox for follow-up.',
-      });
-      onOpenInbox?.();
-      return;
-    }
-    setAssistantInlineResponse(response);
-    if (response.assistant_error) {
-      setAssistantEntryMessage({
-        status: 'error',
-        message: response.assistant_error,
-      });
-      return;
-    }
-    setAssistantEntryMessage({
-      status: 'success',
-      message: 'Handled here in Now.',
-    });
-  };
+
+    return () => {
+      scrollEl.removeEventListener('scroll', updateBottomFade);
+      window.removeEventListener('resize', updateBottomFade);
+      ro?.disconnect();
+    };
+  }, [updateBottomFade, data, loading]);
 
   if (loading) {
     return <SurfaceState message="Loading your current state…" layout="centered" />;
@@ -140,23 +142,13 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
   );
   const header = data.header;
   const meshSummary = data.mesh_summary;
-  const contextLine = data.context_line;
   const nudgeBars = data.nudge_bars ?? [];
   const taskLane = data.task_lane;
   const nowTs = data.computed_at;
   const activeEvent = findActiveEvent(data.schedule.upcoming_events, nowTs);
-  const nextScheduledEvent = findNextEvent(data.schedule.upcoming_events, nowTs);
-  const activeRoutineBlock = findActiveRoutineBlock(data.day_plan, nowTs);
   const commitmentRows = dedupeTasks([data.tasks.next_commitment, ...(data.tasks.other_open ?? [])]);
   const commitmentIds = new Set(commitmentRows.map((t) => t.id));
   const pullableTasks = dedupeTasks(data.tasks.todoist ?? []);
-  const currentStatus = buildCurrentStatus(
-    data,
-    activeEvent,
-    activeRoutineBlock,
-    commitmentRows[0] ?? null,
-    nextScheduledEvent,
-  );
 
   const completeCommitment = async (commitmentId: string) => {
     setPendingCommitments((current) => ({ ...current, [commitmentId]: true }));
@@ -198,12 +190,15 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     bar: NowData['nudge_bars'][number],
     action: NowData['nudge_bars'][number]['actions'][number],
   ) => {
-    if ((action.kind === 'open_thread' || action.kind === 'expand') && bar.primary_thread_id) {
+    if (
+      (action.kind === 'open_thread' || action.kind === 'expand' || action.kind === 'accept') &&
+      bar.primary_thread_id
+    ) {
       onOpenThread?.(bar.primary_thread_id);
       return;
     }
     if (action.kind === 'open_settings') {
-      onOpenSettings?.({ tab: 'runtime' });
+      onOpenSettings?.(nudgeOpenSettingsTarget(bar));
       return;
     }
     if (action.kind === 'open_inbox') {
@@ -211,7 +206,9 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     }
   };
 
-  const activeDescription = contextLine?.text ?? currentStatus.summary;
+  const locationCaption = nowLocationLabel(data, activeEvent);
+  const titleDateTime = formatNavbarDateTime(nowTs, data.timezone);
+  const navContextLine = nowNavContextSummary(data);
   const backupNudge =
     data.trust_readiness.backup.level !== 'ok'
       ? {
@@ -252,22 +249,37 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     actionItems.filter((item) => item.thread_route !== null).length + (data.reflow_status?.thread_id ? 1 : 0);
 
   return (
-    <div className="flex min-h-full flex-col bg-zinc-950">
-      <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-36 sm:px-6">
-        <section className="space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-0.5">
+    <div className={surfaceShell.mainColumn}>
+      <div ref={scrollRef} className={surfaceShell.scrollColumn}>
+        <div ref={contentRef} className={surfaceShell.mainContent}>
+        <section className={surfaceShell.sectionStack}>
+          <PanelSectionHeaderBand mode="section-header">
+            <PanelSectionHeaderLead className="space-y-2">
               <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
                 {header?.title ?? 'Now'}
               </h1>
-              <p className="truncate text-[11px] text-zinc-500">{activeDescription}</p>
-            </div>
-            <NowMetricStrip
-              nudgeCount={prioritizedNudges.length}
-              threadAttentionCount={threadAttentionCount}
-              queuedWriteCount={meshSummary?.queued_write_count ?? 0}
-            />
-          </div>
+              <p className="text-xs text-zinc-500" title={`${titleDateTime} · ${locationCaption}`}>
+                <span className="text-zinc-400">{titleDateTime}</span>
+                <span className="text-zinc-600/90" aria-hidden>
+                  {' '}
+                  |{' '}
+                </span>
+                <span className="text-zinc-400">{locationCaption}</span>
+              </p>
+              <p className="flex min-w-0 gap-1.5 text-[11px] leading-snug text-zinc-400 sm:text-xs">
+                <span className="shrink-0 font-medium uppercase tracking-[0.14em] text-zinc-500">CONTEXT:</span>
+                <span className="min-w-0 truncate">{navContextLine}</span>
+              </p>
+            </PanelSectionHeaderLead>
+            <PanelSectionHeaderTrail>
+              <NowMetricStrip
+                nudgeCount={prioritizedNudges.length}
+                threadAttentionCount={threadAttentionCount}
+                queuedWriteCount={meshSummary?.queued_write_count ?? 0}
+                meshSummary={meshSummary}
+              />
+            </PanelSectionHeaderTrail>
+          </PanelSectionHeaderBand>
 
           <NowNudgeStrip
             bars={prioritizedNudges}
@@ -292,29 +304,13 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
             onOpenInbox={onOpenInbox}
             onOpenThread={onOpenThread}
           />
-
-          <AssistantEntryFeedback
-            message={assistantEntryMessage}
-            inlineResponse={assistantInlineResponse}
-            assistantEntryThreadId={assistantEntryThreadId}
-            onOpenThread={onOpenThread}
-          />
         </section>
-
-        <MessageComposer
-          compact
-          floating
-          hideHelperText
-          onSent={(_, response) => {
-            handleAssistantEntry(response);
-            invalidateQuery(nowKey, { refetch: true });
-          }}
-          onSendFailed={() => {
-            setAssistantEntryMessage({
-              status: 'error',
-              message: 'Failed to send assistant entry.',
-            });
-          }}
+        </div>
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 h-20 bg-gradient-to-t from-zinc-950 from-10% via-zinc-950/60 to-transparent transition-opacity duration-200 sm:h-28 ${
+            bottomFadeVisible ? 'opacity-100' : 'opacity-0'
+          }`}
         />
       </div>
     </div>

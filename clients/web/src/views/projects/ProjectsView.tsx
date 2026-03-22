@@ -6,6 +6,16 @@ import type {
 } from '../../types';
 import { createProject, loadProjects, operatorQueryKeys } from '../../data/operator';
 import { setQueryData, useQuery } from '../../data/query';
+import { Button } from '../../core/Button';
+import {
+  PanelEmptyRow,
+  PanelInsetCard,
+  PanelIntroStrip,
+  PanelPageSection,
+  PanelSectionHeader,
+  PanelSelectableListButton,
+} from '../../core/PanelChrome';
+import { PanelMetaPill } from '../../core/PanelItem';
 import { SurfaceState } from '../../core/SurfaceState';
 
 interface ProjectDraft {
@@ -64,7 +74,7 @@ export function ProjectsView() {
     projects: projects.filter((project) => project.family === family),
   }));
 
-  function useProjectAsDraft(project: ProjectRecordData) {
+  function applyProjectToDraft(project: ProjectRecordData) {
     setDraft({
       name: project.name,
       slug: project.slug,
@@ -137,7 +147,7 @@ export function ProjectsView() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-zinc-950">
-      <div className="mx-auto max-w-6xl px-6 py-8">
+      <div className="mx-auto max-w-6xl px-6 py-8 pb-36">
         <header className="mb-8">
           <p className="text-xs uppercase tracking-[0.25em] text-zinc-500">Projects</p>
           <h1 className="mt-2 text-3xl font-semibold text-zinc-100">Project context and durable roots</h1>
@@ -147,28 +157,24 @@ export function ProjectsView() {
           </p>
         </header>
 
-        <section className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
+        <PanelIntroStrip>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-300">
-              Secondary surface
-            </span>
-            <span className="rounded-full border border-zinc-800 bg-zinc-950/80 px-2.5 py-1 text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-              Project-owned context
-            </span>
+            <PanelMetaPill tone="kind">Secondary surface</PanelMetaPill>
+            <PanelMetaPill tone="state">Project-owned context</PanelMetaPill>
           </div>
           <p className="mt-3 text-sm leading-6 text-zinc-300">
             Use this view to inspect project identity, local roots, and bounded follow-up. Triage
             still belongs in `Inbox`, and immediate pressure still belongs in `Now`.
           </p>
-        </section>
+        </PanelIntroStrip>
 
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+          <PanelPageSection>
             <div className="mb-4">
-              <h2 className="text-lg font-medium text-zinc-100">Project registry</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Grouped by the canonical project families used across the runtime.
-              </p>
+              <PanelSectionHeader
+                title="Project registry"
+                description="Grouped by the canonical project families used across the runtime."
+              />
             </div>
             <div className="space-y-5">
               {groupedProjects.map((group) => (
@@ -178,47 +184,37 @@ export function ProjectsView() {
                   </h3>
                   <div className="mt-3 space-y-2">
                     {group.projects.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm text-zinc-500">
-                        No {group.label.toLowerCase()} projects yet.
-                      </p>
+                      <PanelEmptyRow>No {group.label.toLowerCase()} projects yet.</PanelEmptyRow>
                     ) : (
                       group.projects.map((project) => (
-                        <button
+                        <PanelSelectableListButton
                           key={project.id}
-                          type="button"
+                          selected={selectedProjectId === project.id}
                           onClick={() => setSelectedProjectId(project.id)}
-                          className={`block w-full rounded-xl border px-4 py-3 text-left transition ${
-                            selectedProjectId === project.id
-                              ? 'border-emerald-500/60 bg-emerald-500/10 text-zinc-100'
-                              : 'border-zinc-800 bg-zinc-950/60 text-zinc-300 hover:border-zinc-700'
-                          }`}
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <p className="font-medium">{project.name}</p>
                               <p className="mt-1 text-sm text-zinc-500">{project.slug}</p>
                             </div>
-                            <span className="rounded-full border border-zinc-800 px-2.5 py-1 text-xs uppercase tracking-wide text-zinc-500">
-                              {project.status}
-                            </span>
+                            <PanelMetaPill tone="state">{project.status}</PanelMetaPill>
                           </div>
-                        </button>
+                        </PanelSelectableListButton>
                       ))
                     )}
                   </div>
                 </section>
               ))}
             </div>
-          </section>
+          </PanelPageSection>
 
           <div className="space-y-6">
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+            <PanelPageSection>
               <div className="mb-4">
-                <h2 className="text-lg font-medium text-zinc-100">Selected project context</h2>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Durable roots and provisioning intent stay visible so project-scoped actions can
-                  trace back to a stable workspace without turning this into a second inbox.
-                </p>
+                <PanelSectionHeader
+                  title="Selected project context"
+                  description="Durable roots and provisioning intent stay visible so project-scoped actions can trace back to a stable workspace without turning this into a second inbox."
+                />
               </div>
               {selectedProject ? (
                 <div className="space-y-4 text-sm">
@@ -248,17 +244,17 @@ export function ProjectsView() {
                       detail="Provisioning intent stays explicit instead of assuming remote creation."
                     />
                   </div>
-                  <dl className="space-y-3">
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
-                      <dt className="text-zinc-500">Primary repo</dt>
-                      <dd className="mt-2 text-zinc-100">{selectedProject.primary_repo.path}</dd>
-                    </div>
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
-                      <dt className="text-zinc-500">Notes root</dt>
-                      <dd className="mt-2 text-zinc-100">{selectedProject.primary_notes_root.path}</dd>
-                    </div>
-                  </dl>
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                  <div className="space-y-3">
+                    <PanelInsetCard>
+                      <p className="text-zinc-500">Primary repo</p>
+                      <p className="mt-2 text-zinc-100">{selectedProject.primary_repo.path}</p>
+                    </PanelInsetCard>
+                    <PanelInsetCard>
+                      <p className="text-zinc-500">Notes root</p>
+                      <p className="mt-2 text-zinc-100">{selectedProject.primary_notes_root.path}</p>
+                    </PanelInsetCard>
+                  </div>
+                  <PanelInsetCard>
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-zinc-100">Bounded edit path</p>
@@ -268,32 +264,33 @@ export function ProjectsView() {
                           typed project contract.
                         </p>
                       </div>
-                      <button
+                      <Button
                         type="button"
-                        onClick={() => useProjectAsDraft(selectedProject)}
-                        className="rounded-md border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 transition hover:border-zinc-500 hover:text-white"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyProjectToDraft(selectedProject)}
                       >
                         Use project as draft
-                      </button>
+                      </Button>
                     </div>
-                  </div>
+                  </PanelInsetCard>
                 </div>
               ) : (
                 <SurfaceState message="Select a project to inspect its local roots." />
               )}
-            </section>
+            </PanelPageSection>
 
-            <section className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+            <PanelPageSection>
               <div className="mb-4">
-                <h2 className="text-lg font-medium text-zinc-100">Create project</h2>
-                <p className="mt-1 text-sm text-zinc-500">
-                  Draft the local record first. Upstream repo and notes-root work stays opt-in.
-                </p>
+                <PanelSectionHeader
+                  title="Create project"
+                  description="Draft the local record first. Upstream repo and notes-root work stays opt-in."
+                />
               </div>
-              <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4 text-sm text-zinc-400">
+              <PanelInsetCard className="mb-4 text-sm text-zinc-400">
                 The create form is also the supported edit handoff today. Start from a blank draft
                 or prefill from an existing project, then submit a new bounded project record.
-              </div>
+              </PanelInsetCard>
               <form className="space-y-4" onSubmit={(event) => void handleCreateProject(event)}>
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="space-y-1">
@@ -389,20 +386,16 @@ export function ProjectsView() {
                   />
                   <span className="text-sm text-zinc-300">Create notes root later</span>
                 </label>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="min-h-[44px] rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-300"
-                >
+                <Button type="submit" variant="primary" size="md" disabled={submitting} loading={submitting}>
                   Create project
-                </button>
+                </Button>
                 {submitMessage ? (
                   <p className={`text-sm ${submitMessage.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {submitMessage.text}
                   </p>
                 ) : null}
               </form>
-            </section>
+            </PanelPageSection>
           </div>
         </div>
       </div>
@@ -453,10 +446,10 @@ function DetailCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4">
-      <dt className="text-zinc-500">{label}</dt>
-      <dd className="mt-2 text-base text-zinc-100">{value}</dd>
-      <dd className="mt-1 text-xs text-zinc-500">{detail}</dd>
-    </div>
+    <PanelInsetCard>
+      <p className="text-zinc-500">{label}</p>
+      <p className="mt-2 text-base text-zinc-100">{value}</p>
+      <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+    </PanelInsetCard>
   );
 }

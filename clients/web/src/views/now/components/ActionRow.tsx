@@ -1,5 +1,15 @@
 import type { ActionItemData } from '../../../types';
-import { projectTagTone } from '../nowModel';
+import {
+  PanelItemInlineActions,
+  PanelItemInlineLayout,
+  PanelItemMain,
+  PanelItemMetaRow,
+  PanelItemShell,
+  PanelItemSummary,
+  PanelItemTitle,
+} from '../../../core/PanelItem';
+import { FilterDenseTag, FilterPillButton } from '../../../core/FilterToggleTag';
+import { projectTagClasses } from '../nowModel';
 
 export function ActionRow({
   item,
@@ -11,40 +21,33 @@ export function ActionRow({
   onOpenThread?: (conversationId: string) => void;
 }) {
   return (
-    <div className="rounded-xl border border-amber-700/30 bg-amber-950/10 px-4 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-medium text-zinc-100">{item.title}</p>
+    <PanelItemShell surface="risk" as="div">
+      <PanelItemInlineLayout>
+        <PanelItemMain>
+          <PanelItemMetaRow>
+            <PanelItemTitle as="p" size="sm">
+              {item.title}
+            </PanelItemTitle>
             {item.project_label ? (
-              <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] ${projectTagTone(item.project_label)}`}
-              >
-                {item.project_label}
-              </span>
+              <FilterDenseTag className={projectTagClasses(item.project_label)}>{item.project_label}</FilterDenseTag>
             ) : null}
-          </div>
-          <p className="mt-1 text-sm text-zinc-300">{item.summary}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+          </PanelItemMetaRow>
+          <PanelItemSummary spacing="compact">{item.summary}</PanelItemSummary>
+        </PanelItemMain>
+        <PanelItemInlineActions>
           {item.thread_route?.thread_id ? (
-            <button
-              type="button"
+            <FilterPillButton
               onClick={() => onOpenThread?.(item.thread_route?.thread_id as string)}
-              className="rounded-full border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
+              aria-label={item.thread_route.label}
             >
               {item.thread_route.label}
-            </button>
+            </FilterPillButton>
           ) : null}
-          <button
-            type="button"
-            onClick={() => onOpenInbox?.()}
-            className="rounded-full border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition hover:border-zinc-500 hover:text-zinc-100"
-          >
+          <FilterPillButton onClick={() => onOpenInbox?.()} aria-label="Open inbox">
             Open Inbox
-          </button>
-        </div>
-      </div>
-    </div>
+          </FilterPillButton>
+        </PanelItemInlineActions>
+      </PanelItemInlineLayout>
+    </PanelItemShell>
   );
 }

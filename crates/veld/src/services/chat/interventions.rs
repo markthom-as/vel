@@ -228,6 +228,21 @@ async fn sync_assistant_proposal_thread(
                 }),
             );
         }
+        "reactivated" => {
+            object.insert(
+                "proposal_state".to_string(),
+                serde_json::Value::String("staged".to_string()),
+            );
+            object.insert(
+                "follow_through".to_string(),
+                serde_json::json!({
+                    "kind": "reactivated",
+                    "intervention_id": intervention.id.as_ref(),
+                    "reactivated_at": now,
+                    "previous_state": previous_state,
+                }),
+            );
+        }
         "dismissed" => {
             let next_state = if previous_state == "applied" {
                 "reversed"
@@ -408,6 +423,43 @@ pub(crate) async fn resolve_intervention(
     let payload = InterventionAction {
         id: id.to_string(),
         state: "resolved".to_string(),
+    };
+    broadcast_chat_ws_event(
+        state,
+        WS_EVENT_INTERVENTIONS_UPDATED,
+        serde_json::to_value(&payload).unwrap_or_else(|_| serde_json::json!({ "id": id })),
+    );
+    Ok(payload)
+}
+
+pub(crate) async fn reactivate_intervention(
+    state: &AppState,
+    id: &str,
+) -> Result<InterventionAction, AppError> {
+    let id = id.trim();
+    let _ = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    state.storage.reactivate_intervention(id).await?;
+    let updated = state
+        .storage
+        .get_intervention(id)
+        .await?
+        .ok_or_else(|| AppError::not_found("intervention not found"))?;
+    sync_assistant_proposal_thread(state, &updated, "open", "reactivated", None).await?;
+    emit_chat_event(
+        state,
+        "intervention.reactivated",
+        "intervention",
+        id,
+        serde_json::json!({ "id": id }),
+    )
+    .await;
+    let payload = InterventionAction {
+        id: id.to_string(),
+        state: "active".to_string(),
     };
     broadcast_chat_ws_event(
         state,

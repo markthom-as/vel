@@ -1,66 +1,88 @@
-import type { ReactNode } from 'react';
-import { ClockIcon, SparkIcon, ThreadsIcon } from '../../../core/Icons';
-import { SurfaceMetricChip } from '../../../core/SurfaceChips';
+import { CheckCircleIcon, SparkIcon, SyncIcon, ThreadsIcon, WarningIcon } from '../../../core/Icons';
+import { PanelMetricStrip } from '../../../core/PanelMetricStrip';
 import { uiTheme } from '../../../core/Theme';
+import type { NowMeshSummaryData, NowMeshSyncStateData } from '../../../types';
 
-type MetricTone = 'accent' | 'neutral';
+function syncMeshMetric(
+  mesh: NowMeshSummaryData | null | undefined,
+  queued: number,
+): {
+  kind: 'idle' | 'active' | 'error';
+  showValue: boolean;
+  title: string;
+} {
+  const syncState = mesh?.sync_state as NowMeshSyncStateData | undefined;
+  const error = syncState === 'offline' || syncState === 'stale';
 
-function MetricChip({
-  tone,
-  label,
-  value,
-  icon,
-}: {
-  tone: MetricTone;
-  label: string;
-  value: number;
-  icon: (active: boolean) => ReactNode;
-}) {
-  const active = tone === 'accent';
-  return (
-    <SurfaceMetricChip tone={tone}>
-      {icon(active)}
-      <span>{label}</span>
-      <span className="text-zinc-200">{value}</span>
-    </SurfaceMetricChip>
-  );
+  if (error) {
+    return {
+      kind: 'error',
+      showValue: queued > 0,
+      title:
+        queued > 0
+          ? `Mesh sync needs attention · ${queued} queued write${queued === 1 ? '' : 's'}`
+          : 'Mesh sync needs attention',
+    };
+  }
+  if (queued > 0) {
+    return {
+      kind: 'active',
+      showValue: true,
+      title: `${queued} queued write${queued === 1 ? '' : 's'} pending`,
+    };
+  }
+  return {
+    kind: 'idle',
+    showValue: false,
+    title: 'Sync queue clear',
+  };
 }
 
 export function NowMetricStrip({
   nudgeCount,
   threadAttentionCount,
   queuedWriteCount,
+  meshSummary,
 }: {
   nudgeCount: number;
   threadAttentionCount: number;
   queuedWriteCount: number;
+  meshSummary?: NowMeshSummaryData | null;
 }) {
+  const sync = syncMeshMetric(meshSummary, queuedWriteCount);
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <MetricChip
-        tone={nudgeCount > 0 ? 'accent' : 'neutral'}
-        label="Nudges"
-        value={nudgeCount}
-        icon={(active) => (
-          <SparkIcon size={12} className={active ? uiTheme.brandText : 'text-zinc-500'} />
-        )}
-      />
-      <MetricChip
-        tone={threadAttentionCount > 0 ? 'accent' : 'neutral'}
-        label="Threads"
-        value={threadAttentionCount}
-        icon={(active) => (
-          <ThreadsIcon size={12} className={active ? uiTheme.brandText : 'text-zinc-500'} />
-        )}
-      />
-      <MetricChip
-        tone={queuedWriteCount > 0 ? 'accent' : 'neutral'}
-        label="Sync"
-        value={queuedWriteCount}
-        icon={(active) => (
-          <ClockIcon size={12} className={active ? uiTheme.brandText : 'text-zinc-500'} />
-        )}
-      />
-    </div>
+    <PanelMetricStrip
+      items={[
+        {
+          label: 'Nudges',
+          value: nudgeCount,
+          icon: (active) => (
+            <SparkIcon size={12} className={active ? uiTheme.brandText : 'text-zinc-600'} />
+          ),
+        },
+        {
+          label: 'Threads',
+          value: threadAttentionCount,
+          icon: (active) => (
+            <ThreadsIcon size={12} className={active ? uiTheme.brandSoftText : 'text-zinc-600'} />
+          ),
+        },
+        {
+          label: 'Sync',
+          value: queuedWriteCount,
+          showValue: sync.showValue,
+          title: sync.title,
+          icon: () =>
+            sync.kind === 'idle' ? (
+              <CheckCircleIcon size={12} className="text-emerald-400" aria-hidden />
+            ) : sync.kind === 'active' ? (
+              <SyncIcon size={12} className="animate-spin text-amber-400/90" aria-hidden />
+            ) : (
+              <WarningIcon size={12} className="text-rose-400" aria-hidden />
+            ),
+        },
+      ]}
+    />
   );
 }

@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from '../api/client';
+import { invalidateQuery } from './query';
 import {
   decodeAssistantEntryResponse,
   decodeApiResponse,
@@ -18,14 +19,23 @@ import {
   type ProvenanceData,
 } from '../types';
 
+/** Operator queue vs archived (resolved/dismissed) interventions from `/api/inbox`. */
+export type InboxScope = 'queue' | 'archive';
+
 export const chatQueryKeys = {
   conversations: () => ['conversations'] as const,
   conversationMessages: (conversationId: string | null) => ['conversations', conversationId, 'messages'] as const,
   conversationInterventions: (conversationId: string | null) => ['conversations', conversationId, 'interventions'] as const,
-  inbox: () => ['inbox'] as const,
+  inbox: (scope: InboxScope = 'queue') => ['inbox', scope] as const,
   pendingInterventionActions: () => ['interventions', 'pending-actions'] as const,
   provenance: (messageId: string | null) => ['messages', messageId, 'provenance'] as const,
 };
+
+/** Refetch both inbox scopes after mutations or realtime updates that affect either list. */
+export function invalidateInboxQueries(): void {
+  invalidateQuery(chatQueryKeys.inbox('queue'), { refetch: true });
+  invalidateQuery(chatQueryKeys.inbox('archive'), { refetch: true });
+}
 
 export function loadConversationList(): Promise<ApiResponse<ConversationData[]>> {
   return apiGet<ApiResponse<ConversationData[]>>(
@@ -64,9 +74,10 @@ export function loadConversationInterventions(conversationId: string): Promise<A
   );
 }
 
-export function loadInbox(): Promise<ApiResponse<InboxItemData[]>> {
+export function loadInbox(scope: InboxScope = 'queue'): Promise<ApiResponse<InboxItemData[]>> {
+  const suffix = scope === 'archive' ? '?scope=archive' : '';
   return apiGet<ApiResponse<InboxItemData[]>>(
-    '/api/inbox',
+    `/api/inbox${suffix}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeInboxItemData)),
   );
 }
@@ -80,14 +91,32 @@ export function loadProvenance(messageId: string): Promise<ApiResponse<Provenanc
 
 export function mutateIntervention(
   interventionId: string,
-  action: 'acknowledge' | 'snooze' | 'resolve' | 'dismiss',
+  action: 'acknowledge' | 'snooze' | 'resolve' | 'dismiss' | 'reactivate',
   body: Record<string, unknown>,
 ): Promise<ApiResponse<InterventionActionData>> {
   return apiPost<ApiResponse<InterventionActionData>>(
-    `/api/interventions/${interventionId}/${action}`,
+    `/api/interventions/${encodeURIComponent(interventionId)}/${action}`,
     body,
     (value) => decodeApiResponse(value, decodeInterventionActionData),
   );
+}
+
+/** Stable intervention id for `/api/interventions/...` (global inbox uses synthetic `act_intervention_*` ids). */
+export function getInterventionApiId(item: InboxItemData): string | null {
+  if (item.id.startsWith('intv_')) {
+    return item.id;
+  }
+  const fromEvidence = item.evidence.find(
+    (e) => e.source_kind === 'intervention' || e.source_kind === 'assistant_proposal',
+  );
+  if (fromEvidence?.source_id) {
+    return fromEvidence.source_id;
+  }
+  const prefix = 'act_intervention_';
+  if (item.id.startsWith(prefix)) {
+    return item.id.slice(prefix.length);
+  }
+  return null;
 }
 
 export function acknowledgeInboxItem(
@@ -107,6 +136,18 @@ export function dismissInboxItem(
   interventionId: string,
 ): Promise<ApiResponse<InterventionActionData>> {
   return mutateIntervention(interventionId, 'dismiss', {});
+}
+
+export function resolveInboxItem(
+  interventionId: string,
+): Promise<ApiResponse<InterventionActionData>> {
+  return mutateIntervention(interventionId, 'resolve', {});
+}
+
+export function reactivateInboxItem(
+  interventionId: string,
+): Promise<ApiResponse<InterventionActionData>> {
+  return mutateIntervention(interventionId, 'reactivate', {});
 }
 
 export function getInboxThreadPath(item: InboxItemData): string | null {

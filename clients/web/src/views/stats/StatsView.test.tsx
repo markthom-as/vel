@@ -167,7 +167,7 @@ describe('StatsView', () => {
     render(<StatsView />)
 
     await waitFor(() => {
-      expect(screen.getByText('System observability')).toBeInTheDocument()
+      expect(screen.getByText('Passive detail and observability')).toBeInTheDocument()
     })
 
     expect(screen.getByText('Google Calendar')).toBeInTheDocument()
