@@ -33,6 +33,7 @@ pub mod evaluate;
 pub mod execution_context;
 pub mod execution_routing;
 pub mod explain;
+pub mod gcal_write_bridge;
 pub mod grant_resolver;
 pub mod inference;
 pub(crate) mod integration_runtime;

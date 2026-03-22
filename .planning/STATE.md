@@ -4,20 +4,20 @@ milestone: 0.5
 milestone_name: backend-core-rewrite
 release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
-current_phase: 64
-current_phase_name: google-calendar-as-canonical-calendar-proving-adapter
-current_plan: 64-04-PLAN
-current_work_id: 0.5.64.4
+current_phase: 65
+current_phase_name: hard-cutover-backend-contract-reconciliation-and-milestone-verification
+current_plan: 65-01-PLAN
+current_work_id: 0.5.65.1
 status: in_progress
-stopped_at: "Phase 64 plan 03 completed with Google recurrence, availability, and tombstone handling; active execution advanced into conservative bidirectional writes and hostile-path proof"
-last_updated: "2026-03-22T23:29:43Z"
+stopped_at: "Phase 64 completed with Google Calendar black-box and hostile-path proof; active execution advanced into Phase 65 cutover sequencing"
+last_updated: "2026-03-22T23:41:15Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 36
-  completed_plans: 33
-  percent: 92
+  completed_plans: 34
+  percent: 94
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 64
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.64.4
-Current Phase: 64
-Current Phase Name: google-calendar-as-canonical-calendar-proving-adapter
-Current Plan: 64-04-PLAN
+Current Work ID: 0.5.65.1
+Current Phase: 65
+Current Phase Name: hard-cutover-backend-contract-reconciliation-and-milestone-verification
+Current Plan: 65-01-PLAN
 Total Plans in Phase: 4
-Progress: 92%
+Progress: 94%
 Last Activity: 2026-03-22
-Last Activity Description: Completed Phase 64 plan 03 with recurrence fidelity, native availability integration, and Google tombstone handling, then advanced active execution into conservative writes and hostile-path proof
+Last Activity Description: Completed Phase 64 with conservative Google writes plus black-box and hostile-path proof, then advanced active execution into Phase 65 cutover sequencing
 
 ## Current Position
 
-Phase: 64 (google-calendar-as-canonical-calendar-proving-adapter) — IN PROGRESS
-Plan: finish the Google proving adapter with conservative `WriteIntent`-mediated writes and black-box refusal-path verification
+Phase: 65 (hard-cutover-backend-contract-reconciliation-and-milestone-verification) — IN PROGRESS
+Plan: make the new canonical backend the sole live authority, isolate any remaining legacy seams, and close `0.5` with execution-backed milestone proof
 
 ## Accumulated Context
 
@@ -68,7 +68,7 @@ Plan: finish the Google proving adapter with conservative `WriteIntent`-mediated
 
 ### Next Step
 
-Execute [64-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/64-04-PLAN.md) and implement conservative Google writes plus black-box and hostile-path proof over the native calendar core.
+Execute [65-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-01-PLAN.md) and start hard cutover to the canonical `0.5` backend authority.
 
 ### Roadmap Evolution
 
@@ -106,6 +106,8 @@ Execute [64-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `64-01` has landed Google Calendar multi-account linking, bounded canonical import, and multi-account/window/idempotence proof
 - `64-02` has landed canonical Google calendar/event/attendee mapping with native-first participation and lawful provider-stub fallback
 - `64-03` has landed recurrence fidelity, native availability bridging, and Google tombstone transitions without reopening provider-shaped scheduling truth
+- `64-04` has landed conservative Google writes through `WriteIntent` plus black-box and hostile-path adapter proof
+- Phase 64 is complete and active execution has advanced into Phase 65 cutover and milestone verification
 
 ---
-*Last updated: 2026-03-22 after completing `64-03` and advancing active execution to `64-04`*
+*Last updated: 2026-03-22 after completing Phase 64 and advancing active execution to Phase 65*
