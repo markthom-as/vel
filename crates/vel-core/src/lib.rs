@@ -1,6 +1,7 @@
 pub mod apple;
 pub mod action_contracts;
 pub mod actions;
+pub mod audit;
 pub mod capability;
 pub mod command;
 pub mod commitment;
@@ -8,6 +9,7 @@ pub mod conflicts;
 pub mod connect;
 pub mod context;
 pub mod daily_loop;
+pub mod explain;
 pub mod execution;
 pub mod integration;
 pub mod intervention;
@@ -52,6 +54,7 @@ pub use actions::{
     generic_object_action_names, OBJECT_CREATE, OBJECT_DELETE, OBJECT_EXPLAIN, OBJECT_GET,
     OBJECT_LINK, OBJECT_QUERY, OBJECT_UPDATE,
 };
+pub use audit::{AuditBeforeAfter, AuditEventKind, AuditFieldCapture, AuditRecord};
 pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 pub use command::{
     CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,
@@ -85,6 +88,10 @@ pub use execution::{
     AgentProfile, ExecutionHandoff, ExecutionPolicyInput, ExecutionReviewGate, ExecutionTaskKind,
     LocalAgentManifest, LocalRuntimeKind, ProjectExecutionContext, RepoWorktreeRef,
     TokenBudgetClass,
+};
+pub use explain::{
+    action_explain, object_explain, ownership_explain, policy_explain, ActionExplain,
+    ExplainBasis, ObjectExplain, OwnershipExplain, PolicyExplain,
 };
 pub use ids::{
     IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId, ToolId, WorkflowId,
