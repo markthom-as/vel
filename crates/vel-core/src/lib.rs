@@ -1,6 +1,7 @@
 pub mod apple;
 pub mod action_contracts;
 pub mod actions;
+pub mod availability;
 pub mod audit;
 pub mod bootstrap;
 pub mod capability;
@@ -74,6 +75,10 @@ pub use action_contracts::{
 pub use actions::{
     generic_object_action_names, OBJECT_CREATE, OBJECT_DELETE, OBJECT_EXPLAIN, OBJECT_GET,
     OBJECT_LINK, OBJECT_QUERY, OBJECT_UPDATE,
+};
+pub use availability::{
+    AllDayHandlingRule, AvailabilityBasis, AvailabilityConfidence, AvailabilityPolicyConfig,
+    AvailabilityResult, AvailabilityWindow, BlockingInterval, DeclinedResponsePolicy,
 };
 pub use audit::{AuditBeforeAfter, AuditEventKind, AuditFieldCapture, AuditRecord};
 pub use bootstrap::{CoreBootstrapBundle, CoreBootstrapPolicy, CoreBootstrapReport, CoreBootstrapSource};

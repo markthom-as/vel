@@ -4,20 +4,20 @@ milestone: 0.5
 milestone_name: backend-core-rewrite
 release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
-current_phase: 62
-current_phase_name: calendar-core-model-and-canonical-availability-semantics
-current_plan: 62-03-PLAN
-current_work_id: 0.5.62.3
+current_phase: 63
+current_phase_name: todoist-as-canonical-task-proving-adapter
+current_plan: 63-01-PLAN
+current_work_id: 0.5.63.1
 status: in_progress
-stopped_at: "62-02 completed with canonical recurrence and attendee participation semantics; active execution advanced into governed availability"
-last_updated: "2026-03-23T03:35:00Z"
+stopped_at: "Phase 62 completed with native calendar core and governed availability; active execution advanced into Todoist adapter proving work"
+last_updated: "2026-03-23T05:05:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 36
-  completed_plans: 25
-  percent: 69
+  completed_plans: 26
+  percent: 72
 ---
 
 # Project State
@@ -29,21 +29,21 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** `0.5` backend-only core rewrite from the frozen canonical object/action/policy/module/workflow packet
 
-Status: `0.5` active at Phase 62
+Status: `0.5` active at Phase 63
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.62.3
-Current Phase: 62
-Current Phase Name: calendar-core-model-and-canonical-availability-semantics
-Current Plan: 62-03-PLAN
-Total Plans in Phase: 3
-Progress: 69%
+Current Work ID: 0.5.63.1
+Current Phase: 63
+Current Phase Name: todoist-as-canonical-task-proving-adapter
+Current Plan: 63-01-PLAN
+Total Plans in Phase: 4
+Progress: 72%
 Last Activity: 2026-03-22
-Last Activity Description: Completed 62-02 with canonical recurrence and attendee participation semantics and advanced active execution into governed availability
+Last Activity Description: Completed Phase 62 with native calendar core and governed availability and advanced active execution into Todoist proving-adapter work
 
 ## Current Position
 
-Phase: 62 (calendar-core-model-and-canonical-availability-semantics) — IN PROGRESS
-Plan: build availability as an explainable, rebuildable read model over the now-native calendar core
+Phase: 63 (todoist-as-canonical-task-proving-adapter) — IN PROGRESS
+Plan: begin Todoist multi-account linking and backlog import over canonical task state and sync links
 
 ## Accumulated Context
 
@@ -67,7 +67,7 @@ Plan: build availability as an explainable, rebuildable read model over the now-
 
 ### Next Step
 
-Execute [62-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/62-03-PLAN.md) and land governed availability projection and explainability over canonical calendar state.
+Execute [63-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/63-01-PLAN.md) and begin Todoist multi-account linking plus backlog import over `IntegrationAccount` and `SyncLink`.
 
 ### Roadmap Evolution
 
@@ -95,6 +95,8 @@ Execute [62-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - Phase 61 is complete and active execution has advanced into Phase 62 native calendar semantics
 - `62-01` has landed native `Calendar` / `Event` object contracts, typed calendar relations, and canonical `event_*` / `calendar_*` content IDs
 - `62-02` has landed canonical recurrence contracts, attendee participation types, and bounded occurrence materialization proof
+- `62-03` has landed governed availability read-model contracts, projection/materialization, and explainability proof
+- Phase 62 is complete and active execution has advanced into Phase 63 Todoist proving-adapter work
 
 ---
-*Last updated: 2026-03-23 after completing `62-02` and advancing active execution to `62-03`*
+*Last updated: 2026-03-23 after completing Phase 62 and advancing active execution to `63-01`*
