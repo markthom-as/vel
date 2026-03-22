@@ -389,10 +389,15 @@ async fn persist_run_record(pool: &SqlitePool, run_record: &RunRecord) -> Result
         pool,
         &RuntimeRecord {
             id: format!(
-                "{}__{}_{}",
+                "{}__{}_{}{}",
                 run_record.run_id,
                 run_status_rank(&run_record.status),
-                run_status_label(&run_record.status)
+                run_status_label(&run_record.status),
+                run_record
+                    .current_step_id
+                    .as_ref()
+                    .map(|step| format!("__{step}"))
+                    .unwrap_or_default()
             ),
             record_type: "run".to_string(),
             object_ref: None,
