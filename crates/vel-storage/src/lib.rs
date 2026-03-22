@@ -1,5 +1,5 @@
-mod db;
 mod bootstrap;
+mod db;
 mod infra;
 mod mapping;
 mod migration_artifacts;
@@ -10,6 +10,7 @@ mod query;
 mod repositories;
 mod storage_backend;
 
+pub use bootstrap::{bootstrap_canonical_registry, BootstrapReport};
 pub use db::{
     ArtifactInsert, ArtifactRecord, AssistantTranscriptInsert, AssistantTranscriptRecord,
     BackupRunRecord, BrokerEventRecord, CaptureInsert, ClusterWorkerRecord, ClusterWorkerUpsert,
@@ -23,7 +24,6 @@ pub use db::{
     UncertaintyRecordInsert, UpstreamObjectRefRecord, WorkAssignmentInsert, WorkAssignmentRecord,
     WorkAssignmentUpdate,
 };
-pub use bootstrap::{bootstrap_canonical_registry, BootstrapReport};
 pub use migration_artifacts::{
     replay_migration_artifact, validate_migration_artifact, MigrationArtifactRecord,
     MigrationReplayReport, MigrationValidationReport,
@@ -45,24 +45,26 @@ pub use repositories::{
     },
     projections_repo::{get_projection, rebuild_projection, upsert_projection, ProjectionRecord},
     registry_repo::{
-        get_registry_object, list_registry_objects, upsert_registry_object,
-        CanonicalRegistryRecord,
+        get_registry_object, list_registry_objects, upsert_registry_object, CanonicalRegistryRecord,
     },
     relations_repo::{list_relations_from, upsert_relation, CanonicalRelationRecord},
     runtime_records_repo::{insert_runtime_record, list_runtime_records, RuntimeRecord},
-    sync_links_repo::{list_sync_links_for_object, update_sync_link_state, upsert_sync_link, SyncLinkRecord},
+    sync_links_repo::{
+        get_sync_link, list_sync_links_for_object, update_sync_link_state, upsert_sync_link,
+        SyncLinkRecord,
+    },
 };
 pub use storage_backend::{
     AuditStore, ObjectStore, ProjectionStore, RegistryStore, RelationStore, RevisionToken,
-    RuntimeStore, StorageContractError, StorageTransaction, StoreQuery, StoredRecord, SyncLinkStore,
-    TransactionManager,
+    RuntimeStore, StorageContractError, StorageTransaction, StoreQuery, StoredRecord,
+    SyncLinkStore, TransactionManager,
 };
 pub use vel_core::{
     ConflictCaseRecord, ContextCapture, DurableRoutineBlock, LinkScope, LinkStatus,
     LinkedNodeRecord, ModuleId, OrderingStamp, OrientationSnapshot, PairingTokenRecord,
-    PersonAlias, PersonId, PersonLinkRef, PersonRecord, PlanningConstraint,
-    PlanningConstraintKind, ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord,
-    ProjectRootRef, ProjectStatus, RoutinePlanningProfile, SearchResult, SemanticHit,
-    SemanticMemoryRecord, SemanticQuery, SyncLinkId, TaskId, WorkAssignmentStatus, WorkflowId,
-    WritebackOperationRecord, WritebackStatus, WriteIntentId,
+    PersonAlias, PersonId, PersonLinkRef, PersonRecord, PlanningConstraint, PlanningConstraintKind,
+    ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef,
+    ProjectStatus, RoutinePlanningProfile, SearchResult, SemanticHit, SemanticMemoryRecord,
+    SemanticQuery, SyncLinkId, TaskId, WorkAssignmentStatus, WorkflowId, WriteIntentId,
+    WritebackOperationRecord, WritebackStatus,
 };

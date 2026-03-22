@@ -2685,7 +2685,14 @@ dependencies = [
 name = "vel-adapters-todoist"
 version = "0.1.0"
 dependencies = [
+ "hex",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "time",
+ "tokio",
  "vel-core",
+ "vel-storage",
 ]
 
 [[package]]

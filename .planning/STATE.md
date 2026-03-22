@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 63
 current_phase_name: todoist-as-canonical-task-proving-adapter
-current_plan: 63-01-PLAN
-current_work_id: 0.5.63.1
+current_plan: 63-02-PLAN
+current_work_id: 0.5.63.2
 status: in_progress
-stopped_at: "Phase 62 completed with native calendar core and governed availability; active execution advanced into Todoist adapter proving work"
-last_updated: "2026-03-23T05:05:00Z"
+stopped_at: "Phase 63 plan 01 completed with Todoist multi-account linking and canonical backlog import; active execution advanced into Todoist task/project mapping"
+last_updated: "2026-03-22T22:59:47Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 36
-  completed_plans: 26
-  percent: 72
+  completed_plans: 27
+  percent: 75
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 63
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.63.1
+Current Work ID: 0.5.63.2
 Current Phase: 63
 Current Phase Name: todoist-as-canonical-task-proving-adapter
-Current Plan: 63-01-PLAN
+Current Plan: 63-02-PLAN
 Total Plans in Phase: 4
-Progress: 72%
+Progress: 75%
 Last Activity: 2026-03-22
-Last Activity Description: Completed Phase 62 with native calendar core and governed availability and advanced active execution into Todoist proving-adapter work
+Last Activity Description: Completed Phase 63 plan 01 with Todoist multi-account linking and canonical backlog import and advanced active execution into task/project mapping
 
 ## Current Position
 
 Phase: 63 (todoist-as-canonical-task-proving-adapter) — IN PROGRESS
-Plan: begin Todoist multi-account linking and backlog import over canonical task state and sync links
+Plan: map Todoist tasks, projects, labels, and attached comments into the canonical `0.5` task-side model without reopening container or thread semantics
 
 ## Accumulated Context
 
@@ -67,7 +67,7 @@ Plan: begin Todoist multi-account linking and backlog import over canonical task
 
 ### Next Step
 
-Execute [63-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/63-01-PLAN.md) and begin Todoist multi-account linking plus backlog import over `IntegrationAccount` and `SyncLink`.
+Execute [63-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/63-02-PLAN.md) and implement canonical Todoist task/project mapping plus tag-to-`task_semantics` proof.
 
 ### Roadmap Evolution
 
@@ -97,6 +97,7 @@ Execute [63-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `62-02` has landed canonical recurrence contracts, attendee participation types, and bounded occurrence materialization proof
 - `62-03` has landed governed availability read-model contracts, projection/materialization, and explainability proof
 - Phase 62 is complete and active execution has advanced into Phase 63 Todoist proving-adapter work
+- `63-01` has landed deterministic Todoist multi-account linking, idempotent backlog import over canonical objects and `SyncLink`, and multi-account non-collision proof
 
 ---
-*Last updated: 2026-03-23 after completing Phase 62 and advancing active execution to `63-01`*
+*Last updated: 2026-03-22 after completing `63-01` and advancing active execution to `63-02`*

@@ -98,6 +98,36 @@ pub async fn list_sync_links_for_object(
     rows.iter().map(map_sync_link_row).collect()
 }
 
+pub async fn get_sync_link(
+    pool: &SqlitePool,
+    id: &str,
+) -> Result<Option<SyncLinkRecord>, StorageError> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            id,
+            provider,
+            integration_account_id,
+            object_id,
+            remote_id,
+            remote_type,
+            state,
+            authority_mode,
+            remote_version,
+            metadata_json,
+            linked_at,
+            last_seen_at
+        FROM sync_links
+        WHERE id = ?
+        "#,
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+
+    row.as_ref().map(map_sync_link_row).transpose()
+}
+
 pub async fn update_sync_link_state(
     pool: &SqlitePool,
     id: &str,
@@ -206,6 +236,14 @@ mod tests {
         let stored = listed.pop().expect("sync link should exist");
         assert_eq!(stored.provider, "google-calendar");
         assert_eq!(stored.state, "reconciled");
+        assert_eq!(
+            get_sync_link(&pool, &record.id)
+                .await
+                .unwrap()
+                .expect("sync link should be retrievable by id")
+                .remote_id,
+            "evt_remote_1"
+        );
 
         update_sync_link_state(&pool, &record.id, "conflicted")
             .await
