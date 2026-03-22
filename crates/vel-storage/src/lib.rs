@@ -22,11 +22,17 @@ pub use repositories::{
         get_canonical_object, insert_canonical_object, update_canonical_object,
         CanonicalObjectRecord,
     },
+    integration_accounts_repo::{
+        get_integration_account, upsert_integration_account, IntegrationAccountRecord,
+    },
+    projections_repo::{get_projection, rebuild_projection, upsert_projection, ProjectionRecord},
     registry_repo::{
         get_registry_object, list_registry_objects, upsert_registry_object,
         CanonicalRegistryRecord,
     },
     relations_repo::{list_relations_from, upsert_relation, CanonicalRelationRecord},
+    runtime_records_repo::{insert_runtime_record, list_runtime_records, RuntimeRecord},
+    sync_links_repo::{list_sync_links_for_object, update_sync_link_state, upsert_sync_link, SyncLinkRecord},
 };
 pub use storage_backend::{
     AuditStore, ObjectStore, ProjectionStore, RegistryStore, RelationStore, RevisionToken,

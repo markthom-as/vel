@@ -17,12 +17,14 @@ pub(crate) mod execution_contexts_repo;
 pub(crate) mod execution_handoffs_repo;
 pub(crate) mod inferred_state_repo;
 pub(crate) mod integration_connections_repo;
+pub(crate) mod integration_accounts_repo;
 pub(crate) mod linking_repo;
 pub(crate) mod nudges_repo;
 pub(crate) mod people_repo;
 pub(crate) mod planning_profiles_repo;
 pub(crate) mod processing_jobs_repo;
 pub(crate) mod projects_repo;
+pub(crate) mod projections_repo;
 pub(crate) mod registry_repo;
 pub(crate) mod relations_repo;
 pub(crate) mod run_refs_repo;
@@ -31,6 +33,7 @@ pub(crate) mod runtime_loops_repo;
 pub(crate) mod semantic_memory_repo;
 pub(crate) mod settings_repo;
 pub(crate) mod signals_repo;
+pub(crate) mod sync_links_repo;
 pub(crate) mod suggestion_feedback_repo;
 pub(crate) mod suggestions_repo;
 pub(crate) mod threads_repo;
@@ -38,6 +41,7 @@ pub(crate) mod uncertainty_records_repo;
 pub(crate) mod upstream_refs_repo;
 pub(crate) mod work_assignments_repo;
 pub(crate) mod writeback_operations_repo;
+pub(crate) mod runtime_records_repo;
 
 #[allow(unused_imports)]
 pub use crate::storage_backend::{
