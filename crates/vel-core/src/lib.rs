@@ -1,4 +1,6 @@
 pub mod apple;
+pub mod action_contracts;
+pub mod actions;
 pub mod capability;
 pub mod command;
 pub mod commitment;
@@ -38,6 +40,14 @@ pub use apple::{
     AppleRequestedOperation, AppleResponseEvidence, AppleResponseMode, AppleScheduleEvent,
     AppleScheduleSnapshot, AppleTurnProvenance, AppleVoiceIntent,
     AppleVoiceTurnQueuedMutationSummary, AppleVoiceTurnRequest, AppleVoiceTurnResponse,
+};
+pub use action_contracts::{
+    generic_object_action_contracts, ActionCapability, ActionContract, ActionErrorKind,
+    ActionRequestEnvelope, ActionResponseEnvelope, AuditRequirement, ConfirmationMode,
+};
+pub use actions::{
+    generic_object_action_names, OBJECT_CREATE, OBJECT_DELETE, OBJECT_EXPLAIN, OBJECT_GET,
+    OBJECT_LINK, OBJECT_QUERY, OBJECT_UPDATE,
 };
 pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 pub use command::{

@@ -4,6 +4,7 @@
 //! entry point for recompute-and-persist is [evaluate::run]. See docs/tickets/repo-feedback/001.
 
 pub mod adaptive_policies;
+pub mod action_registry;
 pub mod agent_grounding;
 pub mod agent_protocol;
 pub mod apple_behavior;
@@ -42,6 +43,7 @@ pub mod llm_settings;
 pub(crate) mod local_network;
 pub mod now;
 pub mod nudge_engine;
+pub mod object_actions;
 pub mod operator_queue;
 pub(crate) mod operator_settings;
 pub mod people;

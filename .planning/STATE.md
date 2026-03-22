@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 59
 current_phase_name: action-membrane-policy-engine-and-audit-authority
-current_plan: 59-01-PLAN
-current_work_id: 0.5.59.1
+current_plan: 59-02-PLAN
+current_work_id: 0.5.59.2
 status: in_progress
-stopped_at: `58` completed and active execution advanced into the Phase 59 action membrane line
-last_updated: "2026-03-23T01:10:00Z"
+stopped_at: `59-01` completed and active execution advanced into policy, grants, and confirmation precedence
+last_updated: "2026-03-23T02:35:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 36
-  completed_plans: 10
-  percent: 28
+  completed_plans: 11
+  percent: 31
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 59
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.59.1
+Current Work ID: 0.5.59.2
 Current Phase: 59
 Current Phase Name: action-membrane-policy-engine-and-audit-authority
-Current Plan: 59-01-PLAN
+Current Plan: 59-02-PLAN
 Total Plans in Phase: 5
-Progress: 28%
+Progress: 31%
 Last Activity: 2026-03-22
-Last Activity Description: Closed Phase 58 with storage-neutral query and projection rebuild seams; active execution now moves into the action membrane line
+Last Activity Description: Landed the generic action registry and object-action backbone; active execution now moves into policy, grants, and confirmation precedence
 
 ## Current Position
 
 Phase: 59 (action-membrane-policy-engine-and-audit-authority) — IN PROGRESS
-Plan: start the typed action registry and membrane execution line over the new Phase 58 substrate
+Plan: land policy evaluation, grant semantics, and confirmation precedence over the new action backbone
 
 ## Accumulated Context
 
@@ -65,7 +65,7 @@ Plan: start the typed action registry and membrane execution line over the new P
 
 ### Next Step
 
-Execute [59-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/59-01-PLAN.md) and begin the typed action registry and generic object-action membrane.
+Execute [59-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/59-02-PLAN.md) and land policy evaluation, grants, and confirmation precedence over the new action backbone.
 
 ### Roadmap Evolution
 
@@ -77,6 +77,7 @@ Execute [59-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `58-03` has landed integration-account, SyncLink, runtime-record, and projection persistence
 - `58-04` has landed deterministic bootstrap and migration-artifact replay scaffolding
 - `58-05` has landed storage-neutral query, projection rebuild seams, and substrate roundtrip proof
+- `59-01` has landed the generic action vocabulary, typed action contracts, registry seam, and initial object actions
 
 ---
-*Last updated: 2026-03-23 after completing Phase `58` and advancing active execution to `59-01`*
+*Last updated: 2026-03-23 after completing `59-01` and advancing active execution to `59-02`*
