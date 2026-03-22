@@ -237,6 +237,10 @@ describe('NowView', () => {
     expect(screen.getByText('NOW')).toBeInTheDocument()
     expect(screen.getByText('TODAY')).toBeInTheDocument()
     expect(screen.getByText('Tasks')).toBeInTheDocument()
+    expect(
+      screen.getByText(/date, active-task context, and ambient status stay in the navbar/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/CONTEXT:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/More Context and Controls/i)).not.toBeInTheDocument()
   })
 

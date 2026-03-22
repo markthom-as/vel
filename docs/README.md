@@ -28,6 +28,7 @@ These are the current authoritative entrypoints:
 These files drive ongoing implementation work:
 
 - `.planning/ROADMAP.md`: active roadmap beginning at Phase 5
+- `.planning/milestones/v0.5-core-rewrite/ROADMAP.md`: frozen future milestone packet for the planned post-`0.4.x` backend rewrite
 - `.planning/PROJECT.md`: active product definition and accepted planning decisions
 - `.planning/BACKLOG.md`: non-phase future work that is worth preserving but not yet committed
 - `.planning/todos/pending/*.md`: execution-ready micro-task queue used by GSD todo workflows

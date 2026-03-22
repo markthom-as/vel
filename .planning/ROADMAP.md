@@ -19,6 +19,14 @@ The goal of the `0.4.x` line is to:
 - rebuild `Threads` and `Settings` into compact MVP-usable layouts
 - preserve iOS/client parity against the corrected web reference
 
+## Next Milestone Packet
+
+The next backend milestone is already shaped as a frozen future packet:
+
+- [v0.5-core-rewrite/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
+
+Use it as future-planning authority for the post-`0.4.x` core rewrite only. It does not supersede the active `0.4.x` line until the current milestone is closed honestly.
+
 ## Scope Guardrails
 
 `0.4.x` is only about `Now/UI MVP Conformance Closure`:
@@ -56,9 +64,9 @@ For roadmap execution inside a release line, use a four-part lineage identifier:
 
 - [x] **Phase 52: Full Now/UI conformance implementation chunk** - Implemented the correction memo across `Now`, shell/nav, `Inbox`, `Threads`, `Settings`, and shared parity-sensitive seams with no requested implementation item deferred
 - [x] **Phase 53: Operator UI feedback capture and conformance review** - Captured the operator review as a bounded polish authority covering nav, sidebar, Now, Threads, composer, and Settings without reopening milestone scope
-- [ ] **Phase 54: Final UI cleanup and polish pass** - Apply the approved post-review cleanup set across the affected surfaces so the milestone lands with compact, operator-trusted finish quality rather than raw conformance alone
-- [ ] **Phase 55: Outmoded UI path cleanup and seam hardening** - Remove superseded UI code paths, stale helper shells, and migration leftovers that would blur the Rust-core/UI contract or create a second behavior lane after the conformance pass
-- [ ] **Phase 56: Conformance verification and milestone closeout** - Run the manual checklist first, then boundary/contract verification, then UI coverage, and close the milestone honestly against the corrected memo plus final operator-approved polish
+- [x] **Phase 54: Final UI cleanup and polish pass** - Applied the accepted navbar, info-panel, contextual-docs, and Now-header polish so the shell lands with a tighter operator-trusted finish
+- [x] **Phase 55: Outmoded UI path cleanup and seam hardening** - Removed dead `Suggestions`/`Stats` shell lanes, placeholder routing, and legacy settings-tab compatibility before closeout
+- [x] **Phase 56: Conformance verification and milestone closeout** - Closed the milestone with a restored strict-clean web build, focused regression proof, and no remaining hidden closeout debt
 
 Lineage mapping:
 
@@ -76,9 +84,9 @@ Lineage mapping:
 |-------|--------------|--------|
 | 52. Full Now/UI conformance implementation chunk | NOWUI-01, NOWUI-02, NOWUI-03, NOWUI-04, NOWUI-05, NOWUI-06, NOWUI-07, SHELL-01, SHELL-02, SHELL-03, SHELL-04, INBOX-01, INBOX-02, THREADS-01, THREADS-02, THREADS-03, SETTINGS-01, SETTINGS-02, SETTINGS-03, PARITY-01, PARITY-02 | Complete |
 | 53. Operator UI feedback capture and conformance review | FEEDBACK-01, FEEDBACK-02, FEEDBACK-03, FEEDBACK-04 | Complete |
-| 54. Final UI cleanup and polish pass | POLISH-01, POLISH-02, POLISH-03, POLISH-04 | Planned |
-| 55. Outmoded UI path cleanup and seam hardening | CLEANUP-01, CLEANUP-02, CLEANUP-03, CLEANUP-04 | Planned |
-| 56. Conformance verification and milestone closeout | VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, milestone verification and reconciliation | Planned |
+| 54. Final UI cleanup and polish pass | POLISH-01, POLISH-02, POLISH-03, POLISH-04 | Complete |
+| 55. Outmoded UI path cleanup and seam hardening | CLEANUP-01, CLEANUP-02, CLEANUP-03, CLEANUP-04 | Complete |
+| 56. Conformance verification and milestone closeout | VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, milestone verification and reconciliation | Complete |
 
 ## Phase Details
 
@@ -118,7 +126,7 @@ Lineage mapping:
 2. Shared visual affordances, spacing, empty states, and compact-shell behaviors feel intentional and consistent across `Now`, `Inbox`, `Threads`, `Settings`, and navigation.
 3. Any polish changes that affect parity-sensitive behavior are reflected in the web reference and captured for client follow-through before verification.
 4. Remaining UI imperfections, if any, are explicitly documented as non-blocking and deferred rather than silently carried into closeout.
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 ### Phase 55: Outmoded UI path cleanup and seam hardening
 
@@ -130,7 +138,7 @@ Lineage mapping:
 2. Cleanup is limited to code made outmoded by the `0.4.x` UI correction work; it does not widen into unrelated modernization or speculative refactors.
 3. Any transport adapters, selectors, or client-side shaping that duplicate Rust-owned semantics are either removed or reduced to thin boundary mapping.
 4. The remaining seam between Rust core, transport DTOs, and client rendering is simpler to reason about after cleanup than before it.
-**Plans:** 0 plans
+**Plans:** 1 plan
 
 ### Phase 56: Conformance verification and milestone closeout
 
@@ -143,7 +151,7 @@ Lineage mapping:
 3. A boundary verification section explicitly confirms that the multiplatform Rust core owns product semantics, clients consume stable transport contracts, and no client keeps a shadow behavior model that should live in Rust.
 4. UI tests cover the corrected reference embodiment after manual verification passes, including accepted Phase 53 cleanup items implemented in Phase 54 and seam cleanup from Phase 55.
 5. Remaining parity limits, if any, are explicit and do not hide unimplemented memo items, deferred polish decisions, or unresolved Rust-core/client boundary drift.
-**Plans:** 3 plans
+**Plans:** 1 plan
 
 ---
 *Last updated: 2026-03-21 after adopting `0.4.x` release-line planning and Phase 53 operator review intake*

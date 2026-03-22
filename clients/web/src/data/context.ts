@@ -10,8 +10,6 @@ import {
   decodeNowData,
   decodeNullable,
   decodeSyncBootstrapData,
-  decodeSuggestionData,
-  decodeUncertaintyData,
   type ApiResponse,
   type CommitmentData,
   type ContextExplainData,
@@ -23,14 +21,9 @@ import {
   type DriftExplainData,
   type NowData,
   type SyncBootstrapData,
-  type SuggestionData,
-  type UncertaintyData,
 } from '../types';
 
 export const contextQueryKeys = {
-  suggestions: (state: string) => ['suggestions', state] as const,
-  suggestion: (suggestionId: string | null) => ['suggestions', suggestionId] as const,
-  uncertainty: (status: string) => ['uncertainty', status] as const,
   now: () => ['now'] as const,
   currentContext: () => ['context', 'current'] as const,
   syncBootstrap: () => ['sync', 'bootstrap'] as const,
@@ -40,46 +33,6 @@ export const contextQueryKeys = {
   dailyLoopActive: (sessionDate: string, phase: DailyLoopPhaseData) =>
     ['daily-loop', 'active', sessionDate, phase] as const,
 };
-
-export function loadSuggestions(state = 'pending'): Promise<ApiResponse<SuggestionData[]>> {
-  return apiGet<ApiResponse<SuggestionData[]>>(
-    `/v1/suggestions?state=${encodeURIComponent(state)}&limit=50`,
-    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeSuggestionData)),
-  );
-}
-
-export function loadSuggestion(suggestionId: string): Promise<ApiResponse<SuggestionData>> {
-  return apiGet<ApiResponse<SuggestionData>>(
-    `/v1/suggestions/${encodeURIComponent(suggestionId.trim())}`,
-    (value) => decodeApiResponse(value, decodeSuggestionData),
-  );
-}
-
-export function updateSuggestion(
-  suggestionId: string,
-  patch: Record<string, unknown>,
-): Promise<ApiResponse<SuggestionData>> {
-  return apiPatch<ApiResponse<SuggestionData>>(
-    `/v1/suggestions/${encodeURIComponent(suggestionId.trim())}`,
-    patch,
-    (value) => decodeApiResponse(value, decodeSuggestionData),
-  );
-}
-
-export function loadUncertainty(status = 'open'): Promise<ApiResponse<UncertaintyData[]>> {
-  return apiGet<ApiResponse<UncertaintyData[]>>(
-    `/v1/uncertainty?status=${encodeURIComponent(status)}&limit=50`,
-    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeUncertaintyData)),
-  );
-}
-
-export function resolveUncertainty(uncertaintyId: string): Promise<ApiResponse<UncertaintyData>> {
-  return apiPost<ApiResponse<UncertaintyData>>(
-    `/v1/uncertainty/${encodeURIComponent(uncertaintyId.trim())}/resolve`,
-    {},
-    (value) => decodeApiResponse(value, decodeUncertaintyData),
-  );
-}
 
 export function loadCurrentContext(): Promise<ApiResponse<CurrentContextData | null>> {
   return apiGet<ApiResponse<CurrentContextData | null>>(

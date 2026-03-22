@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { apiPost } from './api/client';
-import { decodeApiResponse, decodeConversationData, type ApiResponse, type ConversationData } from './types';
 import { AppShell } from './shell/AppShell';
 import { ContextPanel } from './views/context';
 import { DocumentationPanel } from './views/context';
@@ -9,9 +7,7 @@ import { Navbar } from './shell/Navbar';
 import { IconButton } from './core/Button';
 import { PanelEyebrow } from './core/PanelChrome';
 import { ChevronRightIcon } from './core/Icons';
-import { chatQueryKeys } from './data/chat';
 import { getSurfaceDefinition, type MainView } from './data/operatorSurfaces';
-import { invalidateQuery } from './data/query';
 import type { SettingsSectionKey } from './views/settings';
 
 export type SettingsNavigationTarget = {
@@ -29,18 +25,6 @@ function App() {
   function openSettings(target: SettingsNavigationTarget = { tab: 'general' }) {
     setSettingsTarget(target);
     setMainView('settings');
-  }
-
-  async function startNewConversation() {
-    const res = await apiPost<ApiResponse<ConversationData>>('/api/conversations', {
-      title: 'New conversation',
-      kind: 'general',
-    }, (value) => decodeApiResponse(value, decodeConversationData));
-    if (res.ok && res.data) {
-      setSelectedConversationId(res.data.id);
-      setMainView('threads');
-      invalidateQuery(chatQueryKeys.conversations(), { refetch: true });
-    }
   }
 
   function openConversationThread(conversationId: string) {

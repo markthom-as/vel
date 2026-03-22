@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { MainPanel } from './MainPanel'
 import {
-  detailSurfaces,
   operatorSurfaces,
   primarySurfaces,
   supportSurfaces,
@@ -35,7 +34,7 @@ vi.mock('../../views/settings', () => ({
 }))
 
 describe('MainPanel', () => {
-  function renderMainPanel(mainView: 'now' | 'inbox' | 'threads' | 'suggestions' | 'projects' | 'stats' | 'settings') {
+  function renderMainPanel(mainView: 'now' | 'inbox' | 'threads' | 'projects' | 'settings') {
     return render(
       <MainPanel
         conversationId={mainView === 'threads' ? 'conv_1' : null}
@@ -71,13 +70,6 @@ describe('MainPanel', () => {
     expect(screen.getByText('Projects view')).toBeInTheDocument()
   })
 
-  it('demotes hidden detail surfaces to placeholders instead of first-class routes', () => {
-    renderMainPanel('suggestions')
-    expect(screen.getByText('Suggestions is not part of the primary MVP shell.')).toBeInTheDocument()
-    renderMainPanel('stats')
-    expect(screen.getByText('Stats is not part of the primary MVP shell.')).toBeInTheDocument()
-  })
-
   it('shows the Settings surface when mainView is settings', () => {
     renderMainPanel('settings')
     expect(screen.getByText('Settings page general')).toBeInTheDocument()
@@ -91,8 +83,7 @@ describe('MainPanel', () => {
     ).toEqual(['now', 'inbox', 'threads', 'settings'])
   })
 
-  it('keeps projects, suggestions, and stats as hidden detail surfaces', () => {
-    expect(detailSurfaces.map((surface) => surface.view)).toEqual(['projects', 'suggestions', 'stats'])
-    expect(detailSurfaces.every((surface) => surface.navVisible === false)).toBe(true)
+  it('keeps projects as the only hidden detail surface', () => {
+    expect(operatorSurfaces.filter((surface) => surface.disclosure === 'detail').map((surface) => surface.view)).toEqual(['projects'])
   })
 })

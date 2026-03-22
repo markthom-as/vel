@@ -4,20 +4,20 @@ milestone: 0.4.x
 milestone_name: now-ui-mvp-conformance-closure
 release_line: 0.4.x
 next_beta_target: 0.5.0-beta
-current_phase: 54
-current_phase_name: final-ui-cleanup-and-polish-pass
-current_plan: 54-01-PLAN
-current_work_id: 0.4.54.1
-status: in_progress
-stopped_at: Phase 53 review authority captured; Phase 54 polish implementation is active
-last_updated: "2026-03-21T21:45:00Z"
-last_activity: 2026-03-21
+current_phase: 56
+current_phase_name: conformance-verification-and-milestone-closeout
+current_plan: 56-01-PLAN
+current_work_id: 0.4.56.1
+status: completed
+stopped_at: Phase 56 closeout completed; `0.4.x` is closed with build and regression evidence
+last_updated: "2026-03-22T18:56:00Z"
+last_activity: 2026-03-22
 progress:
   total_phases: 56
-  completed_phases: 53
-  total_plans: 2
-  completed_plans: 2
-  percent: 95
+  completed_phases: 56
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -29,21 +29,21 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** `0.4.x` bounded UI polish implementation from the captured operator review authority
 
-Status: Phase 53 completed; Phase 54 polish implementation is active
+Status: `0.4.x` closed after Phase 56 verification and milestone closeout
 Release Line: 0.4.x
-Current Work ID: 0.4.54.1
-Current Phase: 54
-Current Phase Name: final-ui-cleanup-and-polish-pass
-Current Plan: 54-01-PLAN
+Current Work ID: 0.4.56.1
+Current Phase: 56
+Current Phase Name: conformance-verification-and-milestone-closeout
+Current Plan: 56-01-PLAN
 Total Plans in Phase: 1
-Progress: 95%
-Last Activity: 2026-03-21
-Last Activity Description: Captured the operator review as the bounded polish authority and opened Phase 54 to execute the approved navbar, sidebar, Now, Threads, composer, and Settings fixes
+Progress: 100%
+Last Activity: 2026-03-22
+Last Activity Description: Repaired the `SettingsPage.tsx` strict-build blocker, reran the web build and focused regression suite, and closed `0.4.x` with explicit evidence
 
 ## Current Position
 
-Phase: 54 (final-ui-cleanup-and-polish-pass) — IN PROGRESS
-Plan: implement the approved operator review fixes without widening milestone scope
+Phase: 56 (conformance-verification-and-milestone-closeout) — COMPLETE
+Plan: completed closeout with compile and focused regression evidence
 
 ## Accumulated Context
 
@@ -63,19 +63,20 @@ Plan: implement the approved operator review fixes without widening milestone sc
 
 ### Current Concerns
 
-- Phase 54 still needs to restore minimum functional settings controls while preserving the compact layout
-- `SettingsPage.tsx` still contains legacy unreachable JSX that should be removed in the cleanup phase
 - Apple/client parity has source-level alignment but no execution-backed evidence yet in this environment
+- `0.5` implementation work has not started; the next active authority remains the frozen future packet until a new milestone kickoff happens
 
 ### Next Step
 
-Execute `54-01-PLAN.md` against the captured review authority, then rerun targeted verification.
+Start the next milestone kickoff against the frozen `v0.5-core-rewrite` packet when implementation is ready.
 
 ### Roadmap Evolution
 
 - Phase 52 closed with implementation evidence in `52-01-SUMMARY.md` and `52-VERIFICATION.md`
 - Phase 53 closed with operator review authority in `53-CONTEXT.md` and `53-VERIFICATION.md`
-- Phase 54 is the active bounded polish slice before cleanup and milestone closeout
+- Phase 54 closed with shell/navbar/context polish evidence in `54-01-SUMMARY.md` and `54-VERIFICATION.md`
+- Phase 55 closed with stale-route cleanup evidence in `55-01-SUMMARY.md` and `55-VERIFICATION.md`
+- Phase 56 closed `0.4.x` with build and focused regression evidence
 
 ---
-*Last updated: 2026-03-21 for active `0.4.x` release-line execution*
+*Last updated: 2026-03-22 after closing `0.4.x` with Phase 56 verification evidence*

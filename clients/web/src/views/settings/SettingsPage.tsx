@@ -87,7 +87,7 @@ import {
 
 interface SettingsPageProps {
   onBack: () => void;
-  initialTab?: SettingsTab | LegacySettingsTab;
+  initialTab?: SettingsTab;
   initialIntegrationId?: IntegrationSectionKey;
   /** When set, opens this section (tab is derived from the section). */
   initialSection?: SettingsSectionKey;
@@ -187,7 +187,6 @@ interface LocalSourceOptionDescriptor {
 
 type HostPlatform = 'apple' | 'linux' | 'windows' | 'unknown';
 
-type LegacySettingsTab = 'components' | 'runs' | 'loops';
 export type SettingsTab = 'general' | 'integrations' | 'runtime';
 export type SettingsSectionKey =
   | 'profile'
@@ -214,15 +213,8 @@ const SETTINGS_SECTIONS: Array<{
   { key: 'projects', label: 'Projects', tab: 'general' },
 ];
 
-function normalizeSettingsTab(tab: SettingsTab | LegacySettingsTab): SettingsTab {
-  if (tab === 'components' || tab === 'runs' || tab === 'loops') {
-    return 'runtime';
-  }
-  return tab;
-}
-
-function settingsSectionForTab(tab: SettingsTab | LegacySettingsTab): SettingsSectionKey {
-  switch (normalizeSettingsTab(tab)) {
+function settingsSectionForTab(tab: SettingsTab): SettingsSectionKey {
+  switch (tab) {
     case 'general':
       return 'profile';
     case 'integrations':
@@ -268,6 +260,20 @@ function labelProposalState(state: string): string {
     default:
       return state;
   }
+}
+
+function integrationStatusLabel(integration: {
+  connected?: boolean;
+  configured?: boolean;
+  last_sync_status?: string | null;
+}): string {
+  if (integration.connected) {
+    return integration.last_sync_status ?? 'connected';
+  }
+  if (integration.configured) {
+    return 'configured';
+  }
+  return 'disconnected';
 }
 
 interface LoopDraft {
@@ -1258,6 +1264,11 @@ export function SettingsPage({
   const planningProfile = planningProfileResponse?.profile ?? null;
   const planningProfileProposalSummary =
     planningProfileResponse?.proposal_summary ?? nowData?.planning_profile_summary ?? null;
+  const planningProfileRoutineCount = planningProfile?.routine_blocks.length ?? 0;
+  const planningProfileConstraintCount = planningProfile?.planning_constraints.length ?? 0;
+  const adaptivePolicyOverrides = settings.adaptive_policy_overrides ?? {};
+  const googleIntegrationStatus = integrationStatusLabel(integrations.google_calendar);
+  const todoistIntegrationStatus = integrationStatusLabel(integrations.todoist);
   const llmProfiles = settings.llm?.profiles ?? [];
   const fixedLlmProfiles = llmProfiles.filter((profile) => !profile.editable);
   const daemonRestartAction = componentActions.daemon;
@@ -2698,21 +2709,21 @@ export function SettingsPage({
                   <IntegrationStatCard
                     brand="google"
                     title="Google Calendar"
-                    status={integrations.google_calendar.status}
+                    status={googleIntegrationStatus}
                     detail={integrations.google_calendar.connected ? 'Connected' : 'Disconnected'}
                   />
                   <IntegrationStatCard
                     brand="todoist"
                     title="Todoist"
-                    status={integrations.todoist.status}
+                    status={todoistIntegrationStatus}
                     detail={integrations.todoist.connected ? 'Connected' : 'Disconnected'}
                   />
                   {visibleLocalIntegrationSpecs.map((spec) => (
                     <IntegrationStatCard
                       key={spec.key}
                       brand={spec.key}
-                      title={spec.label}
-                      status={integrations[spec.key].status}
+                      title={spec.title}
+                      status={integrationStatusLabel(integrations[spec.key])}
                       detail={integrations[spec.key].source_path ?? 'No source path'}
                     />
                   ))}
@@ -2953,61 +2964,70 @@ export function SettingsPage({
                 {nowData?.freshness?.overall_status ?? 'unknown'}
               </span>
             </div>
-            {nowData ? (
-              <div className="mt-4 grid gap-3 md:grid-cols-4">
-                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Day plan</p>
-                  <p className="mt-2 text-sm font-medium text-zinc-100">
-                    {nowData.day_plan
-                      ? `${nowData.day_plan.scheduled_count} scheduled · ${nowData.day_plan.needs_judgment_count} judgment`
-                      : 'No bounded plan'}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-zinc-400">
-                    {nowData.day_plan?.summary
-                      ?? 'The current Now snapshot does not include a bounded same-day plan yet.'}
-                  </p>
-                  {nowData.day_plan?.routine_blocks?.length ? (
-                    <p className="mt-2 text-[11px] leading-5 text-zinc-500">
-                      {nowData.day_plan.routine_blocks.filter((block) => block.source === 'operator_declared').length > 0
-                        ? `${nowData.day_plan.routine_blocks.filter((block) => block.source === 'operator_declared').length} saved routine blocks are shaping today.`
-                        : 'Today is still relying on inferred routine blocks.'}
+            {nowData ? (() => {
+              const currentNowData = nowData as NonNullable<typeof nowData>;
+              const dayPlan = currentNowData.day_plan;
+              const reflow = currentNowData.reflow;
+              const reflowProposal = reflow?.proposal;
+              const operatorDeclaredRoutineBlocks =
+                dayPlan?.routine_blocks.filter((block) => block.source === 'operator_declared') ?? [];
+
+              return (
+                <div className="mt-4 grid gap-3 md:grid-cols-4">
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Day plan</p>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">
+                      {dayPlan
+                        ? `${dayPlan?.scheduled_count ?? 0} scheduled · ${dayPlan?.needs_judgment_count ?? 0} judgment`
+                        : 'No bounded plan'}
                     </p>
-                  ) : null}
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">
+                      {dayPlan?.summary
+                        ?? 'The current Now snapshot does not include a bounded same-day plan yet.'}
+                    </p>
+                    {dayPlan?.routine_blocks?.length ? (
+                      <p className="mt-2 text-[11px] leading-5 text-zinc-500">
+                        {operatorDeclaredRoutineBlocks.length > 0
+                          ? `${operatorDeclaredRoutineBlocks.length} saved routine blocks are shaping today.`
+                          : 'Today is still relying on inferred routine blocks.'}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Reflow</p>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">
+                      {reflowProposal
+                        ? `${reflowProposal?.moved_count ?? 0} moved · ${reflowProposal?.unscheduled_count ?? 0} unscheduled`
+                        : currentNowData.reflow_status?.headline ?? 'No active reflow'}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">
+                      {reflowProposal?.summary
+                        ?? reflow?.summary
+                        ?? currentNowData.reflow_status?.detail
+                        ?? 'The current schedule does not need repair right now.'}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Freshness</p>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">
+                      {labelRecoveryFreshness(currentNowData.freshness?.overall_status ?? 'unknown')}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">
+                      {(currentNowData.freshness?.sources ?? []).filter((source) => source.status !== 'fresh').length} sources need attention before the day plan is fully trustworthy.
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Follow-through</p>
+                    <p className="mt-2 text-sm font-medium text-zinc-100">
+                      {currentNowData.trust_readiness?.follow_through?.length ?? 0} queued recoveries
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-400">
+                      {currentNowData.trust_readiness?.summary ?? 'Trust and recovery follow-through appears here when the current Now snapshot includes readiness data.'}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Reflow</p>
-                  <p className="mt-2 text-sm font-medium text-zinc-100">
-                    {nowData.reflow?.proposal
-                      ? `${nowData.reflow.proposal.moved_count} moved · ${nowData.reflow.proposal.unscheduled_count} unscheduled`
-                      : nowData.reflow_status?.headline ?? 'No active reflow'}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-zinc-400">
-                    {nowData.reflow?.proposal?.summary
-                      ?? nowData.reflow?.summary
-                      ?? nowData.reflow_status?.detail
-                      ?? 'The current schedule does not need repair right now.'}
-                  </p>
-                </div>
-                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Freshness</p>
-                  <p className="mt-2 text-sm font-medium text-zinc-100">
-                    {labelRecoveryFreshness(nowData.freshness?.overall_status ?? 'unknown')}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-zinc-400">
-                    {(nowData.freshness?.sources ?? []).filter((source) => source.status !== 'fresh').length} sources need attention before the day plan is fully trustworthy.
-                  </p>
-                </div>
-                <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Follow-through</p>
-                  <p className="mt-2 text-sm font-medium text-zinc-100">
-                    {nowData.trust_readiness?.follow_through?.length ?? 0} queued recoveries
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-zinc-400">
-                    {nowData.trust_readiness?.summary ?? 'Trust and recovery follow-through appears here when the current Now snapshot includes readiness data.'}
-                  </p>
-                </div>
-              </div>
-            ) : (
+              );
+            })() : (
               <p className="mt-4 text-sm text-zinc-500">
                 Planning and recovery summaries appear here once a current `Now` snapshot is available.
               </p>
@@ -3021,56 +3041,79 @@ export function SettingsPage({
                   Manage the saved routine blocks and bounded planning constraints that shape `day_plan` and `reflow`. `Now` stays compact; this is where the durable profile lives.
                 </p>
               </div>
-              <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
-                {planningProfile
-                  ? `${planningProfile.routine_blocks.length} routines · ${planningProfile.planning_constraints.length} constraints`
+                <span className="rounded-full border border-zinc-800 bg-zinc-950/70 px-2.5 py-1 text-xs text-zinc-300">
+                  {planningProfile
+                  ? `${planningProfileRoutineCount} routines · ${planningProfileConstraintCount} constraints`
                   : 'loading'}
-              </span>
+                </span>
             </div>
-            {planningProfile ? (
-              <div className="mt-4 space-y-4">
-                {planningProfileProposalSummary ? (
-                  <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+            {planningProfile ? (() => {
+              const currentPlanningProfile = planningProfile as NonNullable<typeof planningProfile>;
+              const proposalSummary = planningProfileProposalSummary;
+
+              return (
+                <div className="mt-4 space-y-4">
+                  {proposalSummary ? (() => {
+                    const currentProposalSummary = proposalSummary as NonNullable<typeof proposalSummary>;
+
+                    return (
+                      <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Proposal continuity</p>
                       <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300">
-                        {planningProfileProposalSummary.pending_count} pending
+                        {currentProposalSummary.pending_count} pending
                       </span>
                     </div>
                     <p className="mt-2 text-sm text-zinc-100">
-                      {planningProfileProposalSummary.pending_count > 0
+                      {currentProposalSummary.pending_count > 0
                         ? 'Planning-profile edits are waiting in Threads for explicit approval before the backend saves them.'
                         : 'No planning-profile edits are waiting for approval right now.'}
                     </p>
-                    {planningProfileProposalSummary.latest_pending ? (
-                      <p className="mt-2 text-xs leading-5 text-zinc-400">
-                        Latest pending: {planningProfileProposalSummary.latest_pending.title} · {labelProposalState(planningProfileProposalSummary.latest_pending.state)}
-                      </p>
-                    ) : null}
-                    {planningProfileProposalSummary.latest_applied ? (
-                      <p className="mt-1 text-xs leading-5 text-zinc-500">
-                        Last applied: {planningProfileProposalSummary.latest_applied.title}
-                        {planningProfileProposalSummary.latest_applied.outcome_summary
-                          ? ` · ${planningProfileProposalSummary.latest_applied.outcome_summary}`
-                          : ''}
-                      </p>
-                    ) : null}
-                    {!planningProfileProposalSummary.latest_applied && planningProfileProposalSummary.latest_failed ? (
-                      <p className="mt-1 text-xs leading-5 text-rose-300">
-                        Last failed: {planningProfileProposalSummary.latest_failed.title}
-                        {planningProfileProposalSummary.latest_failed.outcome_summary
-                          ? ` · ${planningProfileProposalSummary.latest_failed.outcome_summary}`
-                          : ''}
-                      </p>
-                    ) : null}
+                    {currentProposalSummary.latest_pending ? (() => {
+                      const latestPending =
+                        currentProposalSummary.latest_pending as NonNullable<typeof currentProposalSummary.latest_pending>;
+
+                      return (
+                        <p className="mt-2 text-xs leading-5 text-zinc-400">
+                          Latest pending: {latestPending.title} · {labelProposalState(latestPending.state)}
+                        </p>
+                      );
+                    })() : null}
+                    {currentProposalSummary.latest_applied ? (() => {
+                      const latestApplied =
+                        currentProposalSummary.latest_applied as NonNullable<typeof currentProposalSummary.latest_applied>;
+
+                      return (
+                        <p className="mt-1 text-xs leading-5 text-zinc-500">
+                          Last applied: {latestApplied.title}
+                          {latestApplied.outcome_summary
+                            ? ` · ${latestApplied.outcome_summary}`
+                            : ''}
+                        </p>
+                      );
+                    })() : null}
+                    {!currentProposalSummary.latest_applied && currentProposalSummary.latest_failed ? (() => {
+                      const latestFailed =
+                        currentProposalSummary.latest_failed as NonNullable<typeof currentProposalSummary.latest_failed>;
+
+                      return (
+                        <p className="mt-1 text-xs leading-5 text-rose-300">
+                          Last failed: {latestFailed.title}
+                          {latestFailed.outcome_summary
+                            ? ` · ${latestFailed.outcome_summary}`
+                            : ''}
+                        </p>
+                      );
+                    })() : null}
                   </div>
-                ) : null}
+                    );
+                  })() : null}
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Saved routine blocks</p>
-                    {planningProfile.routine_blocks.length > 0 ? (
+                    {currentPlanningProfile.routine_blocks.length > 0 ? (
                       <div className="mt-3 space-y-3">
-                        {planningProfile.routine_blocks.map((block) => (
+                        {currentPlanningProfile.routine_blocks.map((block) => (
                           <article key={block.id} className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
                             <div className="flex items-start justify-between gap-3">
                               <div>
@@ -3102,9 +3145,9 @@ export function SettingsPage({
                   </div>
                   <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
                     <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">Planning constraints</p>
-                    {planningProfile.planning_constraints.length > 0 ? (
+                    {currentPlanningProfile.planning_constraints.length > 0 ? (
                       <div className="mt-3 space-y-3">
-                        {planningProfile.planning_constraints.map((constraint) => (
+                        {currentPlanningProfile.planning_constraints.map((constraint) => (
                           <article key={constraint.id} className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
                             <div className="flex items-start justify-between gap-3">
                               <div>
@@ -3135,17 +3178,22 @@ export function SettingsPage({
                     )}
                   </div>
                 </div>
-                {planningProfileActionState ? (
-                  <div
-                    className={`rounded-md border p-3 text-sm ${
-                      planningProfileActionState.status === 'success'
-                        ? 'border-emerald-800/60 bg-emerald-950/20 text-emerald-200'
-                        : 'border-rose-800/60 bg-rose-950/20 text-rose-200'
-                    }`}
-                  >
-                    {planningProfileActionState.message}
-                  </div>
-                ) : null}
+                {planningProfileActionState ? (() => {
+                  const currentPlanningProfileActionState =
+                    planningProfileActionState as NonNullable<typeof planningProfileActionState>;
+
+                  return (
+                    <div
+                      className={`rounded-md border p-3 text-sm ${
+                        currentPlanningProfileActionState.status === 'success'
+                          ? 'border-emerald-800/60 bg-emerald-950/20 text-emerald-200'
+                          : 'border-rose-800/60 bg-rose-950/20 text-rose-200'
+                      }`}
+                    >
+                      {currentPlanningProfileActionState.message}
+                    </div>
+                  );
+                })() : null}
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
                     <div className="flex items-start justify-between gap-3">
@@ -3379,7 +3427,8 @@ export function SettingsPage({
                   </div>
                 </div>
               </div>
-            ) : (
+              );
+            })() : (
               <p className="mt-4 text-sm text-zinc-500">
                 The durable planning profile will appear here once the backend profile snapshot loads.
               </p>
@@ -3607,11 +3656,11 @@ export function SettingsPage({
                 <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2">
                   <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                     <dt className="text-zinc-500">Effective transport</dt>
-                    <dd className="mt-1 text-base text-zinc-100">{clusterBootstrap.sync_transport}</dd>
+                    <dd className="mt-1 text-base text-zinc-100">{clusterBootstrap?.sync_transport ?? 'unknown'}</dd>
                   </div>
                   <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                     <dt className="text-zinc-500">Effective sync base URL</dt>
-                    <dd className="mt-1 break-all text-base text-zinc-100">{clusterBootstrap.sync_base_url}</dd>
+                    <dd className="mt-1 break-all text-base text-zinc-100">{clusterBootstrap?.sync_base_url ?? 'Unavailable'}</dd>
                   </div>
                 </dl>
               ) : null}
@@ -3664,32 +3713,32 @@ export function SettingsPage({
                       </p>
                     </div>
                     <span className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-300">
-                      {agentInspect.capabilities.groups.length} capability groups
+                      {agentInspect?.capabilities.groups.length ?? 0} capability groups
                     </span>
                   </div>
                   <dl className="mt-4 grid gap-2 text-sm text-zinc-300 md:grid-cols-2 xl:grid-cols-5">
                     <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
                       <dt className="text-zinc-500">Projects in scope</dt>
                       <dd className="mt-1 text-base text-zinc-100">
-                        {agentInspect.grounding.projects.length}
+                        {agentInspect?.grounding.projects.length ?? 0}
                       </dd>
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
                       <dt className="text-zinc-500">People in scope</dt>
                       <dd className="mt-1 text-base text-zinc-100">
-                        {agentInspect.grounding.people.length}
+                        {agentInspect?.grounding.people.length ?? 0}
                       </dd>
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
                       <dt className="text-zinc-500">Commitments in scope</dt>
                       <dd className="mt-1 text-base text-zinc-100">
-                        {agentInspect.grounding.commitments.length}
+                        {agentInspect?.grounding.commitments.length ?? 0}
                       </dd>
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
                       <dt className="text-zinc-500">Pending execution review</dt>
                       <dd className="mt-1 text-base text-zinc-100">
-                        {agentInspect.grounding.review.pending_execution_handoffs.length}
+                        {agentInspect?.grounding.review.pending_execution_handoffs.length ?? 0}
                       </dd>
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3">
@@ -3700,7 +3749,7 @@ export function SettingsPage({
                     </div>
                   </dl>
                   <div className="mt-4 grid gap-3 xl:grid-cols-3">
-                    {agentInspect.capabilities.groups.map((group) => (
+                    {(agentInspect?.capabilities.groups ?? []).map((group) => (
                       <section
                         key={group.kind}
                         className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3"
@@ -3738,11 +3787,11 @@ export function SettingsPage({
                       </section>
                     ))}
                   </div>
-                  {agentInspect.blockers.length > 0 ? (
+                  {(agentInspect?.blockers.length ?? 0) > 0 ? (
                     <div className="mt-4 rounded-md border border-amber-700/40 bg-amber-950/20 p-3">
                       <h5 className="text-sm font-medium text-amber-100">Current blockers</h5>
                       <ul className="mt-2 space-y-2 text-sm text-amber-100">
-                        {agentInspect.blockers.map((blocker) => (
+                        {(agentInspect?.blockers ?? []).map((blocker) => (
                           <li key={blocker.code}>
                             {blocker.message}
                             {blocker.escalation_hint ? ` ${blocker.escalation_hint}` : ''}
@@ -3877,8 +3926,8 @@ export function SettingsPage({
                 </p>
               ) : null}
               {syncNetworkFeedback ? (
-                <p className={`text-sm ${syncNetworkFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                  {syncNetworkFeedback.message}
+                <p className={`text-sm ${syncNetworkFeedback?.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {syncNetworkFeedback?.message}
                 </p>
               ) : null}
             </div>
@@ -4009,7 +4058,7 @@ export function SettingsPage({
                 )}
                 {selectedDiscoveredNode ? (
                   <p className="text-sm text-zinc-400">
-                    Selected target: {selectedDiscoveredNode.node_display_name}. Issuing a token
+                    Selected target: {selectedDiscoveredNode?.node_display_name}. Issuing a token
                     will prompt that client to open its enter-token flow.
                   </p>
                 ) : null}
@@ -4033,9 +4082,9 @@ export function SettingsPage({
                 <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-4">
                   <p className="text-sm font-medium text-sky-100">Enter pairing token</p>
                   <p className="mt-2 text-sm text-zinc-300">
-                    {localIncomingLinkingPrompt.issued_by_node_display_name ?? localIncomingLinkingPrompt.issued_by_node_id}
+                    {localIncomingLinkingPrompt?.issued_by_node_display_name ?? localIncomingLinkingPrompt?.issued_by_node_id}
                     {' '}wants to link this client. Enter the token from that node before{' '}
-                    {formatRuntimeTimestamp(localIncomingLinkingPrompt.expires_at)}.
+                    {formatRuntimeTimestamp(localIncomingLinkingPrompt?.expires_at ?? '')}.
                   </p>
                   <div className="mt-3 flex flex-col gap-3 md:flex-row">
                     <input
@@ -4058,7 +4107,11 @@ export function SettingsPage({
                     </Button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {scopeSummaryEntries(localIncomingLinkingPrompt.scopes).map((scope) => (
+                    {scopeSummaryEntries(localIncomingLinkingPrompt?.scopes ?? {
+                      read_context: false,
+                      write_safe_actions: false,
+                      execute_repo_tasks: false,
+                    }).map((scope) => (
                       <span
                         key={`incoming-${scope.label}`}
                         className={`rounded-full px-2.5 py-1 text-xs ${
@@ -4076,12 +4129,16 @@ export function SettingsPage({
               {pairingToken ? (
                 <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
                   <p className="text-sm font-medium text-emerald-200">Granted scopes</p>
-                  <p className="mt-2 break-all font-mono text-sm text-zinc-100">{pairingToken.token_code}</p>
+                  <p className="mt-2 break-all font-mono text-sm text-zinc-100">{pairingToken?.token_code}</p>
                   <p className="mt-2 text-sm text-zinc-300">
-                    Expires {formatRuntimeTimestamp(pairingToken.expires_at)}.
+                    Expires {formatRuntimeTimestamp(pairingToken?.expires_at ?? '')}.
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {scopeSummaryEntries(pairingToken.scopes).map((scope) => (
+                    {scopeSummaryEntries(pairingToken?.scopes ?? {
+                      read_context: false,
+                      write_safe_actions: false,
+                      execute_repo_tasks: false,
+                    }).map((scope) => (
                       <span
                         key={scope.label}
                         className={`rounded-full px-2.5 py-1 text-xs ${
@@ -4094,11 +4151,11 @@ export function SettingsPage({
                       </span>
                     ))}
                   </div>
-                  {pairingToken.suggested_targets.length ? (
+                  {(pairingToken?.suggested_targets.length ?? 0) > 0 ? (
                     <div className="mt-4 space-y-3">
                       <p className="text-sm font-medium text-emerald-100">Suggested link targets</p>
                       <div className="grid gap-3 md:grid-cols-2">
-                        {pairingToken.suggested_targets.map((target) => (
+                        {(pairingToken?.suggested_targets ?? []).map((target) => (
                           <article
                             key={`${target.transport_hint}-${target.base_url}`}
                             className="rounded-lg border border-emerald-500/20 bg-zinc-950/40 p-3"
@@ -4124,13 +4181,13 @@ export function SettingsPage({
                 </div>
               ) : null}
               {pairingFeedback ? (
-                <p className={`text-sm ${pairingFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                  {pairingFeedback.message}
+                <p className={`text-sm ${pairingFeedback?.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {pairingFeedback?.message}
                 </p>
               ) : null}
               {redeemPairingFeedback ? (
-                <p className={`text-sm ${redeemPairingFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                  {redeemPairingFeedback.message}
+                <p className={`text-sm ${redeemPairingFeedback?.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {redeemPairingFeedback?.message}
                 </p>
               ) : null}
               <div className="space-y-3">
@@ -4310,8 +4367,8 @@ export function SettingsPage({
                   </p>
                 )}
                 {linkedNodeActionFeedback ? (
-                  <p className={`text-sm ${linkedNodeActionFeedback.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {linkedNodeActionFeedback.message}
+                  <p className={`text-sm ${linkedNodeActionFeedback?.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {linkedNodeActionFeedback?.message}
                   </p>
                 ) : null}
               </div>
@@ -4336,34 +4393,43 @@ export function SettingsPage({
                   {backupTrust?.statusLabel ?? 'No backup state'}
                 </span>
               </div>
-              {backupTrust ? (
-                <>
+              {backupTrust ? (() => {
+                const currentBackupTrust = backupTrust as NonNullable<typeof backupTrust>;
+                const rawLastBackupAt = currentBackupTrust.lastBackupAt;
+                let lastBackupAtLabel = 'None recorded';
+                if (rawLastBackupAt != null) {
+                  const lastBackupAt = rawLastBackupAt as string;
+                  lastBackupAtLabel = formatRuntimeTimestamp(lastBackupAt);
+                }
+
+                return (
+                  <>
                   <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                       <dt className="text-zinc-500">Freshness</dt>
-                      <dd className="mt-1 text-base text-zinc-100">{backupTrust.freshnessLabel}</dd>
+                      <dd className="mt-1 text-base text-zinc-100">{currentBackupTrust.freshnessLabel}</dd>
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                       <dt className="text-zinc-500">Last backup</dt>
                       <dd className="mt-1 text-base text-zinc-100">
-                        {backupTrust.lastBackupAt ? formatRuntimeTimestamp(backupTrust.lastBackupAt) : 'None recorded'}
+                        {lastBackupAtLabel}
                       </dd>
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3 md:col-span-2">
                       <dt className="text-zinc-500">Destination</dt>
-                      <dd className="mt-1 break-all text-base text-zinc-100">{backupTrust.outputRoot}</dd>
+                      <dd className="mt-1 break-all text-base text-zinc-100">{currentBackupTrust.outputRoot ?? 'Not configured'}</dd>
                     </div>
                   </dl>
                   <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2">
                     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                       <dt className="text-zinc-500">Coverage</dt>
-                      <dd className="mt-1 text-base text-zinc-100">{backupTrust.artifactSummary}</dd>
-                      <dd className="mt-1 text-sm text-zinc-400">{backupTrust.configSummary}</dd>
+                      <dd className="mt-1 text-base text-zinc-100">{currentBackupTrust.artifactSummary}</dd>
+                      <dd className="mt-1 text-sm text-zinc-400">{currentBackupTrust.configSummary}</dd>
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                       <dt className="text-zinc-500">Shipped CLI flow</dt>
                       <dd className="mt-1 space-y-1 text-sm text-zinc-100">
-                        {backupTrust.commandHints.map((command) => (
+                        {currentBackupTrust.commandHints.map((command) => (
                           <div key={command}>
                             <code>{command}</code>
                           </div>
@@ -4371,25 +4437,26 @@ export function SettingsPage({
                       </dd>
                     </div>
                   </dl>
-                  {backupTrust.warnings.length > 0 ? (
+                  {currentBackupTrust.warnings.length > 0 ? (
                     <div className="rounded-md border border-amber-700/40 bg-amber-950/20 p-3 text-sm text-amber-100">
-                      {backupTrust.warnings.map((warning) => (
+                      {currentBackupTrust.warnings.map((warning) => (
                         <p key={warning}>{warning}</p>
                       ))}
                     </div>
                   ) : null}
                   <div className="space-y-2 text-sm text-zinc-400">
-                    {backupTrust.guidance.map((line) => (
+                    {currentBackupTrust.guidance.map((line) => (
                       <p key={line}>{line}</p>
                     ))}
-                    {backupTrust.level !== 'ok' ? (
+                    {currentBackupTrust.level !== 'ok' ? (
                       <p className="text-zinc-300">
                         Use <code>vel backup create</code>, <code>vel backup inspect</code>, and <code>vel backup verify</code> before any manual restore step.
                       </p>
                     ) : null}
                   </div>
-                </>
-              ) : (
+                  </>
+                );
+              })() : (
                 <p className="text-sm text-zinc-500">
                   No backup trust payload has been published yet.
                 </p>
@@ -4402,40 +4469,40 @@ export function SettingsPage({
               <p className="text-sm text-zinc-500">
                 Active runtime adjustments learned from accepted suggestions.
               </p>
-              {settings.adaptive_policy_overrides?.commute_buffer_minutes == null
-                && settings.adaptive_policy_overrides?.default_prep_minutes == null ? (
+              {adaptivePolicyOverrides.commute_buffer_minutes == null
+                && adaptivePolicyOverrides.default_prep_minutes == null ? (
                   <p className="text-sm text-zinc-400">No adaptive overrides are active.</p>
                 ) : (
                   <dl className="grid gap-2 text-sm text-zinc-300 md:grid-cols-2">
                     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                       <dt className="text-zinc-500">Commute buffer</dt>
                       <dd className="mt-1 text-base text-zinc-100">
-                        {settings.adaptive_policy_overrides?.commute_buffer_minutes == null
+                        {adaptivePolicyOverrides.commute_buffer_minutes == null
                           ? 'Default policy'
-                          : `${settings.adaptive_policy_overrides.commute_buffer_minutes} min`}
+                          : `${adaptivePolicyOverrides.commute_buffer_minutes} min`}
                       </dd>
-                      {settings.adaptive_policy_overrides?.commute_buffer_source_title
-                        || settings.adaptive_policy_overrides?.commute_buffer_source_suggestion_id ? (
+                      {adaptivePolicyOverrides.commute_buffer_source_title
+                        || adaptivePolicyOverrides.commute_buffer_source_suggestion_id ? (
                           <p className="mt-2 text-xs text-zinc-500">
                             From{' '}
-                            {settings.adaptive_policy_overrides?.commute_buffer_source_title
-                              ?? settings.adaptive_policy_overrides?.commute_buffer_source_suggestion_id}
+                            {adaptivePolicyOverrides.commute_buffer_source_title
+                              ?? adaptivePolicyOverrides.commute_buffer_source_suggestion_id}
                           </p>
                         ) : null}
                     </div>
                     <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                       <dt className="text-zinc-500">Default prep window</dt>
                       <dd className="mt-1 text-base text-zinc-100">
-                        {settings.adaptive_policy_overrides?.default_prep_minutes == null
+                        {adaptivePolicyOverrides.default_prep_minutes == null
                           ? 'Default policy'
-                          : `${settings.adaptive_policy_overrides.default_prep_minutes} min`}
+                          : `${adaptivePolicyOverrides.default_prep_minutes} min`}
                       </dd>
-                      {settings.adaptive_policy_overrides?.default_prep_source_title
-                        || settings.adaptive_policy_overrides?.default_prep_source_suggestion_id ? (
+                      {adaptivePolicyOverrides.default_prep_source_title
+                        || adaptivePolicyOverrides.default_prep_source_suggestion_id ? (
                           <p className="mt-2 text-xs text-zinc-500">
                             From{' '}
-                            {settings.adaptive_policy_overrides?.default_prep_source_title
-                              ?? settings.adaptive_policy_overrides?.default_prep_source_suggestion_id}
+                            {adaptivePolicyOverrides.default_prep_source_title
+                              ?? adaptivePolicyOverrides.default_prep_source_suggestion_id}
                           </p>
                         ) : null}
                     </div>
@@ -5273,8 +5340,8 @@ export function SettingsPage({
               </p>
             </div>
             {llmActionState ? (
-              <p className={`text-sm ${llmActionState.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {llmActionState.message}
+              <p className={`text-sm ${llmActionState?.status === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {llmActionState?.message}
               </p>
             ) : null}
           </div>
@@ -5327,39 +5394,39 @@ export function SettingsPage({
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <span className="text-xs uppercase tracking-wide text-zinc-500 w-28">Node</span>
-                <span className="text-sm text-zinc-200">{diagnostics.node_display_name}</span>
+                <span className="text-sm text-zinc-200">{diagnostics?.node_display_name}</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs uppercase tracking-wide text-zinc-500 w-28">Sync status</span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs ${
-                    diagnostics.sync_status === 'ready'
+                    diagnostics?.sync_status === 'ready'
                       ? 'bg-emerald-950 text-emerald-300'
-                      : diagnostics.sync_status === 'degraded'
+                      : diagnostics?.sync_status === 'degraded'
                       ? 'bg-amber-950 text-amber-300'
-                      : diagnostics.sync_status === 'offline'
+                      : diagnostics?.sync_status === 'offline'
                       ? 'bg-rose-950 text-rose-300'
                       : 'bg-zinc-800 text-zinc-400'
                   }`}
                 >
-                  {diagnostics.sync_status}
+                  {diagnostics?.sync_status}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs uppercase tracking-wide text-zinc-500 w-28">Active workers</span>
-                <span className="text-sm text-zinc-200">{diagnostics.active_workers}</span>
+                <span className="text-sm text-zinc-200">{diagnostics?.active_workers}</span>
               </div>
-              {diagnostics.capability_summary.length > 0 ? (
+              {(diagnostics?.capability_summary.length ?? 0) > 0 ? (
                 <div className="flex items-start gap-3">
                   <span className="text-xs uppercase tracking-wide text-zinc-500 w-28 mt-0.5">Capabilities</span>
-                  <span className="text-sm text-zinc-400">{diagnostics.capability_summary.join(', ')}</span>
+                  <span className="text-sm text-zinc-400">{(diagnostics?.capability_summary ?? []).join(', ')}</span>
                 </div>
               ) : null}
-              {diagnostics.freshness_entries.length > 0 ? (
+              {(diagnostics?.freshness_entries.length ?? 0) > 0 ? (
                 <div>
                   <p className="text-xs uppercase tracking-wide text-zinc-500 mb-2">Freshness</p>
                   <ul className="space-y-1">
-                    {diagnostics.freshness_entries.map((entry) => (
+                    {(diagnostics?.freshness_entries ?? []).map((entry) => (
                       <li key={entry.source} className="flex items-center justify-between text-sm">
                         <span className="text-zinc-400 truncate max-w-xs">{entry.source}</span>
                         <span

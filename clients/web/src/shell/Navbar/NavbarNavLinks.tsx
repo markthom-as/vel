@@ -51,8 +51,10 @@ export function NavbarNavLinks({ activeView, onSelectView }: NavbarNavLinksProps
           key={item.view}
           type="button"
           onClick={() => onSelectView(item.view)}
-          className={`group inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-0 py-0.5 text-[8px] font-normal normal-case tracking-normal transition ${
-            activeView === item.view ? ACCENT : 'text-zinc-500 hover:text-zinc-200'
+          className={`group inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b px-0 py-1 text-[10px] font-medium normal-case tracking-normal transition ${
+            activeView === item.view
+              ? `${ACCENT} border-[#ff6b00]/55`
+              : 'border-transparent text-zinc-500 hover:border-zinc-700 hover:text-zinc-200'
           }`}
         >
           <span
@@ -64,7 +66,7 @@ export function NavbarNavLinks({ activeView, onSelectView }: NavbarNavLinksProps
           >
             {surfaceIcon(item.view, activeView === item.view, gradientId)}
           </span>
-          <span>{item.label}</span>
+          <span className="leading-none">{item.label}</span>
         </button>
       ))}
     </nav>

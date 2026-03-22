@@ -4,9 +4,7 @@ import { appendUniqueMessages, reconcileConfirmedSend } from '../../data/chat-st
 import { contextQueryKeys } from '../../data/context';
 import { invalidateQuery, setQueryData } from '../../data/query';
 import { MessageComposer } from '../../core/MessageComposer';
-import { uiFonts } from '../../core/Theme';
-import { cn } from '../../core/cn';
-import { getSurfaceDefinition, type MainView } from '../../data/operatorSurfaces';
+import type { MainView } from '../../data/operatorSurfaces';
 import type { AssistantEntryResponse, MessageData } from '../../types';
 import { useResolvedThreadConversationId } from '../../views/threads/useResolvedThreadConversationId';
 import { InboxView } from '../../views/inbox';
@@ -46,7 +44,6 @@ export function MainPanel({
   settingsTarget,
   onOpenSettings,
 }: MainPanelProps) {
-  const surface = getSurfaceDefinition(mainView);
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const resolvedThreadId = useResolvedThreadConversationId(conversationId, mainView === 'threads');
@@ -139,13 +136,7 @@ export function MainPanel({
       </div>
     );
   } else {
-    body = (
-      <SurfacePlaceholder
-        title={surface.label}
-        subtitle={`${surface.label} is not part of the primary MVP shell.`}
-        body={surface.blurb}
-      />
-    );
+    body = null;
   }
 
   return (
@@ -218,37 +209,6 @@ export function MainPanel({
           });
         }}
       />
-    </div>
-  );
-}
-
-interface SurfacePlaceholderProps {
-  title: string;
-  subtitle: string;
-  body: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-}
-
-function SurfacePlaceholder({ title, subtitle, body, action }: SurfacePlaceholderProps) {
-  return (
-    <div className="flex-1 overflow-y-auto bg-zinc-950">
-      <div className="mx-auto max-w-3xl px-6 py-10 pb-36">
-        <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">{title}</p>
-        <h1 className={cn('mt-2 text-3xl font-semibold text-zinc-100', uiFonts.display)}>{subtitle}</h1>
-        <p className="mt-4 text-sm leading-6 text-zinc-300">{body}</p>
-        {action ? (
-          <button
-            type="button"
-            onClick={action.onClick}
-            className="mt-6 rounded-md border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 hover:border-zinc-600 hover:text-zinc-100"
-          >
-            {action.label}
-          </button>
-        ) : null}
-      </div>
     </div>
   );
 }

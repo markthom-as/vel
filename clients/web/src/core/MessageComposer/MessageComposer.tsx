@@ -72,7 +72,7 @@ export function MessageComposer({
   onOptimisticSend,
   onSent,
   onSendFailed,
-  compact = false,
+  compact: _compact = false,
   hideHelperText = false,
   floating = false,
 }: MessageComposerProps) {

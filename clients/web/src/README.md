@@ -19,8 +19,6 @@ Optimized for **clear navigation** (humans and coding agents): three top-level U
 | `views/threads/` | Threads shell plus thread-specific UI: `ThreadView/`, `ConversationList/`, `ProvenanceDrawer/` |
 | `views/settings/` | Settings |
 | `views/projects/` | Projects |
-| `views/suggestions/` | Suggestions |
-| `views/stats/` | Stats |
 | `views/context/` | Info-column panels: `ContextPanel/`, `DocumentationPanel/` |
 
 ### Import conventions

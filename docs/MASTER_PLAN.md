@@ -17,6 +17,12 @@
 
 Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). Live roadmap work is now tracked as the active `0.4.x` release line, which remains in force until the product is ready to open a real `0.5.0-beta`.
 
+A frozen future milestone packet now exists for the planned backend rewrite after `0.4.x`:
+
+- [`.planning/milestones/v0.5-core-rewrite/ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
+
+Treat it as future-planning authority only, not as proof that `0.5` work is active before `0.4.x` closes.
+
 Planning notation from this point forward:
 
 - shipped releases use semver, for example `0.3.0`

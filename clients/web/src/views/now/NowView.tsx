@@ -13,13 +13,9 @@ import { NowNudgeStrip } from './components/NowNudgeStrip';
 import { NowTasksSection } from './components/NowTasksSection';
 import type { SettingsSectionKey } from '../../views/settings';
 import { surfaceShell } from '../../core/Theme';
-import { formatNavbarDateTime } from '../../shell/Navbar/formatNavbarDateTime';
 import {
   dedupeActionItems,
   dedupeTasks,
-  findActiveEvent,
-  nowLocationLabel,
-  nowNavContextSummary,
   nudgeOpenSettingsTarget,
   scoreNudge,
 } from './nowModel';
@@ -145,7 +141,6 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
   const nudgeBars = data.nudge_bars ?? [];
   const taskLane = data.task_lane;
   const nowTs = data.computed_at;
-  const activeEvent = findActiveEvent(data.schedule.upcoming_events, nowTs);
   const commitmentRows = dedupeTasks([data.tasks.next_commitment, ...(data.tasks.other_open ?? [])]);
   const commitmentIds = new Set(commitmentRows.map((t) => t.id));
   const pullableTasks = dedupeTasks(data.tasks.todoist ?? []);
@@ -206,10 +201,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     }
   };
 
-  const locationCaption = nowLocationLabel(data, activeEvent);
-  const titleDateTime = formatNavbarDateTime(nowTs, data.timezone);
-  const navContextLine = nowNavContextSummary(data);
-  const backupNudge =
+  const backupNudge: NowData['nudge_bars'][number] | null =
     data.trust_readiness.backup.level !== 'ok'
       ? {
           id: 'backup_trust_warning',
@@ -218,7 +210,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
           summary: data.trust_readiness.backup.detail,
           urgent: data.trust_readiness.backup.level === 'fail',
           primary_thread_id: null,
-          actions: [{ kind: 'open_settings', label: 'Open backups' }],
+          actions: [{ kind: 'open_settings' as const, label: 'Open backups' }],
         }
       : null;
   const prioritizedNudges = [...(backupNudge ? [backupNudge] : []), ...nudgeBars]
@@ -252,59 +244,51 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
     <div className={surfaceShell.mainColumn}>
       <div ref={scrollRef} className={surfaceShell.scrollColumn}>
         <div ref={contentRef} className={surfaceShell.mainContent}>
-        <section className={surfaceShell.sectionStack}>
-          <PanelSectionHeaderBand mode="section-header">
-            <PanelSectionHeaderLead className="space-y-2">
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
-                {header?.title ?? 'Now'}
-              </h1>
-              <p className="text-xs text-zinc-500" title={`${titleDateTime} · ${locationCaption}`}>
-                <span className="text-zinc-400">{titleDateTime}</span>
-                <span className="text-zinc-600/90" aria-hidden>
-                  {' '}
-                  |{' '}
-                </span>
-                <span className="text-zinc-400">{locationCaption}</span>
-              </p>
-              <p className="flex min-w-0 gap-1.5 text-[11px] leading-snug text-zinc-400 sm:text-xs">
-                <span className="shrink-0 font-medium uppercase tracking-[0.14em] text-zinc-500">CONTEXT:</span>
-                <span className="min-w-0 truncate">{navContextLine}</span>
-              </p>
-            </PanelSectionHeaderLead>
-            <PanelSectionHeaderTrail>
-              <NowMetricStrip
-                nudgeCount={prioritizedNudges.length}
-                threadAttentionCount={threadAttentionCount}
-                queuedWriteCount={meshSummary?.queued_write_count ?? 0}
-                meshSummary={meshSummary}
-              />
-            </PanelSectionHeaderTrail>
-          </PanelSectionHeaderBand>
+          <section className={surfaceShell.sectionStack}>
+            <PanelSectionHeaderBand mode="section-header">
+              <PanelSectionHeaderLead className="space-y-2">
+                <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
+                  {header?.title ?? 'Now'}
+                </h1>
+                <p className="max-w-2xl text-xs leading-5 text-zinc-500 sm:text-sm">
+                  Work the live queue below. Date, active-task context, and ambient status stay in the navbar so this
+                  surface can stay focused on nudges, tasks, and thread pressure.
+                </p>
+              </PanelSectionHeaderLead>
+              <PanelSectionHeaderTrail>
+                <NowMetricStrip
+                  nudgeCount={prioritizedNudges.length}
+                  threadAttentionCount={threadAttentionCount}
+                  queuedWriteCount={meshSummary?.queued_write_count ?? 0}
+                  meshSummary={meshSummary}
+                />
+              </PanelSectionHeaderTrail>
+            </PanelSectionHeaderBand>
 
-          <NowNudgeStrip
-            bars={prioritizedNudges}
-            nowTs={nowTs}
-            actionItems={actionItems}
-            onBarAction={handleNowBarAction}
-          />
+            <NowNudgeStrip
+              bars={prioritizedNudges}
+              nowTs={nowTs}
+              actionItems={actionItems}
+              onBarAction={handleNowBarAction}
+            />
 
-          <NowTasksSection
-            taskLane={taskLane}
-            riskItems={riskItems}
-            nextTasks={nextTasks}
-            allTaskMetadata={allTaskMetadata}
-            commitmentIds={commitmentIds}
-            completedCount={completedCount}
-            remainingCount={remainingCount}
-            backlogCount={backlogCount}
-            groupedTaskCount={groupedTaskCount}
-            pendingCommitments={pendingCommitments}
-            commitmentMessages={commitmentMessages}
-            onCompleteCommitment={completeCommitment}
-            onOpenInbox={onOpenInbox}
-            onOpenThread={onOpenThread}
-          />
-        </section>
+            <NowTasksSection
+              taskLane={taskLane}
+              riskItems={riskItems}
+              nextTasks={nextTasks}
+              allTaskMetadata={allTaskMetadata}
+              commitmentIds={commitmentIds}
+              completedCount={completedCount}
+              remainingCount={remainingCount}
+              backlogCount={backlogCount}
+              groupedTaskCount={groupedTaskCount}
+              pendingCommitments={pendingCommitments}
+              commitmentMessages={commitmentMessages}
+              onCompleteCommitment={completeCommitment}
+              onOpenInbox={onOpenInbox}
+              onOpenThread={onOpenThread}
+            />
+          </section>
         </div>
         <div
           aria-hidden

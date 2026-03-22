@@ -3,9 +3,7 @@ export type MainView =
   | 'inbox'
   | 'threads'
   | 'projects'
-  | 'settings'
-  | 'suggestions'
-  | 'stats';
+  | 'settings';
 
 export type SurfaceDisclosure = 'primary' | 'support' | 'detail';
 
@@ -58,22 +56,6 @@ export const operatorSurfaces: OperatorSurfaceDefinition[] = [
     disclosure: 'support',
     navVisible: true,
     blurb: 'Setup, trust, and runtime controls',
-  },
-  {
-    view: 'suggestions',
-    label: 'Suggestions',
-    icon: '△',
-    disclosure: 'detail',
-    navVisible: false,
-    blurb: 'Detail surface for suggestion review',
-  },
-  {
-    view: 'stats',
-    label: 'Stats',
-    icon: '□',
-    disclosure: 'detail',
-    navVisible: false,
-    blurb: 'Deeper context and operational stats',
   },
 ];
 

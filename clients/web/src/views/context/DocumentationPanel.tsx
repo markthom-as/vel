@@ -11,6 +11,8 @@ interface DocumentationPanelProps {
 }
 
 export function DocumentationPanel({ compact = false, currentView }: DocumentationPanelProps) {
+  const currentViewHint = currentView ? contextualDocHint(currentView) : null;
+
   return (
     <div className={compact ? 'space-y-4 p-3' : 'space-y-5 p-4'}>
       <div>
@@ -26,7 +28,7 @@ export function DocumentationPanel({ compact = false, currentView }: Documentati
           <PanelEyebrow tracking="wide">Current View</PanelEyebrow>
           <p className="mt-2 text-sm font-medium text-zinc-100">{currentView}</p>
           <p className="mt-2 text-xs leading-5 text-zinc-400">
-            Keep this panel focused on contextual docs, definitions, and trust notes for the active surface.
+            {currentViewHint}
           </p>
         </PanelPageSection>
       ) : null}
@@ -34,6 +36,21 @@ export function DocumentationPanel({ compact = false, currentView }: Documentati
       <DocumentationSection title="Operator" docs={USER_DOCUMENTATION_ENTRIES} compact={compact} />
     </div>
   );
+}
+
+function contextualDocHint(currentView: string): string {
+  switch (currentView.toLowerCase()) {
+    case 'now':
+      return 'Keep this panel focused on current-day truth, nudge meaning, and the operator rules behind queue ordering and trust warnings.';
+    case 'threads':
+      return 'Keep this panel focused on continuation intent, intervention meaning, and why a thread is asking for attention.';
+    case 'settings':
+      return 'Keep this panel focused on practical control surfaces, trust posture, and what each settings section actually governs.';
+    case 'inbox':
+      return 'Keep this panel focused on queue meaning, object provenance, and how Inbox stays aligned to the same actionable truth as Now.';
+    default:
+      return 'Keep this panel focused on contextual docs, definitions, and trust notes for the active surface.';
+  }
 }
 
 function DocumentationSection({
