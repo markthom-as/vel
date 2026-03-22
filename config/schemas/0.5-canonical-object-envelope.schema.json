@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/0.5-canonical-object-envelope.schema.json",
+  "title": "0.5 Canonical Object Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "object_type",
+    "object_class",
+    "schema_version",
+    "created_at",
+    "updated_at",
+    "status",
+    "provenance",
+    "facets"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "object_class": {
+      "type": "string",
+      "enum": ["content", "registry", "read_model", "runtime"]
+    },
+    "schema_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "deleted_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "archived_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_summary": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "providers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "active_link_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "primary_provider": {
+          "type": ["string", "null"]
+        },
+        "last_sync_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "sync_state": {
+          "type": ["string", "null"]
+        },
+        "has_tombstone": {
+          "type": ["boolean", "null"]
+        },
+        "has_conflict": {
+          "type": ["boolean", "null"]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "facets": {
+      "type": "object"
+    }
+  }
+}

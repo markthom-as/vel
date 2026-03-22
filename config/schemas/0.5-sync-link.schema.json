@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/0.5-sync-link.schema.json",
+  "title": "0.5 SyncLink",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "provider",
+    "integration_account_id",
+    "object_id",
+    "remote_id",
+    "remote_type",
+    "state",
+    "authority_mode",
+    "linked_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^sync_link_"
+    },
+    "provider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "integration_account_id": {
+      "type": "string",
+      "pattern": "^integration_account_"
+    },
+    "object_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "remote_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "remote_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "active",
+        "superseded",
+        "broken",
+        "deleted_upstream",
+        "reconciled",
+        "conflicted"
+      ]
+    },
+    "authority_mode": {
+      "type": "string",
+      "enum": [
+        "source_preferred",
+        "core_preferred",
+        "manual_reconcile"
+      ]
+    },
+    "remote_version": {
+      "type": ["string", "null"]
+    },
+    "linked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_seen_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "restored_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}

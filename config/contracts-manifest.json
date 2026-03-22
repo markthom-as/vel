@@ -180,6 +180,24 @@
       "schema": "config/schemas/swarm-protocol-envelope.schema.json"
     },
     {
+      "id": "v0_5_canonical_object_envelope_schema",
+      "path": "config/schemas/0.5-canonical-object-envelope.schema.json",
+      "kind": "canonical_object_envelope",
+      "schema": "config/schemas/0.5-canonical-object-envelope.schema.json"
+    },
+    {
+      "id": "v0_5_sync_link_schema",
+      "path": "config/schemas/0.5-sync-link.schema.json",
+      "kind": "sync_link",
+      "schema": "config/schemas/0.5-sync-link.schema.json"
+    },
+    {
+      "id": "v0_5_sync_link_example",
+      "path": "config/examples/0.5-sync-link.example.json",
+      "kind": "sync_link",
+      "schema": "config/schemas/0.5-sync-link.schema.json"
+    },
+    {
       "id": "backup_manifest_example",
       "path": "config/examples/backup-manifest.example.json",
       "kind": "backup_manifest",

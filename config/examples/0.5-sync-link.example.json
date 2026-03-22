@@ -1,0 +1,26 @@
+{
+  "id": "sync_link_01hxyzactive",
+  "provider": "todoist",
+  "integration_account_id": "integration_account_01hxyzacct",
+  "object_id": "task_01hxyztask",
+  "remote_id": "todoist_task_129933",
+  "remote_type": "task",
+  "state": "active",
+  "authority_mode": "source_preferred",
+  "remote_version": "2026-03-22T18:00:00Z",
+  "linked_at": "2026-03-22T18:01:00Z",
+  "last_seen_at": "2026-03-22T18:10:00Z",
+  "restored_at": null,
+  "metadata": {
+    "historical_states": [
+      "superseded",
+      "broken",
+      "deleted_upstream",
+      "reconciled",
+      "conflicted",
+      "active"
+    ],
+    "remote_project_id": "todoist_project_22",
+    "notes": "Active authoritative mapping after prior relink cycle."
+  }
+}
