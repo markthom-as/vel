@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 64
 current_phase_name: google-calendar-as-canonical-calendar-proving-adapter
-current_plan: 64-01-PLAN
-current_work_id: 0.5.64.1
+current_plan: 64-02-PLAN
+current_work_id: 0.5.64.2
 status: in_progress
-stopped_at: "Phase 63 completed with black-box Todoist adapter proof; active execution advanced into Google Calendar multi-account linking and bounded import"
-last_updated: "2026-03-23T00:35:00Z"
+stopped_at: "Phase 64 plan 01 completed with Google Calendar multi-account linking and bounded canonical import; active execution advanced into native calendar/event mapping"
+last_updated: "2026-03-23T01:10:00Z"
 last_activity: 2026-03-23
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 36
-  completed_plans: 30
-  percent: 83
+  completed_plans: 31
+  percent: 86
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 64
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.64.1
+Current Work ID: 0.5.64.2
 Current Phase: 64
 Current Phase Name: google-calendar-as-canonical-calendar-proving-adapter
-Current Plan: 64-01-PLAN
+Current Plan: 64-02-PLAN
 Total Plans in Phase: 4
-Progress: 83%
+Progress: 86%
 Last Activity: 2026-03-23
-Last Activity Description: Completed Phase 63 with black-box Todoist adapter proof and advanced active execution into Google Calendar multi-account linking and bounded import
+Last Activity Description: Completed Phase 64 plan 01 with Google Calendar multi-account linking and bounded canonical import, then advanced active execution into native calendar/event mapping
 
 ## Current Position
 
 Phase: 64 (google-calendar-as-canonical-calendar-proving-adapter) — IN PROGRESS
-Plan: implement Google Calendar multi-account linking and bounded-window import over canonical account and `SyncLink` law
+Plan: map Google calendars, events, and participation into the native canonical calendar core without reopening provider-first ontology
 
 ## Accumulated Context
 
@@ -68,7 +68,7 @@ Plan: implement Google Calendar multi-account linking and bounded-window import 
 
 ### Next Step
 
-Execute [64-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/64-01-PLAN.md) and implement Google Calendar multi-account linking plus bounded-window import over canonical account and `SyncLink` law.
+Execute [64-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/64-02-PLAN.md) and implement canonical Google calendar/event/attendee mapping into the native calendar core.
 
 ### Roadmap Evolution
 
@@ -103,6 +103,7 @@ Execute [64-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `63-03` has landed ownership-aware Todoist sync, tombstones by default, conservative outward writes through `WriteIntent`, and continuous `TaskEvent` history across provider and local changes
 - `63-04` has landed black-box Todoist adapter proof plus hostile-path error-surface verification
 - Phase 63 is complete and active execution has advanced into Phase 64 Google Calendar adapter work
+- `64-01` has landed Google Calendar multi-account linking, bounded canonical import, and multi-account/window/idempotence proof
 
 ---
-*Last updated: 2026-03-23 after completing Phase 63 and advancing active execution to `64-01`*
+*Last updated: 2026-03-23 after completing `64-01` and advancing active execution to `64-02`*
