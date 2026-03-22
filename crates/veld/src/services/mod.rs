@@ -45,6 +45,8 @@ pub(crate) mod lan_discovery;
 pub mod linking;
 pub mod llm_settings;
 pub(crate) mod local_network;
+pub mod module_activation;
+pub mod module_policy_bridge;
 pub mod now;
 pub mod nudge_engine;
 pub mod object_actions;

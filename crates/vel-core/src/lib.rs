@@ -18,6 +18,7 @@ pub mod ids;
 pub mod linking;
 pub mod loops;
 pub mod message;
+pub mod module_capabilities;
 pub mod module_registry;
 pub mod node_identity;
 pub mod object_envelope;
@@ -113,6 +114,9 @@ pub use loops::LoopKind;
 pub use message::{
     Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
+};
+pub use module_capabilities::{
+    ModuleCapabilityProfile, ModuleEnablementState, ModuleLifecycleState, RequestedCapability,
 };
 pub use module_registry::{
     materialize_registry_object, CapabilityRequest, DefaultRegistryReconciler, ManifestSource,
