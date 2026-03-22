@@ -27,8 +27,8 @@ These are the current authoritative entrypoints:
 
 These files drive ongoing implementation work:
 
-- `.planning/ROADMAP.md`: active roadmap beginning at Phase 5
-- `.planning/milestones/v0.5-core-rewrite/ROADMAP.md`: frozen future milestone packet for the planned post-`0.4.x` backend rewrite
+- `.planning/ROADMAP.md`: top-level roadmap entrypoint and active milestone pointer
+- `.planning/milestones/v0.5-core-rewrite/ROADMAP.md`: active `0.5` backend rewrite packet
 - `.planning/PROJECT.md`: active product definition and accepted planning decisions
 - `.planning/BACKLOG.md`: non-phase future work that is worth preserving but not yet committed
 - `.planning/todos/pending/*.md`: execution-ready micro-task queue used by GSD todo workflows
@@ -41,7 +41,7 @@ These files drive ongoing implementation work:
 - `docs/tickets/phase-3/*.md`
 - `docs/tickets/phase-4/*.md`
 
-Phase 1 and Phase 3 are complete historical implementation lanes. Phase 2 and Phase 4 also remain historical, but some unfinished original-scope work from those lanes was explicitly re-scoped into Phase 5+ planning. Active future planning starts at Phase 5 in `.planning/ROADMAP.md`.
+Phase 1 and Phase 3 are complete historical implementation lanes. Phase 2 and Phase 4 also remain historical, but some unfinished original-scope work from those lanes was explicitly re-scoped into later milestone planning. Active implementation planning now runs through the `0.5` packet.
 
 Use the ticket closest to the boundary you are changing when touching historical architecture surfaces, and use the active phase planning files for future product work.
 

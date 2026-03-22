@@ -35,22 +35,33 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - client mesh, linking, sync/offline visibility, and connection recovery as shared product behavior
 - governed `Now` config, deterministic ranking, and approval posture in the same Rust-owned product-core lane
 
-## Active Release Line: 0.4.x Now/UI MVP Conformance Closure
+## Latest Closed Release Line: 0.4.x Now/UI MVP Conformance Closure
 
-**Goal:** make the shipped `Now` experience clean, compact, correct, and actually usable by closing the remaining UI, information architecture, and data-truth gaps against the canonical contract and the operator's explicit correction memo.
+**Goal achieved:** the shipped `Now` experience was tightened into the compact, operator-corrected MVP shell, then closed with a clean web build and focused regression evidence.
 
 **Versioning rule:**
 - shipped releases use semver, starting from the current `0.3.0` baseline
-- the active roadmap remains in the `0.4.x` line until the product is ready to open a real `0.5.0-beta`
-- in-flight planning slices use `<major>.<minor>.<phase>.<plan>` identifiers such as `0.4.54.1`, while the existing phase numbers remain the canonical directory and history keys
+- the active roadmap now runs in the `0.5.0-beta` line
+- in-flight planning slices use `<major>.<minor>.<phase>.<plan>` identifiers such as `0.5.57.1`, while the existing phase numbers remain the canonical directory and history keys
+
+**Milestone priorities achieved:**
+- web is the reference implementation for conformance closure
+- the top area of `Now` is containerless, compact, and operational rather than dashboard-like
+- tasks are the only dominant visual container on `Now`
+- inbox and now reflect the same actionable objects, with inbox remaining the superset queue
+- threads, settings, and shell navigation no longer leak helper prose and structural noise
+- iOS/client parity still follows the web reference rather than inventing a second behavior model
+
+## Active Release Line: 0.5 Backend Core Rewrite
+
+**Goal:** rebuild Vel around canonical objects, a typed action membrane, policy/audit infrastructure, module loading, workflow/skill primitives, and proving Todoist/Google Calendar adapters without widening into new UI work.
 
 **Milestone priorities:**
-- web is the reference implementation for conformance closure
-- the top area of `Now` must be containerless, compact, and operational rather than dashboard-like
-- tasks are the only dominant visual container on `Now`
-- inbox and now must reflect the same actionable objects, with inbox remaining the superset queue
-- threads, settings, and shell navigation must stop leaking helper prose and structural noise
-- iOS/client parity should follow the web reference instead of inventing a second behavior model
+- canonical object kernel becomes the system of record
+- actions, ownership, confirmation, and audit become mandatory backend infrastructure
+- module, skill, and workflow primitives load through governed core paths
+- Todoist and Google Calendar prove the new substrate
+- the milestone closes through hard backend cutover, not a long dual-live compatibility lane
 
 ## Requirements
 
@@ -95,7 +106,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ### Active
 
-- `0.4.x` Now/UI MVP Conformance Closure — active roadmap starts at Phase 52 and currently executes inside the `0.4` release line
+- `0.5` backend core rewrite — active roadmap starts at Phase 57 inside the `0.5.0-beta` line
 
 ### Out of Scope
 
@@ -181,4 +192,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-21 for `0.4.x` release-line planning on top of the shipped `0.3.0` baseline*
+*Last updated: 2026-03-22 after closing `0.4.x` and activating the `0.5` backend rewrite line*

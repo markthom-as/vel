@@ -1,6 +1,6 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (`0.3.0` shipped, `0.4.x` active)
-**Last Updated**: 2026-03-21
+**Status**: Canonical Truth (`0.3.0` shipped, `0.5` active after `0.4.x` closeout)
+**Last Updated**: 2026-03-22
 
 ---
 
@@ -15,19 +15,15 @@
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
 
-Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). Live roadmap work is now tracked as the active `0.4.x` release line, which remains in force until the product is ready to open a real `0.5.0-beta`.
-
-A frozen future milestone packet now exists for the planned backend rewrite after `0.4.x`:
+Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). `0.4.x` is now closed, and live roadmap work is tracked in the active `0.5` backend rewrite packet:
 
 - [`.planning/milestones/v0.5-core-rewrite/ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
-
-Treat it as future-planning authority only, not as proof that `0.5` work is active before `0.4.x` closes.
 
 Planning notation from this point forward:
 
 - shipped releases use semver, for example `0.3.0`
-- in-flight roadmap work stays inside a release line, for example `0.4.x`
-- execution slices may be referenced as `<major>.<minor>.<phase>.<plan>`, for example `0.4.54.1`
+- in-flight roadmap work stays inside a release line, for example `0.5.0-beta`
+- execution slices may be referenced as `<major>.<minor>.<phase>.<plan>`, for example `0.5.57.1`
 - the existing integer phase directories remain valid historical identifiers and should not be renumbered retroactively
 
 Durable product authority for the shipped MVP starts with `docs/product/mvp-operator-loop.md`, while post-`v0.2` `Now` behavior is now governed by `docs/product/now-surface-canonical-contract.md`. Durable architecture authority continues in `docs/cognitive-agent-architecture/architecture/cross-surface-core-and-adapters.md` and `docs/cognitive-agent-architecture/architecture/now-surface-rust-core-contract.md`.
