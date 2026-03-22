@@ -4,6 +4,8 @@ pub mod actions;
 pub mod audit;
 pub mod bootstrap;
 pub mod capability;
+pub mod calendar;
+pub mod calendar_relations;
 pub mod command;
 pub mod commitment;
 pub mod conflicts;
@@ -11,6 +13,7 @@ pub mod connect;
 pub mod context;
 pub mod daily_loop;
 pub mod explain;
+pub mod event;
 pub mod execution;
 pub mod integration;
 pub mod intervention;
@@ -69,6 +72,10 @@ pub use actions::{
 pub use audit::{AuditBeforeAfter, AuditEventKind, AuditFieldCapture, AuditRecord};
 pub use bootstrap::{CoreBootstrapBundle, CoreBootstrapPolicy, CoreBootstrapReport, CoreBootstrapSource};
 pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
+pub use calendar::{Calendar, CalendarVisibility};
+pub use calendar_relations::{
+    belongs_to_calendar, CalendarRelation, CalendarRelationKind, CalendarRelationRef,
+};
 pub use command::{
     CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,
     RelationOperation, ResolutionConfidence, ResolutionMeta, ResolvedCommand, TargetSelector,
@@ -106,9 +113,10 @@ pub use explain::{
     action_explain, object_explain, ownership_explain, policy_explain, ActionExplain,
     ExplainBasis, ObjectExplain, OwnershipExplain, PolicyExplain,
 };
+pub use event::{Event, EventLocation, EventMoment, EventMomentKind, EventTransparency};
 pub use ids::{
-    IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId, ToolId, WorkflowId,
-    WriteIntentId,
+    CalendarId, EventId, IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId, ToolId,
+    WorkflowId, WriteIntentId,
 };
 pub use integration::{
     IntegrationConnection, IntegrationConnectionEvent, IntegrationConnectionEventType,
@@ -133,7 +141,7 @@ pub use module_registry::{
 pub use node_identity::NodeIdentity;
 pub use object_envelope::{
     CanonicalObjectEnvelope, DurableStatus, ObjectClass, ObjectProvenance, SourceSummary,
-    TaskEnvelope,
+    CalendarEnvelope, EventEnvelope, TaskEnvelope,
 };
 pub use ownership::{OwnershipClass, OwnershipDefault, OwnershipEvaluation, OwnershipOverlay};
 pub use operator_queue::{
@@ -188,7 +196,7 @@ pub use semantic::{
     SemanticQueryFilters, SemanticRecordId, SemanticSourceKind,
 };
 pub use time::{Clock, FixedClock, SystemClock};
-pub use types::{ConversationId, EventId, IntegrationConnectionId, InterventionId, MessageId};
+pub use types::{ConversationId, IntegrationConnectionId, InterventionId, MessageId};
 pub use uncertainty::{ResolutionMode, UncertaintyStatus};
 pub use vocabulary::{
     dsl_registry_entries, glossary_entries, glossary_entry, glossary_entry_for_kind,

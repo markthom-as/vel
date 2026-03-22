@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 62
 current_phase_name: calendar-core-model-and-canonical-availability-semantics
-current_plan: 62-01-PLAN
-current_work_id: 0.5.62.1
+current_plan: 62-02-PLAN
+current_work_id: 0.5.62.2
 status: in_progress
-stopped_at: "Phase 61 completed with black-box workflow runtime proof; active execution advanced into native calendar core modeling"
-last_updated: "2026-03-23T01:00:00Z"
+stopped_at: "62-01 completed with native calendar and event object contracts; active execution advanced into recurrence and attendee semantics"
+last_updated: "2026-03-23T02:10:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 36
-  completed_plans: 23
-  percent: 64
+  completed_plans: 24
+  percent: 67
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 62
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.62.1
+Current Work ID: 0.5.62.2
 Current Phase: 62
 Current Phase Name: calendar-core-model-and-canonical-availability-semantics
-Current Plan: 62-01-PLAN
+Current Plan: 62-02-PLAN
 Total Plans in Phase: 3
-Progress: 64%
+Progress: 67%
 Last Activity: 2026-03-22
-Last Activity Description: Closed Phase 61 with black-box workflow runtime proof; active execution now moves into native calendar core modeling
+Last Activity Description: Completed 62-01 with native calendar/event object contracts and advanced active execution into recurrence and attendee semantics
 
 ## Current Position
 
 Phase: 62 (calendar-core-model-and-canonical-availability-semantics) — IN PROGRESS
-Plan: land native Calendar/Event objects and canonical relations before provider adapter work
+Plan: extend the native calendar core with recurrence semantics and attendee participation before availability layering
 
 ## Accumulated Context
 
@@ -67,7 +67,7 @@ Plan: land native Calendar/Event objects and canonical relations before provider
 
 ### Next Step
 
-Execute [62-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/62-01-PLAN.md) and land native `Calendar` / `Event` object contracts plus relations.
+Execute [62-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/62-02-PLAN.md) and land recurrence plus attendee participation over the native calendar core.
 
 ### Roadmap Evolution
 
@@ -93,6 +93,7 @@ Execute [62-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `61-03` has landed manual invocation, run records, approval seams, and dry-run runtime evidence over canonical objects
 - `61-04` has landed black-box workflow runtime proof plus stable refusal/error-surface tests
 - Phase 61 is complete and active execution has advanced into Phase 62 native calendar semantics
+- `62-01` has landed native `Calendar` / `Event` object contracts, typed calendar relations, and canonical `event_*` / `calendar_*` content IDs
 
 ---
-*Last updated: 2026-03-23 after completing Phase 61 and advancing active execution to `62-01`*
+*Last updated: 2026-03-23 after completing `62-01` and advancing active execution to `62-02`*

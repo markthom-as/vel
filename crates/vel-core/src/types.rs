@@ -44,5 +44,4 @@ macro_rules! id_type {
 id_type!(ConversationId, "conv");
 id_type!(MessageId, "msg");
 id_type!(InterventionId, "int");
-id_type!(EventId, "evt");
 id_type!(IntegrationConnectionId, "icn");

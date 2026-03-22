@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use uuid::Uuid;
 
-pub use crate::types::EventId;
-
 macro_rules! prefixed_id_type {
     ($name:ident, $prefix:expr) => {
         #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -42,6 +40,8 @@ macro_rules! prefixed_id_type {
 }
 
 prefixed_id_type!(TaskId, "task");
+prefixed_id_type!(CalendarId, "calendar");
+prefixed_id_type!(EventId, "event");
 prefixed_id_type!(WorkflowId, "workflow");
 prefixed_id_type!(ModuleId, "module");
 prefixed_id_type!(SkillId, "skill");
@@ -53,14 +53,16 @@ prefixed_id_type!(WriteIntentId, "write_intent");
 #[cfg(test)]
 mod tests {
     use super::{
-        IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId, ToolId, WorkflowId,
-        WriteIntentId,
+        CalendarId, EventId, IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId,
+        ToolId, WorkflowId, WriteIntentId,
     };
 
     #[test]
     fn canonical_ids_use_expected_prefixes() {
         let ids = [
             TaskId::new().to_string(),
+            CalendarId::new().to_string(),
+            EventId::new().to_string(),
             WorkflowId::new().to_string(),
             ModuleId::new().to_string(),
             SkillId::new().to_string(),
@@ -71,12 +73,14 @@ mod tests {
         ];
 
         assert!(ids[0].starts_with("task_"));
-        assert!(ids[1].starts_with("workflow_"));
-        assert!(ids[2].starts_with("module_"));
-        assert!(ids[3].starts_with("skill_"));
-        assert!(ids[4].starts_with("tool_"));
-        assert!(ids[5].starts_with("integration_account_"));
-        assert!(ids[6].starts_with("sync_link_"));
-        assert!(ids[7].starts_with("write_intent_"));
+        assert!(ids[1].starts_with("calendar_"));
+        assert!(ids[2].starts_with("event_"));
+        assert!(ids[3].starts_with("workflow_"));
+        assert!(ids[4].starts_with("module_"));
+        assert!(ids[5].starts_with("skill_"));
+        assert!(ids[6].starts_with("tool_"));
+        assert!(ids[7].starts_with("integration_account_"));
+        assert!(ids[8].starts_with("sync_link_"));
+        assert!(ids[9].starts_with("write_intent_"));
     }
 }

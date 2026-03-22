@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use time::OffsetDateTime;
 
-use crate::TaskId;
+use crate::{CalendarId, EventId, TaskId};
 
 /// Storage-agnostic, serde-backed, version-aware durable envelope types for the `0.5` core.
 
@@ -68,6 +68,8 @@ impl<Id> CanonicalObjectEnvelope<Id> {
 }
 
 pub type TaskEnvelope = CanonicalObjectEnvelope<TaskId>;
+pub type CalendarEnvelope = CanonicalObjectEnvelope<CalendarId>;
+pub type EventEnvelope = CanonicalObjectEnvelope<EventId>;
 
 #[cfg(test)]
 mod tests {
