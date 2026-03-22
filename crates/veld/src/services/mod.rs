@@ -57,6 +57,7 @@ pub mod planning_profile;
 pub mod policy_evaluator;
 pub mod provider_module_registration;
 pub mod projects;
+pub mod recurrence_materialization;
 pub mod ownership_resolver;
 pub mod registry_loader;
 pub mod reflow;
