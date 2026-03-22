@@ -26,6 +26,8 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 vel-api-types = { path = "../vel-api-types" }
+vel-adapters-google-calendar = { path = "../vel-adapters-google-calendar" }
+vel-adapters-todoist = { path = "../vel-adapters-todoist" }
 vel-config = { path = "../vel-config" }
 vel-core = { path = "../vel-core" }
 vel-llm = { path = "../vel-llm" }

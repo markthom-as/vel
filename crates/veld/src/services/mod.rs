@@ -55,6 +55,7 @@ pub(crate) mod operator_settings;
 pub mod people;
 pub mod planning_profile;
 pub mod policy_evaluator;
+pub mod provider_module_registration;
 pub mod projects;
 pub mod ownership_resolver;
 pub mod registry_loader;

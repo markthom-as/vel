@@ -1,0 +1,8 @@
+[package]
+name = "vel-adapters-todoist"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+vel-core = { path = "../vel-core" }

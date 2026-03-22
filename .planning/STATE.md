@@ -4,20 +4,20 @@ milestone: 0.5
 milestone_name: backend-core-rewrite
 release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
-current_phase: 60
-current_phase_name: module-loader-registry-and-core-module-bootstrap
-current_plan: 60-04-PLAN
-current_work_id: 0.5.60.4
+current_phase: 61
+current_phase_name: workflow-and-skill-primitives-over-canonical-objects
+current_plan: 61-01-PLAN
+current_work_id: 0.5.61.1
 status: in_progress
-stopped_at: "`60-03` completed and active execution advanced into provider-module registration through the governed path"
-last_updated: "2026-03-23T12:10:00Z"
+stopped_at: "`60-04` completed and active execution advanced into typed workflow context binding and minimal step contracts"
+last_updated: "2026-03-23T13:40:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 36
-  completed_plans: 18
-  percent: 50
+  completed_plans: 19
+  percent: 53
 ---
 
 # Project State
@@ -29,21 +29,21 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** `0.5` backend-only core rewrite from the frozen canonical object/action/policy/module/workflow packet
 
-Status: `0.5` active at Phase 60
+Status: `0.5` active at Phase 61
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.60.4
-Current Phase: 60
-Current Phase Name: module-loader-registry-and-core-module-bootstrap
-Current Plan: 60-04-PLAN
-Total Plans in Phase: 5
-Progress: 50%
+Current Work ID: 0.5.61.1
+Current Phase: 61
+Current Phase Name: workflow-and-skill-primitives-over-canonical-objects
+Current Plan: 61-01-PLAN
+Total Plans in Phase: 4
+Progress: 53%
 Last Activity: 2026-03-22
-Last Activity Description: Landed typed module capability requests plus policy-mediated activation and refusal paths; active execution now moves into Todoist and Google registration through the governed module path
+Last Activity Description: Closed Phase 60 with shared core/provider registration proof; active execution now moves into typed workflow context binding and minimal step contracts
 
 ## Current Position
 
-Phase: 60 (module-loader-registry-and-core-module-bootstrap) — IN PROGRESS
-Plan: land deterministic core bootstrap and seeded workflow reconciliation over the governed registry substrate
+Phase: 61 (workflow-and-skill-primitives-over-canonical-objects) — IN PROGRESS
+Plan: land typed workflow context binding and the minimal lawful workflow-step vocabulary
 
 ## Accumulated Context
 
@@ -54,6 +54,7 @@ Plan: land deterministic core bootstrap and seeded workflow reconciliation over 
 - Phase 57 is complete and is the authority-lock phase for canonical objects, actions, policy, modules, workflows, sync, and task semantics
 - Phase 58 is complete and is the storage/system-of-record substrate phase
 - Phase 59 is complete and is the typed action membrane, policy, audit, and hostile-path proof phase
+- Phase 60 is complete and is the governed module/bootstrap/activation phase
 - Todoist and Google Calendar remain the proving adapters for `0.5`
 - UI/client embodiment work is explicitly out of scope for this milestone
 - roadmap communication continues to use semver release-line language with four-part work IDs like `0.5.57.1`
@@ -66,7 +67,7 @@ Plan: land deterministic core bootstrap and seeded workflow reconciliation over 
 
 ### Next Step
 
-Execute [60-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/60-04-PLAN.md) and land Todoist and Google Calendar module registration through the same governed path.
+Execute [61-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/61-01-PLAN.md) and land typed workflow context binding plus the minimal step taxonomy.
 
 ### Roadmap Evolution
 
@@ -86,6 +87,7 @@ Execute [60-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `60-01` has landed typed registry IDs, canonical registry object contracts, a dedicated registry-store seam, and runtime loader service
 - `60-02` has landed deterministic core bootstrap, seeded workflow reconciliation, and idempotent bootstrap proof
 - `60-03` has landed typed module capability requests plus policy-mediated activation and refusal-path verification
+- `60-04` has landed shared core/provider registration proof through canonical module manifests and provider-module registration service
 
 ---
-*Last updated: 2026-03-23 after completing `60-03` and advancing active execution to `60-04`*
+*Last updated: 2026-03-23 after completing Phase 60 and advancing active execution to `61-01`*

@@ -1,5 +1,7 @@
 [workspace]
 members = [
+  "crates/vel-adapters-google-calendar",
+  "crates/vel-adapters-todoist",
   "crates/vel-core",
   "crates/vel-config",
   "crates/vel-storage",
