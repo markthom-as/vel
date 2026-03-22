@@ -1,0 +1,27 @@
+{
+  "id": "migration_artifact_01legacytodoistcutover",
+  "version": "0.5.0",
+  "source_system": "legacy_todoist_bridge",
+  "snapshot_ref": "snapshots/todoist/2026-03-22/full-export.json",
+  "validation": {
+    "status": "warnings",
+    "error_count": 0,
+    "warning_count": 2
+  },
+  "validation_result": {
+    "issues": [
+      "2 legacy label colors preserved only in raw payload"
+    ]
+  },
+  "transformation_result": {
+    "created_objects": 128,
+    "updated_objects": 4,
+    "created_sync_links": 132,
+    "tombstones_detected": 3
+  },
+  "replay": {
+    "idempotent": true,
+    "attempt_count": 2,
+    "last_status": "updated"
+  }
+}

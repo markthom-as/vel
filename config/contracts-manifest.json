@@ -228,6 +228,18 @@
       "schema": "config/schemas/0.5-workflow-object.schema.json"
     },
     {
+      "id": "v0_5_migration_artifact_schema",
+      "path": "config/schemas/0.5-migration-artifact.schema.json",
+      "kind": "migration_artifact",
+      "schema": "config/schemas/0.5-migration-artifact.schema.json"
+    },
+    {
+      "id": "v0_5_migration_artifact_example",
+      "path": "config/examples/0.5-migration-artifact.example.json",
+      "kind": "migration_artifact",
+      "schema": "config/schemas/0.5-migration-artifact.schema.json"
+    },
+    {
       "id": "backup_manifest_example",
       "path": "config/examples/backup-manifest.example.json",
       "kind": "backup_manifest",

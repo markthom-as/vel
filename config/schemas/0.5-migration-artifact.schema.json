@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/0.5-migration-artifact.schema.json",
+  "title": "0.5 Migration Artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "version",
+    "snapshot_ref",
+    "validation",
+    "replay"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^migration_artifact_"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_system": {
+      "type": "string"
+    },
+    "snapshot_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "validation": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "warnings",
+            "failed"
+          ]
+        },
+        "error_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warning_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "transformation_result": {
+      "type": "object"
+    },
+    "replay": {
+      "type": "object",
+      "required": [
+        "idempotent"
+      ],
+      "properties": {
+        "idempotent": {
+          "type": "boolean"
+        },
+        "attempt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_status": {
+          "type": "string",
+          "enum": [
+            "unchanged",
+            "updated",
+            "skipped",
+            "failed"
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

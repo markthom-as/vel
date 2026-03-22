@@ -59,6 +59,7 @@ Use it to answer four questions quickly:
 - `schemas/0.5-write-intent.schema.json`
 - `schemas/0.5-module-registry-object.schema.json`
 - `schemas/0.5-workflow-object.schema.json`
+- `schemas/0.5-migration-artifact.schema.json`
 - Examples and manifests:
   - `examples/app-config.example.toml`
   - `examples/agent-specs.example.yaml`
@@ -92,6 +93,7 @@ Use it to answer four questions quickly:
   - `examples/0.5-sync-link.example.json`
   - `examples/0.5-write-intent.example.json`
   - `examples/0.5-workflow-object.example.json`
+  - `examples/0.5-migration-artifact.example.json`
   - `contracts-manifest.json`
 
 ## Ownership Rules
@@ -121,6 +123,8 @@ Use it to answer four questions quickly:
 - `docs/cognitive-agent-architecture/architecture/0.5-ownership-conflict-and-write-intent.md` owns the `0.5` ownership, conflict, tombstone, and `WriteIntent` lifecycle vocabulary.
 - `docs/cognitive-agent-architecture/architecture/0.5-module-skill-tool-and-workflow-registry.md` owns the `0.5` `Module` / `Skill` / `Tool` registry-object identity, manifest-backed registry semantics, and deterministic bootstrap vocabulary.
 - `docs/cognitive-agent-architecture/architecture/0.5-workflow-runtime-primitives.md` owns the `0.5` canonical workflow object, seeded-versus-user-authored provenance, mutability, and grant-envelope vocabulary.
+- `docs/cognitive-agent-architecture/integrations/0.5-todoist-and-google-calendar-boundaries.md` owns the `0.5` Todoist and Google Calendar proving-adapter boundaries, ownership posture, sync windows, recurrence scope, and provider secret/runtime vocabulary.
+- `docs/cognitive-agent-architecture/architecture/0.5-migration-artifacts-and-compatibility-dto-policy.md` owns the `0.5` migration artifact shape, Compatibility DTO layer limits, removal criteria, and cutover proving-flow vocabulary.
 
 ## Scientific Substrate vs Symbolic Layer
 
