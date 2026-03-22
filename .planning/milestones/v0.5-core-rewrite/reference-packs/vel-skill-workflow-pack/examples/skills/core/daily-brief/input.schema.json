@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Daily Brief Input",
+  "type": "object",
+  "required": ["date", "timezone"],
+  "properties": {
+    "date": { "type": "string", "format": "date" },
+    "timezone": { "type": "string" }
+  },
+  "additionalProperties": true
+}

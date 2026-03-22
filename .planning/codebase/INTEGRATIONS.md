@@ -1,199 +1,131 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-17
+**Analysis Date:** 2026-03-22
 
 ## APIs & External Services
 
-**Calendar Integration:**
-- Google Calendar (OAuth) - Calendar event sync via Google Calendar API v3
-  - SDK/Client: reqwest 0.12 (HTTP client)
-  - Auth: OAuth 2.0 (client_id, client_secret stored in settings)
-  - Base URLs: https://accounts.google.com/o/oauth2/v2/auth (auth), https://oauth2.googleapis.com/token (token), https://www.googleapis.com/calendar/v3 (API)
-  - File: `crates/veld/src/services/integrations_google.rs`
-  - Scope: `https://www.googleapis.com/auth/calendar.readonly` (read-only)
-  - Lookback: 60 days, Lookahead: 180 days
-  - Callback endpoint: `/api/integrations/google-calendar/oauth/callback` (public)
+**LLM Backends:**
+- Local `llama.cpp` HTTP servers - Primary shipped chat/codegen path through OpenAI-compatible local endpoints
+  - SDK/Client: `reqwest` via `crates/veld/src/llm.rs` and `crates/vel-llm/`
+  - Config: checked-in profiles in `configs/models/local-qwen3-coder.toml` and `configs/models/local-qwen25-fast.toml`
+  - Endpoints used: `/v1/chat/completions` and `/v1/models` through provider adapters described in `crates/vel-llm/README.md`
+- Localhost OpenAI-compatible OAuth proxy - Optional `openai_oauth` profile path for chat only
+  - SDK/Client: `OpenAiOauthProvider` in `crates/veld/src/llm.rs` and `crates/vel-llm/src/providers/openai_oauth.rs`
+  - Auth: mediated by the local proxy; Vel only accepts `base_url` values on `localhost` or `127.0.0.1` per `crates/veld/src/llm.rs` and `configs/models/README.md`
+  - Routing: `configs/models/routing.toml` currently prefers `chat = "oauth-openai"` and falls back to `local-qwen3-coder`
 
-- Local ICS (Calendar) - Pull-based .ics file or URL ingestion
-  - File: `crates/veld/src/adapters/calendar.rs`
-  - Config: `calendar_ics_path` (local file), `calendar_ics_url` (remote URL)
-  - Default path: `var/integrations/calendar/local.ics`
-  - Client: reqwest for URL fetching
+**Calendar APIs:**
+- Google Calendar - OAuth-backed read sync for schedule ingestion
+  - Integration method: REST via `reqwest` in `crates/veld/src/services/integrations_google.rs`
+  - Auth: locally stored `client_id`, `client_secret`, `refresh_token`, and access token state owned by `crates/veld/src/services/integrations.rs`
+  - Endpoints used: `https://accounts.google.com/o/oauth2/v2/auth`, `https://oauth2.googleapis.com/token`, and `https://www.googleapis.com/calendar/v3`
+  - Scope: readonly calendar sync only (`https://www.googleapis.com/auth/calendar.readonly`)
 
-**Task Management:**
-- Todoist - Snapshot-based task sync
-  - File: `crates/veld/src/adapters/todoist.rs`, `crates/veld/src/services/integrations_todoist.rs`
-  - Config: `todoist_snapshot_path` (snapshot JSON)
-  - Default path: `var/integrations/todoist/snapshot.json`
-  - Integration type: File snapshot (not live API polling)
-  - Settings: Stored in `settings` table with key `integration_todoist`, secrets key `integration_todoist_secrets`
+**Task APIs:**
+- Todoist - Credential-backed sync plus bounded task writeback
+  - Integration method: REST via `reqwest` in `crates/veld/src/services/integrations_todoist.rs`
+  - Auth: API token stored in local secret settings records (`integration_todoist_secrets`)
+  - Endpoints used: `https://api.todoist.com/api/v1` for sync listing and `https://api.todoist.com/rest/v2` for create/update/complete/reopen task operations
+  - Writeback rules: conflict-aware operator routes only, documented in `docs/user/integrations/todoist.md`
 
-**Activity & Metrics:**
-- Computer Activity - Workstation activity snapshot ingestion
-  - File: `crates/veld/src/adapters/activity.rs`
-  - Config: `activity_snapshot_path`
-  - Default path: `var/integrations/activity/snapshot.json`
-  - Integration type: File snapshot or local process introspection
+**Repo/Issue Writeback:**
+- GitHub - Bounded issue/comment writeback lane modeled inside Vel
+  - Integration method: local writeback queue/provenance records in `crates/veld/src/services/integrations_github.rs`
+  - Auth: no outbound GitHub API client is present in the current repo state
+  - Operations implemented: `github_create_issue`, `github_add_comment`, `github_close_issue`, and `github_reopen_issue`
+  - Important boundary: current implementation records/applies Vel-side writeback operations and repository scope metadata; it does not ship a live GitHub REST sync client
 
-- Health Metrics - Local health/activity snapshot (Apple HealthKit export, Oura, Whoop, etc.)
-  - File: `crates/veld/src/adapters/health.rs`
-  - Config: `health_snapshot_path`
-  - Default path: `var/integrations/health/snapshot.json`
-  - Integration type: File snapshot
-  - Emits: `health_metric` signals
-
-- Git Activity - Repository activity snapshot
-  - File: `crates/veld/src/adapters/git.rs`
-  - Config: `git_snapshot_path`
-  - Default path: `var/integrations/git/snapshot.json`
-  - Integration type: File snapshot
-
-- Messaging - Chat/messaging activity snapshot
-  - File: `crates/veld/src/adapters/messaging.rs`
-  - Config: `messaging_snapshot_path`
-  - Default path: `var/integrations/messaging/snapshot.json`
-  - Integration type: File snapshot
-
-- Reminders - System reminders snapshot
-  - File: `crates/veld/src/adapters/reminders.rs`
-  - Config: `reminders_snapshot_path`
-  - Default path: `var/integrations/reminders/snapshot.json`
-  - Integration type: File snapshot
-
-- Transcripts - Chat/assistant transcript snapshot
-  - File: `crates/veld/src/adapters/transcripts.rs`
-  - Config: `transcript_snapshot_path`
-  - Default path: `var/integrations/transcripts/snapshot.json`
-  - Integration type: File snapshot
-
-**Notes & Documents:**
-- Local Notes - Markdown/plaintext note directory sync
-  - File: `crates/veld/src/adapters/notes.rs`
-  - Config: `notes_path`
-  - Default path: `var/integrations/notes`
-  - Integration type: File directory ingestion
+**Local Host Integrations:**
+- Apple/macOS local exporters - Snapshot producers for activity, health, messaging, reminders, and local notes discovery
+  - Integration method: file/snapshot ingestion documented in `docs/user/integrations/apple-macos.md` and implemented through config paths in `crates/vel-config/src/lib.rs`
+  - Host dependency: local files under `~/Library/Application Support/Vel/` on macOS
+- Obsidian - Notes root suggestion/discovery for `notes_path`
+  - Integration method: local filesystem path selection only, described in `docs/user/integrations/local-sources.md`
+  - Auth: none; uses local files rather than a remote API
 
 ## Data Storage
 
 **Databases:**
-- SQLite 3 (local file)
-  - Connection: `VEL_DB_PATH` environment variable (default: var/data/vel.sqlite)
-  - Client: sqlx 0.8 with compile-time query verification
-  - Migrations: Numbered SQL files in `migrations/` directory (sqlx managed)
-  - Tables: captures, artifacts, signals, commitments, chat_messages, settings, runs, events, threads, suggestions, nudges, commitments_risk, thread_links, context_timeline, inferred_state, current_context, vel_self_metrics, assistant_transcripts, runtime_loops, and more
+- SQLite - Primary local durable store
+  - Connection: `db_path` in `vel.toml` or `VEL_DB_PATH` override from `crates/vel-config/src/lib.rs`
+  - Client: `sqlx` in `crates/vel-storage/Cargo.toml`
+  - Migrations: checked-in SQL files under `migrations/`
 
 **File Storage:**
-- Local filesystem only - No cloud storage integration
-  - Artifacts: `VEL_ARTIFACT_ROOT` (default: var/artifacts)
-  - Snapshots: Integration snapshots stored as JSON files (var/integrations/*)
-  - Logs: var/logs/
+- Local filesystem only
+  - Artifacts: `artifact_root` / `VEL_ARTIFACT_ROOT` managed by `crates/vel-config/src/lib.rs`
+  - Integration snapshots and local source files: defaults in `config/examples/app-config.example.toml` and `crates/vel-config/src/lib.rs`
+  - Containerized data mount: `./var/docker/vel:/data` in `docker-compose.yml`
 
 **Caching:**
-- In-memory broadcast channel - Tokio broadcast for real-time sync
-  - Channel size: 64 (defined in `crates/veld/src/main.rs`)
-  - Used for: WebSocket subscriptions and real-time event distribution
+- None detected as a separate service
+  - Current runtime relies on SQLite plus local files; no Redis/Memcached service is configured in repo manifests
 
 ## Authentication & Identity
 
 **Auth Provider:**
-- Custom token-based (local)
-  - Operator token: `VEL_OPERATOR_API_TOKEN` (optional env var)
-  - Worker token: `VEL_WORKER_API_TOKEN` (optional env var)
-  - Header: `x-vel-operator-token`, `x-vel-worker-token`
-  - File: `crates/veld/src/app.rs`
+- Custom token-gated local runtime auth
+  - Implementation: route-class auth in `crates/veld/src/app.rs` and `crates/veld/src/middleware/mod.rs`
+  - Tokens: `VEL_OPERATOR_API_TOKEN` and `VEL_WORKER_API_TOKEN` described in `docs/api/runtime.md`
+  - Default mode: local compatibility when tokens are unset unless strict mode is enabled via `VEL_STRICT_HTTP_AUTH`
 
-- Google OAuth (optional, for calendar)
-  - Settings table stores: `client_id`, `client_secret`, `pending_oauth_state`, `access_token`, `refresh_token`
-  - Flow: Authorization Code flow with `offline` access for refresh tokens
-  - Callback: `/api/integrations/google-calendar/oauth/callback` (GET, public)
-
-**Route Classes:**
-- LocalPublic - No auth required (health checks, OAuth callbacks)
-- OperatorAuthenticated - Requires operator API token (main operator routes)
-- WorkerAuthenticated - Requires worker API token (cluster worker routes)
-- FutureExternal - Placeholder for external access control
+**OAuth Integrations:**
+- Google OAuth - Browser callback path for Google Calendar connect
+  - Credentials: Google client ID and client secret entered through Settings and stored locally
+  - Callback: `GET /api/integrations/google-calendar/oauth/callback` in `docs/api/runtime.md`
+  - State management: pending OAuth state persisted through `crates/veld/src/services/integrations_google.rs`
 
 ## Monitoring & Observability
 
 **Error Tracking:**
-- None detected - No external error tracking service (Sentry, etc.)
+- None detected as an external SaaS
+  - Runtime uses local error/status fields in integration settings and standard Rust error handling
 
 **Logs:**
-- Local structured logging via tracing/tracing-subscriber
-  - Format: Compact text with env-filter control
-  - Env var: `VEL_LOG_LEVEL` (default: info)
-  - Targets: Application events, database queries, HTTP requests
-
-**Metrics:**
-- None detected as external service
-- Vel self-metrics table (`vel_self_metrics`) stores internal performance/health data
+- Local tracing/log output
+  - Framework: `tracing` and `tracing-subscriber` from root `Cargo.toml`
+  - Runtime log level/config: `log_level` / `VEL_LOG_LEVEL` in `crates/vel-config/src/lib.rs`
+  - Data location: local logs under `var/logs/` per `README.md`; container path uses `/data` in `Dockerfile`
 
 ## CI/CD & Deployment
 
 **Hosting:**
-- Docker (containerized deployment)
-  - Base image: `debian:bookworm-slim`
-  - Dockerfile: `Dockerfile` in root
-  - Container port: 4130 (exposed)
-  - Health check: `vel health` command
+- Local daemon or local container deployment
+  - Native runtime: `veld` started by `cargo run -p veld` or `make dev-api` from `Makefile`
+  - Container runtime: `Dockerfile` plus `docker-compose.yml`
+  - Web UI: local Vite dev server in `clients/web/` or static build produced by `npm run build`
 
 **CI Pipeline:**
-- None detected (GitHub Actions not configured, local make-based CI)
-- Makefile targets for local verification: `make verify`, `make ci`, `make test-api`
+- GitHub Actions
+  - Workflow: `.github/workflows/ci.yml`
+  - Checks: `make ci`, `make smoke`, and `cargo run -p veld-evals -- run ...`
 
 ## Environment Configuration
 
 **Required env vars:**
-- `VEL_BIND_ADDR` - Server bind address
-- `VEL_DB_PATH` - SQLite database file path
-- `VEL_ARTIFACT_ROOT` - Artifact storage directory
-- `VEL_LOG_LEVEL` - Log level
-- `VEL_BASE_URL` - External URL for OAuth callbacks and references
-
-**Optional env vars:**
-- `VEL_OPERATOR_API_TOKEN` - Bearer token for operator routes
-- `VEL_WORKER_API_TOKEN` - Bearer token for worker routes
-- `VEL_STRICT_HTTP_AUTH` - Enable strict auth enforcement (flag)
+- Core runtime: `VEL_BIND_ADDR`, `VEL_BASE_URL`, `VEL_DB_PATH`, `VEL_ARTIFACT_ROOT`, `VEL_LOG_LEVEL`, `VEL_AGENT_SPEC_PATH`
+- Auth: `VEL_OPERATOR_API_TOKEN`, `VEL_WORKER_API_TOKEN`, optional `VEL_STRICT_HTTP_AUTH`
+- LLM routing/runtime: `VEL_MODELS_DIR`, `VEL_LLM_MODEL`, `VEL_LLM_FAST_MODEL`
+- Local-source overrides: `VEL_CALENDAR_ICS_URL`, `VEL_CALENDAR_ICS_PATH`, `VEL_TODOIST_SNAPSHOT_PATH`, `VEL_ACTIVITY_SNAPSHOT_PATH`, `VEL_HEALTH_SNAPSHOT_PATH`, `VEL_GIT_SNAPSHOT_PATH`, `VEL_MESSAGING_SNAPSHOT_PATH`, `VEL_REMINDERS_SNAPSHOT_PATH`, `VEL_NOTES_PATH`, `VEL_TRANSCRIPT_SNAPSHOT_PATH`
+- Web client: `VITE_API_URL` in `clients/web/src/api/client.ts`
 
 **Secrets location:**
-- Environment variables only (.env not committed)
-- Settings table stores encrypted/unhashed integration secrets (client secrets, OAuth tokens)
-- Google Calendar: `client_secret` stored in settings (plaintext in DB, should consider encryption)
-- File: `crates/veld/src/app.rs` loads `VEL_OPERATOR_API_TOKEN`, `VEL_WORKER_API_TOKEN` from env
+- Checked-in templates/examples under `config/examples/` and `.env.example` are non-secret scaffolding
+- Runtime secrets are stored locally in Vel settings records for integrations such as Google and Todoist, per `docs/user/integrations/google-calendar.md`, `docs/user/integrations/todoist.md`, and `crates/veld/src/services/integrations.rs`
+- Container deployments inject runtime settings through `docker-compose.yml`
 
 ## Webhooks & Callbacks
 
 **Incoming:**
-- Google Calendar OAuth callback: `/api/integrations/google-calendar/oauth/callback` (GET, public)
-  - Parameters: `code` (authorization code), `state` (CSRF token)
-  - File: `crates/veld/src/routes/integrations.rs`
+- Google OAuth callback - `GET /api/integrations/google-calendar/oauth/callback`
+  - Validation: handler-level `code` and `state` checks described in `docs/api/runtime.md` and implemented in `crates/veld/src/services/integrations_google.rs`
 
 **Outgoing:**
-- None detected
-- All integrations are pull-based (snapshots ingested via adapters)
-- No webhook subscriptions to external services
-
-## Integration Data Flow
-
-**Snapshot Ingestion Pattern:**
-All integrations follow a common pattern:
-1. Check config path for snapshot file existence
-2. Read JSON or ICS file from disk
-3. Parse into typed snapshot struct
-4. Transform to signals or commitments
-5. Insert into database
-6. Return count of entities ingested
-
-**Files:**
-- `crates/veld/src/adapters/*.rs` - Individual adapter implementations
-- `crates/veld/src/services/integrations.rs` - Orchestration and bootstrap
-- `crates/veld/src/services/integrations_google.rs` - Google Calendar OAuth flow
-- `crates/veld/src/services/integrations_todoist.rs` - Todoist settings/secrets management
-
-**Timing:**
-- Bootstrap: On daemon startup via `services::integrations::bootstrap_local_context_sources()`
-- Periodic: Background workers (file `crates/veld/src/worker.rs` runs integration loops)
+- Google OAuth/token/calendar requests from `crates/veld/src/services/integrations_google.rs`
+- Todoist sync and writeback requests from `crates/veld/src/services/integrations_todoist.rs`
+- LLM provider HTTP calls from `crates/veld/src/llm.rs` and `crates/vel-llm/`
+- No general webhook sender or inbound third-party webhook receiver is detected outside the Google OAuth callback path
 
 ---
 
-*Integration audit: 2026-03-17*
+*Integration audit: 2026-03-22*

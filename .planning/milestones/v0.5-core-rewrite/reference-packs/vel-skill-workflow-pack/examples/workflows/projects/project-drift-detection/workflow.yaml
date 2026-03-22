@@ -1,0 +1,36 @@
+apiVersion: vel/v1
+kind: Workflow
+metadata:
+  name: project-drift-detection
+  namespace: projects
+  version: 0.1.0
+  displayName: Project Drift Detection
+  description: Detect project drift and create nudges or follow-up threads.
+spec:
+  triggers:
+    - type: manual
+      id: manual-run
+      enabled: true
+    - type: condition
+      id: project-drift
+      enabled: false
+      condition:
+        rule: project_has_overdue_blockers_and_no_recent_review
+  contextBinding:
+    required: [user, workspace, project]
+    optional: [thread, nudge]
+    resolution:
+      thread: resume_or_create
+      nudge: attach_open_or_create
+  steps:
+    strategy: sequence
+    sequence:
+      - id: assess_project
+        type: skill
+        skill: core/project-assess
+      - id: create_followup
+        type: skill
+        skill: core/create-nudges
+      - id: emit_thread_update
+        type: emit
+        target: thread

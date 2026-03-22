@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Daily Brief Output",
+  "type": "object",
+  "required": ["summary", "sections"],
+  "properties": {
+    "summary": { "type": "string" },
+    "sections": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": true
+}

@@ -1,413 +1,212 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-03-17
+**Analysis Date:** 2026-03-22
 
 ## Directory Layout
 
-```
+```text
 vel/
-├── crates/                      # Rust workspace with 7 crates
-│   ├── vel-core/               # Domain types, invariants (zero dependencies)
-│   ├── vel-config/             # Configuration loading (TOML/YAML)
-│   ├── vel-storage/            # SQLite repositories and storage facade
-│   ├── vel-api-types/          # HTTP request/response DTOs
-│   ├── vel-llm/                # Provider-agnostic LLM abstraction
-│   ├── veld/                   # Main daemon (HTTP + WebSocket + worker)
-│   └── vel-cli/                # CLI binary
-├── clients/
-│   ├── web/                    # React + TypeScript dashboard (Vite)
-│   └── apple/                  # iOS/watchOS/macOS Swift clients
-├── migrations/                 # Numbered SQLx SQL migrations
-├── config/
-│   ├── examples/               # Example config files
-│   ├── schemas/                # JSON Schema definitions
-│   ├── templates/              # Config templates
-│   └── README.md               # Config documentation
-├── configs/
-│   └── models/                 # ML model definitions and weights
-├── docs/                       # Project documentation
-│   ├── MASTER_PLAN.md          # Canonical authority on architecture & phases
-│   ├── tickets/                # Phase implementation tickets
-│   └── cognitive-agent-architecture/  # Conceptual architecture
-├── var/                        # Local development data (Git-ignored)
-│   ├── data/                   # SQLite database (vel.sqlite)
-│   ├── artifacts/              # Stored files, media
-│   └── logs/                   # Application logs
-├── Cargo.toml                  # Rust workspace definition
-├── Makefile                    # Development commands
-├── vel.toml                    # Local daemon configuration
-├── CLAUDE.md                   # Claude-specific guidelines
-└── README.md                   # Project overview
+├── .planning/                  # GSD planning state, active phases, codebase maps
+├── clients/                    # User-facing shells
+│   ├── apple/                  # Swift apps, VelAPI package, Apple shared modules
+│   └── web/                    # React/Vite operator dashboard
+├── config/                     # Canonical config templates, examples, JSON schemas, manifest
+├── configs/                    # Model profile and routing TOML files
+├── crates/                     # Rust workspace crates
+│   ├── vel-core/               # Domain types and invariants
+│   ├── vel-config/             # Config loading and contract manifest support
+│   ├── vel-storage/            # SQLite facade and repositories
+│   ├── vel-api-types/          # HTTP DTOs
+│   ├── vel-agent-sdk/          # Shared agent SDK crate
+│   ├── vel-llm/                # LLM routing abstractions
+│   ├── vel-protocol/           # Rust-side protocol types
+│   ├── vel-sim/                # Deterministic replay harness
+│   ├── veld/                   # Daemon, routes, services, workers, tests
+│   └── veld-evals/             # Eval runner
+├── docs/                       # Canonical product, ticket, and architecture docs
+├── migrations/                 # SQLx migrations
+├── packages/                   # TypeScript/shared rendering and protocol packages
+├── scripts/                    # Repo automation scripts
+├── var/                        # Local runtime data and artifacts (git-ignored)
+├── Cargo.toml                  # Rust workspace manifest
+├── package.json                # Root JS workspace scripts
+├── Makefile                    # Standard dev/build/verify entrypoints
+└── README.md                   # Repo entrypoint
 ```
 
 ## Directory Purposes
 
-**crates/vel-core/src/:**
-- Purpose: Domain types and semantics independent of HTTP or persistence
-- Contains: Core types with invariants (no external dependencies except serde, time, uuid)
-- Key files:
-  - `types.rs` — Core type definitions
-  - `message.rs` — Message and conversation types
-  - `commitment.rs` — Commitment and obligation types
-  - `risk.rs` — Risk and uncertainty assessment types
-  - `run.rs` — Execution run and job types
-  - `command/` — Command planning and resolution types
-  - `context.rs` — Context and orientation types
-  - `loops.rs` — Feedback loop and process types
-  - `integration.rs` — Integration configuration types
-  - `provenance.rs` — Data source tracking
-  - `uncertainty.rs` — Uncertainty and confidence types
-  - `intervention.rs` — System intervention types
-  - `vocabulary.rs` — Semantic vocabulary and ontology
+**`crates/`**
+- Purpose: Hold the production Rust workspace.
+- Contains: one crate per backend concern, each with its own `Cargo.toml`.
+- Key files: `crates/veld/src/main.rs`, `crates/vel-core/src/lib.rs`, `crates/vel-storage/src/db.rs`, `crates/vel-cli/src/main.rs`.
+- Subdirectories: feature crates stay flat under `crates/`; only `crates/veld/` carries deep runtime subtrees such as `routes/`, `services/`, `middleware/`, `adapters/`, and `tests/`.
 
-**crates/vel-config/src/:**
-- Purpose: Configuration loading and schema
-- Contains: AppConfig struct parsing from TOML, model routing, contracts manifest
-- Key files:
-  - `models.rs` — Configuration schema
-  - `contracts_manifest.rs` — External contracts/webhooks
-  - `lib.rs` — Main config loading entry point
+**`crates/veld/`**
+- Purpose: Main authority runtime.
+- Contains: startup wiring, Axum app, background workers, service layer, adapters, middleware, and integration tests.
+- Key files: `crates/veld/src/app.rs`, `crates/veld/src/state.rs`, `crates/veld/src/worker.rs`, `crates/veld/tests/runtime_loops.rs`.
+- Subdirectories: `src/routes/` for transport handlers, `src/services/` for application logic, `src/adapters/` for integration adapters, `tests/` for focused runtime integration tests.
 
-**crates/vel-storage/src/:**
-- Purpose: SQLite data access via sqlx with per-entity repositories
-- Contains: Storage facade, db types, entity repositories
-- Key structure:
-  - `lib.rs` — Public `Storage` struct (main facade)
-  - `db.rs` — StorageError, schema types (CaptureInsert, etc.), database initialization
-  - `infra.rs` — Infrastructure setup, connection pooling
-  - `mapping.rs` — Type conversions (domain ↔ storage)
-  - `repositories/` — One file per entity type:
-    - `captures_repo.rs` — Capture CRUD and search
-    - `chat_repo.rs` — Chat messages and threads
-    - `commitments_repo.rs` — Commitment CRUD
-    - `threads_repo.rs` — Conversation threads
-    - `runs_repo.rs` — Execution runs
-    - `signals_repo.rs` — Signal events
-    - `suggestions_repo.rs` — Suggestions and feedback
-    - `nudges_repo.rs` — Nudge events
-    - `uncertainty_records_repo.rs` — Uncertainty tracking
-    - `commitment_risk_repo.rs` — Risk assessments
-    - `integration_connections_repo.rs` — External service tokens
-    - `processing_jobs_repo.rs` — Async job queue
-    - `context_timeline_repo.rs` — Context computation history
-    - `current_context_repo.rs` — Latest context snapshot
-    - `work_assignments_repo.rs` — Worker task assignments
-    - `cluster_workers_repo.rs` — Cluster node heartbeats
-    - (20+ total repository files)
+**`crates/vel-storage/`**
+- Purpose: Persistence layer.
+- Contains: `Storage` facade, repository modules, SQL mapping helpers, shared DB record structs.
+- Key files: `crates/vel-storage/src/lib.rs`, `crates/vel-storage/src/db.rs`, `crates/vel-storage/src/repositories/projects_repo.rs`.
+- Subdirectories: `src/repositories/` is the place to extend persistence by entity instead of growing `db.rs`.
 
-**crates/vel-api-types/src/:**
-- Purpose: HTTP request/response contract types
-- Contains: Request/response structs, ApiResponse wrapper, decoders
-- Pattern: Serde-derived, mapped from vel-core types in route handlers
-- Never imported by storage layer
+**`crates/vel-core/`**
+- Purpose: Domain vocabulary and typed records shared across the backend.
+- Contains: feature-specific domain modules rather than transport or SQL code.
+- Key files: `crates/vel-core/src/context.rs`, `crates/vel-core/src/run.rs`, `crates/vel-core/src/project.rs`, `crates/vel-core/src/operator_queue.rs`.
+- Subdirectories: none; modules are file-per-domain under `src/`.
 
-**crates/vel-llm/src/:**
-- Purpose: Provider-agnostic LLM abstraction
-- Contains: Router (dispatch), Provider trait, registry
-- Key files:
-  - `lib.rs` — Main exports
-  - `provider.rs` — Provider trait and implementations
-  - `registry.rs` — Available models registry
-  - `types.rs` — Request/response types for inference
+**`clients/web/`**
+- Purpose: Web operator shell.
+- Contains: Vite app, tests, seed script, and source split into API/data/core/shell/views.
+- Key files: `clients/web/src/App.tsx`, `clients/web/src/README.md`, `clients/web/vite.config.ts`, `clients/web/package.json`.
+- Subdirectories: `src/core/` for reusable UI blocks, `src/shell/` for application chrome, `src/views/` for product surfaces, `src/data/` and `src/api/` for client-side data access.
 
-**crates/veld/src/:**
-- Purpose: HTTP daemon, background worker, business logic
-- Key subdirectories:
-  - **routes/** — HTTP handlers (thin layer)
-    - `health.rs` — Health check endpoint
-    - `captures.rs` — Capture CRUD endpoints
-    - `chat.rs` — Chat/conversation/message endpoints
-    - `commitments.rs` — Commitment endpoints
-    - `context.rs`, `now.rs` — Context generation endpoints
-    - `journal.rs` — Journal entry endpoints (mood, pain)
-    - `threads.rs` — Thread endpoints
-    - `suggestions.rs` — Suggestion endpoints
-    - `signals.rs` — Signal endpoints
-    - `risk.rs` — Risk assessment endpoints
-    - `runs.rs` — Execution run endpoints
-    - `evaluate.rs`, `explain.rs` — Analysis endpoints
-    - `synthesis.rs` — Synthesis endpoints
-    - `command_lang.rs` — Command planning/execution
-    - `uncertainty.rs` — Uncertainty endpoints
-    - `nudges.rs` — Nudge endpoints
-    - `loops.rs` — Feedback loop endpoints
-    - `integrations.rs` — Integration management endpoints
-    - `cluster.rs` — Cluster/worker endpoints
-    - `ws.rs` — WebSocket endpoint
-    - `search.rs` — Full-text search endpoint
-    - `doctor.rs` — System diagnostics endpoint
-    - `sync.rs` — Client sync endpoints
-    - `artifacts.rs` — Artifact storage endpoints
-    - `response.rs` — Response formatting utilities
-    - `components.rs` — Component endpoints
-    - `mod.rs` — Route registration
-  - **services/** — Application logic
-    - `chat/` subdirectory:
-      - `assistant.rs` — LLM assistant interaction
-      - `conversations.rs` — Conversation management
-      - `messages.rs` — Message handling
-      - `threads.rs` — Thread operations (public in mod.rs)
-      - `events.rs` — Chat event handling
-      - `interventions.rs` — System interventions
-      - `reads.rs` — Message read tracking
-      - `provenance.rs` — Message source tracking
-      - `mapping.rs` — Type conversions
-      - `settings.rs` — Chat settings
-      - `mod.rs` — Chat service exports
-    - `context_generation.rs` — Generate context for now/today
-    - `context_runs.rs` — Manage context execution runs
-    - `evaluate.rs` — Evaluation/reasoning service
-    - `inference.rs` — LLM inference wrapper
-    - `suggestions.rs` — Suggestion engine
-    - `risk.rs` — Risk assessment service
-    - `uncertainty.rs` — Uncertainty computation
-    - `synthesis.rs` — Synthesis engine
-    - `nudge_engine.rs` — Nudge generation
-    - `explain.rs` — Explanation service
-    - `command_lang.rs` — Command parsing and execution
-    - `components.rs` — Component management
-    - `integrations.rs` — Integration orchestration
-    - `integration_runtime.rs` — Integration executor
-    - `integrations_google.rs`, `integrations_todoist.rs`, `integrations_host.rs` — Provider-specific
-    - `journal.rs` — Journal entry handling
-    - `now.rs` — Now/present moment service
-    - `timezone.rs` — Timezone utilities
-    - `doctor.rs` — System diagnostics
-    - `adaptive_policies.rs` — Policy engine
-    - `client_sync.rs` — Client synchronization
-    - `operator_settings.rs` — Operator configuration
-    - `mod.rs` — Service layer exports (with comment: "Read vs evaluate boundary")
-  - **adapters/** — Integration drivers
-    - `calendar.rs` — Calendar integration
-    - `todoist.rs` — Todoist integration
-    - `git.rs` — Git repository integration
-    - `health.rs` — Health data integration
-    - `messaging.rs` — Chat/messaging integration
-    - `notes.rs` — Notes integration
-    - `reminders.rs` — Reminders integration
-    - `transcripts.rs` — Transcript integration
-    - `activity.rs` — Activity tracking integration
-    - `mod.rs` — Adapter exports
-  - `main.rs` — Daemon entry point
-  - `app.rs` — Axum router construction, auth middleware
-  - `state.rs` — AppState definition, worker runtime tracking
-  - `errors.rs` — AppError type, HTTP status mapping
-  - `broadcast.rs` — WebSocket envelope types
-  - `worker.rs` — Background job executor
-  - `policy_config.rs` — Policy loading
-  - `llm.rs` — LLM initialization
-  - `lib.rs` — Library exports
-- `tests/` — Integration tests
+**`clients/apple/`**
+- Purpose: Apple platform shells and shared Swift packages.
+- Contains: app targets, `VelAPI`, `VelAppleModules`, docs, and Xcode project files.
+- Key files: `clients/apple/README.md`, `clients/apple/VelAPI/Sources/VelAPI/VelClient.swift`, `clients/apple/Packages/VelAppleModules/Sources/VelApplication/Services.swift`.
+- Subdirectories: `Apps/` for app targets, `VelAPI/` for the HTTP client package, `Packages/VelAppleModules/` for shared boundary modules, `Docs/` for Apple-specific architecture notes.
 
-**crates/vel-cli/src/:**
-- Purpose: Command-line operator interface
-- Contains: Clap command definitions, HTTP client
-- Key files:
-  - `main.rs` — CLI entry point
-  - `client.rs` — HTTP client to daemon
-  - `commands/` — Subcommand implementations
-  - `command_lang/` — Command language parsing
+**`packages/`**
+- Purpose: TypeScript packages for shared protocol/rendering experiments outside the main web app.
+- Contains: `vel-protocol`, `vel-render-web`, `vel-render-watch`, `vel-affect-core`, `vel-visual-morphology`.
+- Key files: `packages/vel-protocol/README.md`, `packages/vel-render-web/README.md`.
+- Subdirectories: each package has its own `src/`.
 
-**clients/web/src/:**
-- Purpose: React dashboard UI
-- Key subdirectories:
-  - **api/** — HTTP and WebSocket client
-    - `client.ts` — Fetch wrapper (apiGet, apiPost, apiPatch, etc.)
-  - **data/** — State management and queries
-    - `query.ts` — Cache layer with `useQuery` hook (query key + fetcher)
-    - `chat.ts` — Chat-related queries
-    - `context.ts` — Context queries
-    - `operator.ts` — Operator settings queries
-    - `resources.ts` — Resource loading utilities
-    - `chat-state.ts` — Conversation state
-    - `ws-sync.ts` — WebSocket sync listener and query invalidation
-  - **components/** — React components
-    - `AppShell.tsx` — Main layout (sidebar + main + context panel)
-    - `Sidebar.tsx` — Navigation and conversation list
-    - `MainPanel.tsx` — Content area dispatcher
-    - `ThreadView.tsx` — Conversation display
-    - `MessageComposer.tsx` — Input/message sending
-    - `ContextPanel.tsx` — Right panel (signals, suggestions, risk)
-    - `NowView.tsx` — Now/present moment view
-    - `InboxView.tsx` — Inbox/pending items
-    - `SuggestionsView.tsx` — Suggestions list
-    - `StatsView.tsx` — Statistics dashboard
-    - `SettingsPage.tsx` — Settings/integrations
-    - `ProvenanceDrawer.tsx` — Data source details
-    - `MarkdownMessage.tsx` — Message rendering
-    - `MessageRenderer.tsx` — Message component
-    - `SurfaceState.tsx` — Surface state debugging
-    - `cards/` — Reusable card components
-      - `SummaryCard.tsx` — Summary display
-      - `SuggestionCard.tsx` — Suggestion item
-      - `RiskCard.tsx` — Risk display
-      - `ReminderCard.tsx` — Reminder display
-      - `CardLayout.tsx` — Card wrapper
-  - **hooks/** — React hooks (custom)
-  - **realtime/** — WebSocket management
-  - **test/** — Test utilities
-  - `App.tsx` — App entry point
-  - `main.tsx` — React DOM render
-  - `types.ts` — Comprehensive TypeScript types (API responses, domain types)
+**`config/`**
+- Purpose: Canonical checked-in config artifacts and schemas.
+- Contains: `examples/`, `templates/`, `schemas/`, and `contracts-manifest.json`.
+- Key files: `config/README.md`, `config/schemas/app-config.schema.json`, `config/templates/vel.toml.template`.
+- Subdirectories: keep examples, templates, and schemas separate; do not bury live contracts under feature directories.
 
-**clients/web/public/:**
-- Static assets (favicon, etc.)
+**`docs/`**
+- Purpose: Durable written authority.
+- Contains: roadmap docs, tickets, product contracts, architecture references, and user docs.
+- Key files: `docs/MASTER_PLAN.md`, `docs/tickets/README.md`, `docs/product/`, `docs/cognitive-agent-architecture/`.
+- Subdirectories: `docs/tickets/phase-*` for implementation authority, `docs/user/` for shipped user guidance, `docs/templates/` for agent process guidance.
 
-**migrations/:**
-- SQL migration files, numbered 0001–0030+ for SQLx
-- Examples:
-  - `0001_bootstrap.sql` — Initial schema (tables, indexes)
-  - `0004_runs_and_events.sql` — Run and event tables
-  - `0008_commitments.sql` — Commitment tables
-  - `0023_chat.sql` — Chat/message/thread schema
-  - `0030_integration_foundation.sql` — Integration tokens table
-
-**config/:**
-- `examples/` — Example configurations
-- `schemas/` — JSON Schema definitions for validation
-- `templates/` — Configuration templates
-- `README.md` — Configuration documentation
-
-**docs/:**
-- `MASTER_PLAN.md` — Canonical authority
-- `tickets/phase-1/`, `phase-2/`, etc. — Phase implementation tickets
-- `cognitive-agent-architecture/` — Conceptual architecture
-- `user/` — User-facing documentation
-
-**var/ (Git-ignored):**
-- `data/vel.sqlite` — SQLite database
-- `artifacts/` — Stored media files
-- `logs/` — Application logs
+**`.planning/`**
+- Purpose: Current planning state for the GSD workflow.
+- Contains: `STATE.md`, active phase folders, milestones, todos, and this codebase map.
+- Key files: `.planning/STATE.md`, `.planning/codebase/ARCHITECTURE.md`, `.planning/phases/54-final-ui-cleanup-and-polish-pass/`.
+- Subdirectories: `codebase/`, `phases/`, `milestones/`, `todos/`, `research/`.
 
 ## Key File Locations
 
 **Entry Points:**
-- `crates/veld/src/main.rs` — HTTP daemon startup
-- `crates/vel-cli/src/main.rs` — CLI startup
-- `clients/web/src/App.tsx` — Web dashboard startup
-- `clients/web/src/main.tsx` — React DOM render
+- `crates/veld/src/main.rs`: daemon startup and runtime wiring.
+- `crates/vel-cli/src/main.rs`: CLI entrypoint.
+- `clients/web/src/App.tsx`: web UI root.
+- `clients/apple/VelAPI/Sources/VelAPI/VelClient.swift`: Apple transport entrypoint used by Apple shells.
+- `crates/veld-evals/src/main.rs`: eval CLI entrypoint.
 
 **Configuration:**
-- `Cargo.toml` — Workspace definition
-- `vel.toml` — Daemon configuration (bind address, database path, log level)
-- `clients/web/vite.config.ts` — Vite configuration
-- `crates/vel-config/src/models.rs` — Configuration schema
+- `Cargo.toml`: Rust workspace membership.
+- `clients/web/package.json`: web scripts and frontend dependencies.
+- `config/README.md`: config asset map and ownership rules.
+- `config/schemas/`: machine-readable schemas for config and durable contracts.
+- `configs/models/`: model profiles and routing TOML files.
 
 **Core Logic:**
-- `crates/vel-core/src/types.rs` — Core domain types
-- `crates/veld/src/services/mod.rs` — Service layer comment on read vs. evaluate boundary
-- `crates/veld/src/app.rs` — Router construction with exposure gates
-
-**Storage:**
-- `crates/vel-storage/src/lib.rs` — Storage facade (public API)
-- `crates/vel-storage/src/db.rs` — StorageError and schema types
-- `migrations/` — SQLx migrations
+- `crates/veld/src/services/`: application services by feature.
+- `crates/veld/src/routes/`: HTTP boundary modules by feature.
+- `crates/vel-storage/src/repositories/`: persistence modules by entity.
+- `crates/vel-core/src/`: domain modules.
+- `clients/web/src/views/`: feature-specific UI surfaces.
 
 **Testing:**
-- `clients/web/src/data/query.test.tsx` — Query cache tests
-- `clients/web/src/api/client.test.ts` — API client tests
-- `crates/veld/tests/` — Integration tests
-- Test files co-located with source: `*.test.ts`, `*.test.tsx`
+- `crates/veld/tests/`: backend integration and flow tests.
+- `clients/web/src/test/`: shared web test setup.
+- `clients/web/src/types.test.ts`: frontend type/decoder tests.
+- `clients/apple/VelAPI/Tests/VelAPITests/`: Swift package tests.
+
+**Documentation:**
+- `README.md`: repo entrypoint.
+- `docs/MASTER_PLAN.md`: implementation truth.
+- `clients/web/src/README.md`: web UI layout rules.
+- `clients/apple/README.md`: Apple surface boundaries and setup.
+- `config/README.md`: config and schema authority.
 
 ## Naming Conventions
 
 **Files:**
-- Rust crate source: `snake_case.rs` (e.g., `captures_repo.rs`, `message.rs`)
-- React components: `PascalCase.tsx` (e.g., `AppShell.tsx`, `ContextPanel.tsx`)
-- TypeScript utilities: `camelCase.ts` (e.g., `client.ts`, `resources.ts`)
-- Test files: `{name}.test.{ts|tsx}` (co-located with source)
-- SQL migrations: `NNNN_snake_case_description.sql` (e.g., `0001_bootstrap.sql`)
+- Rust modules use `snake_case.rs`: `crates/veld/src/services/daily_loop.rs`.
+- React components use `PascalCase.tsx` inside feature folders: `clients/web/src/views/now/NowView.tsx`, `clients/web/src/shell/Navbar/Navbar.tsx`.
+- Directory exports use `index.ts` in the web app: documented in `clients/web/src/README.md`.
+- Test files are descriptive and feature-specific: `crates/veld/tests/planning_profile_api.rs`, `clients/web/src/types.test.ts`.
 
 **Directories:**
-- Rust: `snake_case` (e.g., `vel-core`, `vel-storage`, `command_lang`)
-- TypeScript/Web: `camelCase` (e.g., `src/api`, `src/components`, `src/data`)
-- Config: `lowercase` (e.g., `config/`, `configs/`, `migrations/`)
+- Rust crate and repo directories use kebab-case: `crates/vel-storage`, `packages/vel-render-watch`.
+- Web UI buckets are semantic, not technical layers: `core/`, `shell/`, `views/`.
+- `views/` subdirectories are singular product surfaces: `clients/web/src/views/now/`, `clients/web/src/views/threads/`.
 
-**Types & Functions:**
-- Rust types: `PascalCase` (e.g., `AppState`, `StorageError`, `CaptureInsert`)
-- Rust functions: `snake_case` (e.g., `list_captures`, `insert_capture`)
-- TypeScript types: `PascalCase` (e.g., `ApiResponse<T>`, `ConversationData`)
-- TypeScript functions: `camelCase` (e.g., `apiGet`, `createWsUrl`)
-
-**Entity Types:**
-- Domain types in `vel-core`: no suffix (e.g., `Capture`, `Commitment`, `Message`)
-- Storage insert types: `{Entity}Insert` (e.g., `CaptureInsert`, `CommitmentInsert`)
-- API request types: `{Entity}CreateRequest` or `{Entity}UpdateRequest` (e.g., `CaptureCreateRequest`)
-- API response types: `{Entity}CreateResponse` or `{Entity}` direct (e.g., `CaptureCreateResponse`)
+**Special Patterns:**
+- Add new backend route modules under `crates/veld/src/routes/` with a matching service module under `crates/veld/src/services/`.
+- Extend persistence by adding a repository file under `crates/vel-storage/src/repositories/` instead of expanding unrelated logic in `crates/vel-storage/src/db.rs`.
+- Keep transport DTO additions in `crates/vel-api-types/src/lib.rs` and update client boundaries in the same slice.
 
 ## Where to Add New Code
 
-**New Feature (e.g., Habit Tracking):**
-1. **Domain types:** Add to `crates/vel-core/src/habit.rs` (define Habit, HabitLog, etc.)
-2. **Storage:** Create `crates/vel-storage/src/repositories/habits_repo.rs` with CRUD functions
-3. **Migration:** Add `migrations/NNNN_habits.sql` with schema
-4. **Services:** Create `crates/veld/src/services/habits.rs` with business logic (list, create, evaluate)
-5. **Routes:** Create `crates/veld/src/routes/habits.rs` with HTTP handlers
-6. **API types:** Add request/response structs to `crates/vel-api-types/src/lib.rs`
-7. **Register routes:** Add routes to `crates/veld/src/app.rs` router
-8. **Web:** Create `clients/web/src/components/HabitsView.tsx` component, add queries to `clients/web/src/data/resources.ts`
-9. **Tests:** Add `crates/veld/tests/habit_*.rs` integration tests
+**New Backend Feature:**
+- Primary code: `crates/veld/src/services/` for orchestration and `crates/veld/src/routes/` for HTTP exposure.
+- Domain types: `crates/vel-core/src/` when the feature adds shared vocabulary or durable records.
+- Persistence: `crates/vel-storage/src/repositories/` plus migrations in `migrations/`.
+- Tests: `crates/veld/tests/` for integration behavior; unit tests can live beside focused modules when appropriate.
 
-**New Service (internal logic):**
-- File: `crates/veld/src/services/{service_name}.rs`
-- Pattern: Receive storage, config, state; return domain types or AppError
-- Tests: Co-located with service or in `crates/veld/tests/`
+**New Web Surface Or Component:**
+- Feature screen: `clients/web/src/views/<surface>/`.
+- Reusable UI building block: `clients/web/src/core/<ComponentName>/`.
+- App chrome/navigation: `clients/web/src/shell/`.
+- Client data helpers: `clients/web/src/data/` or `clients/web/src/api/`.
+- Tests: colocate light tests under `clients/web/src/` or use shared setup from `clients/web/src/test/`.
 
-**New Adapter (external integration):**
-- File: `crates/veld/src/adapters/{provider_name}.rs`
-- Pattern: Async functions that fetch data from external service, map to domain types
-- Storage: Credentials stored in `integration_connections` table
-- Service orchestration: Called from `services/integration_runtime.rs`
+**New Apple Capability:**
+- HTTP/API contract call: `clients/apple/VelAPI/Sources/VelAPI/`.
+- Shared Apple boundary logic: `clients/apple/Packages/VelAppleModules/Sources/VelApplication/` or the nearest Apple module seam.
+- App-specific UI: `clients/apple/Apps/<Target>/`.
 
-**New Route/Endpoint:**
-- File: `crates/veld/src/routes/{domain}.rs` (or add to existing file)
-- Pattern: Thin handler that validates → calls service → maps to DTO → handles errors
-- Register: Add to router in `crates/veld/src/app.rs`
-- Auth: Decide exposure class (LocalPublic, OperatorAuthenticated, WorkerAuthenticated)
-
-**New React Component:**
-- File: `clients/web/src/components/{ComponentName}.tsx`
-- Pattern: Functional component, use `useQuery` for data, handle loading/error states
-- Tests: `clients/web/src/components/{ComponentName}.test.tsx`
-- Styling: Tailwind CSS classes
-
-**New Query/State:**
-- File: `clients/web/src/data/{domain}.ts` (or add to existing file)
-- Pattern: Export `use{Resource}Query()` hook using `useQuery` cache
-- Example: `clients/web/src/data/chat.ts` exports `useChatQuery()`
+**New Config Or Contract Surface:**
+- Live/example/template/schema assets: `config/examples/`, `config/templates/`, `config/schemas/`.
+- Loader/typed owner: `crates/vel-config/src/` or the owning backend service, depending on the contract.
+- Governing docs: nearest authority under `docs/cognitive-agent-architecture/` or `docs/product/`.
 
 **Utilities:**
-- Shared helpers: `clients/web/src/` (no subdirectory, or create `utils/` folder)
-- Rust helpers: Add to relevant crate in `src/` directory
+- Backend shared helper: keep it inside the owning crate near the feature, not in a generic top-level utils crate.
+- Web shared helper: `clients/web/src/data/`, `clients/web/src/hooks/`, or `clients/web/src/core/` depending on whether it is state, behavior, or presentation.
 
 ## Special Directories
 
-**migrations/:**
-- Purpose: SQLx compile-time verified SQL migrations
-- Generated: No (manually authored)
-- Committed: Yes
-- Run command: Automatic on daemon startup via `storage.migrate().await`
+**`migrations/`**
+- Purpose: SQLx migrations applied by `Storage::migrate()` in `crates/veld/src/main.rs`.
+- Source: authored in-repo.
+- Committed: Yes.
 
-**var/ (Git-ignored, development only):**
-- Purpose: Local database, artifacts, logs
-- Generated: Yes (at first daemon startup)
-- Committed: No
+**`var/`**
+- Purpose: local runtime state such as SQLite DB, artifacts, integrations, and logs.
+- Source: generated by local runs.
+- Committed: No.
 
-**config/:**
-- Purpose: Schema definitions, example configs, templates
-- Generated: No
-- Committed: Yes
+**`clients/web/dist/`**
+- Purpose: built web assets.
+- Source: generated by Vite build.
+- Committed: No.
 
-**docs/:**
-- Purpose: Project documentation, tickets, architecture specs
-- Generated: No (manually authored)
-- Committed: Yes
+**`clients/web/node_modules/` and `target/`**
+- Purpose: dependency/build output.
+- Source: package manager and Cargo.
+- Committed: No.
 
-**.planning/codebase/ (this directory):**
-- Purpose: Claude Code analysis documents for reference
-- Generated: Yes (by gsd:map-codebase)
-- Committed: No (or kept separate from tracked codebase)
+**`.planning/codebase/`**
+- Purpose: generated codebase reference docs consumed by later planning and execution commands.
+- Source: maintained by mapping agents.
+- Committed: Yes.
 
 ---
 
-*Structure analysis: 2026-03-17*
+*Structure analysis: 2026-03-22*
+*Update when directory structure changes*

@@ -1,0 +1,36 @@
+apiVersion: vel/v1
+kind: Skill
+
+metadata:
+  name: google-calendar-reconcile
+  namespace: integrations
+  version: 0.1.0
+  displayName: Google Calendar Reconcile
+  description: Detect likely mismatches, missing metadata, or conflicts in calendar data.
+  tags: [calendar, enrichment, reconciliation]
+
+spec:
+  type: hybrid
+  entry:
+    prompt: ./prompt.md
+    prepare: ./hooks/prepare.py
+    cleanup: ./hooks/cleanup.py
+
+  capabilities:
+    tools:
+      - calendar.read
+      - calendar.write
+    connectors:
+      - google_calendar
+    models:
+      - fast
+      - reasoning
+
+  permissions:
+    confirmationPolicy:
+      default: ask
+      exceptions:
+        - action: calendar.read
+          mode: auto
+        - action: calendar.write
+          mode: ask

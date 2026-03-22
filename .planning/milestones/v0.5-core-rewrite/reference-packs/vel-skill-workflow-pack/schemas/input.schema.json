@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sample Daily Brief Input",
+  "type": "object",
+  "required": ["date", "timezone"],
+  "properties": {
+    "date": { "type": "string", "format": "date" },
+    "timezone": { "type": "string" },
+    "includeCalendar": { "type": "boolean", "default": true },
+    "includeTasks": { "type": "boolean", "default": true },
+    "includeProjects": { "type": "boolean", "default": true }
+  },
+  "additionalProperties": true
+}

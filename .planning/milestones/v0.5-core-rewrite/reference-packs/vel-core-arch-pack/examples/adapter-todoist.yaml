@@ -1,0 +1,32 @@
+apiVersion: vel/v1
+kind: Adapter
+metadata:
+  name: todoist
+spec:
+  sourceType: todoist
+  supports:
+    - Project
+    - Task
+  syncProfiles:
+    - read_only
+    - bidirectional_conservative
+  mappings:
+    Task:
+      toCore:
+        content: title
+        description: description
+        priority: priority
+        due.datetime: dueAt
+        labels: tags
+      coreOnlyFields:
+        - effort
+        - energy
+        - importance
+        - urgency
+        - threadId
+        - nudgeIds
+  facts:
+    sourceOfTruth: hybrid
+    roundTripSupport: partial
+  warnings:
+    - Vel-native planning fields do not round-trip to Todoist.

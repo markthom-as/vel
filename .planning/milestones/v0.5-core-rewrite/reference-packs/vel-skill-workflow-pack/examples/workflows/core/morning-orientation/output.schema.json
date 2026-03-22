@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string"
+    },
+    "proposedChanges": {
+      "type": "array"
+    }
+  },
+  "additionalProperties": true
+}

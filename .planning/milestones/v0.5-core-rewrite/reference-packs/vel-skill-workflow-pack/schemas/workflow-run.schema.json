@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.dev/schemas/workflow-run.schema.json",
+  "title": "Vel Workflow Run Record",
+  "type": "object",
+  "required": [
+    "runId",
+    "workflow",
+    "status",
+    "startedAt"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "workflow": {
+      "type": "object"
+    },
+    "trigger": {
+      "type": "object"
+    },
+    "context": {
+      "type": "object"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "scheduled",
+        "waiting_for_trigger",
+        "ready",
+        "running",
+        "waiting_for_approval",
+        "paused",
+        "retrying",
+        "succeeded",
+        "failed",
+        "canceled",
+        "superseded"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "startedAt": {
+      "type": "string"
+    },
+    "endedAt": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

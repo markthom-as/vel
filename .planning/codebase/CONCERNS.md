@@ -1,254 +1,171 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-17
+**Analysis Date:** 2026-03-22
 
-## Error Handling & Panic Safety
+## Tech Debt
 
-**Widespread use of unwrap() and expect() in critical paths:**
-- Issue: 2,559+ instances of `unwrap()`, `expect()`, `panic!()` across the codebase create runtime crash vectors
-- Files affected:
-  - `crates/vel-cli/src/command_lang/parse.rs` (14+ expect() calls in tests and parsing)
-  - `crates/vel-cli/src/client.rs` (reqwest client initialization with expect())
-  - `crates/vel-cli/src/commands/journal.rs` (response data extraction with expect())
-  - `crates/veld/src/services/integrations.rs` (Todoist settings loading with expect())
-  - `crates/vel-config/src/lib.rs` (serde_json serialization with unwrap())
-- Impact: Unhandled panics in background workers, CLI commands, and service initialization can crash entire daemon
-- Fix approach:
-  - Replace test-only expect() with Result propagation; only use expect() in truly unreachable code with documentation
-  - Convert service layer expect() calls to proper error types (Result<T, AppError>)
-  - Add graceful degradation for optional settings (e.g., Todoist, Google Calendar)
-  - Use `?` operator and error mapping instead of expect() in production code
+**Oversized settings surface with dead legacy branch:**
+- Files: `clients/web/src/views/settings/SettingsPage.tsx`, `clients/web/src/views/settings/SettingsPage.test.tsx`, `.planning/STATE.md`
+- Issue: `SettingsPage.tsx` is 6,473 lines and still contains a second unreachable `return` branch after the live compact layout. `.planning/STATE.md` calls this out as an active Phase 54 cleanup item.
+- Why: The compact left-rail shell was layered on top of the previous settings implementation to land UI conformance first.
+- Impact: Review and edits are error-prone because developers can change dead JSX and see no effect. The file also mixes navigation, fetch orchestration, mutation handlers, and rendering for multiple product seams.
+- Fix approach: Remove the legacy branch first, then split the file by owned sections such as profile, sync, integrations, and runtime settings under `clients/web/src/views/settings/`.
 
-**Missing error context in some service methods:**
-- Issue: Many service methods return generic errors without context about what operation failed
-- Files: `crates/veld/src/services/integrations.rs`, `crates/veld/src/services/inference.rs`, `crates/veld/src/services/suggestions.rs`
-- Impact: Difficult to debug production failures; error messages lack actionable information
-- Fix approach: Wrap errors with context using `context()` or `with_context()` from anyhow/thiserror
+**Backend entrypoint and routing remain monolithic:**
+- Files: `crates/veld/src/app.rs`, `crates/veld/src/middleware/mod.rs`, `crates/veld/src/routes/connect.rs`
+- Issue: `crates/veld/src/app.rs` is 12,519 lines and still owns route assembly, exposure policy wiring, fallback handling, and a large in-file test suite.
+- Why: Route growth happened inside the main app builder while auth hardening and feature work were landing in parallel.
+- Impact: Small route changes have a large blast radius. It is easy to break exposure class assumptions or fallback behavior when editing unrelated endpoints.
+- Fix approach: Keep adding new routes in dedicated route modules only, then extract app-level test helpers and exposure-gate tests out of `app.rs` before adding more route families.
 
----
+**Settings and secret persistence are still generic JSON blobs:**
+- Files: `crates/vel-storage/src/repositories/settings_repo.rs`, `crates/veld/src/services/integrations.rs`, `crates/veld/src/services/integrations_todoist.rs`
+- Issue: Durable settings, including integration secret records such as `integration_google_calendar_secrets` and `integration_todoist_secrets`, are stored as JSON strings in the shared `settings` table.
+- Why: This keeps the storage seam flexible while integrations are still evolving.
+- Impact: There is no typed schema at the database edge, malformed JSON is silently coerced to `Null` on read, and secret-bearing records share the same generic persistence path as ordinary settings.
+- Fix approach: Move secret-bearing settings to typed storage with explicit validation, and make malformed JSON a surfaced error instead of `JsonValue::Null`.
 
-## Complexity & Maintainability
+## Known Bugs
 
-**Monolithic route and service files:**
-- Issue: Single files exceed 1000+ lines with mixed responsibilities
-- Files:
-  - `crates/veld/src/app.rs` (11,036 lines) — combines route registration, auth middleware, exposure policy, tests
-  - `crates/veld/src/services/client_sync.rs` (1,934 lines) — sync coordination with many struct definitions
-  - `crates/veld/src/services/inference.rs` (1,796 lines) — complex state machine for context generation
-  - `crates/veld/src/services/command_lang.rs` (1,671 lines) — command parsing and resolution
-  - `crates/veld/src/worker.rs` (1,638 lines) — background job orchestration
-  - `crates/vel-storage/src/db.rs` (1,777 lines) — Storage facade with all repository imports
-- Impact: Difficult to review, test, and modify; high cognitive load for new contributors
-- Fix approach:
-  - Extract auth middleware and exposure gate logic from app.rs to separate module
-  - Split inference.rs into domain logic + context builders + temporal windows
-  - Move test helper constants from app.rs tests to separate fixture module
-  - Refactor worker.rs to break loop runners into separate files per loop type
-  - Consider extracting Storage facade methods into trait implementations
+**Legacy settings JSX is still present but unreachable:**
+- Files: `clients/web/src/views/settings/SettingsPage.tsx`, `.planning/STATE.md`, `.planning/phases/52-full-now-ui-conformance-implementation-chunk/52-VERIFICATION.md`
+- Symptoms: Developers can edit the old tabbed settings UI block and nothing changes at runtime because the compact layout returns earlier in the component.
+- Trigger: Any maintenance work that assumes the lower `return` block is still live.
+- Workaround: Only touch the first rendered settings shell near the active `loading` guard and compact left-rail layout.
+- Root cause: The legacy implementation was left below the new return as temporary cleanup debt.
+- Blocked by: Phase 54 cleanup completion.
 
-**Client-side component complexity:**
-- Issue: `clients/web/src/components/SettingsPage.tsx` is 2,550 lines with dense state management
-- Impact: Single component handles routing, integrations, settings, logs, runs — very hard to reason about state changes
-- Fix approach:
-  - Extract integration management to separate container component
-  - Pull settings management into dedicated hooks
-  - Separate each integration type (Google, Todoist, local sources) into sub-components
-
-**vel-api-types.rs too large (2,173 lines):**
-- Issue: Single file with all transport DTOs makes discovery and maintenance harder
-- Fix approach: Organize by feature (e.g., captures.rs, commitments.rs, chat.rs, etc.)
-
----
-
-## Test Coverage Gaps
-
-**Insufficient integration tests:**
-- Issue: Only 2 integration test files; most testing is unit-level
-- Files: Most service behavior tested only via unit tests with mocked storage
-- Impact: Route handlers, middleware, and cross-service flows not well-covered; integration bugs slip through
-- Priority: High
-- Fix approach:
-  - Add integration tests for critical sync paths (client_sync, work_assignments)
-  - Test auth middleware with various token scenarios
-  - Add end-to-end tests for capture → inference → nudge flow
-  - Create fixtures for common test data setup
-
-**Web frontend test gaps:**
-- Issue: SettingsPage.tsx (2,550 lines) has corresponding test at 1,681 lines but with limited edge case coverage
-- Impact: Complex state interactions not validated; integration changes risk UI regressions
-- Fix approach:
-  - Expand SettingsPage.test.tsx with mocking for failed API calls, retry scenarios, concurrent syncs
-  - Add visual regression tests for multi-integration state combinations
-
-**No tests for error paths in sync and background workers:**
-- Issue: Worker.rs (1,638 lines) has minimal test coverage for failure scenarios
-- Impact: Background job failures may not be properly handled or reported
-- Fix approach: Add tests for partial failures, retries, and deadline exceeded scenarios
-
----
-
-## Fragile Areas & Coupling
-
-**Todoist and Google Calendar integration tightly coupled:**
-- Issue: Settings split across public/secret storage with expect() assumptions
-- Files:
-  - `crates/veld/src/services/integrations_todoist.rs:177-202` (expect() for settings loading)
-  - `crates/veld/src/services/integrations_google.rs` (similar pattern)
-- Why fragile: If settings table is corrupted or missing, daemon panics on startup
-- Safe modification: Add fallback defaults, validate settings exist before expect()
-- Test coverage: Missing tests for missing/corrupted settings
-
-**Database schema assumptions embedded in Rust:**
-- Issue: Hard-coded JSON keys and column names scattered across repository layer
-- Files:
-  - `crates/vel-storage/src/repositories/` (multiple files reference specific settings keys)
-  - `crates/veld/src/services/operator_settings.rs:30` (HashMap iteration without type safety)
-- Impact: Schema changes require careful code search and update
-- Fix approach: Use constants for all magic strings (already partially done with TODOIST_SETTINGS_KEY)
-
-**Web frontend API integration assumes exact response shape:**
-- Issue: Types extracted from API without validation; missing fields cause silent failures
-- Files: `clients/web/src/types.ts`, `clients/web/src/data/resources.ts`
-- Impact: API changes may silently break UI without clear error messages
-- Fix approach: Add runtime validation using Zod schemas or similar
-
----
-
-## Performance Concerns
-
-**Large data structure allocations in inference path:**
-- Issue: `crates/veld/src/services/inference.rs` builds multiple HashMaps and vectors for context generation
-- Impact: May be slow for large commitment/signal counts; runs on every evaluate loop
-- Fix approach: Profile to identify allocations; consider lazy evaluation or streaming
-
-**N+1 queries for integration operations:**
-- Issue: Integration sync operations may load data inefficiently
-- Files: `crates/veld/src/services/integrations.rs` (1,636 lines with multiple repository calls)
-- Impact: Sync operations may be slow with many calendars, tasks, or messages
-- Fix approach: Batch repository queries; use efficient indexing in database
-
-**Web frontend state query triggers:**
-- Issue: `clients/web/src/data/ws-sync.ts` and `clients/web/src/data/query.ts` may trigger excessive re-renders
-- Impact: Sluggish UI during real-time sync with large result sets
-- Fix approach: Add virtualization, pagination, or pagination for large lists
-
----
+**Connect transport is only partially exposed:**
+- Files: `docs/MASTER_PLAN.md`, `crates/veld/src/app.rs`, `crates/veld/src/routes/connect.rs`, `crates/veld/tests/connect_runtime.rs`
+- Symptoms: `/v1/connect/instances` works for operator-authenticated runtime control, but `/v1/connect` and `/v1/connect/worker` still resolve to the deny-by-default future-external fallback.
+- Trigger: Clients or docs that expect the broader Phase 2 connect/auth transport rather than the currently shipped internal runtime control seam.
+- Workaround: Use the shipped operator-authenticated `/v1/connect/instances` routes only.
+- Root cause: Phase 2 connect launch work was explicitly re-scoped in `docs/MASTER_PLAN.md`; the live tree keeps the public-facing connect roots closed.
+- Blocked by: Later roadmap closure for external connect/auth transport.
 
 ## Security Considerations
 
-**Auth token passed in environment variables:**
-- Risk: VEL_OPERATOR_API_TOKEN and VEL_WORKER_API_TOKEN in environment can be exposed via process listing or logs
-- Files: `crates/veld/src/app.rs:37-38` (HttpExposurePolicy::from_env)
-- Current mitigation: Tokens checked against exact string match (not timing-safe, but OK for local use)
-- Recommendations:
-  - Add warning if tokens not set in strict auth mode
-  - Consider HMAC-based auth or OAuth for external clients
-  - Never log token values (ensure logging doesn't expose them)
+**Local-friendly auth defaults remain permissive on loopback:**
+- Files: `crates/veld/src/middleware/mod.rs`, `crates/veld/src/app.rs`
+- Risk: When `VEL_STRICT_HTTP_AUTH` is unset and no operator or worker token is configured, operator-authenticated and worker-authenticated routes still allow loopback requests.
+- Current mitigation: Non-loopback requests are denied without tokens, and explicit tokens are enforced when configured.
+- Recommendations: Treat this as a development-only posture. For any shared workstation or exposed daemon, set `VEL_STRICT_HTTP_AUTH=1` and both auth tokens before opening the HTTP surface.
 
-**CORS policy is permissive:**
-- Risk: `CorsLayer::permissive()` in app.rs:472 allows any origin to make requests
-- Files: `crates/veld/src/app.rs:472`
-- Impact: Vulnerable to CSRF if used over HTTPS without additional protections
-- Recommendation: Use explicit origin list for production; document local-only assumption
+**CORS remains fully permissive:**
+- Files: `crates/veld/src/app.rs`
+- Risk: `CorsLayer::permissive()` keeps browser-origin restrictions wide open. Combined with local-friendly auth defaults, this increases the damage of accidental exposure or unsafe local browsing contexts.
+- Current mitigation: The daemon is designed as a local-first authority process, and future-external routes stay forbidden by default.
+- Recommendations: Replace permissive CORS with an explicit allowlist when Vel is run outside a strictly local environment.
 
-**Settings stored as JSON blobs in database:**
-- Risk: Settings validation happens at application layer, not database layer
-- Files: `crates/veld/src/services/operator_settings.rs`
-- Impact: Invalid settings could corrupt state if hand-edited in database
-- Recommendation: Add database constraints or JSON schema validation at insert/update
+**Integration secrets are durable application data, not mediated credentials:**
+- Files: `crates/veld/src/services/integrations.rs`, `crates/veld/src/services/integrations_todoist.rs`, `crates/vel-storage/src/repositories/settings_repo.rs`
+- Risk: Google Calendar and Todoist secret material is persisted through generic settings writes, widening the set of code paths that can mishandle or mis-serialize credentials.
+- Current mitigation: Web responses expose omission flags and public settings types rather than secret values.
+- Recommendations: Keep decrypted secrets confined to the narrowest runtime boundary, audit all settings read/write paths touching `*_secrets` keys, and move toward brokered or OS-backed secret storage.
 
----
+## Performance Bottlenecks
 
-## Known Issues & Workarounds
+**SQLite is intentionally single-connection:**
+- Files: `crates/vel-storage/src/infra.rs`
+- Problem: `connect_pool()` sets `max_connections(1)`.
+- Measurement: Hard cap of one SQL connection per process.
+- Cause: The codebase optimizes for deterministic local SQLite behavior and WAL mode rather than concurrent writer throughput.
+- Improvement path: Keep this for local correctness, but any higher-concurrency sync or multi-worker expansion needs a dedicated plan for queueing, sharding, or a different storage backend.
 
-**Todoist and Google Calendar disconnect doesn't fully clean up:**
-- Symptom: Reconnecting immediately may fail or show stale data
-- Files: `crates/veld/src/services/integrations_todoist.rs`, `crates/veld/src/services/integrations_google.rs`
-- Workaround: Wait a few seconds between disconnect and reconnect
-- Fix: Ensure all cached state is cleared on disconnect, add cache invalidation triggers
+**Settings page fan-in is heavy and centralized:**
+- Files: `clients/web/src/views/settings/SettingsPage.tsx`, `clients/web/src/views/settings/SettingsPage.test.tsx`
+- Problem: One component loads and mutates settings, linking, cluster, integrations, runs, logs, inspect data, and planning profile state.
+- Measurement: `SettingsPage.tsx` is 6,473 lines; its test only covers two compact-shell happy-path cases.
+- Cause: The page is still the operator catch-all surface for several runtime seams.
+- Improvement path: Break data loading into section-specific hooks and render subtrees lazily by active section so inactive panels do not carry the same render and state-management weight.
 
-**Web frontend authentication token refresh not automatic:**
-- Symptom: API calls fail with 401 after operator token changes
-- Files: `clients/web/src/api/client.ts`
-- Workaround: Reload browser tab
-- Fix: Implement token refresh flow or session management
+## Fragile Areas
 
----
+**`SettingsPage` refactors are easy to break silently:**
+- Files: `clients/web/src/views/settings/SettingsPage.tsx`, `clients/web/src/views/settings/SettingsPage.test.tsx`
+- Why fragile: The file mixes multiple async resources, optimistic UI updates, and an unreachable legacy branch in a single component.
+- Common failures: Editing dead JSX, forgetting to invalidate the right query key, and introducing section regressions that current tests do not catch.
+- Safe modification: Remove dead code before feature work, isolate each section behind a helper hook or child component, and add a focused test for the exact section being changed.
+- Test coverage: Only shallow layout and integrations-section smoke tests exist in `clients/web/src/views/settings/SettingsPage.test.tsx`.
+
+**Exposure gating lives at a high-blast-radius seam:**
+- Files: `crates/veld/src/app.rs`, `crates/veld/src/middleware/mod.rs`
+- Why fragile: Public, operator-authenticated, worker-authenticated, and future-external routes are assembled in one place, then wrapped by policy middleware.
+- Common failures: Mounting a route under the wrong exposure class, assuming `/v1/connect` and `/v1/connect/instances` behave the same, or weakening loopback-only assumptions without updating policy.
+- Safe modification: Add or update route tests in `crates/veld/src/app.rs` before moving endpoints between route groups, and verify both strict-auth and non-strict loopback behavior.
+- Test coverage: Coverage exists, but it is embedded inside `crates/veld/src/app.rs`, which makes the auth contract harder to review and maintain.
+
+**Sync and authority state remain cognitively dense:**
+- Files: `crates/veld/src/services/client_sync.rs`, `crates/veld/src/services/operator_queue.rs`, `crates/veld/tests/execution_routing.rs`
+- Why fragile: Authority election data, worker capabilities, queue routing, and operator-facing evidence are all tightly coupled.
+- Common failures: Breaking requested-capability routing, drifting authority metadata, or changing queue evidence shapes without updating downstream UI and API DTOs.
+- Safe modification: Change one routing seam at a time, keep `vel-core` and `vel-api-types` mapping boundaries explicit, and verify affected flows with targeted `crates/veld/tests/` coverage.
+- Test coverage: Targeted Rust integration tests exist, but there is no small architectural walkthrough next to the service code, so reasoning still depends on reading large files.
 
 ## Scaling Limits
 
-**SQLite as single-writer bottleneck:**
-- Current capacity: Suitable for single user/local node
-- Limit: Concurrent writes will queue; not suitable for distributed cluster without replication
-- Scaling path: Phase 2/3 should add WAL mode, consider RocksDB or Postgres for multi-node
-- Status: Documented in MASTER_PLAN as Phase 2 distributed state work
+**Single-node SQLite authority is the practical ceiling today:**
+- Files: `crates/vel-storage/src/infra.rs`, `docs/MASTER_PLAN.md`
+- Current capacity: One SQLite connection and one local authority process.
+- Limit: Higher write concurrency and broader multi-client sync pressure will queue behind the single database connection and authority runtime.
+- Symptoms at limit: Slower sync responsiveness, longer writeback or run-event persistence latency, and more pressure on route handlers that serialize through the same store.
+- Scaling path: Keep the current local-first authority model for 0.4.x, but treat any multi-node or hosted expansion as storage-architecture work, not a small tuning task.
 
-**Broadcast channel with fixed buffer:**
-- Issue: `tokio::sync::broadcast::channel(64)` in app.rs:421 has fixed 64-message capacity
-- Impact: With many concurrent clients, messages may be dropped silently
-- Fix: Monitor broadcast queue depth; increase buffer or add backpressure handling
-
-**Web frontend renders entire state on every sync message:**
-- Issue: `clients/web/src/data/ws-sync.ts` invalidates entire query on each update
-- Impact: Can't handle thousands of items efficiently
-- Fix: Implement incremental sync with delta updates
-
----
+**WebSocket broadcast buffering is fixed-size:**
+- Files: `crates/veld/src/app.rs`, `crates/veld/src/state.rs`
+- Current capacity: Broadcast channels are created with fixed buffers of 64 messages.
+- Limit: Bursty event streams can overrun slow subscribers.
+- Symptoms at limit: Clients miss realtime updates and have to recover via query invalidation or reload paths.
+- Scaling path: Add observable drop metrics and backpressure strategy before increasing event volume or client count.
 
 ## Dependencies at Risk
 
-**sqlx compile-time verification dependency on migrations:**
-- Risk: sqlx::migrate! macro requires migrations folder at compile time; CI/build breaks if migrations change unexpectedly
-- Impact: Contributors must run cargo check after schema changes; can cause CI flakes
-- Mitigation: Migrations are numbered and idempotent; test suite catches schema issues
-- Note: This is intentional design for safety; consider worth the friction
-
-**Chrono dependency with security history:**
-- Risk: Time parsing without strong validation could be attack vector
-- Files: `crates/vel-core/src/`, `crates/veld/src/` (chrono used throughout)
-- Current mitigation: Time data is internal; not exposed to untrusted input parsing
-- Recommendation: Keep chrono/time dependencies updated
-
-**JavaScript dependencies in web/node_modules:**
-- Issue: 300K+ lines of dependencies not reviewed
-- Impact: Typical supply chain risk; assumes npm ecosystem is trustworthy
-- Mitigation: `package-lock.json` pins exact versions; regular npm audit recommended
-
----
+**Todoist API contract drift affects both sync and writeback paths:**
+- Files: `crates/veld/src/services/integrations_todoist.rs`
+- Risk: The code hardcodes both `https://api.todoist.com/api/v1` and `https://api.todoist.com/rest/v2`, so upstream API drift can break sync and writeback in different ways.
+- Impact: Task ingestion, conflict handling, and Todoist-backed writeback proposals can fail without any local schema change.
+- Migration plan: Keep provider calls isolated in `integrations_todoist.rs`, add explicit contract tests around response decoding, and be ready to collapse onto a single supported API family if Todoist retires one surface.
 
 ## Missing Critical Features
 
-**No built-in observability for daemon startup failures:**
-- Problem: If daemon fails to start, errors may not be visible in logs
-- Impact: Makes local development harder; production debugging difficult
-- Fix: Add structured startup checks, health endpoint that validates all subsystems
+**GitHub writeback is still synthetic, not real external writeback:**
+- Files: `crates/veld/src/services/integrations_github.rs`, `README.md`
+- Problem: GitHub issue and comment flows create locally applied writeback records with synthetic issue numbers instead of performing a mediated outbound API call.
+- Current workaround: Treat GitHub writeback as provenance-safe local scaffolding only.
+- Blocks: Real repo writeback, trustworthy execution evidence, and end-to-end supervised automation against GitHub.
+- Implementation complexity: Medium to high because it needs a real capability boundary, credential mediation, and execution-backed verification.
 
-**No rollback mechanism for migrations:**
-- Problem: SQLite migrations are forward-only; no down migration support
-- Impact: Schema mistakes require manual database recovery
-- Fix: Add migration rollback support or separate down migrations
+**Execution-backed Apple parity is still missing in this environment:**
+- Files: `.planning/STATE.md`, `clients/apple/README.md`, `clients/apple/`
+- Problem: The active project state explicitly says Apple/client parity is only source-level aligned here, and `clients/apple/` currently has no test files in-tree.
+- Current workaround: Rely on shared Rust contracts plus web reference behavior.
+- Blocks: Confident cross-surface milestone closeout and safe refactors that assume Apple behavior stays aligned.
+- Implementation complexity: Medium because it needs runnable Apple-surface verification, not just source inspection.
 
-**Worker node discovery is manual:**
-- Problem: Operator must manually configure worker node URLs in sync endpoints
-- Impact: Doesn't scale; Phase 2 must add auto-discovery (MASTER_PLAN item)
-- Current: Documented in docs/tickets/phase-2/
+## Test Coverage Gaps
+
+**Settings regressions are under-tested relative to component scope:**
+- Files: `clients/web/src/views/settings/SettingsPage.tsx`, `clients/web/src/views/settings/SettingsPage.test.tsx`
+- What's not tested: Error states, dead-code cleanup safety, section-specific mutations, and concurrent loading or retry paths.
+- Risk: A small settings change can break operator-critical controls without failing the current test suite.
+- Priority: High
+- Difficulty to test: The component currently owns too many independent data sources and mutation seams.
+
+**Apple client coverage is effectively absent in-repo:**
+- Files: `clients/apple/`, `.planning/STATE.md`
+- What's not tested: Runtime parity and user-visible Apple shell behavior in this workspace.
+- Risk: Source-level alignment can drift from real behavior without any local signal.
+- Priority: High
+- Difficulty to test: The required execution environment is not available through the current repository test setup.
+
+**Malformed settings and secret-record corruption paths are not defended well enough:**
+- Files: `crates/vel-storage/src/repositories/settings_repo.rs`, `crates/veld/src/services/integrations.rs`, `crates/veld/src/services/integrations_todoist.rs`
+- What's not tested: Recovery behavior when persisted settings JSON is invalid or secret-bearing records are partially missing.
+- Risk: Silent `Null` coercion or partial settings loss can degrade integrations in ways that are hard to diagnose.
+- Priority: Medium
+- Difficulty to test: The generic settings table makes corruption cases easy to create but currently too easy to ignore.
 
 ---
 
-## Technical Debt Summary
-
-| Area | Severity | Impact | Status |
-|------|----------|--------|--------|
-| Unwrap/panic overuse | High | Crash risk | Needs systematic refactor |
-| File size/complexity | Medium | Maintainability | Needs breaking down |
-| Integration tests | High | Quality regression risk | Needs expansion |
-| Error context | Medium | Debugging difficulty | Gradual improvement |
-| Todoist/Google fragility | Medium | Startup panic risk | Needs defaults |
-| Web auth flow | Low | UX friction | Known limitation |
-| SQLite scaling | Medium | Limits clustering | Phase 2 work |
-| CORS permissive | Low | CSRF risk (local use) | Document assumption |
-| Settings validation | Low | Data corruption risk | Add constraints |
-
----
-
-*Concerns audit: 2026-03-17*
+*Concerns audit: 2026-03-22*
+*Update as issues are fixed or new ones discovered*

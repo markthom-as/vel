@@ -1,0 +1,22 @@
+apiVersion: vel/v1
+kind: Template
+metadata:
+  name: haircut-task
+  namespace: personal
+spec:
+  targetTypes: [Task]
+  compose:
+    - core/task-base
+    - core/task-timed
+  traits:
+    include: [Schedulable, Taggable, Auditable]
+  fieldGroups:
+    enable: [core, time, planning]
+  defaults:
+    title: Haircut
+    estimatedDuration: 45m
+    status: active
+    tags: [grooming]
+  relations:
+    suggest:
+      projectId: project_self_maintenance

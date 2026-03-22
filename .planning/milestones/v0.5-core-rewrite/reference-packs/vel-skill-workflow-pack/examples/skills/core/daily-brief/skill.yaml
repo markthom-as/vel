@@ -1,0 +1,66 @@
+apiVersion: vel/v1
+kind: Skill
+
+metadata:
+  name: daily-brief
+  namespace: core
+  version: 0.1.0
+  displayName: Daily Brief
+  description: Generate a morning overview from calendar, tasks, and project context.
+  tags: [planning, morning, overview]
+
+spec:
+  type: hybrid
+  entry:
+    prompt: ./prompt.md
+    prepare: ./hooks/prepare.ts
+    cleanup: ./hooks/cleanup.ts
+
+  inputSchema: ./input.schema.json
+  outputSchema: ./output.schema.json
+
+  capabilities:
+    tools:
+      - calendar.read
+      - tasks.read
+      - memory.read
+      - projects.read
+    connectors:
+      - google_calendar
+      - todoist
+    models:
+      - reasoning
+      - fast
+
+  permissions:
+    confirmationPolicy:
+      default: ask
+      exceptions:
+        - action: calendar.read
+          mode: auto
+        - action: tasks.read
+          mode: auto
+    dataAccess:
+      pii: limited
+      secrets: denied
+      externalNetwork: denied
+
+  routing:
+    triggers:
+      intents:
+        - morning overview
+        - daily planning
+        - start my day
+      events:
+        - scheduled.morning
+    priority: 90
+
+  limits:
+    timeoutMs: 25000
+    maxTokens: 10000
+    maxToolCalls: 10
+
+  ui:
+    icon: sun
+    color: amber
+    surfaces: [cli, web, automation]

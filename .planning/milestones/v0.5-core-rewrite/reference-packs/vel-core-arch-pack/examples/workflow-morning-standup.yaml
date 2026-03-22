@@ -1,0 +1,25 @@
+apiVersion: vel/v1
+kind: Workflow
+metadata:
+  name: morning-standup
+  namespace: core
+spec:
+  trigger:
+    type: scheduled
+    cron: "0 8 * * *"
+  contextBindings:
+    - type: Task
+      query: active due today
+    - type: Event
+      query: today
+    - type: Project
+      query: active related to today context
+  steps:
+    - type: skill
+      ref: core/context-pack
+    - type: skill
+      ref: core/calendar-brief
+    - type: skill
+      ref: core/task-triage
+    - type: artifact
+      output: daily-standup.md

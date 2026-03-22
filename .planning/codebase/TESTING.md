@@ -1,391 +1,286 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-03-17
+**Analysis Date:** 2026-03-22
 
 ## Test Framework
 
 **Runner:**
-- **Rust:** cargo test (built-in). No explicit test runner configuration; tests live inline in modules via `#[cfg(test)]`.
-- **TypeScript:** Vitest 2.1.8 with jsdom environment
-- **Config:** `clients/web/vitest.config.ts`
+- Rust uses `cargo test` across the workspace declared in `Cargo.toml`. The top-level `Makefile` runs `cargo test --workspace --all-features` through `make test-api`.
+- Web tests use `Vitest 2.1.8` with config in `clients/web/vitest.config.ts`.
+- CI executes both stacks through `make ci` in `.github/workflows/ci.yml`, then runs `make smoke`, then an eval-fixture smoke command for `crates/veld-evals`.
 
 **Assertion Library:**
-- **Rust:** Standard `assert_eq!`, `assert!` macros
-- **TypeScript:** Vitest expect API (compatible with Jest)
+- Rust uses built-in `assert!`, `assert_eq!`, and `expect(...)` patterns in `crates/veld/tests/*.rs`, `crates/vel-core/src/*`, and `crates/vel-storage/src/infra.rs`.
+- Web tests use Vitest built-in `expect` plus `@testing-library/jest-dom` matchers wired in `clients/web/src/test/setup.ts`.
 
 **Run Commands:**
 ```bash
-# Rust
-cargo test --workspace --all-features           # Run all workspace tests
-cargo test -p <crate> <test_name>               # Run single test in crate
-
-# TypeScript
-cd clients/web && npm run test                  # Run all tests (single run)
-cd clients/web && npm run test:watch            # Watch mode
+make test                                      # Run Rust and web tests
+make test-api                                  # Run cargo test --workspace --all-features
+make test-web                                  # Run clients/web Vitest suite
+cargo test --workspace --all-features          # Direct Rust suite
+cargo test -p veld --test commitment_scheduling_api
+cd clients/web && npm run test                 # Run all Vitest tests
+cd clients/web && npm run test -- src/views/settings/SettingsPage.test.tsx
+cd clients/web && npm run test:watch           # Interactive Vitest watch mode
+make smoke                                     # Daemon/API/CLI smoke path
 ```
-
-**Coverage:**
-- No coverage target or enforcement detected.
-- Command to measure (if desired): `npx vitest --coverage` (requires coverage provider package)
 
 ## Test File Organization
 
 **Location:**
-- **Rust:** Co-located with source. Tests in same file within `#[cfg(test)] mod tests { ... }` block.
-  - Example: `crates/vel-cli/src/command_lang/parse.rs` has `#[cfg(test)] mod tests` at line 43
-- **TypeScript:** Co-located with source. Tests in sibling file with `.test.ts` or `.test.tsx` suffix.
-  - Example: `src/api/client.ts` has sibling `src/api/client.test.ts`
-  - Components: `src/components/MessageComposer.tsx` has `src/components/MessageComposer.test.tsx`
+- Rust unit tests are usually inline under `#[cfg(test)] mod tests` in the source file, for example `crates/vel-core/src/context.rs`, `crates/vel-storage/src/infra.rs`, and `crates/vel-cli/src/commands/docs.rs`.
+- Rust integration and route-flow tests live under `crates/veld/tests/`, for example `crates/veld/tests/commitment_scheduling_api.rs`, `crates/veld/tests/chat_grounding.rs`, and `crates/veld/tests/runtime_loops.rs`.
+- Web tests are colocated under `clients/web/src/**` as `*.test.ts` or `*.test.tsx`, for example `clients/web/src/api/client.test.ts`, `clients/web/src/data/query.test.tsx`, and `clients/web/src/views/now/NowView.test.tsx`.
 
 **Naming:**
-- **Rust:** Test functions named with `test_` prefix or descriptive name (e.g., `parses_should_capture`, `rejects_unknown_family`)
-- **TypeScript:** Test functions named descriptively (e.g., `applies the provided decoder to GET responses`, `disables Send when text is empty`)
+- Rust integration tests use descriptive behavior files named after the surface under test, such as `planning_profile_api.rs`, `apple_voice_loop.rs`, and `backup_flow.rs` in `crates/veld/tests/`.
+- Rust inline tests use behavior-first function names, often long and explicit, such as `context_migrator_parses_known_context_shape` in `crates/vel-core/src/context.rs`.
+- Web tests use the source filename plus `.test.ts[x]`, with `describe('ComponentName' | 'feature name', ...)` headings matching the unit under test.
 
-**Setup/Teardown:**
-- **Rust:** None required for unit tests; each test is isolated.
-- **TypeScript:**
-  - Global setup: `clients/web/src/test/setup.ts` imports `@testing-library/jest-dom/vitest`
-  - Per-test cleanup: `afterEach(() => { vi.restoreAllMocks() })`
+**Structure:**
+```text
+crates/
+  vel-core/
+    src/
+      context.rs              # inline unit tests with #[cfg(test)]
+  vel-storage/
+    src/
+      infra.rs                # inline async storage tests
+  veld/
+    tests/
+      commitment_scheduling_api.rs
+      chat_grounding.rs
+      runtime_loops.rs
+
+clients/web/
+  src/
+    api/
+      client.test.ts
+    data/
+      query.test.tsx
+      operator.test.ts
+    shell/
+      MainPanel/MainPanel.test.tsx
+    views/
+      now/NowView.test.tsx
+      settings/SettingsPage.test.tsx
+```
 
 ## Test Structure
 
-**Rust Suite Organization:**
-```rust
-#[cfg(test)]
-mod tests {
-    use super::parse;
-    use crate::command_lang::ast::{PhraseFamily, Verb};
-
-    #[test]
-    fn parses_should_capture() {
-        let input = vec!["should".to_string(), "capture".to_string(), "remember".to_string()];
-        let parsed = parse(&input).expect("parse");
-        assert_eq!(parsed.family, PhraseFamily::Should);
-        assert_eq!(parsed.verb, Verb::Capture);
-        assert_eq!(parsed.target_tokens, vec!["remember"]);
-    }
-
-    #[test]
-    fn rejects_unknown_family() {
-        let input = vec!["hello".to_string(), "world".to_string()];
-        assert!(parse(&input).is_err());
-    }
-}
-```
-
-**TypeScript Suite Organization:**
+**Suite Organization:**
 ```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { apiGet, apiPost } from './client'
-
-describe('api client decoders', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
+describe('SettingsPage', () => {
+  beforeEach(() => {
+    clearQueryCache()
+    resetWsQuerySyncForTests()
+    vi.mocked(client.apiGet).mockReset()
+    vi.mocked(client.apiPatch).mockReset()
+    vi.mocked(client.apiPost).mockReset()
   })
 
-  it('applies the provided decoder to GET responses', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      json: async () => ({ ok: true, data: {...}, meta: {...} }),
-    } as Response)
+  it('renders a compact settings shell with a left tab rail', async () => {
+    render(<SettingsPage onBack={() => {}} />)
 
-    const response = await apiGet<ApiResponse<ConversationData>>(
-      '/api/conversations/conv_1',
-      (value) => decodeApiResponse(value, decodeConversationData),
-    )
-
-    expect(response.data?.id).toBe('conv_1')
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Profile/i })).toBeInTheDocument()
+    })
   })
 })
 ```
 
+```rust
+#[tokio::test]
+async fn commitment_scheduling_apply_route_updates_commitment_and_thread_continuity() {
+    let state = test_state().await;
+    let app = build_app_with_state(state.clone());
+
+    let apply_response = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            "/v1/commitment-scheduling/proposals/thr_day_plan_apply_1/apply",
+            None,
+        ))
+        .await
+        .expect("apply response");
+
+    assert_eq!(apply_response.status(), StatusCode::OK);
+}
+```
+
 **Patterns:**
-- **Setup:** `beforeEach()` to clear mocks or reset state
-- **Teardown:** `afterEach(() => vi.restoreAllMocks())` to clean up all mocks
-- **Assertion:** Positive assertions (what should exist/be true) checked first, then error cases
-- **Naming:** Test names are complete sentences describing behavior (e.g., "disables Send when text is empty" not "button disabled")
+- Web tests use `describe` + `it`, with `beforeEach` or `afterEach` for cache reset and mock cleanup. See `clients/web/src/views/settings/SettingsPage.test.tsx`, `clients/web/src/views/now/NowView.test.tsx`, and `clients/web/src/api/client.test.ts`.
+- Web component tests follow Testing Library patterns: `render`, `screen`, `fireEvent`, and `waitFor`.
+- Hook tests use `renderHook`, as in `clients/web/src/data/query.test.tsx`.
+- Rust async behavior tests use `#[tokio::test]` extensively for storage, route, and service flows.
+- Rust tests usually construct a minimal in-memory app state or storage, perform one real operation, then assert status codes plus persisted state.
 
 ## Mocking
 
 **Framework:**
-- **Rust:** No explicit mocking framework. Tests use direct function calls; integration tests exercise real storage via test databases.
-- **TypeScript:** Vitest's `vi` module for spying and mocking
+- Web mocking uses `vi.mock(...)`, `vi.mocked(...)`, and `vi.spyOn(...)` from Vitest.
+- Rust does not use a general mocking framework in the sampled tests. Instead, it builds small fake structs that implement traits, or it uses real in-memory storage and app state.
 
 **Patterns:**
-
-**Rust (no mocking):**
-- Tests call functions directly with constructed inputs
-- Example from `crates/vel-cli/src/command_lang/parse.rs`:
-  ```rust
-  #[test]
-  fn parses_should_capture() {
-      let input = vec!["should".to_string(), "capture".to_string(), "remember".to_string()];
-      let parsed = parse(&input).expect("parse");
-      assert_eq!(parsed.family, PhraseFamily::Should);
-  }
-  ```
-
-**TypeScript (mocking via vi):**
 ```typescript
-// Mock entire module
-vi.mock('../api/client', () => ({
+vi.mock('../../api/client', () => ({
+  apiGet: vi.fn(),
+  apiPatch: vi.fn(),
   apiPost: vi.fn(),
 }))
 
-// Mock specific fetch calls
-vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-  ok: true,
-  json: async () => ({ ok: true, data: {...}, meta: {...} }),
-} as Response)
+beforeEach(() => {
+  vi.mocked(client.apiGet).mockReset()
+  vi.mocked(client.apiGet).mockImplementation(async (path: string) => {
+    if (path === '/api/settings') {
+      return { ok: true, data: { timezone: 'America/Denver' }, meta: { request_id: 'req_settings' } } as never
+    }
+    throw new Error(`Unexpected GET ${path}`)
+  })
+})
+```
 
-// Verify mock was called with specific args
-expect(api.apiPost).toHaveBeenCalledWith(
-  '/api/conversations/conv_1/messages',
-  { role: 'user', kind: 'text', content: { text: 'Hi' } },
-  expect.any(Function),
-)
+```rust
+struct MockChatProvider {
+    requests: Arc<Mutex<Vec<LlmRequest>>>,
+}
 
-// Reset mocks
-vi.mocked(api.apiPost).mockReset()
+#[async_trait]
+impl LlmProvider for MockChatProvider {
+    async fn generate(&self, req: &LlmRequest) -> Result<LlmResponse, LlmError> {
+        // capture request and return deterministic tool call / completion
+    }
+}
 ```
 
 **What to Mock:**
-- External API calls (fetch)
-- File system operations (not used in web tests)
-- Timer functions (not used in current tests)
-- Module exports that are dependencies (e.g., `apiPost` in component tests)
+- Web tests mock API clients, websocket subscriptions, and view modules when the test targets composition rather than transport. Examples: `clients/web/src/views/settings/SettingsPage.test.tsx` and `clients/web/src/shell/MainPanel/MainPanel.test.tsx`.
+- Web decoder tests stub `globalThis.fetch` rather than the higher-level client when verifying low-level HTTP behavior, as in `clients/web/src/api/client.test.ts`.
+- Rust tests fake LLM providers and other trait-based collaborators when deterministic dialog behavior matters, as in `crates/veld/tests/chat_grounding.rs`.
 
 **What NOT to Mock:**
-- Core business logic (decoders, response validation)
-- TypeScript utility functions
-- React hooks behavior (use real React for Hook testing)
-- Internal component state (test behavior through rendered output)
+- Do not mock typed decoders, query-cache logic, or route handlers when the test is supposed to validate the contract itself. `clients/web/src/types.test.ts` and `clients/web/src/data/query.test.tsx` exercise the real logic directly.
+- Prefer real in-memory SQLite and real `axum` routers in Rust API tests instead of mocking storage or HTTP plumbing. `crates/veld/tests/commitment_scheduling_api.rs` is the preferred pattern.
 
 ## Fixtures and Factories
 
 **Test Data:**
-
-**TypeScript:**
 ```typescript
-// Inline fixture construction in tests
-const mockUserMessage = {
-  id: 'msg_1',
-  conversation_id: 'conv_1',
-  role: 'user',
-  kind: 'text',
-  content: { text: 'Hi' },
-  status: null,
-  importance: null,
-  created_at: 0,
-  updated_at: null,
+function buildNowData(overrides: Record<string, unknown> = {}) {
+  return {
+    computed_at: 1710000000,
+    timezone: 'America/Denver',
+    // full canonical payload...
+    ...overrides,
+  }
 }
-
-// Or mock return value
-vi.mocked(api.apiPost).mockResolvedValue({
-  ok: true,
-  data: { user_message: mockUserMessage, assistant_message: null },
-  meta: { request_id: 'req_1' },
-})
 ```
 
-**Rust:**
-- No fixture framework. Tests construct input structs directly.
-- Example:
-  ```rust
-  let input = MoodJournalInput {
-      score: 7,
-      label: Some("good".to_string()),
-      note: None,
-      source_device: None,
-  };
-  ```
+```rust
+async fn test_state() -> AppState {
+    let storage = vel_storage::Storage::connect(":memory:")
+        .await
+        .expect("storage");
+    storage.migrate().await.expect("migrations");
+    let (broadcast_tx, _) = broadcast::channel(16);
+    AppState::new(
+        storage,
+        AppConfig::default(),
+        PolicyConfig::default(),
+        broadcast_tx,
+        None,
+        None,
+    )
+}
+```
 
 **Location:**
-- TypeScript: Inline in test file (no separate fixture files currently)
-- Rust: Inline in test module
+- Web tests usually keep fixture builders inside the test file, especially for route-shaped payloads. Examples: `buildClusterBootstrapFixture`, `buildClusterWorkersFixture`, and `buildNowData` in `clients/web/src/views/now/NowView.test.tsx`.
+- Rust integration tests usually define local helper constructors like `test_state`, `request`, and `decode_json` in the same test file, as in `crates/veld/tests/commitment_scheduling_api.rs`.
+- Shared non-test fixture assets exist for evals under `crates/veld-evals/fixtures/`, and CI exercises them with `cargo run -p veld-evals -- run --fixtures ...` from `.github/workflows/ci.yml`.
 
 ## Coverage
 
-**Requirements:** No explicit coverage target or enforcement.
+**Requirements:**
+- No explicit line or branch coverage threshold is configured in the inspected Rust or web tooling.
+- Quality enforcement is based on passing tests, `cargo fmt`, `cargo clippy -D warnings`, frontend ESLint, and smoke execution via `make ci`.
 
-**View Coverage (if implemented):**
+**Configuration:**
+- Vitest is configured only with `jsdom`, `setupFiles`, and `include` in `clients/web/vitest.config.ts`; coverage reporting is not configured there.
+- Rust coverage tooling such as `cargo-llvm-cov` is not wired into `Makefile` or `.github/workflows/ci.yml`.
+
+**View Coverage:**
 ```bash
-cd clients/web && npx vitest --coverage
+Not configured in-repo
 ```
 
 ## Test Types
 
 **Unit Tests:**
-
-**Rust:**
-- Scope: Single function or small module. Example: `parse()` function tests in `crates/vel-cli/src/command_lang/parse.rs`
-- Approach: Call function directly with various inputs (valid, edge cases, errors), assert results
-- Example patterns:
-  ```rust
-  #[test]
-  fn parses_should_capture() { ... }
-
-  #[test]
-  fn rejects_unknown_family() { ... }
-  ```
-
-**TypeScript:**
-- Scope: Single function or component. Examples: API client decoders, decoder functions, component behavior
-- Approach: Mock dependencies, render component or call function, assert output
-- Files: `client.test.ts`, `types.test.ts`, component `.test.tsx` files
-- Example from `clients/web/src/components/MessageComposer.test.tsx`:
-  ```typescript
-  it('renders textarea and Send button', () => {
-    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
-    expect(container.querySelector('textarea')).toBeInTheDocument()
-    expect(within(composer).getByRole('button', { name: /send/i })).toBeInTheDocument()
-  })
-
-  it('calls apiPost and onSent when Send is clicked with text', async () => {
-    // Mock API response
-    vi.mocked(api.apiPost).mockResolvedValue({ ok: true, data: {...}, meta: {...} })
-
-    // Render component
-    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
-
-    // Simulate user interaction
-    const textarea = container.querySelector('textarea')
-    fireEvent.change(textarea, { target: { value: 'Hi' } })
-    fireEvent.click(sendBtn)
-
-    // Assert API was called
-    await waitFor(() => {
-      expect(api.apiPost).toHaveBeenCalledWith(...)
-    })
-  })
-  ```
+- Rust unit tests live inline in library modules and validate parsing, serialization, migration helpers, and small domain rules, for example `crates/vel-core/src/context.rs`, `crates/vel-protocol/src/lib.rs`, and `crates/vel-config/src/lib.rs`.
+- Web unit tests cover decoder logic, query state, and isolated components, for example `clients/web/src/types.test.ts`, `clients/web/src/data/query.test.tsx`, and `clients/web/src/core/Button/Button.test.tsx`.
 
 **Integration Tests:**
-- Not explicitly separated; repo runs all tests together via `make test-api` and `make test-web`
-- API integration via database: tests that exercise full route → service → storage → database flow
-- Web integration: component tests that render with real (not mocked) child components
+- Rust integration tests are a major pattern in `crates/veld/tests/`. They build real app state, issue HTTP requests through `tower::ServiceExt::oneshot`, and assert persisted outcomes and transport payloads.
+- Web integration-style tests render a live component with mocked network edges and assert user-visible behavior, for example `clients/web/src/views/settings/SettingsPage.test.tsx`, `clients/web/src/views/inbox/InboxView.test.tsx`, and `clients/web/src/views/context/ContextPanel.test.tsx`.
 
 **E2E Tests:**
-- Not present. Smoke tests available via `make smoke` which runs CI-level daemon/API/CLI checks.
+- Browser E2E tooling such as Playwright is not configured in the inspected repo.
+- The nearest repo-level end-to-end checks are CLI/API smoke scripts invoked by `make smoke` and the eval fixture smoke step in `.github/workflows/ci.yml`.
 
 ## Common Patterns
 
 **Async Testing:**
-
-**TypeScript:**
 ```typescript
-// Using async/await in test function
-it('calls apiPost and onSent when Send is clicked with text', async () => {
-  vi.mocked(api.apiPost).mockResolvedValue({
-    ok: true,
-    data: { user_message: mockUserMessage, assistant_message: null },
-    meta: { request_id: 'req_1' },
-  })
+it('shares one in-flight fetch across subscribers for the same key', async () => {
+  const first = renderHook(() => useQuery(key, fetcher))
+  const second = renderHook(() => useQuery(key, fetcher))
 
-  // ... render component, trigger action ...
-
-  // Wait for async operation
   await waitFor(() => {
-    expect(api.apiPost).toHaveBeenCalledWith(...)
-  })
-  await waitFor(() => {
-    expect(onSent).toHaveBeenCalledWith(...)
+    expect(first.result.current.data).toEqual(['value'])
+    expect(second.result.current.data).toEqual(['value'])
   })
 })
 ```
 
-**Rust:**
-- No async test pattern used (tests are synchronous)
-- If needed: use `#[tokio::test]` macro (not currently present in codebase)
-
-**Error Testing:**
-
-**TypeScript:**
-```typescript
-// Test that error is surfaced
-it('surfaces decoder failures for malformed POST responses', async () => {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-    ok: true,
-    json: async () => ({
-      ok: true,
-      data: { title: 'missing id' },  // missing 'id' field
-      meta: { request_id: 'req_2' },
-    }),
-  } as Response)
-
-  await expect(
-    apiPost<ApiResponse<ConversationData>>(
-      '/api/conversations',
-      { title: 'New conversation', kind: 'general' },
-      (value) => decodeApiResponse(value, decodeConversationData),
-    ),
-  ).rejects.toThrow(/conversation.id/)
-})
-
-// Test error display in component
-it('shows error when apiPost rejects', async () => {
-  vi.mocked(api.apiPost).mockRejectedValue(new Error('Network error'))
-
-  const { container } = render(
-    <MessageComposer
-      conversationId="conv_1"
-      onOptimisticSend={onOptimisticSend}
-      onSendFailed={onSendFailed}
-    />
-  )
-  // ... trigger send ...
-
-  await waitFor(() => {
-    expect(within(composer).getByRole('alert')).toHaveTextContent(/network error/i)
-  })
-})
-```
-
-**Rust:**
 ```rust
-#[test]
-fn rejects_unknown_family() {
-    let input = vec!["hello".to_string(), "world".to_string()];
-    assert!(parse(&input).is_err());
+#[tokio::test]
+async fn wal_mode_enabled_for_file_db() {
+    let pool = connect_pool(&db_path).await.expect("pool opens");
+    let row: (String,) = sqlx::query_as("PRAGMA journal_mode")
+        .fetch_one(&pool)
+        .await
+        .expect("pragma query");
+    assert_eq!(row.0, "wal");
 }
 ```
 
-**Type Decoder Testing:**
-
-**TypeScript:**
-Extensive decoder tests in `clients/web/src/types.test.ts`. Pattern:
+**Error Testing:**
 ```typescript
-it('decodes create-message API responses with optional assistant data', () => {
-  const response = decodeApiResponse(
-    {
-      ok: true,
-      data: {
-        user_message: {...},
-        assistant_message: {...},
-        assistant_error: null,
-      },
-      meta: { request_id: 'req_1' },
-    },
-    decodeCreateMessageResponse,
-  )
-
-  expect(response.data?.user_message.id).toBe('msg_user')
-  expect(response.data?.assistant_message?.id).toBe('msg_assistant')
-})
-
-// Test that malformed data is rejected
-it('requires RFC3339 commitment datetime fields', () => {
-  expect(() =>
-    decodeCommitmentData({
-      id: 'commit_1',
-      ...
-      due_at: [2026, 75, 9, 30, 0, 0],  // Not RFC3339
-      ...
-    }),
-  ).toThrow(/commitment\.due_at/)
-})
+await expect(
+  apiPost('/v1/runs/run_1', {})
+).rejects.toThrow('API 409: run cannot be retried automatically')
 ```
+
+```rust
+let apply_response = app
+    .clone()
+    .oneshot(request(
+        "POST",
+        "/v1/commitment-scheduling/proposals/thr_reflow_apply_missing/apply",
+        None,
+    ))
+    .await
+    .expect("apply response");
+assert_eq!(apply_response.status(), StatusCode::NOT_FOUND);
+```
+
+**Snapshot Testing:**
+- Snapshot matcher usage was not detected in `clients/web/src/**` or `crates/**`.
+- Do not introduce snapshot-heavy tests by default; the current repo favors explicit contract and UI assertions.
 
 ---
 
-*Testing analysis: 2026-03-17*
+*Testing analysis: 2026-03-22*

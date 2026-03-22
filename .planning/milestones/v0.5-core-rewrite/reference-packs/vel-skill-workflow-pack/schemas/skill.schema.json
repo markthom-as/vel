@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.dev/schemas/skill.schema.json",
+  "title": "Vel Skill Manifest",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "type": "string", "const": "vel/v1" },
+    "kind": { "type": "string", "const": "Skill" },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "namespace", "version"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "namespace": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "version": { "type": "string" },
+        "displayName": { "type": "string" },
+        "description": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "spec": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["prompt", "script", "hybrid", "workflow"] },
+        "entry": { "type": "object" },
+        "inputSchema": { "type": "string" },
+        "outputSchema": { "type": "string" },
+        "capabilities": { "type": "object" },
+        "permissions": { "type": "object" },
+        "routing": { "type": "object" },
+        "dependencies": { "type": "object" },
+        "limits": { "type": "object" },
+        "ui": { "type": "object" },
+        "workflow": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

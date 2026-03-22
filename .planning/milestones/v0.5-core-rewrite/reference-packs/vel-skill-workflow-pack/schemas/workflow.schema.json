@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.dev/schemas/workflow.schema.json",
+  "title": "Vel Workflow Manifest",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "vel/v1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "Workflow"
+    },
+    "metadata": {
+      "type": "object",
+      "required": [
+        "name",
+        "namespace",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "spec": {
+      "type": "object",
+      "required": [
+        "triggers",
+        "contextBinding",
+        "steps"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "entry": {
+          "type": "object"
+        },
+        "inputSchema": {
+          "type": "string"
+        },
+        "outputSchema": {
+          "type": "string"
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "type",
+              "id",
+              "enabled"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "manual",
+                  "schedule",
+                  "event",
+                  "condition"
+                ]
+              },
+              "id": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "contextBinding": {
+          "type": "object"
+        },
+        "steps": {
+          "type": "object"
+        },
+        "capabilities": {
+          "type": "object"
+        },
+        "permissions": {
+          "type": "object"
+        },
+        "execution": {
+          "type": "object"
+        },
+        "observability": {
+          "type": "object"
+        },
+        "ui": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

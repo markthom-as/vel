@@ -1,0 +1,22 @@
+apiVersion: vel/v1
+kind: Module
+metadata:
+  name: todoist
+  namespace: integrations
+  version: 0.1.0
+spec:
+  contributes:
+    adapters:
+      - ./adapters/todoist.yaml
+    workflows:
+      - ./workflows/todoist-sync.yaml
+    templates:
+      - ./templates/todoist-task-overlay.yaml
+  requires:
+    capabilities:
+      - task.read
+      - task.create
+      - task.update
+      - project.read
+      - project.upsert
+      - source.sync

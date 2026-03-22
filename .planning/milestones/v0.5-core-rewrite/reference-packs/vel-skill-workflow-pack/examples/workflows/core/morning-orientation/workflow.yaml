@@ -1,0 +1,84 @@
+apiVersion: vel/v1
+kind: Workflow
+
+metadata:
+  name: morning-orientation
+  namespace: core
+  version: 0.1.0
+  displayName: Morning Orientation
+  description: Manual or scheduled workflow that runs daily planning and generates thread/task/nudge outputs.
+  tags: [workflow, morning, planning]
+
+spec:
+  mode: orchestrated
+  entry:
+    prompt: ./prompt.md
+    onStart: ./hooks/on_start.ts
+    onComplete: ./hooks/on_complete.ts
+
+  inputSchema: ./input.schema.json
+  outputSchema: ./output.schema.json
+
+  triggers:
+    - type: manual
+      id: manual-run
+      enabled: true
+    - type: schedule
+      id: weekday-morning
+      enabled: false
+      schedule:
+        timezone: user
+        cron: "0 8 * * 1-5"
+
+  contextBinding:
+    required: [user, workspace]
+    optional: [project, task, thread, nudge, scheduleWindow]
+    resolution:
+      project: nearest_active
+      task: active_or_due_soon
+      thread: resume_or_create
+      nudge: attach_open_or_create
+
+  steps:
+    strategy: sequence
+    sequence:
+      - id: load_context
+        type: hook
+        ref: ./hooks/load_context.ts
+      - id: daily_brief
+        type: skill
+        skill: core/daily-brief
+      - id: task_triage
+        type: skill
+        skill: core/task-triage
+      - id: review_changes
+        type: gate
+        approval:
+          mode: ask
+          reason: Before persisting changes to tasks and nudges
+      - id: emit_summary
+        type: emit
+        target: thread
+        template: morning-summary
+
+  capabilities:
+    tools: [calendar.read, tasks.read, tasks.write, thread.write, nudge.write]
+    connectors: [google_calendar, todoist]
+    models: [fast, reasoning]
+
+  permissions:
+    confirmationPolicy:
+      default: ask
+      exceptions:
+        - action: calendar.read
+          mode: auto
+        - action: tasks.read
+          mode: auto
+
+  execution:
+    timeoutMs: 90000
+    retryPolicy:
+      maxAttempts: 2
+    resumePolicy:
+      enabled: true
+      checkpointAfterEachStep: true

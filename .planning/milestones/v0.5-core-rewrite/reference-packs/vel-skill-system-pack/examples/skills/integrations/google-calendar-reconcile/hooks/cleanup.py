@@ -1,0 +1,1 @@
+# Sample cleanup hook placeholder

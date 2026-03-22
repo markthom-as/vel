@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "invocation": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
