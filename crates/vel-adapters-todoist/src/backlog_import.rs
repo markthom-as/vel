@@ -4,14 +4,14 @@ use time::OffsetDateTime;
 use vel_core::TaskId;
 use vel_storage::{
     get_sync_link, insert_canonical_object, upsert_integration_account, upsert_sync_link,
-    CanonicalObjectRecord, IntegrationAccountRecord, StorageError, SyncLinkRecord,
+    IntegrationAccountRecord, StorageError, SyncLinkRecord,
 };
 
 use crate::{
     account_linking::TodoistCheckpointState,
+    task_mapping::{map_todoist_task, TodoistTaskPayload},
     todoist_ids::{
-        todoist_provider_object_ref, todoist_sync_link_id, TODOIST_MODULE_ID, TODOIST_PROVIDER,
-        TODOIST_TASK_REMOTE_TYPE,
+        todoist_sync_link_id, TODOIST_MODULE_ID, TODOIST_PROVIDER, TODOIST_TASK_REMOTE_TYPE,
     },
 };
 
@@ -69,28 +69,12 @@ pub async fn import_todoist_backlog(
                 let task_id = TaskId::new().to_string();
                 insert_canonical_object(
                     pool,
-                    &CanonicalObjectRecord {
-                        id: task_id.clone(),
-                        object_type: "task".to_string(),
-                        object_class: "content".to_string(),
-                        schema_version: "0.5".to_string(),
-                        revision: 1,
-                        status: "active".to_string(),
-                        provenance_json: json!({
-                            "origin": "imported",
-                            "basis": "provider_backlog_import",
-                            "source_refs": [
-                                TODOIST_MODULE_ID,
-                                todoist_provider_object_ref(TODOIST_TASK_REMOTE_TYPE, &task.remote_id)
-                            ],
-                        }),
-                        facets_json: canonical_task_facets(task),
-                        source_summary_json: None,
-                        deleted_at: None,
-                        archived_at: None,
-                        created_at: request.imported_at,
-                        updated_at: request.imported_at,
-                    },
+                    &map_todoist_task(
+                        &task_id,
+                        &request.integration_account.id,
+                        &TodoistTaskPayload::from(task),
+                        request.imported_at,
+                    ),
                 )
                 .await?;
                 (task_id, true)
@@ -145,29 +129,6 @@ pub async fn import_todoist_backlog(
     Ok(TodoistBacklogImportReport { imported })
 }
 
-fn canonical_task_facets(task: &TodoistBacklogTask) -> JsonValue {
-    json!({
-        "title": task.title,
-        "description": JsonValue::Null,
-        "status": "ready",
-        "priority": "medium",
-        "task_type": "generic",
-        "tags": task.labels,
-        "provider_facets": {
-            "todoist": {
-                "project_id": task.project_remote_id,
-                "section_id": task.section_remote_id,
-                "section_name_snapshot": JsonValue::Null,
-                "parent_task_id": task.parent_remote_id,
-                "labels": task.labels,
-                "priority": task.priority,
-                "due": task.due,
-                "is_deleted_upstream": false,
-            }
-        }
-    })
-}
-
 fn stamp_account_checkpoints(
     mut account: IntegrationAccountRecord,
     checkpoints: &TodoistCheckpointState,
@@ -203,6 +164,23 @@ fn stamp_account_checkpoints(
     account.metadata_json = metadata;
     account.updated_at = imported_at;
     account
+}
+
+impl From<&TodoistBacklogTask> for TodoistTaskPayload {
+    fn from(value: &TodoistBacklogTask) -> Self {
+        Self {
+            remote_id: value.remote_id.clone(),
+            title: value.title.clone(),
+            description: None,
+            completed: false,
+            priority: value.priority.clone(),
+            due: value.due.clone(),
+            labels: value.labels.clone(),
+            project_remote_id: value.project_remote_id.clone(),
+            parent_remote_id: value.parent_remote_id.clone(),
+            section_remote_id: value.section_remote_id.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
