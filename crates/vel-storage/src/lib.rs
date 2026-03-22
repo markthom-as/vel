@@ -4,6 +4,7 @@ mod infra;
 mod mapping;
 mod migration_artifacts;
 mod migrations;
+mod module_registry_store;
 mod projection_rebuilder;
 mod query;
 mod repositories;
@@ -28,6 +29,7 @@ pub use migration_artifacts::{
     MigrationReplayReport, MigrationValidationReport,
 };
 pub use migrations::migrate_storage;
+pub use module_registry_store::SqliteModuleRegistryStore;
 pub use projection_rebuilder::rebuild_source_summary_projection;
 pub use query::{
     query_canonical_objects, traverse_relations, CanonicalObjectQuery, CanonicalObjectSort,
@@ -52,7 +54,7 @@ pub use repositories::{
 };
 pub use storage_backend::{
     AuditStore, ObjectStore, ProjectionStore, RegistryStore, RelationStore, RevisionToken,
-    RuntimeStore, StorageContractError, StorageTransaction, StoreQuery, SyncLinkStore,
+    RuntimeStore, StorageContractError, StorageTransaction, StoreQuery, StoredRecord, SyncLinkStore,
     TransactionManager,
 };
 pub use vel_core::{

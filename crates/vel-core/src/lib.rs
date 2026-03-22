@@ -17,6 +17,7 @@ pub mod ids;
 pub mod linking;
 pub mod loops;
 pub mod message;
+pub mod module_registry;
 pub mod node_identity;
 pub mod object_envelope;
 pub mod ownership;
@@ -39,6 +40,7 @@ pub mod uncertainty;
 pub mod vocabulary;
 pub mod writeback;
 pub mod grants;
+pub mod registry_ids;
 
 pub use apple::{
     AppleBehaviorMetric, AppleBehaviorSummary, AppleBehaviorSummaryScope, AppleClientSurface,
@@ -109,6 +111,11 @@ pub use message::{
     Message, MessageAction, MessageBody, MessageImportance, MessageRole, MessageStatus,
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
 };
+pub use module_registry::{
+    materialize_registry_object, CapabilityRequest, DefaultRegistryReconciler, ManifestSource,
+    PersistedOverlay, ReconciliationResult, ReconciliationState, RegistryLoader,
+    RegistryManifest, RegistryObject, RegistryReconciler, RegistryStatus,
+};
 pub use node_identity::NodeIdentity;
 pub use object_envelope::{
     CanonicalObjectEnvelope, DurableStatus, ObjectClass, ObjectProvenance, SourceSummary,
@@ -173,6 +180,10 @@ pub use vocabulary::{
 pub use writeback::{
     WritebackOperationId, WritebackOperationKind, WritebackOperationRecord, WritebackRisk,
     WritebackStatus, WritebackTargetRef,
+};
+pub use registry_ids::{
+    SemanticRegistryId, RegistryKind, MODULE_INTEGRATION_GOOGLE_CALENDAR,
+    MODULE_INTEGRATION_TODOIST, SKILL_CORE_DAILY_BRIEF, TOOL_OBJECT_GET,
 };
 
 use ::time::OffsetDateTime;
