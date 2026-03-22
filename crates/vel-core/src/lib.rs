@@ -44,7 +44,9 @@ pub mod vocabulary;
 pub mod writeback;
 pub mod grants;
 pub mod registry_ids;
+pub mod skill_runtime;
 pub mod workflow_context;
+pub mod workflow_grants;
 pub mod workflow_steps;
 
 pub use apple::{
@@ -206,6 +208,8 @@ pub use registry_ids::{
     SemanticRegistryId, RegistryKind, MODULE_INTEGRATION_GOOGLE_CALENDAR,
     MODULE_INTEGRATION_TODOIST, SKILL_CORE_DAILY_BRIEF, TOOL_OBJECT_GET,
 };
+pub use skill_runtime::{SkillInvocation, SkillInvocationMode, SkillInvocationOutcome};
+pub use workflow_grants::GrantEnvelope;
 
 use ::time::OffsetDateTime;
 use serde::{Deserialize, Serialize};

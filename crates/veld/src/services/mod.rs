@@ -63,6 +63,7 @@ pub mod reflow;
 pub mod retrieval;
 pub mod risk;
 pub mod sandbox;
+pub mod skill_invocation;
 pub mod suggestions;
 pub mod synthesis;
 pub(crate) mod tailscale;
