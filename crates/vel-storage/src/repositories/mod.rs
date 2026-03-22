@@ -35,3 +35,9 @@ pub(crate) mod uncertainty_records_repo;
 pub(crate) mod upstream_refs_repo;
 pub(crate) mod work_assignments_repo;
 pub(crate) mod writeback_operations_repo;
+
+#[allow(unused_imports)]
+pub use crate::storage_backend::{
+    AuditStore, ObjectStore, ProjectionStore, RegistryStore, RelationStore, RuntimeStore,
+    SyncLinkStore, TransactionManager,
+};

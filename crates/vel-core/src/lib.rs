@@ -9,10 +9,12 @@ pub mod daily_loop;
 pub mod execution;
 pub mod integration;
 pub mod intervention;
+pub mod ids;
 pub mod linking;
 pub mod loops;
 pub mod message;
 pub mod node_identity;
+pub mod object_envelope;
 pub mod operator_queue;
 pub mod ordering;
 pub mod people;
@@ -68,6 +70,10 @@ pub use execution::{
     LocalAgentManifest, LocalRuntimeKind, ProjectExecutionContext, RepoWorktreeRef,
     TokenBudgetClass,
 };
+pub use ids::{
+    IntegrationAccountId, ModuleId, SkillId, SyncLinkId, TaskId, ToolId, WorkflowId,
+    WriteIntentId,
+};
 pub use integration::{
     IntegrationConnection, IntegrationConnectionEvent, IntegrationConnectionEventType,
     IntegrationConnectionSettingRef, IntegrationConnectionStatus, IntegrationFamily,
@@ -81,6 +87,10 @@ pub use message::{
     ProvenanceRef, ReminderCard, RiskCard, SuggestionCard, SummaryCard, SystemNotice, TextMessage,
 };
 pub use node_identity::NodeIdentity;
+pub use object_envelope::{
+    CanonicalObjectEnvelope, DurableStatus, ObjectClass, ObjectProvenance, SourceSummary,
+    TaskEnvelope,
+};
 pub use operator_queue::{
     ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionPermissionMode,
     ActionScopeAffinity, ActionState, ActionSurface, ActionThreadRoute, ActionThreadRouteTarget,

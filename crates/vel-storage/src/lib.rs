@@ -2,6 +2,7 @@ mod db;
 mod infra;
 mod mapping;
 mod repositories;
+mod storage_backend;
 
 pub use db::{
     ArtifactInsert, ArtifactRecord, AssistantTranscriptInsert, AssistantTranscriptRecord,
@@ -16,11 +17,17 @@ pub use db::{
     UncertaintyRecordInsert, UpstreamObjectRefRecord, WorkAssignmentInsert, WorkAssignmentRecord,
     WorkAssignmentUpdate,
 };
+pub use storage_backend::{
+    AuditStore, ObjectStore, ProjectionStore, RegistryStore, RelationStore, RevisionToken,
+    RuntimeStore, StorageContractError, StorageTransaction, StoreQuery, SyncLinkStore,
+    TransactionManager,
+};
 pub use vel_core::{
     ConflictCaseRecord, ContextCapture, DurableRoutineBlock, LinkScope, LinkStatus,
-    LinkedNodeRecord, OrderingStamp, OrientationSnapshot, PairingTokenRecord, PersonAlias,
-    PersonId, PersonLinkRef, PersonRecord, PlanningConstraint, PlanningConstraintKind,
-    ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef,
-    ProjectStatus, RoutinePlanningProfile, SearchResult, SemanticHit, SemanticMemoryRecord,
-    SemanticQuery, WorkAssignmentStatus, WritebackOperationRecord, WritebackStatus,
+    LinkedNodeRecord, ModuleId, OrderingStamp, OrientationSnapshot, PairingTokenRecord,
+    PersonAlias, PersonId, PersonLinkRef, PersonRecord, PlanningConstraint,
+    PlanningConstraintKind, ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord,
+    ProjectRootRef, ProjectStatus, RoutinePlanningProfile, SearchResult, SemanticHit,
+    SemanticMemoryRecord, SemanticQuery, SyncLinkId, TaskId, WorkAssignmentStatus, WorkflowId,
+    WritebackOperationRecord, WritebackStatus, WriteIntentId,
 };
