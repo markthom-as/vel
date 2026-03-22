@@ -1,0 +1,33 @@
+{
+  "id": "write_intent_01hxyzwrite",
+  "action_name": "object.update",
+  "target_object_refs": [
+    "task_01hxyztask"
+  ],
+  "provider": "todoist",
+  "integration_account_id": "integration_account_01hxyzacct",
+  "requested_change": {
+    "field": "due",
+    "from": "2026-03-22",
+    "to": "2026-03-23"
+  },
+  "ownership_evaluation": {
+    "field_class": "source-owned",
+    "decision": "pending write intent"
+  },
+  "policy_evaluation": {
+    "workspace": "allow",
+    "module": "allow",
+    "integration_account": "allow"
+  },
+  "confirmation_mode": "ask_if_external_write",
+  "status": "proposed",
+  "downstream_operation_refs": [
+    "write_op_01hxyzpending",
+    "write_op_01hxyzapproved",
+    "write_op_01hxyzexecuting",
+    "write_op_01hxyzsucceeded",
+    "write_op_01hxyzfailed",
+    "write_op_01hxyzcancelled"
+  ]
+}

@@ -198,6 +198,18 @@
       "schema": "config/schemas/0.5-sync-link.schema.json"
     },
     {
+      "id": "v0_5_write_intent_schema",
+      "path": "config/schemas/0.5-write-intent.schema.json",
+      "kind": "write_intent",
+      "schema": "config/schemas/0.5-write-intent.schema.json"
+    },
+    {
+      "id": "v0_5_write_intent_example",
+      "path": "config/examples/0.5-write-intent.example.json",
+      "kind": "write_intent",
+      "schema": "config/schemas/0.5-write-intent.schema.json"
+    },
+    {
       "id": "backup_manifest_example",
       "path": "config/examples/backup-manifest.example.json",
       "kind": "backup_manifest",

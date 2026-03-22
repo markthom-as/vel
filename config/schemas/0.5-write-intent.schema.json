@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vel.local/schemas/0.5-write-intent.schema.json",
+  "title": "0.5 WriteIntent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "action_name",
+    "target_object_refs",
+    "provider",
+    "integration_account_id",
+    "confirmation_mode",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^write_intent_"
+    },
+    "action_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_object_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "provider": {
+      "type": ["string", "null"]
+    },
+    "integration_account_id": {
+      "type": ["string", "null"]
+    },
+    "requested_change": {
+      "type": "object"
+    },
+    "ownership_evaluation": {
+      "type": "object"
+    },
+    "policy_evaluation": {
+      "type": "object"
+    },
+    "confirmation_mode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "ask",
+        "ask_if_destructive",
+        "ask_if_cross_source",
+        "ask_if_external_write",
+        "deny"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "approved",
+        "executing",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "downstream_operation_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

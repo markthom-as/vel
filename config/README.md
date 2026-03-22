@@ -56,6 +56,7 @@ Use it to answer four questions quickly:
 - `schemas/backup-manifest.schema.json`
 - `schemas/0.5-canonical-object-envelope.schema.json`
 - `schemas/0.5-sync-link.schema.json`
+- `schemas/0.5-write-intent.schema.json`
 - Examples and manifests:
   - `examples/app-config.example.toml`
   - `examples/agent-specs.example.yaml`
@@ -87,6 +88,7 @@ Use it to answer four questions quickly:
   - `examples/swarm-protocol-envelope.example.json`
   - `examples/backup-manifest.example.json`
   - `examples/0.5-sync-link.example.json`
+  - `examples/0.5-write-intent.example.json`
   - `contracts-manifest.json`
 
 ## Ownership Rules
@@ -112,6 +114,8 @@ Use it to answer four questions quickly:
 - `docs/cognitive-agent-architecture/architecture/day-plan-application-contract.md` owns the supervised same-day `day_plan` / `reflow` application vocabulary over commitment scheduling.
 - `docs/cognitive-agent-architecture/architecture/0.5-canonical-object-model.md` owns the `0.5` canonical object taxonomy and universal durable envelope vocabulary.
 - `docs/cognitive-agent-architecture/architecture/0.5-canonical-relations-and-linkage.md` owns the `0.5` relation, `IntegrationAccount`, and `SyncLink` linkage vocabulary.
+- `docs/cognitive-agent-architecture/architecture/0.5-action-membrane-and-policy.md` owns the `0.5` generic action namespace, policy layers, confirmation vocabulary, and explainability requirements.
+- `docs/cognitive-agent-architecture/architecture/0.5-ownership-conflict-and-write-intent.md` owns the `0.5` ownership, conflict, tombstone, and `WriteIntent` lifecycle vocabulary.
 
 ## Scientific Substrate vs Symbolic Layer
 
