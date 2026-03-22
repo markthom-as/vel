@@ -94,8 +94,8 @@ Apple Reminders is expected after `0.5` as a future provider of the same canonic
 | Phase | Requirements | Status |
 |-------|--------------|--------|
 | 57. Architecture freeze, canonical contracts, and milestone lock | CORE-50-01, CORE-50-02, CORE-50-03, ACTION-50-01, POLICY-50-01, MODULE-50-01, WF-50-01, CAL-50-01, SYNC-50-01 | Complete |
-| 58. Canonical object kernel and system-of-record storage rewrite | CORE-50-01, CORE-50-02, CORE-50-03, CUTOVER-50-01 | Active |
-| 59. Action membrane, policy engine, and audit authority | ACTION-50-01, POLICY-50-01, SYNC-50-01 | Planned |
+| 58. Canonical object kernel and system-of-record storage rewrite | CORE-50-01, CORE-50-02, CORE-50-03, CUTOVER-50-01 | Complete |
+| 59. Action membrane, policy engine, and audit authority | ACTION-50-01, POLICY-50-01, SYNC-50-01 | Active |
 | 60. Module loader, registry, and core-module bootstrap | MODULE-50-01, POLICY-50-01 | Planned |
 | 61. Workflow and skill primitives over canonical objects | WF-50-01, ACTION-50-01, POLICY-50-01 | Planned |
 | 62. Calendar core model and canonical availability semantics | CAL-50-01, CORE-50-01, SYNC-50-01 | Planned |

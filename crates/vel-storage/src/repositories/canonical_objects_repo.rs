@@ -145,7 +145,9 @@ pub async fn update_canonical_object(
     })
 }
 
-fn map_canonical_object_row(row: &sqlx::sqlite::SqliteRow) -> Result<CanonicalObjectRecord, StorageError> {
+pub(crate) fn map_canonical_object_row_for_query(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<CanonicalObjectRecord, StorageError> {
     Ok(CanonicalObjectRecord {
         id: row.try_get("id")?,
         object_type: row.try_get("object_type")?,
@@ -170,6 +172,12 @@ fn map_canonical_object_row(row: &sqlx::sqlite::SqliteRow) -> Result<CanonicalOb
         created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
         updated_at: timestamp_to_datetime(row.try_get("updated_at")?)?,
     })
+}
+
+fn map_canonical_object_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<CanonicalObjectRecord, StorageError> {
+    map_canonical_object_row_for_query(row)
 }
 
 #[cfg(test)]

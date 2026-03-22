@@ -93,7 +93,9 @@ pub async fn list_relations_from(
     rows.iter().map(map_relation_row).collect()
 }
 
-fn map_relation_row(row: &sqlx::sqlite::SqliteRow) -> Result<CanonicalRelationRecord, StorageError> {
+pub(crate) fn map_relation_row_for_query(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<CanonicalRelationRecord, StorageError> {
     Ok(CanonicalRelationRecord {
         id: row.try_get("id")?,
         relation_type: row.try_get("relation_type")?,
@@ -107,6 +109,12 @@ fn map_relation_row(row: &sqlx::sqlite::SqliteRow) -> Result<CanonicalRelationRe
         created_at: timestamp_to_datetime(row.try_get("created_at")?)?,
         updated_at: timestamp_to_datetime(row.try_get("updated_at")?)?,
     })
+}
+
+fn map_relation_row(
+    row: &sqlx::sqlite::SqliteRow,
+) -> Result<CanonicalRelationRecord, StorageError> {
+    map_relation_row_for_query(row)
 }
 
 #[cfg(test)]

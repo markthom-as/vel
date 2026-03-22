@@ -4,6 +4,8 @@ mod infra;
 mod mapping;
 mod migration_artifacts;
 mod migrations;
+mod projection_rebuilder;
+mod query;
 mod repositories;
 mod storage_backend;
 
@@ -26,6 +28,11 @@ pub use migration_artifacts::{
     MigrationReplayReport, MigrationValidationReport,
 };
 pub use migrations::migrate_storage;
+pub use projection_rebuilder::rebuild_source_summary_projection;
+pub use query::{
+    query_canonical_objects, traverse_relations, CanonicalObjectQuery, CanonicalObjectSort,
+    CanonicalObjectSortField, QuerySortDirection, RelationTraversal,
+};
 pub use repositories::{
     canonical_objects_repo::{
         get_canonical_object, insert_canonical_object, update_canonical_object,
