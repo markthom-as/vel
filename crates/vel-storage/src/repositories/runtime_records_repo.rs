@@ -61,7 +61,7 @@ pub async fn list_runtime_records(
             updated_at
         FROM runtime_records
         WHERE record_type = ?
-        ORDER BY created_at ASC
+        ORDER BY created_at ASC, id ASC
         "#,
     )
     .bind(record_type)

@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 61
 current_phase_name: workflow-and-skill-primitives-over-canonical-objects
-current_plan: 61-03-PLAN
-current_work_id: 0.5.61.3
+current_plan: 61-04-PLAN
+current_work_id: 0.5.61.4
 status: in_progress
-stopped_at: "`61-02` completed and active execution advanced into manual invocation, run records, and approval-aware workflow execution"
-last_updated: "2026-03-22T23:55:00Z"
+stopped_at: "`61-03` completed and active execution advanced into black-box proof for manual, mediated, refusal-aware workflow runtime"
+last_updated: "2026-03-23T00:20:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 36
-  completed_plans: 21
-  percent: 58
+  completed_plans: 22
+  percent: 61
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 61
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.61.3
+Current Work ID: 0.5.61.4
 Current Phase: 61
 Current Phase Name: workflow-and-skill-primitives-over-canonical-objects
-Current Plan: 61-03-PLAN
+Current Plan: 61-04-PLAN
 Total Plans in Phase: 4
-Progress: 58%
+Progress: 61%
 Last Activity: 2026-03-22
-Last Activity Description: Completed workflow grant envelopes and mediated skill invocation; active execution now moves into manual invocation, run records, and approval-aware workflow execution
+Last Activity Description: Completed manual invocation, run records, and approval-aware dry-run behavior; active execution now moves into black-box workflow runtime proof
 
 ## Current Position
 
 Phase: 61 (workflow-and-skill-primitives-over-canonical-objects) — IN PROGRESS
-Plan: land manual workflow invocation, run records, and approval-aware dry-run behavior over the constrained workflow runtime
+Plan: land black-box proof for manual, mediated, refusal-aware workflow runtime
 
 ## Accumulated Context
 
@@ -67,7 +67,7 @@ Plan: land manual workflow invocation, run records, and approval-aware dry-run b
 
 ### Next Step
 
-Execute [61-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/61-03-PLAN.md) and land manual workflow invocation plus run-record and approval contracts.
+Execute [61-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/61-04-PLAN.md) and close Phase 61 with black-box workflow runtime verification.
 
 ### Roadmap Evolution
 
@@ -90,6 +90,7 @@ Execute [61-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `60-04` has landed shared core/provider registration proof through canonical module manifests and provider-module registration service
 - `61-01` has landed typed workflow context binding plus the minimal lawful workflow-step vocabulary
 - `61-02` has landed workflow grant envelopes plus mediated skill invocation over module activation and membrane policy
+- `61-03` has landed manual invocation, run records, approval seams, and dry-run runtime evidence over canonical objects
 
 ---
-*Last updated: 2026-03-22 after completing `61-02` and advancing active execution to `61-03`*
+*Last updated: 2026-03-23 after completing `61-03` and advancing active execution to `61-04`*

@@ -42,11 +42,13 @@ pub mod types;
 pub mod uncertainty;
 pub mod vocabulary;
 pub mod writeback;
+pub mod approvals;
 pub mod grants;
 pub mod registry_ids;
 pub mod skill_runtime;
 pub mod workflow_context;
 pub mod workflow_grants;
+pub mod workflow_runs;
 pub mod workflow_steps;
 
 pub use apple::{
@@ -55,6 +57,7 @@ pub use apple::{
     AppleScheduleSnapshot, AppleTurnProvenance, AppleVoiceIntent,
     AppleVoiceTurnQueuedMutationSummary, AppleVoiceTurnRequest, AppleVoiceTurnResponse,
 };
+pub use approvals::{ApprovalRecord, ApprovalRequired, ApprovalStatus};
 pub use action_contracts::{
     generic_object_action_contracts, ActionCapability, ActionContract, ActionErrorKind,
     ActionRequestEnvelope, ActionResponseEnvelope, AuditRequirement,
@@ -200,6 +203,7 @@ pub use workflow_context::{
     WorkflowBinding, WorkflowContext, WorkflowContextValue, WorkflowContextValueKind,
     WorkflowObjectRef, WorkflowRuntimeValue,
 };
+pub use workflow_runs::{RunRecord, WorkflowRunStatus};
 pub use workflow_steps::{
     ActionStep, ApprovalStep, ConditionStep, SkillStep, SyncStep, WorkflowStep,
     WorkflowStepKind,
