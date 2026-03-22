@@ -5,17 +5,7 @@ use crate::actions::{
     OBJECT_CREATE, OBJECT_DELETE, OBJECT_EXPLAIN, OBJECT_GET, OBJECT_LINK, OBJECT_QUERY,
     OBJECT_UPDATE,
 };
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ConfirmationMode {
-    Auto,
-    Ask,
-    AskIfDestructive,
-    AskIfCrossSource,
-    AskIfExternalWrite,
-    Deny,
-}
+use crate::policy::ConfirmationMode;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -224,4 +214,3 @@ mod tests {
         );
     }
 }
-

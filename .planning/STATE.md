@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 59
 current_phase_name: action-membrane-policy-engine-and-audit-authority
-current_plan: 59-02-PLAN
-current_work_id: 0.5.59.2
+current_plan: 59-03-PLAN
+current_work_id: 0.5.59.3
 status: in_progress
-stopped_at: `59-01` completed and active execution advanced into policy, grants, and confirmation precedence
-last_updated: "2026-03-23T02:35:00Z"
+stopped_at: `59-02` completed and active execution advanced into ownership, stale handling, and conflict classification
+last_updated: "2026-03-23T04:10:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 36
-  completed_plans: 11
-  percent: 31
+  completed_plans: 12
+  percent: 33
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 59
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.59.2
+Current Work ID: 0.5.59.3
 Current Phase: 59
 Current Phase Name: action-membrane-policy-engine-and-audit-authority
-Current Plan: 59-02-PLAN
+Current Plan: 59-03-PLAN
 Total Plans in Phase: 5
-Progress: 31%
+Progress: 33%
 Last Activity: 2026-03-22
-Last Activity Description: Landed the generic action registry and object-action backbone; active execution now moves into policy, grants, and confirmation precedence
+Last Activity Description: Landed shared policy and grant law; active execution now moves into ownership, stale handling, and conflict classification
 
 ## Current Position
 
 Phase: 59 (action-membrane-policy-engine-and-audit-authority) — IN PROGRESS
-Plan: land policy evaluation, grant semantics, and confirmation precedence over the new action backbone
+Plan: land ownership evaluation, stale-state handling, and conflict classification over the membrane backbone
 
 ## Accumulated Context
 
@@ -65,7 +65,7 @@ Plan: land policy evaluation, grant semantics, and confirmation precedence over 
 
 ### Next Step
 
-Execute [59-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/59-02-PLAN.md) and land policy evaluation, grants, and confirmation precedence over the new action backbone.
+Execute [59-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/59-03-PLAN.md) and land ownership evaluation, stale-state handling, and conflict classification over the membrane backbone.
 
 ### Roadmap Evolution
 
@@ -78,6 +78,7 @@ Execute [59-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `58-04` has landed deterministic bootstrap and migration-artifact replay scaffolding
 - `58-05` has landed storage-neutral query, projection rebuild seams, and substrate roundtrip proof
 - `59-01` has landed the generic action vocabulary, typed action contracts, registry seam, and initial object actions
+- `59-02` has landed shared policy/grant types plus runtime precedence and grant narrowing behavior
 
 ---
-*Last updated: 2026-03-23 after completing `59-01` and advancing active execution to `59-02`*
+*Last updated: 2026-03-23 after completing `59-02` and advancing active execution to `59-03`*

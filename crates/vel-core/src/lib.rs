@@ -21,6 +21,7 @@ pub mod operator_queue;
 pub mod ordering;
 pub mod people;
 pub mod planning;
+pub mod policy;
 pub mod project;
 pub mod protocol;
 pub mod provenance;
@@ -34,6 +35,7 @@ pub mod types;
 pub mod uncertainty;
 pub mod vocabulary;
 pub mod writeback;
+pub mod grants;
 
 pub use apple::{
     AppleBehaviorMetric, AppleBehaviorSummary, AppleBehaviorSummaryScope, AppleClientSurface,
@@ -43,7 +45,7 @@ pub use apple::{
 };
 pub use action_contracts::{
     generic_object_action_contracts, ActionCapability, ActionContract, ActionErrorKind,
-    ActionRequestEnvelope, ActionResponseEnvelope, AuditRequirement, ConfirmationMode,
+    ActionRequestEnvelope, ActionResponseEnvelope, AuditRequirement,
 };
 pub use actions::{
     generic_object_action_names, OBJECT_CREATE, OBJECT_DELETE, OBJECT_EXPLAIN, OBJECT_GET,
@@ -120,6 +122,10 @@ pub use planning::{
     DurableRoutineBlock, PlanningConstraint, PlanningConstraintKind, PlanningProfileContinuity,
     PlanningProfileEditProposal, PlanningProfileMutation, PlanningProfileMutationKind,
     PlanningProfileRemoveTarget, PlanningProfileSurface, RoutinePlanningProfile,
+};
+pub use policy::{
+    confirmation_mode_vocabulary, ConfirmationMode, PolicyDecision, PolicyDecisionKind,
+    PolicyEvaluationInput, PolicyLayerDecision, PolicyLayerKind,
 };
 pub use project::{
     ProjectFamily, ProjectId, ProjectProvisionRequest, ProjectRecord, ProjectRootRef, ProjectStatus,
@@ -460,3 +466,4 @@ pub enum VelCoreError {
     #[error("invalid run transition: {0}")]
     InvalidTransition(String),
 }
+pub use grants::{Grant, GrantRequest, GrantScope};
