@@ -2,6 +2,7 @@ pub mod apple;
 pub mod action_contracts;
 pub mod actions;
 pub mod audit;
+pub mod bootstrap;
 pub mod capability;
 pub mod command;
 pub mod commitment;
@@ -33,6 +34,7 @@ pub mod risk;
 pub mod run;
 pub mod sandbox;
 pub mod scheduler;
+pub mod seeded_workflows;
 pub mod semantic;
 pub mod time;
 pub mod types;
@@ -57,6 +59,7 @@ pub use actions::{
     OBJECT_LINK, OBJECT_QUERY, OBJECT_UPDATE,
 };
 pub use audit::{AuditBeforeAfter, AuditEventKind, AuditFieldCapture, AuditRecord};
+pub use bootstrap::{CoreBootstrapBundle, CoreBootstrapPolicy, CoreBootstrapReport, CoreBootstrapSource};
 pub use capability::{CapabilityDenial, CapabilityDescriptor, CapabilityGrant};
 pub use command::{
     CommandConfidenceBand, DomainKind, DomainOperation, IntentResolution, ParseMode, PlanningKind,
@@ -164,6 +167,10 @@ pub use sandbox::{
     SandboxResourceLimits,
 };
 pub use scheduler::{CanonicalScheduleRules, ScheduleTimeWindow};
+pub use seeded_workflows::{
+    reconcile_seeded_workflow, SeededWorkflowMutability, SeededWorkflowOrigin,
+    SeededWorkflowReconciliationState, SeededWorkflowRecord, SeededWorkflowSpec,
+};
 pub use semantic::{
     HybridRetrievalPolicy, RecallContextHit, RecallContextPack, RecallContextSourceCount,
     RetrievalStrategy, SemanticHit, SemanticMemoryRecord, SemanticProvenance, SemanticQuery,

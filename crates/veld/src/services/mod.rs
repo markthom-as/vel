@@ -20,6 +20,7 @@ pub mod commitment_scheduling;
 pub mod components;
 pub mod connect_runtime;
 pub mod conflict_classifier;
+pub mod core_module_bootstrap;
 pub mod context_generation;
 pub mod context_runs;
 pub mod daily_loop;
