@@ -1,6 +1,9 @@
 mod db;
+mod bootstrap;
 mod infra;
 mod mapping;
+mod migration_artifacts;
+mod migrations;
 mod repositories;
 mod storage_backend;
 
@@ -17,6 +20,12 @@ pub use db::{
     UncertaintyRecordInsert, UpstreamObjectRefRecord, WorkAssignmentInsert, WorkAssignmentRecord,
     WorkAssignmentUpdate,
 };
+pub use bootstrap::{bootstrap_canonical_registry, BootstrapReport};
+pub use migration_artifacts::{
+    replay_migration_artifact, validate_migration_artifact, MigrationArtifactRecord,
+    MigrationReplayReport, MigrationValidationReport,
+};
+pub use migrations::migrate_storage;
 pub use repositories::{
     canonical_objects_repo::{
         get_canonical_object, insert_canonical_object, update_canonical_object,

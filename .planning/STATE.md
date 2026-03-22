@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 58
 current_phase_name: canonical-object-kernel-and-system-of-record-storage-rewrite
-current_plan: 58-04-PLAN
-current_work_id: 0.5.58.4
+current_plan: 58-05-PLAN
+current_work_id: 0.5.58.5
 status: in_progress
-stopped_at: `58-03` completed and active execution advanced into bootstrap and migration-artifact scaffolding work
-last_updated: "2026-03-22T23:45:00Z"
+stopped_at: `58-04` completed and active execution advanced into query and projection rebuild closure
+last_updated: "2026-03-23T00:25:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 36
-  completed_plans: 8
-  percent: 22
+  completed_plans: 9
+  percent: 25
 ---
 
 # Project State
@@ -31,14 +31,14 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 58
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.58.4
+Current Work ID: 0.5.58.5
 Current Phase: 58
 Current Phase Name: canonical-object-kernel-and-system-of-record-storage-rewrite
-Current Plan: 58-04-PLAN
+Current Plan: 58-05-PLAN
 Total Plans in Phase: 5
-Progress: 22%
+Progress: 25%
 Last Activity: 2026-03-22
-Last Activity Description: Landed integration-account, SyncLink, runtime-record, and projection persistence with focused storage tests; Phase 58 now advances into bootstrap and migration scaffolding
+Last Activity Description: Landed deterministic bootstrap and migration-artifact replay scaffolding; Phase 58 now advances into query and projection rebuild closure
 
 ## Current Position
 
@@ -64,7 +64,7 @@ Plan: start the `0.5` implementation line from the frozen Phase 57 packet
 
 ### Next Step
 
-Execute [58-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/58-04-PLAN.md) and implement deterministic bootstrap plus migration-artifact scaffolding.
+Execute [58-05-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/58-05-PLAN.md) and close Phase 58 with query and projection rebuild seams plus substrate proof.
 
 ### Roadmap Evolution
 
@@ -74,6 +74,7 @@ Execute [58-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `58-01` has landed the typed ID, envelope, and storage-trait base layer
 - `58-02` has landed canonical object, registry, and relation persistence
 - `58-03` has landed integration-account, SyncLink, runtime-record, and projection persistence
+- `58-04` has landed deterministic bootstrap and migration-artifact replay scaffolding
 
 ---
-*Last updated: 2026-03-22 after completing `58-03` and advancing active execution to `58-04`*
+*Last updated: 2026-03-23 after completing `58-04` and advancing active execution to `58-05`*

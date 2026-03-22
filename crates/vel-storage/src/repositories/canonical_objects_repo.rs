@@ -1,10 +1,11 @@
+use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sqlx::{Row, SqlitePool};
 use time::OffsetDateTime;
 
 use crate::{db::StorageError, mapping::timestamp_to_datetime};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CanonicalObjectRecord {
     pub id: String,
     pub object_type: String,
