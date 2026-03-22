@@ -17,6 +17,7 @@ pub mod loops;
 pub mod message;
 pub mod node_identity;
 pub mod object_envelope;
+pub mod ownership;
 pub mod operator_queue;
 pub mod ordering;
 pub mod people;
@@ -58,7 +59,10 @@ pub use command::{
     TypedTarget,
 };
 pub use commitment::{Commitment, CommitmentId, CommitmentStatus};
-pub use conflicts::{ConflictCaseId, ConflictCaseKind, ConflictCaseRecord, ConflictCaseStatus};
+pub use conflicts::{
+    ConflictCaseId, ConflictCaseKind, ConflictCaseRecord, ConflictCaseStatus, MembraneConflict,
+    MembraneConflictKind,
+};
 pub use connect::{
     ConnectInstance, ConnectInstanceCapabilityManifest, ConnectInstanceStatus,
     ConnectRuntimeCapability,
@@ -103,6 +107,7 @@ pub use object_envelope::{
     CanonicalObjectEnvelope, DurableStatus, ObjectClass, ObjectProvenance, SourceSummary,
     TaskEnvelope,
 };
+pub use ownership::{OwnershipClass, OwnershipDefault, OwnershipEvaluation, OwnershipOverlay};
 pub use operator_queue::{
     ActionEvidenceRef, ActionItem, ActionItemId, ActionKind, ActionPermissionMode,
     ActionScopeAffinity, ActionState, ActionSurface, ActionThreadRoute, ActionThreadRouteTarget,

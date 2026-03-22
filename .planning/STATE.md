@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 59
 current_phase_name: action-membrane-policy-engine-and-audit-authority
-current_plan: 59-03-PLAN
-current_work_id: 0.5.59.3
+current_plan: 59-04-PLAN
+current_work_id: 0.5.59.4
 status: in_progress
-stopped_at: `59-02` completed and active execution advanced into ownership, stale handling, and conflict classification
-last_updated: "2026-03-23T04:10:00Z"
+stopped_at: `59-03` completed and active execution advanced into audit, explainability, and WriteIntent dispatch
+last_updated: "2026-03-23T06:05:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 2
   total_plans: 36
-  completed_plans: 12
-  percent: 33
+  completed_plans: 13
+  percent: 36
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 59
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.59.3
+Current Work ID: 0.5.59.4
 Current Phase: 59
 Current Phase Name: action-membrane-policy-engine-and-audit-authority
-Current Plan: 59-03-PLAN
+Current Plan: 59-04-PLAN
 Total Plans in Phase: 5
-Progress: 33%
+Progress: 36%
 Last Activity: 2026-03-22
-Last Activity Description: Landed shared policy and grant law; active execution now moves into ownership, stale handling, and conflict classification
+Last Activity Description: Landed ownership overlays and typed disagreement states; active execution now moves into audit, explainability, and WriteIntent dispatch
 
 ## Current Position
 
 Phase: 59 (action-membrane-policy-engine-and-audit-authority) — IN PROGRESS
-Plan: land ownership evaluation, stale-state handling, and conflict classification over the membrane backbone
+Plan: land audit emission, explain payloads, and WriteIntent dispatch over the lawful membrane backbone
 
 ## Accumulated Context
 
@@ -65,7 +65,7 @@ Plan: land ownership evaluation, stale-state handling, and conflict classificati
 
 ### Next Step
 
-Execute [59-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/59-03-PLAN.md) and land ownership evaluation, stale-state handling, and conflict classification over the membrane backbone.
+Execute [59-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/59-04-PLAN.md) and land audit emission, explainability, and WriteIntent dispatch over the membrane backbone.
 
 ### Roadmap Evolution
 
@@ -79,6 +79,7 @@ Execute [59-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `58-05` has landed storage-neutral query, projection rebuild seams, and substrate roundtrip proof
 - `59-01` has landed the generic action vocabulary, typed action contracts, registry seam, and initial object actions
 - `59-02` has landed shared policy/grant types plus runtime precedence and grant narrowing behavior
+- `59-03` has landed ownership overlays plus typed stale/conflict classification
 
 ---
-*Last updated: 2026-03-23 after completing `59-02` and advancing active execution to `59-03`*
+*Last updated: 2026-03-23 after completing `59-03` and advancing active execution to `59-04`*

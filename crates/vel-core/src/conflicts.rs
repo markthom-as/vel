@@ -6,6 +6,23 @@ use uuid::Uuid;
 
 use crate::{writeback::WritebackTargetRef, VelCoreError};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MembraneConflictKind {
+    StaleVersion,
+    OwnershipConflict,
+    PendingReconciliation,
+    ProviderDivergence,
+    TombstoneWriteRace,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MembraneConflict {
+    pub kind: MembraneConflictKind,
+    pub field: Option<String>,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ConflictCaseId(pub(crate) String);
 
@@ -135,4 +152,25 @@ pub struct ConflictCaseRecord {
     pub resolved_at: Option<OffsetDateTime>,
     #[serde(with = "time::serde::rfc3339")]
     pub updated_at: OffsetDateTime,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MembraneConflict, MembraneConflictKind};
+
+    #[test]
+    fn membrane_conflicts_keep_stale_and_ownership_states_distinct() {
+        let stale = MembraneConflict {
+            kind: MembraneConflictKind::StaleVersion,
+            field: Some("revision".to_string()),
+            reason: "revision mismatch".to_string(),
+        };
+        let ownership = MembraneConflict {
+            kind: MembraneConflictKind::OwnershipConflict,
+            field: Some("due".to_string()),
+            reason: "provider owns due".to_string(),
+        };
+
+        assert_ne!(stale.kind, ownership.kind);
+    }
 }
