@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 61
 current_phase_name: workflow-and-skill-primitives-over-canonical-objects
-current_plan: 61-01-PLAN
-current_work_id: 0.5.61.1
+current_plan: 61-02-PLAN
+current_work_id: 0.5.61.2
 status: in_progress
-stopped_at: "`60-04` completed and active execution advanced into typed workflow context binding and minimal step contracts"
-last_updated: "2026-03-23T13:40:00Z"
+stopped_at: "`61-01` completed and active execution advanced into workflow grant envelopes and mediated skill invocation"
+last_updated: "2026-03-22T23:30:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 36
-  completed_plans: 19
-  percent: 53
+  completed_plans: 20
+  percent: 56
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 61
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.61.1
+Current Work ID: 0.5.61.2
 Current Phase: 61
 Current Phase Name: workflow-and-skill-primitives-over-canonical-objects
-Current Plan: 61-01-PLAN
+Current Plan: 61-02-PLAN
 Total Plans in Phase: 4
-Progress: 53%
+Progress: 56%
 Last Activity: 2026-03-22
-Last Activity Description: Closed Phase 60 with shared core/provider registration proof; active execution now moves into typed workflow context binding and minimal step contracts
+Last Activity Description: Completed typed workflow context binding and minimal step contracts; active execution now moves into workflow grant envelopes and mediated skill invocation
 
 ## Current Position
 
 Phase: 61 (workflow-and-skill-primitives-over-canonical-objects) — IN PROGRESS
-Plan: land typed workflow context binding and the minimal lawful workflow-step vocabulary
+Plan: land workflow grant envelopes and mediated skill invocation over the constrained workflow runtime
 
 ## Accumulated Context
 
@@ -67,7 +67,7 @@ Plan: land typed workflow context binding and the minimal lawful workflow-step v
 
 ### Next Step
 
-Execute [61-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/61-01-PLAN.md) and land typed workflow context binding plus the minimal step taxonomy.
+Execute [61-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/61-02-PLAN.md) and land workflow grant envelopes plus mediated skill invocation contracts.
 
 ### Roadmap Evolution
 
@@ -88,6 +88,7 @@ Execute [61-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `60-02` has landed deterministic core bootstrap, seeded workflow reconciliation, and idempotent bootstrap proof
 - `60-03` has landed typed module capability requests plus policy-mediated activation and refusal-path verification
 - `60-04` has landed shared core/provider registration proof through canonical module manifests and provider-module registration service
+- `61-01` has landed typed workflow context binding plus the minimal lawful workflow-step vocabulary
 
 ---
-*Last updated: 2026-03-23 after completing Phase 60 and advancing active execution to `61-01`*
+*Last updated: 2026-03-22 after completing `61-01` and advancing active execution to `61-02`*

@@ -44,6 +44,8 @@ pub mod vocabulary;
 pub mod writeback;
 pub mod grants;
 pub mod registry_ids;
+pub mod workflow_context;
+pub mod workflow_steps;
 
 pub use apple::{
     AppleBehaviorMetric, AppleBehaviorSummary, AppleBehaviorSummaryScope, AppleClientSurface,
@@ -191,6 +193,14 @@ pub use vocabulary::{
 pub use writeback::{
     WritebackOperationId, WritebackOperationKind, WritebackOperationRecord, WritebackRisk,
     WritebackStatus, WritebackTargetRef,
+};
+pub use workflow_context::{
+    WorkflowBinding, WorkflowContext, WorkflowContextValue, WorkflowContextValueKind,
+    WorkflowObjectRef, WorkflowRuntimeValue,
+};
+pub use workflow_steps::{
+    ActionStep, ApprovalStep, ConditionStep, SkillStep, SyncStep, WorkflowStep,
+    WorkflowStepKind,
 };
 pub use registry_ids::{
     SemanticRegistryId, RegistryKind, MODULE_INTEGRATION_GOOGLE_CALENDAR,

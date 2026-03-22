@@ -71,3 +71,4 @@ pub mod uncertainty;
 pub mod wasm_guest_runtime;
 pub mod writeback;
 pub mod write_intent_dispatch;
+pub mod workflow_context_binding;
