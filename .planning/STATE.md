@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 63
 current_phase_name: todoist-as-canonical-task-proving-adapter
-current_plan: 63-03-PLAN
-current_work_id: 0.5.63.3
+current_plan: 63-04-PLAN
+current_work_id: 0.5.63.4
 status: in_progress
-stopped_at: "Phase 63 plan 02 completed with canonical Todoist task/project/tag/comment mapping; active execution advanced into ownership-aware sync and mediated writes"
-last_updated: "2026-03-22T23:06:33Z"
+stopped_at: "Phase 63 plan 03 completed with ownership-aware Todoist sync, tombstones, and mediated outward writes; active execution advanced into black-box Todoist adapter proof"
+last_updated: "2026-03-22T23:59:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 36
-  completed_plans: 28
-  percent: 78
+  completed_plans: 29
+  percent: 81
 ---
 
 # Project State
@@ -31,19 +31,19 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 63
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.63.3
+Current Work ID: 0.5.63.4
 Current Phase: 63
 Current Phase Name: todoist-as-canonical-task-proving-adapter
-Current Plan: 63-03-PLAN
+Current Plan: 63-04-PLAN
 Total Plans in Phase: 4
-Progress: 78%
+Progress: 81%
 Last Activity: 2026-03-22
-Last Activity Description: Completed Phase 63 plan 02 with canonical Todoist task/project/tag/comment mapping and advanced active execution into ownership-aware sync and mediated writes
+Last Activity Description: Completed Phase 63 plan 03 with ownership-aware Todoist sync, tombstones, and mediated outward writes, then advanced active execution into Todoist black-box constitutional proof
 
 ## Current Position
 
 Phase: 63 (todoist-as-canonical-task-proving-adapter) — IN PROGRESS
-Plan: implement ownership-aware Todoist sync, tombstones, and conservative outward-write bridging through policy and `WriteIntent`
+Plan: prove Todoist now behaves as a constitutional adapter over canonical task, sync, history, and write-intent law
 
 ## Accumulated Context
 
@@ -67,7 +67,7 @@ Plan: implement ownership-aware Todoist sync, tombstones, and conservative outwa
 
 ### Next Step
 
-Execute [63-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/63-03-PLAN.md) and implement ownership-aware Todoist sync, tombstones, and mediated outward writes.
+Execute [63-04-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/63-04-PLAN.md) and close Todoist as a black-box proving adapter over canonical task and membrane law.
 
 ### Roadmap Evolution
 
@@ -99,6 +99,7 @@ Execute [63-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - Phase 62 is complete and active execution has advanced into Phase 63 Todoist proving-adapter work
 - `63-01` has landed deterministic Todoist multi-account linking, idempotent backlog import over canonical objects and `SyncLink`, and multi-account non-collision proof
 - `63-02` has landed canonical Todoist task/project mapping, raw-tag plus `task_semantics` interpretation proof, and attached-comment mapping without reopening message/thread ontology
+- `63-03` has landed ownership-aware Todoist sync, tombstones by default, conservative outward writes through `WriteIntent`, and continuous `TaskEvent` history across provider and local changes
 
 ---
-*Last updated: 2026-03-22 after completing `63-02` and advancing active execution to `63-03`*
+*Last updated: 2026-03-22 after completing `63-03` and advancing active execution to `63-04`*
