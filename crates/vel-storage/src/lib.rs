@@ -17,6 +17,17 @@ pub use db::{
     UncertaintyRecordInsert, UpstreamObjectRefRecord, WorkAssignmentInsert, WorkAssignmentRecord,
     WorkAssignmentUpdate,
 };
+pub use repositories::{
+    canonical_objects_repo::{
+        get_canonical_object, insert_canonical_object, update_canonical_object,
+        CanonicalObjectRecord,
+    },
+    registry_repo::{
+        get_registry_object, list_registry_objects, upsert_registry_object,
+        CanonicalRegistryRecord,
+    },
+    relations_repo::{list_relations_from, upsert_relation, CanonicalRelationRecord},
+};
 pub use storage_backend::{
     AuditStore, ObjectStore, ProjectionStore, RegistryStore, RelationStore, RevisionToken,
     RuntimeStore, StorageContractError, StorageTransaction, StoreQuery, SyncLinkStore,

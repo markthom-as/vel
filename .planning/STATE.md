@@ -6,18 +6,18 @@ release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
 current_phase: 58
 current_phase_name: canonical-object-kernel-and-system-of-record-storage-rewrite
-current_plan: 58-02-PLAN
-current_work_id: 0.5.58.2
+current_plan: 58-03-PLAN
+current_work_id: 0.5.58.3
 status: in_progress
-stopped_at: `58-01` completed and active execution advanced into canonical object, registry, and relation persistence work
-last_updated: "2026-03-22T22:05:00Z"
+stopped_at: `58-02` completed and active execution advanced into integration-account, sync-link, runtime-record, and projection persistence work
+last_updated: "2026-03-22T23:05:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 36
-  completed_plans: 6
-  percent: 17
+  completed_plans: 7
+  percent: 19
 ---
 
 # Project State
@@ -31,14 +31,14 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 Status: `0.5` active at Phase 58
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.58.2
+Current Work ID: 0.5.58.3
 Current Phase: 58
 Current Phase Name: canonical-object-kernel-and-system-of-record-storage-rewrite
-Current Plan: 58-02-PLAN
+Current Plan: 58-03-PLAN
 Total Plans in Phase: 5
-Progress: 17%
+Progress: 19%
 Last Activity: 2026-03-22
-Last Activity Description: Landed typed `0.5` IDs, canonical durable envelope types, and explicit storage/store seams; Phase 58 now advances into object, registry, and relation persistence
+Last Activity Description: Landed canonical object, registry, and typed relation persistence with focused storage tests; Phase 58 now advances into integration-account, SyncLink, runtime, and projection persistence
 
 ## Current Position
 
@@ -64,7 +64,7 @@ Plan: start the `0.5` implementation line from the frozen Phase 57 packet
 
 ### Next Step
 
-Execute [58-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/58-02-PLAN.md) and begin canonical object, registry, and relation persistence work.
+Execute [58-03-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/58-03-PLAN.md) and implement integration-account, SyncLink, runtime-record, and projection persistence.
 
 ### Roadmap Evolution
 
@@ -72,6 +72,7 @@ Execute [58-02-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `0.5` is now active, and Phase 57 is complete
 - active execution has moved into Phase 58 substrate work
 - `58-01` has landed the typed ID, envelope, and storage-trait base layer
+- `58-02` has landed canonical object, registry, and relation persistence
 
 ---
-*Last updated: 2026-03-22 after completing `58-01` and advancing active execution to `58-02`*
+*Last updated: 2026-03-22 after completing `58-02` and advancing active execution to `58-03`*
