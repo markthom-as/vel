@@ -4,20 +4,20 @@ milestone: 0.5
 milestone_name: backend-core-rewrite
 release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
-current_phase: 59
-current_phase_name: action-membrane-policy-engine-and-audit-authority
-current_plan: 59-05-PLAN
-current_work_id: 0.5.59.5
+current_phase: 60
+current_phase_name: module-loader-registry-and-core-module-bootstrap
+current_plan: 60-01-PLAN
+current_work_id: 0.5.60.1
 status: in_progress
-stopped_at: `59-04` completed and active execution advanced into hostile-path membrane verification
-last_updated: "2026-03-23T07:05:00Z"
+stopped_at: `59` completed and active execution advanced into module loader, registry, and core-module bootstrap
+last_updated: "2026-03-23T08:30:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 36
-  completed_plans: 14
-  percent: 39
+  completed_plans: 15
+  percent: 42
 ---
 
 # Project State
@@ -29,21 +29,21 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** `0.5` backend-only core rewrite from the frozen canonical object/action/policy/module/workflow packet
 
-Status: `0.5` active at Phase 59
+Status: `0.5` active at Phase 60
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.59.5
-Current Phase: 59
-Current Phase Name: action-membrane-policy-engine-and-audit-authority
-Current Plan: 59-05-PLAN
+Current Work ID: 0.5.60.1
+Current Phase: 60
+Current Phase Name: module-loader-registry-and-core-module-bootstrap
+Current Plan: 60-01-PLAN
 Total Plans in Phase: 5
-Progress: 39%
+Progress: 42%
 Last Activity: 2026-03-22
-Last Activity Description: Landed typed audit and explain payloads plus append-only WriteIntent dispatch records; active execution now moves into hostile-path membrane verification
+Last Activity Description: Closed Phase 59 with happy-path and hostile-path membrane proof; active execution now moves into module loader and registry bootstrap
 
 ## Current Position
 
-Phase: 59 (action-membrane-policy-engine-and-audit-authority) — IN PROGRESS
-Plan: close Phase 59 with hostile-path membrane verification and error-surface proof
+Phase: 60 (module-loader-registry-and-core-module-bootstrap) — IN PROGRESS
+Plan: land the governed module loader, registry seam, and core bootstrap path
 
 ## Accumulated Context
 
@@ -53,6 +53,7 @@ Plan: close Phase 59 with hostile-path membrane verification and error-surface p
 - `0.5` starts from the frozen packet in `.planning/milestones/v0.5-core-rewrite/`
 - Phase 57 is complete and is the authority-lock phase for canonical objects, actions, policy, modules, workflows, sync, and task semantics
 - Phase 58 is complete and is the storage/system-of-record substrate phase
+- Phase 59 is complete and is the typed action membrane, policy, audit, and hostile-path proof phase
 - Todoist and Google Calendar remain the proving adapters for `0.5`
 - UI/client embodiment work is explicitly out of scope for this milestone
 - roadmap communication continues to use semver release-line language with four-part work IDs like `0.5.57.1`
@@ -65,7 +66,7 @@ Plan: close Phase 59 with hostile-path membrane verification and error-surface p
 
 ### Next Step
 
-Execute [59-05-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/59-05-PLAN.md) and close Phase 59 with hostile-path membrane verification and error-surface proof.
+Execute [60-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/60-01-PLAN.md) and land canonical registry IDs, loader/reconciler contracts, and the registry store seam.
 
 ### Roadmap Evolution
 
@@ -81,6 +82,7 @@ Execute [59-05-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `59-02` has landed shared policy/grant types plus runtime precedence and grant narrowing behavior
 - `59-03` has landed ownership overlays plus typed stale/conflict classification
 - `59-04` has landed typed audit/explain payloads plus append-only `WriteIntent` dispatch recording
+- `59-05` has landed happy-path and hostile-path membrane proof plus typed error-surface verification
 
 ---
-*Last updated: 2026-03-23 after completing `59-04` and advancing active execution to `59-05`*
+*Last updated: 2026-03-23 after completing Phase `59` and advancing active execution to `60-01`*

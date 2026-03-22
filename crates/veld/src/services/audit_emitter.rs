@@ -20,7 +20,7 @@ impl AuditEmitter {
             id: format!("audit_{}", Uuid::new_v4().simple()),
             record_type: "audit".to_string(),
             object_ref: audit.target_object_refs.first().cloned(),
-            status: format!("{:?}", audit.outcome).to_ascii_lowercase(),
+            status: audit_status(&audit.outcome).to_string(),
             payload_json: serde_json::to_value(audit)
                 .map_err(|error| AppError::internal(error.to_string()))?,
             created_at: now,
@@ -29,6 +29,18 @@ impl AuditEmitter {
 
         insert_runtime_record(pool, &record).await?;
         Ok(record)
+    }
+}
+
+fn audit_status(outcome: &vel_core::AuditEventKind) -> &'static str {
+    match outcome {
+        vel_core::AuditEventKind::Allowed => "allowed",
+        vel_core::AuditEventKind::Denied => "denied",
+        vel_core::AuditEventKind::DryRun => "dry_run",
+        vel_core::AuditEventKind::ApprovalRequired => "approval_required",
+        vel_core::AuditEventKind::DispatchStarted => "dispatch_started",
+        vel_core::AuditEventKind::DispatchSucceeded => "dispatch_succeeded",
+        vel_core::AuditEventKind::DispatchFailed => "dispatch_failed",
     }
 }
 

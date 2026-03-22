@@ -79,7 +79,7 @@ Apple Reminders is expected after `0.5` as a future provider of the same canonic
 
 - [x] **Phase 57: Architecture freeze, canonical contracts, and milestone lock** - Ratify the object model, action/policy/module/workflow vocabulary, sync ownership rules, and `0.5` scope before implementation spreads.
 - [ ] **Phase 58: Canonical object kernel and system-of-record storage rewrite** - Build the durable object, relation, account, linkage, sync-cursor, tombstone, and migration substrate that the rest of `0.5` depends on.
-- [ ] **Phase 59: Action membrane, policy engine, and audit authority** - Make every core read/write flow through typed actions governed by grants, field ownership, confirmation posture, and audit logging.
+- [x] **Phase 59: Action membrane, policy engine, and audit authority** - Make every core read/write flow through typed actions governed by grants, field ownership, confirmation posture, and audit logging.
 - [ ] **Phase 60: Module loader, registry, and core-module bootstrap** - Land the registry and loader path that can boot core modules first, then load Todoist and Google Calendar through the same governed path.
 - [ ] **Phase 61: Workflow and skill primitives over canonical objects** - Define and implement the minimal backend runtime for skills, workflows, typed context binding, action composition, and run records.
 - [ ] **Phase 62: Calendar core model and canonical availability semantics** - Implement the first-class calendar/domain layer that makes recurrence, attendees, location, and availability native to Vel rather than adapter accidents.
@@ -95,8 +95,8 @@ Apple Reminders is expected after `0.5` as a future provider of the same canonic
 |-------|--------------|--------|
 | 57. Architecture freeze, canonical contracts, and milestone lock | CORE-50-01, CORE-50-02, CORE-50-03, ACTION-50-01, POLICY-50-01, MODULE-50-01, WF-50-01, CAL-50-01, SYNC-50-01 | Complete |
 | 58. Canonical object kernel and system-of-record storage rewrite | CORE-50-01, CORE-50-02, CORE-50-03, CUTOVER-50-01 | Complete |
-| 59. Action membrane, policy engine, and audit authority | ACTION-50-01, POLICY-50-01, SYNC-50-01 | Active |
-| 60. Module loader, registry, and core-module bootstrap | MODULE-50-01, POLICY-50-01 | Planned |
+| 59. Action membrane, policy engine, and audit authority | ACTION-50-01, POLICY-50-01, SYNC-50-01 | Complete |
+| 60. Module loader, registry, and core-module bootstrap | MODULE-50-01, POLICY-50-01 | Active |
 | 61. Workflow and skill primitives over canonical objects | WF-50-01, ACTION-50-01, POLICY-50-01 | Planned |
 | 62. Calendar core model and canonical availability semantics | CAL-50-01, CORE-50-01, SYNC-50-01 | Planned |
 | 63. Todoist multi-account adapter and canonical task cut-in | TODOIST-50-01, CORE-50-03, SYNC-50-01 | Planned |
