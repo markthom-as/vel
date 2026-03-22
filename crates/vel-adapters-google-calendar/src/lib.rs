@@ -1,10 +1,21 @@
 pub mod account_linking;
+pub mod attendee_mapping;
+pub mod calendar_mapping;
+pub mod event_mapping;
 pub mod google_ids;
 pub mod module_manifest;
 pub mod windowed_import;
 
 pub use account_linking::{
     GoogleCalendarAccountLinkRequest, GoogleCalendarCheckpointState, link_google_calendar_account,
+};
+pub use attendee_mapping::{GoogleAttendeePayload, map_google_attendee};
+pub use calendar_mapping::{
+    GoogleCalendarMappingPayload, GoogleMappedCalendar, map_google_calendar,
+};
+pub use event_mapping::{
+    GoogleEventLocationPayload, GoogleEventMappingPayload, GoogleEventMomentPayload,
+    GoogleMappedEvent, map_google_event,
 };
 pub use google_ids::{
     GOOGLE_CALENDAR_MODULE_ID, GOOGLE_CALENDAR_PROVIDER, google_calendar_id,
