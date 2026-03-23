@@ -55,14 +55,17 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 **Goal achieved:** the shipped `Now` experience was tightened into the compact, operator-corrected MVP shell, then closed with a clean web build and focused regression evidence.
 
-## Active Release Line
+## Active Release Line: 0.5.1 Canonical Client Reconnection
 
-No successor release line is active yet.
+**Goal:** reconnect the web operator surfaces to the frozen `0.5` backend through the smallest truthful surface set: `Now`, `Threads`, and `System`.
 
-**Next milestone seed:**
-- reconnect or rebuild client surfaces against the canonical `0.5` backend contracts
-- decide the fate of quarantined read/configuration compatibility surfaces
-- widen provider/runtime capability only through a new milestone packet, not by extending `0.5`
+**Milestone priorities:**
+- truthful-surface doctrine governs all client work
+- backend contracts remain immutable during the milestone
+- one canonical transport layer owns all reads and `WriteIntent` mutations
+- `Inbox` is absorbed and `Settings` is replaced by `System`
+- deprecated routes and shims are deleted or explicitly quarantined
+- Apple receives handoff/spec docs only
 
 ## Requirements
 
@@ -107,7 +110,7 @@ No successor release line is active yet.
 
 ### Active
 
-- none — define the next milestone before new implementation work begins
+- `0.5.1` canonical client reconnection — active roadmap starts at Phase 66 inside the `0.5.1-beta` line
 
 ### Out of Scope
 
@@ -193,4 +196,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-23 after closing milestone `0.5` and clearing the active release line*
+*Last updated: 2026-03-23 after activating the `0.5.1` client reconnection line*

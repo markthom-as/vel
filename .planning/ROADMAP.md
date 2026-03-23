@@ -29,12 +29,18 @@
 
 ## Active Milestone
 
-No successor milestone is active yet.
+The active milestone is now canonical client reconnection:
 
-The most recent milestone packet is the now-complete backend rewrite archive:
+- [v0.5.1-client-reconnection/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-client-reconnection/ROADMAP.md)
 
-- [v0.5-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-ROADMAP.md)
-- [v0.5-core-rewrite/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
+Milestone `0.5.1` reconnects the web operator surfaces to the frozen `0.5` backend:
+
+- truthful-surface doctrine first
+- one canonical transport layer
+- three surfaces only: `Now`, `Threads`, `System`
+- `WriteIntent`-only mutations
+- deletion or explicit quarantine of stale client/backend seams
+- Apple handoff/spec only
 
 ## Scope Guardrails
 
@@ -54,6 +60,15 @@ Do not widen this milestone into:
 - speculative workflow-builder or trigger product work
 - marketplace/registry ecosystem work
 
+The active `0.5.1` line is only about truthful client reconnection:
+
+- no backend schema negotiation
+- no framework migration
+- no broad UI redesign
+- no new providers
+- no workflow-builder or trigger product widening
+- no Apple implementation work
+
 ## Versioning Policy
 
 Vel now uses semver language for product lines and shipped releases:
@@ -61,6 +76,7 @@ Vel now uses semver language for product lines and shipped releases:
 - `0.3.0` is the latest shipped release baseline in the repo
 - `0.4.x` is the latest closed release line
 - `0.5.0-beta` is the latest completed backend rewrite line
+- `0.5.1-beta` is the active client reconnection line
 
 For roadmap execution inside a release line, use a four-part lineage identifier:
 
@@ -75,6 +91,10 @@ The latest completed execution packet is:
 
 - [v0.5-core-rewrite/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
 - [65-MILESTONE-EVIDENCE.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md)
+
+## Active Packet
+
+- [v0.5.1-client-reconnection/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-client-reconnection/ROADMAP.md)
 
 ---
 *Last updated: 2026-03-23 after closing milestone `0.5`*

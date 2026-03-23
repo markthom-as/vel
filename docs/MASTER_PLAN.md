@@ -1,5 +1,5 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (`0.3.0` shipped, `0.4.x` and `0.5` closed; next milestone not yet activated)
+**Status**: Canonical Truth (`0.3.0` shipped, `0.4.x` and `0.5` closed; `0.5.1` active)
 **Last Updated**: 2026-03-23
 
 ---
@@ -15,12 +15,12 @@
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
 
-Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). `0.4.x` and `0.5` are now closed. The latest backend rewrite packet and closeout evidence live here:
+Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). `0.4.x` and `0.5` are now closed. The active milestone is `0.5.1` canonical client reconnection, built on the frozen `0.5` backend rewrite:
 
 - [`.planning/milestones/v0.5-core-rewrite/ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
 - [`.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md`](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md)
-
-No successor milestone is active yet.
+- [`.planning/milestones/v0.5.1-client-reconnection/ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.5.1-client-reconnection/ROADMAP.md)
+- [`docs/cognitive-agent-architecture/architecture/0.5.1-truthful-surface-doctrine.md`](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/0.5.1-truthful-surface-doctrine.md)
 
 Planning notation from this point forward:
 

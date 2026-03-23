@@ -1,23 +1,23 @@
 ---
 gsd_state_version: 1.0
-milestone: 0.5
-milestone_name: backend-core-rewrite
-release_line: 0.5.0-beta
-next_beta_target: 0.5.0-beta
-current_phase: null
-current_phase_name: null
-current_plan: null
-current_work_id: null
-status: complete
-stopped_at: "Phase 65 closed with canonical write-path cutover, contract reconciliation, and milestone-spanning execution-backed verification"
-last_updated: "2026-03-23T00:32:00Z"
-last_activity: 2026-03-22
+milestone: 0.5.1
+milestone_name: canonical-client-reconnection
+release_line: 0.5.1-beta
+next_beta_target: 0.5.1-beta
+current_phase: 66
+current_phase_name: truth-doctrine-contract-freeze-and-milestone-lock
+current_plan: 66-01-PLAN
+current_work_id: 0.5.1.66.1
+status: in_progress
+stopped_at: "Post-0.5 direction lock finalized and v0.5.1 milestone packet activated"
+last_updated: "2026-03-23T02:00:00Z"
+last_activity: 2026-03-23
 progress:
-  total_phases: 9
-  completed_phases: 9
-  total_plans: 36
-  completed_plans: 36
-  percent: 100
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 6
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -27,47 +27,44 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** `0.5` backend-only core rewrite from the frozen canonical object/action/policy/module/workflow packet
+**Current focus:** `0.5.1` canonical client reconnection against the frozen `0.5` backend contracts
 
-Status: `0.5` complete
-Release Line: 0.5.0-beta
-Current Work ID: none
-Current Phase: none
-Current Phase Name: none
-Current Plan: none
-Total Plans in Phase: 4
-Progress: 100%
-Last Activity: 2026-03-22
-Last Activity Description: Closed Phase 65 and milestone `0.5` with canonical write-path cutover, caller reconciliation, and milestone-spanning execution-backed verification
+Status: `0.5.1` active at Phase 66
+Release Line: 0.5.1-beta
+Current Work ID: 0.5.1.66.1
+Current Phase: 66
+Current Phase Name: truth-doctrine-contract-freeze-and-milestone-lock
+Current Plan: 66-01-PLAN
+Total Plans in Phase: 1
+Progress: 0%
+Last Activity: 2026-03-23
+Last Activity Description: Activated milestone `0.5.1` with a truth-alignment packet for canonical client reconnection
 
 ## Current Position
 
-Phase: none — MILESTONE COMPLETE
-Plan: no active plan; next milestone has not been activated yet
+Phase: 66 (truth-doctrine-contract-freeze-and-milestone-lock) — IN PROGRESS
+Plan: freeze truthful-surface law and milestone scope before client rebinding begins
 
 ## Accumulated Context
 
 ### Active Decisions
 
 - `0.4.x` is closed and should no longer absorb new implementation work
-- `0.5` starts from the frozen packet in `.planning/milestones/v0.5-core-rewrite/`
-- Phase 57 is complete and is the authority-lock phase for canonical objects, actions, policy, modules, workflows, sync, and task semantics
-- Phase 58 is complete and is the storage/system-of-record substrate phase
-- Phase 59 is complete and is the typed action membrane, policy, audit, and hostile-path proof phase
-- Phase 60 is complete and is the governed module/bootstrap/activation phase
-- Todoist and Google Calendar remain the proving adapters for `0.5`
-- UI/client embodiment work is explicitly out of scope for this milestone
-- roadmap communication continues to use semver release-line language with four-part work IDs like `0.5.57.1`
+- `0.5` is frozen backend authority and is not reopened by `0.5.1`
+- `0.5.1` is a truth-alignment milestone, not a redesign or backend renegotiation
+- only `Now`, `Threads`, and `System` are first-class surfaces in `0.5.1`
+- Apple is out for implementation and gets handoff/spec docs only
+- roadmap communication continues to use semver release-line language with four-part work IDs
 
 ### Current Concerns
 
-- no post-`0.5` milestone packet is activated yet
-- client embodiment and broader provider expansion remain explicit follow-on work, not implicitly started roadmap work
-- quarantined read/configuration compatibility surfaces remain visible until the next milestone decides their fate
+- the current frontend is low-trust and should be reused only where structurally sound
+- quarantined read/configuration compatibility surfaces must be classified explicitly in Phase 67
+- no backend schema negotiation is allowed except for provable bugs
 
 ### Next Step
 
-Define and activate the post-`0.5` milestone packet before new implementation work begins.
+Execute [66-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.1-client-reconnection/66-01-PLAN.md) and lock truthful-surface doctrine plus milestone scope.
 
 ### Roadmap Evolution
 
@@ -109,7 +106,9 @@ Define and activate the post-`0.5` milestone packet before new implementation wo
 - `65-01` has landed live canonical write routes for Todoist and Google Calendar plus quarantine of superseded legacy write paths
 - `65-02` has landed caller/DTO reconciliation against `WriteIntent` authority with bounded read/configuration compatibility retained in quarantine
 - `65-03` has landed milestone-spanning execution-backed proof and explicit deferred-work capture for post-`0.5` work
-- `0.5` is complete and no successor milestone has been activated yet
+- `0.5` closed with canonical backend authority, proving adapters, and hard write-path cutover
+- `0.5.1` is now active as the canonical client reconnection line
+- Phase 66 has been drafted as the truth doctrine, contract freeze, and milestone lock phase
 
 ---
-*Last updated: 2026-03-23 after closing Phase 65 and completing milestone `0.5`*
+*Last updated: 2026-03-23 after activating milestone `0.5.1`*
