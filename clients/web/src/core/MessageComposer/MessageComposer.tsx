@@ -328,24 +328,6 @@ export function MessageComposer({
   const displayError = error ?? voiceError ?? null;
   const showSendButton = !floating || sending || hasSendablePayload;
 
-  /**
-   * Floating row: gray shell ends at the round control midpoint (not under full mic/send).
-   * `gap-2` (0.5rem) + overlay `pr-1` (0.25rem) + send 2.75rem + gap 0.375rem + half mic ~1.5rem; mic-only / send-only variants.
-   */
-  const floatingTextShellClass = useMemo(() => {
-    if (!floating) return '';
-    if (voiceSupported && showSendButton) {
-      return 'max-w-[calc(100%-(0.5rem+0.25rem+2.75rem+0.375rem+1.5rem))]';
-    }
-    if (voiceSupported) {
-      return 'max-w-[calc(100%-(0.5rem+0.25rem+1.5rem))]';
-    }
-    if (showSendButton) {
-      return 'max-w-[calc(100%-(0.5rem+0.25rem+1.375rem))]';
-    }
-    return '';
-  }, [floating, voiceSupported, showSendButton]);
-
   const voiceHint = voiceSupported
     ? isListening
       ? voiceLatched
@@ -376,51 +358,42 @@ export function MessageComposer({
 
   const micButtonEl = voiceSupported ? (
     floating ? (
-      <div className={`flex items-center ${isListening ? 'gap-1.5' : ''}`}>
+      <div className={`flex items-center ${isListening ? 'gap-1' : ''}`}>
         {isListening ? (
           <span
-            className="min-w-[4.75rem] text-right font-mono text-[11px] leading-tight tabular-nums text-zinc-300"
+            className="font-mono text-[10px] leading-none tabular-nums text-zinc-400"
             aria-live="polite"
             aria-label={`Recording ${formatVoiceClock(voiceElapsedMs)} of ${formatVoiceClock(FLOATING_VOICE_MAX_MS)}`}
           >
-            <span className="text-zinc-100">{formatVoiceClock(voiceElapsedMs)}</span>
-            <span className="text-zinc-500"> / </span>
-            <span className="text-zinc-500">{formatVoiceClock(FLOATING_VOICE_MAX_MS)}</span>
+            {formatVoiceClock(voiceElapsedMs)}
           </span>
         ) : null}
-        <div
+        <button
+          type="button"
+          onPointerDown={handleMicPointerDown}
+          onPointerUp={handleMicPointerUp}
+          onPointerCancel={handleMicPointerUp}
+          onDoubleClick={handleMicDoubleClick}
+          onKeyDown={handleVoiceKeyDown}
+          onKeyUp={handleVoiceKeyUp}
+          disabled={sending}
+          aria-pressed={isListening}
+          aria-label={micAriaLabel}
+          title={micTitle}
           className={cn(
-            'vel-composer-mic-shell vel-composer-gradient-border shrink-0 rounded-full p-[2px]',
-            isListening && 'vel-composer-mic--recording',
+            'relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-50',
+            isListening
+              ? 'bg-red-950/60 text-red-300'
+              : 'text-zinc-500 hover:text-zinc-300',
           )}
         >
-          <button
-            type="button"
-            onPointerDown={handleMicPointerDown}
-            onPointerUp={handleMicPointerUp}
-            onPointerCancel={handleMicPointerUp}
-            onDoubleClick={handleMicDoubleClick}
-            onKeyDown={handleVoiceKeyDown}
-            onKeyUp={handleVoiceKeyUp}
-            disabled={sending}
-            aria-pressed={isListening}
-            aria-label={micAriaLabel}
-            title={micTitle}
-            className={cn(
-              'relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-50',
-              isListening
-                ? 'bg-zinc-950/90 text-white shadow-[inset_0_0_0_1px_rgba(248,113,113,0.25)]'
-                : 'vel-brand-shimmer-surface vel-composer-mic-fill text-white hover:brightness-110',
-            )}
-          >
-            {isListening ? (
-              <FloatingMicPieRing progress={voiceProgress} warn={voiceProgress >= 0.85} />
-            ) : null}
-            <span className="relative z-10 flex items-center justify-center">
-              <MicIcon listening={isListening} size={20} className="text-white" />
-            </span>
-          </button>
-        </div>
+          {isListening ? (
+            <FloatingMicPieRing progress={voiceProgress} warn={voiceProgress >= 0.85} />
+          ) : null}
+          <span className="relative z-10 flex items-center justify-center">
+            <MicIcon listening={isListening} size={14} />
+          </span>
+        </button>
       </div>
     ) : (
       <button
@@ -454,7 +427,7 @@ export function MessageComposer({
       aria-label="Send"
       className={
         floating
-          ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[#ff8f40]/90 p-0 text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-40'
+          ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full p-0 text-zinc-950 transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-40'
           : `shrink-0 rounded-full bg-[#ff6b00] px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-[#ff8f40] disabled:pointer-events-none disabled:opacity-50 ${
               mergedMessage.trim() ? 'opacity-100' : 'opacity-0'
             }`
@@ -462,62 +435,41 @@ export function MessageComposer({
       style={floating ? { backgroundColor: uiTheme.brandHex } : undefined}
     >
       {sending ? (
-        <span className="text-lg leading-none" aria-hidden>
+        <span className="text-xs leading-none" aria-hidden>
           …
         </span>
       ) : (
-        <SendArrowIcon size={floating ? 18 : 16} strokeWidth={2.2} className={floating ? 'text-white' : undefined} />
+        <SendArrowIcon size={floating ? 14 : 16} strokeWidth={2.2} className={floating ? 'text-white' : undefined} />
       )}
     </button>
   ) : null;
 
   return (
-    <div className={`${floating ? 'fixed inset-x-0 bottom-10 z-30 px-4' : 'shrink-0 border-t border-zinc-800 p-3'}`}>
+    <div className={`${floating ? 'fixed inset-x-0 bottom-5 z-30 px-4' : 'shrink-0 border-t border-zinc-800 p-3'}`}>
       {displayError && (
-        <p className="mx-auto mb-2 max-w-2xl text-sm text-red-400" role="alert">
+        <p className="mx-auto mb-1.5 max-w-2xl text-xs text-red-400" role="alert">
           {displayError}
         </p>
       )}
       <div className={cn('mx-auto flex max-w-2xl gap-2', floating ? 'group w-full items-center' : 'items-end')}>
         {floating ? (
-          <div className="vel-composer-gradient-border min-w-0 w-full flex-1 rounded-full p-[2px]">
-            <div className="rounded-full bg-zinc-950/95 p-3 shadow-[0_24px_60px_rgba(0,0,0,0.55)] backdrop-blur">
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex min-w-0 w-full items-center gap-2 pl-4 pr-2">
-                  <div
-                    className={cn(
-                      'flex min-h-[2.75rem] min-w-0 flex-1 items-center rounded-l-full rounded-r-none py-2 pr-2',
-                      floatingTextShellClass,
-                    )}
-                  >
-                    <textarea
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Ask, capture, or talk to Vel… (Enter to send, Shift+Enter for newline)"
-                      rows={1}
-                      className="vel-composer-floating-textarea min-h-[2.75rem] w-full max-h-40 flex-1 resize-none border-0 bg-transparent px-2 py-2 leading-snug focus:outline-none focus:ring-0 disabled:opacity-50"
-                      disabled={sending}
-                      style={{ scrollbarWidth: 'none' }}
-                    />
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5 pr-1">
-                    {micButtonEl}
-                    {sendButtonEl}
-                  </div>
-                </div>
-                {interimTranscript && !hideHelperText ? (
-                  <p className="text-zinc-500 text-xs opacity-40" aria-live="polite">
-                    Listening locally… {interimTranscript}
-                  </p>
-                ) : null}
-                {!interimTranscript && !hideHelperText ? (
-                  <p className="text-zinc-500 text-xs opacity-40" aria-live="polite">
-                    {voiceHint}
-                  </p>
-                ) : null}
-              </div>
+          <div className="vel-composer-gradient-border min-w-0 w-full flex-1 rounded-full p-px">
+          <div className="flex items-center gap-1.5 rounded-full bg-zinc-950/95 py-1 pl-4 pr-1.5 backdrop-blur">
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask, capture, or talk to Vel…"
+              rows={1}
+              className="vel-composer-floating-textarea min-w-0 flex-1 resize-none border-0 bg-transparent py-0 text-[13px] leading-[1.5rem] focus:outline-none focus:ring-0 disabled:opacity-50"
+              disabled={sending}
+              style={{ scrollbarWidth: 'none', height: '1.5rem', maxHeight: '1.5rem' }}
+            />
+            <div className="flex shrink-0 items-center gap-0.5">
+              {micButtonEl}
+              {sendButtonEl}
             </div>
+          </div>
           </div>
         ) : (
           <>

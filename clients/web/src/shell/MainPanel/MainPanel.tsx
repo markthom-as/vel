@@ -107,7 +107,7 @@ export function MainPanel({
     <div className="relative flex min-h-0 flex-1 flex-col">
       {body}
       {(assistantEntryMessage || assistantInlineResponse) ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-32 z-[35] flex justify-center px-4 sm:px-6">
+        <div className="pointer-events-none fixed inset-x-0 bottom-20 z-[35] flex justify-center px-4 sm:px-6">
           <div className="pointer-events-auto max-h-[min(40vh,14rem)] w-full max-w-5xl overflow-y-auto">
             <AssistantEntryFeedback
               message={assistantEntryMessage}

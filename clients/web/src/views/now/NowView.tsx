@@ -16,6 +16,8 @@ import { surfaceShell } from '../../core/Theme';
 import {
   dedupeActionItems,
   dedupeTasks,
+  findActiveEvent,
+  nowLocationLabel,
   nudgeOpenSystemTarget,
 } from './nowModel';
 import type { SystemNavigationTarget } from '../system';
@@ -120,7 +122,6 @@ export function NowView({ onOpenThread, onOpenSystem }: NowViewProps) {
   const actionItems = dedupeActionItems(
     [...(data.action_items ?? [])].filter((item) => item.surface === 'now'),
   );
-  const header = data.header;
   const meshSummary = data.mesh_summary;
   const nudgeBars = data.nudge_bars ?? [];
   const taskLane = data.task_lane;
@@ -181,6 +182,20 @@ export function NowView({ onOpenThread, onOpenSystem }: NowViewProps) {
     }
   };
 
+  const activeEvent = findActiveEvent(data.schedule.upcoming_events, nowTs);
+  const locationLabel = nowLocationLabel(data, activeEvent);
+  const contextLabel = data.status_row?.context_label ?? data.context_line?.text ?? null;
+  const clientName = data.mesh_summary?.authority_label ?? null;
+
+  const dateTimeStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: data.timezone,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(nowTs * 1000));
+
   const visibleNudges = nudgeBars.slice(0, 4);
   const riskItems = actionItems
     .filter((item) => ['recovery', 'blocked', 'conflict', 'freshness', 'linking'].includes(item.kind))
@@ -203,13 +218,15 @@ export function NowView({ onOpenThread, onOpenSystem }: NowViewProps) {
         <div ref={contentRef} className={surfaceShell.mainContent}>
           <section className={surfaceShell.sectionStack}>
             <PanelSectionHeaderBand mode="section-header">
-              <PanelSectionHeaderLead className="space-y-2">
-                <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
-                  {header?.title ?? 'Now'}
-                </h1>
-                <p className="max-w-2xl text-xs leading-5 text-zinc-500 sm:text-sm">
-                  Work the live queue below. Date, active-task context, and ambient status stay in the navbar so this
-                  surface can stay focused on nudges, tasks, and thread pressure.
+              <PanelSectionHeaderLead className="space-y-1.5">
+                <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Now</h1>
+                <p className="text-xs text-zinc-400">
+                  {dateTimeStr}{activeEvent ? ` · ${activeEvent.title}` : ''}
+                </p>
+                <p className="max-w-2xl text-xs text-zinc-500">
+                  {[clientName, locationLabel, contextLabel ? `CONTEXT: ${contextLabel}` : null]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </p>
               </PanelSectionHeaderLead>
               <PanelSectionHeaderTrail>
