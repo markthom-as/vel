@@ -5,6 +5,7 @@
 - `v0.1` archived phase packet: [v0.1-phases](/home/jove/code/vel/.planning/milestones/v0.1-phases)
 - `v0.2` shipped true-MVP archive: [v0.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md)
 - `v0.3` shipped canonical `Now` + client mesh archive: [v0.3-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md)
+- `v0.5` shipped backend core rewrite archive: [v0.5-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-ROADMAP.md)
 
 ## Latest Closed Milestone
 
@@ -32,6 +33,7 @@ No successor milestone is active yet.
 
 The most recent milestone packet is the now-complete backend rewrite archive:
 
+- [v0.5-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-ROADMAP.md)
 - [v0.5-core-rewrite/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
 
 ## Scope Guardrails

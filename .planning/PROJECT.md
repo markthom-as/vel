@@ -35,33 +35,34 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 - client mesh, linking, sync/offline visibility, and connection recovery as shared product behavior
 - governed `Now` config, deterministic ranking, and approval posture in the same Rust-owned product-core lane
 
-## Latest Closed Release Line: 0.4.x Now/UI MVP Conformance Closure
+## Latest Closed Release Line: 0.5 Backend Core Rewrite
 
-**Goal achieved:** the shipped `Now` experience was tightened into the compact, operator-corrected MVP shell, then closed with a clean web build and focused regression evidence.
+**Goal achieved:** Vel now has a canonical object-centered backend authority with typed action/policy/audit infrastructure, governed module/bootstrap lanes, manual workflow runtime, native calendar semantics, Todoist and Google Calendar proving adapters, and canonical write-path cutover backed by execution evidence.
 
 **Versioning rule:**
 - shipped releases use semver, starting from the current `0.3.0` baseline
-- the active roadmap now runs in the `0.5.0-beta` line
+- `0.5.0-beta` is the latest completed backend rewrite line
 - in-flight planning slices use `<major>.<minor>.<phase>.<plan>` identifiers such as `0.5.57.1`, while the existing phase numbers remain the canonical directory and history keys
 
 **Milestone priorities achieved:**
-- web is the reference implementation for conformance closure
-- the top area of `Now` is containerless, compact, and operational rather than dashboard-like
-- tasks are the only dominant visual container on `Now`
-- inbox and now reflect the same actionable objects, with inbox remaining the superset queue
-- threads, settings, and shell navigation no longer leak helper prose and structural noise
-- iOS/client parity still follows the web reference rather than inventing a second behavior model
+- canonical object kernel is now the backend system of record
+- action, ownership, confirmation, and audit are mandatory backend infrastructure
+- module, skill, and workflow primitives load through governed paths
+- Todoist and Google Calendar prove the new substrate against real task/calendar complexity
+- live write authority now flows through canonical `WriteIntent` routes
 
-## Active Release Line: 0.5 Backend Core Rewrite
+## Prior Closed Release Line: 0.4.x Now/UI MVP Conformance Closure
 
-**Goal:** rebuild Vel around canonical objects, a typed action membrane, policy/audit infrastructure, module loading, workflow/skill primitives, and proving Todoist/Google Calendar adapters without widening into new UI work.
+**Goal achieved:** the shipped `Now` experience was tightened into the compact, operator-corrected MVP shell, then closed with a clean web build and focused regression evidence.
 
-**Milestone priorities:**
-- canonical object kernel becomes the system of record
-- actions, ownership, confirmation, and audit become mandatory backend infrastructure
-- module, skill, and workflow primitives load through governed core paths
-- Todoist and Google Calendar prove the new substrate
-- the milestone closes through hard backend cutover, not a long dual-live compatibility lane
+## Active Release Line
+
+No successor release line is active yet.
+
+**Next milestone seed:**
+- reconnect or rebuild client surfaces against the canonical `0.5` backend contracts
+- decide the fate of quarantined read/configuration compatibility surfaces
+- widen provider/runtime capability only through a new milestone packet, not by extending `0.5`
 
 ## Requirements
 
@@ -106,7 +107,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ### Active
 
-- `0.5` backend core rewrite — active roadmap starts at Phase 57 inside the `0.5.0-beta` line
+- none — define the next milestone before new implementation work begins
 
 ### Out of Scope
 
@@ -192,4 +193,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-22 after closing `0.4.x` and activating the `0.5` backend rewrite line*
+*Last updated: 2026-03-23 after closing milestone `0.5` and clearing the active release line*
