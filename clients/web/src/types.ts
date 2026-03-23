@@ -22,6 +22,34 @@ export interface DiagnosticsData {
   freshness_entries: FreshnessEntryData[];
 }
 
+export function decodeFreshnessEntryData(value: unknown): FreshnessEntryData {
+  const record = expectRecord(value, 'freshness entry');
+  return {
+    source: expectString(record.source, 'freshness entry.source'),
+    last_seen_at: expectNullableUnixSeconds(record.last_seen_at, 'freshness entry.last_seen_at'),
+    status: expectEnumString(record.status, 'freshness entry.status', ['fresh', 'stale', 'missing']),
+  };
+}
+
+export function decodeDiagnosticsData(value: unknown): DiagnosticsData {
+  const record = expectRecord(value, 'diagnostics');
+  return {
+    node_id: expectString(record.node_id, 'diagnostics.node_id'),
+    node_display_name: expectString(record.node_display_name, 'diagnostics.node_display_name'),
+    generated_at: expectUnixSeconds(record.generated_at, 'diagnostics.generated_at'),
+    sync_status: expectString(record.sync_status, 'diagnostics.sync_status'),
+    active_workers: expectNumber(record.active_workers, 'diagnostics.active_workers'),
+    capability_summary: decodeArray(
+      record.capability_summary ?? [],
+      (item) => expectString(item, 'diagnostics.capability_summary[]'),
+    ),
+    freshness_entries: decodeArray(
+      record.freshness_entries ?? [],
+      decodeFreshnessEntryData,
+    ),
+  };
+}
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };

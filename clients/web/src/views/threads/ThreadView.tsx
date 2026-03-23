@@ -1,20 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ConversationData, InboxItemData, JsonValue, MessageData } from '../../types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ConversationData, JsonValue, MessageData } from '../../types';
 import {
   chatQueryKeys,
-  invalidateInboxQueries,
   loadConversationList,
-  loadConversationInterventions,
   loadConversationMessages,
-  mutateIntervention,
 } from '../../data/chat';
-import { getQueryData, invalidateQuery, setQueryData, useQuery } from '../../data/query';
-import {
-  prunePendingInterventionActions,
-  removeInterventionById,
-  setPendingInterventionAction,
-  type PendingInterventionAction,
-} from '../../data/chat-state';
+import { useQuery } from '../../data/query';
 import { subscribeWsQuerySync } from '../../data/ws-sync';
 import { cn } from '../../core/cn';
 import { FilterDenseTag, FilterToggleTag } from '../../core/FilterToggleTag';
@@ -100,8 +91,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
 
   const filteredConversations = useMemo(() => {
     const query = threadFilter.trim().toLowerCase();
-    const sorted = [...conversations].sort((left, right) => right.updated_at - left.updated_at);
-    return sorted
+    return conversations
       .filter((conversation) => {
         if (filterMode === 'unread') {
           return Boolean(conversation.continuation);
@@ -125,15 +115,6 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     () => chatQueryKeys.conversationMessages(resolvedConversationId),
     [resolvedConversationId],
   );
-  const interventionsKey = useMemo(
-    () => chatQueryKeys.conversationInterventions(resolvedConversationId),
-    [resolvedConversationId],
-  );
-  const inboxKey = useMemo(() => chatQueryKeys.inbox('queue'), []);
-  const pendingInterventionActionsKey = useMemo(
-    () => chatQueryKeys.pendingInterventionActions(),
-    [],
-  );
 
   const {
     data: messages = [],
@@ -150,46 +131,10 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     },
     { enabled: Boolean(resolvedConversationId) },
   );
-  const {
-    data: interventions = [],
-    error: interventionsError,
-  } = useQuery<InboxItemData[]>(
-    interventionsKey,
-    async () => {
-      if (!resolvedConversationId) {
-        return [];
-      }
-      const response = await loadConversationInterventions(resolvedConversationId);
-      return response.ok && response.data ? response.data : [];
-    },
-    { enabled: Boolean(resolvedConversationId) },
-  );
-  const { data: pendingInterventionActions = {} } = useQuery<Record<string, PendingInterventionAction>>(
-    pendingInterventionActionsKey,
-    async () => ({}),
-    { enabled: false },
-  );
-
-  const visibleInterventions = interventions.filter(
-    (intervention) => pendingInterventionActions[intervention.id] === undefined,
-  );
-  const interventionsByMessageId = visibleInterventions.reduce<Record<string, string>>((next, intervention) => {
-    if (!(intervention.message_id in next)) {
-      next[intervention.message_id] = intervention.id;
-    }
-    return next;
-  }, {});
 
   useEffect(() => {
     return subscribeWsQuerySync();
   }, []);
-
-  useEffect(() => {
-    setQueryData<Record<string, PendingInterventionAction>>(
-      pendingInterventionActionsKey,
-      (prev = {}) => prunePendingInterventionActions(prev, interventions),
-    );
-  }, [interventions, pendingInterventionActionsKey]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -201,85 +146,6 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     }
   }, [messages]);
 
-  const removeIntervention = useCallback((interventionId: string) => {
-    setQueryData<InboxItemData[]>(
-      interventionsKey,
-      (prev = []) => removeInterventionById(prev, interventionId),
-    );
-    setQueryData<InboxItemData[]>(
-      inboxKey,
-      (prev = []) => removeInterventionById(prev, interventionId),
-    );
-  }, [inboxKey, interventionsKey]);
-
-  const restoreInterventions = useCallback(
-    (
-      interventionId: string,
-      previousConversationInterventions: InboxItemData[] | undefined,
-      previousInboxItems: InboxItemData[] | undefined,
-    ) => {
-      setQueryData<InboxItemData[]>(interventionsKey, previousConversationInterventions ?? []);
-      setQueryData<InboxItemData[]>(inboxKey, previousInboxItems ?? []);
-      setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) => {
-        if (!(interventionId in prev)) {
-          return prev;
-        }
-        const next = { ...prev };
-        delete next[interventionId];
-        return next;
-      });
-    },
-    [inboxKey, interventionsKey, pendingInterventionActionsKey],
-  );
-
-  const startInterventionAction = useCallback((interventionId: string, state: string) => {
-    setQueryData<Record<string, PendingInterventionAction>>(pendingInterventionActionsKey, (prev = {}) =>
-      setPendingInterventionAction(prev, interventionId, state),
-    );
-  }, [pendingInterventionActionsKey]);
-
-  const handleSnooze = useCallback(async (interventionId: string) => {
-    const previousConversationInterventions = getQueryData<InboxItemData[]>(interventionsKey);
-    const previousInboxItems = getQueryData<InboxItemData[]>(inboxKey);
-    startInterventionAction(interventionId, 'snoozed');
-    removeIntervention(interventionId);
-    try {
-      await mutateIntervention(interventionId, 'snooze', { minutes: 15 });
-      invalidateQuery(interventionsKey, { refetch: true });
-      invalidateInboxQueries();
-    } catch {
-      restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
-    }
-  }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
-
-  const handleResolve = useCallback(async (interventionId: string) => {
-    const previousConversationInterventions = getQueryData<InboxItemData[]>(interventionsKey);
-    const previousInboxItems = getQueryData<InboxItemData[]>(inboxKey);
-    startInterventionAction(interventionId, 'resolved');
-    removeIntervention(interventionId);
-    try {
-      await mutateIntervention(interventionId, 'resolve', {});
-      invalidateQuery(interventionsKey, { refetch: true });
-      invalidateInboxQueries();
-    } catch {
-      restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
-    }
-  }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
-
-  const handleDismiss = useCallback(async (interventionId: string) => {
-    const previousConversationInterventions = getQueryData<InboxItemData[]>(interventionsKey);
-    const previousInboxItems = getQueryData<InboxItemData[]>(inboxKey);
-    startInterventionAction(interventionId, 'dismissed');
-    removeIntervention(interventionId);
-    try {
-      await mutateIntervention(interventionId, 'dismiss', {});
-      invalidateQuery(interventionsKey, { refetch: true });
-      invalidateInboxQueries();
-    } catch {
-      restoreInterventions(interventionId, previousConversationInterventions, previousInboxItems);
-    }
-  }, [inboxKey, interventionsKey, removeIntervention, restoreInterventions, startInterventionAction]);
-
   if (!resolvedConversationId) {
     if (conversationsLoading) {
       return <SurfaceState message="Loading latest conversation…" layout="centered" />;
@@ -290,7 +156,7 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     return <SurfaceState message="No conversations yet." layout="centered" />;
   }
 
-  const error = conversationsError ?? messagesError ?? interventionsError;
+  const error = conversationsError ?? messagesError;
   if (messagesLoading) {
     return <SurfaceState message="Loading conversation…" layout="centered" />;
   }
@@ -421,6 +287,16 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                     ) : null}
                   </PanelMutedInset>
                 ) : null}
+                <PanelMutedInset className="mt-3">
+                  <p className="text-sm leading-6 text-zinc-300">
+                    Workflow invocation stays unavailable here until the backend exposes exactly one stable canonical
+                    object binding for this thread.
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-zinc-500">
+                    Attach or create an object first. `v0.5.1` does not allow floating or multi-object invocation from
+                    Threads.
+                  </p>
+                </PanelMutedInset>
               </header>
               {messages.length === 0 && (
                 <SurfaceState message="No messages in this thread yet." />
@@ -429,10 +305,6 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
                 <MessageRenderer
                   key={message.id}
                   message={message}
-                  interventionId={interventionsByMessageId[message.id]}
-                  onSnooze={handleSnooze}
-                  onResolve={handleResolve}
-                  onDismiss={handleDismiss}
                   onShowWhy={setProvenanceMessageId}
                 />
               ))}

@@ -8,32 +8,22 @@ import { IconButton } from './core/Button';
 import { PanelEyebrow } from './core/PanelChrome';
 import { ChevronRightIcon } from './core/Icons';
 import { getSurfaceDefinition, type MainView } from './data/operatorSurfaces';
-import type { SettingsSectionKey } from './views/settings';
-
-export type SettingsNavigationTarget = {
-  tab: 'general' | 'integrations' | 'runtime';
-  integrationId?: 'google' | 'todoist' | 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
-  section?: SettingsSectionKey;
-};
+import type { SystemNavigationTarget } from './views/system';
 
 function App() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>('now');
-  const [settingsTarget, setSettingsTarget] = useState<SettingsNavigationTarget>({ tab: 'general' });
+  const [systemTarget, setSystemTarget] = useState<SystemNavigationTarget>({});
   const [infoPanelOpen, setInfoPanelOpen] = useState(false);
 
-  function openSettings(target: SettingsNavigationTarget = { tab: 'general' }) {
-    setSettingsTarget(target);
-    setMainView('settings');
+  function openSystem(target: SystemNavigationTarget = {}) {
+    setSystemTarget(target);
+    setMainView('system');
   }
 
   function openConversationThread(conversationId: string) {
     setSelectedConversationId(conversationId);
     setMainView('threads');
-  }
-
-  function openInbox() {
-    setMainView('inbox');
   }
 
   function toggleDocumentationPanel() {
@@ -55,10 +45,9 @@ function App() {
           conversationId={selectedConversationId}
           mainView={mainView}
           onNavigate={setMainView}
-          onOpenInbox={openInbox}
           onOpenThread={openConversationThread}
-          onOpenSettings={openSettings}
-          settingsTarget={settingsTarget}
+          onOpenSystem={openSystem}
+          systemTarget={systemTarget}
         />
       )}
       infoPanel={(

@@ -4,20 +4,20 @@ milestone: 0.5.1
 milestone_name: canonical-client-reconnection
 release_line: 0.5.1-beta
 next_beta_target: 0.5.1-beta
-current_phase: 66
-current_phase_name: truth-doctrine-contract-freeze-and-milestone-lock
-current_plan: 66-01-PLAN
-current_work_id: 0.5.1.66.1
-status: in_progress
-stopped_at: "Post-0.5 direction lock finalized and v0.5.1 milestone packet activated"
-last_updated: "2026-03-23T02:00:00Z"
-last_activity: 2026-03-23
+current_phase: 71
+current_phase_name: cleanup-web-proof-and-apple-handoff
+current_plan: 71-01-PLAN
+current_work_id: 0.5.1.71.1
+status: complete
+stopped_at: "Phase 71 closed `0.5.1` with explicit accepted debt for live workflow-dispatch browser proof"
+last_updated: "2026-03-23T03:58:00Z"
+last_activity: 2026-03-22
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 6
   total_plans: 6
-  completed_plans: 0
-  percent: 0
+  completed_plans: 6
+  percent: 100
 ---
 
 # Project State
@@ -29,21 +29,21 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** `0.5.1` canonical client reconnection against the frozen `0.5` backend contracts
 
-Status: `0.5.1` active at Phase 66
+Status: `0.5.1` complete at Phase 71
 Release Line: 0.5.1-beta
-Current Work ID: 0.5.1.66.1
-Current Phase: 66
-Current Phase Name: truth-doctrine-contract-freeze-and-milestone-lock
-Current Plan: 66-01-PLAN
+Current Work ID: 0.5.1.71.1
+Current Phase: 71
+Current Phase Name: cleanup-web-proof-and-apple-handoff
+Current Plan: 71-01-PLAN
 Total Plans in Phase: 1
-Progress: 0%
-Last Activity: 2026-03-23
-Last Activity Description: Activated milestone `0.5.1` with a truth-alignment packet for canonical client reconnection
+Progress: 100%
+Last Activity: 2026-03-22
+Last Activity Description: Closed Phase 70 and advanced `v0.5.1` into cleanup, proof, and Apple handoff
 
 ## Current Position
 
-Phase: 66 (truth-doctrine-contract-freeze-and-milestone-lock) — IN PROGRESS
-Plan: freeze truthful-surface law and milestone scope before client rebinding begins
+Phase: 71 (cleanup-web-proof-and-apple-handoff) — COMPLETE
+Plan: delete or quarantine stale seams, prove the truthful web line, and publish the Apple handoff packet
 
 ## Accumulated Context
 
@@ -55,16 +55,20 @@ Plan: freeze truthful-surface law and milestone scope before client rebinding be
 - only `Now`, `Threads`, and `System` are first-class surfaces in `0.5.1`
 - Apple is out for implementation and gets handoff/spec docs only
 - roadmap communication continues to use semver release-line language with four-part work IDs
+- `v0.5.1` doctrine is now frozen, including adjacent-section `Now`, single-bound-object `Threads` invocation, one-route `/system`, degraded-state posture, and the pre-frozen configuration action allow-list
+- Phase 67 has now frozen the rewrite/quarantine/delete disposition for stale surface and transport seams
+- the shared web transport boundary now exists and page-level fetch escapes are gone
 
 ### Current Concerns
 
 - the current frontend is low-trust and should be reused only where structurally sound
-- quarantined read/configuration compatibility surfaces must be classified explicitly in Phase 67
+- browser-executed proof is complete for the shipped truthful surface
 - no backend schema negotiation is allowed except for provable bugs
+- live browser workflow dispatch proof is accepted deferred debt because no shipped canonical invocation route exists in the frozen `v0.5.1` boundary
 
 ### Next Step
 
-Execute [66-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.1-client-reconnection/66-01-PLAN.md) and lock truthful-surface doctrine plus milestone scope.
+`0.5.1` execution is complete. The next step is milestone audit/archive or successor-milestone definition.
 
 ### Roadmap Evolution
 
@@ -108,7 +112,12 @@ Execute [66-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.1-client-r
 - `65-03` has landed milestone-spanning execution-backed proof and explicit deferred-work capture for post-`0.5` work
 - `0.5` closed with canonical backend authority, proving adapters, and hard write-path cutover
 - `0.5.1` is now active as the canonical client reconnection line
-- Phase 66 has been drafted as the truth doctrine, contract freeze, and milestone lock phase
+- Phase 66 is complete with the truth doctrine, contract freeze, and milestone lock
+- Phase 67 is complete with explicit seam dispositions and kill-list law
+- Phase 68 is complete with a shared canonical transport boundary and no page-level direct fetch escapes
+- Phase 69 is complete with truthful `Now` rebinding, adjacent task/calendar sections, and an internal write-intent seam for direct commitment completion
+- Phase 70 is complete with the three-surface shell collapse, truthful `Threads`, and a minimal authoritative `/system` surface
+- Phase 71 is complete with browser proof, Apple handoff, and explicit accepted debt for live workflow-dispatch browser proof
 
 ---
-*Last updated: 2026-03-23 after activating milestone `0.5.1`*
+*Last updated: 2026-03-22 after closing Phase 70 of milestone `0.5.1`*

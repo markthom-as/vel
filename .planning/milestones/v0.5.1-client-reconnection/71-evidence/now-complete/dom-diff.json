@@ -1,0 +1,12 @@
+{
+  "before": {
+    "activeTask": "Write weekly review",
+    "completedSectionVisible": 1,
+    "completedButtonCount": 0
+  },
+  "after": {
+    "completedSectionVisible": 2,
+    "completedButtonLabelVisible": 1,
+    "completedTaskVisible": true
+  }
+}

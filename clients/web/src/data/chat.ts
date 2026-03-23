@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '../api/client';
+import { canonicalPostMutation, canonicalQuery } from './canonicalTransport';
 import { invalidateQuery } from './query';
 import {
   decodeAssistantEntryResponse,
@@ -38,14 +38,14 @@ export function invalidateInboxQueries(): void {
 }
 
 export function loadConversationList(): Promise<ApiResponse<ConversationData[]>> {
-  return apiGet<ApiResponse<ConversationData[]>>(
+  return canonicalQuery<ConversationData[]>(
     '/api/conversations',
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeConversationData)),
   );
 }
 
 export function loadConversationMessages(conversationId: string): Promise<ApiResponse<MessageData[]>> {
-  return apiGet<ApiResponse<MessageData[]>>(
+  return canonicalQuery<MessageData[]>(
     `/api/conversations/${conversationId}/messages`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeMessageData)),
   );
@@ -56,7 +56,7 @@ export function submitAssistantEntry(
   conversationId?: string | null,
   voice?: AssistantEntryVoiceProvenanceData | null,
 ): Promise<ApiResponse<AssistantEntryResponse>> {
-  return apiPost<ApiResponse<AssistantEntryResponse>>(
+  return canonicalPostMutation<AssistantEntryResponse>(
     '/api/assistant/entry',
     {
       text,
@@ -68,7 +68,7 @@ export function submitAssistantEntry(
 }
 
 export function loadConversationInterventions(conversationId: string): Promise<ApiResponse<InboxItemData[]>> {
-  return apiGet<ApiResponse<InboxItemData[]>>(
+  return canonicalQuery<InboxItemData[]>(
     `/api/conversations/${conversationId}/interventions`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeInboxItemData)),
   );
@@ -76,14 +76,14 @@ export function loadConversationInterventions(conversationId: string): Promise<A
 
 export function loadInbox(scope: InboxScope = 'queue'): Promise<ApiResponse<InboxItemData[]>> {
   const suffix = scope === 'archive' ? '?scope=archive' : '';
-  return apiGet<ApiResponse<InboxItemData[]>>(
+  return canonicalQuery<InboxItemData[]>(
     `/api/inbox${suffix}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeInboxItemData)),
   );
 }
 
 export function loadProvenance(messageId: string): Promise<ApiResponse<ProvenanceData>> {
-  return apiGet<ApiResponse<ProvenanceData>>(
+  return canonicalQuery<ProvenanceData>(
     `/api/messages/${messageId}/provenance`,
     (value) => decodeApiResponse(value, decodeProvenanceData),
   );
@@ -94,7 +94,7 @@ export function mutateIntervention(
   action: 'acknowledge' | 'snooze' | 'resolve' | 'dismiss' | 'reactivate',
   body: Record<string, unknown>,
 ): Promise<ApiResponse<InterventionActionData>> {
-  return apiPost<ApiResponse<InterventionActionData>>(
+  return canonicalPostMutation<InterventionActionData>(
     `/api/interventions/${encodeURIComponent(interventionId)}/${action}`,
     body,
     (value) => decodeApiResponse(value, decodeInterventionActionData),

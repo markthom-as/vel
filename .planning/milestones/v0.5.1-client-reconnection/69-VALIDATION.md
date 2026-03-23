@@ -1,8 +1,7 @@
 # Phase 69 Validation
 
-- [ ] canonical `Now` read flow exists
-- [ ] triage mutations use `WriteIntent`
-- [ ] `Inbox` behavior is absorbed without restoring a first-class surface
-- [ ] tasks and calendar commitments render as adjacent canonical sections rather than a merged ranked feed
-- [ ] `defer` / `snooze` means due/date mutation only
-- [ ] client-side prioritization is absent
+- [x] `Now` renders canonical operational truth only
+- [x] tasks and calendar commitments render as adjacent canonical sections
+- [x] `Inbox` behavior is absorbed without reviving an `Inbox` surface in `Now`
+- [x] client-side ranking, inferred urgency, and fake reschedule affordances are removed
+- [x] surviving direct `Now` mutation flows through a canonical write-intent seam

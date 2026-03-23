@@ -1,0 +1,22 @@
+[
+  {
+    "type": "console",
+    "text": "[vite] connecting..."
+  },
+  {
+    "type": "console",
+    "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+  },
+  {
+    "type": "pageerror",
+    "text": "Degraded canonical query response for /v1/agent/inspect"
+  },
+  {
+    "type": "pageerror",
+    "text": "Degraded canonical query response for /v1/agent/inspect"
+  },
+  {
+    "type": "pageerror",
+    "text": "Degraded canonical query response for /v1/agent/inspect"
+  }
+]

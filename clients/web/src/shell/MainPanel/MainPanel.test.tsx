@@ -11,14 +11,6 @@ vi.mock('../../views/now', () => ({
   NowView: () => <div>Now view</div>,
 }))
 
-vi.mock('../../views/inbox', () => ({
-  InboxView: () => <div>Inbox view</div>,
-}))
-
-vi.mock('../../views/projects', () => ({
-  ProjectsView: () => <div>Projects view</div>,
-}))
-
 vi.mock('../../views/threads', () => ({
   ThreadView: ({ conversationId }: { conversationId: string | null }) => (
     <div>{conversationId ? `Thread ${conversationId}` : 'Thread empty'}</div>
@@ -29,21 +21,20 @@ vi.mock('../../views/threads/useResolvedThreadConversationId', () => ({
   useResolvedThreadConversationId: (conversationId: string | null) => conversationId,
 }))
 
-vi.mock('../../views/settings', () => ({
-  SettingsPage: ({ initialTab }: { initialTab: string }) => <div>Settings page {initialTab}</div>,
+vi.mock('../../views/system', () => ({
+  SystemView: () => <div>System view</div>,
 }))
 
 describe('MainPanel', () => {
-  function renderMainPanel(mainView: 'now' | 'inbox' | 'threads' | 'projects' | 'settings') {
+  function renderMainPanel(mainView: 'now' | 'threads' | 'system') {
     return render(
       <MainPanel
         conversationId={mainView === 'threads' ? 'conv_1' : null}
         mainView={mainView}
         onNavigate={() => {}}
-        onOpenInbox={() => {}}
         onOpenThread={() => {}}
-        onOpenSettings={() => {}}
-        settingsTarget={{ tab: 'general' }}
+        onOpenSystem={() => {}}
+        systemTarget={{ section: 'configuration' }}
       />,
     )
   }
@@ -54,36 +45,21 @@ describe('MainPanel', () => {
     expect(screen.queryByText('Inbox view')).toBeNull()
   })
 
-  it('shows the Inbox view when mainView is inbox', () => {
-    renderMainPanel('inbox')
-    expect(screen.getByText('Inbox view')).toBeInTheDocument()
-    expect(screen.queryByText('Thread empty')).toBeNull()
-  })
-
   it('shows the thread view when mainView is threads', () => {
     renderMainPanel('threads')
     expect(screen.getByText('Thread conv_1')).toBeInTheDocument()
   })
 
-  it('shows the Projects view when mainView is projects', () => {
-    renderMainPanel('projects')
-    expect(screen.getByText('Projects view')).toBeInTheDocument()
-  })
-
-  it('shows the Settings surface when mainView is settings', () => {
-    renderMainPanel('settings')
-    expect(screen.getByText('Settings page general')).toBeInTheDocument()
+  it('shows the System surface when mainView is system', () => {
+    renderMainPanel('system')
+    expect(screen.getByText('System view')).toBeInTheDocument()
   })
 
   it('uses the approved shell parity taxonomy as the first-class route set', () => {
-    expect(primarySurfaces.map((surface) => surface.view)).toEqual(['now', 'inbox', 'threads'])
-    expect(supportSurfaces.map((surface) => surface.view)).toEqual(['settings'])
+    expect(primarySurfaces.map((surface) => surface.view)).toEqual(['now', 'threads', 'system'])
+    expect(supportSurfaces.map((surface) => surface.view)).toEqual([])
     expect(
       operatorSurfaces.filter((surface) => surface.navVisible).map((surface) => surface.view),
-    ).toEqual(['now', 'inbox', 'threads', 'settings'])
-  })
-
-  it('keeps projects as the only hidden detail surface', () => {
-    expect(operatorSurfaces.filter((surface) => surface.disclosure === 'detail').map((surface) => surface.view)).toEqual(['projects'])
+    ).toEqual(['now', 'threads', 'system'])
   })
 })

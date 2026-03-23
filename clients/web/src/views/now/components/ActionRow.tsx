@@ -13,11 +13,9 @@ import { projectTagClasses } from '../nowModel';
 
 export function ActionRow({
   item,
-  onOpenInbox,
   onOpenThread,
 }: {
   item: ActionItemData;
-  onOpenInbox?: () => void;
   onOpenThread?: (conversationId: string) => void;
 }) {
   return (
@@ -43,9 +41,6 @@ export function ActionRow({
               {item.thread_route.label}
             </FilterPillButton>
           ) : null}
-          <FilterPillButton onClick={() => onOpenInbox?.()} aria-label="Open inbox">
-            Open Inbox
-          </FilterPillButton>
         </PanelItemInlineActions>
       </PanelItemInlineLayout>
     </PanelItemShell>

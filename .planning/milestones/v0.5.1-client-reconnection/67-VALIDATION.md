@@ -1,6 +1,6 @@
 # Phase 67 Validation
 
-- [ ] client/backend touchpoint inventory exists
-- [ ] deprecated route kill list exists
-- [ ] each seam is classified as rewrite/quarantine/delete
-- [ ] no philosophical schema debate is left unresolved
+- [x] client/backend touchpoint inventory exists
+- [x] deprecated route kill list exists
+- [x] each seam is classified as rewrite/quarantine/delete
+- [x] no philosophical schema debate is left unresolved

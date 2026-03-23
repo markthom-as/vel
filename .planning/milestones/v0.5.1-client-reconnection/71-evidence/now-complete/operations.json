@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "patch",
+    "path": "/v1/commitments/commit_local_1",
+    "body": {
+      "status": "done"
+    }
+  }
+]

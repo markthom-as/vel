@@ -10,36 +10,22 @@ import {
 import { SurfaceState } from '../../core/SurfaceState';
 import { NowMetricStrip } from './components/NowMetricStrip';
 import { NowNudgeStrip } from './components/NowNudgeStrip';
+import { NowScheduleSection } from './components/NowScheduleSection';
 import { NowTasksSection } from './components/NowTasksSection';
-import type { SettingsSectionKey } from '../../views/settings';
 import { surfaceShell } from '../../core/Theme';
 import {
   dedupeActionItems,
   dedupeTasks,
-  nudgeOpenSettingsTarget,
-  scoreNudge,
+  nudgeOpenSystemTarget,
 } from './nowModel';
-
-type SettingsIntegrationTarget =
-  | 'google'
-  | 'todoist'
-  | 'activity'
-  | 'git'
-  | 'messaging'
-  | 'notes'
-  | 'transcripts';
+import type { SystemNavigationTarget } from '../system';
 
 interface NowViewProps {
-  onOpenInbox?: () => void;
   onOpenThread?: (conversationId: string) => void;
-  onOpenSettings?: (target: {
-    tab: 'general' | 'integrations' | 'runtime';
-    integrationId?: SettingsIntegrationTarget;
-    section?: SettingsSectionKey;
-  }) => void;
+  onOpenSystem?: (target?: SystemNavigationTarget) => void;
 }
 
-export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewProps) {
+export function NowView({ onOpenThread, onOpenSystem }: NowViewProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const commitmentsKey = useMemo(() => contextQueryKeys.commitments(25), []);
   const { data, loading, error, refetch } = useQuery<NowData | null>(
@@ -132,9 +118,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
   }
 
   const actionItems = dedupeActionItems(
-    [...(data.action_items ?? [])]
-      .filter((item) => item.surface === 'now')
-      .sort((left, right) => left.rank - right.rank),
+    [...(data.action_items ?? [])].filter((item) => item.surface === 'now'),
   );
   const header = data.header;
   const meshSummary = data.mesh_summary;
@@ -143,7 +127,6 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
   const nowTs = data.computed_at;
   const commitmentRows = dedupeTasks([data.tasks.next_commitment, ...(data.tasks.other_open ?? [])]);
   const commitmentIds = new Set(commitmentRows.map((t) => t.id));
-  const pullableTasks = dedupeTasks(data.tasks.todoist ?? []);
 
   const completeCommitment = async (commitmentId: string) => {
     setPendingCommitments((current) => ({ ...current, [commitmentId]: true }));
@@ -193,50 +176,24 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
       return;
     }
     if (action.kind === 'open_settings') {
-      onOpenSettings?.(nudgeOpenSettingsTarget(bar));
+      onOpenSystem?.(nudgeOpenSystemTarget(bar));
       return;
-    }
-    if (action.kind === 'open_inbox') {
-      onOpenInbox?.();
     }
   };
 
-  const backupNudge: NowData['nudge_bars'][number] | null =
-    data.trust_readiness.backup.level !== 'ok'
-      ? {
-          id: 'backup_trust_warning',
-          kind: 'trust_warning',
-          title: 'No trustworthy backup',
-          summary: data.trust_readiness.backup.detail,
-          urgent: data.trust_readiness.backup.level === 'fail',
-          primary_thread_id: null,
-          actions: [{ kind: 'open_settings' as const, label: 'Open backups' }],
-        }
-      : null;
-  const prioritizedNudges = [...(backupNudge ? [backupNudge] : []), ...nudgeBars]
-    .sort((left, right) => scoreNudge(right) - scoreNudge(left))
-    .slice(0, 4);
+  const visibleNudges = nudgeBars.slice(0, 4);
   const riskItems = actionItems
     .filter((item) => ['recovery', 'blocked', 'conflict', 'freshness', 'linking'].includes(item.kind))
     .slice(0, 3);
-  const nextTasks = pullableTasks
-    .filter((task) => task.id !== taskLane?.active?.id && !taskLane?.pending.some((item) => item.id === task.id))
-    .slice(0, 3)
-    .map((task) => ({
-      id: task.id,
-      task_kind: 'task' as const,
-      text: task.text,
-      state: 'pending',
-      project: task.project,
-      primary_thread_id: null,
-    }));
   const groupedTaskCount =
-    (taskLane?.active ? 1 : 0) + (taskLane?.pending.length ?? 0) + riskItems.length + nextTasks.length;
-  const allTaskMetadata = [...commitmentRows, ...pullableTasks];
+    (taskLane?.active ? 1 : 0) +
+    (taskLane?.pending.length ?? 0) +
+    riskItems.length +
+    (taskLane?.recent_completed.length ?? 0);
+  const allTaskMetadata = [...commitmentRows];
   const completedCount = taskLane?.recent_completed.length ?? 0;
-  const remainingCount =
-    (taskLane?.pending.length ?? 0) + riskItems.length + nextTasks.length + (taskLane?.active ? 1 : 0);
-  const backlogCount = Math.max(0, pullableTasks.length - ((taskLane?.pending.length ?? 0) + nextTasks.length));
+  const remainingCount = (taskLane?.pending.length ?? 0) + riskItems.length + (taskLane?.active ? 1 : 0);
+  const backlogCount = taskLane?.overflow_count ?? 0;
   const threadAttentionCount =
     actionItems.filter((item) => item.thread_route !== null).length + (data.reflow_status?.thread_id ? 1 : 0);
 
@@ -257,7 +214,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
               </PanelSectionHeaderLead>
               <PanelSectionHeaderTrail>
                 <NowMetricStrip
-                  nudgeCount={prioritizedNudges.length}
+                  nudgeCount={visibleNudges.length}
                   threadAttentionCount={threadAttentionCount}
                   queuedWriteCount={meshSummary?.queued_write_count ?? 0}
                   meshSummary={meshSummary}
@@ -266,7 +223,7 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
             </PanelSectionHeaderBand>
 
             <NowNudgeStrip
-              bars={prioritizedNudges}
+              bars={visibleNudges}
               nowTs={nowTs}
               actionItems={actionItems}
               onBarAction={handleNowBarAction}
@@ -275,7 +232,6 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
             <NowTasksSection
               taskLane={taskLane}
               riskItems={riskItems}
-              nextTasks={nextTasks}
               allTaskMetadata={allTaskMetadata}
               commitmentIds={commitmentIds}
               completedCount={completedCount}
@@ -285,9 +241,10 @@ export function NowView({ onOpenInbox, onOpenThread, onOpenSettings }: NowViewPr
               pendingCommitments={pendingCommitments}
               commitmentMessages={commitmentMessages}
               onCompleteCommitment={completeCommitment}
-              onOpenInbox={onOpenInbox}
               onOpenThread={onOpenThread}
             />
+
+            <NowScheduleSection schedule={data.schedule} timezone={data.timezone} />
           </section>
         </div>
         <div

@@ -6,8 +6,9 @@
 - `v0.2` shipped true-MVP archive: [v0.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md)
 - `v0.3` shipped canonical `Now` + client mesh archive: [v0.3-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md)
 - `v0.5` shipped backend core rewrite archive: [v0.5-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-ROADMAP.md)
+- `v0.5.1` shipped canonical client reconnection archive: [v0.5.1-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-ROADMAP.md)
 
-## Latest Closed Milestone
+## Previously Closed Milestones
 
 `0.5` is now closed. It delivered the backend core rewrite packet:
 
@@ -27,13 +28,15 @@
 - cleaned `Threads` and `Settings` MVP information architecture
 - closed the line with a strict-clean web build and focused regression evidence
 
-## Active Milestone
+## Latest Closed Milestone
 
-The active milestone is now canonical client reconnection:
+`0.5.1` is now complete as the canonical client reconnection line:
 
-- [v0.5.1-client-reconnection/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-client-reconnection/ROADMAP.md)
+- archive: [v0.5.1-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-ROADMAP.md)
+- requirements: [v0.5.1-REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.1-REQUIREMENTS.md)
+- audit: [v0.5.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.5.1-MILESTONE-AUDIT.md)
 
-Milestone `0.5.1` reconnects the web operator surfaces to the frozen `0.5` backend:
+Milestone `0.5.1` reconnected the web operator surfaces to the frozen `0.5` backend:
 
 - truthful-surface doctrine first
 - one canonical transport layer
@@ -41,6 +44,11 @@ Milestone `0.5.1` reconnects the web operator surfaces to the frozen `0.5` backe
 - `WriteIntent`-only mutations
 - deletion or explicit quarantine of stale client/backend seams
 - Apple handoff/spec only
+- explicit accepted debt for live browser workflow dispatch proof, because no shipped canonical invocation route exists in the frozen boundary
+
+## Active Milestone
+
+No successor milestone is active yet.
 
 ## Scope Guardrails
 
@@ -60,7 +68,7 @@ Do not widen this milestone into:
 - speculative workflow-builder or trigger product work
 - marketplace/registry ecosystem work
 
-The active `0.5.1` line is only about truthful client reconnection:
+The completed `0.5.1` line was only about truthful client reconnection:
 
 - no backend schema negotiation
 - no framework migration
@@ -76,7 +84,7 @@ Vel now uses semver language for product lines and shipped releases:
 - `0.3.0` is the latest shipped release baseline in the repo
 - `0.4.x` is the latest closed release line
 - `0.5.0-beta` is the latest completed backend rewrite line
-- `0.5.1-beta` is the active client reconnection line
+- `0.5.1-beta` is the latest completed client reconnection line
 
 For roadmap execution inside a release line, use a four-part lineage identifier:
 
@@ -94,7 +102,7 @@ The latest completed execution packet is:
 
 ## Active Packet
 
-- [v0.5.1-client-reconnection/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-client-reconnection/ROADMAP.md)
+No active milestone packet yet.
 
 ---
-*Last updated: 2026-03-23 after closing milestone `0.5`*
+*Last updated: 2026-03-23 after closing milestone `0.5.1`*

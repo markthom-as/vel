@@ -18,6 +18,7 @@ pub mod chat;
 pub mod check_in;
 pub mod client_sync;
 pub mod command_lang;
+pub mod commitment_write_bridge;
 pub mod commitment_scheduling;
 pub mod components;
 pub mod conflict_classifier;

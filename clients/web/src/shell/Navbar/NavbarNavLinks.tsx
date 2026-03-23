@@ -2,7 +2,6 @@ import { useId } from 'react';
 import { primarySurfaces, supportSurfaces, type MainView } from '../../data/operatorSurfaces';
 import { cn } from '../../core/cn';
 import {
-  InboxIcon,
   SettingsIcon,
   SparkIcon,
   ThreadsIcon,
@@ -82,11 +81,9 @@ function surfaceIcon(view: MainView, active: boolean, gradientId: string) {
   switch (view) {
     case 'now':
       return <SparkIcon {...common} />;
-    case 'inbox':
-      return <InboxIcon {...common} />;
     case 'threads':
       return <ThreadsIcon {...common} />;
-    case 'settings':
+    case 'system':
       return <SettingsIcon {...common} />;
     default:
       return <SparkIcon {...common} />;

@@ -15,11 +15,11 @@ Optimized for **clear navigation** (humans and coding agents): three top-level U
 | Folder | Surface |
 |--------|---------|
 | `views/now/` | Now |
-| `views/inbox/` | Inbox |
 | `views/threads/` | Threads shell plus thread-specific UI: `ThreadView/`, `ConversationList/`, `ProvenanceDrawer/` |
-| `views/settings/` | Settings |
-| `views/projects/` | Projects |
+| `views/system/` | System |
 | `views/context/` | Info-column panels: `ContextPanel/`, `DocumentationPanel/` |
+
+`v0.5.1` recognizes only three first-class surfaces: `Now`, `Threads`, and `System`. Deprecated `Settings` and `Projects` views are no longer part of the shipped client surface.
 
 ### Import conventions
 

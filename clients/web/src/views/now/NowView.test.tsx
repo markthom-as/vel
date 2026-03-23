@@ -171,7 +171,29 @@ function buildNowData(overrides: Record<string, unknown> = {}) {
       meds: { key: 'pending', label: 'Pending' },
       risk: { level: 'medium', score: 0.72, label: 'medium · 72%' },
     },
-    schedule: { empty_message: null, next_event: null, upcoming_events: [] },
+    schedule: {
+      empty_message: null,
+      next_event: {
+        title: 'Design review',
+        start_ts: 1710003600,
+        end_ts: 1710007200,
+        location: 'Studio',
+        prep_minutes: null,
+        travel_minutes: null,
+        leave_by_ts: null,
+      },
+      upcoming_events: [
+        {
+          title: 'Design review',
+          start_ts: 1710003600,
+          end_ts: 1710007200,
+          location: 'Studio',
+          prep_minutes: null,
+          travel_minutes: null,
+          leave_by_ts: null,
+        },
+      ],
+    },
     tasks: { todoist: [], other_open: [], next_commitment: null },
     attention: { state: { key: 'on_task', label: 'On task' }, drift: { key: 'none', label: 'None' }, severity: { key: 'none', label: 'None' }, confidence: 0.8, reasons: [] },
     sources: { git_activity: null, health: null, mood: null, pain: null, note_document: null, assistant_message: null },
@@ -237,20 +259,24 @@ describe('NowView', () => {
     expect(screen.getByText('NOW')).toBeInTheDocument()
     expect(screen.getByText('TODAY')).toBeInTheDocument()
     expect(screen.getByText('Tasks')).toBeInTheDocument()
+    expect(screen.getByText('Calendar')).toBeInTheDocument()
+    expect(screen.getByText('Design review')).toBeInTheDocument()
     expect(
       screen.getByText(/date, active-task context, and ambient status stay in the navbar/i),
     ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Open inbox/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Reschedule/i })).not.toBeInTheDocument()
     expect(screen.queryByText(/CONTEXT:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/More Context and Controls/i)).not.toBeInTheDocument()
   })
 
-  it('routes nudge actions through thread and settings handlers', async () => {
+  it('routes nudge actions through thread and system handlers', async () => {
     const onOpenThread = vi.fn()
-    const onOpenSettings = vi.fn()
+    const onOpenSystem = vi.fn()
 
     setupApiMocks(buildNowData())
 
-    render(<NowView onOpenThread={onOpenThread} onOpenSettings={onOpenSettings} />)
+    render(<NowView onOpenThread={onOpenThread} onOpenSystem={onOpenSystem} />)
 
     await waitFor(() => {
       const threadButtons = screen.getAllByRole('button', {
@@ -271,6 +297,6 @@ describe('NowView', () => {
         })
         .at(-1) as HTMLElement,
     )
-    expect(onOpenSettings).toHaveBeenCalledWith({ tab: 'general', section: 'clients-sync' })
+    expect(onOpenSystem).toHaveBeenCalledWith({ section: 'configuration', subsection: 'accounts' })
   })
 })

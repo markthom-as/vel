@@ -42,7 +42,7 @@ describe('Navbar', () => {
   })
 
   function renderNavbar(
-    activeView: 'now' | 'inbox' | 'threads' | 'settings' = 'now',
+    activeView: 'now' | 'threads' | 'system' = 'now',
     infoPanelOpen = false,
   ) {
     const onSelectView = vi.fn()
@@ -63,14 +63,14 @@ describe('Navbar', () => {
   it('renders top nav items and routes clicks through handlers', () => {
     const { onSelectView, onOpenDocumentation } = renderNavbar()
 
-    fireEvent.click(screen.getByRole('button', { name: /Settings/i }))
+    fireEvent.click(screen.getByRole('button', { name: /System/i }))
     fireEvent.click(screen.getByRole('button', { name: 'Open info' }))
 
-    expect(onSelectView).toHaveBeenCalledWith('settings')
+    expect(onSelectView).toHaveBeenCalledWith('system')
     expect(onOpenDocumentation).toHaveBeenCalled()
   })
 
-  it('keeps now, inbox, threads, and settings in top-nav order', () => {
+  it('keeps now, threads, and system in top-nav order', () => {
     renderNavbar()
 
     const labels = screen
@@ -79,13 +79,11 @@ describe('Navbar', () => {
       .filter((label): label is string => Boolean(label))
 
     const nowIndex = labels.findIndex((label) => label.includes('Now'))
-    const inboxIndex = labels.findIndex((label) => label.includes('Inbox'))
     const threadsIndex = labels.findIndex((label) => label.includes('Threads'))
-    const settingsIndex = labels.findIndex((label) => label.includes('Settings'))
+    const systemIndex = labels.findIndex((label) => label.includes('System'))
 
-    expect(nowIndex).toBeLessThan(inboxIndex)
-    expect(inboxIndex).toBeLessThan(threadsIndex)
-    expect(threadsIndex).toBeLessThan(settingsIndex)
+    expect(nowIndex).toBeLessThan(threadsIndex)
+    expect(threadsIndex).toBeLessThan(systemIndex)
   })
 
   it('uses the top-level info button as the documentation affordance', () => {

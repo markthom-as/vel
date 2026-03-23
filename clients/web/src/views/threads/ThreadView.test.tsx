@@ -75,9 +75,6 @@ describe('ThreadView', () => {
           meta: { request_id: 'req_messages' },
         } as never
       }
-      if (path === '/api/conversations/conv_1/interventions') {
-        return { ok: true, data: [], meta: { request_id: 'req_interventions' } } as never
-      }
       throw new Error(`Unexpected GET ${path}`)
     })
 
@@ -89,6 +86,7 @@ describe('ThreadView', () => {
     expect(screen.getByPlaceholderText('Find thread')).toBeInTheDocument()
     expect(screen.getAllByText('Can you help shape the rollout plan?').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/needs input/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Attach or create an object first/i)).toBeInTheDocument()
   })
 
   it('switches threads from the left list', async () => {
@@ -125,9 +123,6 @@ describe('ThreadView', () => {
       }
       if (path === '/api/conversations/conv_1/messages' || path === '/api/conversations/conv_2/messages') {
         return { ok: true, data: [], meta: { request_id: `req_${path}` } } as never
-      }
-      if (path === '/api/conversations/conv_1/interventions') {
-        return { ok: true, data: [], meta: { request_id: 'req_interventions' } } as never
       }
       throw new Error(`Unexpected GET ${path}`)
     })

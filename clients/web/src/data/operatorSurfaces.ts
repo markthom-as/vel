@@ -1,9 +1,7 @@
 export type MainView =
   | 'now'
-  | 'inbox'
   | 'threads'
-  | 'projects'
-  | 'settings';
+  | 'system';
 
 export type SurfaceDisclosure = 'primary' | 'support' | 'detail';
 
@@ -26,14 +24,6 @@ export const operatorSurfaces: OperatorSurfaceDefinition[] = [
     blurb: 'Urgent context and immediate action',
   },
   {
-    view: 'inbox',
-    label: 'Inbox',
-    icon: '◎',
-    disclosure: 'primary',
-    navVisible: true,
-    blurb: 'Explicit triage and queued work',
-  },
-  {
     view: 'threads',
     label: 'Threads',
     icon: '◌',
@@ -42,20 +32,12 @@ export const operatorSurfaces: OperatorSurfaceDefinition[] = [
     blurb: 'Bounded continuation, history, and search',
   },
   {
-    view: 'projects',
-    label: 'Projects',
-    icon: '▣',
-    disclosure: 'detail',
-    navVisible: false,
-    blurb: 'Project context and drill-down when a daily-use surface points there',
-  },
-  {
-    view: 'settings',
-    label: 'Settings',
+    view: 'system',
+    label: 'System',
     icon: '◇',
-    disclosure: 'support',
+    disclosure: 'primary',
     navVisible: true,
-    blurb: 'Setup, trust, and runtime controls',
+    blurb: 'Canonical object, capability, and configuration truth',
   },
 ];
 

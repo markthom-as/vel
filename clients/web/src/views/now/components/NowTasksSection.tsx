@@ -9,12 +9,9 @@ import { CompactTaskLaneRow } from './CompactTaskLaneRow';
 import { NowTasksMetricStrip } from './NowTasksMetricStrip';
 import { TaskGroup } from './TaskGroup';
 
-type LaneItem = NonNullable<NowData['task_lane']>['active'] extends infer T ? Exclude<T, null> : never;
-
 export function NowTasksSection({
   taskLane,
   riskItems,
-  nextTasks,
   allTaskMetadata,
   commitmentIds,
   completedCount,
@@ -24,12 +21,10 @@ export function NowTasksSection({
   pendingCommitments,
   commitmentMessages,
   onCompleteCommitment,
-  onOpenInbox,
   onOpenThread,
 }: {
   taskLane: NowData['task_lane'];
   riskItems: ActionItemData[];
-  nextTasks: LaneItem[];
   allTaskMetadata: NowTaskData[];
   commitmentIds: Set<string>;
   completedCount: number;
@@ -39,7 +34,6 @@ export function NowTasksSection({
   pendingCommitments: Record<string, true>;
   commitmentMessages: Record<string, { status: 'success' | 'error'; message: string }>;
   onCompleteCommitment: (commitmentId: string) => void;
-  onOpenInbox?: () => void;
   onOpenThread?: (conversationId: string) => void;
 }) {
   const isCommitment = (id: string) => commitmentIds.has(id);
@@ -100,18 +94,7 @@ export function NowTasksSection({
 
         <TaskGroup title="AT RISK" visible={riskItems.length > 0}>
           {riskItems.map((item) => (
-            <ActionRow key={item.id} item={item} onOpenInbox={onOpenInbox} onOpenThread={onOpenThread} />
-          ))}
-        </TaskGroup>
-
-        <TaskGroup title="NEXT" visible={nextTasks.length > 0}>
-          {nextTasks.map((item) => (
-            <CompactTaskLaneRow
-              key={item.id}
-              item={item}
-              flat
-              metadata={allTaskMetadata.find((task) => task.id === item.id) ?? null}
-            />
+            <ActionRow key={item.id} item={item} onOpenThread={onOpenThread} />
           ))}
         </TaskGroup>
 

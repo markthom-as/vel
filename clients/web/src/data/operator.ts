@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from '../api/client';
+import { canonicalPatchMutation, canonicalPostMutation, canonicalQuery } from './canonicalTransport';
 import {
   decodeApiResponse,
   decodeArray,
@@ -6,8 +6,10 @@ import {
   decodeClusterWorkersData,
   decodeComponentData,
   decodeComponentLogEventData,
+  decodeDiagnosticsData,
   decodeExecutionHandoffRecordData,
   decodeGoogleCalendarAuthStartData,
+  decodeIntegrationConnectionData,
   decodeIntegrationLogEventData,
   decodeIntegrationsData,
   decodeLocalIntegrationPathSelectionData,
@@ -26,9 +28,11 @@ import {
   type ComponentData,
   type ComponentLogEventData,
   type ConflictCaseData,
+  type DiagnosticsData,
   type ExecutionHandoffRecordData,
   type ExecutionHandoffReviewStateData,
   type GoogleCalendarAuthStartData,
+  type IntegrationConnectionData,
   type IntegrationLogEventData,
   type IntegrationsData,
   type LocalIntegrationPathSelectionData,
@@ -133,6 +137,8 @@ export const operatorQueryKeys = {
   components: () => ['components'] as const,
   componentLogs: (componentId: string) => ['components', componentId, 'logs'] as const,
   integrationLogs: (integrationId: string) => ['integrations', integrationId, 'logs'] as const,
+  integrationConnections: (family?: string | null, providerKey?: string | null) =>
+    ['integrations', 'connections', family ?? 'all', providerKey ?? 'all'] as const,
   runs: (limit: number) => ['runs', limit] as const,
 };
 
@@ -396,7 +402,7 @@ export function buildSettingsOnboardingGuide({
 export function loadExecutionHandoffs(
   state: ExecutionHandoffReviewStateData = 'pending_review',
 ): Promise<ApiResponse<ExecutionHandoffRecordData[]>> {
-  return apiGet<ApiResponse<ExecutionHandoffRecordData[]>>(
+  return canonicalQuery<ExecutionHandoffRecordData[]>(
     `/v1/execution/handoffs?state=${encodeURIComponent(state)}`,
     (value) =>
       decodeApiResponse(
@@ -410,7 +416,7 @@ export function approveExecutionHandoff(
   handoffId: string,
   payload: { reviewed_by: string; decision_reason?: string | null },
 ): Promise<ApiResponse<ExecutionHandoffRecordData>> {
-  return apiPost<ApiResponse<ExecutionHandoffRecordData>>(
+  return canonicalPostMutation<ExecutionHandoffRecordData>(
     `/v1/execution/handoffs/${handoffId}/approve`,
     payload,
     (value) => decodeApiResponse(value, decodeExecutionHandoffRecordData),
@@ -421,7 +427,7 @@ export function rejectExecutionHandoff(
   handoffId: string,
   payload: { reviewed_by: string; decision_reason?: string | null },
 ): Promise<ApiResponse<ExecutionHandoffRecordData>> {
-  return apiPost<ApiResponse<ExecutionHandoffRecordData>>(
+  return canonicalPostMutation<ExecutionHandoffRecordData>(
     `/v1/execution/handoffs/${handoffId}/reject`,
     payload,
     (value) => decodeApiResponse(value, decodeExecutionHandoffRecordData),
@@ -429,21 +435,21 @@ export function rejectExecutionHandoff(
 }
 
 export function loadClusterBootstrap(): Promise<ApiResponse<ClusterBootstrapData>> {
-  return apiGet<ApiResponse<ClusterBootstrapData>>(
+  return canonicalQuery<ClusterBootstrapData>(
     '/v1/cluster/bootstrap',
     (value) => decodeApiResponse(value, decodeClusterBootstrapData),
   );
 }
 
 export function loadClusterWorkers(): Promise<ApiResponse<ClusterWorkersData>> {
-  return apiGet<ApiResponse<ClusterWorkersData>>(
+  return canonicalQuery<ClusterWorkersData>(
     '/v1/cluster/workers',
     (value) => decodeApiResponse(value, decodeClusterWorkersData),
   );
 }
 
 export function loadProjects(): Promise<ApiResponse<ProjectListResponseData>> {
-  return apiGet<ApiResponse<ProjectListResponseData>>(
+  return canonicalQuery<ProjectListResponseData>(
     '/v1/projects',
     (value) => decodeApiResponse(value, decodeProjectListResponseData),
   );
@@ -452,7 +458,7 @@ export function loadProjects(): Promise<ApiResponse<ProjectListResponseData>> {
 export function createProject(
   payload: ProjectCreateRequestData,
 ): Promise<ApiResponse<ProjectCreateResponseData>> {
-  return apiPost<ApiResponse<ProjectCreateResponseData>>(
+  return canonicalPostMutation<ProjectCreateResponseData>(
     '/v1/projects',
     payload,
     (value) => decodeApiResponse(value, decodeProjectCreateResponseData),
@@ -467,7 +473,7 @@ export function issuePairingToken(payload: {
   target_node_display_name?: string | null;
   target_base_url?: string | null;
 }): Promise<ApiResponse<PairingTokenData>> {
-  return apiPost<ApiResponse<PairingTokenData>>(
+  return canonicalPostMutation<PairingTokenData>(
     '/v1/linking/tokens',
     payload,
     (value) => decodeApiResponse(value, decodePairingTokenData),
@@ -486,7 +492,7 @@ export function redeemPairingToken(payload: {
   localhost_base_url?: string | null;
   public_base_url?: string | null;
 }): Promise<ApiResponse<LinkedNodeData>> {
-  return apiPost<ApiResponse<LinkedNodeData>>(
+  return canonicalPostMutation<LinkedNodeData>(
     '/v1/linking/redeem',
     payload,
     (value) => decodeApiResponse(value, decodeLinkedNodeData),
@@ -494,14 +500,14 @@ export function redeemPairingToken(payload: {
 }
 
 export function loadLinkingStatus(): Promise<ApiResponse<LinkedNodeData[]>> {
-  return apiGet<ApiResponse<LinkedNodeData[]>>(
+  return canonicalQuery<LinkedNodeData[]>(
     '/v1/linking/status',
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeLinkedNodeData)),
   );
 }
 
 export function revokeLinkedNode(nodeId: string): Promise<ApiResponse<LinkedNodeData>> {
-  return apiPost<ApiResponse<LinkedNodeData>>(
+  return canonicalPostMutation<LinkedNodeData>(
     `/v1/linking/revoke/${encodeURIComponent(nodeId)}`,
     {},
     (value) => decodeApiResponse(value, decodeLinkedNodeData),
@@ -509,14 +515,14 @@ export function revokeLinkedNode(nodeId: string): Promise<ApiResponse<LinkedNode
 }
 
 export function loadSettings(): Promise<ApiResponse<SettingsData>> {
-  return apiGet<ApiResponse<SettingsData>>(
+  return canonicalQuery<SettingsData>(
     '/api/settings',
     (value) => decodeApiResponse(value, decodeSettingsData),
   );
 }
 
 export function loadPlanningProfile(): Promise<ApiResponse<PlanningProfileResponseData>> {
-  return apiGet<ApiResponse<PlanningProfileResponseData>>(
+  return canonicalQuery<PlanningProfileResponseData>(
     '/v1/planning-profile',
     (value) => decodeApiResponse(value, decodePlanningProfileResponseData),
   );
@@ -525,7 +531,7 @@ export function loadPlanningProfile(): Promise<ApiResponse<PlanningProfileRespon
 export function applyPlanningProfileMutation(
   payload: PlanningProfileMutationRequestData,
 ): Promise<ApiResponse<PlanningProfileResponseData>> {
-  return apiPatch<ApiResponse<PlanningProfileResponseData>>(
+  return canonicalPatchMutation<PlanningProfileResponseData>(
     '/v1/planning-profile',
     payload,
     (value) => decodeApiResponse(value, decodePlanningProfileResponseData),
@@ -535,7 +541,7 @@ export function applyPlanningProfileMutation(
 export function updateSettings(
   patch: Record<string, unknown>,
 ): Promise<ApiResponse<SettingsData>> {
-  return apiPatch<ApiResponse<SettingsData>>(
+  return canonicalPatchMutation<SettingsData>(
     '/api/settings',
     patch,
     (value) => decodeApiResponse(value, decodeSettingsData),
@@ -543,7 +549,7 @@ export function updateSettings(
 }
 
 export function loadRecentRuns(limit: number): Promise<ApiResponse<RunSummaryData[]>> {
-  return apiGet<ApiResponse<RunSummaryData[]>>(
+  return canonicalQuery<RunSummaryData[]>(
     `/v1/runs?limit=${limit}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeRunSummaryData)),
   );
@@ -553,7 +559,7 @@ export function updateRun(
   runId: string,
   patch: Record<string, unknown>,
 ): Promise<ApiResponse<RunSummaryData>> {
-  return apiPatch<ApiResponse<RunSummaryData>>(
+  return canonicalPatchMutation<RunSummaryData>(
     `/v1/runs/${runId}`,
     patch,
     (value) => decodeApiResponse(value, decodeRunSummaryData),
@@ -561,16 +567,40 @@ export function updateRun(
 }
 
 export function loadIntegrations(): Promise<ApiResponse<IntegrationsData>> {
-  return apiGet<ApiResponse<IntegrationsData>>(
+  return canonicalQuery<IntegrationsData>(
     '/api/integrations',
     (value) => decodeApiResponse(value, decodeIntegrationsData),
+  );
+}
+
+export function loadIntegrationConnections(
+  query: {
+    family?: string;
+    providerKey?: string;
+    includeDisabled?: boolean;
+  } = {},
+): Promise<ApiResponse<IntegrationConnectionData[]>> {
+  const params = new URLSearchParams();
+  if (query.family) {
+    params.set('family', query.family);
+  }
+  if (query.providerKey) {
+    params.set('provider_key', query.providerKey);
+  }
+  if (query.includeDisabled) {
+    params.set('include_disabled', 'true');
+  }
+  const suffix = params.size > 0 ? `?${params.toString()}` : '';
+  return canonicalQuery<IntegrationConnectionData[]>(
+    `/api/integrations/connections${suffix}`,
+    (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeIntegrationConnectionData)),
   );
 }
 
 export function updateGoogleCalendarIntegration(
   patch: Record<string, unknown>,
 ): Promise<ApiResponse<IntegrationsData>> {
-  return apiPatch<ApiResponse<IntegrationsData>>(
+  return canonicalPatchMutation<IntegrationsData>(
     '/api/integrations/google-calendar',
     patch,
     (value) => decodeApiResponse(value, decodeIntegrationsData),
@@ -578,7 +608,7 @@ export function updateGoogleCalendarIntegration(
 }
 
 export function disconnectGoogleCalendar(): Promise<ApiResponse<IntegrationsData>> {
-  return apiPost<ApiResponse<IntegrationsData>>(
+  return canonicalPostMutation<IntegrationsData>(
     '/api/integrations/google-calendar/disconnect',
     {},
     (value) => decodeApiResponse(value, decodeIntegrationsData),
@@ -588,7 +618,7 @@ export function disconnectGoogleCalendar(): Promise<ApiResponse<IntegrationsData
 export function updateTodoistIntegration(
   patch: Record<string, unknown>,
 ): Promise<ApiResponse<IntegrationsData>> {
-  return apiPatch<ApiResponse<IntegrationsData>>(
+  return canonicalPatchMutation<IntegrationsData>(
     '/api/integrations/todoist',
     patch,
     (value) => decodeApiResponse(value, decodeIntegrationsData),
@@ -596,7 +626,7 @@ export function updateTodoistIntegration(
 }
 
 export function disconnectTodoist(): Promise<ApiResponse<IntegrationsData>> {
-  return apiPost<ApiResponse<IntegrationsData>>(
+  return canonicalPostMutation<IntegrationsData>(
     '/api/integrations/todoist/disconnect',
     {},
     (value) => decodeApiResponse(value, decodeIntegrationsData),
@@ -607,7 +637,7 @@ export function updateLocalIntegrationSource(
   integrationId: string,
   patch: Record<string, unknown>,
 ): Promise<ApiResponse<IntegrationsData>> {
-  return apiPatch<ApiResponse<IntegrationsData>>(
+  return canonicalPatchMutation<IntegrationsData>(
     `/api/integrations/${encodeURIComponent(integrationId.trim())}/source`,
     patch,
     (value) => decodeApiResponse(value, decodeIntegrationsData),
@@ -617,7 +647,7 @@ export function updateLocalIntegrationSource(
 export function chooseLocalIntegrationSourcePath(
   integrationId: string,
 ): Promise<ApiResponse<LocalIntegrationPathSelectionData>> {
-  return apiPost<ApiResponse<LocalIntegrationPathSelectionData>>(
+  return canonicalPostMutation<LocalIntegrationPathSelectionData>(
     `/api/integrations/${encodeURIComponent(integrationId.trim())}/path-dialog`,
     {},
     (value) => decodeApiResponse(value, decodeLocalIntegrationPathSelectionData),
@@ -625,7 +655,7 @@ export function chooseLocalIntegrationSourcePath(
 }
 
 export function syncSource(source: string): Promise<ApiResponse<SyncResultData>> {
-  return apiPost<ApiResponse<SyncResultData>>(
+  return canonicalPostMutation<SyncResultData>(
     `/v1/sync/${source}`,
     {},
     (value) => decodeApiResponse(value, decodeSyncResultData),
@@ -633,7 +663,7 @@ export function syncSource(source: string): Promise<ApiResponse<SyncResultData>>
 }
 
 export function runEvaluate(): Promise<ApiResponse<EvaluateResultData>> {
-  return apiPost<ApiResponse<EvaluateResultData>>(
+  return canonicalPostMutation<EvaluateResultData>(
     '/v1/evaluate',
     {},
     (value) => decodeApiResponse(value, decodeEvaluateResultData),
@@ -641,7 +671,7 @@ export function runEvaluate(): Promise<ApiResponse<EvaluateResultData>> {
 }
 
 export function loadLoops(): Promise<ApiResponse<LoopData[]>> {
-  return apiGet<ApiResponse<LoopData[]>>(
+  return canonicalQuery<LoopData[]>(
     '/v1/loops',
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeLoopData)),
   );
@@ -651,7 +681,7 @@ export function updateLoop(
   loopKind: string,
   patch: Record<string, unknown>,
 ): Promise<ApiResponse<LoopData>> {
-  return apiPatch<ApiResponse<LoopData>>(
+  return canonicalPatchMutation<LoopData>(
     `/v1/loops/${encodeURIComponent(loopKind.trim())}`,
     patch,
     (value) => decodeApiResponse(value, decodeLoopData),
@@ -659,14 +689,14 @@ export function updateLoop(
 }
 
 export function loadComponents(): Promise<ApiResponse<ComponentData[]>> {
-  return apiGet<ApiResponse<ComponentData[]>>(
+  return canonicalQuery<ComponentData[]>(
     '/api/components',
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeComponentData)),
   );
 }
 
 export function restartComponent(componentId: string): Promise<ApiResponse<ComponentData>> {
-  return apiPost<ApiResponse<ComponentData>>(
+  return canonicalPostMutation<ComponentData>(
     `/api/components/${encodeURIComponent(componentId.trim())}/restart`,
     {},
     (value) => decodeApiResponse(value, decodeComponentData),
@@ -677,7 +707,7 @@ export function loadComponentLogs(
   componentId: string,
   limit = 50,
 ): Promise<ApiResponse<ComponentLogEventData[]>> {
-  return apiGet<ApiResponse<ComponentLogEventData[]>>(
+  return canonicalQuery<ComponentLogEventData[]>(
     `/api/components/${encodeURIComponent(componentId.trim())}/logs?limit=${limit}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeComponentLogEventData)),
   );
@@ -687,7 +717,7 @@ export function loadIntegrationLogs(
   integrationId: string,
   limit = 10,
 ): Promise<ApiResponse<IntegrationLogEventData[]>> {
-  return apiGet<ApiResponse<IntegrationLogEventData[]>>(
+  return canonicalQuery<IntegrationLogEventData[]>(
     `/api/integrations/${encodeURIComponent(integrationId.trim())}/logs?limit=${limit}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeIntegrationLogEventData)),
   );
@@ -695,4 +725,20 @@ export function loadIntegrationLogs(
 
 export function decodeGoogleCalendarAuthStartResponse(value: unknown): ApiResponse<GoogleCalendarAuthStartData> {
   return decodeApiResponse(value, decodeGoogleCalendarAuthStartData);
+}
+
+export function startGoogleCalendarAuth(): Promise<ApiResponse<GoogleCalendarAuthStartData>> {
+  return canonicalPostMutation<GoogleCalendarAuthStartData>(
+    '/api/integrations/google-calendar/auth/start',
+    {},
+    decodeGoogleCalendarAuthStartResponse,
+  );
+}
+
+export function loadDiagnostics(): Promise<ApiResponse<DiagnosticsData>> {
+  return canonicalQuery<DiagnosticsData>(
+    '/api/diagnostics',
+    (value) => decodeApiResponse(value, decodeDiagnosticsData),
+    { allowDegraded: true },
+  );
 }

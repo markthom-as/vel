@@ -1,0 +1,5 @@
+{
+  "heading": "Proposal thread",
+  "gatingText": "Attach or create an object first. `v0.5.1` does not allow floating or multi-object invocation from Threads.",
+  "workflowActionButtons": 0
+}

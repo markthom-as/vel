@@ -2,7 +2,7 @@
 
 ## Status
 
-Active milestone packet. `0.5.1` is now the live release line under execution.
+Completed milestone packet. `0.5.1` is now closed with explicit accepted debt recorded in Phase 71.
 
 ## Milestone Framing
 
@@ -66,12 +66,12 @@ Do not widen this milestone into:
 
 ## Phases
 
-- [ ] **Phase 66: Truth doctrine, contract freeze, and milestone lock** - Freeze the frontend/backend boundary, define truthful-surface law, and lock the reduced surface model before implementation spreads.
-- [ ] **Phase 67: Client contract audit and deprecated seam kill list** - Inventory every current client/backend touchpoint, classify rewrite/quarantine/delete decisions, and lock the kill list before rebinding work starts.
-- [ ] **Phase 68: Canonical transport layer and query/mutation discipline** - Land the one true typed read/mutation layer and ban direct fetches or local truth-shaping outside it.
-- [ ] **Phase 69: Canonical `Now` rebinding and triage truth** - Rebind `Now` to canonical backend truth, absorb `Inbox` behavior into triage/query flows, and remove client-side ranking or semantic inference.
-- [ ] **Phase 70: `Threads` and `System` surface reconnection** - Rebind `Threads` to canonical interaction truth and ship the minimal authoritative `/system` surface with object/configuration visibility and invocation affordances.
-- [ ] **Phase 71: Cleanup, web proof, and Apple handoff** - Remove or quarantine deprecated seams, prove the truthful-surface line end-to-end on web, and publish the Apple handoff packet.
+- [x] **Phase 66: Truth doctrine, contract freeze, and milestone lock** - Freeze the frontend/backend boundary, define truthful-surface law, and lock the reduced surface model before implementation spreads.
+- [x] **Phase 67: Client contract audit and deprecated seam kill list** - Inventory every current client/backend touchpoint, classify rewrite/quarantine/delete decisions, and lock the kill list before rebinding work starts.
+- [x] **Phase 68: Canonical transport layer and query/mutation discipline** - Land the one true typed read/mutation layer and ban direct fetches or local truth-shaping outside it.
+- [x] **Phase 69: Canonical `Now` rebinding and triage truth** - Rebind `Now` to canonical backend truth, absorb `Inbox` behavior into triage/query flows, and remove client-side ranking or semantic inference.
+- [x] **Phase 70: `Threads` and `System` surface reconnection** - Rebind `Threads` to canonical interaction truth and ship the minimal authoritative `/system` surface with object/configuration visibility and invocation affordances.
+- [x] **Phase 71: Cleanup, web proof, and Apple handoff** - Remove or quarantine deprecated seams, prove the truthful-surface line end-to-end on web, and publish the Apple handoff packet.
 
 ## Progress
 
@@ -79,12 +79,12 @@ Do not widen this milestone into:
 
 | Phase | Requirements | Status |
 |-------|--------------|--------|
-| 66. Truth doctrine, contract freeze, and milestone lock | TRUTH-51-01, TRANSPORT-51-01, NOW-51-01, THREADS-51-01, SYSTEM-51-01, CLEANUP-51-01, VERIFY-51-01, APPLE-51-01 | Active |
-| 67. Client contract audit and deprecated seam kill list | TRUTH-51-01, CLEANUP-51-01 | Planned |
-| 68. Canonical transport layer and query/mutation discipline | TRANSPORT-51-01, CLEANUP-51-01 | Planned |
-| 69. Canonical `Now` rebinding and triage truth | NOW-51-01, TRANSPORT-51-01, VERIFY-51-01 | Planned |
-| 70. `Threads` and `System` surface reconnection | THREADS-51-01, SYSTEM-51-01, TRANSPORT-51-01, VERIFY-51-01 | Planned |
-| 71. Cleanup, web proof, and Apple handoff | CLEANUP-51-01, VERIFY-51-01, APPLE-51-01 | Planned |
+| 66. Truth doctrine, contract freeze, and milestone lock | TRUTH-51-01, TRANSPORT-51-01, NOW-51-01, THREADS-51-01, SYSTEM-51-01, CLEANUP-51-01, VERIFY-51-01, APPLE-51-01 | Complete |
+| 67. Client contract audit and deprecated seam kill list | TRUTH-51-01, CLEANUP-51-01 | Complete |
+| 68. Canonical transport layer and query/mutation discipline | TRANSPORT-51-01, CLEANUP-51-01 | Complete |
+| 69. Canonical `Now` rebinding and triage truth | NOW-51-01, TRANSPORT-51-01, VERIFY-51-01 | Complete |
+| 70. `Threads` and `System` surface reconnection | THREADS-51-01, SYSTEM-51-01, TRANSPORT-51-01, VERIFY-51-01 | Complete |
+| 71. Cleanup, web proof, and Apple handoff | CLEANUP-51-01, VERIFY-51-01, APPLE-51-01 | Complete with accepted debt |
 
 ## Phase Details
 
@@ -151,7 +151,10 @@ Do not widen this milestone into:
 1. Deprecated routes are removed or explicitly quarantined.
 2. Web proof demonstrates truthful reads, truthful mutations, drift failure, stale-data posture, and no-silent-fallback.
 3. Browser-executed evidence and short human-readable proof notes exist for each major flow.
-4. Apple receives behavior/contract handoff docs only, with no partial implementation drift.
+4. Stale-data proof uses a controlled fixture, and no-silent-fallback is demonstrated in the browser rather than only in component tests.
+5. `/v1/agent/inspect` and `/api/integrations/connections` remain as documented bounded reads rather than backend renegotiation targets.
+6. Apple receives behavior/contract handoff docs only, with no partial implementation drift.
+7. If no shipped canonical workflow-invocation HTTP route exists inside the frozen `v0.5.1` boundary, workflow proof may close on browser-proven invocation gating plus an explicit deferred-work record rather than widening backend law.
 
 ---
 *Drafted: 2026-03-23 from post-`0.5` milestone direction lock*

@@ -43,11 +43,9 @@ function contextualDocHint(currentView: string): string {
     case 'now':
       return 'Keep this panel focused on current-day truth, nudge meaning, and the operator rules behind queue ordering and trust warnings.';
     case 'threads':
-      return 'Keep this panel focused on continuation intent, intervention meaning, and why a thread is asking for attention.';
-    case 'settings':
-      return 'Keep this panel focused on practical control surfaces, trust posture, and what each settings section actually governs.';
-    case 'inbox':
-      return 'Keep this panel focused on queue meaning, object provenance, and how Inbox stays aligned to the same actionable truth as Now.';
+      return 'Keep this panel focused on continuation intent, canonical object grounding, and why thread attention remains bounded rather than drifting into workflow simulation.';
+    case 'system':
+      return 'Keep this panel focused on structural truth, canonical contracts, and which configuration actions are real backend capabilities versus UI wishes.';
     default:
       return 'Keep this panel focused on contextual docs, definitions, and trust notes for the active surface.';
   }

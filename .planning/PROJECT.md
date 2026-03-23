@@ -55,17 +55,21 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 **Goal achieved:** the shipped `Now` experience was tightened into the compact, operator-corrected MVP shell, then closed with a clean web build and focused regression evidence.
 
-## Active Release Line: 0.5.1 Canonical Client Reconnection
+## Latest Closed Release Line: 0.5.1 Canonical Client Reconnection
 
-**Goal:** reconnect the web operator surfaces to the frozen `0.5` backend through the smallest truthful surface set: `Now`, `Threads`, and `System`.
+**Goal achieved:** the web client now speaks the frozen `0.5` backend truth through exactly three first-class surfaces: `Now`, `Threads`, and `System`.
 
-**Milestone priorities:**
-- truthful-surface doctrine governs all client work
-- backend contracts remain immutable during the milestone
-- one canonical transport layer owns all reads and `WriteIntent` mutations
-- `Inbox` is absorbed and `Settings` is replaced by `System`
-- deprecated routes and shims are deleted or explicitly quarantined
-- Apple receives handoff/spec docs only
+**Delivered:**
+- truthful-surface doctrine and canonical transport boundary
+- `Now` rebound to canonical task/calendar truth with direct canonical completion flow
+- `Threads` rebound to canonical conversation truth with explicit invocation gating
+- authoritative `/system` surface with bounded reads and allow-listed actions
+- deleted `Settings` / `Projects` web surfaces
+- browser-executed proof of read, mutation, degraded-state, and no-silent-fallback behavior
+- Apple handoff/spec packet only
+
+**Accepted debt:**
+- live browser workflow dispatch remains deferred until a future milestone ships canonical workflow invocation transport
 
 ## Requirements
 
@@ -110,7 +114,7 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ### Active
 
-- `0.5.1` canonical client reconnection — active roadmap starts at Phase 66 inside the `0.5.1-beta` line
+- no successor milestone is active yet
 
 ### Out of Scope
 
@@ -196,4 +200,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-23 after activating the `0.5.1` client reconnection line*
+*Last updated: 2026-03-23 after closing the `0.5.1` client reconnection line*

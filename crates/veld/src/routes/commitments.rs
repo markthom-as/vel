@@ -2,6 +2,7 @@ use axum::{
     extract::{Path, Query, State},
     Json,
 };
+use serde_json::{Map as JsonMap, Value as JsonValue};
 use serde::Deserialize;
 use std::str::FromStr;
 use uuid::Uuid;
@@ -12,7 +13,11 @@ use vel_api_types::{
 use vel_core::CommitmentStatus;
 use vel_storage::CommitmentInsert;
 
-use crate::{errors::AppError, state::AppState};
+use crate::{
+    errors::AppError,
+    services::commitment_write_bridge::{CommitmentWriteBridgeRequest, bridge_commitment_write},
+    state::AppState,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct ListCommitmentsQuery {
@@ -104,12 +109,30 @@ pub async fn update_commitment(
     Path(id): Path<String>,
     Json(payload): Json<CommitmentUpdateRequest>,
 ) -> Result<Json<ApiResponse<CommitmentData>>, AppError> {
+    let existing = state
+        .storage
+        .get_commitment_by_id(id.trim())
+        .await?
+        .ok_or_else(|| AppError::not_found("commitment not found"))?;
     let status = payload
         .status
         .as_deref()
         .map(CommitmentStatus::from_str)
         .transpose()
         .map_err(|_| AppError::bad_request("invalid status"))?;
+    let requested_change = commitment_requested_change(&payload);
+
+    let _write_intent = bridge_commitment_write(
+        state.storage.sql_pool(),
+        &CommitmentWriteBridgeRequest {
+            object_id: id.trim().to_string(),
+            object_status: existing.status.to_string(),
+            requested_change,
+            dry_run: false,
+        },
+    )
+    .await?;
+
     state
         .storage
         .update_commitment(
@@ -132,6 +155,34 @@ pub async fn update_commitment(
         CommitmentData::from(commitment),
         request_id,
     )))
+}
+
+fn commitment_requested_change(payload: &CommitmentUpdateRequest) -> JsonValue {
+    let mut change = JsonMap::new();
+    if let Some(status) = payload.status.as_ref() {
+        change.insert("status".to_string(), JsonValue::String(status.clone()));
+    }
+    if let Some(due_at) = payload.due_at.as_ref() {
+        change.insert(
+            "due_at".to_string(),
+            due_at
+                .map(|value| JsonValue::String(value.to_string()))
+                .unwrap_or(JsonValue::Null),
+        );
+    }
+    if let Some(project) = payload.project.as_ref() {
+        change.insert("project".to_string(), JsonValue::String(project.clone()));
+    }
+    if let Some(commitment_kind) = payload.commitment_kind.as_ref() {
+        change.insert(
+            "commitment_kind".to_string(),
+            JsonValue::String(commitment_kind.clone()),
+        );
+    }
+    if let Some(metadata) = payload.metadata.as_ref() {
+        change.insert("metadata".to_string(), metadata.clone());
+    }
+    JsonValue::Object(change)
 }
 
 pub async fn list_commitment_dependencies(

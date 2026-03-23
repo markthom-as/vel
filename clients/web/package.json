@@ -10,7 +10,13 @@
     "preview": "vite preview",
     "seed": "bash scripts/seed.sh",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "proof:phase71:now-read": "node scripts/proof/phase71-now-read.mjs",
+    "proof:phase71:now-complete": "node scripts/proof/phase71-now-complete.mjs",
+    "proof:phase71:threads-read-gating": "node scripts/proof/phase71-threads-read-gating.mjs",
+    "proof:phase71:system-read": "node scripts/proof/phase71-system-read.mjs",
+    "proof:phase71:system-degraded": "node scripts/proof/phase71-system-degraded.mjs",
+    "proof:phase71:system-no-fallback": "node scripts/proof/phase71-system-no-fallback.mjs"
   },
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
@@ -39,6 +45,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "jsdom": "^25.0.1",
+    "playwright-core": "^1.58.2",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
     "typescript": "~5.9.3",

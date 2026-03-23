@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from '../api/client';
+import { canonicalPatchMutation, canonicalPostMutation, canonicalQuery } from './canonicalTransport';
 import {
   decodeApiResponse,
   decodeArray,
@@ -35,7 +35,7 @@ export const contextQueryKeys = {
 };
 
 export function loadCurrentContext(): Promise<ApiResponse<CurrentContextData | null>> {
-  return apiGet<ApiResponse<CurrentContextData | null>>(
+  return canonicalQuery<CurrentContextData | null>(
     '/v1/context/current',
     (value) => decodeApiResponse(value, (data) => decodeNullable(data, decodeCurrentContextData)),
   );
@@ -43,7 +43,7 @@ export function loadCurrentContext(): Promise<ApiResponse<CurrentContextData | n
 
 export function loadNow(): Promise<ApiResponse<NowData>> {
   // Phase 05 decode path includes Now review_snapshot plus ranked action_items.
-  return apiGet<ApiResponse<NowData>>(
+  return canonicalQuery<NowData>(
     '/v1/now',
     (value) => decodeApiResponse(value, decodeNowData),
   );
@@ -51,28 +51,28 @@ export function loadNow(): Promise<ApiResponse<NowData>> {
 
 export function loadSyncBootstrap(): Promise<ApiResponse<SyncBootstrapData>> {
   // Phase 05 sync bootstrap carries linked_nodes, projects, and action_items for thin clients.
-  return apiGet<ApiResponse<SyncBootstrapData>>(
+  return canonicalQuery<SyncBootstrapData>(
     '/v1/sync/bootstrap',
     (value) => decodeApiResponse(value, decodeSyncBootstrapData),
   );
 }
 
 export function loadContextExplain(): Promise<ApiResponse<ContextExplainData>> {
-  return apiGet<ApiResponse<ContextExplainData>>(
+  return canonicalQuery<ContextExplainData>(
     '/v1/explain/context',
     (value) => decodeApiResponse(value, decodeContextExplainData),
   );
 }
 
 export function loadDriftExplain(): Promise<ApiResponse<DriftExplainData>> {
-  return apiGet<ApiResponse<DriftExplainData>>(
+  return canonicalQuery<DriftExplainData>(
     '/v1/explain/drift',
     (value) => decodeApiResponse(value, decodeDriftExplainData),
   );
 }
 
 export function loadCommitments(limit: number): Promise<ApiResponse<CommitmentData[]>> {
-  return apiGet<ApiResponse<CommitmentData[]>>(
+  return canonicalQuery<CommitmentData[]>(
     `/v1/commitments?limit=${limit}`,
     (value) => decodeApiResponse(value, (data) => decodeArray(data, decodeCommitmentData)),
   );
@@ -82,7 +82,7 @@ export function updateCommitment(
   commitmentId: string,
   patch: Record<string, unknown>,
 ): Promise<ApiResponse<CommitmentData>> {
-  return apiPatch<ApiResponse<CommitmentData>>(
+  return canonicalPatchMutation<CommitmentData>(
     `/v1/commitments/${encodeURIComponent(commitmentId.trim())}`,
     patch,
     (value) => decodeApiResponse(value, decodeCommitmentData),
@@ -97,7 +97,7 @@ export function loadActiveDailyLoopSession(
     session_date: sessionDate,
     phase,
   });
-  return apiGet<ApiResponse<DailyLoopSessionData | null>>(
+  return canonicalQuery<DailyLoopSessionData | null>(
     `/v1/daily-loop/sessions/active?${params.toString()}`,
     (value) => decodeApiResponse(value, (data) => decodeNullable(data, decodeDailyLoopSessionData)),
   );
@@ -106,7 +106,7 @@ export function loadActiveDailyLoopSession(
 export function startDailyLoopSession(
   request: DailyLoopStartRequestData,
 ): Promise<ApiResponse<DailyLoopSessionData>> {
-  return apiPost<ApiResponse<DailyLoopSessionData>>(
+  return canonicalPostMutation<DailyLoopSessionData>(
     '/v1/daily-loop/sessions',
     request,
     (value) => decodeApiResponse(value, decodeDailyLoopSessionData),
@@ -118,7 +118,7 @@ export function submitDailyLoopTurn(
   action: DailyLoopTurnActionData,
   responseText?: string | null,
 ): Promise<ApiResponse<DailyLoopSessionData>> {
-  return apiPost<ApiResponse<DailyLoopSessionData>>(
+  return canonicalPostMutation<DailyLoopSessionData>(
     `/v1/daily-loop/sessions/${encodeURIComponent(sessionId.trim())}/turn`,
     {
       session_id: sessionId,

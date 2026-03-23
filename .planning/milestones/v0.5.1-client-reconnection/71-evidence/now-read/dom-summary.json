@@ -1,0 +1,10 @@
+{
+  "headings": [
+    "Tasks",
+    "Calendar"
+  ],
+  "taskVisible": true,
+  "eventVisible": true,
+  "inboxButtonCount": 0,
+  "rescheduleButtonCount": 0
+}

@@ -1,0 +1,12 @@
+{
+  "sections": [
+    "Domain",
+    "Capabilities",
+    "Configuration"
+  ],
+  "allowListedActions": {
+    "refresh": 2,
+    "disconnect": 2,
+    "reconnect": 0
+  }
+}

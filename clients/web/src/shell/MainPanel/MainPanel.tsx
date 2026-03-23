@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { chatQueryKeys, invalidateInboxQueries } from '../../data/chat';
+import { chatQueryKeys } from '../../data/chat';
 import { appendUniqueMessages, reconcileConfirmedSend } from '../../data/chat-state';
 import { contextQueryKeys } from '../../data/context';
 import { invalidateQuery, setQueryData } from '../../data/query';
@@ -7,42 +7,28 @@ import { MessageComposer } from '../../core/MessageComposer';
 import type { MainView } from '../../data/operatorSurfaces';
 import type { AssistantEntryResponse, MessageData } from '../../types';
 import { useResolvedThreadConversationId } from '../../views/threads/useResolvedThreadConversationId';
-import { InboxView } from '../../views/inbox';
 import { NowView } from '../../views/now';
 import { AssistantEntryFeedback } from '../../views/now/components/AssistantEntryFeedback';
-import { ProjectsView } from '../../views/projects';
-import type { SettingsSectionKey, SettingsTab } from '../../views/settings';
-import { SettingsPage } from '../../views/settings';
+import type { SystemNavigationTarget } from '../../views/system';
+import { SystemView } from '../../views/system';
 import { ThreadView } from '../../views/threads';
-
-type SettingsNavigationTarget = {
-  tab: SettingsTab;
-  integrationId?: 'google' | 'todoist' | 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
-  section?: SettingsSectionKey;
-};
 
 interface MainPanelProps {
   conversationId: string | null;
   mainView: MainView;
   onNavigate: (view: MainView) => void;
-  onOpenInbox: () => void;
   onOpenThread: (conversationId: string) => void;
-  settingsTarget: SettingsNavigationTarget;
-  onOpenSettings: (target?: {
-    tab: SettingsTab;
-    integrationId?: 'google' | 'todoist' | 'activity' | 'git' | 'messaging' | 'notes' | 'transcripts';
-    section?: SettingsSectionKey;
-  }) => void;
+  systemTarget: SystemNavigationTarget;
+  onOpenSystem: (target?: SystemNavigationTarget) => void;
 }
 
 export function MainPanel({
   conversationId,
   mainView,
   onNavigate,
-  onOpenInbox,
   onOpenThread,
-  settingsTarget,
-  onOpenSettings,
+  systemTarget,
+  onOpenSystem,
 }: MainPanelProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
@@ -62,7 +48,6 @@ export function MainPanel({
   const handleAssistantEntry = useCallback(
     async (response: AssistantEntryResponse) => {
       invalidateQuery(conversationsKey, { refetch: true });
-      invalidateInboxQueries();
       setAssistantEntryMessage(null);
       setAssistantInlineResponse(null);
       setAssistantEntryThreadId(response.conversation.id);
@@ -74,9 +59,9 @@ export function MainPanel({
       if (response.route_target === 'inbox') {
         setAssistantEntryMessage({
           status: 'success',
-          message: 'Saved to Inbox for follow-up.',
+          message: 'Queued in Now for follow-up.',
         });
-        onOpenInbox();
+        onNavigate('now');
         return;
       }
       setAssistantInlineResponse(response);
@@ -92,24 +77,14 @@ export function MainPanel({
         message: 'Handled here in Now.',
       });
     },
-    [conversationsKey, onOpenInbox, onOpenThread],
+    [conversationsKey, onNavigate, onOpenThread],
   );
 
   let body: ReactNode;
   if (mainView === 'now') {
     body = (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <NowView
-          onOpenInbox={onOpenInbox}
-          onOpenThread={onOpenThread}
-          onOpenSettings={onOpenSettings}
-        />
-      </div>
-    );
-  } else if (mainView === 'inbox') {
-    body = (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <InboxView onOpenThread={onOpenThread} />
+        <NowView onOpenThread={onOpenThread} onOpenSystem={onOpenSystem} />
       </div>
     );
   } else if (mainView === 'threads') {
@@ -118,21 +93,10 @@ export function MainPanel({
         <ThreadView conversationId={conversationId} onSelectConversation={onOpenThread} />
       </div>
     );
-  } else if (mainView === 'settings') {
+  } else if (mainView === 'system') {
     body = (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
-        <SettingsPage
-          onBack={() => onNavigate('now')}
-          initialTab={settingsTarget.tab}
-          initialIntegrationId={settingsTarget.integrationId}
-          initialSection={settingsTarget.section}
-        />
-      </div>
-    );
-  } else if (mainView === 'projects') {
-    body = (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <ProjectsView />
+        <SystemView target={systemTarget} />
       </div>
     );
   } else {

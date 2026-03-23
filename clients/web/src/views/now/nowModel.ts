@@ -1,5 +1,4 @@
 import { brandTagPalette, uiTheme } from '../../core/Theme';
-import type { SettingsSectionKey } from '../../views/settings';
 import type {
   ActionItemData,
   ClusterBootstrapData,
@@ -8,19 +7,17 @@ import type {
   RoutineBlockData,
   WorkerPresenceData,
 } from '../../types';
+import type { SystemNavigationTarget } from '../system';
 
-/** Maps synthetic nudge bar ids to Settings deep links for `open_settings` actions. */
-export function nudgeOpenSettingsTarget(bar: { id: string }): {
-  tab: 'general' | 'integrations' | 'runtime';
-  section?: SettingsSectionKey;
-} {
+/** Maps legacy `open_settings` nudges onto the canonical `/system` surface. */
+export function nudgeOpenSystemTarget(bar: { id: string }): SystemNavigationTarget {
   if (bar.id === 'backup_trust_warning') {
-    return { tab: 'runtime', section: 'backups' };
+    return { section: 'configuration', subsection: 'integrations' };
   }
   if (bar.id === 'mesh_summary_warning') {
-    return { tab: 'general', section: 'clients-sync' };
+    return { section: 'configuration', subsection: 'accounts' };
   }
-  return { tab: 'runtime' };
+  return { section: 'configuration' };
 }
 
 export function dedupeTasks(tasks: Array<NowTaskData | null | undefined>): NowTaskData[] {
@@ -133,20 +130,6 @@ export function formatTaskDate(value: string): string {
   } catch {
     return value;
   }
-}
-
-export function scoreNudge(bar: { urgent: boolean; kind: string }): number {
-  let score = 0;
-  if (bar.urgent) {
-    score += 10;
-  }
-  if (bar.kind === 'trust_warning') {
-    score += 8;
-  }
-  if (bar.kind === 'needs_input') {
-    score += 6;
-  }
-  return score;
 }
 
 export function formatNowBarKind(kind: string): string {

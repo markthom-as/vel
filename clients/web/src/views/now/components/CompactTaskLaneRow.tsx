@@ -1,14 +1,10 @@
-import { useState } from 'react';
 import type { NowData, NowTaskData } from '../../../types';
 import {
-  CalendarIcon,
   ClockIcon,
   OpenThreadIcon,
-  RescheduleIcon,
   TagIcon,
 } from '../../../core/Icons';
-import { cn } from '../../../core/cn';
-import { FilterDenseTag, FilterPillButton, filterPillActionIdle } from '../../../core/FilterToggleTag';
+import { FilterDenseTag, FilterPillButton } from '../../../core/FilterToggleTag';
 import { NowItemRowLayout, NowItemRowShell, type NowItemRowSurface } from '../../../core/NowItemRow';
 import { formatTaskDate, projectTagClasses } from '../nowModel';
 import {
@@ -45,7 +41,6 @@ export function CompactTaskLaneRow({
   const completed =
     emphasis === 'completed' || laneItemStateIsCompleted(item.state) || feedback?.status === 'success';
   const canComplete = Boolean(onComplete) && !completed;
-  const [rescheduleOpen, setRescheduleOpen] = useState(false);
 
   const surface: NowItemRowSurface =
     emphasis === 'active' && !completed ? 'emphasis' : completed ? 'ghost' : flat ? 'queue' : 'muted';
@@ -78,14 +73,6 @@ export function CompactTaskLaneRow({
                 <span className="capitalize">Open thread</span>
               </FilterPillButton>
             ) : null}
-            <FilterPillButton
-              className={surfaceActionChipNudgeClass}
-              onClick={() => setRescheduleOpen((current) => !current)}
-              aria-label="Reschedule"
-            >
-              <RescheduleIcon size={16} className="shrink-0" aria-hidden />
-              <span className="capitalize">Reschedule</span>
-            </FilterPillButton>
           </>
         }
       >
@@ -131,19 +118,6 @@ export function CompactTaskLaneRow({
           <p className={`line-clamp-2 text-xs leading-snug ${feedback.status === 'error' ? 'text-rose-300' : 'text-emerald-300'}`}>
             {feedback.message}
           </p>
-        ) : null}
-        {rescheduleOpen ? (
-          <div className="flex flex-wrap gap-1">
-            {['Tomorrow', 'Later This Week', 'Pick Day', 'Unschedule'].map((label) => (
-              <FilterDenseTag
-                key={label}
-                className={cn(filterPillActionIdle, '!normal-case !capitalize !tracking-normal')}
-              >
-                <CalendarIcon size={14} />
-                <span className="capitalize">{label}</span>
-              </FilterDenseTag>
-            ))}
-          </div>
         ) : null}
       </NowItemRowLayout>
     </NowItemRowShell>
