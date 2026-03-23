@@ -27,7 +27,7 @@ created: 2026-03-22
 
 - Desktop posture: split-pane shell. Keep primary surface content dominant; use side panes for secondary inspection, never as equal-weight columns.
 - Narrow posture: stack detail beneath or over the primary surface. Do not preserve desktop side-by-side compression below tablet width.
-- Shell rhythm: persistent top nav, one active surface at a time, optional right-side info rail only when explicitly opened.
+- Shell rhythm: persistent top nav, one active surface at a time, and no global right-side info rail; secondary inspection appears only as per-surface drawer or contextual expansion.
 - Visual direction: dark instrument-panel tone. This phase may reset styling strongly, but must not read like a marketing page or launch splash.
 - Surface count: exactly `Now`, `Threads`, and `System`. No fourth top-level destination, no resurrected `Inbox` or `Settings`.
 
