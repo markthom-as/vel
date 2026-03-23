@@ -48,7 +48,18 @@ Milestone `0.5.1` reconnected the web operator surfaces to the frozen `0.5` back
 
 ## Active Milestone
 
-No successor milestone is active yet.
+`0.5.2` is now active as the operator-surface embodiment line:
+
+- packet: [v0.5.2-operator-surface-embodiment/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/ROADMAP.md)
+- doctrine: [0.5.2-operator-surface-doctrine.md](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/0.5.2-operator-surface-doctrine.md)
+
+Milestone `0.5.2` exists to turn the truthful `0.5.1` line into the intended web operator UI state:
+
+- no backend renegotiation
+- no new top-level surfaces beyond `Now`, `Threads`, and `System`
+- web-first embodiment
+- visible performance repair in the active operator path
+- Apple parity/handoff updates only
 
 ## Scope Guardrails
 
@@ -77,6 +88,14 @@ The completed `0.5.1` line was only about truthful client reconnection:
 - no workflow-builder or trigger product widening
 - no Apple implementation work
 
+The active `0.5.2` line is only about operator-surface embodiment:
+
+- no backend schema negotiation beyond provable bugs
+- no framework migration
+- no new providers
+- no workflow-builder or trigger widening
+- no Apple implementation
+
 ## Versioning Policy
 
 Vel now uses semver language for product lines and shipped releases:
@@ -85,6 +104,7 @@ Vel now uses semver language for product lines and shipped releases:
 - `0.4.x` is the latest closed release line
 - `0.5.0-beta` is the latest completed backend rewrite line
 - `0.5.1-beta` is the latest completed client reconnection line
+- `0.5.2-beta` is the active operator-surface embodiment line
 
 For roadmap execution inside a release line, use a four-part lineage identifier:
 
@@ -102,7 +122,8 @@ The latest completed execution packet is:
 
 ## Active Packet
 
-No active milestone packet yet.
+- [v0.5.2-operator-surface-embodiment/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/ROADMAP.md)
+- [72-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/72-01-PLAN.md)
 
 ---
-*Last updated: 2026-03-23 after closing milestone `0.5.1`*
+*Last updated: 2026-03-22 after activating milestone `0.5.2`*

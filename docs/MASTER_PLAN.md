@@ -1,6 +1,6 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (`0.3.0` shipped, `0.4.x`, `0.5`, and `0.5.1` closed; no active successor milestone)
-**Last Updated**: 2026-03-23
+**Status**: Canonical Truth (`0.3.0` shipped, `0.4.x`, `0.5`, and `0.5.1` closed; `0.5.2` active)
+**Last Updated**: 2026-03-22
 
 ---
 
@@ -15,7 +15,7 @@
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
 
-Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). `0.4.x`, `0.5`, and `0.5.1` are now closed. `0.5.1` completed canonical client reconnection on top of the frozen `0.5` backend rewrite:
+Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). `0.4.x`, `0.5`, and `0.5.1` are now closed. `0.5.1` completed canonical client reconnection on top of the frozen `0.5` backend rewrite, and `0.5.2` is now active as the operator-surface embodiment line:
 
 - [`.planning/milestones/v0.5-core-rewrite/ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
 - [`.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md`](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md)
@@ -23,6 +23,8 @@ Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROA
 - [`docs/cognitive-agent-architecture/architecture/0.5.1-truthful-surface-doctrine.md`](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/0.5.1-truthful-surface-doctrine.md)
 - [`.planning/milestones/v0.5.1-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.5.1-ROADMAP.md)
 - [`.planning/v0.5.1-MILESTONE-AUDIT.md`](/home/jove/code/vel/.planning/v0.5.1-MILESTONE-AUDIT.md)
+- [`.planning/milestones/v0.5.2-operator-surface-embodiment/ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/ROADMAP.md)
+- [`docs/cognitive-agent-architecture/architecture/0.5.2-operator-surface-doctrine.md`](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/0.5.2-operator-surface-doctrine.md)
 
 Planning notation from this point forward:
 
