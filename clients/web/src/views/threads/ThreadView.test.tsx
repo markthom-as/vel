@@ -84,9 +84,13 @@ describe('ThreadView', () => {
       expect(screen.getByRole('heading', { name: 'Proposal thread' })).toBeInTheDocument()
     })
     expect(screen.getByPlaceholderText('Find thread')).toBeInTheDocument()
+    expect(screen.getByText('Bound object')).toBeInTheDocument()
+    expect(screen.getByText('Object state')).toBeInTheDocument()
+    expect(screen.getByText(/proposal review gated/i)).toBeInTheDocument()
+    expect(screen.getByText(/source message id/i)).toBeInTheDocument()
     expect(screen.getAllByText('Can you help shape the rollout plan?').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/needs input/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Attach or create an object first/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Attach or create an object first/i)).not.toBeInTheDocument()
   })
 
   it('switches threads from the left list', async () => {

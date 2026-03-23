@@ -1,5 +1,6 @@
 # Phase 75 Validation
 
 - `Threads` still does not simulate workflow orchestration locally
-- object grounding is more legible than in `0.5.1`
+- bound object state now reads before transcript chronology when a stable canonical object exists
+- deep provenance remains inspectable through the dedicated drawer rather than inline transcript expansion
 - gated actions remain bounded by canonical truth

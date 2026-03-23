@@ -12,7 +12,16 @@ import { FilterDenseTag, FilterToggleTag } from '../../core/FilterToggleTag';
 import { LayersIcon, OpenThreadIcon, ThreadsIcon } from '../../core/Icons';
 import { itemPillCard, itemPillRowSelected } from '../../core/itemPill';
 import { NowItemRowLayout } from '../../core/NowItemRow';
-import { PanelEyebrow, PanelKeyValueRow, PanelMutedInset } from '../../core/PanelChrome';
+import {
+  PanelEmptyRow,
+  PanelEyebrow,
+  PanelInsetCard,
+  PanelKeyValueRow,
+  PanelMutedInset,
+  PanelPageSection,
+  PanelSectionHeader,
+  PanelStatusChip,
+} from '../../core/PanelChrome';
 import { PanelMetaPill } from '../../core/PanelItem';
 import { MessageRenderer } from '../../core/MessageRenderer';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
@@ -164,6 +173,9 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     return <SurfaceState message={error} layout="centered" tone="danger" />;
   }
 
+  const boundObject = selectedConversation?.continuation ?? null;
+  const contextRows = selectedConversation ? continuationContextRows(selectedConversation) : [];
+
   return (
     <>
       <div className="flex min-h-0 flex-1">
@@ -245,69 +257,114 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
 
         <section className="relative flex min-w-0 flex-1 flex-col">
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
-            <div className="mx-auto max-w-3xl">
-              <header className="mb-5 border-b border-zinc-900 pb-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <PanelEyebrow className="tracking-[0.22em]">Thread</PanelEyebrow>
-                    <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight text-zinc-100">
-                      {threadTitle(selectedConversation)}
-                    </h1>
-                  </div>
-                  {selectedConversation?.continuation ? (
-                    <div className="flex flex-wrap gap-2">
-                      <PanelMetaPill tone="state">
-                        {continuationTokenLabel(selectedConversation.continuation.continuation.continuation_category)}
-                      </PanelMetaPill>
-                      {selectedConversation.continuation.lifecycle_stage ? (
-                        <PanelMetaPill tone="state">{selectedConversation.continuation.lifecycle_stage}</PanelMetaPill>
-                      ) : null}
+            <div className={cn('mx-auto max-w-6xl', boundObject ? 'xl:grid xl:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.4fr)] xl:gap-6' : 'max-w-3xl')}>
+              <div className={cn(boundObject ? 'space-y-4 xl:sticky xl:top-0 xl:self-start' : 'mb-5')}>
+                <PanelPageSection className="space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <PanelEyebrow className="tracking-[0.22em]">Thread</PanelEyebrow>
+                      <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight text-zinc-100">
+                        {threadTitle(selectedConversation)}
+                      </h1>
                     </div>
-                  ) : null}
-                </div>
-                {selectedConversation?.continuation ? (
-                  <PanelMutedInset className="mt-3">
-                    <p className="text-sm leading-6 text-zinc-300">
-                      {selectedConversation.continuation.continuation.escalation_reason}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <PanelMetaPill tone="state">
-                        {capabilityStateLabel(selectedConversation.continuation.continuation.bounded_capability_state)}
-                      </PanelMetaPill>
-                      <PanelMetaPill tone="state">
-                        {continuationTokenLabel(selectedConversation.continuation.continuation.open_target)}
-                      </PanelMetaPill>
-                    </div>
-                    {continuationContextRows(selectedConversation).length > 0 ? (
-                      <div className="mt-3 grid gap-2 text-xs text-zinc-400">
-                        {continuationContextRows(selectedConversation).map((entry) => (
-                          <PanelKeyValueRow key={entry.label} label={entry.label} value={entry.value} />
-                        ))}
+                    {boundObject ? (
+                      <div className="flex flex-wrap gap-2">
+                        <PanelMetaPill tone="state">
+                          {continuationTokenLabel(boundObject.continuation.continuation_category)}
+                        </PanelMetaPill>
+                        {boundObject.lifecycle_stage ? (
+                          <PanelMetaPill tone="state">{boundObject.lifecycle_stage}</PanelMetaPill>
+                        ) : null}
                       </div>
                     ) : null}
+                  </div>
+
+                  {boundObject ? (
+                    <>
+                      <PanelInsetCard className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <PanelStatusChip tone="ok">Bound object</PanelStatusChip>
+                          <FilterDenseTag className="border-zinc-700 bg-zinc-950/70 text-zinc-300">
+                            {boundObject.thread_type.replaceAll('_', ' ')}
+                          </FilterDenseTag>
+                        </div>
+                        <p className="text-sm leading-6 text-zinc-200">
+                          {boundObject.continuation.escalation_reason}
+                        </p>
+                        <div className="grid gap-2 text-xs text-zinc-400">
+                          <PanelKeyValueRow
+                            label="capability"
+                            value={capabilityStateLabel(boundObject.continuation.bounded_capability_state)}
+                          />
+                          <PanelKeyValueRow
+                            label="open target"
+                            value={continuationTokenLabel(boundObject.continuation.open_target)}
+                          />
+                          {boundObject.lifecycle_stage ? (
+                            <PanelKeyValueRow label="stage" value={boundObject.lifecycle_stage} />
+                          ) : null}
+                        </div>
+                      </PanelInsetCard>
+
+                      <PanelInsetCard className="space-y-3">
+                        <PanelSectionHeader
+                          title="Object state"
+                          description="Context edges and gating state stay visible beside the conversation instead of getting buried in transcript chronology."
+                        />
+                        {contextRows.length > 0 ? (
+                          <div className="grid gap-2 text-xs text-zinc-400">
+                            {contextRows.map((entry) => (
+                              <PanelKeyValueRow key={entry.label} label={entry.label} value={entry.value} />
+                            ))}
+                          </div>
+                        ) : (
+                          <PanelEmptyRow>No structured continuation context is attached to this thread yet.</PanelEmptyRow>
+                        )}
+                      </PanelInsetCard>
+                    </>
+                  ) : (
+                    <PanelMutedInset>
+                      <p className="text-sm leading-6 text-zinc-300">
+                        This thread has no stable bound object yet, so the surface falls back to conversation-first reading.
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-zinc-500">
+                        Attach or create an object first. `v0.5.1` still forbids floating or multi-object invocation from Threads.
+                      </p>
+                    </PanelMutedInset>
+                  )}
+
+                  <PanelMutedInset>
+                    <p className="text-sm leading-6 text-zinc-300">
+                      Workflow invocation stays unavailable here until the backend exposes exactly one stable canonical
+                      object binding for this thread.
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-zinc-500">
+                      Provenance remains compressed inline on each message and expands in a dedicated drawer when you ask for depth.
+                    </p>
                   </PanelMutedInset>
-                ) : null}
-                <PanelMutedInset className="mt-3">
-                  <p className="text-sm leading-6 text-zinc-300">
-                    Workflow invocation stays unavailable here until the backend exposes exactly one stable canonical
-                    object binding for this thread.
-                  </p>
-                  <p className="mt-2 text-xs leading-5 text-zinc-500">
-                    Attach or create an object first. `v0.5.1` does not allow floating or multi-object invocation from
-                    Threads.
-                  </p>
-                </PanelMutedInset>
-              </header>
-              {messages.length === 0 && (
-                <SurfaceState message="No messages in this thread yet." />
-              )}
-              {messages.map((message) => (
-                <MessageRenderer
-                  key={message.id}
-                  message={message}
-                  onShowWhy={setProvenanceMessageId}
-                />
-              ))}
+                </PanelPageSection>
+              </div>
+
+              <PanelPageSection className={cn('mt-5 xl:mt-0', boundObject ? 'min-w-0' : '')}>
+                <div className="mb-4 flex items-center justify-between gap-3 border-b border-zinc-900 pb-3">
+                  <div>
+                    <PanelEyebrow className="tracking-[0.22em]">Conversation</PanelEyebrow>
+                    <p className="mt-2 text-sm text-zinc-400">
+                      Chronology stays navigable, but it is secondary to the bound object and current thread state.
+                    </p>
+                  </div>
+                </div>
+                {messages.length === 0 && (
+                  <SurfaceState message="No messages in this thread yet." />
+                )}
+                {messages.map((message) => (
+                  <MessageRenderer
+                    key={message.id}
+                    message={message}
+                    onShowWhy={setProvenanceMessageId}
+                  />
+                ))}
+              </PanelPageSection>
             </div>
           </div>
           {provenanceMessageId && (
