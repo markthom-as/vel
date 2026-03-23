@@ -14,3 +14,4 @@ This phase reconnects `Now`; it does not rebuild the product hierarchy beyond th
 - canonical triage mutation flow
 - `Inbox` absorption into `Now`
 - explicit ban on client-side prioritization or semantic inference
+- adjacent canonical task and calendar sections with no synthetic merged ranking layer

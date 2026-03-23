@@ -14,3 +14,4 @@ This phase inventories and classifies seams; it does not yet implement the new t
 - deprecated route kill list
 - rewrite / quarantine / delete classification
 - explicit note of any unavoidable temporary shims
+- pre-frozen allow-list target for canonical actions in `Modules`, `Integrations`, `Accounts`, and `Scopes`

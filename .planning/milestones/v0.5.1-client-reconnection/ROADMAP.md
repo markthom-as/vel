@@ -18,6 +18,8 @@ The milestone has exactly three surfaces:
 
 `Inbox` is absorbed into `Now` triage and query views. `Settings` is replaced by `System`. Apple is out of implementation scope and receives a handoff/spec packet only.
 
+`Now` remains one surface, but tasks and calendar commitments must render as adjacent canonical sections rather than a merged ranked feed unless the backend later provides an explicit merged model.
+
 ## Invariant
 
 - clients must conform to canonical backend contracts
@@ -57,9 +59,9 @@ Do not widen this milestone into:
 | TRANSPORT-51-01 | Web client reads and writes flow through one typed canonical transport layer with `WriteIntent`-only mutations. |
 | NOW-51-01 | `Now` renders canonical operational truth and absorbs triage behavior without client-side prioritization or semantic drift. |
 | THREADS-51-01 | `Threads` is rebound to canonical backend truth and supports only object-scoped manual invocation. |
-| SYSTEM-51-01 | `System` ships as one authoritative structural/configuration surface under `/system`. |
+| SYSTEM-51-01 | `System` ships as one authoritative structural/configuration surface under `/system` with a fixed section set and a pre-frozen action allow-list. |
 | CLEANUP-51-01 | Deprecated routes and client shims are deleted or explicitly quarantined with named rationale. |
-| VERIFY-51-01 | Milestone verification proves truthful read flows, canonical mutation flows, drift failure, and no-silent-fallback behavior. |
+| VERIFY-51-01 | Milestone verification proves truthful read flows, canonical mutation flows, drift failure, stale-data posture, browser execution, and no-silent-fallback behavior. |
 | APPLE-51-01 | Apple receives a handoff/spec packet only; no implementation work lands in this milestone. |
 
 ## Phases
@@ -127,6 +129,7 @@ Do not widen this milestone into:
 2. Triage mutations are direct but always canonical `WriteIntent`.
 3. No client-side prioritization or semantic inference survives.
 4. `Inbox` behavior is absorbed without reviving `Inbox` as a first-class surface.
+5. Tasks and calendar commitments remain adjacent canonical sections rather than a synthetic merged ranking feed.
 
 ### Phase 70: `Threads` and `System` surface reconnection
 
@@ -136,7 +139,8 @@ Do not widen this milestone into:
 **Success Criteria:**
 1. `Threads` consumes canonical backend truth and supports only object-scoped manual invocation.
 2. `/system` ships as one surface with stable sections, not route sprawl.
-3. No builders, editors, or client-side workflow simulation land in this milestone.
+3. `Modules`, `Integrations`, `Accounts`, and `Scopes` expose only pre-frozen named canonical actions; no additional, inferred, composite, or ambiguous actions are allowed.
+4. No builders, editors, or client-side workflow simulation land in this milestone.
 
 ### Phase 71: Cleanup, web proof, and Apple handoff
 
@@ -145,8 +149,9 @@ Do not widen this milestone into:
 **Depends on:** Phase 70
 **Success Criteria:**
 1. Deprecated routes are removed or explicitly quarantined.
-2. Web proof demonstrates truthful reads, truthful mutations, drift failure, and no-silent-fallback.
-3. Apple receives handoff/spec docs only, with no partial implementation drift.
+2. Web proof demonstrates truthful reads, truthful mutations, drift failure, stale-data posture, and no-silent-fallback.
+3. Browser-executed evidence and short human-readable proof notes exist for each major flow.
+4. Apple receives behavior/contract handoff docs only, with no partial implementation drift.
 
 ---
 *Drafted: 2026-03-23 from post-`0.5` milestone direction lock*

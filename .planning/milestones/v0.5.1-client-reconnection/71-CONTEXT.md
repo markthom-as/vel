@@ -14,3 +14,4 @@ This phase closes `v0.5.1`. It must not widen into Apple implementation or new f
 - web proof set
 - drift/no-fallback proof
 - Apple handoff/spec packet
+- browser-executed evidence plus short human-readable notes for each major proof flow
