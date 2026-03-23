@@ -20,7 +20,8 @@
     "proof:phase73:shell-frame": "node scripts/proof/phase73-shell-frame.mjs",
     "proof:phase74:now-read": "node scripts/proof/phase74-now-read.mjs",
     "proof:phase74:now-complete": "node scripts/proof/phase74-now-complete.mjs",
-    "proof:phase75:threads-read": "node scripts/proof/phase75-threads-read.mjs"
+    "proof:phase75:threads-read": "node scripts/proof/phase75-threads-read.mjs",
+    "proof:phase76:system-read": "node scripts/proof/phase76-system-read.mjs"
   },
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",

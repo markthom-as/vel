@@ -151,36 +151,41 @@ describe('SystemView', () => {
     disconnectTodoist.mockResolvedValue({ ok: true, data: null, meta: { request_id: 'req_disconnect_todoist' } })
   })
 
-  it('renders the fixed canonical system sections under one surface', async () => {
-    render(<SystemView target={{ section: 'domain' }} />)
+  it('renders grouped system navigation with a single detail pane', async () => {
+    render(<SystemView target={{ section: 'domain', subsection: 'people' }} />)
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /Canonical object and capability truth/i })).toBeInTheDocument()
     })
 
-    expect(screen.getByRole('button', { name: 'Domain' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Capabilities' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Configuration' })).toBeInTheDocument()
+    expect(screen.getAllByText('Domain').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Capabilities').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Configuration').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /People/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /Calendar/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Knowledge/i })).toBeInTheDocument()
     expect(screen.getByText('Avery')).toBeInTheDocument()
-    expect(screen.getByText('Design review')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Capabilities' }))
+    fireEvent.click(screen.getByRole('button', { name: /Tools/i }))
     expect(await screen.findByText('Read objects')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Configuration' }))
+    fireEvent.click(screen.getByRole('button', { name: /Calendar/i }))
+    expect(await screen.findByText('Design review')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Accounts/i }))
     expect((await screen.findAllByText('Google Calendar')).length).toBeGreaterThan(0)
-    expect(screen.getByText('Accounts')).toBeInTheDocument()
-    expect(screen.getByText('Scopes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Integrations/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Scopes/i })).toBeInTheDocument()
   })
 
   it('uses only named canonical integration actions', async () => {
-    render(<SystemView target={{ section: 'configuration' }} />)
+    render(<SystemView target={{ section: 'configuration', subsection: 'integrations' }} />)
 
     await waitFor(() => {
       expect(screen.getAllByRole('button', { name: 'Refresh' }).length).toBeGreaterThan(0)
     })
 
-    const integrationsSection = screen.getAllByRole('heading', { name: 'Integrations' })[0].closest('section') as HTMLElement
+    const integrationsSection = screen.getByRole('heading', { name: 'Integrations' }).closest('section') as HTMLElement
     const refreshButtons = within(integrationsSection).getAllByRole('button', { name: 'Refresh' })
     fireEvent.click(refreshButtons[0])
     await waitFor(() => expect(syncSource).toHaveBeenCalledWith('calendar'))
@@ -190,6 +195,8 @@ describe('SystemView', () => {
     await waitFor(() => expect(disconnectGoogleCalendar).toHaveBeenCalled())
 
     expect(screen.queryByRole('button', { name: /Reconnect/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Enable/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Deactivate/i })).not.toBeInTheDocument()
   })
 })
 

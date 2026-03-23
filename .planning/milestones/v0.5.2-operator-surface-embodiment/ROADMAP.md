@@ -67,7 +67,7 @@ Do not widen this milestone into:
 - [x] **Phase 73: Shared shell rhythm, layout primitives, and disclosure system** - Repair the chrome, section rhythm, information hierarchy, and reusable primitives that every surface will depend on.
 - [x] **Phase 74: `Now` ideal-state embodiment and operator-speed repair** - Rework `Now` into the intended dense execution-first surface and cut the most obvious active-path latency regressions.
 - [x] **Phase 75: `Threads` ideal-state embodiment and grounded interaction clarity** - Rework `Threads` so object grounding, provenance, and bounded invocation feel clear rather than incidental.
-- [ ] **Phase 76: `System` ideal-state embodiment and structural legibility** - Rework `/system` into the intended structural/configuration surface without widening its authority or action set.
+- [x] **Phase 76: `System` ideal-state embodiment and structural legibility** - Rework `/system` into the intended structural/configuration surface without widening its authority or action set.
 - [ ] **Phase 77: Cross-surface proof, cleanup, and parity handoff** - Close the line with browser proof, cleanup, evidence, and Apple parity/handoff refresh.
 
 ## Progress
@@ -80,7 +80,7 @@ Do not widen this milestone into:
 | 73. Shared shell rhythm, layout primitives, and disclosure system | SHELL-52-01, PERF-52-01, VERIFY-52-01 | Complete |
 | 74. `Now` ideal-state embodiment and operator-speed repair | NOW-52-01, PERF-52-01, VERIFY-52-01 | Complete |
 | 75. `Threads` ideal-state embodiment and grounded interaction clarity | THREADS-52-01, PERF-52-01, VERIFY-52-01 | Complete |
-| 76. `System` ideal-state embodiment and structural legibility | SYSTEM-52-01, PERF-52-01, VERIFY-52-01 | Planned |
+| 76. `System` ideal-state embodiment and structural legibility | SYSTEM-52-01, PERF-52-01, VERIFY-52-01 | Complete |
 | 77. Cross-surface proof, cleanup, and parity handoff | VERIFY-52-01, APPLE-52-01, PERF-52-01 | Planned |
 
 ## Phase Details
