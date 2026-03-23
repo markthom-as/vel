@@ -17,7 +17,7 @@ interface NavbarNavLinksProps {
 export function NavbarNavLinks({ activeView, onSelectView }: NavbarNavLinksProps) {
   return (
     <nav
-      className="flex min-w-0 items-center gap-x-4 sm:gap-x-5"
+      className="flex min-w-0 items-center gap-x-2 sm:gap-x-3"
       aria-label="Primary"
     >
       {[...primarySurfaces, ...supportSurfaces].map((item) => (
@@ -25,10 +25,10 @@ export function NavbarNavLinks({ activeView, onSelectView }: NavbarNavLinksProps
           key={item.view}
           type="button"
           onClick={() => onSelectView(item.view)}
-          className={`group inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-0 py-1 text-[10px] font-medium normal-case tracking-normal transition ${
+          className={`group inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-2 text-xs font-medium normal-case tracking-normal transition ${
             activeView === item.view
-              ? ACCENT
-              : 'text-zinc-500 hover:text-zinc-200'
+              ? `border-[#ff6b00]/45 bg-[#2d1608]/85 ${ACCENT}`
+              : 'border-zinc-800/90 text-zinc-400 hover:border-zinc-700 hover:text-zinc-100'
           }`}
         >
           <span

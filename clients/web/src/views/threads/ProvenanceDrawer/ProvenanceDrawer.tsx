@@ -3,6 +3,7 @@ import type { JsonValue, ProvenanceData } from '../../../types';
 import { chatQueryKeys, loadProvenance } from '../../../data/chat';
 import { useQuery } from '../../../data/query';
 import { SurfaceState } from '../../../core/SurfaceState';
+import { SurfaceDrawer } from '../../../core/SurfaceDrawer';
 
 interface ProvenanceDrawerProps {
   messageId: string | null;
@@ -29,19 +30,7 @@ export function ProvenanceDrawer({ messageId, onClose }: ProvenanceDrawerProps) 
   if (!messageId) return null;
 
   return (
-    <div className="absolute inset-y-0 right-0 w-96 bg-zinc-900 border-l border-zinc-700 shadow-xl flex flex-col z-10">
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-zinc-700">
-        <h3 className="font-medium text-zinc-200">Provenance</h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-zinc-500 hover:text-zinc-300"
-          aria-label="Close"
-        >
-          ✕
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 text-sm">
+    <SurfaceDrawer title="Provenance" onClose={onClose}>
         {loading && <SurfaceState message="Loading provenance…" layout="drawer" />}
         {error && <SurfaceState message={error} layout="drawer" tone="danger" />}
         {data && (
@@ -82,8 +71,7 @@ export function ProvenanceDrawer({ messageId, onClose }: ProvenanceDrawerProps) 
             )}
           </>
         )}
-      </div>
-    </div>
+    </SurfaceDrawer>
   );
 }
 

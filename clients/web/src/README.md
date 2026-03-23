@@ -17,7 +17,7 @@ Optimized for **clear navigation** (humans and coding agents): three top-level U
 | `views/now/` | Now |
 | `views/threads/` | Threads shell plus thread-specific UI: `ThreadView/`, `ConversationList/`, `ProvenanceDrawer/` |
 | `views/system/` | System |
-| `views/context/` | Info-column panels: `ContextPanel/`, `DocumentationPanel/` |
+| `views/context/` | Contextual support panels reused by surface-specific drawers/expansions; no longer a shell-global info rail. |
 
 `v0.5.1` recognizes only three first-class surfaces: `Now`, `Threads`, and `System`. Deprecated `Settings` and `Projects` views are no longer part of the shipped client surface.
 
@@ -27,6 +27,7 @@ Optimized for **clear navigation** (humans and coding agents): three top-level U
 - **App entry:** `App.tsx` imports shell + `views/context` + `core/Icons`.
 - **Shell → views:** `import { NowView } from '../../views/now'` (from `shell/MainPanel/`).
 - **Views → core:** `import { SurfaceState } from '../../core/SurfaceState'` (from `views/<feature>/` — two levels down to `src/`, then `core/…`).
+- Shared disclosure drawers should prefer `core/SurfaceDrawer/` over ad hoc right-rail shells.
 - **Threads sub-features** (`ConversationList/`, `ProvenanceDrawer/`): one extra `../` to reach `src/` (three directory levels under `views/threads/`).
 
 ### Relative depth rule

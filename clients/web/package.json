@@ -16,7 +16,8 @@
     "proof:phase71:threads-read-gating": "node scripts/proof/phase71-threads-read-gating.mjs",
     "proof:phase71:system-read": "node scripts/proof/phase71-system-read.mjs",
     "proof:phase71:system-degraded": "node scripts/proof/phase71-system-degraded.mjs",
-    "proof:phase71:system-no-fallback": "node scripts/proof/phase71-system-no-fallback.mjs"
+    "proof:phase71:system-no-fallback": "node scripts/proof/phase71-system-no-fallback.mjs",
+    "proof:phase73:shell-frame": "node scripts/proof/phase73-shell-frame.mjs"
   },
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",

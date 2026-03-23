@@ -10,15 +10,18 @@ const __dirname = dirname(__filename);
 
 export const webRoot = resolve(__dirname, '../..');
 export const repoRoot = resolve(__dirname, '../../../..');
-export const proofRoot = resolve(
-  repoRoot,
-  '.planning/milestones/v0.5.1-client-reconnection/71-evidence',
-);
 export const baseUrl = process.env.VEL_WEB_PROOF_URL ?? 'http://127.0.0.1:4173';
 const chromePath = process.env.CHROME_PATH ?? '/etc/profiles/per-user/jove/bin/google-chrome';
 
+export function resolveProofRoot() {
+  return resolve(
+    repoRoot,
+    process.env.VEL_WEB_PROOF_ROOT ?? '.planning/milestones/v0.5.1-client-reconnection/71-evidence',
+  );
+}
+
 export async function prepareFlowDir(flowName) {
-  const flowDir = join(proofRoot, flowName);
+  const flowDir = join(resolveProofRoot(), flowName);
   await rm(flowDir, { recursive: true, force: true });
   await mkdir(flowDir, { recursive: true });
   return flowDir;
