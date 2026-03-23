@@ -14,3 +14,6 @@ This phase improves surface embodiment, not workflow law. Invocation posture rem
 - provenance legibility
 - thread hierarchy and emphasis
 - bounded action clarity
+- object-bound state as primary emphasis
+- chronology as secondary navigable context
+- compressed inline provenance with expandable depth

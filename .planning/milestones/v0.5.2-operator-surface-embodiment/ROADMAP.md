@@ -21,6 +21,7 @@ The governing authority doc is [0.5.2-operator-surface-doctrine.md](/home/jove/c
 ## Invariant
 
 - backend truth remains frozen unless a provable bug forces a fix
+- no new backend endpoints unless they are explicitly pre-declared in this milestone packet
 - client-side semantic invention remains forbidden
 - web is the implementation target
 - Apple is handoff/parity-only in this milestone
@@ -94,6 +95,8 @@ Do not widen this milestone into:
 2. `Now`, `Threads`, and `System` are restated as the only first-class surfaces.
 3. UI embodiment scope is clear without reopening backend law.
 4. Performance and proof expectations are explicit from the start.
+5. The `Now` priority gradient, `Threads` emphasis model, `System` grouping, and backend-endpoint freeze are explicitly locked.
+6. `Now` layout/design definition is locked before implementation and cannot drift without explicit approval.
 
 ### Phase 73: Shared shell rhythm, layout primitives, and disclosure system
 
@@ -115,6 +118,8 @@ Do not widen this milestone into:
 2. Direct triage actions remain canonical and feel immediate.
 3. Visible active-path latency is improved relative to the `0.5.1` line.
 4. No synthetic cross-type ranking or local semantic truth sneaks back in.
+5. `Focus` remains singular and dominant rather than degrading into “just another list.”
+6. Any material `Now` layout change follows the explicitly approved layout/design contract rather than implementation drift.
 
 ### Phase 75: `Threads` ideal-state embodiment and grounded interaction clarity
 
@@ -125,6 +130,7 @@ Do not widen this milestone into:
 1. Object grounding, provenance, and eligibility are legible without clutter.
 2. Invocation posture stays bounded and explicit.
 3. Interaction flow feels intentional rather than a leftover shell seam.
+4. Bound object state is primary and chronology remains secondary.
 
 ### Phase 76: `System` ideal-state embodiment and structural legibility
 
@@ -136,6 +142,7 @@ Do not widen this milestone into:
 2. Read-heavy structural truth is easier to inspect quickly.
 3. Only pre-frozen named canonical actions remain visible.
 4. The surface becomes authoritative without becoming a sprawling admin product.
+5. `Domain`, `Capabilities`, and `Configuration` remain visibly distinct.
 
 ### Phase 77: Cross-surface proof, cleanup, and parity handoff
 
@@ -147,6 +154,7 @@ Do not widen this milestone into:
 2. Focused tests and `clients/web` build pass.
 3. Cleanup removes or explicitly documents any stale seams touched by the line.
 4. Apple parity/handoff docs reflect the embodied surface model without implying implementation.
+5. Evidence includes per-surface browser proof and one full operator-loop proof.
 
 ---
 *Drafted: 2026-03-22 from post-`0.5.1` direction lock*

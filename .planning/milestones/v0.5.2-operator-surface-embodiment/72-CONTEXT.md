@@ -15,6 +15,11 @@ This phase defines UI law and milestone scope. It does not implement the embodim
 - web is the implementation target
 - Apple remains handoff/parity-only
 - visible speed and operator density are first-class concerns in this line
+- `Now` is a priority gradient: `Focus`, `Commitments`, `Calendar`, `Triage`
+- `Now` layout/design must be defined together before implementation and may not materially change without explicit approval
+- `Threads` emphasizes object-bound state over chronology
+- `System` preserves visible grouping of `Domain`, `Capabilities`, and `Configuration`
+- no new backend endpoints are allowed unless pre-declared in the milestone packet
 
 ## Required Outputs
 
@@ -22,3 +27,5 @@ This phase defines UI law and milestone scope. It does not implement the embodim
 - active `v0.5.2` requirement set
 - active phase map for embodiment work
 - explicit statement that backend truth stays frozen during the milestone
+- explicit embodiment freeze for `Now`, `Threads`, `System`, performance, and proof posture
+- explicit `Now` layout/design contract before Phase 74 implementation

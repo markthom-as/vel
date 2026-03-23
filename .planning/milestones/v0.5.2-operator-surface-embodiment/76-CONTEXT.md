@@ -14,3 +14,5 @@ This phase does not widen `/system` authority. The route remains one surface wit
 - detail-state clarity
 - structural readability
 - bounded canonical actions
+- visible grouping of `Domain`, `Capabilities`, and `Configuration`
+- split-pane continuity on desktop, stacked drill-in on narrow screens

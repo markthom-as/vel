@@ -14,3 +14,6 @@ Turn `Now` into the intended dense execution-first operating surface.
 - denser task/calendar presentation
 - direct triage feel
 - active-path performance repair
+- singular dominant `Focus` locus over subordinate `Commitments`, `Calendar`, and `Triage`
+- today-first calendar truth with only near-horizon bleed
+- subordinate but zero-friction capture posture
