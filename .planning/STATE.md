@@ -4,20 +4,20 @@ milestone: 0.5
 milestone_name: backend-core-rewrite
 release_line: 0.5.0-beta
 next_beta_target: 0.5.0-beta
-current_phase: 65
-current_phase_name: hard-cutover-backend-contract-reconciliation-and-milestone-verification
-current_plan: 65-01-PLAN
-current_work_id: 0.5.65.1
-status: in_progress
-stopped_at: "Phase 64 completed with Google Calendar black-box and hostile-path proof; active execution advanced into Phase 65 cutover sequencing"
-last_updated: "2026-03-22T23:41:15Z"
+current_phase: null
+current_phase_name: null
+current_plan: null
+current_work_id: null
+status: complete
+stopped_at: "Phase 65 closed with canonical write-path cutover, contract reconciliation, and milestone-spanning execution-backed verification"
+last_updated: "2026-03-23T00:32:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 36
-  completed_plans: 34
-  percent: 94
+  completed_plans: 36
+  percent: 100
 ---
 
 # Project State
@@ -29,21 +29,21 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** `0.5` backend-only core rewrite from the frozen canonical object/action/policy/module/workflow packet
 
-Status: `0.5` active at Phase 64
+Status: `0.5` complete
 Release Line: 0.5.0-beta
-Current Work ID: 0.5.65.1
-Current Phase: 65
-Current Phase Name: hard-cutover-backend-contract-reconciliation-and-milestone-verification
-Current Plan: 65-01-PLAN
+Current Work ID: none
+Current Phase: none
+Current Phase Name: none
+Current Plan: none
 Total Plans in Phase: 4
-Progress: 94%
+Progress: 100%
 Last Activity: 2026-03-22
-Last Activity Description: Completed Phase 64 with conservative Google writes plus black-box and hostile-path proof, then advanced active execution into Phase 65 cutover sequencing
+Last Activity Description: Closed Phase 65 and milestone `0.5` with canonical write-path cutover, caller reconciliation, and milestone-spanning execution-backed verification
 
 ## Current Position
 
-Phase: 65 (hard-cutover-backend-contract-reconciliation-and-milestone-verification) — IN PROGRESS
-Plan: make the new canonical backend the sole live authority, isolate any remaining legacy seams, and close `0.5` with execution-backed milestone proof
+Phase: none — MILESTONE COMPLETE
+Plan: no active plan; next milestone has not been activated yet
 
 ## Accumulated Context
 
@@ -61,14 +61,13 @@ Plan: make the new canonical backend the sole live authority, isolate any remain
 
 ### Current Concerns
 
-- the `0.5` packet is large enough that implementation discipline has to stay phase-bounded
-- Apple/client embodiment remains out of scope until the backend rewrite lands
-- top-level authority docs need to point at `0.5` as active, not future
-- calendar-side adapter work must stay subordinate to the native calendar core rather than importing provider-first ontology
+- no post-`0.5` milestone packet is activated yet
+- client embodiment and broader provider expansion remain explicit follow-on work, not implicitly started roadmap work
+- quarantined read/configuration compatibility surfaces remain visible until the next milestone decides their fate
 
 ### Next Step
 
-Execute [65-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-01-PLAN.md) and start hard cutover to the canonical `0.5` backend authority.
+Define and activate the post-`0.5` milestone packet before new implementation work begins.
 
 ### Roadmap Evolution
 
@@ -107,7 +106,10 @@ Execute [65-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewri
 - `64-02` has landed canonical Google calendar/event/attendee mapping with native-first participation and lawful provider-stub fallback
 - `64-03` has landed recurrence fidelity, native availability bridging, and Google tombstone transitions without reopening provider-shaped scheduling truth
 - `64-04` has landed conservative Google writes through `WriteIntent` plus black-box and hostile-path adapter proof
-- Phase 64 is complete and active execution has advanced into Phase 65 cutover and milestone verification
+- `65-01` has landed live canonical write routes for Todoist and Google Calendar plus quarantine of superseded legacy write paths
+- `65-02` has landed caller/DTO reconciliation against `WriteIntent` authority with bounded read/configuration compatibility retained in quarantine
+- `65-03` has landed milestone-spanning execution-backed proof and explicit deferred-work capture for post-`0.5` work
+- `0.5` is complete and no successor milestone has been activated yet
 
 ---
-*Last updated: 2026-03-22 after completing Phase 64 and advancing active execution to Phase 65*
+*Last updated: 2026-03-23 after closing Phase 65 and completing milestone `0.5`*

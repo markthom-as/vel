@@ -1,6 +1,6 @@
 # Vel: The Master Plan
-**Status**: Canonical Truth (`0.3.0` shipped, `0.5` active after `0.4.x` closeout)
-**Last Updated**: 2026-03-22
+**Status**: Canonical Truth (`0.3.0` shipped, `0.4.x` and `0.5` closed; next milestone not yet activated)
+**Last Updated**: 2026-03-23
 
 ---
 
@@ -15,9 +15,12 @@
 | **Phase 3** | **[COMPLETE]** | Deterministic verification, tracing, and reasoning eval closure. |
 | **Phase 4** | **[CLOSED / RE-SCOPED]** | Semantic/broker/protocol baselines shipped; unfinished graph expansion, direct WASM guest runtime, and external SDK transport work moved to Phases 6 and 8. |
 
-Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). `0.4.x` is now closed, and live roadmap work is tracked in the active `0.5` backend rewrite packet:
+Milestones `v0.2` and `v0.3` are now archived in [`.planning/milestones/v0.2-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.2-ROADMAP.md) and [`.planning/milestones/v0.3-ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md). `0.4.x` and `0.5` are now closed. The latest backend rewrite packet and closeout evidence live here:
 
 - [`.planning/milestones/v0.5-core-rewrite/ROADMAP.md`](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
+- [`.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md`](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md)
+
+No successor milestone is active yet.
 
 Planning notation from this point forward:
 

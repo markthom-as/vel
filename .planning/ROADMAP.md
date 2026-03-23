@@ -8,7 +8,17 @@
 
 ## Latest Closed Milestone
 
-`0.4.x` is now closed. It delivered the `Now/UI` MVP conformance correction line over the shipped `0.3.0` baseline:
+`0.5` is now closed. It delivered the backend core rewrite packet:
+
+- canonical object-centered backend authority
+- typed action membrane with policy, grants, ownership, and audit
+- governed module bootstrap and activation
+- manual workflow runtime over canonical objects
+- native calendar core plus availability semantics
+- Todoist and Google Calendar proving adapters
+- hard cutover to canonical write authority with execution-backed milestone proof
+
+`0.4.x` remains the latest closed UI/conformance line over the shipped `0.3.0` baseline:
 
 - compact `Now` as the daily operating surface
 - corrected shell/navigation/documentation access
@@ -18,22 +28,15 @@
 
 ## Active Milestone
 
-The active milestone is now the backend rewrite packet:
+No successor milestone is active yet.
+
+The most recent milestone packet is the now-complete backend rewrite archive:
 
 - [v0.5-core-rewrite/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
 
-Milestone `0.5` turns Vel into a canonical object-centered authority runtime with:
-
-- first-class canonical objects as the system of record
-- a typed action membrane for reads and writes
-- policy, grants, ownership, and audit as mandatory infrastructure
-- module, skill, and workflow primitives in core
-- Todoist and Google Calendar as proving adapters
-- hard cutover to the new backend authority
-
 ## Scope Guardrails
 
-`0.5` is only about the new backend substrate and proving adapters:
+The completed `0.5` line was only about the new backend substrate and proving adapters:
 
 - canonical object kernel and relation/storage rewrite
 - action membrane, policy, grants, and audit
@@ -55,7 +58,7 @@ Vel now uses semver language for product lines and shipped releases:
 
 - `0.3.0` is the latest shipped release baseline in the repo
 - `0.4.x` is the latest closed release line
-- `0.5.0-beta` is the active implementation line toward the first beta backend rewrite
+- `0.5.0-beta` is the latest completed backend rewrite line
 
 For roadmap execution inside a release line, use a four-part lineage identifier:
 
@@ -64,13 +67,12 @@ For roadmap execution inside a release line, use a four-part lineage identifier:
 - phase numbers remain in place for historical continuity with the existing planning system
 - shipped artifacts and tags should continue to use normal semver, not the four-part planning identifier
 
-## Active Phase Packet
+## Most Recent Phase Packet
 
-Use the `v0.5` packet directly for execution:
+The latest completed execution packet is:
 
-- [57-CONTEXT.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/57-CONTEXT.md)
-- [57-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/57-01-PLAN.md)
-- [ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
+- [v0.5-core-rewrite/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
+- [65-MILESTONE-EVIDENCE.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md)
 
 ---
-*Last updated: 2026-03-22 after closing `0.4.x` and activating the `0.5` backend rewrite packet*
+*Last updated: 2026-03-23 after closing milestone `0.5`*

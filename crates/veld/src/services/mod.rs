@@ -44,6 +44,7 @@ pub(crate) mod integrations_google;
 pub(crate) mod integrations_host;
 pub(crate) mod integrations_todoist;
 pub mod journal;
+pub mod legacy_compat;
 pub(crate) mod lan_discovery;
 pub mod linking;
 pub mod llm_settings;

@@ -4,19 +4,30 @@ use axum::{
     Json,
 };
 use serde::Deserialize;
+use serde_json::Value as JsonValue;
 use uuid::Uuid;
 use vel_api_types::{
-    ApiResponse, GoogleCalendarAuthStartData, GoogleCalendarIntegrationData,
-    IntegrationCalendarData, IntegrationConnectionData, IntegrationConnectionEventData,
+    ActionExplainData, ApiResponse, CanonicalExecutionDispatchData,
+    CanonicalGoogleCalendarWriteIntentRequestData, CanonicalTodoistWriteIntentRequestData,
+    CanonicalTodoistWriteIntentResponseData, CanonicalWriteIntentResponseData,
+    GoogleCalendarAuthStartData, GoogleCalendarIntegrationData, IntegrationCalendarData,
+    IntegrationConnectionData, IntegrationConnectionEventData,
     IntegrationConnectionSettingRefData, IntegrationGuidanceData, IntegrationLogEventData,
-    IntegrationsData, LocalIntegrationData, LocalIntegrationPathSelectionData,
-    TodoistIntegrationData,
+    IntegrationsData, LocalIntegrationData, LocalIntegrationPathSelectionData, TaskEventData,
+    TaskFieldChangeData, TodoistIntegrationData,
 };
 
 use crate::{
     errors::AppError,
     services::{
-        integrations, integrations_email, integrations_github, integrations_todoist, writeback,
+        audit_emitter::AuditEmitter,
+        gcal_write_bridge::{
+            GoogleCalendarWriteBridgeRequest, GoogleCalendarWriteBridgeOutcome,
+            bridge_google_calendar_write,
+        },
+        integrations,
+        legacy_compat::deprecated_write_path_error,
+        todoist_write_bridge::{TodoistWriteBridgeRequest, TodoistWriteBridgeOutcome, bridge_todoist_write},
     },
     state::AppState,
 };
@@ -32,6 +43,127 @@ fn map_integration_log_event_dto(
         message: event.message,
         payload: event.payload,
         created_at: event.created_at,
+    }
+}
+
+async fn emit_canonical_write_audit(
+    pool: &sqlx::SqlitePool,
+    action_name: &str,
+    object_id: &str,
+    requested_change: &JsonValue,
+    dry_run: bool,
+    write_intent_id: &str,
+    dispatch: Option<&crate::services::write_intent_dispatch::ExecutionDispatch>,
+) -> Result<(), AppError> {
+    let field_captures = requested_change
+        .as_object()
+        .map(|fields| {
+            fields
+                .iter()
+                .map(|(field, value)| vel_core::AuditFieldCapture {
+                    field: field.clone(),
+                    before_after: None,
+                    diff: Some(value.clone()),
+                    reference: Some("requested_change".to_string()),
+                    redacted: false,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let (outcome, reason, downstream_operation_ref) = if dry_run {
+        (
+            vel_core::AuditEventKind::DryRun,
+            "canonical dry_run recorded without provider mutation".to_string(),
+            None,
+        )
+    } else if let Some(dispatch) = dispatch {
+        (
+            vel_core::AuditEventKind::DispatchSucceeded,
+            "canonical write path dispatched through write_intent".to_string(),
+            Some(dispatch.downstream.downstream_operation_ref.clone()),
+        )
+    } else {
+        (
+            vel_core::AuditEventKind::Allowed,
+            "canonical write path allowed without downstream dispatch".to_string(),
+            None,
+        )
+    };
+
+    AuditEmitter
+        .emit(
+            pool,
+            &vel_core::AuditRecord {
+                action_name: action_name.to_string(),
+                target_object_refs: vec![object_id.to_string()],
+                dry_run,
+                approval_required: !dry_run && downstream_operation_ref.is_none(),
+                outcome,
+                reason,
+                field_captures,
+                write_intent_ref: Some(write_intent_id.to_string()),
+                downstream_operation_ref,
+            },
+        )
+        .await?;
+
+    Ok(())
+}
+
+fn map_execution_dispatch_dto(
+    dispatch: crate::services::write_intent_dispatch::ExecutionDispatch,
+) -> CanonicalExecutionDispatchData {
+    CanonicalExecutionDispatchData {
+        write_intent_id: dispatch.write_intent_id,
+        approved_record_id: dispatch.approved_record_id,
+        executing_record_id: dispatch.executing_record_id,
+        terminal_record_id: dispatch.terminal_record_id,
+        downstream_operation_ref: dispatch.downstream.downstream_operation_ref,
+        downstream_status: dispatch.downstream.status,
+        downstream_result: dispatch.downstream.result,
+        downstream_error: dispatch.downstream.error,
+    }
+}
+
+fn map_task_event_dto(
+    event: vel_adapters_todoist::ownership_sync::TaskEventRecord,
+) -> TaskEventData {
+    TaskEventData {
+        id: event.id,
+        task_ref: event.task_ref,
+        event_type: event.event_type,
+        provenance: event.provenance,
+        field_changes: event
+            .field_changes
+            .into_iter()
+            .map(|change| TaskFieldChangeData {
+                field_name: change.field_name,
+                old_value: change.old_value,
+                new_value: change.new_value,
+            })
+            .collect(),
+    }
+}
+
+fn map_todoist_write_response(
+    outcome: TodoistWriteBridgeOutcome,
+) -> CanonicalTodoistWriteIntentResponseData {
+    CanonicalTodoistWriteIntentResponseData {
+        write_intent_id: outcome.write_intent_id,
+        explain: ActionExplainData::from(outcome.explain),
+        dispatch: outcome.dispatch.map(map_execution_dispatch_dto),
+        task_events: outcome.task_events.into_iter().map(map_task_event_dto).collect(),
+    }
+}
+
+fn map_google_write_response(
+    outcome: GoogleCalendarWriteBridgeOutcome,
+) -> CanonicalWriteIntentResponseData {
+    CanonicalWriteIntentResponseData {
+        write_intent_id: outcome.write_intent_id,
+        explain: ActionExplainData::from(outcome.explain),
+        dispatch: outcome.dispatch.map(map_execution_dispatch_dto),
     }
 }
 
@@ -485,320 +617,254 @@ pub struct EmailSendDraftRequest {
 }
 
 pub async fn todoist_create_task(
-    State(state): State<AppState>,
-    Json(payload): Json<TodoistCreateTaskRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<TodoistCreateTaskRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::todoist_create_task(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        integrations_todoist::TodoistTaskMutation {
-            content: Some(payload.content),
-            project_id: payload.project_id,
-            scheduled_for: payload.scheduled_for,
-            priority: payload.priority,
-            waiting_on: payload.waiting_on,
-            review_state: payload.review_state,
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/todoist/create-task",
+        Some("/api/integrations/todoist/write-intent"),
+        "Legacy commitment/writeback mutation routes were quarantined during the 0.5 cutover.",
+    ))
 }
 
 pub async fn todoist_update_task(
-    State(state): State<AppState>,
-    Json(payload): Json<TodoistUpdateTaskRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<TodoistUpdateTaskRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::todoist_update_task(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        payload.commitment_id.trim(),
-        integrations_todoist::TodoistTaskMutation {
-            content: payload.content,
-            project_id: payload.project_id,
-            scheduled_for: payload.scheduled_for,
-            priority: payload.priority,
-            waiting_on: payload.waiting_on,
-            review_state: payload.review_state,
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/todoist/update-task",
+        Some("/api/integrations/todoist/write-intent"),
+        "Legacy commitment/writeback mutation routes were quarantined during the 0.5 cutover.",
+    ))
 }
 
 pub async fn todoist_complete_task(
-    State(state): State<AppState>,
-    Json(payload): Json<TodoistCommitmentActionRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<TodoistCommitmentActionRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::todoist_complete_task(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        payload.commitment_id.trim(),
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/todoist/complete-task",
+        Some("/api/integrations/todoist/write-intent"),
+        "Legacy commitment/writeback mutation routes were quarantined during the 0.5 cutover.",
+    ))
 }
 
 pub async fn todoist_reopen_task(
-    State(state): State<AppState>,
-    Json(payload): Json<TodoistCommitmentActionRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<TodoistCommitmentActionRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::todoist_reopen_task(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        payload.commitment_id.trim(),
+    Err(deprecated_write_path_error(
+        "/api/integrations/todoist/reopen-task",
+        Some("/api/integrations/todoist/write-intent"),
+        "Legacy commitment/writeback mutation routes were quarantined during the 0.5 cutover.",
+    ))
+}
+
+pub async fn todoist_write_intent(
+    State(state): State<AppState>,
+    Json(payload): Json<CanonicalTodoistWriteIntentRequestData>,
+) -> Result<Json<ApiResponse<CanonicalTodoistWriteIntentResponseData>>, AppError> {
+    let dry_run = payload.dry_run;
+    let requested_change = payload.requested_change.clone();
+    let outcome = bridge_todoist_write(
+        state.storage.sql_pool(),
+        &TodoistWriteBridgeRequest {
+            object_id: payload.object_id,
+            revision: payload.revision,
+            object_status: payload.object_status,
+            integration_account_id: payload.integration_account_id,
+            requested_change: payload.requested_change,
+            read_only: payload.read_only,
+            write_enabled: payload.write_enabled,
+            dry_run: payload.dry_run,
+            approved: payload.approved,
+            pending_reconciliation: payload.pending_reconciliation,
+        },
+    )
+    .await?;
+    emit_canonical_write_audit(
+        state.storage.sql_pool(),
+        "todoist.task.write",
+        &outcome
+            .task_events
+            .first()
+            .map(|event| event.task_ref.clone())
+            .unwrap_or_else(|| "unknown_task".to_string()),
+        &requested_change,
+        dry_run,
+        &outcome.write_intent_id,
+        outcome.dispatch.as_ref(),
     )
     .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Ok(Json(ApiResponse::success(
+        map_todoist_write_response(outcome),
+        request_id,
+    )))
 }
 
 pub async fn notes_create_note(
-    State(state): State<AppState>,
-    Json(payload): Json<NotesCreateNoteRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<NotesCreateNoteRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::notes_create_note(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        writeback::NotesWriteRequest {
-            path: payload.path,
-            content: payload.content,
-            project_id: payload.project_id,
-            notes_root_path: payload.notes_root_path,
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/notes/create-note",
+        None,
+        "Notes writeback is outside the 0.5 proving-adapter scope and is explicitly deferred.",
+    ))
 }
 
 pub async fn notes_append_note(
-    State(state): State<AppState>,
-    Json(payload): Json<NotesAppendNoteRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<NotesAppendNoteRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::notes_append_note(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        writeback::NotesWriteRequest {
-            path: payload.path,
-            content: payload.content,
-            project_id: payload.project_id,
-            notes_root_path: payload.notes_root_path,
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/notes/append-note",
+        None,
+        "Notes writeback is outside the 0.5 proving-adapter scope and is explicitly deferred.",
+    ))
 }
 
 pub async fn reminders_create(
-    State(state): State<AppState>,
-    Json(payload): Json<ReminderCreateRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<ReminderCreateRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::reminders_create(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        writeback::ReminderWriteRequest {
-            reminder_id: payload.reminder_id,
-            title: Some(payload.title),
-            list_id: payload.list_id,
-            list_title: payload.list_title,
-            notes: payload.notes,
-            due_at: payload.due_at,
-            priority: payload.priority,
-            tags: payload.tags,
-            metadata: payload.metadata,
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/reminders/create",
+        None,
+        "Apple Reminders remains a future same-Task provider and is not included in 0.5 write cutover.",
+    ))
 }
 
 pub async fn reminders_update(
-    State(state): State<AppState>,
-    Json(payload): Json<ReminderUpdateRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<ReminderUpdateRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::reminders_update(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        writeback::ReminderWriteRequest {
-            reminder_id: Some(payload.reminder_id),
-            title: payload.title,
-            list_id: payload.list_id,
-            list_title: payload.list_title,
-            notes: payload.notes,
-            due_at: payload.due_at,
-            priority: payload.priority,
-            tags: payload.tags,
-            metadata: payload.metadata,
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/reminders/update",
+        None,
+        "Apple Reminders remains a future same-Task provider and is not included in 0.5 write cutover.",
+    ))
 }
 
 pub async fn reminders_complete(
-    State(state): State<AppState>,
-    Json(payload): Json<ReminderActionRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<ReminderActionRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::reminders_complete(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        writeback::ReminderWriteRequest {
-            reminder_id: Some(payload.reminder_id),
-            title: None,
-            list_id: None,
-            list_title: None,
-            notes: None,
-            due_at: None,
-            priority: None,
-            tags: None,
-            metadata: None,
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/reminders/complete",
+        None,
+        "Apple Reminders remains a future same-Task provider and is not included in 0.5 write cutover.",
+    ))
 }
 
 pub async fn github_create_issue(
-    State(state): State<AppState>,
-    Json(payload): Json<GithubCreateIssueRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<GithubCreateIssueRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::github_create_issue(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        integrations_github::GithubCreateIssueRequest {
-            repository: payload.repository,
-            title: payload.title,
-            body: payload.body,
-            project_id: payload.project_id,
-            assignee_handles: payload.assignee_handles.unwrap_or_default(),
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/github/create-issue",
+        None,
+        "GitHub writeback is outside the 0.5 proving-adapter scope and is explicitly deferred.",
+    ))
 }
 
 pub async fn github_add_comment(
-    State(state): State<AppState>,
-    Json(payload): Json<GithubCommentRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<GithubCommentRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::github_add_comment(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        integrations_github::GithubCommentRequest {
-            repository: payload.repository,
-            issue_number: payload.issue_number,
-            body: payload.body,
-            project_id: payload.project_id,
-            participant_handles: payload.participant_handles.unwrap_or_default(),
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/github/add-comment",
+        None,
+        "GitHub writeback is outside the 0.5 proving-adapter scope and is explicitly deferred.",
+    ))
 }
 
 pub async fn github_close_issue(
-    State(state): State<AppState>,
-    Json(payload): Json<GithubIssueActionRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<GithubIssueActionRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::github_close_issue(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        integrations_github::GithubIssueActionRequest {
-            repository: payload.repository,
-            issue_number: payload.issue_number,
-            project_id: payload.project_id,
-            participant_handles: payload.participant_handles.unwrap_or_default(),
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/github/close-issue",
+        None,
+        "GitHub writeback is outside the 0.5 proving-adapter scope and is explicitly deferred.",
+    ))
 }
 
 pub async fn github_reopen_issue(
-    State(state): State<AppState>,
-    Json(payload): Json<GithubIssueActionRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<GithubIssueActionRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::github_reopen_issue(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        integrations_github::GithubIssueActionRequest {
-            repository: payload.repository,
-            issue_number: payload.issue_number,
-            project_id: payload.project_id,
-            participant_handles: payload.participant_handles.unwrap_or_default(),
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/github/reopen-issue",
+        None,
+        "GitHub writeback is outside the 0.5 proving-adapter scope and is explicitly deferred.",
+    ))
 }
 
 pub async fn email_create_draft_reply(
-    State(state): State<AppState>,
-    Json(payload): Json<EmailCreateDraftReplyRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<EmailCreateDraftReplyRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::email_create_draft_reply(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        integrations_email::EmailCreateDraftReplyRequest {
-            thread_id: payload.thread_id,
-            subject: payload.subject,
-            body: payload.body,
-            sender: payload.sender,
-            to: payload.to.unwrap_or_default(),
-            cc: payload.cc.unwrap_or_default(),
-            project_id: payload.project_id,
-        },
-    )
-    .await?;
-    let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Err(deprecated_write_path_error(
+        "/api/integrations/email/create-draft-reply",
+        None,
+        "Email writeback is outside the 0.5 proving-adapter scope and is explicitly deferred.",
+    ))
 }
 
 pub async fn email_send_draft(
-    State(state): State<AppState>,
-    Json(payload): Json<EmailSendDraftRequest>,
+    State(_state): State<AppState>,
+    Json(_payload): Json<EmailSendDraftRequest>,
 ) -> Result<Json<ApiResponse<vel_api_types::WritebackOperationData>>, AppError> {
-    let operation = writeback::email_send_draft(
-        &state.storage,
-        &state.config,
-        state.config.node_id.as_deref().unwrap_or("vel-local"),
-        integrations_email::EmailSendDraftRequest {
-            draft_id: payload.draft_id,
-            sender: payload.sender,
-            to: payload.to.unwrap_or_default(),
-            cc: payload.cc.unwrap_or_default(),
-            project_id: payload.project_id,
-            confirm: payload.confirm.unwrap_or(false),
+    Err(deprecated_write_path_error(
+        "/api/integrations/email/send-draft",
+        None,
+        "Email writeback is outside the 0.5 proving-adapter scope and is explicitly deferred.",
+    ))
+}
+
+pub async fn google_calendar_write_intent(
+    State(state): State<AppState>,
+    Json(payload): Json<CanonicalGoogleCalendarWriteIntentRequestData>,
+) -> Result<Json<ApiResponse<CanonicalWriteIntentResponseData>>, AppError> {
+    let object_id = payload.object_id.clone();
+    let dry_run = payload.dry_run;
+    let requested_change = payload.requested_change.clone();
+    let outcome = bridge_google_calendar_write(
+        state.storage.sql_pool(),
+        &GoogleCalendarWriteBridgeRequest {
+            object_id: payload.object_id,
+            expected_revision: payload.expected_revision,
+            actual_revision: payload.actual_revision,
+            object_status: payload.object_status,
+            integration_account_id: payload.integration_account_id,
+            requested_change: payload.requested_change,
+            recurrence_scope: payload.recurrence_scope,
+            source_owned_fields: payload.source_owned_fields,
+            read_only: payload.read_only,
+            write_enabled: payload.write_enabled,
+            dry_run: payload.dry_run,
+            approved: payload.approved,
+            pending_reconciliation: payload.pending_reconciliation,
         },
     )
     .await?;
+    emit_canonical_write_audit(
+        state.storage.sql_pool(),
+        "google.calendar.write",
+        &object_id,
+        &requested_change,
+        dry_run,
+        &outcome.write_intent_id,
+        outcome.dispatch.as_ref(),
+    )
+    .await?;
     let request_id = format!("req_{}", Uuid::new_v4().simple());
-    Ok(Json(ApiResponse::success(operation.into(), request_id)))
+    Ok(Json(ApiResponse::success(
+        map_google_write_response(outcome),
+        request_id,
+    )))
 }
 
 pub async fn patch_local_integration_source(

@@ -2,7 +2,7 @@
 
 ## Status
 
-Active milestone packet. `0.5` is now the live release line under execution.
+Closed milestone packet. `0.5` is complete and verified.
 
 ## Milestone Framing
 
@@ -78,14 +78,14 @@ Apple Reminders is expected after `0.5` as a future provider of the same canonic
 ## Phases
 
 - [x] **Phase 57: Architecture freeze, canonical contracts, and milestone lock** - Ratify the object model, action/policy/module/workflow vocabulary, sync ownership rules, and `0.5` scope before implementation spreads.
-- [ ] **Phase 58: Canonical object kernel and system-of-record storage rewrite** - Build the durable object, relation, account, linkage, sync-cursor, tombstone, and migration substrate that the rest of `0.5` depends on.
+- [x] **Phase 58: Canonical object kernel and system-of-record storage rewrite** - Build the durable object, relation, account, linkage, sync-cursor, tombstone, and migration substrate that the rest of `0.5` depends on.
 - [x] **Phase 59: Action membrane, policy engine, and audit authority** - Make every core read/write flow through typed actions governed by grants, field ownership, confirmation posture, and audit logging.
-- [ ] **Phase 60: Module loader, registry, and core-module bootstrap** - Land the registry and loader path that can boot core modules first, then load Todoist and Google Calendar through the same governed path.
-- [ ] **Phase 61: Workflow and skill primitives over canonical objects** - Define and implement the minimal backend runtime for skills, workflows, typed context binding, action composition, and run records.
-- [ ] **Phase 62: Calendar core model and canonical availability semantics** - Implement the first-class calendar/domain layer that makes recurrence, attendees, location, and availability native to Vel rather than adapter accidents.
-- [ ] **Phase 63: Todoist multi-account adapter and canonical task cut-in** - Prove the new substrate with full-backlog Todoist sync, task-shaped canonical semantics, conservative bidirectional writes, and ownership-aware conflict handling.
-- [ ] **Phase 64: Google Calendar multi-account adapter and canonical calendar cut-in** - Add Google Calendar as the second proving adapter with calendar/event sync, recurrence fidelity, availability integration, and conservative writes.
-- [ ] **Phase 65: Hard cutover, backend contract reconciliation, and milestone verification** - Remove or retire the superseded backend paths, repair callers against the new authority, and close the milestone with execution-backed verification.
+- [x] **Phase 60: Module loader, registry, and core-module bootstrap** - Land the registry and loader path that can boot core modules first, then load Todoist and Google Calendar through the same governed path.
+- [x] **Phase 61: Workflow and skill primitives over canonical objects** - Define and implement the minimal backend runtime for skills, workflows, typed context binding, action composition, and run records.
+- [x] **Phase 62: Calendar core model and canonical availability semantics** - Implement the first-class calendar/domain layer that makes recurrence, attendees, location, and availability native to Vel rather than adapter accidents.
+- [x] **Phase 63: Todoist multi-account adapter and canonical task cut-in** - Prove the new substrate with full-backlog Todoist sync, task-shaped canonical semantics, conservative bidirectional writes, and ownership-aware conflict handling.
+- [x] **Phase 64: Google Calendar multi-account adapter and canonical calendar cut-in** - Add Google Calendar as the second proving adapter with calendar/event sync, recurrence fidelity, availability integration, and conservative writes.
+- [x] **Phase 65: Hard cutover, backend contract reconciliation, and milestone verification** - Remove or retire the superseded backend paths, repair callers against the new authority, and close the milestone with execution-backed verification.
 
 ## Progress
 
@@ -96,12 +96,21 @@ Apple Reminders is expected after `0.5` as a future provider of the same canonic
 | 57. Architecture freeze, canonical contracts, and milestone lock | CORE-50-01, CORE-50-02, CORE-50-03, ACTION-50-01, POLICY-50-01, MODULE-50-01, WF-50-01, CAL-50-01, SYNC-50-01 | Complete |
 | 58. Canonical object kernel and system-of-record storage rewrite | CORE-50-01, CORE-50-02, CORE-50-03, CUTOVER-50-01 | Complete |
 | 59. Action membrane, policy engine, and audit authority | ACTION-50-01, POLICY-50-01, SYNC-50-01 | Complete |
-| 60. Module loader, registry, and core-module bootstrap | MODULE-50-01, POLICY-50-01 | Active |
-| 61. Workflow and skill primitives over canonical objects | WF-50-01, ACTION-50-01, POLICY-50-01 | Planned |
-| 62. Calendar core model and canonical availability semantics | CAL-50-01, CORE-50-01, SYNC-50-01 | Planned |
-| 63. Todoist multi-account adapter and canonical task cut-in | TODOIST-50-01, CORE-50-03, SYNC-50-01 | Planned |
-| 64. Google Calendar multi-account adapter and canonical calendar cut-in | GCAL-50-01, CAL-50-01, CORE-50-03, SYNC-50-01 | Planned |
-| 65. Hard cutover, backend contract reconciliation, and milestone verification | CUTOVER-50-01, VERIFY-50-01 | Planned |
+| 60. Module loader, registry, and core-module bootstrap | MODULE-50-01, POLICY-50-01 | Complete |
+| 61. Workflow and skill primitives over canonical objects | WF-50-01, ACTION-50-01, POLICY-50-01 | Complete |
+| 62. Calendar core model and canonical availability semantics | CAL-50-01, CORE-50-01, SYNC-50-01 | Complete |
+| 63. Todoist multi-account adapter and canonical task cut-in | TODOIST-50-01, CORE-50-03, SYNC-50-01 | Complete |
+| 64. Google Calendar multi-account adapter and canonical calendar cut-in | GCAL-50-01, CAL-50-01, CORE-50-03, SYNC-50-01 | Complete |
+| 65. Hard cutover, backend contract reconciliation, and milestone verification | CUTOVER-50-01, VERIFY-50-01 | Complete |
+
+## Closeout
+
+Milestone `0.5` is closed. The executed closeout evidence is captured in:
+
+- [65-MILESTONE-EVIDENCE.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md)
+- [65-DEFERRED-WORK.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-DEFERRED-WORK.md)
+
+The next milestone has not been activated yet. Follow-on work should start by defining a successor packet rather than silently extending `0.5`.
 
 ## Phase Details
 

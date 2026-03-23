@@ -653,6 +653,10 @@ impl Storage {
         backend_pool(&self.backend)
     }
 
+    pub fn sql_pool(&self) -> &SqlitePool {
+        self.pool()
+    }
+
     pub async fn migrate(&self) -> Result<(), StorageError> {
         infra::run_migrations(self.pool(), &MIGRATOR).await?;
         let version = self.schema_version().await?;

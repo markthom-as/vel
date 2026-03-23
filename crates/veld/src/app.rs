@@ -337,12 +337,20 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::integrations::start_google_calendar_auth),
         )
         .route(
+            "/api/integrations/google-calendar/write-intent",
+            post(routes::integrations::google_calendar_write_intent),
+        )
+        .route(
             "/api/integrations/todoist",
             axum::routing::patch(routes::integrations::patch_todoist),
         )
         .route(
             "/api/integrations/todoist/disconnect",
             post(routes::integrations::disconnect_todoist),
+        )
+        .route(
+            "/api/integrations/todoist/write-intent",
+            post(routes::integrations::todoist_write_intent),
         )
         .route(
             "/api/integrations/todoist/create-task",

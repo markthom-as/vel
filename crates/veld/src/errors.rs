@@ -54,6 +54,14 @@ impl AppError {
             message: message.into(),
         }
     }
+
+    pub fn gone(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::GONE,
+            code: "deprecated",
+            message: message.into(),
+        }
+    }
 }
 
 impl IntoResponse for AppError {
