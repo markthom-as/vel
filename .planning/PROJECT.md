@@ -71,23 +71,29 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 **Accepted debt:**
 - live browser workflow dispatch remains deferred until a future milestone ships canonical workflow invocation transport
 
-## Active Release Line: 0.5.2 Operator Surface Embodiment
+## Latest Closed Release Line: 0.5.2 Operator Surface Embodiment
 
-**Goal:** turn the truthful `0.5.1` client line into the intended operator UI state on web without reopening backend law.
+**Goal achieved:** the truthful `0.5.1` client line now has the intended embodied operator surfaces on web without reopening backend law.
 
-**Target outcome:**
-- `Now` feels like the intended dense execution-first operating surface
-- `Threads` feels grounded, legible, and actionably contextual
-- `System` feels authoritative without becoming a sprawling admin product
-- active-path web performance is meaningfully better than the `0.5.1` line
-- Apple receives updated parity/handoff documentation only
+**Delivered:**
+- approved operator-surface doctrine and UI contract
+- repaired shared shell rhythm, disclosure model, and three-surface framing
+- focus-first `Now` embodiment with local-first completion reconcile
+- bound-object-first `Threads` embodiment with browser-proven grounded reading
+- grouped sidebar/detail `System` embodiment with bounded canonical actions only
+- cross-surface browser proof and refreshed Apple handoff/spec packet
 
-**Non-goals:**
-- backend schema renegotiation except for provable bugs
-- framework migration
-- new providers
-- workflow-builder or trigger-product widening
-- Apple implementation
+**Accepted debt:**
+- live browser workflow dispatch remains deferred until a future milestone ships canonical workflow invocation transport
+
+## Next Milestone Goals
+
+No active successor milestone is defined yet.
+
+Likely follow-on seeds:
+- workflow invocation transport plus browser-dispatch proof
+- Apple implementation against the embodied three-surface doctrine
+- targeted operator-path performance tightening where embodied surfaces still feel heavy
 
 ## Requirements
 
@@ -218,4 +224,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-22 after activating the `0.5.2` operator-surface embodiment line*
+*Last updated: 2026-03-23 after closing the `0.5.2` operator-surface embodiment line*

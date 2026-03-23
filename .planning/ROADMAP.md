@@ -7,6 +7,7 @@
 - `v0.3` shipped canonical `Now` + client mesh archive: [v0.3-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.3-ROADMAP.md)
 - `v0.5` shipped backend core rewrite archive: [v0.5-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-ROADMAP.md)
 - `v0.5.1` shipped canonical client reconnection archive: [v0.5.1-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-ROADMAP.md)
+- `v0.5.2` shipped operator-surface embodiment archive: [v0.5.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-ROADMAP.md)
 
 ## Previously Closed Milestones
 
@@ -30,36 +31,29 @@
 
 ## Latest Closed Milestone
 
-`0.5.1` is now complete as the canonical client reconnection line:
+`0.5.2` is now complete as the operator-surface embodiment line:
 
-- archive: [v0.5.1-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.1-ROADMAP.md)
-- requirements: [v0.5.1-REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.1-REQUIREMENTS.md)
-- audit: [v0.5.1-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.5.1-MILESTONE-AUDIT.md)
+- archive: [v0.5.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-ROADMAP.md)
+- requirements: [v0.5.2-REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.2-REQUIREMENTS.md)
+- audit: [v0.5.2-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.5.2-MILESTONE-AUDIT.md)
 
-Milestone `0.5.1` reconnected the web operator surfaces to the frozen `0.5` backend:
+Milestone `0.5.2` embodied the frozen `0.5` / truthful `0.5.1` web line into the intended operator surface model:
 
-- truthful-surface doctrine first
-- one canonical transport layer
-- three surfaces only: `Now`, `Threads`, `System`
-- `WriteIntent`-only mutations
-- deletion or explicit quarantine of stale client/backend seams
-- Apple handoff/spec only
-- explicit accepted debt for live browser workflow dispatch proof, because no shipped canonical invocation route exists in the frozen boundary
+- approved embodied doctrine and UI contract
+- repaired shell rhythm and disclosure model
+- focus-first `Now`
+- object-grounded `Threads`
+- grouped sidebar/detail `System`
+- per-surface browser proof plus one cross-surface operator loop
+- refreshed Apple handoff/spec only
 
 ## Active Milestone
 
-`0.5.2` is now active as the operator-surface embodiment line:
+No active milestone is currently defined.
 
-- packet: [v0.5.2-operator-surface-embodiment/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/ROADMAP.md)
-- doctrine: [0.5.2-operator-surface-doctrine.md](/home/jove/code/vel/docs/cognitive-agent-architecture/architecture/0.5.2-operator-surface-doctrine.md)
+Next step:
 
-Milestone `0.5.2` exists to turn the truthful `0.5.1` line into the intended web operator UI state:
-
-- no backend renegotiation
-- no new top-level surfaces beyond `Now`, `Threads`, and `System`
-- web-first embodiment
-- visible performance repair in the active operator path
-- Apple parity/handoff updates only
+- `$gsd-new-milestone`
 
 ## Scope Guardrails
 
@@ -88,7 +82,7 @@ The completed `0.5.1` line was only about truthful client reconnection:
 - no workflow-builder or trigger product widening
 - no Apple implementation work
 
-The active `0.5.2` line is only about operator-surface embodiment:
+The completed `0.5.2` line was only about operator-surface embodiment:
 
 - no backend schema negotiation beyond provable bugs
 - no framework migration
@@ -104,7 +98,7 @@ Vel now uses semver language for product lines and shipped releases:
 - `0.4.x` is the latest closed release line
 - `0.5.0-beta` is the latest completed backend rewrite line
 - `0.5.1-beta` is the latest completed client reconnection line
-- `0.5.2-beta` is the active operator-surface embodiment line
+- `0.5.2-beta` is the latest completed operator-surface embodiment line
 
 For roadmap execution inside a release line, use a four-part lineage identifier:
 
@@ -117,13 +111,12 @@ For roadmap execution inside a release line, use a four-part lineage identifier:
 
 The latest completed execution packet is:
 
-- [v0.5-core-rewrite/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/ROADMAP.md)
-- [65-MILESTONE-EVIDENCE.md](/home/jove/code/vel/.planning/milestones/v0.5-core-rewrite/65-MILESTONE-EVIDENCE.md)
+- [v0.5.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-ROADMAP.md)
+- [77-MILESTONE-EVIDENCE.md](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/77-MILESTONE-EVIDENCE.md)
 
 ## Active Packet
 
-- [v0.5.2-operator-surface-embodiment/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/ROADMAP.md)
-- [72-01-PLAN.md](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/72-01-PLAN.md)
+No active packet.
 
 ---
-*Last updated: 2026-03-22 after activating milestone `0.5.2`*
+*Last updated: 2026-03-23 after archiving milestone `0.5.2`*

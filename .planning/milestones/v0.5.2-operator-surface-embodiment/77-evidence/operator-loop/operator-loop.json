@@ -1,0 +1,18 @@
+{
+  "mutation": {
+    "kind": "patch",
+    "path": "/v1/commitments/commit_local_1",
+    "body": {
+      "status": "done"
+    }
+  },
+  "surfacesVisited": [
+    "Now",
+    "Threads",
+    "System"
+  ],
+  "completionVisible": 1,
+  "threadHeading": 0,
+  "systemHeading": 1,
+  "reconnectCount": 0
+}
