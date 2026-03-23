@@ -1,0 +1,245 @@
+[
+  {
+    "method": "GET",
+    "path": "/v1/now",
+    "body": null,
+    "status": 200,
+    "json": {
+      "ok": true,
+      "data": {
+        "computed_at": 1710000000,
+        "timezone": "America/Denver",
+        "header": {
+          "title": "Jove's Now",
+          "buckets": [
+            {
+              "kind": "needs_input",
+              "count": 1,
+              "count_display": "show_nonzero",
+              "urgent": true,
+              "route_target": {
+                "bucket": "needs_input",
+                "thread_id": "conv_1"
+              }
+            }
+          ]
+        },
+        "status_row": {
+          "date_label": "Mar 9",
+          "time_label": "4:00 PM",
+          "context_label": "Write weekly review",
+          "elapsed_label": "No active task"
+        },
+        "context_line": {
+          "text": "Standup is waiting on question 1 with 0 commitment draft(s) and 0 deferred item(s).",
+          "thread_id": null,
+          "fallback_used": false
+        },
+        "nudge_bars": [
+          {
+            "id": "check_in_bar",
+            "kind": "needs_input",
+            "title": "Standup check-in",
+            "summary": "Vel needs one short answer before the standup can continue.",
+            "urgent": true,
+            "primary_thread_id": "conv_1",
+            "actions": [
+              {
+                "kind": "expand",
+                "label": "Continue in Threads"
+              }
+            ]
+          },
+          {
+            "id": "mesh_summary_warning",
+            "kind": "trust_warning",
+            "title": "Vel Desktop needs attention",
+            "summary": "Sync or queued-write posture needs review before trusting all cross-client state.",
+            "urgent": true,
+            "primary_thread_id": null,
+            "actions": [
+              {
+                "kind": "open_settings",
+                "label": "Open settings"
+              }
+            ]
+          }
+        ],
+        "task_lane": {
+          "active": {
+            "id": "commit_local_1",
+            "task_kind": "commitment",
+            "text": "Write weekly review",
+            "state": "active",
+            "project": null,
+            "primary_thread_id": null
+          },
+          "pending": [
+            {
+              "id": "commit_todoist_1",
+              "task_kind": "task",
+              "text": "Reply to Dimitri",
+              "state": "pending",
+              "project": "Ops",
+              "primary_thread_id": null
+            }
+          ],
+          "recent_completed": [],
+          "overflow_count": 0
+        },
+        "docked_input": {
+          "supported_intents": [
+            "task",
+            "question"
+          ],
+          "day_thread_id": "conv_day",
+          "raw_capture_thread_id": "conv_capture"
+        },
+        "overview": {
+          "dominant_action": null,
+          "today_timeline": [],
+          "visible_nudge": null,
+          "why_state": [],
+          "suggestions": [],
+          "decision_options": [
+            "accept",
+            "choose",
+            "thread",
+            "close"
+          ]
+        },
+        "summary": {
+          "mode": {
+            "key": "day_mode",
+            "label": "Day"
+          },
+          "phase": {
+            "key": "engaged",
+            "label": "Engaged"
+          },
+          "meds": {
+            "key": "pending",
+            "label": "Pending"
+          },
+          "risk": {
+            "level": "medium",
+            "score": 0.72,
+            "label": "medium · 72%"
+          }
+        },
+        "schedule": {
+          "empty_message": null,
+          "next_event": {
+            "title": "Design review",
+            "start_ts": 1710003600,
+            "end_ts": 1710007200,
+            "location": "Studio",
+            "prep_minutes": null,
+            "travel_minutes": null,
+            "leave_by_ts": null
+          },
+          "upcoming_events": [
+            {
+              "title": "Design review",
+              "start_ts": 1710003600,
+              "end_ts": 1710007200,
+              "location": "Studio",
+              "prep_minutes": null,
+              "travel_minutes": null,
+              "leave_by_ts": null
+            }
+          ]
+        },
+        "tasks": {
+          "todoist": [],
+          "other_open": [
+            {
+              "id": "commit_local_1",
+              "text": "Write weekly review",
+              "source_type": "local",
+              "due_at": "2026-03-09T17:00:00Z",
+              "project": null,
+              "commitment_kind": "routine"
+            }
+          ],
+          "next_commitment": null
+        },
+        "attention": {
+          "state": {
+            "key": "on_task",
+            "label": "On task"
+          },
+          "drift": {
+            "key": "none",
+            "label": "None"
+          },
+          "severity": {
+            "key": "none",
+            "label": "None"
+          },
+          "confidence": 0.8,
+          "reasons": []
+        },
+        "sources": {
+          "git_activity": null,
+          "health": null,
+          "mood": null,
+          "pain": null,
+          "note_document": null,
+          "assistant_message": null
+        },
+        "freshness": {
+          "overall_status": "fresh",
+          "sources": []
+        },
+        "trust_readiness": {
+          "level": "ok",
+          "headline": "Ready",
+          "summary": "No trust blockers are active.",
+          "backup": {
+            "level": "ok",
+            "label": "Backup",
+            "detail": "Backup trust is healthy."
+          },
+          "freshness": {
+            "level": "ok",
+            "label": "Freshness",
+            "detail": "Inputs are fresh enough to trust."
+          },
+          "review": {
+            "open_action_count": 0,
+            "pending_execution_reviews": 0,
+            "pending_writeback_count": 0,
+            "conflict_count": 0
+          },
+          "guidance": [],
+          "follow_through": []
+        },
+        "check_in": null,
+        "day_plan": null,
+        "reflow": null,
+        "reflow_status": null,
+        "action_items": [],
+        "review_snapshot": {
+          "open_action_count": 0,
+          "triage_count": 0,
+          "projects_needing_review": 0,
+          "pending_execution_reviews": 0
+        },
+        "pending_writebacks": [],
+        "conflicts": [],
+        "people": [],
+        "reasons": [],
+        "debug": {
+          "raw_context": {},
+          "signals_used": [],
+          "commitments_used": [],
+          "risk_used": []
+        }
+      },
+      "meta": {
+        "request_id": "req_fixture"
+      }
+    }
+  }
+]

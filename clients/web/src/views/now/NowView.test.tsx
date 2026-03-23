@@ -244,29 +244,50 @@ describe('NowView', () => {
     vi.mocked(api.apiGet).mockReset()
     vi.mocked(api.apiPost).mockReset()
     vi.mocked(api.apiPatch).mockReset()
+    vi.mocked(api.apiPatch).mockResolvedValue({
+      ok: true,
+      data: {
+        id: 'commit_local_1',
+        title: 'Write weekly review',
+        detail: null,
+        status: 'done',
+        source_kind: 'manual',
+        source_ref: null,
+        due_at: null,
+        energy: null,
+        urgency: null,
+        confidence: null,
+        created_at: '2026-03-09T15:00:00Z',
+        updated_at: '2026-03-09T16:05:00Z',
+        resolved_at: '2026-03-09T16:05:00Z',
+        project_id: null,
+        nudge_count: 0,
+        tags: [],
+      },
+      meta: { request_id: 'req_patch' },
+    } as never)
     setupApiMocks(buildNowData())
   })
 
-  it('renders the compact containerless top area and grouped task container', async () => {
+  it('renders the approved focus-first now layout without reviving inbox-era affordances', async () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: "Jove's Now" })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Now' })).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: /Needs input 1/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Focus')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Write weekly review' })).toBeInTheDocument()
+    expect(screen.getByText('Commitments')).toBeInTheDocument()
+    expect(screen.getByText('Calendar')).toBeInTheDocument()
+    expect(screen.getByText('Triage')).toBeInTheDocument()
+    expect(screen.getByText('Design review')).toBeInTheDocument()
     expect(screen.getByText('Standup check-in')).toBeInTheDocument()
     expect(screen.getByText('Vel Desktop needs attention')).toBeInTheDocument()
-    expect(screen.getByText('NOW')).toBeInTheDocument()
-    expect(screen.getByText('TODAY')).toBeInTheDocument()
-    expect(screen.getByText('Tasks')).toBeInTheDocument()
-    expect(screen.getByText('Calendar')).toBeInTheDocument()
-    expect(screen.getByText('Design review')).toBeInTheDocument()
-    expect(
-      screen.getByText(/date, active-task context, and ambient status stay in the navbar/i),
-    ).toBeInTheDocument()
+    expect(screen.queryByText('Tasks')).not.toBeInTheDocument()
+    expect(screen.queryByText('NOW')).not.toBeInTheDocument()
+    expect(screen.queryByText('TODAY')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Open inbox/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Reschedule/i })).not.toBeInTheDocument()
-    expect(screen.queryByText(/CONTEXT:/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/More Context and Controls/i)).not.toBeInTheDocument()
   })
 
@@ -298,5 +319,124 @@ describe('NowView', () => {
         .at(-1) as HTMLElement,
     )
     expect(onOpenSystem).toHaveBeenCalledWith({ section: 'configuration', subsection: 'accounts' })
+  })
+
+  it('reconciles commitment completion into the focus-first layout', async () => {
+    let currentNow = buildNowData({
+      tasks: {
+        todoist: [],
+        other_open: [
+          {
+            id: 'commit_local_1',
+            text: 'Write weekly review',
+            source_type: 'local',
+            source_id: null,
+            status: 'active',
+            due_at: '2026-03-09T17:00:00Z',
+            project: null,
+            commitment_kind: 'routine',
+            created_at: '2026-03-09T15:00:00Z',
+            resolved_at: null,
+            scheduler_rules: {
+              block_target: null,
+              duration_minutes: null,
+              calendar_free: false,
+              fixed_start: false,
+              time_window: null,
+              local_urgency: false,
+              local_defer: false,
+            },
+            metadata: {},
+          },
+        ],
+      },
+    })
+
+    vi.mocked(api.apiGet).mockImplementation(async (path: string) => {
+      if (path === '/v1/now') {
+        return { ok: true, data: currentNow, meta: { request_id: 'req_now' } } as never
+      }
+      if (path === '/v1/cluster/bootstrap') {
+        return { ok: true, data: buildClusterBootstrapFixture(), meta: { request_id: 'req_boot' } } as never
+      }
+      if (path === '/v1/cluster/workers') {
+        return { ok: true, data: buildClusterWorkersFixture(), meta: { request_id: 'req_workers' } } as never
+      }
+      throw new Error(`Unmocked apiGet path: ${path}`)
+    })
+
+    vi.mocked(api.apiPatch).mockImplementation(async () => {
+      currentNow = buildNowData({
+        task_lane: {
+          active: null,
+          pending: [
+            {
+              id: 'commit_todoist_1',
+              task_kind: 'task',
+              text: 'Reply to Dimitri',
+              state: 'pending',
+              project: 'Ops',
+              primary_thread_id: null,
+            },
+          ],
+          recent_completed: [
+            {
+              id: 'commit_local_1',
+              task_kind: 'commitment',
+              text: 'Write weekly review',
+              state: 'done',
+              project: null,
+              primary_thread_id: null,
+            },
+          ],
+          overflow_count: 0,
+        },
+        tasks: { todoist: [], other_open: [], next_commitment: null },
+      })
+
+      return {
+        ok: true,
+        data: {
+          id: 'commit_local_1',
+          title: 'Write weekly review',
+          detail: null,
+          status: 'done',
+          source_kind: 'manual',
+          source_ref: null,
+          due_at: null,
+          energy: null,
+          urgency: null,
+          confidence: null,
+          created_at: '2026-03-09T15:00:00Z',
+          updated_at: '2026-03-09T16:05:00Z',
+          resolved_at: '2026-03-09T16:05:00Z',
+          project_id: null,
+          nudge_count: 0,
+          tags: [],
+        },
+        meta: { request_id: 'req_patch' },
+      } as never
+    })
+
+    render(<NowView />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Complete commitment' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete commitment' }))
+
+    await waitFor(() => {
+      expect(vi.mocked(api.apiPatch)).toHaveBeenCalledWith(
+        '/v1/commitments/commit_local_1',
+        { status: 'done' },
+        expect.any(Function),
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Recently completed')).toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: 'Write weekly review completed' })).toBeInTheDocument()
   })
 })

@@ -1,0 +1,13 @@
+{
+  "before": {
+    "focusHeading": "Write weekly review",
+    "loadingCount": 0,
+    "completedSectionCount": 0
+  },
+  "after": {
+    "loadingCount": 0,
+    "completedSectionCount": 1,
+    "completedButtonCount": 1,
+    "focusHeadingCount": 0
+  }
+}

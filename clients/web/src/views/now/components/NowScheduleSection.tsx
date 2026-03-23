@@ -10,7 +10,7 @@ import { formatTime } from '../nowModel';
 
 function scheduleRows(schedule: NowScheduleData): NowEventData[] {
   if (schedule.upcoming_events.length > 0) {
-    return schedule.upcoming_events;
+    return schedule.upcoming_events.slice(0, 3);
   }
   return schedule.next_event ? [schedule.next_event] : [];
 }
@@ -31,7 +31,7 @@ export function NowScheduleSection({
   const events = scheduleRows(schedule);
 
   return (
-    <section className="space-y-4 pt-3">
+    <section className="space-y-4">
       <div className="space-y-2">
         <PanelSectionHeaderBand mode="section-header">
           <PanelSectionHeaderLead>
@@ -39,7 +39,7 @@ export function NowScheduleSection({
           </PanelSectionHeaderLead>
         </PanelSectionHeaderBand>
         <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">
-          Upcoming canonical commitments
+          Today-first canonical constraint surface
         </p>
       </div>
 

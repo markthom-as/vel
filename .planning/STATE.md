@@ -4,20 +4,20 @@ milestone: 0.5.2
 milestone_name: operator-surface-embodiment
 release_line: 0.5.2-beta
 next_beta_target: 0.5.2-beta
-current_phase: 74
-current_phase_name: now-ideal-state-embodiment-and-operator-speed-repair
-current_plan: 74-01-PLAN
-current_work_id: 0.5.2.74.1
+current_phase: 75
+current_phase_name: threads-ideal-state-embodiment-and-grounded-interaction-clarity
+current_plan: 75-01-PLAN
+current_work_id: 0.5.2.75.1
 status: active
-stopped_at: "Phase 73 closed with shared shell/browser proof"
-last_updated: "2026-03-23T05:45:00Z"
+stopped_at: "Phase 74 closed with Now browser proof"
+last_updated: "2026-03-23T06:10:00Z"
 last_activity: 2026-03-22
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 6
-  completed_plans: 2
-  percent: 33
+  completed_plans: 3
+  percent: 50
 ---
 
 # Project State
@@ -29,21 +29,21 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
 **Current focus:** `0.5.2` operator-surface embodiment over the frozen `0.5` backend and the truthful `0.5.1` client boundary
 
-Status: `0.5.2` active at Phase 74
+Status: `0.5.2` active at Phase 75
 Release Line: 0.5.2-beta
-Current Work ID: 0.5.2.74.1
-Current Phase: 74
-Current Phase Name: now-ideal-state-embodiment-and-operator-speed-repair
-Current Plan: 74-01-PLAN
+Current Work ID: 0.5.2.75.1
+Current Phase: 75
+Current Phase Name: threads-ideal-state-embodiment-and-grounded-interaction-clarity
+Current Plan: 75-01-PLAN
 Total Plans in Phase: 1
-Progress: 33%
+Progress: 50%
 Last Activity: 2026-03-22
-Last Activity Description: Closed Phase 73 with shared shell/browser proof and advanced to Now embodiment work
+Last Activity Description: Closed Phase 74 with Now browser proof and advanced to Threads embodiment work
 
 ## Current Position
 
-Phase: 74 (now-ideal-state-embodiment-and-operator-speed-repair) — ACTIVE
-Plan: embody the approved Now surface over the repaired shell while cutting visible operator-path latency
+Phase: 75 (threads-ideal-state-embodiment-and-grounded-interaction-clarity) — ACTIVE
+Plan: embody Threads around bound object state, clearer provenance, and grounded interaction flow
 
 ## Accumulated Context
 
@@ -62,14 +62,15 @@ Plan: embody the approved Now surface over the repaired shell while cutting visi
 
 - the current frontend is low-trust and should be reused only where structurally sound
 - the approved Phase 72 UI contract is now the design authority for implementation
-- the shared shell substrate is now landed and should not be reopened casually during Now work
+- the shared shell substrate is now landed and should not be reopened casually during later surface work
+- the new Now layout and local-first completion reconcile are now the baseline to preserve
 - visible slowness and excess client churn now matter enough to be milestone scope
 - no backend schema negotiation is allowed except for provable bugs
 - UI work must not sprawl into a new product ontology or route family
 
 ### Next Step
 
-Execute Phase 74 against the approved UI contract and the repaired shell substrate.
+Execute Phase 75 against the approved UI contract and the repaired shell substrate.
 
 ### Roadmap Evolution
 
@@ -79,7 +80,8 @@ Execute Phase 74 against the approved UI contract and the repaired shell substra
 - `0.5.2` is now active as the operator-surface embodiment line
 - Phase 72 closed with the doctrine freeze and approved UI contract
 - Phase 73 closed with the shared shell, disclosure primitive, and browser proof
-- Phase 74 is the active Now-embodiment phase for the new line
+- Phase 74 closed with the Now embodiment, browser proof, and active-path latency repair
+- Phase 75 is the active Threads-embodiment phase for the new line
 
 ---
-*Last updated: 2026-03-23 after closing Phase 73 of milestone `0.5.2`*
+*Last updated: 2026-03-23 after closing Phase 74 of milestone `0.5.2`*

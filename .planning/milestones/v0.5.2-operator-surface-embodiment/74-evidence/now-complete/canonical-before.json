@@ -1,0 +1,46 @@
+{
+  "task_lane": {
+    "active": {
+      "id": "commit_local_1",
+      "task_kind": "commitment",
+      "text": "Write weekly review",
+      "state": "active",
+      "project": null,
+      "primary_thread_id": null
+    },
+    "pending": [
+      {
+        "id": "commit_todoist_1",
+        "task_kind": "task",
+        "text": "Reply to Dimitri",
+        "state": "pending",
+        "project": "Ops",
+        "primary_thread_id": null
+      }
+    ],
+    "recent_completed": [],
+    "overflow_count": 0
+  },
+  "commitment": {
+    "id": "commit_local_1",
+    "text": "Write weekly review",
+    "source_type": "local",
+    "source_id": null,
+    "status": "active",
+    "due_at": "2026-03-09T17:00:00Z",
+    "project": null,
+    "commitment_kind": "routine",
+    "created_at": "2026-03-09T15:00:00Z",
+    "resolved_at": null,
+    "scheduler_rules": {
+      "block_target": null,
+      "duration_minutes": null,
+      "calendar_free": false,
+      "fixed_start": false,
+      "time_window": null,
+      "local_urgency": false,
+      "local_defer": false
+    },
+    "metadata": {}
+  }
+}
