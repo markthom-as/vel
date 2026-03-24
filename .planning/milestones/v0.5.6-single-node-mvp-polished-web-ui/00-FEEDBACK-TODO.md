@@ -1,4 +1,4 @@
-# v0.6.0 Source Feedback From TODO.md
+# v0.5.6 Source Feedback From TODO.md
 
 Copied directly from [TODO.md](/home/jove/code/vel/TODO.md) on 2026-03-23. Per operator instruction, the feedback is preserved verbatim for milestone planning.
 

@@ -4,7 +4,9 @@
 
 `0.5.5` is closed.
 
-`0.6.0` is queued as the next milestone and uses [TODO.md](/home/jove/code/vel/TODO.md) as its source backlog for the single-node MVP and polished web UI line.
+`0.5.6` is queued as the next milestone and uses [TODO.md](/home/jove/code/vel/TODO.md) as its source backlog for the single-node MVP and polished web UI line.
+
+`0.5.7` is queued as the follow-on hybrid duplex voice runtime line after `0.5.6`.
 
 ## Closed `0.5.5` Requirement Buckets
 
@@ -15,23 +17,36 @@
 | POLISH-55-01 | Remaining shell/surface/browser fidelity issues from the earlier UI line were reduced to a narrow deferred list. |
 | VERIFY-55-01 | Browser-proof artifacts and final audit closed `0.5.5` honestly. |
 
-## Queued `0.6.0` Requirement Buckets
+## Queued `0.5.6` Requirement Buckets
 
 | ID | Requirement |
 |----|-------------|
-| MVP-60-01 | Single-node setup, settings, integrations, and runtime behavior are operational enough for real operator use. |
-| NOW-60-01 | `Now` reflects truthful current-day task/calendar state, including Todoist-backed inbox/today semantics and durable task-lane behavior. |
-| CHAT-60-01 | Multimodal assistant/chat works across the supported local and hosted providers with bounded persisted configuration. |
-| SYSTEM-60-01 | `System` exposes the operator-facing single-node configuration and status needed for the MVP while hiding deeper technical surfaces behind developer mode. |
-| POLISH-60-01 | Navbar, composer, nudges, `Now`, `Threads`, and `System` reach accepted polished-web-ui quality. |
-| VERIFY-60-01 | Browser proof, focused execution-backed checks, and an honest deferred list close the line. |
+| MVP-56-01 | Single-node setup, settings, integrations, and runtime behavior are operational enough for real operator use. |
+| NOW-56-01 | `Now` reflects truthful current-day task/calendar state, including Todoist-backed inbox/today semantics and durable task-lane behavior. |
+| CHAT-56-01 | Multimodal assistant/chat works across local `llama.ccp` and OpenAI with bounded persisted configuration, universal operator-profile injection, and thread-level call mode. |
+| SYSTEM-56-01 | `System` exposes Core onboarding, operator-facing single-node configuration, and major provider/system lifecycles while hiding deeper technical surfaces behind developer mode. |
+| POLISH-56-01 | Navbar, composer, nudges, `Now`, `Threads`, and `System` reach accepted polished-web-ui quality. |
+| VERIFY-56-01 | Desktop-Chrome manual QA, focused execution-backed checks, and an honest deferred list close the line. |
+
+## Queued Follow-On `0.5.7` Requirement Buckets
+
+| ID | Requirement |
+|----|-------------|
+| ARCH-57-01 | Native Apple audio/session ownership and portable Rust engine ownership are explicitly separated and documented before implementation broadens. |
+| CORE-57-01 | The Rust speech engine owns frame flow, resampling, VAD/turn detection, STT/TTS/LLM orchestration, cancellation, and conversation state. |
+| ADAPTER-57-01 | Platform adapters feed typed PCM and device events into Rust while keeping privileged session/route/permission policy native. |
+| CALL-57-01 | Duplex thread call mode supports speak, respond, barge-in, and recovery without shadow state or fake reset behavior. |
+| VERIFY-57-01 | Formal structural/behavioral/temporal/adversarial validation plus manual real-device proof close the line honestly. |
 
 ## Governing Packet
 
-- `.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/ROADMAP.md`
-- `.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/REQUIREMENTS.md`
-- `.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md`
+- `.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md`
+- `.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md`
+- `.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md`
 - `.planning/v0.5.5-MILESTONE-AUDIT.md`
+- `.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/ROADMAP.md`
+- `.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/REQUIREMENTS.md`
+- `.planning/milestones/v0.5.7-hybrid-duplex-voice-runtime/10-VALIDATION.md`
 
 ## Non-Negotiable Constraints
 
@@ -44,7 +59,10 @@
 - this milestone stays single-node and local-first
 - `TODO.md` bullets prefixed with `!` are explicitly ignored for this milestone
 - future work after this line should come from new feedback rather than pre-expanding the roadmap
+- duplex voice follow-on work must preserve the hybrid ownership split: native session shell, Rust speech engine
+- no future voice milestone may normalize Rust ownership of privileged Apple session-policy machinery
 
 ## Next Step
 
-- begin Phase 97 planning for `0.6.0` by mapping the copied verbatim `TODO.md` feedback into explicit acceptance checks for single-node MVP closure
+- begin Phase 97 planning for `0.5.6` by mapping the copied verbatim `TODO.md` feedback into explicit acceptance checks for single-node MVP closure
+- keep `0.5.7` queued as the follow-on duplex voice line rather than widening `0.5.6` to absorb it

@@ -88,9 +88,9 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ## Next Milestone Goals
 
-The next queued milestone is `v0.6.0` — single-node MVP and polished web UI.
+The next queued milestone is `v0.5.6` — single-node MVP and polished web UI.
 
-This line is intentionally scoped from direct operator feedback in [TODO.md](/home/jove/code/vel/TODO.md), copied verbatim into the planning packet at [00-FEEDBACK-TODO.md](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md).
+This line is intentionally scoped from direct operator feedback in [TODO.md](/home/jove/code/vel/TODO.md), copied verbatim into the planning packet at [00-FEEDBACK-TODO.md](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md).
 
 Primary goals:
 - make one local Vel node work as a credible MVP through the web UI
@@ -99,9 +99,9 @@ Primary goals:
 - defer additional future phases until new feedback arrives after this MVP line
 
 Immediate planning packet:
-- [v0.6.0 roadmap](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/ROADMAP.md)
-- [v0.6.0 requirements](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/REQUIREMENTS.md)
-- [v0.6.0 verbatim feedback copy](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md)
+- [v0.5.6 roadmap](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/ROADMAP.md)
+- [v0.5.6 requirements](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/REQUIREMENTS.md)
+- [v0.5.6 verbatim feedback copy](/home/jove/code/vel/.planning/milestones/v0.5.6-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md)
 
 ## Requirements
 
@@ -232,4 +232,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-23 after queuing `v0.6.0` as the single-node MVP and polished-web-UI milestone*
+*Last updated: 2026-03-23 after queuing `v0.5.6` as the single-node MVP and polished-web-UI milestone*

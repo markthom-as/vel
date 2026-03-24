@@ -1,23 +1,23 @@
 ---
 gsd_state_version: 1.0
-milestone: 0.6.0
+milestone: 0.5.6
 milestone_name: single-node-mvp-polished-web-ui
-release_line: 0.6.0-beta
-next_beta_target: 0.6.0
-current_phase: null
-current_phase_name: null
-current_plan: null
-current_work_id: null
-status: queued
+release_line: 0.5.6-beta
+next_beta_target: 0.5.6
+current_phase: 100
+current_phase_name: mvp-proof-audit-and-closeout
+current_plan: 100-01-PLAN
+current_work_id: 0.5.6.100.1
+status: in_progress
 stopped_at: null
-last_updated: "2026-03-23T23:59:00Z"
-last_activity: 2026-03-23
+last_updated: "2026-03-24T17:32:26Z"
+last_activity: 2026-03-24
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 0
-  percent: 0
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -27,23 +27,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** queue and begin planning `0.6.0` as the single-node MVP and polished-web-UI line sourced from `TODO.md`
+**Current focus:** execute Phase 100 MVP proof, audit, and closeout for the `0.5.6` single-node MVP line
 
-Status: `0.6.0` queued
-Release Line: 0.6.0-beta
-Current Work ID: not started
-Current Phase: none
-Current Phase Name: none
-Current Plan: none
+Status: `0.5.6` in progress
+Release Line: 0.5.6-beta
+Current Work ID: 0.5.6.100.1
+Current Phase: 100
+Current Phase Name: mvp-proof-audit-and-closeout
+Current Plan: 100-01-PLAN
 Total Plans in Milestone: 4
-Progress: 0%
-Last Activity: 2026-03-23
-Last Activity Description: queued milestone `0.6.0`; copied `TODO.md` feedback into the new milestone packet and outlined Phases 97-100
+Progress: 75%
+Last Activity: 2026-03-24
+Last Activity Description: routed Core setup alerts through nudges with a direct Core settings deep-link, refreshed shell-level proof, and kept Phase 100 blocked only on manual Chrome QA plus live provider/integration evidence
 
 ## Current Position
 
-Phase: none
-Plan: none
+Phase: 100 (mvp-proof-audit-and-closeout)
+Plan: 100-01-PLAN
 
 ## Accumulated Context
 
@@ -53,11 +53,15 @@ Plan: none
 - `0.5.3` is complete and now acts as the governing design packet
 - `0.5.4` is closed with explicit carry-forward
 - `0.5.5` is now closed
-- `0.6.0` is the queued follow-on milestone
+- `0.5.6` is the active follow-on milestone
+- Phase 97 is complete
+- Phase 98 is complete
+- Phase 99 is complete
+- Phase 100 is now active
 - only `Now`, `Threads`, and `System` are first-class surfaces
 - `Now` stays strictly bounded and non-inbox-like
 - shell chrome stays instrument-like and stable across surfaces
-- `0.6.0` is scoped directly from `TODO.md`, with verbatim feedback copied into the milestone packet
+- `0.5.6` is scoped directly from `TODO.md`, with verbatim feedback copied into the milestone packet
 - docs, interactive mockups, and browser-proof acceptance targets from `0.5.3` now govern implementation
 
 ### Current Concerns
@@ -68,7 +72,7 @@ Plan: none
 
 ### Next Step
 
-Start Phase 97 planning and turn the copied verbatim `TODO.md` feedback into execution-ready acceptance checks for the single-node MVP line.
+Continue Phase 100 as proof-and-gap-closure work: run manual Chrome QA, prove live providers and integrations, and either close the remaining gaps or defer them explicitly before attempting milestone archive.
 
 ### Roadmap Evolution
 
@@ -81,7 +85,11 @@ Start Phase 97 planning and turn the copied verbatim `TODO.md` feedback into exe
 - Phase 90 completed as a first remediation pass; Phases 91 and 92 were carried forward into the `0.5.5` line instead of being closed as standalone acceptance completions
 - `0.5.5` ran as the explicit milestone for API, functionality, and polish, scoped directly from `TODO.md`
 - Phase 94, Phase 95, and Phase 96 are complete; `0.5.5` is now closed
-- `0.6.0` is now queued as the single-node MVP and polished-web-UI line with Phases 97-100 planned
+- `0.5.6` is now in progress as the single-node MVP and polished-web-UI line
+- Phase 97 completed the MVP lock and execution packet
+- Phase 98 is complete with Core settings/setup gating, provider routing, integration lifecycle controls, backend-owned `Now` day assignment, overdue-plus-today proof, retry-capable assistant failure handling, persisted thread call mode, and richer attachment transport/rendering landed
+- Phase 99 is complete with accepted web-surface polish across navbar/docs/composer/nudges plus `Now`, `Threads`, and `System`
+- Phase 100 is now active for MVP proof, copied-feedback audit, and honest closeout
 
 ---
-*Last updated: 2026-03-23 after queuing `0.6.0` and writing the new milestone packet*
+*Last updated: 2026-03-24 after routing Core setup alerts through nudges and preserving the remaining Phase 100 live/manual proof blockers*
