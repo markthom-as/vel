@@ -1,93 +1,87 @@
 ---
 gsd_state_version: 1.0
-milestone: 0.5.2
-milestone_name: operator-surface-embodiment
-release_line: 0.5.2-beta
-next_beta_target: 0.5.2-beta
-current_phase: 77
-current_phase_name: cross-surface-proof-cleanup-and-parity-handoff
-current_plan: 77-01-PLAN
-current_work_id: 0.5.2.77.1
-status: complete
-stopped_at: "Milestone 0.5.2 archived"
-last_updated: "2026-03-23T07:12:00Z"
-last_activity: 2026-03-22
+milestone: 0.6.0
+milestone_name: single-node-mvp-polished-web-ui
+release_line: 0.6.0-beta
+next_beta_target: 0.6.0
+current_phase: null
+current_phase_name: null
+current_plan: null
+current_work_id: null
+status: queued
+stopped_at: null
+last_updated: "2026-03-23T23:59:00Z"
+last_activity: 2026-03-23
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-22)
+See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Reliable, local-first capture and recall that a solo operator can trust — with the runtime infrastructure to safely extend execution to autonomous agents without losing control.
-**Current focus:** `0.5.2` operator-surface embodiment over the frozen `0.5` backend and the truthful `0.5.1` client boundary
+**Current focus:** queue and begin planning `0.6.0` as the single-node MVP and polished-web-UI line sourced from `TODO.md`
 
-Status: `0.5.2` complete
-Release Line: 0.5.2-beta
-Current Work ID: 0.5.2.77.1
-Current Phase: 77
-Current Phase Name: cross-surface-proof-cleanup-and-parity-handoff
-Current Plan: 77-01-PLAN
-Total Plans in Phase: 1
-Progress: 100%
-Last Activity: 2026-03-22
-Last Activity Description: Closed Phase 77, archived milestone v0.5.2, and cleared active milestone state
+Status: `0.6.0` queued
+Release Line: 0.6.0-beta
+Current Work ID: not started
+Current Phase: none
+Current Phase Name: none
+Current Plan: none
+Total Plans in Milestone: 4
+Progress: 0%
+Last Activity: 2026-03-23
+Last Activity Description: queued milestone `0.6.0`; copied `TODO.md` feedback into the new milestone packet and outlined Phases 97-100
 
 ## Current Position
 
-Phase: 77 (cross-surface-proof-cleanup-and-parity-handoff) — COMPLETE
-Plan: milestone closeout completed
+Phase: none
+Plan: none
 
 ## Accumulated Context
 
 ### Active Decisions
 
-- `0.4.x` is closed and should no longer absorb new implementation work
-- `0.5` remains frozen backend authority
-- `0.5.1` is closed and remains the truthful client boundary
-- `0.5.2` is an embodiment milestone, not a backend renegotiation line
-- only `Now`, `Threads`, and `System` are first-class surfaces in `0.5.2`
-- Apple is out for implementation and gets parity/handoff docs only
-- roadmap communication continues to use semver release-line language with four-part work IDs
-- `v0.5.2` inherits the frozen `0.5.1` truth doctrine and is allowed to improve embodiment, density, and performance without inventing new semantic truth
+- `0.5.2` is complete and archived
+- `0.5.3` is complete and now acts as the governing design packet
+- `0.5.4` is closed with explicit carry-forward
+- `0.5.5` is now closed
+- `0.6.0` is the queued follow-on milestone
+- only `Now`, `Threads`, and `System` are first-class surfaces
+- `Now` stays strictly bounded and non-inbox-like
+- shell chrome stays instrument-like and stable across surfaces
+- `0.6.0` is scoped directly from `TODO.md`, with verbatim feedback copied into the milestone packet
+- docs, interactive mockups, and browser-proof acceptance targets from `0.5.3` now govern implementation
 
 ### Current Concerns
 
-- the current frontend is low-trust and should be reused only where structurally sound
-- the approved Phase 72 UI contract is now the design authority for implementation
-- the shared shell substrate is now landed and should not be reopened casually during later surface work
-- the new Now layout and local-first completion reconcile are now the baseline to preserve
-- the new Threads bound-object-first posture is now the baseline to preserve
-- the new System grouped-sidebar and single-detail-pane posture is now the baseline to preserve
-- no successor milestone is active yet
-- visible slowness and excess client churn now matter enough to be milestone scope
-- no backend schema negotiation is allowed except for provable bugs
-- UI work must not sprawl into a new product ontology or route family
+- implementation drift remains the main risk
+- single-node MVP truth is not yet explicitly proven end to end
+- future scope should not widen beyond copied feedback until new operator review lands
 
 ### Next Step
 
-Define the next milestone before resuming autonomous execution.
+Start Phase 97 planning and turn the copied verbatim `TODO.md` feedback into execution-ready acceptance checks for the single-node MVP line.
 
 ### Roadmap Evolution
 
 - `0.4.x` closed at Phase 56 with build and focused regression evidence
 - `0.5` closed with canonical backend authority, proving adapters, and hard write-path cutover
 - `0.5.1` closed as the canonical client reconnection line with browser proof and Apple handoff docs
-- `0.5.2` ran as the operator-surface embodiment line
-- Phase 72 closed with the doctrine freeze and approved UI contract
-- Phase 73 closed with the shared shell, disclosure primitive, and browser proof
-- Phase 74 closed with the Now embodiment, browser proof, and active-path latency repair
-- Phase 75 closed with grounded-thread browser proof and state-first thread rendering
-- Phase 76 closed with structural System browser proof and frozen action verification
-- Phase 77 closed with cross-surface proof, Apple handoff refresh, and milestone archive readiness
-- Milestone `0.5.2` is now complete and archived
+- `0.5.2` closed as the operator-surface embodiment line
+- `0.5.3` completed as the UI system design milestone
+- `0.5.4` was provisionally closed, reopened after UI rejection, and then closed with explicit carry-forward into `0.5.5`
+- Phase 90 completed as a first remediation pass; Phases 91 and 92 were carried forward into the `0.5.5` line instead of being closed as standalone acceptance completions
+- `0.5.5` ran as the explicit milestone for API, functionality, and polish, scoped directly from `TODO.md`
+- Phase 94, Phase 95, and Phase 96 are complete; `0.5.5` is now closed
+- `0.6.0` is now queued as the single-node MVP and polished-web-UI line with Phases 97-100 planned
 
 ---
-*Last updated: 2026-03-23 after archiving milestone `0.5.2`*
+*Last updated: 2026-03-23 after queuing `0.6.0` and writing the new milestone packet*

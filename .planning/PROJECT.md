@@ -88,12 +88,20 @@ Reliable, local-first capture and recall that a solo operator can trust — with
 
 ## Next Milestone Goals
 
-No active successor milestone is defined yet.
+The next queued milestone is `v0.6.0` — single-node MVP and polished web UI.
 
-Likely follow-on seeds:
-- workflow invocation transport plus browser-dispatch proof
-- Apple implementation against the embodied three-surface doctrine
-- targeted operator-path performance tightening where embodied surfaces still feel heavy
+This line is intentionally scoped from direct operator feedback in [TODO.md](/home/jove/code/vel/TODO.md), copied verbatim into the planning packet at [00-FEEDBACK-TODO.md](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md).
+
+Primary goals:
+- make one local Vel node work as a credible MVP through the web UI
+- make Google/Todoist integration, chat provider selection, and single-node settings/config truthful enough for real operator use
+- polish `Now`, `Threads`, and `System` to the accepted web-quality bar
+- defer additional future phases until new feedback arrives after this MVP line
+
+Immediate planning packet:
+- [v0.6.0 roadmap](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/ROADMAP.md)
+- [v0.6.0 requirements](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/REQUIREMENTS.md)
+- [v0.6.0 verbatim feedback copy](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md)
 
 ## Requirements
 
@@ -224,4 +232,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update context with the new shipped state and next-milestone seed.
 
 ---
-*Last updated: 2026-03-23 after closing the `0.5.2` operator-surface embodiment line*
+*Last updated: 2026-03-23 after queuing `v0.6.0` as the single-node MVP and polished-web-UI milestone*

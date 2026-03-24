@@ -29,9 +29,9 @@
 - cleaned `Threads` and `Settings` MVP information architecture
 - closed the line with a strict-clean web build and focused regression evidence
 
-## Latest Closed Milestone
+## Previous Closed Milestone
 
-`0.5.2` is now complete as the operator-surface embodiment line:
+`0.5.2` is complete as the operator-surface embodiment line:
 
 - archive: [v0.5.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-ROADMAP.md)
 - requirements: [v0.5.2-REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.2-REQUIREMENTS.md)
@@ -47,76 +47,166 @@ Milestone `0.5.2` embodied the frozen `0.5` / truthful `0.5.1` web line into the
 - per-surface browser proof plus one cross-surface operator loop
 - refreshed Apple handoff/spec only
 
-## Active Milestone
+## Latest Closed Milestone
 
-No active milestone is currently defined.
+`0.5.4` is now closed as the web UI implementation line, with explicit carry-forward into `0.5.5` for unresolved API / functionality / polish work.
 
-Next step:
+Milestone `0.5.4` delivered:
 
-- `$gsd-new-milestone`
+- implemented shell, primitive, `Now`, `Threads`, and `System` execution against the `0.5.3` packet
+- multiple acceptance-driven remediation passes
+- shared primitive unification across chips, tags, rows, floating pills, and system document structures
+- explicit carry-forward of unresolved browser-fidelity and API-truth work into queued `0.5.5`
+
+Closeout references:
+
+- [v0.5.4-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.5.4-MILESTONE-AUDIT.md)
+- [TODO.md](/home/jove/code/vel/TODO.md)
+- [v0.5.5-api-functionality-polish/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.5-api-functionality-polish/ROADMAP.md)
+
+## Previously Closed Milestone
+
+`0.5.3` is now complete as the UI system design line:
+
+- packet: [v0.5.3-ui-system-design-draft/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.3-ui-system-design-draft/ROADMAP.md)
+- milestone lock: [82-MILESTONE-LOCK.md](/home/jove/code/vel/.planning/milestones/v0.5.3-ui-system-design-draft/82-MILESTONE-LOCK.md)
+- audit: [v0.5.3-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.5.3-MILESTONE-AUDIT.md)
+
+Milestone `0.5.3` delivered:
+
+- locked product paradigms for `Now`, `Threads`, and `System`
+- locked interaction law, disclosure rules, and action/state handling
+- locked foundation direction: typography, theme, iconography, spacing, and color semantics strategy
+- locked component-system doctrine and retirement posture
+- page-level UI specs
+- clickable HTML/CSS mockups in repo
+- implementation-handoff guidance for the follow-on execution line
+
+## Current Milestone State
+
+`0.5.5` is now closed.
+
+`0.6.0` is now queued.
+
+## Latest Closed Milestone
+
+`0.5.5` is now closed as the API / functionality / polish line.
+
+It took every unchecked item in [TODO.md](/home/jove/code/vel/TODO.md) as milestone scope, including the API-backed truth gaps deferred out of `0.5.4`, and closed the line with browser proof plus an explicit accepted-deferred polish list.
+
+Packet:
+
+- [v0.5.5-api-functionality-polish/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.5-api-functionality-polish/ROADMAP.md)
+- [v0.5.5-api-functionality-polish/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.5.5-api-functionality-polish/REQUIREMENTS.md)
+
+## Next Queued Milestone
+
+`0.6.0` is queued as the single-node MVP and polished web UI line.
+
+Milestone `0.6.0` exists to turn the current accepted three-surface web line into a working single-node MVP before any broader expansion:
+
+- truthful single-node settings/integration/chat behavior
+- truthful current-day operator state in `Now`
+- polished web UI across `Now`, `Threads`, and `System`
+- direct use of [TODO.md](/home/jove/code/vel/TODO.md) as the backlog, with the feedback copied verbatim into the milestone packet
+
+Packet:
+
+- [v0.6.0-single-node-mvp-polished-web-ui/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/ROADMAP.md)
+- [v0.6.0-single-node-mvp-polished-web-ui/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/REQUIREMENTS.md)
+- [v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md)
 
 ## Scope Guardrails
 
-The completed `0.5` line was only about the new backend substrate and proving adapters:
+The queued `0.6.0` line should remain bounded by:
 
-- canonical object kernel and relation/storage rewrite
-- action membrane, policy, grants, and audit
-- module registry/loader and core-module bootstrap
-- workflow and skill runtime primitives
-- Todoist and Google Calendar adapter proving flows
-- hard backend cutover and verification
-
-Do not widen this milestone into:
-
-- web UI or Apple/client embodiment work
-- broad connector expansion beyond Todoist and Google Calendar
-- speculative workflow-builder or trigger product work
-- marketplace/registry ecosystem work
-
-The completed `0.5.1` line was only about truthful client reconnection:
-
-- no backend schema negotiation
-- no framework migration
-- no broad UI redesign
-- no new providers
-- no workflow-builder or trigger product widening
-- no Apple implementation work
-
-The completed `0.5.2` line was only about operator-surface embodiment:
-
-- no backend schema negotiation beyond provable bugs
-- no framework migration
-- no new providers
-- no workflow-builder or trigger widening
+- no redesign-by-drift beyond what the copied feedback requires
+- no multi-node or distributed-systems widening
+- no new providers or new top-level surfaces
+- no speculative workflow-builder or planner-studio widening
 - no Apple implementation
 
-## Versioning Policy
+## Requirement Buckets
 
-Vel now uses semver language for product lines and shipped releases:
+| ID | Description |
+|----|-------------|
+| MVP-60-01 | Single-node setup, settings, integrations, and runtime behavior are operational enough for real operator use. |
+| NOW-60-01 | `Now` reflects truthful current-day task/calendar state with correct inbox / next-up / backlog semantics. |
+| CHAT-60-01 | Multimodal assistant/chat works across supported local and hosted providers with bounded configuration. |
+| SYSTEM-60-01 | `System` becomes the truthful operator surface for single-node config, integrations, and developer-mode disclosure. |
+| POLISH-60-01 | The web UI reaches accepted polish across navbar, nudges, composer, `Now`, `Threads`, and `System`. |
+| VERIFY-60-01 | Browser/API/manual proof closes the milestone honestly. |
 
-- `0.3.0` is the latest shipped release baseline in the repo
-- `0.4.x` is the latest closed release line
-- `0.5.0-beta` is the latest completed backend rewrite line
-- `0.5.1-beta` is the latest completed client reconnection line
-- `0.5.2-beta` is the latest completed operator-surface embodiment line
+## Phases
 
-For roadmap execution inside a release line, use a four-part lineage identifier:
+- [ ] **Phase 97: MVP scope lock and feedback-to-contract mapping** - convert `TODO.md` into explicit single-node MVP acceptance criteria without losing the operator’s exact wording.
+- [ ] **Phase 98: Single-node truth and settings/integrations completion** - make the single-node runtime, settings, integrations, and chat seams truthful enough for real use.
+- [ ] **Phase 99: Web surface polish and operator-flow completion** - finish the accepted web UI and interaction model across the three surfaces.
+- [ ] **Phase 100: MVP proof, audit, and milestone closeout** - prove the single-node MVP works end to end and close the line honestly.
 
-- format: `<major>.<minor>.<phase>.<plan>`
-- example: `0.5.57.1` means milestone `0.5`, Phase `57`, Plan `01`
-- phase numbers remain in place for historical continuity with the existing planning system
-- shipped artifacts and tags should continue to use normal semver, not the four-part planning identifier
+## Progress
 
-## Most Recent Phase Packet
+**Planned execution order:** 97 -> 98 -> 99 -> 100
 
-The latest completed execution packet is:
+| Phase | Requirements | Status |
+|-------|--------------|--------|
+| 97. MVP scope lock and feedback-to-contract mapping | MVP-60-01, NOW-60-01, CHAT-60-01, SYSTEM-60-01, POLISH-60-01 | Queued |
+| 98. Single-node truth and settings/integrations completion | MVP-60-01, NOW-60-01, CHAT-60-01, SYSTEM-60-01 | Queued |
+| 99. Web surface polish and operator-flow completion | NOW-60-01, SYSTEM-60-01, POLISH-60-01 | Queued |
+| 100. MVP proof, audit, and milestone closeout | VERIFY-60-01 | Queued |
 
-- [v0.5.2-ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.5.2-ROADMAP.md)
-- [77-MILESTONE-EVIDENCE.md](/home/jove/code/vel/.planning/milestones/v0.5.2-operator-surface-embodiment/77-MILESTONE-EVIDENCE.md)
+## Phase Details
+
+### Phase 97: MVP scope lock and feedback-to-contract mapping
+
+**Goal:** convert `TODO.md` into explicit single-node MVP acceptance criteria without losing the operator’s exact wording.
+**Requirements:** MVP-60-01, NOW-60-01, CHAT-60-01, SYSTEM-60-01, POLISH-60-01
+**Depends on:** `0.5.5` closeout
+**Success Criteria:**
+1. Every in-scope `TODO.md` bullet is mapped to an explicit requirement or acceptance check.
+2. Every `!`-prefixed `TODO.md` bullet is excluded explicitly instead of being lost.
+3. The single-node MVP boundary is written down clearly enough to prevent milestone drift.
+4. The verbatim feedback copy is preserved inside the milestone packet.
+
+### Phase 98: Single-node truth and settings/integrations completion
+
+**Goal:** make the single-node runtime, settings, integrations, and chat seams truthful enough for real use.
+**Requirements:** MVP-60-01, NOW-60-01, CHAT-60-01, SYSTEM-60-01
+**Depends on:** Phase 97
+**Success Criteria:**
+1. Google and Todoist integrations are configurable/editable in `System` and feed `Now` truthfully.
+2. Supported chat backends work through bounded persisted config and operator-visible settings.
+3. Client location/config support exists at the backend/settings seam.
+4. Critical single-node flows stop depending on fake/local-only UI state.
+
+### Phase 99: Web surface polish and operator-flow completion
+
+**Goal:** finish the accepted web UI and interaction model across the three surfaces.
+**Requirements:** NOW-60-01, SYSTEM-60-01, POLISH-60-01
+**Depends on:** Phase 98
+**Success Criteria:**
+1. Navbar, composer, and nudge behavior match the accepted feedback.
+2. `Now` task/event/lane semantics and drag/drop feel polished and trustworthy.
+3. `Threads` no longer duplicates user sends and follows the accepted modern chat layout.
+4. `System` reaches the intended dense, sticky, operator-readable target with developer-mode gating.
+
+### Phase 100: MVP proof, audit, and milestone closeout
+
+**Goal:** prove the single-node MVP works end to end and close the line honestly.
+**Requirements:** VERIFY-60-01
+**Depends on:** Phase 99
+**Success Criteria:**
+1. Browser proof exists for accepted `Now`, `Threads`, and `System` states.
+2. Manual/API checks cover integrations, settings mutation, and chat provider paths.
+3. Final acceptance audit is run directly against the copied verbatim feedback.
+4. Any remaining work is moved into explicit deferred scope with a stated reason.
 
 ## Active Packet
 
-No active packet.
+- [v0.6.0-single-node-mvp-polished-web-ui/ROADMAP.md](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/ROADMAP.md)
+- [v0.6.0-single-node-mvp-polished-web-ui/REQUIREMENTS.md](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/REQUIREMENTS.md)
+- [v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md](/home/jove/code/vel/.planning/milestones/v0.6.0-single-node-mvp-polished-web-ui/00-FEEDBACK-TODO.md)
+- [v0.5.5-MILESTONE-AUDIT.md](/home/jove/code/vel/.planning/v0.5.5-MILESTONE-AUDIT.md)
 
 ---
-*Last updated: 2026-03-23 after archiving milestone `0.5.2`*
+*Last updated: 2026-03-23 after queuing `0.6.0` as the next milestone*
