@@ -1,21 +1,99 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Geist";
+  src: url("./assets/fonts/geist-latin-wght-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist";
+  src: url("./assets/fonts/geist-latin-ext-wght-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range:
+    U+0100-024F,
+    U+0259,
+    U+1E00-1EFF,
+    U+2020,
+    U+20A0-20AB,
+    U+20AD-20CF,
+    U+2113,
+    U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/jetbrains-mono-latin-ext-400-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+0100-024F,
+    U+0259,
+    U+1E00-1EFF,
+    U+2020,
+    U+20A0-20AB,
+    U+20AD-20CF,
+    U+2113,
+    U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/jetbrains-mono-latin-ext-500-normal.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  unicode-range:
+    U+0100-024F,
+    U+0259,
+    U+1E00-1EFF,
+    U+2020,
+    U+20A0-20AB,
+    U+20AD-20CF,
+    U+2113,
+    U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
 /**
- * Self-hosted via Fontsource (bundled woff2, same origin as the app — avoids Google Fonts FOUT).
- * Variable faces use *Variable family names from @fontsource-variable/*.
- * Use `font-sans` / `font-serif` / `font-mono` / `font-display` utilities or `uiFonts` in Theme.
+ * Typeface lock for the `0.5.4` shell rebuild:
+ * - Geist for display and major headers
+ * - Inter for default UI/body
+ * - JetBrains Mono for timestamps, IDs, provenance, and system output
  */
 @theme {
   --font-sans:
-    "Inter Variable", "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-serif: "IBM Plex Serif", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-serif: "Inter Variable", "Inter", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono:
-    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
-  --font-display: "Space Grotesk Variable", "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
-  /** Softer geometric display for secondary heroes / marketing-style subheads (Outfit). */
-  --font-display-alt: "Outfit Variable", "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Geist", "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display-alt: "Geist", "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -24,6 +102,27 @@
     font-synthesis: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    --vel-color-bg: #13110f;
+    --vel-color-bg-overlay: rgba(19, 17, 15, 0.92);
+    --vel-color-bg-elevated: #15120f;
+    --vel-color-panel: #191613;
+    --vel-color-panel-2: #221d18;
+    --vel-color-panel-3: #2b241d;
+    --vel-color-border: #3c342c;
+    --vel-color-border-subtle: rgba(228, 161, 96, 0.12);
+    --vel-color-text: #f3ece2;
+    --vel-color-muted: #b9aea0;
+    --vel-color-dim: #7d7064;
+    --vel-color-accent: #c8742b;
+    --vel-color-accent-soft: #edc29a;
+    --vel-color-accent-strong: #e4a160;
+    --vel-color-accent-border: rgba(200, 116, 43, 0.42);
+    --vel-color-warning: #d39a2f;
+    --vel-color-degraded: #a86122;
+    --vel-color-offline: #60728a;
+    --vel-color-syncing: #5a86b6;
+    --vel-color-error: #b44c43;
+    --vel-color-done: #5f8a56;
     /**
      * Static brand shimmer: painted **over** base fills (assistant bubble brown, mic, wordmark, etc.).
      * Lower `--vel-brand-shimmer-opacity` to soften the overlay; stops share one alpha.
@@ -42,6 +141,7 @@
 
   body {
     font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -58,8 +158,10 @@ body,
 body {
   margin: 0;
   min-height: 100vh;
-  background: #09090b;
-  color: #f4f4f5;
+  background:
+    radial-gradient(circle at top, rgba(35, 28, 21, 0.88) 0%, transparent 32%),
+    var(--vel-color-bg);
+  color: var(--vel-color-text);
 }
 
 button,
@@ -71,6 +173,11 @@ select {
 
 a {
   color: inherit;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Minimal scrollbars — match zinc / Vel shell (thin track, soft thumb) */

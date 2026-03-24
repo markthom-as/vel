@@ -4,17 +4,32 @@
  * padding, and vertical rhythm match.
  */
 export const surfaceShell = {
-  /** Full-height column under `MainPanel` (dark chrome). */
-  mainColumn: 'flex min-h-0 flex-1 flex-col bg-zinc-950',
+  /** Full-height column under the shared shell regions. */
+  mainColumn: 'flex min-h-0 flex-1 flex-col bg-transparent',
   /** Scroll region above optional bottom fade / composer. */
   scrollColumn: 'relative min-h-0 flex-1 overflow-y-auto',
   /**
    * Inner content: centered column, responsive horizontal padding, room for bottom composer (`pb-36`).
    * Matches Now hero + task stack width.
    */
-  mainContent: 'mx-auto w-full max-w-5xl px-4 pb-36 pt-10 sm:px-6 sm:pt-12',
+  mainContent: 'mx-auto w-full max-w-5xl px-4 pb-40 pt-8 sm:px-6 sm:pt-10',
   /** Default vertical gap between major blocks (Now uses `<section className={cn(surfaceShell.sectionStack)}>`). */
   sectionStack: 'space-y-5',
+} as const;
+
+export const shellChrome = {
+  app: 'flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_rgba(44,31,22,0.78)_0%,_var(--vel-color-bg)_36%)] text-[var(--vel-color-text)]',
+  workspace:
+    'mx-auto grid w-full max-w-[1440px] min-h-0 flex-1 gap-5 px-4 pb-36 pt-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start',
+  workspaceMain: 'min-h-0 min-w-0',
+  workspaceAside: 'hidden min-h-0 lg:block',
+  workspaceAsideInner: 'sticky top-[5.25rem]',
+  topBand:
+    'sticky top-0 z-40 shrink-0 border-b border-[var(--vel-color-border-subtle)] bg-[color:var(--vel-color-bg-overlay)] backdrop-blur-[18px]',
+  topBandInner: 'mx-auto flex w-full max-w-[1440px] min-w-0 items-center gap-4 px-4 py-3 sm:px-6',
+  actionBarDock:
+    'fixed inset-x-0 bottom-0 z-30 border-t border-[var(--vel-color-border-subtle)] bg-[color:var(--vel-color-bg-elevated)]/95 px-3 py-3 backdrop-blur-[18px] sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-auto sm:min-w-[42rem] sm:max-w-[calc(100vw-2rem)] sm:-translate-x-1/2 sm:rounded-full sm:border',
+  actionBarInner: 'flex items-center justify-between gap-2 sm:justify-center',
 } as const;
 
 /** Tailwind font-family utilities — pair with `@theme` in `src/index.css`. */
@@ -22,28 +37,27 @@ export const uiFonts = {
   sans: 'font-sans',
   serif: 'font-serif',
   mono: 'font-mono',
-  /** Headlines, wordmark, hero-style UI (Space Grotesk). */
+  /** Headlines, wordmark, hero-style UI (Geist with Space Grotesk fallback). */
   display: 'font-display',
-  /** Secondary display — slightly rounder, good for large subheads (Outfit). */
+  /** Temporary compatibility alias until older display accents are retired. */
   displayAlt: 'font-display-alt',
+  tabular: 'tabular-nums',
 } as const;
 
 export const uiTheme = {
-  brandHex: '#ff6b00',
-  brandText: 'text-[#ff6b00]',
-  brandSoftText: 'text-[#ffb27a]',
-  brandBorder: 'border-[#ff6b00]/55',
-  brandHoverBorder: 'hover:border-[#ff8f40]/75',
-  brandPanel: 'bg-[#4a2412]',
-  brandShadow: 'shadow-[0_14px_36px_rgba(255,107,0,0.18)]',
-  brandGlow: 'drop-shadow-[0_0_18px_rgba(255,107,0,0.42)]',
-  /** Dense kind tag on nudge rows (paired with `nudgeKindTagClasses`). */
-  brandNudgeKindTag: 'border-[#ff6b00]/45 bg-[#4a2412]/75 text-[#ffb27a]',
+  brandHex: '#c8742b',
+  brandText: 'text-[var(--vel-color-accent)]',
+  brandSoftText: 'text-[var(--vel-color-accent-soft)]',
+  brandBorder: 'border-[color:var(--vel-color-accent-border)]',
+  brandHoverBorder: 'hover:border-[color:var(--vel-color-accent-strong)]',
+  brandPanel: 'bg-[color:var(--vel-color-panel-2)]',
+  brandShadow: 'shadow-[0_18px_40px_rgba(0,0,0,0.26)]',
+  brandGlow: 'drop-shadow-[0_0_18px_rgba(200,116,43,0.34)]',
   /** Thread bubbles, inline assistant replies, and other “message from Vel” containers. */
   brandAssistantBubble:
-    'border border-[#ff6b00]/50 bg-[#4a2412] text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]',
+    'border border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]',
   /** Meta line (role · kind) on assistant bubbles. */
-  brandAssistantBubbleMeta: 'text-[#c9a082]',
+  brandAssistantBubbleMeta: 'text-[var(--vel-color-muted)]',
 };
 
 /**

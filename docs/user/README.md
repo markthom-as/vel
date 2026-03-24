@@ -31,12 +31,13 @@ Vel is not yet a polished consumer product. Some surfaces are bootstrap-level, a
 4. [Daily Use](daily-use.md) for the repeated workflow once Vel is running.
 5. [Coding Workflows](coding-workflows.md) for the repo-local Phase 08 execution path from context export to handoff review to supervised runtime launch.
 6. [Surfaces](surfaces.md) for what the main UI and CLI surfaces mean.
-7. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
-8. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
-9. [Backup And Restore](backup-and-restore.md) for the manual-first backup trust model and recovery posture.
-10. [Eval Runner](evals.md) for fixture-driven deterministic replay and optional judge scoring.
-11. [Privacy](privacy.md) for the current local-first trust model and data locations.
-12. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
+7. [System Surface](system.md) for the operator-facing `System` view and its intended use.
+8. [Troubleshooting](troubleshooting.md) when Vel feels stale, degraded, or disconnected.
+9. [Integrations](integrations/README.md) for credential-backed (Google/Todoist), local-source, and Apple/macOS setup details.
+10. [Backup And Restore](backup-and-restore.md) for the manual-first backup trust model and recovery posture.
+11. [Eval Runner](evals.md) for fixture-driven deterministic replay and optional judge scoring.
+12. [Privacy](privacy.md) for the current local-first trust model and data locations.
+13. [Reality And Maturity](reality-and-maturity.md) for what is shipped, partial, bootstrap, and still planned.
 
 ## Support And Update Model
 

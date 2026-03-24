@@ -8,8 +8,7 @@ import {
   PanelItemSummary,
   PanelItemTitle,
 } from '../../../core/PanelItem';
-import { FilterDenseTag, FilterPillButton } from '../../../core/FilterToggleTag';
-import { projectTagClasses } from '../nowModel';
+import { ActionChipButton, ProjectTag } from '../../../core/FilterToggleTag';
 
 export function ActionRow({
   item,
@@ -27,19 +26,19 @@ export function ActionRow({
               {item.title}
             </PanelItemTitle>
             {item.project_label ? (
-              <FilterDenseTag className={projectTagClasses(item.project_label)}>{item.project_label}</FilterDenseTag>
+              <ProjectTag label={item.project_label}>{item.project_label}</ProjectTag>
             ) : null}
           </PanelItemMetaRow>
           <PanelItemSummary spacing="compact">{item.summary}</PanelItemSummary>
         </PanelItemMain>
         <PanelItemInlineActions>
           {item.thread_route?.thread_id ? (
-            <FilterPillButton
+            <ActionChipButton
               onClick={() => onOpenThread?.(item.thread_route?.thread_id as string)}
               aria-label={item.thread_route.label}
             >
               {item.thread_route.label}
-            </FilterPillButton>
+            </ActionChipButton>
           ) : null}
         </PanelItemInlineActions>
       </PanelItemInlineLayout>

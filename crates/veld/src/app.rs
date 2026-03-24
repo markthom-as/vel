@@ -2,7 +2,7 @@ use axum::{
     http::StatusCode,
     middleware as axum_middleware,
     response::{IntoResponse, Response},
-    routing::{any, get, post},
+    routing::{any, get, patch, post},
     Router,
 };
 use tower_http::cors::CorsLayer;
@@ -209,6 +209,7 @@ fn operator_authenticated_routes() -> Router<AppState> {
             post(routes::linking::revoke_link),
         )
         .route("/v1/now", get(routes::now::get_now))
+        .route("/v1/now/task-lane", patch(routes::now::update_now_task_lane))
         .route(
             "/v1/commitment-scheduling/proposals/:id/apply",
             post(routes::commitment_scheduling::apply_commitment_scheduling_proposal),
@@ -9944,6 +9945,61 @@ END:VCALENDAR
     }
 
     #[tokio::test]
+    async fn chat_settings_patch_persists_web_settings() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let app = build_app(
+            storage,
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let patch_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/api/settings")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"web_settings":{"dense_rows":false,"reduced_motion":true}}"#
+                            .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(patch_resp.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(patch_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["data"]["web_settings"]["dense_rows"], false);
+        assert_eq!(json["data"]["web_settings"]["reduced_motion"], true);
+        assert_eq!(json["data"]["web_settings"]["tabular_numbers"], true);
+
+        let get_resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/settings")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(get_resp.status(), StatusCode::OK);
+        let get_body = axum::body::to_bytes(get_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let get_json: serde_json::Value = serde_json::from_slice(&get_body).unwrap();
+        assert_eq!(get_json["data"]["web_settings"]["dense_rows"], false);
+        assert_eq!(get_json["data"]["web_settings"]["reduced_motion"], true);
+        assert_eq!(get_json["data"]["web_settings"]["strong_focus"], true);
+    }
+
+    #[tokio::test]
     async fn chat_settings_include_adaptive_policy_overrides() {
         let storage = Storage::connect(":memory:").await.unwrap();
         storage.migrate().await.unwrap();
@@ -11560,6 +11616,138 @@ END:VCALENDAR
             "Follow up with finance"
         );
         assert_eq!(json["data"]["timezone"], "America/Denver");
+    }
+
+    #[tokio::test]
+    async fn now_task_lane_patch_persists_lane_membership_and_completion_state() {
+        let storage = Storage::connect(":memory:").await.unwrap();
+        storage.migrate().await.unwrap();
+        let now = time::OffsetDateTime::now_utc().unix_timestamp();
+        storage
+            .set_setting("timezone", &serde_json::json!("America/Denver"))
+            .await
+            .unwrap();
+        let first_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Deep work".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "todo_1".to_string(),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: Some("Vel".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({})),
+            })
+            .await
+            .unwrap();
+        let second_id = storage
+            .insert_commitment(vel_storage::CommitmentInsert {
+                text: "Triage inbox".to_string(),
+                source_type: "todoist".to_string(),
+                source_id: "todo_2".to_string(),
+                status: vel_core::CommitmentStatus::Open,
+                due_at: None,
+                project: Some("Vel".to_string()),
+                commitment_kind: Some("todo".to_string()),
+                metadata_json: Some(serde_json::json!({})),
+            })
+            .await
+            .unwrap();
+        storage
+            .set_current_context(
+                now,
+                &current_context_json(CurrentContextV1 {
+                    computed_at: now,
+                    mode: "day_mode".to_string(),
+                    morning_state: "engaged".to_string(),
+                    next_commitment_id: Some(first_id.as_ref().to_string()),
+                    ..CurrentContextV1::default()
+                }),
+            )
+            .await
+            .unwrap();
+        let app = build_app(
+            storage.clone(),
+            AppConfig::default(),
+            test_policy_config(),
+            None,
+            None,
+        );
+
+        let move_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/v1/now/task-lane")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        format!(
+                            r#"{{"commitment_id":"{}","lane":"active","position":1}}"#,
+                            second_id.as_ref()
+                        ),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(move_resp.status(), StatusCode::OK);
+        let move_body = axum::body::to_bytes(move_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let move_json: serde_json::Value = serde_json::from_slice(&move_body).unwrap();
+        assert_eq!(
+            move_json["data"]["task_lane"]["active_items"][0]["id"],
+            second_id.as_ref()
+        );
+        assert_eq!(
+            move_json["data"]["task_lane"]["active_items"][0]["lane"],
+            "active"
+        );
+
+        let complete_resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri("/v1/now/task-lane")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        format!(
+                            r#"{{"commitment_id":"{}","lane":"completed"}}"#,
+                            second_id.as_ref()
+                        ),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(complete_resp.status(), StatusCode::OK);
+        let complete_body = axum::body::to_bytes(complete_resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let complete_json: serde_json::Value = serde_json::from_slice(&complete_body).unwrap();
+        assert_eq!(
+            complete_json["data"]["task_lane"]["completed"][0]["id"],
+            second_id.as_ref()
+        );
+
+        let commitment = storage
+            .get_commitment_by_id(second_id.as_ref())
+            .await
+            .unwrap()
+            .expect("commitment should remain");
+        assert_eq!(commitment.status, vel_core::CommitmentStatus::Done);
+
+        let (_, context) = storage
+            .get_current_context()
+            .await
+            .unwrap()
+            .expect("current context should remain");
+        assert_eq!(
+            context.task_lanes.completed_commitment_ids,
+            vec![second_id.as_ref().to_string()]
+        );
     }
 
     #[tokio::test]

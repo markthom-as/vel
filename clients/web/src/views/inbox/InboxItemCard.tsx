@@ -9,11 +9,10 @@ import {
   snoozeInboxItem,
 } from '../../data/chat';
 import { Button } from '../../core/Button';
-import { FilterDenseTag, FilterPillButton } from '../../core/FilterToggleTag';
+import { ActionChipButton, FilterDenseTag, ProjectTag } from '../../core/FilterToggleTag';
 import { InboxIcon, OpenThreadIcon, TagIcon } from '../../core/Icons';
 import { NowItemRowLayout, NowItemRowShell } from '../../core/NowItemRow';
-import { formatRelativeMinutes, projectTagClasses } from '../now/nowModel';
-import { surfaceActionChipNudgeClass } from '../now/nowNudgePresentation';
+import { formatRelativeMinutes } from '../now/nowModel';
 
 export type InboxInterventionAction = (
   item: InboxItemData,
@@ -48,38 +47,34 @@ export function InboxItemCard({
         actions={
           <>
             {hasOpenThread ? (
-              <FilterPillButton
-                className={surfaceActionChipNudgeClass}
+              <ActionChipButton
                 onClick={() => onOpenThread?.(item.conversation_id as string)}
                 aria-label="Open thread"
               >
                 <OpenThreadIcon size={16} className="shrink-0" aria-hidden />
                 <span className="capitalize">Open thread</span>
-              </FilterPillButton>
+              </ActionChipButton>
             ) : null}
             {canMarkUnread ? (
-              <FilterPillButton
-                className={surfaceActionChipNudgeClass}
+              <ActionChipButton
                 onClick={() =>
                   void runInterventionAction(item, 'active', () => reactivateInboxItem(apiId as string))
                 }
               >
                 <span className="capitalize">Mark unread</span>
-              </FilterPillButton>
+              </ActionChipButton>
             ) : null}
             {canArchive ? (
-              <FilterPillButton
-                className={surfaceActionChipNudgeClass}
+              <ActionChipButton
                 onClick={() =>
                   void runInterventionAction(item, 'resolved', () => resolveInboxItem(apiId as string))
                 }
               >
                 <span className="capitalize">Archive</span>
-              </FilterPillButton>
+              </ActionChipButton>
             ) : null}
             {hasAcknowledge ? (
-              <FilterPillButton
-                className={surfaceActionChipNudgeClass}
+              <ActionChipButton
                 onClick={() =>
                   void runInterventionAction(item, 'acknowledged', () =>
                     acknowledgeInboxItem(apiId as string),
@@ -87,17 +82,16 @@ export function InboxItemCard({
                 }
               >
                 <span className="capitalize">Acknowledge</span>
-              </FilterPillButton>
+              </ActionChipButton>
             ) : null}
             {hasSnooze ? (
-              <FilterPillButton
-                className={surfaceActionChipNudgeClass}
+              <ActionChipButton
                 onClick={() =>
                   void runInterventionAction(item, 'snoozed', () => snoozeInboxItem(apiId as string, 10))
                 }
               >
                 <span className="capitalize">Snooze 10m</span>
-              </FilterPillButton>
+              </ActionChipButton>
             ) : null}
             {hasDismiss ? (
               <Button
@@ -118,24 +112,24 @@ export function InboxItemCard({
             {item.title}
           </p>
           <div className="flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-x-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <FilterDenseTag className="border-zinc-800/90 bg-zinc-900/92 text-zinc-400">
+            <FilterDenseTag tone="neutral">
               <span aria-hidden className="inline-flex shrink-0 items-center">
                 <InboxIcon size={10} />
               </span>
               {formatKind(item.kind)}
             </FilterDenseTag>
-            <FilterDenseTag className="border-zinc-800/90 bg-zinc-900/92 text-zinc-400">
+            <FilterDenseTag tone="neutral">
               {item.state}
             </FilterDenseTag>
             {item.project_label ? (
-              <FilterDenseTag className={projectTagClasses(item.project_label)}>
+              <ProjectTag label={item.project_label}>
                 <span aria-hidden className="inline-flex shrink-0 items-center opacity-80">
                   <TagIcon size={10} />
                 </span>
                 {item.project_label}
-              </FilterDenseTag>
+              </ProjectTag>
             ) : null}
-            <FilterDenseTag className="!shrink-0 border-transparent bg-transparent text-zinc-600">
+            <FilterDenseTag tone="ghost">
               {formatRelativeMinutes(item.surfaced_at)}
             </FilterDenseTag>
           </div>
@@ -153,17 +147,18 @@ export function InboxItemCard({
           <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Evidence</p>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {item.evidence.length === 0 ? (
-              <FilterDenseTag className="border-zinc-800/90 bg-zinc-900/92 text-zinc-500">
+              <FilterDenseTag tone="neutral">
                 No evidence labels
               </FilterDenseTag>
             ) : (
               item.evidence.map((evidence) => (
-                <FilterDenseTag
+                <ProjectTag
                   key={`${item.id}-${evidence.source_id}-${evidence.label}`}
-                  className={`!normal-case !tracking-normal ${projectTagClasses(evidence.label)}`}
+                  label={evidence.label}
+                  casing="normal"
                 >
                   {evidence.label}
-                </FilterDenseTag>
+                </ProjectTag>
               ))
             )}
           </div>

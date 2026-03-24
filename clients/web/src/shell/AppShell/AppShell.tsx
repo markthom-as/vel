@@ -1,17 +1,26 @@
 import type { ReactNode } from 'react';
+import { shellChrome } from '../../core/Theme';
 
 interface AppShellProps {
   navigation: ReactNode;
   main: ReactNode;
+  nudgeZone?: ReactNode;
+  actionBar?: ReactNode;
 }
 
-export function AppShell({ navigation, main }: AppShellProps) {
+export function AppShell({ navigation, main, nudgeZone, actionBar }: AppShellProps) {
   return (
-    <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100">
+    <div className={shellChrome.app}>
       {navigation}
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        {main}
-      </main>
+      <div className={shellChrome.workspace}>
+        <main className={shellChrome.workspaceMain}>{main}</main>
+        {nudgeZone ? (
+          <div className={shellChrome.workspaceAside}>
+            <div className={shellChrome.workspaceAsideInner}>{nudgeZone}</div>
+          </div>
+        ) : null}
+      </div>
+      {actionBar}
     </div>
   );
 }

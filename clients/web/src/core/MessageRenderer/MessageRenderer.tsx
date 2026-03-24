@@ -15,15 +15,11 @@ import {
 } from '../Cards';
 import { MarkdownMessage } from '../MarkdownMessage';
 import { cn } from '../cn';
-import { FilterDenseTag, FilterPillButton } from '../FilterToggleTag';
-import { filterPillActionIdle, filterPillFrame } from '../FilterToggleTag/filterPillClasses';
+import { ActionChipButton, ActionChipLink, MessageTypeTag } from '../FilterToggleTag';
 import { ChatBubbleChrome } from '../MessageBubble';
-import { ItemRowTitleMetaBand, NowItemRowLayout } from '../NowItemRow';
+import { CopyIcon } from '../Icons';
+import { NowItemRowLayout } from '../NowItemRow';
 import { useState } from 'react';
-
-/** Matches nudge / inbox action chip sizing without importing `views/now`. */
-const messageActionPillClass =
-  '!gap-2 !px-3 !py-1.5 !text-[11px] !font-medium !normal-case leading-tight tracking-normal [&_svg]:!h-4 [&_svg]:!w-4';
 
 interface MessageRendererProps {
   message: MessageData;
@@ -71,10 +67,7 @@ export function MessageRenderer({
   const hasInterventionActions =
     interventionId && (onSnooze || onResolve || onDismiss || onShowWhy);
 
-  const tagFrame = isUser
-    ? 'border-emerald-800/60 bg-emerald-900/45 text-emerald-200'
-    : 'border-[#ff6b00]/40 bg-[#2d1608]/90 text-[#ffd4b8]';
-  const metaTimeClass = isUser ? 'text-emerald-600/90' : 'text-[#c9a082]';
+  const metaTimeClass = isUser ? 'text-emerald-600/80' : 'text-[#c9a082]/75';
 
   async function handleCopyAction(label: string, value: string) {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
@@ -96,40 +89,34 @@ export function MessageRenderer({
           const key = `${action.action_type}-${action.label}-${index}`;
           if (action.action_type === 'open_url' && action.url) {
             return (
-              <a
-                key={key}
-                href={action.url}
-                target="_blank"
-                rel="noreferrer"
-                className={cn(filterPillFrame, filterPillActionIdle, 'text-[11px] font-medium', messageActionPillClass)}
-              >
+              <ActionChipLink key={key} href={action.url} target="_blank" rel="noreferrer" variant="message">
                 {action.label}
-              </a>
+              </ActionChipLink>
             );
           }
 
           if (action.action_type === 'copy_text' && action.value) {
             const label = copiedAction === action.label ? 'Copied' : action.label;
             return (
-              <FilterPillButton
+              <ActionChipButton
                 key={key}
-                className={messageActionPillClass}
+                variant="message"
                 onClick={() => void handleCopyAction(action.label, action.value!)}
               >
                 {label}
-              </FilterPillButton>
+              </ActionChipButton>
             );
           }
 
           if (action.action_type === 'show_why' && onShowWhy) {
             return (
-              <FilterPillButton
+              <ActionChipButton
                 key={key}
-                className={messageActionPillClass}
+                variant="message"
                 onClick={() => onShowWhy(message.id)}
               >
                 {action.label}
-              </FilterPillButton>
+              </ActionChipButton>
             );
           }
 
@@ -143,27 +130,28 @@ export function MessageRenderer({
     hasInterventionActions && interventionId ? (
       <>
         {onSnooze && (
-          <FilterPillButton className={messageActionPillClass} onClick={() => onSnooze(interventionId)}>
+          <ActionChipButton variant="message" onClick={() => onSnooze(interventionId)}>
             Snooze
-          </FilterPillButton>
+          </ActionChipButton>
         )}
         {onResolve && (
-          <FilterPillButton
-            className={cn(messageActionPillClass, 'border-emerald-800/80 bg-emerald-950/50 text-emerald-200 hover:border-emerald-600')}
+          <ActionChipButton
+            variant="message"
+            tone="success"
             onClick={() => onResolve(interventionId)}
           >
             Resolve
-          </FilterPillButton>
+          </ActionChipButton>
         )}
         {onDismiss && (
-          <FilterPillButton className={messageActionPillClass} onClick={() => onDismiss(interventionId)}>
+          <ActionChipButton variant="message" onClick={() => onDismiss(interventionId)}>
             Dismiss
-          </FilterPillButton>
+          </ActionChipButton>
         )}
         {onShowWhy && (
-          <FilterPillButton className={messageActionPillClass} onClick={() => onShowWhy(message.id)}>
+          <ActionChipButton variant="message" onClick={() => onShowWhy(message.id)}>
             Show why
-          </FilterPillButton>
+          </ActionChipButton>
         )}
       </>
     ) : null;
@@ -205,21 +193,13 @@ export function MessageRenderer({
 
   const titleClass = isUser ? 'text-emerald-50' : 'text-zinc-100';
 
-  const metaCluster = (
-    <>
-      <FilterDenseTag
-        className={cn('!shrink-0 !normal-case !tracking-normal border-transparent bg-transparent', metaTimeClass)}
-      >
-        {formatMessageTime(message.created_at)}
-      </FilterDenseTag>
-      <FilterDenseTag className={cn(tagFrame, '!normal-case !tracking-normal')}>
-        {message.role} · {message.kind.replace(/_/g, ' ')}
-      </FilterDenseTag>
-      {message.status === 'sending' ? (
-        <FilterDenseTag className={cn(tagFrame, '!normal-case !tracking-normal')}>Sending…</FilterDenseTag>
-      ) : null}
-    </>
-  );
+  async function handleCopyMessage() {
+    const plainText = textContent?.text;
+    if (!plainText || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      return;
+    }
+    await navigator.clipboard.writeText(plainText);
+  }
 
   return (
     <div
@@ -228,11 +208,33 @@ export function MessageRenderer({
     >
       <ChatBubbleChrome variant={isUser ? 'user' : 'assistant'}>
         <NowItemRowLayout actions={interventionHeaderActions} actionsLayout="inline">
-          <ItemRowTitleMetaBand
-            title={isUser ? 'You' : 'Assistant'}
-            titleClassName={titleClass}
-            meta={metaCluster}
-          />
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className={cn('inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.14em] leading-none', titleClass)}>
+                <span>{isUser ? 'YOU' : 'VEL'}</span>
+                <span className={metaTimeClass}>|</span>
+                <span className={metaTimeClass}>{formatMessageTime(message.created_at).toUpperCase()}</span>
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-wrap justify-end gap-1.5">
+              <MessageTypeTag variant={isUser ? 'user' : 'assistant'} className="opacity-35">
+                {isUser ? 'USER TEXT' : 'ASSISTANT TEXT'}
+              </MessageTypeTag>
+              {!isUser && textContent ? (
+                <button
+                  type="button"
+                  aria-label="Copy assistant message"
+                  onClick={() => void handleCopyMessage()}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[#ff6b00]/35 bg-[rgba(74,36,18,0.22)] text-[#c9a082] transition hover:text-zinc-100"
+                >
+                  <CopyIcon size={11} />
+                </button>
+              ) : null}
+              {message.status === 'sending' ? (
+                <MessageTypeTag variant={isUser ? 'user' : 'assistant'}>Sending…</MessageTypeTag>
+              ) : null}
+            </div>
+          </div>
           <div className="mt-2 min-w-0 space-y-2">{cardContent}</div>
         </NowItemRowLayout>
       </ChatBubbleChrome>

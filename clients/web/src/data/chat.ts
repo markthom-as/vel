@@ -1,4 +1,4 @@
-import { canonicalPostMutation, canonicalQuery } from './canonicalTransport';
+import { canonicalPatchMutation, canonicalPostMutation, canonicalQuery } from './canonicalTransport';
 import { invalidateQuery } from './query';
 import {
   decodeAssistantEntryResponse,
@@ -10,6 +10,8 @@ import {
   decodeMessageData,
   decodeProvenanceData,
   type AssistantEntryResponse,
+  type AssistantEntryAttachmentData,
+  type NowDockedInputIntentData,
   type AssistantEntryVoiceProvenanceData,
   type ApiResponse,
   type ConversationData,
@@ -51,10 +53,34 @@ export function loadConversationMessages(conversationId: string): Promise<ApiRes
   );
 }
 
+export function updateConversationTitle(
+  conversationId: string,
+  title: string,
+): Promise<ApiResponse<ConversationData>> {
+  return canonicalPatchMutation<ConversationData>(
+    `/api/conversations/${conversationId}`,
+    { title },
+    (value) => decodeApiResponse(value, decodeConversationData),
+  );
+}
+
+export function updateConversationArchive(
+  conversationId: string,
+  archived: boolean,
+): Promise<ApiResponse<ConversationData>> {
+  return canonicalPatchMutation<ConversationData>(
+    `/api/conversations/${conversationId}`,
+    { archived },
+    (value) => decodeApiResponse(value, decodeConversationData),
+  );
+}
+
 export function submitAssistantEntry(
   text: string,
   conversationId?: string | null,
   voice?: AssistantEntryVoiceProvenanceData | null,
+  intent?: NowDockedInputIntentData | null,
+  attachments?: AssistantEntryAttachmentData[] | null,
 ): Promise<ApiResponse<AssistantEntryResponse>> {
   return canonicalPostMutation<AssistantEntryResponse>(
     '/api/assistant/entry',
@@ -62,6 +88,8 @@ export function submitAssistantEntry(
       text,
       ...(conversationId ? { conversation_id: conversationId } : {}),
       ...(voice ? { voice } : {}),
+      ...(intent ? { intent } : {}),
+      ...(attachments?.length ? { attachments } : {}),
     },
     (value) => decodeApiResponse(value, decodeAssistantEntryResponse),
   );

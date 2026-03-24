@@ -275,14 +275,22 @@ describe('NowView', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Now' })).toBeInTheDocument()
     })
-    expect(screen.getByText('Focus')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Write weekly review' })).toBeInTheDocument()
-    expect(screen.getByText('Commitments')).toBeInTheDocument()
-    expect(screen.getByText('Calendar')).toBeInTheDocument()
-    expect(screen.getByText('Triage')).toBeInTheDocument()
+    expect(screen.getByText(/Saturday, March 9, 2024.*MST/i)).toBeInTheDocument()
+    expect(screen.getByText('No current event | Write weekly review')).toBeInTheDocument()
+    expect(screen.getByText('ACTIVE TASK (1)')).toBeInTheDocument()
+    expect(screen.getAllByText('Write weekly review').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Complete Write weekly review' })).toBeInTheDocument()
+    expect(screen.getByText('NEXT UP (2)')).toBeInTheDocument()
+    expect(screen.getByText('Reply to Dimitri')).toBeInTheDocument()
     expect(screen.getByText('Design review')).toBeInTheDocument()
-    expect(screen.getByText('Standup check-in')).toBeInTheDocument()
-    expect(screen.getByText('Vel Desktop needs attention')).toBeInTheDocument()
+    expect(screen.queryByText('One subordinate slot')).not.toBeInTheDocument()
+    expect(screen.queryByText('Current and next event')).not.toBeInTheDocument()
+    expect(screen.queryByText('Trust state')).not.toBeInTheDocument()
+    expect(screen.queryByText('Standup check-in')).not.toBeInTheDocument()
+    expect(screen.queryByText('Vel Desktop needs attention')).not.toBeInTheDocument()
+    expect(screen.queryByText('Commitments')).not.toBeInTheDocument()
+    expect(screen.queryByText('Calendar')).not.toBeInTheDocument()
+    expect(screen.queryByText('Triage')).not.toBeInTheDocument()
     expect(screen.queryByText('Tasks')).not.toBeInTheDocument()
     expect(screen.queryByText('NOW')).not.toBeInTheDocument()
     expect(screen.queryByText('TODAY')).not.toBeInTheDocument()
@@ -291,34 +299,28 @@ describe('NowView', () => {
     expect(screen.queryByText(/More Context and Controls/i)).not.toBeInTheDocument()
   })
 
-  it('routes nudge actions through thread and system handlers', async () => {
-    const onOpenThread = vi.fn()
-    const onOpenSystem = vi.fn()
+  it('keeps trust remediation outside the main now surface even when degraded', async () => {
+    setupApiMocks(buildNowData({
+      trust_readiness: {
+        level: 'degraded',
+        headline: 'Degraded',
+        summary: 'Google Calendar is stale and needs review.',
+        backup: { level: 'ok', label: 'Backup', detail: 'Backup trust is healthy.' },
+        freshness: { level: 'stale', label: 'Freshness', detail: 'Calendar is stale.' },
+        review: { open_action_count: 1, triage_count: 1, projects_needing_review: 0, pending_execution_reviews: 0 },
+        guidance: [],
+        follow_through: [],
+      },
+    }))
 
-    setupApiMocks(buildNowData())
-
-    render(<NowView onOpenThread={onOpenThread} onOpenSystem={onOpenSystem} />)
+    render(<NowView onOpenSystem={vi.fn()} />)
 
     await waitFor(() => {
-      const threadButtons = screen.getAllByRole('button', {
-        name: /Open thread \(Standup check-in\) · check_in_bar/i,
-      })
-      expect(threadButtons.length).toBeGreaterThan(0)
+      expect(screen.getAllByText('ACTIVE TASK (1)').length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(
-      screen.getAllByRole('button', { name: /Open thread \(Standup check-in\) · check_in_bar/i }).at(-1) as HTMLElement,
-    )
-    expect(onOpenThread).toHaveBeenCalledWith('conv_1')
-
-    fireEvent.click(
-      screen
-        .getAllByRole('button', {
-          name: /Sync & clients \(Vel Desktop needs attention\) · mesh_summary_warning/i,
-        })
-        .at(-1) as HTMLElement,
-    )
-    expect(onOpenSystem).toHaveBeenCalledWith({ section: 'configuration', subsection: 'accounts' })
+    expect(screen.queryByText('Trust state')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Open system detail' })).not.toBeInTheDocument()
   })
 
   it('reconciles commitment completion into the focus-first layout', async () => {
@@ -396,24 +398,7 @@ describe('NowView', () => {
 
       return {
         ok: true,
-        data: {
-          id: 'commit_local_1',
-          title: 'Write weekly review',
-          detail: null,
-          status: 'done',
-          source_kind: 'manual',
-          source_ref: null,
-          due_at: null,
-          energy: null,
-          urgency: null,
-          confidence: null,
-          created_at: '2026-03-09T15:00:00Z',
-          updated_at: '2026-03-09T16:05:00Z',
-          resolved_at: '2026-03-09T16:05:00Z',
-          project_id: null,
-          nudge_count: 0,
-          tags: [],
-        },
+        data: currentNow,
         meta: { request_id: 'req_patch' },
       } as never
     })
@@ -421,22 +406,22 @@ describe('NowView', () => {
     render(<NowView />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Complete commitment' })).toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: 'Complete Write weekly review' }).length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Complete commitment' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Complete Write weekly review' }).at(0) as HTMLElement)
 
     await waitFor(() => {
       expect(vi.mocked(api.apiPatch)).toHaveBeenCalledWith(
-        '/v1/commitments/commit_local_1',
-        { status: 'done' },
+        '/v1/now/task-lane',
+        { commitment_id: 'commit_local_1', lane: 'completed', position: null },
         expect.any(Function),
       )
     })
 
     await waitFor(() => {
-      expect(screen.getByText('Recently completed')).toBeInTheDocument()
+      expect(screen.getAllByText('COMPLETED (1)').length).toBeGreaterThan(0)
     })
-    expect(screen.getByRole('button', { name: 'Write weekly review completed' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Reopen Write weekly review' }).length).toBeGreaterThan(0)
   })
 })

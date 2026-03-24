@@ -67,14 +67,14 @@ export function NowScheduleSection({
                     {event.title}
                   </p>
                   <div className="flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-x-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <FilterDenseTag className="border-zinc-800/90 bg-zinc-900/92 text-zinc-400">
+                    <FilterDenseTag tone="neutral">
                       <span aria-hidden className="inline-flex shrink-0 items-center">
                         <ClockIcon size={10} />
                       </span>
                       {eventTimeLabel(event, timezone)}
                     </FilterDenseTag>
                     {event.location ? (
-                      <FilterDenseTag className="border-zinc-800/90 bg-zinc-900/92 text-zinc-400">
+                      <FilterDenseTag tone="neutral">
                         {event.location}
                       </FilterDenseTag>
                     ) : null}

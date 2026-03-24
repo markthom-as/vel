@@ -47,7 +47,7 @@ export function SurfaceTagChip({
   children: ReactNode;
   tone?: 'neutral' | 'project' | 'warning' | 'accent';
   square?: boolean;
-  /** When set, overrides `tone` (use with `projectTagClasses` from `nowModel`). */
+  /** When set, overrides `tone` with an explicit semantic class recipe. */
   className?: string;
 }) {
   const toneClass =

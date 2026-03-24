@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
 import { uiFonts } from '../Theme';
 import { cn } from '../cn';
-import { itemPillCard } from '../itemPill';
+import { ObjectCard } from '../ObjectCard';
+import { ObjectRowFrame, objectRowFrameClass } from '../ObjectRow';
 import { SurfaceTagChip } from '../SurfaceChips';
 
-/** Page-scale block: same family as comfortable panel rows. */
+type PanelBandSurface = 'brand' | 'warm' | 'muted' | 'emphasis' | 'ghost' | 'queue';
+
+/** Temporary compatibility wrapper over the canonical `ObjectCard`. */
 export function PanelPageSection({
   children,
   className,
@@ -14,7 +17,11 @@ export function PanelPageSection({
   className?: string;
   as?: 'section' | 'div';
 }) {
-  return <Comp className={cn(itemPillCard('muted', 'comfortable'), 'p-5', className)}>{children}</Comp>;
+  return (
+    <ObjectCard as={Comp} kind="default" className={cn('p-5', className)}>
+      {children}
+    </ObjectCard>
+  );
 }
 
 export function PanelSectionHeader({ title, description }: { title: string; description?: string }) {
@@ -66,7 +73,7 @@ export function PanelSectionHeaderBand({
   className,
   children,
 }: {
-  surface?: Parameters<typeof itemPillCard>[0];
+  surface?: PanelBandSurface;
   mode?: PanelSectionHeaderBandMode;
   className?: string;
   children: ReactNode;
@@ -75,7 +82,18 @@ export function PanelSectionHeaderBand({
     <div
       className={cn(
         mode === 'pill'
-          ? itemPillCard(surface, 'sectionHeader')
+          ? objectRowFrameClass(
+              surface === 'brand'
+                ? 'accent'
+                : surface === 'warm'
+                  ? 'warning'
+                  : surface === 'emphasis'
+                    ? 'emphasis'
+                    : surface === 'ghost'
+                      ? 'ghost'
+                      : 'neutral',
+              'sectionHeader',
+            )
           : 'flex min-w-0 flex-row flex-wrap items-start justify-between gap-x-3 gap-y-2',
         className,
       )}
@@ -110,29 +128,37 @@ export function PanelStatTile({
 }) {
   if (density === 'compact') {
     return (
-      <div className={cn(itemPillCard('muted', 'comfortable'), 'p-2')}>
+      <ObjectCard kind="subtle" className="p-2">
         <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
         <p className="mt-1 text-zinc-100">{value}</p>
-      </div>
+      </ObjectCard>
     );
   }
   return (
-    <div className={cn(itemPillCard('muted', 'comfortable'), 'px-4 py-3')}>
+    <ObjectCard kind="subtle" className="px-4 py-3">
       <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
       <p className="mt-1 text-xl font-medium text-zinc-100">{value}</p>
       <p className="mt-1 text-xs text-zinc-400">{detail ?? ''}</p>
-    </div>
+    </ObjectCard>
   );
 }
 
 /** Inner list rows (integrations, loops, components). */
 export function PanelDenseRow({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn(itemPillCard('muted', 'laneRow'), 'p-3', className)}>{children}</div>;
+  return (
+    <ObjectRowFrame tone="neutral" density="standard" className={cn('p-3', className)}>
+      {children}
+    </ObjectRowFrame>
+  );
 }
 
 /** Nested key/value blocks (Projects detail DL, form callouts). */
 export function PanelInsetCard({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn(itemPillCard('queue', 'laneRow'), 'p-4', className)}>{children}</div>;
+  return (
+    <ObjectCard kind="config" className={cn('p-4', className)}>
+      {children}
+    </ObjectCard>
+  );
 }
 
 /** Dashed empty state row. */
@@ -192,7 +218,7 @@ export function PanelSelectableListButton({
       type="button"
       onClick={onClick}
       className={cn(
-        itemPillCard('muted', 'comfortable'),
+        objectRowFrameClass('neutral', 'comfortable'),
         'w-full text-left transition',
         selected ? ring : 'hover:border-zinc-600',
         className,
@@ -215,7 +241,7 @@ export function PanelJsonPre({
   return (
     <pre
       className={cn(
-        itemPillCard('queue', 'laneRow'),
+        objectRowFrameClass('neutral', 'standard'),
         'mt-3 overflow-x-auto px-4 py-3 font-mono text-xs text-zinc-300',
         compact ? '' : 'whitespace-pre-wrap',
         className,
@@ -227,7 +253,11 @@ export function PanelJsonPre({
 }
 
 export function PanelDetailShell({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn(itemPillCard('muted', 'comfortable'), 'p-5', className)}>{children}</div>;
+  return (
+    <ObjectCard kind="default" className={cn('p-5', className)}>
+      {children}
+    </ObjectCard>
+  );
 }
 
 type StatusTone = 'ok' | 'warn' | 'bad' | 'neutral';
@@ -263,22 +293,22 @@ export function componentHealthTone(status: string): StatusTone {
 
 export function PanelKeyValueRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className={cn(itemPillCard('queue', 'laneRow'), 'px-3 py-2')}>
+    <ObjectRowFrame tone="neutral" density="standard" className="px-3 py-2">
       <p className="text-xs text-zinc-500">{label}</p>
       <p className="mt-1 break-words text-zinc-200">{value}</p>
-    </div>
+    </ObjectRowFrame>
   );
 }
 
 export function PanelListBullet({ children }: { children: ReactNode }) {
   return (
-    <li className={cn(itemPillCard('queue', 'laneRow'), 'px-3 py-2 text-sm text-zinc-200')}>{children}</li>
+    <li className={cn(objectRowFrameClass('neutral', 'standard'), 'px-3 py-2 text-sm text-zinc-200')}>{children}</li>
   );
 }
 
 export function PanelListBulletMuted({ children }: { children: ReactNode }) {
   return (
-    <li className={cn(itemPillCard('queue', 'laneRow'), 'bg-zinc-950/40 px-3 py-2 text-sm text-zinc-300')}>
+    <li className={cn(objectRowFrameClass('ghost', 'standard'), 'px-3 py-2 text-sm text-zinc-300')}>
       {children}
     </li>
   );
@@ -286,21 +316,27 @@ export function PanelListBulletMuted({ children }: { children: ReactNode }) {
 
 export function PanelDebugBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className={cn(itemPillCard('queue', 'laneRow'), 'p-3')}>
+    <ObjectCard kind="subtle" className="p-3">
       <p className="mb-2 text-xs text-zinc-400">{title}</p>
       {children}
-    </div>
+    </ObjectCard>
   );
 }
 
 /** Top-of-page intro strip (Projects). */
 export function PanelIntroStrip({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <section className={cn(itemPillCard('muted', 'comfortable'), 'mb-6 p-4', className)}>{children}</section>
+    <ObjectCard as="section" kind="subtle" className={cn('mb-6 p-4', className)}>
+      {children}
+    </ObjectCard>
   );
 }
 
 /** Tight inset block (Context drift card, sidebar). */
 export function PanelMutedInset({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn(itemPillCard('muted', 'comfortable'), 'p-3', className)}>{children}</div>;
+  return (
+    <ObjectCard kind="subtle" className={cn('p-3', className)}>
+      {children}
+    </ObjectCard>
+  );
 }

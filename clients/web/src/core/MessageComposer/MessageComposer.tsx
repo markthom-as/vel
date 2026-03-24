@@ -2,11 +2,12 @@ import { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import { submitAssistantEntry } from '../../data/chat';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import {
+  type AssistantEntryAttachmentData,
   type AssistantEntryResponse,
   type AssistantEntryVoiceProvenanceData,
 } from '../../types';
 import { cn } from '../cn';
-import { MicIcon, SendArrowIcon } from '../Icons';
+import { CloseIcon, FileIcon, ImageIcon, MicIcon, PlusIcon, SendArrowIcon } from '../Icons';
 import { uiTheme } from '../Theme';
 
 /** Browser STT session cap — pie + auto-stop use this as the full ring. */
@@ -60,11 +61,30 @@ function FloatingMicPieRing({ progress, warn }: { progress: number; warn: boolea
 interface MessageComposerProps {
   conversationId?: string | null;
   onOptimisticSend?: (text: string) => string | undefined;
-  onSent: (clientMessageId: string | undefined, response: AssistantEntryResponse) => void;
+  onSent: (
+    clientMessageId: string | undefined,
+    response: AssistantEntryResponse,
+    submitted: SubmittedAssistantEntryPayload,
+  ) => void;
   onSendFailed?: (clientMessageId: string | undefined) => void;
+  onVoiceUnavailable?: () => void;
   compact?: boolean;
   hideHelperText?: boolean;
   floating?: boolean;
+  floatingOffsetClassName?: string;
+}
+
+type AttachmentDraft = {
+  id: string;
+  name: string;
+  kind: 'file' | 'image';
+};
+
+export interface SubmittedAssistantEntryPayload {
+  text: string;
+  conversationId: string | null;
+  voice: AssistantEntryVoiceProvenanceData | null;
+  attachments: AssistantEntryAttachmentData[] | null;
 }
 
 export function MessageComposer({
@@ -72,14 +92,17 @@ export function MessageComposer({
   onOptimisticSend,
   onSent,
   onSendFailed,
+  onVoiceUnavailable,
   compact: _compact = false,
   hideHelperText = false,
   floating = false,
+  floatingOffsetClassName = 'bottom-5',
 }: MessageComposerProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingVoice, setPendingVoice] = useState<AssistantEntryVoiceProvenanceData | null>(null);
+  const pendingVoiceRef = useRef<AssistantEntryVoiceProvenanceData | null>(null);
   const voicePressActiveRef = useRef(false);
   const voiceLatchedRef = useRef(false);
   /** Counts browser STT `onend` auto-restarts per press/latch (avoids tight loops if start fails). */
@@ -87,17 +110,36 @@ export function MessageComposer({
   const voicePrevIsListeningRef = useRef(false);
   const [voiceElapsedMs, setVoiceElapsedMs] = useState(0);
   const [voiceLatched, setVoiceLatched] = useState(false);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [queuedAttachments, setQueuedAttachments] = useState<AttachmentDraft[]>([]);
+  const attachmentMenuRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const appendVoiceTranscript = useCallback((transcript: string) => {
     setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
-    setPendingVoice({
+    const voiceDraft = {
       surface: 'web',
       source_device: 'browser',
       locale: typeof navigator === 'undefined' ? 'en-US' : navigator.language ?? 'en-US',
       transcript_origin: 'local_browser_stt',
       recorded_at: new Date().toISOString(),
-    });
+    };
+    pendingVoiceRef.current = voiceDraft;
+    setPendingVoice(voiceDraft);
   }, []);
+
+  const voiceRecognition = useSpeechRecognition({
+    onResult: appendVoiceTranscript,
+    continuous: true,
+  }) ?? {
+    isSupported: false,
+    isListening: false,
+    error: null,
+    start: () => undefined,
+    stop: () => undefined,
+    interimTranscript: '',
+  };
 
   const {
     isSupported: voiceSupported,
@@ -106,10 +148,7 @@ export function MessageComposer({
     start: startVoice,
     stop: stopVoice,
     interimTranscript,
-  } = useSpeechRecognition({
-    onResult: appendVoiceTranscript,
-    continuous: true,
-  });
+  } = voiceRecognition;
 
   const stopVoiceSession = useCallback(() => {
     voicePressActiveRef.current = false;
@@ -181,6 +220,19 @@ export function MessageComposer({
     return () => window.removeEventListener('keydown', onKey);
   }, [isListening, voiceLatched, stopVoiceSession]);
 
+  useEffect(() => {
+    if (!attachmentMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && attachmentMenuRef.current?.contains(target)) {
+        return;
+      }
+      setAttachmentMenuOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [attachmentMenuOpen]);
+
   /** Text committed in the textarea plus any in-flight STT (not yet appended to `text`). */
   const mergedMessage = useMemo(() => {
     const t = text.trim();
@@ -190,6 +242,16 @@ export function MessageComposer({
   }, [text, interimTranscript]);
 
   const hasSendablePayload = mergedMessage.trim().length > 0;
+  const attachmentPayload = useMemo<AssistantEntryAttachmentData[] | null>(
+    () => queuedAttachments.length
+      ? queuedAttachments.map((attachment) => ({
+          kind: attachment.kind,
+          label: attachment.name,
+          metadata: null,
+        }))
+      : null,
+    [queuedAttachments],
+  );
 
   const send = useCallback(async () => {
     const trimmed = mergedMessage.trim();
@@ -197,11 +259,25 @@ export function MessageComposer({
     setError(null);
     setSending(true);
     const clientMessageId = onOptimisticSend?.(trimmed);
+    const submittedPayload: SubmittedAssistantEntryPayload = {
+      text: trimmed,
+      conversationId: conversationId ?? null,
+      voice: pendingVoiceRef.current,
+      attachments: attachmentPayload,
+    };
     try {
-      const res = await submitAssistantEntry(trimmed, conversationId, pendingVoice);
+      const res = await submitAssistantEntry(
+        trimmed,
+        conversationId,
+        pendingVoiceRef.current,
+        null,
+        attachmentPayload,
+      );
       if (res.ok && res.data) {
-        onSent(clientMessageId, res.data);
+        onSent(clientMessageId, res.data, submittedPayload);
         setText('');
+        setQueuedAttachments([]);
+        pendingVoiceRef.current = null;
         setPendingVoice(null);
         if (res.data.assistant_error) {
           setError(res.data.assistant_error);
@@ -219,7 +295,22 @@ export function MessageComposer({
     } finally {
       setSending(false);
     }
-  }, [mergedMessage, conversationId, sending, pendingVoice, onOptimisticSend, onSent, onSendFailed]);
+  }, [mergedMessage, conversationId, sending, attachmentPayload, pendingVoice, onOptimisticSend, onSent, onSendFailed]);
+
+  const enqueueAttachments = useCallback((files: FileList | null, kind: AttachmentDraft['kind']) => {
+    if (!files || files.length === 0) return;
+    const next = Array.from(files).map((file, index) => ({
+      id: `${kind}_${file.name}_${file.lastModified}_${index}`,
+      name: file.name,
+      kind,
+    }));
+    setQueuedAttachments((current) => [...current, ...next]);
+    setAttachmentMenuOpen(false);
+  }, []);
+
+  const removeQueuedAttachment = useCallback((id: string) => {
+    setQueuedAttachments((current) => current.filter((attachment) => attachment.id !== id));
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -252,7 +343,11 @@ export function MessageComposer({
   const handleMicDoubleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (sending || !voiceSupported) return;
+    if (sending) return;
+    if (!voiceSupported) {
+      onVoiceUnavailable?.();
+      return;
+    }
     if (voiceError) setError(null);
     if (voiceLatchedRef.current) {
       stopVoiceSession();
@@ -270,7 +365,11 @@ export function MessageComposer({
 
   const handleMicPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (sending || !voiceSupported) return;
+    if (sending) return;
+    if (!voiceSupported) {
+      onVoiceUnavailable?.();
+      return;
+    }
     if (voiceError) setError(null);
     if (voiceLatchedRef.current) {
       stopVoiceSession();
@@ -296,7 +395,11 @@ export function MessageComposer({
   };
 
   const handleMicKeyboardDown = () => {
-    if (sending || !voiceSupported) return;
+    if (sending) return;
+    if (!voiceSupported) {
+      onVoiceUnavailable?.();
+      return;
+    }
     if (voiceError) setError(null);
     if (voiceLatchedRef.current) {
       stopVoiceSession();
@@ -355,9 +458,17 @@ export function MessageComposer({
       : 'Hold to talk locally with browser speech-to-text';
 
   const voiceProgress = voiceElapsedMs / FLOATING_VOICE_MAX_MS;
+  const voiceStatusLabel = isListening
+    ? interimTranscript
+      ? 'Transcribing'
+      : voiceLatched
+        ? 'Recording'
+        : 'Listening'
+    : pendingVoice
+      ? 'Recorded'
+      : null;
 
-  const micButtonEl = voiceSupported ? (
-    floating ? (
+  const micButtonEl = floating ? (
       <div className={`flex items-center ${isListening ? 'gap-1' : ''}`}>
         {isListening ? (
           <span
@@ -377,14 +488,17 @@ export function MessageComposer({
           onKeyDown={handleVoiceKeyDown}
           onKeyUp={handleVoiceKeyUp}
           disabled={sending}
-          aria-pressed={isListening}
+          aria-pressed={voiceSupported ? isListening : undefined}
           aria-label={micAriaLabel}
           title={micTitle}
+          data-vel-voice-trigger={floating ? 'true' : undefined}
           className={cn(
-            'relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-50',
+            'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-50',
             isListening
-              ? 'bg-red-950/60 text-red-300'
-              : 'text-zinc-500 hover:text-zinc-300',
+              ? 'border-red-700/60 bg-red-950/60 text-red-300'
+              : voiceSupported
+                ? 'border-transparent text-zinc-500 hover:text-zinc-300'
+                : 'border-zinc-800/85 bg-zinc-900/60 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300',
           )}
         >
           {isListening ? (
@@ -411,13 +525,14 @@ export function MessageComposer({
         className={`shrink-0 rounded-full border px-3 py-2 text-xs uppercase tracking-[0.18em] transition-colors focus:outline-none focus:ring-2 focus:ring-[#ff6b00]/35 disabled:pointer-events-none disabled:opacity-50 ${
           isListening
             ? 'bg-red-900/40 border-red-600/60 text-red-200'
-            : 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100'
+            : voiceSupported
+              ? 'bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100'
+              : 'bg-zinc-900/55 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
         }`}
       >
         <MicIcon listening={isListening} />
       </button>
-    )
-  ) : null;
+    );
 
   const sendButtonEl = showSendButton ? (
     <button
@@ -427,7 +542,7 @@ export function MessageComposer({
       aria-label="Send"
       className={
         floating
-          ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full p-0 text-zinc-950 transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-40'
+          ? 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full p-0 text-zinc-950 transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ff6b00]/45 disabled:pointer-events-none disabled:opacity-40'
           : `shrink-0 rounded-full bg-[#ff6b00] px-3 py-2 text-sm font-medium text-zinc-950 hover:bg-[#ff8f40] disabled:pointer-events-none disabled:opacity-50 ${
               mergedMessage.trim() ? 'opacity-100' : 'opacity-0'
             }`
@@ -444,8 +559,70 @@ export function MessageComposer({
     </button>
   ) : null;
 
+  const attachmentButtonEl = floating ? (
+    <div ref={attachmentMenuRef} className="relative flex shrink-0 items-center">
+      <button
+        type="button"
+        aria-label="Add attachment"
+        aria-haspopup="menu"
+        aria-expanded={attachmentMenuOpen}
+        onClick={() => setAttachmentMenuOpen((open) => !open)}
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/90 text-[var(--vel-color-accent-soft)] transition hover:border-[var(--vel-color-accent)] hover:text-[var(--vel-color-text)]"
+      >
+        <PlusIcon size={15} className="block" />
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        onChange={(event) => {
+          enqueueAttachments(event.target.files, 'file');
+          event.currentTarget.value = '';
+        }}
+      />
+      <input
+        ref={imageInputRef}
+        type="file"
+        className="hidden"
+        multiple
+        accept="image/*"
+        onChange={(event) => {
+          enqueueAttachments(event.target.files, 'image');
+          event.currentTarget.value = '';
+        }}
+      />
+      {attachmentMenuOpen ? (
+        <div
+          role="menu"
+          aria-label="Attachment types"
+          className="absolute bottom-full left-0 z-20 mb-2 min-w-[8rem] rounded-2xl border border-[var(--vel-color-border)] bg-[color:var(--vel-color-panel)]/95 p-1.5 shadow-[0_16px_50px_rgba(0,0,0,0.45)] backdrop-blur"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.14em] text-[var(--vel-color-text)] transition hover:bg-white/5"
+          >
+            <FileIcon size={13} />
+            <span>File</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => imageInputRef.current?.click()}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs uppercase tracking-[0.14em] text-[var(--vel-color-text)] transition hover:bg-white/5"
+          >
+            <ImageIcon size={13} />
+            <span>Image</span>
+          </button>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
   return (
-    <div className={`${floating ? 'fixed inset-x-0 bottom-5 z-30 px-4' : 'shrink-0 border-t border-zinc-800 p-3'}`}>
+    <div className={`${floating ? `fixed inset-x-0 z-30 px-4 ${floatingOffsetClassName}` : 'shrink-0 border-t border-zinc-800 p-3'}`}>
       {displayError && (
         <p className="mx-auto mb-1.5 max-w-2xl text-xs text-red-400" role="alert">
           {displayError}
@@ -454,18 +631,77 @@ export function MessageComposer({
       <div className={cn('mx-auto flex max-w-2xl gap-2', floating ? 'group w-full items-center' : 'items-end')}>
         {floating ? (
           <div className="vel-composer-gradient-border min-w-0 w-full flex-1 rounded-full p-px">
-          <div className="flex items-center gap-1.5 rounded-full bg-zinc-950/95 py-1 pl-4 pr-1.5 backdrop-blur">
+          <div className="flex items-center gap-2 rounded-full bg-zinc-950/95 py-2 pl-2 pr-2 backdrop-blur">
+            {attachmentButtonEl}
+            {queuedAttachments.length ? (
+              <div className="flex max-w-[14rem] shrink-0 items-center gap-1 overflow-x-auto py-0.5">
+                {queuedAttachments.map((attachment) => (
+                  <span
+                    key={attachment.id}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--vel-color-border)] bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]"
+                  >
+                    {attachment.kind === 'image' ? <ImageIcon size={10} /> : <FileIcon size={10} />}
+                    <span className="max-w-[6rem] truncate">{attachment.name}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${attachment.name}`}
+                      onClick={() => removeQueuedAttachment(attachment.id)}
+                    className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-current/80 transition hover:bg-white/10 hover:text-[var(--vel-color-text)]"
+                    >
+                      <CloseIcon size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask, capture, or talk to Vel…"
+              data-vel-composer-input="true"
               rows={1}
-              className="vel-composer-floating-textarea min-w-0 flex-1 resize-none border-0 bg-transparent py-0 text-[13px] leading-[1.5rem] focus:outline-none focus:ring-0 disabled:opacity-50"
+              className="vel-composer-floating-textarea min-w-0 flex-1 resize-none border-0 bg-transparent py-0 text-[13px] leading-6 focus:outline-none focus:ring-0 disabled:opacity-50"
               disabled={sending}
               style={{ scrollbarWidth: 'none', height: '1.5rem', maxHeight: '1.5rem' }}
             />
-            <div className="flex shrink-0 items-center gap-0.5">
+            {voiceStatusLabel ? (
+              <span
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em]',
+                  isListening
+                    ? 'border-red-700/55 bg-red-950/35 text-red-200'
+                    : 'border-[var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel)]/88 text-[var(--vel-color-accent-soft)]',
+                )}
+              >
+                <MicIcon size={11} />
+                <span>{voiceStatusLabel}</span>
+                {isListening ? (
+                  <span className="font-mono tabular-nums text-[9px] text-current/80">
+                    {formatVoiceClock(voiceElapsedMs)}
+                  </span>
+                ) : null}
+                {pendingVoice && !isListening ? (
+                  <button
+                    type="button"
+                    aria-label="Clear recorded voice draft"
+                    onClick={() => {
+                      pendingVoiceRef.current = null;
+                      setPendingVoice(null);
+                    }}
+                    className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-current/80 transition hover:bg-white/10 hover:text-[var(--vel-color-text)]"
+                  >
+                    <CloseIcon size={10} />
+                  </button>
+                ) : null}
+              </span>
+            ) : null}
+            {interimTranscript ? (
+              <span className="max-w-[10rem] truncate text-[10px] uppercase tracking-[0.12em] text-[var(--vel-color-muted)]">
+                {interimTranscript}
+              </span>
+            ) : null}
+            <div className="flex shrink-0 items-center gap-1">
               {micButtonEl}
               {sendButtonEl}
             </div>

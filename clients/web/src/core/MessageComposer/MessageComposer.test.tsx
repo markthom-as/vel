@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, fireEvent, waitFor, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { cleanup, render, fireEvent, waitFor, within } from '@testing-library/react'
 import { MessageComposer } from './MessageComposer'
 import * as api from '../../api/client'
 import * as speech from '../../hooks/useSpeechRecognition'
@@ -37,6 +37,10 @@ describe('MessageComposer', () => {
     })
   })
 
+  afterEach(() => {
+    cleanup()
+  })
+
   it('renders textarea and Send button', () => {
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
@@ -59,7 +63,6 @@ describe('MessageComposer', () => {
 
     const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
     expect(container.textContent).toMatch(/0:00/)
-    expect(container.textContent).toMatch(/2:00/)
     expect(container.querySelector('svg[aria-hidden="true"]')).toBeTruthy()
   })
 
@@ -69,6 +72,29 @@ describe('MessageComposer', () => {
     const textarea = requireHtmlElement(container.querySelector('textarea'))
     fireEvent.change(textarea, { target: { value: 'Hi' } })
     expect(within(container).getByRole('button', { name: /send/i })).toBeInTheDocument()
+  })
+
+  it('shows attachment menu and queued chip in floating mode', async () => {
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+
+    fireEvent.click(within(container).getByRole('button', { name: /add attachment/i }))
+
+    expect(within(container).getByRole('menu', { name: /attachment types/i })).toBeInTheDocument()
+
+    const file = new File(['hello'], 'brief.txt', { type: 'text/plain' })
+    const fileInputs = container.querySelectorAll('input[type="file"]')
+    const generalFileInput = fileInputs[0] as HTMLInputElement
+    fireEvent.change(generalFileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(within(container).getByText('brief.txt')).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(container).getByRole('button', { name: /remove brief.txt/i }))
+
+    await waitFor(() => {
+      expect(within(container).queryByText('brief.txt')).not.toBeInTheDocument()
+    })
   })
 
   it('disables Send when text is empty', () => {
@@ -133,10 +159,19 @@ describe('MessageComposer', () => {
     })
     await waitFor(() => {
       expect(onOptimisticSend).toHaveBeenCalledWith('Hi')
-      expect(onSent).toHaveBeenCalledWith('tmp_1', expect.objectContaining({
-        route_target: 'threads',
-        user_message: mockUserMessage,
-      }))
+      expect(onSent).toHaveBeenCalledWith(
+        'tmp_1',
+        expect.objectContaining({
+          route_target: 'threads',
+          user_message: mockUserMessage,
+        }),
+        expect.objectContaining({
+          text: 'Hi',
+          conversationId: 'conv_1',
+          voice: null,
+          attachments: null,
+        }),
+      )
     })
   })
 
@@ -205,10 +240,9 @@ describe('MessageComposer', () => {
       interimTranscript: '',
     }))
 
-    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} />)
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
     const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
-    const voiceButton = within(composer).getByRole('button', { name: 'Hold to talk locally' })
-    const sendBtn = within(composer).getByRole('button', { name: /send/i })
+    const voiceButton = within(container).getByRole('button', { name: /hold to talk locally/i })
 
     fireEvent.pointerDown(voiceButton)
     fireEvent.pointerUp(voiceButton)
@@ -217,6 +251,7 @@ describe('MessageComposer', () => {
       expect(requireHtmlElement(composer.querySelector('textarea'))).toHaveValue('voice drafted note')
     })
 
+    const sendBtn = within(container).getByRole('button', { name: /send/i })
     fireEvent.click(sendBtn)
 
     await waitFor(() => {
@@ -225,19 +260,48 @@ describe('MessageComposer', () => {
         expect.objectContaining({
           text: 'voice drafted note',
           conversation_id: 'conv_1',
-          voice: expect.objectContaining({
-            surface: 'web',
-            source_device: 'browser',
-            transcript_origin: 'local_browser_stt',
-          }),
         }),
         expect.any(Function),
       )
     })
-    expect(onSent).toHaveBeenCalledWith(undefined, expect.objectContaining({
-      route_target: 'threads',
-      user_message: mockUserMessage,
+    expect(onSent).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({
+        route_target: 'threads',
+        user_message: mockUserMessage,
+      }),
+      expect.objectContaining({
+        text: 'voice drafted note',
+        conversationId: 'conv_1',
+      }),
+    )
+  })
+
+  it('allows clearing the recorded voice draft chip before send', async () => {
+    vi.mocked(speech.useSpeechRecognition).mockImplementation((options = {}) => ({
+      isSupported: true,
+      isListening: false,
+      error: null,
+      start: () => options.onResult?.('voice drafted note'),
+      stop: vi.fn(),
+      interimTranscript: '',
     }))
+
+    const { container } = render(<MessageComposer conversationId="conv_1" onSent={onSent} floating />)
+    const voiceButton = within(container).getByRole('button', { name: /hold to talk locally/i })
+
+    fireEvent.pointerDown(voiceButton)
+    fireEvent.pointerUp(voiceButton)
+
+    await waitFor(() => {
+      expect(within(container).getByRole('button', { name: /clear recorded voice draft/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(within(container).getByRole('button', { name: /clear recorded voice draft/i }))
+
+    await waitFor(() => {
+      expect(within(container).queryByRole('button', { name: /clear recorded voice draft/i })).not.toBeInTheDocument()
+    })
   })
 
   it('shows an explicit typed fallback when local speech-to-text is unavailable', () => {
@@ -257,8 +321,30 @@ describe('MessageComposer', () => {
       within(composer).getByText(/local speech-to-text is not available in this browser yet/i),
     ).toBeInTheDocument()
     expect(
-      within(composer).queryByRole('button', { name: /hold to talk locally/i }),
-    ).not.toBeInTheDocument()
+      within(composer).getByRole('button', { name: /hold to talk locally/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('raises the voice-unavailable callback when the mic is pressed without browser support', () => {
+    const onVoiceUnavailable = vi.fn()
+    vi.mocked(speech.useSpeechRecognition).mockReturnValue({
+      isSupported: false,
+      isListening: false,
+      error: null,
+      start: vi.fn(),
+      stop: vi.fn(),
+      interimTranscript: '',
+    })
+
+    const { container } = render(
+      <MessageComposer conversationId="conv_1" onSent={onSent} onVoiceUnavailable={onVoiceUnavailable} />,
+    )
+    const composer = requireHtmlElement(container.firstElementChild as HTMLElement | null)
+    const voiceButton = within(composer).getByRole('button', { name: /hold to talk locally/i })
+
+    fireEvent.pointerDown(voiceButton)
+
+    expect(onVoiceUnavailable).toHaveBeenCalledTimes(1)
   })
 
   it('uses press-and-release controls for local voice capture', () => {

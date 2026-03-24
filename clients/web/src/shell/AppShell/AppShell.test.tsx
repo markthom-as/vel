@@ -8,11 +8,15 @@ describe('AppShell', () => {
       <AppShell
         navigation={<div>Navigation</div>}
         main={<div>Main content</div>}
+        nudgeZone={<div>Nudges</div>}
+        actionBar={<div>Action bar</div>}
       />,
     )
 
     expect(screen.getByText('Navigation')).toBeInTheDocument()
     expect(screen.getByText('Main content')).toBeInTheDocument()
+    expect(screen.getByText('Nudges')).toBeInTheDocument()
+    expect(screen.getByText('Action bar')).toBeInTheDocument()
     expect(screen.queryByText(/info/i)).not.toBeInTheDocument()
   })
 })

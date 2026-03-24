@@ -1,13 +1,46 @@
 import type { ReactNode } from 'react';
-import { cn } from '../cn';
-import { itemPillCard } from '../itemPill';
+import { ObjectRowFrame, ObjectRowLayout, type ObjectRowDensity, type ObjectRowTone } from '../ObjectRow';
 
-export type NowItemRowSurface = Parameters<typeof itemPillCard>[0];
-export type ItemPillShellKind = Parameters<typeof itemPillCard>[1];
+export type NowItemRowSurface = 'brand' | 'warm' | 'muted' | 'emphasis' | 'risk' | 'ghost' | 'queue';
+export type ItemPillShellKind = 'compact' | 'sectionHeader' | 'laneRow' | 'comfortable' | 'rowButton';
+
+function mapSurface(surface: NowItemRowSurface): ObjectRowTone {
+  switch (surface) {
+    case 'brand':
+      return 'accent';
+    case 'warm':
+    case 'risk':
+      return 'warning';
+    case 'emphasis':
+      return 'emphasis';
+    case 'ghost':
+      return 'ghost';
+    case 'muted':
+    case 'queue':
+    default:
+      return 'neutral';
+  }
+}
+
+function mapDensity(shell: ItemPillShellKind): ObjectRowDensity {
+  switch (shell) {
+    case 'compact':
+      return 'compact';
+    case 'comfortable':
+      return 'comfortable';
+    case 'rowButton':
+      return 'button';
+    case 'sectionHeader':
+      return 'sectionHeader';
+    case 'laneRow':
+    default:
+      return 'standard';
+  }
+}
 
 /**
- * Outer chrome for Now list rows: same `itemPill` shell as {@link CompactTaskLaneRow}
- * (`laneRow` by default) and nudge bars (`compact` when needed).
+ * Temporary compatibility wrapper over the canonical `ObjectRowFrame`.
+ * Remove once `Now`/`Threads`/`System` call the shared primitive directly.
  */
 export function NowItemRowShell({
   surface = 'muted',
@@ -22,12 +55,20 @@ export function NowItemRowShell({
   className?: string;
   children: ReactNode;
 }) {
-  return <Comp className={cn(itemPillCard(surface, shell), className)}>{children}</Comp>;
+  return (
+    <ObjectRowFrame
+      as={Comp}
+      tone={mapSurface(surface)}
+      density={mapDensity(shell)}
+      className={className}
+    >
+      {children}
+    </ObjectRowFrame>
+  );
 }
 
 /**
- * Shared inner grid: optional leading affordance (task checkbox) + main column + right action stack.
- * Matches `CompactTaskLaneRow` / inbox intervention rows.
+ * Temporary compatibility wrapper over the canonical `ObjectRowLayout`.
  */
 export function NowItemRowLayout({
   leading,
@@ -41,18 +82,9 @@ export function NowItemRowLayout({
   actions?: ReactNode;
   actionsLayout?: 'stack' | 'inline';
 }) {
-  const actionsClassName =
-    actionsLayout === 'inline'
-      ? 'flex shrink-0 flex-row flex-wrap items-center justify-end gap-1.5 self-center'
-      : 'flex shrink-0 flex-col items-end justify-center gap-1.5 self-stretch';
-
   return (
-    <div className="flex items-stretch gap-3">
-      {leading ?? null}
-      <div className="relative z-10 flex min-w-0 flex-1 flex-row items-stretch gap-2">
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">{children}</div>
-        {actions ? <div className={actionsClassName}>{actions}</div> : null}
-      </div>
-    </div>
+    <ObjectRowLayout leading={leading} actions={actions} actionsLayout={actionsLayout}>
+      {children}
+    </ObjectRowLayout>
   );
 }

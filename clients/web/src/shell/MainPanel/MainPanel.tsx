@@ -3,9 +3,10 @@ import { chatQueryKeys } from '../../data/chat';
 import { appendUniqueMessages, reconcileConfirmedSend } from '../../data/chat-state';
 import { contextQueryKeys } from '../../data/context';
 import { invalidateQuery, setQueryData } from '../../data/query';
-import { MessageComposer } from '../../core/MessageComposer';
+import { MessageComposer, type SubmittedAssistantEntryPayload } from '../../core/MessageComposer';
 import type { MainView } from '../../data/operatorSurfaces';
-import type { AssistantEntryResponse, MessageData } from '../../types';
+import type { AssistantEntryResponse, MessageData, NowDockedInputIntentData, NowNudgeBarData } from '../../types';
+import { submitAssistantEntry } from '../../data/chat';
 import { useResolvedThreadConversationId } from '../../views/threads/useResolvedThreadConversationId';
 import { NowView } from '../../views/now';
 import { AssistantEntryFeedback } from '../../views/now/components/AssistantEntryFeedback';
@@ -20,6 +21,9 @@ interface MainPanelProps {
   onOpenThread: (conversationId: string) => void;
   systemTarget: SystemNavigationTarget;
   onOpenSystem: (target?: SystemNavigationTarget) => void;
+  onVoiceUnavailable?: () => void;
+  onRaiseNudge?: (nudge: NowNudgeBarData) => void;
+  shellOwnsNowNudges?: boolean;
 }
 
 export function MainPanel({
@@ -29,6 +33,9 @@ export function MainPanel({
   onOpenThread,
   systemTarget,
   onOpenSystem,
+  onVoiceUnavailable,
+  onRaiseNudge,
+  shellOwnsNowNudges = false,
 }: MainPanelProps) {
   const nowKey = useMemo(() => contextQueryKeys.now(), []);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
@@ -44,15 +51,24 @@ export function MainPanel({
   } | null>(null);
   const [assistantInlineResponse, setAssistantInlineResponse] = useState<AssistantEntryResponse | null>(null);
   const [assistantEntryThreadId, setAssistantEntryThreadId] = useState<string | null>(null);
+  const [assistantIntentOptions, setAssistantIntentOptions] = useState<Array<NowDockedInputIntentData | 'thread' | 'capture'>>([]);
+  const [selectedIntent, setSelectedIntent] = useState<NowDockedInputIntentData | 'thread' | 'capture' | null>(null);
+  const [pendingAssistantPayload, setPendingAssistantPayload] = useState<SubmittedAssistantEntryPayload | null>(null);
+  const [reclassifyingIntent, setReclassifyingIntent] = useState(false);
 
   const handleAssistantEntry = useCallback(
-    async (response: AssistantEntryResponse) => {
+    async (response: AssistantEntryResponse, submitted?: SubmittedAssistantEntryPayload | null) => {
       invalidateQuery(conversationsKey, { refetch: true });
       setAssistantEntryMessage(null);
       setAssistantInlineResponse(null);
       setAssistantEntryThreadId(response.conversation.id);
+      setAssistantIntentOptions([]);
+      setSelectedIntent(response.entry_intent ?? null);
+      setPendingAssistantPayload(submitted ?? null);
+      setReclassifyingIntent(false);
 
       if (response.route_target === 'threads') {
+        setPendingAssistantPayload(null);
         onOpenThread(response.conversation.id);
         return;
       }
@@ -61,9 +77,11 @@ export function MainPanel({
           status: 'success',
           message: 'Queued in Now for follow-up.',
         });
+        setAssistantIntentOptions(['task', 'question', 'thread', 'capture']);
         onNavigate('now');
         return;
       }
+      setPendingAssistantPayload(null);
       setAssistantInlineResponse(response);
       if (response.assistant_error) {
         setAssistantEntryMessage({
@@ -80,11 +98,57 @@ export function MainPanel({
     [conversationsKey, onNavigate, onOpenThread],
   );
 
+  const handleAssistantIntentSelection = useCallback(
+    async (intent: NowDockedInputIntentData | 'thread' | 'capture') => {
+      setSelectedIntent(intent);
+      if (intent === 'thread') {
+        if (assistantEntryThreadId) {
+          setPendingAssistantPayload(null);
+          onOpenThread(assistantEntryThreadId);
+        }
+        return;
+      }
+      if (!pendingAssistantPayload || reclassifyingIntent) {
+        return;
+      }
+      setReclassifyingIntent(true);
+      setAssistantEntryMessage({
+        status: 'success',
+        message: 'Reclassifying with explicit intent…',
+      });
+      try {
+        const resolvedIntent: NowDockedInputIntentData = intent === 'capture' ? 'note' : intent;
+        const response = await submitAssistantEntry(
+          pendingAssistantPayload.text,
+          pendingAssistantPayload.conversationId,
+          pendingAssistantPayload.voice,
+          resolvedIntent,
+          pendingAssistantPayload.attachments,
+        );
+        if (!response.ok || !response.data) {
+          throw new Error(response.error?.message ?? 'Failed to reclassify assistant entry');
+        }
+        await handleAssistantEntry(response.data, pendingAssistantPayload);
+      } catch (error) {
+        setReclassifyingIntent(false);
+        setAssistantEntryMessage({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Failed to reclassify assistant entry.',
+        });
+      }
+    },
+    [assistantEntryThreadId, handleAssistantEntry, onOpenThread, pendingAssistantPayload, reclassifyingIntent],
+  );
+
   let body: ReactNode;
   if (mainView === 'now') {
     body = (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <NowView onOpenThread={onOpenThread} onOpenSystem={onOpenSystem} />
+        <NowView
+          onOpenThread={onOpenThread}
+          onOpenSystem={onOpenSystem}
+          hideNudgeLane={shellOwnsNowNudges}
+        />
       </div>
     );
   } else if (mainView === 'threads') {
@@ -95,7 +159,7 @@ export function MainPanel({
     );
   } else if (mainView === 'system') {
     body = (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-zinc-950 text-zinc-100">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <SystemView target={systemTarget} />
       </div>
     );
@@ -113,6 +177,18 @@ export function MainPanel({
               message={assistantEntryMessage}
               inlineResponse={assistantInlineResponse}
               assistantEntryThreadId={assistantEntryThreadId}
+              pendingIntentOptions={assistantIntentOptions}
+              selectedIntent={selectedIntent}
+              onSelectIntent={handleAssistantIntentSelection}
+              onDismiss={() => {
+                setAssistantEntryMessage(null);
+                setAssistantInlineResponse(null);
+                setAssistantEntryThreadId(null);
+                setAssistantIntentOptions([]);
+                setSelectedIntent(null);
+                setPendingAssistantPayload(null);
+                setReclassifyingIntent(false);
+              }}
               onOpenThread={onOpenThread}
             />
           </div>
@@ -122,6 +198,8 @@ export function MainPanel({
         compact
         floating
         hideHelperText
+        floatingOffsetClassName="bottom-6 sm:bottom-8"
+        onVoiceUnavailable={onVoiceUnavailable}
         conversationId={mainView === 'threads' ? resolvedThreadId : undefined}
         onOptimisticSend={
           mainView === 'threads' && resolvedThreadId && threadMessagesKey
@@ -145,7 +223,7 @@ export function MainPanel({
               }
             : undefined
         }
-        onSent={(clientMessageId, response) => {
+        onSent={(clientMessageId, response, submitted) => {
           if (mainView === 'threads' && threadMessagesKey && resolvedThreadId) {
             setQueryData<MessageData[]>(threadMessagesKey, (prev = []) =>
               reconcileConfirmedSend(
@@ -158,7 +236,7 @@ export function MainPanel({
             invalidateQuery(conversationsKey, { refetch: true });
             invalidateQuery(threadMessagesKey, { refetch: true });
           }
-          void handleAssistantEntry(response);
+          void handleAssistantEntry(response, submitted);
           invalidateQuery(nowKey, { refetch: true });
         }}
         onSendFailed={(clientMessageId) => {
@@ -167,6 +245,16 @@ export function MainPanel({
               prev.filter((message) => message.id !== clientMessageId),
             );
           }
+          onRaiseNudge?.({
+            id: `assistant_entry_failed_${Date.now()}`,
+            kind: 'trust_warning',
+            title: 'Assistant entry failed',
+            summary: 'Vel could not send this request. Review runtime state or try again.',
+            timestamp: Math.floor(Date.now() / 1000),
+            urgent: true,
+            primary_thread_id: null,
+            actions: [{ kind: 'open_settings', label: 'Open system' }],
+          });
           setAssistantEntryMessage({
             status: 'error',
             message: 'Failed to send assistant entry.',

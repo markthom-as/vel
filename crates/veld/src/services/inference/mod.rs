@@ -183,7 +183,12 @@ pub async fn run_at(
     );
 
     // Build base context from orchestration-level logic (commitments, risk, attention, meds).
+    let previous_context = storage
+        .get_current_context()
+        .await?
+        .map(|(_, context)| context);
     let base_context = build_base_context(
+        previous_context.as_ref(),
         now_ts,
         derived.inference_state.mode,
         derived.inference_state.morning_state,
@@ -787,6 +792,7 @@ fn derive_global_risk_summary(risk_snapshots: &[RiskSnapshot]) -> GlobalRiskSumm
 /// Signal-domain fields (health, git, messages, calendar) are populated by `ReducerRegistry::apply_all`.
 #[allow(clippy::too_many_arguments)]
 fn build_base_context(
+    previous_context: Option<&CurrentContextV1>,
     now_ts: i64,
     mode: &str,
     state_name: &str,
@@ -814,6 +820,9 @@ fn build_base_context(
         inferred_activity: inferred_activity.to_string(),
         next_commitment_id,
         next_commitment_due_at,
+        task_lanes: previous_context
+            .map(|context| context.task_lanes.clone())
+            .unwrap_or_default(),
         prep_window_active: temporal_windows.prep_window_active,
         commute_window_active: temporal_windows.commute_window_active,
         meds_status: meds_status.to_string(),
@@ -1209,6 +1218,9 @@ fn is_material_context_change(prev: Option<&CurrentContextV1>, new: &CurrentCont
     if prev.next_commitment_id != new.next_commitment_id {
         return true;
     }
+    if prev.task_lanes != new.task_lanes {
+        return true;
+    }
     if prev.prep_window_active != new.prep_window_active {
         return true;
     }
@@ -1388,6 +1400,7 @@ mod tests {
     #[test]
     fn build_base_context_output_is_compatible_with_typed_context_migrator() {
         let context = build_base_context(
+            None,
             1_700_000_000,
             "morning_mode",
             "awake_unstarted",

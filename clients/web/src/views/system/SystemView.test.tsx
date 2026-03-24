@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearQueryCache } from '../../data/query'
 import { SystemView } from './SystemView'
@@ -8,7 +8,10 @@ const disconnectGoogleCalendar = vi.fn()
 const disconnectTodoist = vi.fn()
 const loadIntegrationConnections = vi.fn()
 const loadIntegrations = vi.fn()
+const loadSettings = vi.fn()
 const syncSource = vi.fn()
+const updateSettings = vi.fn()
+const updateWebSettings = vi.fn()
 
 vi.mock('../../data/agent-grounding', () => ({
   loadAgentInspect: (...args: unknown[]) => loadAgentInspect(...args),
@@ -19,12 +22,16 @@ vi.mock('../../data/operator', () => ({
   disconnectTodoist: (...args: unknown[]) => disconnectTodoist(...args),
   loadIntegrationConnections: (...args: unknown[]) => loadIntegrationConnections(...args),
   loadIntegrations: (...args: unknown[]) => loadIntegrations(...args),
+  loadSettings: (...args: unknown[]) => loadSettings(...args),
   operatorQueryKeys: {
     agentInspect: () => ['agent', 'inspect'],
     integrations: () => ['integrations'],
     integrationConnections: () => ['integrations', 'connections', 'all', 'all'],
+    settings: () => ['settings'],
   },
   syncSource: (...args: unknown[]) => syncSource(...args),
+  updateSettings: (...args: unknown[]) => updateSettings(...args),
+  updateWebSettings: (...args: unknown[]) => updateWebSettings(...args),
 }))
 
 describe('SystemView', () => {
@@ -35,7 +42,10 @@ describe('SystemView', () => {
     disconnectTodoist.mockReset()
     loadIntegrationConnections.mockReset()
     loadIntegrations.mockReset()
+    loadSettings.mockReset()
     syncSource.mockReset()
+    updateSettings.mockReset()
+    updateWebSettings.mockReset()
 
     loadAgentInspect.mockResolvedValue({
       ok: true,
@@ -146,57 +156,102 @@ describe('SystemView', () => {
       ],
       meta: { request_id: 'req_connections' },
     })
+    loadSettings.mockResolvedValue({
+      ok: true,
+      data: {
+        writeback_enabled: false,
+        backup: null,
+        web_settings: {
+          dense_rows: true,
+          tabular_numbers: true,
+          reduced_motion: false,
+          strong_focus: true,
+          docked_action_bar: true,
+        },
+      },
+      meta: { request_id: 'req_settings' },
+    })
     syncSource.mockResolvedValue({ ok: true, data: { source: 'calendar', signals_ingested: 3 }, meta: { request_id: 'req_sync' } })
     disconnectGoogleCalendar.mockResolvedValue({ ok: true, data: null, meta: { request_id: 'req_disconnect' } })
     disconnectTodoist.mockResolvedValue({ ok: true, data: null, meta: { request_id: 'req_disconnect_todoist' } })
+    updateSettings.mockResolvedValue({ ok: true, data: null, meta: { request_id: 'req_settings_patch' } })
+    updateWebSettings.mockResolvedValue({ ok: true, data: null, meta: { request_id: 'req_web_settings' } })
   })
 
-  it('renders grouped system navigation with a single detail pane', async () => {
-    render(<SystemView target={{ section: 'domain', subsection: 'people' }} />)
+  it('renders the compact system rail and scroll document without the rejected helper panels', async () => {
+    render(<SystemView target={{ section: 'overview', subsection: 'trust' }} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /Canonical object and capability truth/i })).toBeInTheDocument()
+      expect(screen.getByText('Status and activity')).toBeInTheDocument()
     })
 
-    expect(screen.getAllByText('Domain').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Capabilities').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Configuration').length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: /People/i })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /Calendar/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Knowledge/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Overview/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /Operations/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Integrations/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Control/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Preferences/i })).toBeInTheDocument()
+    expect(screen.getByText('Status and activity')).toBeInTheDocument()
+    expect(screen.queryByText('One surface, five sections. Trust stays legible. Operations stay bounded.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /Structural truth, trust, and repair/i })).not.toBeInTheDocument()
+
+    expect(await screen.findByText('Design review')).toBeInTheDocument()
     expect(screen.getByText('Avery')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Tools/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Control/i }))
+    expect((await screen.findAllByText('Vel')).length).toBeGreaterThan(0)
+    expect(screen.getByDisplayValue('/repo')).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Capabilities/i })[0])
     expect(await screen.findByText('Read objects')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /Calendar/i }))
-    expect(await screen.findByText('Design review')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /Accounts/i }))
-    expect((await screen.findAllByText('Google Calendar')).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: /Integrations/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Scopes/i })).toBeInTheDocument()
   })
 
-  it('uses only named canonical integration actions', async () => {
-    render(<SystemView target={{ section: 'configuration', subsection: 'integrations' }} />)
+  it('keeps integration actions available without the old browse-detail shell', async () => {
+    render(<SystemView target={{ section: 'integrations', subsection: 'providers' }} />)
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: 'Refresh' }).length).toBeGreaterThan(0)
+      expect(screen.getByText('Providers')).toBeInTheDocument()
     })
 
-    const integrationsSection = screen.getByRole('heading', { name: 'Integrations' }).closest('section') as HTMLElement
-    const refreshButtons = within(integrationsSection).getAllByRole('button', { name: 'Refresh' })
-    fireEvent.click(refreshButtons[0])
+    expect(screen.getAllByText('Google Calendar').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Browse / detail')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Google Calendar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Todoist' })).toBeInTheDocument()
+
+    const refreshButton = screen.getAllByRole('button', { name: 'Refresh' })[0]
+    fireEvent.click(refreshButton)
     await waitFor(() => expect(syncSource).toHaveBeenCalledWith('calendar'))
 
-    const disconnectButtons = within(integrationsSection).getAllByRole('button', { name: 'Disconnect' })
-    fireEvent.click(disconnectButtons[0])
+    const disconnectButton = screen.getAllByRole('button', { name: 'Disconnect' })[0]
+    fireEvent.click(disconnectButton)
     await waitFor(() => expect(disconnectGoogleCalendar).toHaveBeenCalled())
 
+    fireEvent.click(screen.getAllByRole('button', { name: /Accounts/i })[0])
+    expect((await screen.findAllByDisplayValue('acct_google')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Google Calendar').length).toBeGreaterThan(0)
+
     expect(screen.queryByRole('button', { name: /Reconnect/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Enable/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Deactivate/i })).not.toBeInTheDocument()
+  })
+
+  it('exposes truthful persisted operator settings fields', async () => {
+    render(<SystemView target={{ section: 'preferences', subsection: 'accessibility' }} />)
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Operator settings').length).toBeGreaterThan(0)
+    })
+
+    const timezoneField = screen.getAllByLabelText('Timezone')[0]
+    fireEvent.change(timezoneField, { target: { value: 'America/Chicago' } })
+    fireEvent.blur(timezoneField)
+
+    await waitFor(() => {
+      expect(updateSettings).toHaveBeenCalledWith({ timezone: 'America/Chicago' })
+    })
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Writeback enabled' })[0])
+    await waitFor(() => {
+      expect(updateSettings).toHaveBeenCalledWith({ writeback_enabled: true })
+    })
   })
 })
 

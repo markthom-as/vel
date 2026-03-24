@@ -22,14 +22,12 @@
     "proof:phase74:now-complete": "node scripts/proof/phase74-now-complete.mjs",
     "proof:phase75:threads-read": "node scripts/proof/phase75-threads-read.mjs",
     "proof:phase76:system-read": "node scripts/proof/phase76-system-read.mjs",
-    "proof:phase77:operator-loop": "node scripts/proof/phase77-operator-loop.mjs"
+    "proof:phase77:operator-loop": "node scripts/proof/phase77-operator-loop.mjs",
+    "proof:phase89:ui-proof": "node scripts/proof/phase89-ui-proof.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
-    "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/outfit": "^5.2.8",
     "@fontsource-variable/space-grotesk": "^5.2.10",
-    "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/ibm-plex-serif": "^5.2.7",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",

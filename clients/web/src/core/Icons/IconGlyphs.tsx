@@ -9,13 +9,18 @@ import {
   CircleCheck,
   ClipboardCheck,
   Clock,
+  Copy,
+  FileText,
   Folder,
+  Image,
   LayoutGrid,
   Info,
   Inbox,
   Layers,
   MessagesSquare,
   Mic,
+  Paperclip,
+  Plus,
   RefreshCw,
   Search,
   Send,
@@ -23,6 +28,8 @@ import {
   Sparkles,
   SquareArrowOutUpRight,
   Tag,
+  Archive,
+  X,
 } from 'lucide-react';
 
 export type IconProps = SVGProps<SVGSVGElement> & {
@@ -94,6 +101,34 @@ export function RescheduleIcon({ size = defaults.size, strokeWidth = defaults.st
 
 export function SendArrowIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
   return <Send aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function PlusIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Plus aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function AttachmentIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Paperclip aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function FileIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <FileText aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ImageIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Image aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function CopyIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Copy aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function ArchiveIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <Archive aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
+}
+
+export function CloseIcon({ size = defaults.size, strokeWidth = defaults.strokeWidth, ...props }: IconProps) {
+  return <X aria-hidden size={size} strokeWidth={strokeWidth} {...props} />;
 }
 
 export function MicIcon(props: IconProps & { listening?: boolean }) {

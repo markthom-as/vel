@@ -18,7 +18,8 @@ describe('MessageRenderer', () => {
     }
     render(<MessageRenderer message={message} />)
     expect(screen.getByText('Hello world')).toBeInTheDocument()
-    expect(screen.getByText(/user · text/)).toBeInTheDocument()
+    expect(screen.getByText('YOU')).toBeInTheDocument()
+    expect(screen.getByText('USER TEXT')).toBeInTheDocument()
   })
 
   it('renders reminder card with title', () => {

@@ -1,4 +1,3 @@
-import { brandTagPalette, uiTheme } from '../../core/Theme';
 import type {
   ActionItemData,
   ClusterBootstrapData,
@@ -12,12 +11,12 @@ import type { SystemNavigationTarget } from '../system';
 /** Maps legacy `open_settings` nudges onto the canonical `/system` surface. */
 export function nudgeOpenSystemTarget(bar: { id: string }): SystemNavigationTarget {
   if (bar.id === 'backup_trust_warning') {
-    return { section: 'configuration', subsection: 'integrations' };
+    return { section: 'integrations', subsection: 'providers' };
   }
   if (bar.id === 'mesh_summary_warning') {
-    return { section: 'configuration', subsection: 'accounts' };
+    return { section: 'integrations', subsection: 'accounts' };
   }
-  return { section: 'configuration' };
+  return { section: 'integrations' };
 }
 
 export function dedupeTasks(tasks: Array<NowTaskData | null | undefined>): NowTaskData[] {
@@ -143,31 +142,6 @@ export function findBarProjectTags(bar: NowData['nudge_bars'][number], items: Ac
   const matching = items.filter((item) => item.id === bar.id || item.title === bar.title);
   const labels = matching.map((item) => item.project_label).filter((value): value is string => Boolean(value));
   return [...new Set(labels)];
-}
-
-/** Stable hash for assigning a tag string to a palette slot (case-insensitive). */
-export function projectTagHash(label: string): number {
-  const normalized = label.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return 0;
-  }
-  return Array.from(normalized).reduce((sum, char) => sum + char.charCodeAt(0), 0);
-}
-
-/** Border + background + text classes for a project/tag label; stable per label string. */
-export function projectTagClasses(label: string): string {
-  return brandTagPalette[projectTagHash(label) % brandTagPalette.length];
-}
-
-/** Color-coded nudge kind tag (pairs with `nudgeKindTagIcon` in presentation). */
-export function nudgeKindTagClasses(kind: string, urgent: boolean): string {
-  if (urgent) {
-    return 'border-amber-600/45 bg-amber-950/70 text-amber-100';
-  }
-  if (kind === 'trust_warning' || kind === 'freshness_warning') {
-    return 'border-amber-600/45 bg-amber-950/70 text-amber-100';
-  }
-  return uiTheme.brandNudgeKindTag;
 }
 
 /** Same primary line the nav previously showed: active task, else context line, else a placeholder. */

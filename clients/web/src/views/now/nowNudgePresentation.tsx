@@ -120,10 +120,6 @@ export function formatTaskKindLabel(kind: string): string {
   return kind.replaceAll('_', ' ');
 }
 
-/** Overrides on `FilterPillButton` for nudge row actions (same shell as inbox/thread filter pills). */
-export const surfaceActionChipNudgeClass =
-  '!gap-2 !px-3 !py-1.5 !text-[11px] !font-medium !normal-case leading-tight tracking-normal [&_svg]:!h-4 [&_svg]:!w-4 [&_svg]:!max-h-4 [&_svg]:!max-w-4';
-
 /** Icon-only nudge actions: thread-style actions use the open / external-link glyph. */
 export function NudgeActionIcon({ kind, ...props }: IconProps & { kind: string }) {
   switch (kind) {

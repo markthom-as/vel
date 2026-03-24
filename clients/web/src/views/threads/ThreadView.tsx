@@ -4,29 +4,22 @@ import {
   chatQueryKeys,
   loadConversationList,
   loadConversationMessages,
+  updateConversationArchive,
+  updateConversationTitle,
 } from '../../data/chat';
-import { useQuery } from '../../data/query';
+import { invalidateQuery, setQueryData, useQuery } from '../../data/query';
 import { subscribeWsQuerySync } from '../../data/ws-sync';
 import { cn } from '../../core/cn';
-import { FilterDenseTag, FilterToggleTag } from '../../core/FilterToggleTag';
-import { LayersIcon, OpenThreadIcon, ThreadsIcon } from '../../core/Icons';
-import { itemPillCard, itemPillRowSelected } from '../../core/itemPill';
-import { NowItemRowLayout } from '../../core/NowItemRow';
-import {
-  PanelEmptyRow,
-  PanelEyebrow,
-  PanelInsetCard,
-  PanelKeyValueRow,
-  PanelMutedInset,
-  PanelPageSection,
-  PanelSectionHeader,
-  PanelStatusChip,
-} from '../../core/PanelChrome';
-import { PanelMetaPill } from '../../core/PanelItem';
+import { ActionChipButton, FilterDenseTag, FilterToggleTag } from '../../core/FilterToggleTag';
+import { ArchiveIcon, DotIcon, LayersIcon, OpenThreadIcon, ThreadsIcon, WarningIcon } from '../../core/Icons';
+import { ObjectRowFrame, ObjectRowLayout, ObjectRowTitleMetaBand } from '../../core/ObjectRow';
+import { PanelEmptyRow, PanelKeyValueRow } from '../../core/PanelChrome';
 import { MessageRenderer } from '../../core/MessageRenderer';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
 import { useResolvedThreadConversationId } from './useResolvedThreadConversationId';
 import { SurfaceState } from '../../core/SurfaceState';
+import { uiFonts } from '../../core/Theme';
+import { SearchField } from '../../core/SearchField/SearchField';
 
 interface ThreadViewProps {
   conversationId: string | null;
@@ -76,7 +69,11 @@ function continuationContextRows(conversation: ConversationData): Array<{ label:
 export function ThreadView({ conversationId, onSelectConversation }: ThreadViewProps) {
   const [provenanceMessageId, setProvenanceMessageId] = useState<string | null>(null);
   const [threadFilter, setThreadFilter] = useState('');
-  const [filterMode, setFilterMode] = useState<'all' | 'unread' | 'active'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'unread' | 'needs_review' | 'active' | 'archived'>('all');
+  const [draftTitle, setDraftTitle] = useState('');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [archivingConversationId, setArchivingConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const conversationsKey = useMemo(() => chatQueryKeys.conversations(), []);
   const { data: conversations = [], loading: conversationsLoading, error: conversationsError } = useQuery(
@@ -91,11 +88,69 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
     () => conversations.find((conversation) => conversation.id === resolvedConversationId) ?? null,
     [conversations, resolvedConversationId],
   );
+  useEffect(() => {
+    setDraftTitle(threadTitle(selectedConversation));
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    if (!conversationId && resolvedConversationId && onSelectConversation) {
+      onSelectConversation(resolvedConversationId);
+    }
+  }, [conversationId, onSelectConversation, resolvedConversationId]);
+
+  async function saveTitle(nextTitle: string) {
+    if (!selectedConversation) return;
+    const trimmed = nextTitle.trim();
+    const currentTitle = threadTitle(selectedConversation);
+    if (!trimmed || trimmed === currentTitle) {
+      setDraftTitle(currentTitle);
+      return;
+    }
+    setSavingTitle(true);
+    setQueryData(conversationsKey, (current: ConversationData[] | undefined) =>
+      (current ?? []).map((conversation) =>
+        conversation.id === selectedConversation.id ? { ...conversation, title: trimmed } : conversation,
+      ),
+    );
+    try {
+      await updateConversationTitle(selectedConversation.id, trimmed);
+      invalidateQuery(conversationsKey, { refetch: true });
+    } finally {
+      setSavingTitle(false);
+    }
+  }
+
+  async function archiveConversation(conversation: ConversationData) {
+    if (archivingConversationId) return;
+    setArchivingConversationId(conversation.id);
+    setQueryData(conversationsKey, (current: ConversationData[] | undefined) =>
+      (current ?? []).map((entry) =>
+        entry.id === conversation.id ? { ...entry, archived: true } : entry,
+      ),
+    );
+    try {
+      await updateConversationArchive(conversation.id, true);
+      await invalidateQuery(conversationsKey, { refetch: true });
+      const fallbackConversationId = conversations
+        .filter((entry) => entry.id !== conversation.id && !entry.archived)
+        .sort((left, right) => right.updated_at - left.updated_at)[0]?.id ?? null;
+      if (fallbackConversationId && onSelectConversation) {
+        onSelectConversation(fallbackConversationId);
+      }
+    } finally {
+      setArchivingConversationId(null);
+    }
+  }
   const threadModeCounts = useMemo(() => {
-    const all = conversations.length;
+    const all = conversations.filter((c) => !c.archived).length;
     const unread = conversations.filter((c) => Boolean(c.continuation)).length;
+    const needsReview = conversations.filter((c) =>
+      Boolean(c.continuation?.continuation.review_requirements?.length)
+      || c.continuation?.continuation.continuation_category === 'needs_input',
+    ).length;
     const active = resolvedConversationId ? 1 : 0;
-    return { all, unread, active };
+    const archived = conversations.filter((c) => c.archived).length;
+    return { all, unread, needsReview, active, archived };
   }, [conversations, resolvedConversationId]);
 
   const filteredConversations = useMemo(() => {
@@ -105,8 +160,18 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
         if (filterMode === 'unread') {
           return Boolean(conversation.continuation);
         }
+        if (filterMode === 'needs_review') {
+          return Boolean(conversation.continuation?.continuation.review_requirements?.length)
+            || conversation.continuation?.continuation.continuation_category === 'needs_input';
+        }
         if (filterMode === 'active') {
           return conversation.id === resolvedConversationId;
+        }
+        if (filterMode === 'archived') {
+          return conversation.archived;
+        }
+        if (conversation.archived) {
+          return false;
         }
         return true;
       })
@@ -118,7 +183,6 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
         ];
         return haystacks.some((value) => value.toLowerCase().includes(query));
       })
-      .slice(0, 8);
   }, [conversations, resolvedConversationId, filterMode, threadFilter]);
   const messagesKey = useMemo(
     () => chatQueryKeys.conversationMessages(resolvedConversationId),
@@ -175,204 +239,245 @@ export function ThreadView({ conversationId, onSelectConversation }: ThreadViewP
 
   const boundObject = selectedConversation?.continuation ?? null;
   const contextRows = selectedConversation ? continuationContextRows(selectedConversation) : [];
+  const messageCount = messages.length;
+  const headerMessageCount = selectedConversation?.message_count ?? messageCount;
+  const openedHeaderTags = [
+    selectedConversation?.kind ? selectedConversation.kind.replaceAll('_', ' ') : null,
+    selectedConversation?.project_label ?? null,
+    boundObject?.lifecycle_stage ?? null,
+  ].filter(Boolean) as string[];
 
   return (
     <>
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-full max-w-sm shrink-0 flex-col border-r border-zinc-900 bg-zinc-950/60">
-          <div className="border-b border-zinc-900 px-4 py-4">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-zinc-500">Threads</p>
-            <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Thread list filter">
-              {(
-                [
-                  {
-                    mode: 'all' as const,
-                    label: 'All',
-                    count: threadModeCounts.all,
-                    icon: (sel: boolean) => (
-                      <LayersIcon size={12} className={sel ? 'text-amber-200/90' : 'text-zinc-500'} />
-                    ),
-                  },
-                  {
-                    mode: 'unread' as const,
-                    label: 'Unread',
-                    count: threadModeCounts.unread,
-                    icon: (sel: boolean) => (
-                      <ThreadsIcon size={12} className={sel ? 'text-amber-200/90' : 'text-zinc-500'} />
-                    ),
-                  },
-                  {
-                    mode: 'active' as const,
-                    label: 'Active',
-                    count: threadModeCounts.active,
-                    icon: (sel: boolean) => (
-                      <OpenThreadIcon size={12} className={sel ? 'text-amber-200/90' : 'text-zinc-500'} />
-                    ),
-                  },
-                ] as const
-              ).map(({ mode, label, count, icon }) => (
-                <FilterToggleTag
-                  key={mode}
-                  label={label}
-                  count={count}
-                  selected={filterMode === mode}
-                  onClick={() => setFilterMode(mode)}
-                  icon={icon(filterMode === mode)}
-                />
-              ))}
+        <aside
+          className="hidden shrink-0 border-r border-[var(--vel-color-border)] lg:block w-full max-w-[20rem]"
+        >
+          <div className="sticky top-0 flex min-h-[32rem] flex-col">
+            <div className="flex items-center justify-between border-b border-[var(--vel-color-border)] px-3 py-3">
+              <p className={`${uiFonts.display} inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-muted)]`}>
+                <ThreadsIcon size={12} />
+                THREADS ({threadModeCounts.all})
+              </p>
             </div>
-            <label className="mt-3 block relative">
-              <span className="sr-only">Filter threads</span>
-              <input
-                type="text"
-                value={threadFilter}
-                onChange={(event) => setThreadFilter(event.target.value)}
-                placeholder="Find thread"
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 pr-10 text-sm text-zinc-100 placeholder:text-zinc-500"
-              />
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-zinc-500">⌕</span>
-            </label>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-            {filteredConversations.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-zinc-500">No threads match that filter.</p>
-            ) : (
-              <div className="space-y-2">
-                {filteredConversations.map((conversation) => (
-                  <ThreadListRow
-                    key={conversation.id}
-                    conversation={conversation}
-                    active={conversation.id === resolvedConversationId}
-                    disabled={!onSelectConversation || conversation.id === resolvedConversationId}
-                    onSelect={onSelectConversation}
+            <>
+                <div className="border-b border-[var(--vel-color-border)] px-3 py-3">
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Thread list filter">
+                    {(
+                      [
+                        {
+                          mode: 'all' as const,
+                          label: 'All',
+                          count: threadModeCounts.all,
+                          icon: (sel: boolean) => (
+                            <LayersIcon size={12} className={sel ? 'text-[var(--vel-color-accent-soft)]' : 'text-[var(--vel-color-dim)]'} />
+                          ),
+                        },
+                        {
+                          mode: 'unread' as const,
+                          label: 'Unread',
+                          count: threadModeCounts.unread,
+                          icon: (sel: boolean) => (
+                            <ThreadsIcon size={12} className={sel ? 'text-[var(--vel-color-accent-soft)]' : 'text-[var(--vel-color-dim)]'} />
+                          ),
+                        },
+                        {
+                          mode: 'needs_review' as const,
+                          label: 'Needs Review',
+                          count: threadModeCounts.needsReview,
+                          icon: (sel: boolean) => (
+                            <WarningIcon size={12} className={sel ? 'text-[var(--vel-color-accent-soft)]' : 'text-[var(--vel-color-dim)]'} />
+                          ),
+                        },
+                        {
+                          mode: 'active' as const,
+                          label: 'Active',
+                          count: threadModeCounts.active,
+                          icon: (sel: boolean) => (
+                            <OpenThreadIcon size={12} className={sel ? 'text-[var(--vel-color-accent-soft)]' : 'text-[var(--vel-color-dim)]'} />
+                          ),
+                        },
+                        {
+                          mode: 'archived' as const,
+                          label: 'Archived',
+                          count: threadModeCounts.archived,
+                          icon: (sel: boolean) => (
+                            <ArchiveIcon size={12} className={sel ? 'text-[var(--vel-color-accent-soft)]' : 'text-[var(--vel-color-dim)]'} />
+                          ),
+                        },
+                      ] as const
+                    ).map(({ mode, label, count, icon }) => (
+                      <FilterToggleTag
+                        key={mode}
+                        label={label}
+                        count={count}
+                        size="dense"
+                        selected={filterMode === mode}
+                        onClick={() => setFilterMode(mode)}
+                        icon={icon(filterMode === mode)}
+                      />
+                    ))}
+                  </div>
+                  <SearchField
+                    className="mt-3"
+                    aria-label="Filter threads"
+                    value={threadFilter}
+                    onChange={(event) => setThreadFilter(event.target.value)}
+                    placeholder="Find thread"
                   />
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="border-t border-zinc-900 px-4 py-3 text-center text-xs text-zinc-500">
-            {filteredConversations.length} thread{filteredConversations.length === 1 ? '' : 's'} in view
+                </div>
+
+                <div className="relative flex-1 overflow-y-auto">
+                  <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-[var(--vel-color-bg)] to-transparent" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-5 bg-gradient-to-t from-[var(--vel-color-bg)] to-transparent" />
+                  {filteredConversations.length === 0 ? (
+                    <PanelEmptyRow>No threads match that filter.</PanelEmptyRow>
+                  ) : (
+                    filteredConversations.map((conversation) => (
+                      <ThreadListRow
+                        key={conversation.id}
+                        conversation={conversation}
+                        active={conversation.id === resolvedConversationId}
+                        disabled={!onSelectConversation || conversation.id === resolvedConversationId}
+                        onSelect={onSelectConversation}
+                      />
+                    ))
+                  )}
+                </div>
+            </>
           </div>
         </aside>
 
         <section className="relative flex min-w-0 flex-1 flex-col">
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
-            <div className={cn('mx-auto max-w-6xl', boundObject ? 'xl:grid xl:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.4fr)] xl:gap-6' : 'max-w-3xl')}>
-              <div className={cn(boundObject ? 'space-y-4 xl:sticky xl:top-0 xl:self-start' : 'mb-5')}>
-                <PanelPageSection className="space-y-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <PanelEyebrow className="tracking-[0.22em]">Thread</PanelEyebrow>
-                      <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight text-zinc-100">
-                        {threadTitle(selectedConversation)}
-                      </h1>
-                    </div>
-                    {boundObject ? (
-                      <div className="flex flex-wrap gap-2">
-                        <PanelMetaPill tone="state">
-                          {continuationTokenLabel(boundObject.continuation.continuation_category)}
-                        </PanelMetaPill>
-                        {boundObject.lifecycle_stage ? (
-                          <PanelMetaPill tone="state">{boundObject.lifecycle_stage}</PanelMetaPill>
-                        ) : null}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto">
+            <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6">
+              <section className="space-y-3 pb-1">
+                <div className="flex flex-wrap items-start justify-between gap-3 px-1 py-2">
+                  <div className="min-w-0 space-y-2">
+                    <div className={`${uiFonts.display} flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-[var(--vel-color-accent-soft)]`}>
+                      <span>CURRENT THREAD | {headerMessageCount} {headerMessageCount === 1 ? 'MESSAGE' : 'MESSAGES'} | PARTICIPANTS</span>
+                      <div className="flex items-center gap-1.5 text-[11px] leading-none">
+                        <ParticipantDot label="Y" className="border-emerald-700/60 bg-emerald-950/50 text-emerald-100" />
+                        <ParticipantDot label="V" className="border-[color:var(--vel-color-accent-border)] bg-[color:var(--vel-color-panel-2)] text-[var(--vel-color-accent-soft)]" />
                       </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">
+                      <span>LAST {formatAbsoluteTimestamp(lastMessageAt(messages, selectedConversation?.updated_at ?? null))}</span>
+                      <span aria-hidden>|</span>
+                      <span>CREATED {formatAbsoluteTimestamp(selectedConversation?.created_at ?? null)}</span>
+                    </div>
+                    {editingTitle ? (
+                      <input
+                        type="text"
+                        value={draftTitle}
+                        onChange={(event) => setDraftTitle(event.target.value)}
+                        onBlur={() => {
+                          setEditingTitle(false);
+                          void saveTitle(draftTitle);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            setEditingTitle(false);
+                            void saveTitle(draftTitle);
+                          }
+                          if (event.key === 'Escape') {
+                            setDraftTitle(threadTitle(selectedConversation));
+                            setEditingTitle(false);
+                          }
+                        }}
+                        autoFocus
+                        className="w-full bg-transparent text-2xl font-semibold tracking-tight text-[var(--vel-color-text)] outline-none"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditingTitle(true)}
+                        className="truncate text-left text-2xl font-semibold tracking-tight text-[var(--vel-color-text)] hover:text-[var(--vel-color-accent-soft)]"
+                      >
+                        {draftTitle}
+                      </button>
+                    )}
+                    {savingTitle ? <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--vel-color-muted)]">SAVING…</p> : null}
+                    {boundObject?.continuation.escalation_reason ? (
+                      <p className="max-w-3xl text-sm leading-6 text-[var(--vel-color-muted)]">
+                        {boundObject.continuation.escalation_reason}
+                      </p>
                     ) : null}
                   </div>
-
-                  {boundObject ? (
-                    <>
-                      <PanelInsetCard className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <PanelStatusChip tone="ok">Bound object</PanelStatusChip>
-                          <FilterDenseTag className="border-zinc-700 bg-zinc-950/70 text-zinc-300">
-                            {boundObject.thread_type.replaceAll('_', ' ')}
-                          </FilterDenseTag>
-                        </div>
-                        <p className="text-sm leading-6 text-zinc-200">
-                          {boundObject.continuation.escalation_reason}
-                        </p>
-                        <div className="grid gap-2 text-xs text-zinc-400">
-                          <PanelKeyValueRow
-                            label="capability"
-                            value={capabilityStateLabel(boundObject.continuation.bounded_capability_state)}
-                          />
-                          <PanelKeyValueRow
-                            label="open target"
-                            value={continuationTokenLabel(boundObject.continuation.open_target)}
-                          />
-                          {boundObject.lifecycle_stage ? (
-                            <PanelKeyValueRow label="stage" value={boundObject.lifecycle_stage} />
-                          ) : null}
-                        </div>
-                      </PanelInsetCard>
-
-                      <PanelInsetCard className="space-y-3">
-                        <PanelSectionHeader
-                          title="Object state"
-                          description="Context edges and gating state stay visible beside the conversation instead of getting buried in transcript chronology."
-                        />
-                        {contextRows.length > 0 ? (
-                          <div className="grid gap-2 text-xs text-zinc-400">
-                            {contextRows.map((entry) => (
-                              <PanelKeyValueRow key={entry.label} label={entry.label} value={entry.value} />
-                            ))}
-                          </div>
-                        ) : (
-                          <PanelEmptyRow>No structured continuation context is attached to this thread yet.</PanelEmptyRow>
-                        )}
-                      </PanelInsetCard>
-                    </>
-                  ) : (
-                    <PanelMutedInset>
-                      <p className="text-sm leading-6 text-zinc-300">
-                        This thread has no stable bound object yet, so the surface falls back to conversation-first reading.
-                      </p>
-                      <p className="mt-2 text-xs leading-5 text-zinc-500">
-                        Attach or create an object first. `v0.5.1` still forbids floating or multi-object invocation from Threads.
-                      </p>
-                    </PanelMutedInset>
-                  )}
-
-                  <PanelMutedInset>
-                    <p className="text-sm leading-6 text-zinc-300">
-                      Workflow invocation stays unavailable here until the backend exposes exactly one stable canonical
-                      object binding for this thread.
-                    </p>
-                    <p className="mt-2 text-xs leading-5 text-zinc-500">
-                      Provenance remains compressed inline on each message and expands in a dedicated drawer when you ask for depth.
-                    </p>
-                  </PanelMutedInset>
-                </PanelPageSection>
-              </div>
-
-              <PanelPageSection className={cn('mt-5 xl:mt-0', boundObject ? 'min-w-0' : '')}>
-                <div className="mb-4 flex items-center justify-between gap-3 border-b border-zinc-900 pb-3">
-                  <div>
-                    <PanelEyebrow className="tracking-[0.22em]">Conversation</PanelEyebrow>
-                    <p className="mt-2 text-sm text-zinc-400">
-                      Chronology stays navigable, but it is secondary to the bound object and current thread state.
-                    </p>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {openedHeaderTags.map((tag) => (
+                      <FilterDenseTag key={tag} tone="muted">
+                        {tag}
+                      </FilterDenseTag>
+                    ))}
+                    <ActionChipButton
+                      tone="ghost"
+                      iconOnly
+                      aria-label="Archive"
+                      className="!h-6 !w-6 !rounded-full border border-[var(--vel-color-border)] bg-transparent text-[var(--vel-color-muted)] hover:border-[var(--vel-color-accent-border)] hover:text-[var(--vel-color-accent-soft)]"
+                      disabled={!selectedConversation || Boolean(archivingConversationId)}
+                      onClick={() => {
+                        if (selectedConversation) {
+                          void archiveConversation(selectedConversation);
+                        }
+                      }}
+                    >
+                      <ArchiveIcon size={9} />
+                    </ActionChipButton>
                   </div>
                 </div>
-                {messages.length === 0 && (
+              </section>
+
+              {boundObject || contextRows.length > 0 ? (
+                <section className="space-y-3 border-b border-[var(--vel-color-border)] pb-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {boundObject ? (
+                      <FilterDenseTag tone="muted">
+                        {boundObject.thread_type.replaceAll('_', ' ')}
+                      </FilterDenseTag>
+                    ) : null}
+                    {boundObject ? (
+                      <FilterDenseTag tone="muted">
+                        {capabilityStateLabel(boundObject.continuation.bounded_capability_state)}
+                      </FilterDenseTag>
+                    ) : null}
+                    {boundObject ? (
+                      <FilterDenseTag tone="muted">
+                        {continuationTokenLabel(boundObject.continuation.open_target)}
+                      </FilterDenseTag>
+                    ) : null}
+                  </div>
+                  {contextRows.length > 0 ? (
+                    <div className="grid gap-2 text-xs text-[var(--vel-color-muted)]">
+                      {contextRows.map((entry) => (
+                        <PanelKeyValueRow key={entry.label} label={entry.label} value={entry.value} />
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+
+              <section className="min-w-0 space-y-4">
+                {messages.length === 0 ? (
                   <SurfaceState message="No messages in this thread yet." />
+                ) : (
+                  messages.map((message) => (
+                    <MessageRenderer
+                      key={message.id}
+                      message={message}
+                      onShowWhy={setProvenanceMessageId}
+                    />
+                  ))
                 )}
-                {messages.map((message) => (
-                  <MessageRenderer
-                    key={message.id}
-                    message={message}
-                    onShowWhy={setProvenanceMessageId}
-                  />
-                ))}
-              </PanelPageSection>
+              </section>
             </div>
           </div>
-          {provenanceMessageId && (
+          {provenanceMessageId ? (
             <ProvenanceDrawer
               messageId={provenanceMessageId}
               onClose={() => setProvenanceMessageId(null)}
             />
-          )}
+          ) : null}
         </section>
       </div>
     </>
@@ -390,6 +495,39 @@ function threadTitle(conversation: ConversationData | null): string {
     return continuationTokenLabel(conversation.continuation.continuation.open_target);
   }
   return 'Untitled thread';
+}
+
+function formatAbsoluteTimestamp(ts: number | null): string {
+  if (!ts) {
+    return 'Unknown';
+  }
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(ts * 1000));
+}
+
+function formatRelativeFreshness(ts: number): string {
+  const diffSeconds = Math.max(0, Math.round(Date.now() / 1000) - ts);
+  if (diffSeconds < 60) {
+    return 'now';
+  }
+  if (diffSeconds < 3600) {
+    return `${Math.floor(diffSeconds / 60)}m ago`;
+  }
+  if (diffSeconds < 86_400) {
+    return `${Math.floor(diffSeconds / 3600)}h ago`;
+  }
+  return `${Math.floor(diffSeconds / 86_400)}d ago`;
+}
+
+function lastMessageAt(messages: MessageData[], fallback: number | null | undefined): number | null {
+  if (messages.length === 0) {
+    return fallback ?? null;
+  }
+  return [...messages].sort((left, right) => right.created_at - left.created_at)[0]?.created_at ?? fallback ?? null;
 }
 
 function previewText(conversation: ConversationData, messages: MessageData[]): string {
@@ -435,96 +573,65 @@ function ThreadListRow({
     { enabled: true },
   );
   const unreadCount = conversation.continuation ? 1 : 0;
-  const tagFrame = active
-    ? 'border-zinc-300/90 bg-white/90 text-zinc-800'
-    : 'border-zinc-800/90 bg-zinc-900/92 text-zinc-400';
-  const metaMuted = active ? 'text-zinc-600' : 'text-zinc-600';
+  const lastMessageTimestamp = lastMessageAt(
+    messages,
+    conversation.last_message_at ?? conversation.updated_at,
+  );
 
   return (
     <button
       type="button"
       onClick={() => onSelect?.(conversation.id)}
       disabled={disabled}
-      className={cn(
-        active
-          ? itemPillRowSelected
-          : cn(itemPillCard('muted', 'laneRow'), 'text-zinc-100 hover:border-zinc-700'),
-        'w-full text-left transition disabled:cursor-default disabled:opacity-60',
-      )}
+      className={cn('w-full px-3 py-2 text-left transition disabled:cursor-default', active ? '' : 'opacity-70 hover:opacity-100')}
+      aria-current={active ? 'true' : undefined}
     >
-      <NowItemRowLayout
-        leading={
-          unreadCount > 0 ? (
-            <span
-              className="mt-1 flex h-2 w-2 shrink-0 items-center justify-center"
-              role="img"
-              aria-label="Unread continuation"
-            >
-              <span className="h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-emerald-500/25" />
-            </span>
-          ) : (
-            <span className="mt-1 w-2 shrink-0" aria-hidden />
-          )
-        }
-        actionsLayout="inline"
-        actions={
-          unreadCount > 0 ? (
-            <FilterDenseTag
-              className={cn(
-                active ? 'border-emerald-600/40 bg-emerald-50 text-emerald-900' : 'border-emerald-700/50 bg-emerald-950/50 text-emerald-200',
-              )}
-            >
-              {unreadCount}
-            </FilterDenseTag>
-          ) : null
-        }
+      <ObjectRowFrame
+        as="div"
+        tone={active ? 'activeBrand' : 'neutral'}
+        density="button"
+        className={cn(
+          active
+            ? 'rounded-[1.05rem] px-3 py-2 ring-1 ring-[color:var(--vel-color-accent-border)]/70 shadow-[0_0_0_1px_rgba(255,107,0,0.12),0_0_0_5px_rgba(255,107,0,0.08)]'
+            : 'border-none bg-transparent p-0 shadow-none',
+        )}
       >
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <p
-            className={cn(
-              'min-w-0 flex-1 truncate text-sm font-medium leading-tight tracking-tight',
-              active ? 'text-zinc-950' : 'text-zinc-100',
-            )}
-          >
-            {threadTitle(conversation)}
+        <ObjectRowLayout
+          leading={
+            <span className="mt-1 flex h-3 w-3 shrink-0 items-center justify-center" role={unreadCount > 0 ? 'img' : undefined} aria-label={unreadCount > 0 ? 'Unread continuation' : undefined}>
+              {unreadCount > 0 ? <DotIcon size={8} className="text-[var(--vel-color-accent)]" /> : null}
+            </span>
+          }
+          actionsLayout="inline"
+          actions={
+            <div className="text-right">
+              <div className={cn('text-xs font-medium', active ? 'text-[var(--vel-color-accent-strong)]' : 'text-[var(--vel-color-muted)]')}>
+                {formatRelativeFreshness(lastMessageTimestamp ?? conversation.updated_at)}
+              </div>
+            </div>
+          }
+        >
+          <ObjectRowTitleMetaBand
+            title={threadTitle(conversation)}
+            meta={
+              conversation.project_label ? (
+                <FilterDenseTag tone="muted">{conversation.project_label}</FilterDenseTag>
+              ) : null
+            }
+          />
+          <p className={cn('line-clamp-2 text-xs leading-snug', active ? 'text-[var(--vel-color-text)]' : 'text-[var(--vel-color-muted)]')}>
+            {previewText(conversation, messages)}
           </p>
-          <div className="flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-x-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <FilterDenseTag className={tagFrame}>
-              <span aria-hidden className="inline-flex shrink-0 items-center opacity-80">
-                <ThreadsIcon size={10} />
-              </span>
-              {conversation.kind.replaceAll('_', ' ')}
-            </FilterDenseTag>
-            {conversation.continuation ? (
-              <FilterDenseTag className={tagFrame}>
-                {continuationTokenLabel(conversation.continuation.continuation.continuation_category)}
-              </FilterDenseTag>
-            ) : null}
-            <FilterDenseTag className={cn('!shrink-0 border-transparent bg-transparent', metaMuted)}>
-              {formatThreadDate(conversation.created_at)} · last {formatThreadDate(latestThreadTimestamp(conversation, messages))}
-            </FilterDenseTag>
-          </div>
-        </div>
-        <p className={cn('line-clamp-2 text-xs leading-snug', active ? 'text-zinc-700' : 'text-zinc-500')}>
-          {previewText(conversation, messages)}
-        </p>
-      </NowItemRowLayout>
+        </ObjectRowLayout>
+      </ObjectRowFrame>
     </button>
   );
 }
 
-function latestThreadTimestamp(conversation: ConversationData, messages: MessageData[]): number {
-  const latestMessage = [...messages].sort((left, right) => right.created_at - left.created_at)[0];
-  return latestMessage?.created_at ?? conversation.updated_at;
-}
-
-function formatThreadDate(timestamp: number): string {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }).format(new Date(timestamp * 1000));
-  } catch {
-    return String(timestamp);
-  }
+function ParticipantDot({ label, className }: { label: string; className?: string }) {
+  return (
+    <span className={cn('inline-flex h-[1.05rem] w-[1.05rem] items-center justify-center rounded-full border text-[11px] font-medium uppercase leading-none align-middle [font-variant-numeric:tabular-nums]', className)}>
+      {label}
+    </span>
+  );
 }

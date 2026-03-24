@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as client from '../api/client'
 import {
   acknowledgeInboxItem,
+  submitAssistantEntry,
   dismissInboxItem,
   getInboxThreadPath,
   getInterventionApiId,
@@ -96,6 +97,56 @@ describe('chat data helpers', () => {
     expect(client.apiPost).toHaveBeenCalledWith(
       '/api/interventions/intv_4/reactivate',
       {},
+      expect.any(Function),
+    )
+  })
+
+  it('includes explicit assistant-entry intent and attachments in the request body', async () => {
+    vi.mocked(client.apiPost).mockResolvedValue({
+      ok: true,
+      data: {
+        route_target: 'inbox',
+        user_message: {
+          id: 'msg_1',
+          conversation_id: 'conv_1',
+          role: 'user',
+          kind: 'text',
+          content: { text: 'hello' },
+          status: null,
+          importance: null,
+          created_at: 1,
+          updated_at: null,
+        },
+        conversation: {
+          id: 'conv_1',
+          title: 'Hello',
+          kind: 'general',
+          pinned: false,
+          archived: false,
+          created_at: 1,
+          updated_at: 1,
+          continuation: null,
+        },
+      },
+      meta: { request_id: 'req_entry' },
+    } as never)
+
+    await submitAssistantEntry(
+      'hello',
+      'conv_1',
+      null,
+      'question',
+      [{ kind: 'file', label: 'notes.md', object_id: 'art_1' }],
+    )
+
+    expect(client.apiPost).toHaveBeenCalledWith(
+      '/api/assistant/entry',
+      {
+        text: 'hello',
+        conversation_id: 'conv_1',
+        intent: 'question',
+        attachments: [{ kind: 'file', label: 'notes.md', object_id: 'art_1' }],
+      },
       expect.any(Function),
     )
   })

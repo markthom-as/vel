@@ -4,12 +4,11 @@ import {
   OpenThreadIcon,
   TagIcon,
 } from '../../../core/Icons';
-import { FilterDenseTag, FilterPillButton } from '../../../core/FilterToggleTag';
+import { ActionChipButton, FilterDenseTag, ProjectTag } from '../../../core/FilterToggleTag';
 import { NowItemRowLayout, NowItemRowShell, type NowItemRowSurface } from '../../../core/NowItemRow';
-import { formatTaskDate, projectTagClasses } from '../nowModel';
+import { formatTaskDate } from '../nowModel';
 import {
   formatTaskKindLabel,
-  surfaceActionChipNudgeClass,
   taskKindIcon,
 } from '../nowNudgePresentation';
 
@@ -68,10 +67,10 @@ export function CompactTaskLaneRow({
         actions={
           <>
             {onOpenThread ? (
-              <FilterPillButton className={surfaceActionChipNudgeClass} onClick={onOpenThread} aria-label="Open thread">
+              <ActionChipButton onClick={onOpenThread} aria-label="Open thread">
                 <OpenThreadIcon size={16} className="shrink-0" aria-hidden />
                 <span className="capitalize">Open thread</span>
-              </FilterPillButton>
+              </ActionChipButton>
             ) : null}
           </>
         }
@@ -85,22 +84,22 @@ export function CompactTaskLaneRow({
             {item.text}
           </p>
           <div className="flex min-w-0 shrink-0 flex-nowrap items-center justify-end gap-x-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <FilterDenseTag className="border-zinc-800/90 bg-zinc-900/92 text-zinc-400">
+            <FilterDenseTag tone="neutral">
               <span aria-hidden className="inline-flex shrink-0 items-center">
                 {taskKindIcon(item.task_kind)}
               </span>
               {formatTaskKindLabel(item.task_kind)}
             </FilterDenseTag>
             {item.project ? (
-              <FilterDenseTag className={projectTagClasses(item.project)}>
+              <ProjectTag label={item.project}>
                 <span aria-hidden className="inline-flex shrink-0 items-center opacity-80">
                   <TagIcon size={10} />
                 </span>
                 {item.project}
-              </FilterDenseTag>
+              </ProjectTag>
             ) : null}
             {metadata?.commitment_kind ? (
-              <FilterDenseTag className="border-zinc-800/90 bg-zinc-900/92 text-zinc-400">
+              <FilterDenseTag tone="neutral">
                 <span aria-hidden className="inline-flex shrink-0 items-center">
                   <ClockIcon size={10} />
                 </span>
@@ -108,7 +107,7 @@ export function CompactTaskLaneRow({
               </FilterDenseTag>
             ) : null}
             {metadata?.due_at ? (
-              <FilterDenseTag className="!shrink-0 border-transparent bg-transparent text-zinc-600">
+              <FilterDenseTag tone="ghost">
                 Due {formatTaskDate(metadata.due_at)}
               </FilterDenseTag>
             ) : null}

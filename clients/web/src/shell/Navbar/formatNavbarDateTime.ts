@@ -7,6 +7,7 @@ export function formatNavbarDateTime(unixSeconds: number, timezone: string): str
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
+      timeZoneName: 'short',
     }).format(new Date(unixSeconds * 1000));
   } catch {
     return new Date(unixSeconds * 1000).toLocaleString();

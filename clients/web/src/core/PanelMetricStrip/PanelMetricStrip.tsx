@@ -22,7 +22,7 @@ export function PanelMetricStrip({
 }) {
   return (
     <div
-      className="flex flex-wrap items-center gap-1.5 opacity-90"
+      className="flex flex-wrap items-center gap-1.5 opacity-75"
       {...(ariaLabel ? { role: 'group' as const, 'aria-label': ariaLabel } : {})}
     >
       {items.map((item) => {

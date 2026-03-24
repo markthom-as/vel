@@ -34,7 +34,8 @@ describe('MainPanel', () => {
         onNavigate={() => {}}
         onOpenThread={() => {}}
         onOpenSystem={() => {}}
-        systemTarget={{ section: 'configuration' }}
+        shellOwnsNowNudges
+        systemTarget={{ section: 'integrations' }}
       />,
     )
   }

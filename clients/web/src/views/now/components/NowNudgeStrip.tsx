@@ -1,15 +1,14 @@
 import type { ActionItemData, NowData } from '../../../types';
-import { FilterDenseTag, FilterPillButton } from '../../../core/FilterToggleTag';
+import { ActionChipButton, FilterDenseTag, NudgeKindTag, ProjectTag } from '../../../core/FilterToggleTag';
 import { TagIcon } from '../../../core/Icons';
 import { NowItemRowShell } from '../../../core/NowItemRow';
-import { findBarProjectTags, formatNowBarKind, formatRelativeMinutes, nudgeKindTagClasses, projectTagClasses } from '../nowModel';
+import { findBarProjectTags, formatNowBarKind, formatRelativeMinutes } from '../nowModel';
 import {
   NudgeActionIcon,
   nudgeActionAriaLabel,
   nudgeActionButtonLabel,
   NudgeLeadOrb,
   nudgeKindTagIcon,
-  surfaceActionChipNudgeClass,
 } from '../nowNudgePresentation';
 
 export function NowNudgeStrip({
@@ -57,24 +56,24 @@ export function NowNudgeStrip({
                   <p className="min-w-0 max-w-[min(100%,15rem)] shrink truncate text-sm font-medium leading-none tracking-tight text-white sm:max-w-[min(100%,20rem)]">
                     {bar.title}
                   </p>
-                  <FilterDenseTag className="!shrink-0 border-transparent bg-transparent text-zinc-600">
+                  <FilterDenseTag tone="ghost">
                     {formatRelativeMinutes(nowTs)}
                   </FilterDenseTag>
                   <span className="shrink-0">
-                    <FilterDenseTag className={nudgeKindTagClasses(bar.kind, bar.urgent)}>
+                    <NudgeKindTag urgent={bar.urgent || bar.kind === 'trust_warning' || bar.kind === 'freshness_warning'}>
                       <span aria-hidden className="inline-flex shrink-0 items-center">
                         {nudgeKindTagIcon(bar.kind)}
                       </span>
                       {formatNowBarKind(bar.kind)}
-                    </FilterDenseTag>
+                    </NudgeKindTag>
                   </span>
                   {findBarProjectTags(bar, actionItems).map((tag) => (
-                    <FilterDenseTag key={`${bar.id}-${tag}`} className={projectTagClasses(tag)}>
+                    <ProjectTag key={`${bar.id}-${tag}`} label={tag}>
                       <span aria-hidden className="inline-flex shrink-0 items-center opacity-80">
                         <TagIcon size={10} />
                       </span>
                       {tag}
-                    </FilterDenseTag>
+                    </ProjectTag>
                   ))}
                 </div>
               </div>
@@ -82,15 +81,14 @@ export function NowNudgeStrip({
             </div>
             <div className="flex shrink-0 flex-col items-end justify-center gap-1.5 self-stretch">
               {bar.actions.map((action, actionIndex) => (
-                <FilterPillButton
+                <ActionChipButton
                   key={`${bar.id}-${actionIndex}-${action.kind}-${action.label}`}
-                  className={surfaceActionChipNudgeClass}
                   onClick={() => onBarAction(bar, action)}
                   aria-label={nudgeActionAriaLabel(bar, action, actionIndex, bar.actions.length)}
                 >
                   <NudgeActionIcon kind={action.kind} size={16} className="shrink-0" aria-hidden />
                   <span className="capitalize">{nudgeActionButtonLabel(action, bar)}</span>
-                </FilterPillButton>
+                </ActionChipButton>
               ))}
             </div>
           </div>
